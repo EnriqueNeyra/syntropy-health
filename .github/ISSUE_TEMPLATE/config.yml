@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/EnriqueNeyra/syntropy-health/security/advisories/new
+    about: Privately, so it can be fixed before it's public. See SECURITY.md.
+  - name: Setup guide
+    url: https://health.syntropylabs.io/setup/
+    about: Installing on a Mac, a Windows PC, a home server or Docker, and pairing the iPhone app.

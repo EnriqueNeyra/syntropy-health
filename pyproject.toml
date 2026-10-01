@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "syntropy-health"
+dynamic = ["version"]
+description = "Open-source, self-hosted personal health record: medical records (SMART on FHIR), Apple Health and wearable data, with insights and local AI."
+readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.11"
+authors = [{ name = "Syntropy Labs", email = "contact@syntropylabs.io" }]
+keywords = [
+    "personal-health-record", "phr", "self-hosted", "fhir", "smart-on-fhir", "ehr", "medical-records", "mychart",
+    "apple-health", "healthkit", "wearables", "oura", "whoop", "fitbit", "quantified-self", "health-data", "mcp",
+    "local-ai", "privacy",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: FastAPI",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Healthcare Industry",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "httpx>=0.28.0",
+    "cryptography>=44.0.0",
+    "pydantic>=2.10.0",
+    "python-multipart>=0.0.20",
+    "pypdf>=5.0.0",
+    "Pillow>=11.0",
+    "zeroconf>=0.136",
+]
+
+[project.scripts]
+syntropy-health = "app.cli:main"
+
+[project.urls]
+Homepage = "https://health.syntropylabs.io"
+Documentation = "https://health.syntropylabs.io/docs/"
+Source = "https://github.com/EnriqueNeyra/syntropy-health"
+Issues = "https://github.com/EnriqueNeyra/syntropy-health/issues"
+Changelog = "https://github.com/EnriqueNeyra/syntropy-health/blob/main/CHANGELOG.md"
+
+[tool.setuptools.dynamic]
+version = { attr = "app.core.config.APP_VERSION" }
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+app = ["static/**/*", "core/migrations/*.sql", "data/*.json", "data/institutions/*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+extend-exclude = ["cloudflare-worker", "data"]
+
+[tool.ruff.lint]
+# Errors that are bugs (undefined names, unused imports, syntax), not style. Short names (`l`) and named lambdas are
+# the house style.
+select = ["E", "F", "W"]
+ignore = ["E501", "E731", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F811"]   # pytest fixtures imported from another test module, then named as arguments

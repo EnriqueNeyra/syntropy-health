@@ -1,0 +1,5 @@
+# The Mac and Windows apps: the server's requirements plus the window, the tray icon and the packager.
+-r ../requirements.txt
+pywebview>=6.0
+pystray>=0.19; sys_platform == "win32"
+pyinstaller>=6.10

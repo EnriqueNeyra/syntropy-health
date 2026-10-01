@@ -1,0 +1,14 @@
+.git
+.venv
+data
+tests
+cloudflare-worker
+docs
+build
+dist
+*.egg-info
+node_modules
+**/__pycache__
+*.pyc
+.env
+.env.*

@@ -1,0 +1,564 @@
+[
+ {
+  "name": "Hemoglobin",
+  "loinc": "718-7",
+  "unit": "g/dL",
+  "panel": "Complete blood count",
+  "aliases": [
+   "Hgb",
+   "Hb"
+  ]
+ },
+ {
+  "name": "Hematocrit",
+  "loinc": "4544-3",
+  "unit": "%",
+  "panel": "Complete blood count",
+  "aliases": [
+   "Hct"
+  ]
+ },
+ {
+  "name": "White blood cells",
+  "loinc": "6690-2",
+  "unit": "10*3/uL",
+  "panel": "Complete blood count",
+  "aliases": [
+   "WBC",
+   "Leukocytes",
+   "White blood cell count"
+  ]
+ },
+ {
+  "name": "Red blood cells",
+  "loinc": "789-8",
+  "unit": "10*6/uL",
+  "panel": "Complete blood count",
+  "aliases": [
+   "RBC",
+   "Erythrocytes"
+  ]
+ },
+ {
+  "name": "Platelets",
+  "loinc": "777-3",
+  "unit": "10*3/uL",
+  "panel": "Complete blood count",
+  "aliases": [
+   "PLT",
+   "Platelet count"
+  ]
+ },
+ {
+  "name": "MCV",
+  "loinc": "787-2",
+  "unit": "fL",
+  "panel": "Complete blood count"
+ },
+ {
+  "name": "MCH",
+  "loinc": "785-6",
+  "unit": "pg",
+  "panel": "Complete blood count"
+ },
+ {
+  "name": "MCHC",
+  "loinc": "786-4",
+  "unit": "g/dL",
+  "panel": "Complete blood count"
+ },
+ {
+  "name": "RDW",
+  "loinc": "788-0",
+  "unit": "%",
+  "panel": "Complete blood count"
+ },
+ {
+  "name": "Neutrophils (absolute)",
+  "loinc": "751-8",
+  "unit": "10*3/uL",
+  "panel": "Complete blood count"
+ },
+ {
+  "name": "Lymphocytes (absolute)",
+  "loinc": "731-0",
+  "unit": "10*3/uL",
+  "panel": "Complete blood count"
+ },
+ {
+  "name": "Glucose",
+  "loinc": "2345-7",
+  "unit": "mg/dL",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "Blood glucose",
+   "Blood sugar"
+  ]
+ },
+ {
+  "name": "Glucose, fasting",
+  "loinc": "1558-6",
+  "unit": "mg/dL",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "Fasting glucose",
+   "Fasting blood sugar",
+   "FBG"
+  ]
+ },
+ {
+  "name": "Urea nitrogen (BUN)",
+  "loinc": "3094-0",
+  "unit": "mg/dL",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "BUN",
+   "Urea",
+   "Urea nitrogen"
+  ]
+ },
+ {
+  "name": "Creatinine",
+  "loinc": "2160-0",
+  "unit": "mg/dL",
+  "panel": "Metabolic panel"
+ },
+ {
+  "name": "eGFR (CKD-EPI 2021)",
+  "loinc": "98979-8",
+  "unit": "mL/min/{1.73_m2}",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "eGFR",
+   "GFR"
+  ]
+ },
+ {
+  "name": "Sodium",
+  "loinc": "2951-2",
+  "unit": "mmol/L",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "Na"
+  ]
+ },
+ {
+  "name": "Potassium",
+  "loinc": "2823-3",
+  "unit": "mmol/L",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "K"
+  ]
+ },
+ {
+  "name": "Chloride",
+  "loinc": "2075-0",
+  "unit": "mmol/L",
+  "panel": "Metabolic panel"
+ },
+ {
+  "name": "Carbon dioxide (bicarbonate)",
+  "loinc": "2028-9",
+  "unit": "mmol/L",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "CO2",
+   "Bicarbonate",
+   "Carbon dioxide",
+   "Carbon dioxide, total",
+   "Total CO2"
+  ]
+ },
+ {
+  "name": "Calcium",
+  "loinc": "17861-6",
+  "unit": "mg/dL",
+  "panel": "Metabolic panel"
+ },
+ {
+  "name": "Protein, total",
+  "loinc": "2885-2",
+  "unit": "g/dL",
+  "panel": "Metabolic panel"
+ },
+ {
+  "name": "Albumin",
+  "loinc": "1751-7",
+  "unit": "g/dL",
+  "panel": "Metabolic panel"
+ },
+ {
+  "name": "Bilirubin, total",
+  "loinc": "1975-2",
+  "unit": "mg/dL",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "Bilirubin"
+  ]
+ },
+ {
+  "name": "Alkaline phosphatase (ALP)",
+  "loinc": "6768-6",
+  "unit": "U/L",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "ALP",
+   "Alk phos",
+   "Alkaline phosphatase"
+  ]
+ },
+ {
+  "name": "ALT",
+  "loinc": "1742-6",
+  "unit": "U/L",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "SGPT",
+   "Alanine aminotransferase",
+   "ALT (SGPT)"
+  ]
+ },
+ {
+  "name": "AST",
+  "loinc": "1920-8",
+  "unit": "U/L",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "SGOT",
+   "Aspartate aminotransferase",
+   "AST (SGOT)"
+  ]
+ },
+ {
+  "name": "GGT",
+  "loinc": "2324-2",
+  "unit": "U/L",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "Gamma-glutamyl transferase"
+  ]
+ },
+ {
+  "name": "Uric acid",
+  "loinc": "3084-1",
+  "unit": "mg/dL",
+  "panel": "Metabolic panel"
+ },
+ {
+  "name": "Magnesium",
+  "loinc": "19123-9",
+  "unit": "mg/dL",
+  "panel": "Metabolic panel"
+ },
+ {
+  "name": "Cystatin C",
+  "loinc": "33863-2",
+  "unit": "mg/L",
+  "panel": "Metabolic panel"
+ },
+ {
+  "name": "Cholesterol, total",
+  "loinc": "2093-3",
+  "unit": "mg/dL",
+  "panel": "Lipids",
+  "aliases": [
+   "Total cholesterol",
+   "Cholesterol"
+  ]
+ },
+ {
+  "name": "LDL cholesterol (calculated)",
+  "loinc": "13457-7",
+  "unit": "mg/dL",
+  "panel": "Lipids",
+  "aliases": [
+   "LDL",
+   "LDL-C",
+   "LDL cholesterol"
+  ]
+ },
+ {
+  "name": "LDL cholesterol (direct)",
+  "loinc": "18262-6",
+  "unit": "mg/dL",
+  "panel": "Lipids",
+  "aliases": [
+   "LDL",
+   "LDL-C",
+   "LDL cholesterol"
+  ]
+ },
+ {
+  "name": "HDL cholesterol",
+  "loinc": "2085-9",
+  "unit": "mg/dL",
+  "panel": "Lipids",
+  "aliases": [
+   "HDL",
+   "HDL-C"
+  ]
+ },
+ {
+  "name": "Triglycerides",
+  "loinc": "2571-8",
+  "unit": "mg/dL",
+  "panel": "Lipids",
+  "aliases": [
+   "TG"
+  ]
+ },
+ {
+  "name": "Non-HDL cholesterol",
+  "loinc": "43396-1",
+  "unit": "mg/dL",
+  "panel": "Lipids",
+  "aliases": [
+   "Non-HDL"
+  ]
+ },
+ {
+  "name": "Apolipoprotein B",
+  "loinc": "1884-6",
+  "unit": "mg/dL",
+  "panel": "Lipids",
+  "aliases": [
+   "ApoB",
+   "Apo B"
+  ]
+ },
+ {
+  "name": "Lipoprotein(a)",
+  "loinc": "43583-4",
+  "unit": "nmol/L",
+  "panel": "Lipids",
+  "aliases": [
+   "Lp(a)",
+   "Lipoprotein a"
+  ]
+ },
+ {
+  "name": "Hemoglobin A1c",
+  "loinc": "4548-4",
+  "unit": "%",
+  "panel": "Blood sugar",
+  "aliases": [
+   "HbA1c",
+   "A1c",
+   "Glycated hemoglobin",
+   "Glycohemoglobin",
+   "Hemoglobin A1c (HbA1c)"
+  ]
+ },
+ {
+  "name": "Insulin, fasting",
+  "loinc": "20448-7",
+  "unit": "u[IU]/mL",
+  "panel": "Blood sugar",
+  "aliases": [
+   "Insulin"
+  ]
+ },
+ {
+  "name": "TSH",
+  "loinc": "3016-3",
+  "unit": "m[IU]/L",
+  "panel": "Thyroid",
+  "aliases": [
+   "Thyroid stimulating hormone",
+   "Thyrotropin"
+  ]
+ },
+ {
+  "name": "Free T4",
+  "loinc": "3024-7",
+  "unit": "ng/dL",
+  "panel": "Thyroid",
+  "aliases": [
+   "FT4",
+   "Free thyroxine",
+   "T4, free",
+   "T4, free (direct)"
+  ]
+ },
+ {
+  "name": "Free T3",
+  "loinc": "3051-0",
+  "unit": "pg/mL",
+  "panel": "Thyroid",
+  "aliases": [
+   "FT3",
+   "T3, free",
+   "Triiodothyronine, free"
+  ]
+ },
+ {
+  "name": "Vitamin D, 25-hydroxy",
+  "loinc": "1989-3",
+  "unit": "ng/mL",
+  "panel": "Vitamins and iron",
+  "aliases": [
+   "Vitamin D",
+   "25-OH vitamin D",
+   "25(OH)D",
+   "Vitamin D, 25-OH"
+  ]
+ },
+ {
+  "name": "Vitamin B12",
+  "loinc": "2132-9",
+  "unit": "pg/mL",
+  "panel": "Vitamins and iron",
+  "aliases": [
+   "B12",
+   "Cobalamin"
+  ]
+ },
+ {
+  "name": "Folate",
+  "loinc": "2284-8",
+  "unit": "ng/mL",
+  "panel": "Vitamins and iron"
+ },
+ {
+  "name": "Ferritin",
+  "loinc": "2276-4",
+  "unit": "ng/mL",
+  "panel": "Vitamins and iron"
+ },
+ {
+  "name": "Iron",
+  "loinc": "2498-4",
+  "unit": "ug/dL",
+  "panel": "Vitamins and iron",
+  "aliases": [
+   "Iron, total"
+  ]
+ },
+ {
+  "name": "Iron binding capacity (TIBC)",
+  "loinc": "2500-7",
+  "unit": "ug/dL",
+  "panel": "Vitamins and iron",
+  "aliases": [
+   "TIBC",
+   "Iron binding capacity"
+  ]
+ },
+ {
+  "name": "Transferrin saturation",
+  "loinc": "2502-3",
+  "unit": "%",
+  "panel": "Vitamins and iron",
+  "aliases": [
+   "TSAT",
+   "Iron saturation"
+  ]
+ },
+ {
+  "name": "C-reactive protein, high sensitivity",
+  "loinc": "30522-7",
+  "unit": "mg/L",
+  "panel": "Inflammation",
+  "aliases": [
+   "hs-CRP",
+   "hsCRP",
+   "HS CRP",
+   "C-reactive protein, cardiac"
+  ]
+ },
+ {
+  "name": "C-reactive protein",
+  "loinc": "1988-5",
+  "unit": "mg/L",
+  "panel": "Inflammation",
+  "aliases": [
+   "CRP"
+  ]
+ },
+ {
+  "name": "Sedimentation rate (ESR)",
+  "loinc": "4537-7",
+  "unit": "mm/h",
+  "panel": "Inflammation",
+  "aliases": [
+   "ESR",
+   "Sed rate"
+  ]
+ },
+ {
+  "name": "Homocysteine",
+  "loinc": "13965-9",
+  "unit": "umol/L",
+  "panel": "Inflammation"
+ },
+ {
+  "name": "Testosterone, total",
+  "loinc": "2986-8",
+  "unit": "ng/dL",
+  "panel": "Hormones",
+  "aliases": [
+   "Testosterone"
+  ]
+ },
+ {
+  "name": "Testosterone, free",
+  "loinc": "2991-8",
+  "unit": "pg/mL",
+  "panel": "Hormones"
+ },
+ {
+  "name": "Estradiol",
+  "loinc": "2243-4",
+  "unit": "pg/mL",
+  "panel": "Hormones",
+  "aliases": [
+   "E2"
+  ]
+ },
+ {
+  "name": "SHBG",
+  "loinc": "13967-5",
+  "unit": "nmol/L",
+  "panel": "Hormones",
+  "aliases": [
+   "Sex hormone binding globulin"
+  ]
+ },
+ {
+  "name": "Cortisol",
+  "loinc": "2143-6",
+  "unit": "ug/dL",
+  "panel": "Hormones"
+ },
+ {
+  "name": "DHEA sulfate",
+  "loinc": "2191-5",
+  "unit": "ug/dL",
+  "panel": "Hormones",
+  "aliases": [
+   "DHEA-S",
+   "DHEAS"
+  ]
+ },
+ {
+  "name": "PSA",
+  "loinc": "2857-1",
+  "unit": "ng/mL",
+  "panel": "Hormones",
+  "aliases": [
+   "Prostate specific antigen"
+  ]
+ },
+ {
+  "name": "Albumin/creatinine ratio (urine)",
+  "loinc": "9318-7",
+  "unit": "mg/g",
+  "panel": "Urine",
+  "aliases": [
+   "UACR",
+   "ACR",
+   "Microalbumin"
+  ]
+ }
+]

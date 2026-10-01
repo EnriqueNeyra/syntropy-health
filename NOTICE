@@ -1,0 +1,36 @@
+Syntropy Health
+Copyright (C) 2026 Syntropy Labs
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
+Public License as published by the Free Software Foundation, version 3 of the License only (AGPL-3.0-only).
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+details. You should have received a copy of it along with this program, in the LICENSE file. If not, see
+<https://www.gnu.org/licenses/>.
+
+Names and logos
+
+The license covers the code. As section 7(e) of the license allows, it grants no rights to the Syntropy Health and
+Syntropy Labs names, logos or app icons. If you distribute a modified version, or run one for other people, give it a
+different name and icon so no one mistakes it for ours.
+
+Third-party material
+
+The AI provider and app logos in app/static/js/ai-logos.js come from LobeHub Icons
+(https://github.com/lobehub/lobe-icons), Copyright (c) LobeHub, under the MIT License:
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+  documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+  persons to whom the Software is furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+  Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+  WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+  COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+  OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+The names and logos are trademarks of their owners, shown only to identify their services.

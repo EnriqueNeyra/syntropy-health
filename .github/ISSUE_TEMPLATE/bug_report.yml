@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in Syntropy Health doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. **Never paste real health information, tokens, passwords or your
+        `secret.key` here**: issues are public. Screenshots of the simulator's synthetic patients are fine.
+
+        A security problem? Please don't open an issue: follow [SECURITY.md](https://github.com/EnriqueNeyra/syntropy-health/blob/main/.github/SECURITY.md) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to Sources → Connect a health system
+        2. …
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Settings → General → Version, or `syntropy-health info`.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How it's installed
+      options:
+        - Mac app
+        - Windows app
+        - Linux installer (systemd service)
+        - Docker
+        - uv / pipx
+        - From a clone (./run.sh)
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser or device
+      placeholder: "Safari 18 on macOS 15, the iPhone app on iOS 18…"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server log
+      description: |
+        The lines around the error, if there are any (Docker: `docker compose logs`; Linux: `journalctl -u syntropy-health`;
+        Mac and Windows apps: `server.log` in the data folder). Check them for personal details first.
+      render: text

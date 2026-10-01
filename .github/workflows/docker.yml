@@ -1,0 +1,87 @@
+name: Docker image
+
+# Publishes ghcr.io/enriqueneyra/syntropy-health for amd64 and arm64 (Raspberry Pi, ARM NAS boxes):
+#   :latest, :1.2.3 and :1.2   when a release is published (the Release workflow drafts it from a tag)
+#   :main                      on every push to main, for trying what's next
+# Pull requests build the image and run it, without publishing.
+# The first publish creates the package under the account's Packages. Its visibility is set there (Package settings),
+# separately from the repository's.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/enriqueneyra/syntropy-health     # registry names are lowercase
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
+            type=ref,event=branch
+          labels: |
+            org.opencontainers.image.title=Syntropy Health
+            org.opencontainers.image.description=The open-source, self-hosted personal health record
+            org.opencontainers.image.url=https://health.syntropylabs.io
+            org.opencontainers.image.licenses=AGPL-3.0-only
+
+      - name: Build for the smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: syntropy-health:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test
+        run: |
+          data="$RUNNER_TEMP/data" && mkdir "$data"
+          docker run -d --name smoke -p 8000:8000 -v "$data:/data" syntropy-health:test
+          for i in $(seq 1 60); do curl -fs localhost:8000/health && break; sleep 1; done
+          curl -fs localhost:8000/health || { docker logs smoke; exit 1; }
+          # The server runs as the data folder's owner (this runner's user), not root.
+          test "$(stat -c %u "$data/syntropy.db")" = "$(id -u)"
+      - name: The release's tag matches the version in the code
+        if: github.event_name == 'release'
+        run: |
+          version="$(docker run --rm syntropy-health:test python -c 'from app.core.config import APP_VERSION; print(APP_VERSION)')"
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "The tag is $GITHUB_REF_NAME but APP_VERSION is $version"; exit 1; }
+
+      - if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish (amd64 and arm64)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -1,0 +1,141 @@
+name: Release
+
+# Builds the Mac (.dmg) and Windows (setup .exe) apps. A tag like v1.2.0 (matching APP_VERSION in app/core/config.py)
+# also drafts a GitHub release with them, the Python wheel and SHA256SUMS. Publishing that draft makes it the version
+# installers, `syntropy-health update` and the apps' update checks install, and publishes the Docker image (docker.yml).
+# Mac signing and notarization happen when these secrets exist (otherwise the app is ad-hoc signed and macOS asks
+# people to allow it in System Settings → Privacy & Security):
+#   MACOS_CERT_P12 (base64 of a "Developer ID Application" .p12), MACOS_CERT_PASSWORD, MACOS_SIGN_ID,
+#   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD (an app-specific password, for notarization)
+# Changes to the desktop app build it too (on main and in pull requests), without releasing anything. To try the
+# apps before a release: Actions → Release → Run workflow, then download them from the run's artifacts.
+on:
+  push:
+    tags: ["v*"]
+    branches: [main]
+    paths: ["desktop/**", ".github/workflows/desktop.yml"]      # (tags ignore this filter)
+  pull_request:
+    paths: ["desktop/**", ".github/workflows/desktop.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # A release only goes out when the full test suite and installer checks pass on the tagged commit.
+  tests:
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/ci.yml
+
+  installers:
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/installers.yml
+
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: A release's tag matches the version in the code
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="$(python3 -c 'from app.core.config import APP_VERSION; print(APP_VERSION)')"
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "::error::The tag is $GITHUB_REF_NAME but APP_VERSION is $version"; exit 1; }
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build --wheel -o dist .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: dist/*.whl
+
+  mac:
+    needs: version
+    runs-on: macos-latest      # Apple silicon
+    env:
+      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r desktop/requirements.txt
+      - name: Import the signing certificate
+        if: env.HAS_CERT == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p ci build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p ci build.keychain
+          security import cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain
+          rm cert.p12
+      - name: Build
+        env:
+          PYTHON: python
+          SIGN_ID: ${{ secrets.MACOS_SIGN_ID }}
+          NOTARY_APPLE_ID: ${{ secrets.APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: desktop/build-mac.sh
+      - name: Smoke test
+        run: |
+          "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" version
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | SYNTROPY_DATA_DIR="$RUNNER_TEMP/data" "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" mcp | grep -q get_health_summary
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: desktop/dist/*.dmg
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r desktop/requirements.txt
+      - run: python -m PyInstaller --noconfirm --clean --distpath desktop/dist --workpath desktop/build desktop/syntropy-health.spec
+      - name: Smoke test
+        shell: bash
+        run: |
+          "desktop/dist/Syntropy Health/syntropy-health.exe" version
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | SYNTROPY_DATA_DIR="$RUNNER_TEMP/data" "desktop/dist/Syntropy Health/syntropy-health.exe" mcp | grep -q get_health_summary
+      - name: Installer
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          $version = python -c "from app.core.config import APP_VERSION; print(APP_VERSION)"
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DAppVersion=$version" desktop\installer.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: desktop/dist/*-setup.exe
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [tests, installers, version, mac, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      # Fixed names too, so scripts/install.sh and install.ps1 can download releases/latest/download/<name>, and
+      # SHA256SUMS, which the apps check an update against before installing it (desktop/updater.py).
+      - run: |
+          mkdir release
+          cp artifacts/mac/*.dmg artifacts/windows/*-setup.exe artifacts/wheel/*.whl release/
+          cp artifacts/mac/*.dmg release/Syntropy-Health-mac-arm64.dmg
+          cp artifacts/windows/*-setup.exe release/Syntropy-Health-windows-x64-setup.exe
+          cd release && sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          draft: true
+          generate_release_notes: true

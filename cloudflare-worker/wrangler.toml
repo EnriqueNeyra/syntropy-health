@@ -1,0 +1,28 @@
+name = "syntropy-auth-relay"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+# This worker handles live Oura/WHOOP tokens. All request logging stays off, and each deploy
+# resets any logging someone switched on in the dashboard. Preview URLs for older versions are
+# not published.
+logpush = false
+preview_urls = false
+
+[observability]
+enabled = false
+
+# 30 callback/refresh requests per minute per client IP. An instance refreshes a few times a day.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }
+
+[vars]
+ENVIRONMENT = "production"
+WHOOP_CLIENT_ID = "91dbd202-060d-477e-a9b7-3aedd1def98c"
+OURA_CLIENT_ID = "386fc575-d55b-431e-acbe-5d1bd8da3036"
+
+# Secrets to set in Cloudflare dashboard or via wrangler secret put:
+# - WHOOP_CLIENT_SECRET
+# - OURA_CLIENT_SECRET
+# - GOOGLE_HEALTH_CLIENT_SECRET, plus GOOGLE_HEALTH_CLIENT_ID under [vars], once the Google app passes review

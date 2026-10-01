@@ -1,0 +1,197 @@
+{
+  "data" : {
+    "ecg" : [
+      {
+        "averageHeartRate" : 64,
+        "classification" : "Sinus Rhythm",
+        "end" : "2024-05-15 10:00:30 +0000",
+        "numberOfVoltageMeasurements" : 15360,
+        "samplingFrequency" : 512,
+        "source" : "Watch",
+        "start" : "2024-05-15 10:00:00 +0000",
+        "symptomsStatus" : "none",
+        "voltageMeasurements" : [
+          {
+            "date" : "2024-05-15 10:00:00 +0000",
+            "units" : "µV",
+            "voltage" : 1.5
+          },
+          {
+            "date" : "2024-05-15 10:00:00 +0000",
+            "units" : "µV",
+            "voltage" : -2.25
+          }
+        ]
+      }
+    ],
+    "heartRateNotifications" : [
+      {
+        "end" : "2024-05-15 15:10:00 +0000",
+        "metadata" : {
+          "threshold" : "120"
+        },
+        "name" : "High Heart Rate Notification",
+        "source" : "Watch",
+        "start" : "2024-05-15 15:00:00 +0000",
+        "value" : "Occurred"
+      }
+    ],
+    "metrics" : [
+      {
+        "data" : [
+          {
+            "date" : "2024-05-15 08:00:00 +0000",
+            "endDate" : "2024-05-15 08:01:00 +0000",
+            "qty" : 1000,
+            "source" : "Watch"
+          },
+          {
+            "date" : "2024-05-15 09:00:00 +0000",
+            "endDate" : "2024-05-15 09:01:00 +0000",
+            "qty" : 234,
+            "source" : "Watch"
+          }
+        ],
+        "name" : "step_count",
+        "units" : "count"
+      },
+      {
+        "data" : [
+          {
+            "Avg" : 72,
+            "date" : "2024-05-15 08:00:00 +0000",
+            "Max" : 72,
+            "Min" : 72,
+            "source" : "Watch"
+          }
+        ],
+        "name" : "heart_rate",
+        "units" : "count/min"
+      },
+      {
+        "data" : [
+          {
+            "date" : "2024-05-15 08:00:00 +0000",
+            "diastolic" : 80,
+            "source" : "Watch",
+            "systolic" : 120
+          }
+        ],
+        "name" : "blood_pressure",
+        "units" : "mmHg"
+      },
+      {
+        "data" : [
+          {
+            "endDate" : "2024-05-15 06:00:00 +0000",
+            "qty" : 7,
+            "source" : "Watch",
+            "startDate" : "2024-05-14 23:00:00 +0000",
+            "value" : "Core"
+          }
+        ],
+        "name" : "sleep_analysis",
+        "units" : "hr"
+      },
+      {
+        "data" : [
+          {
+            "date" : "2024-05-15 20:00:00 +0000",
+            "qty" : 10,
+            "source" : "Breathe"
+          }
+        ],
+        "name" : "mindful_minutes",
+        "units" : "min"
+      }
+    ],
+    "stateOfMind" : [
+      {
+        "associations" : [
+          "Family"
+        ],
+        "end" : "2024-05-15 21:00:00 +0000",
+        "id" : "m1",
+        "kind" : "dailyMood",
+        "labels" : [
+          "Calm"
+        ],
+        "source" : "Health",
+        "start" : "2024-05-15 21:00:00 +0000",
+        "valence" : 0.5,
+        "valenceClassification" : "Pleasant"
+      }
+    ],
+    "symptoms" : [
+      {
+        "end" : "2024-05-15 13:00:00 +0000",
+        "name" : "Headache",
+        "severity" : "Moderate",
+        "source" : "Health",
+        "start" : "2024-05-15 12:00:00 +0000"
+      }
+    ],
+    "workouts" : [
+      {
+        "activeEnergyBurned" : {
+          "qty" : 300,
+          "units" : "kcal"
+        },
+        "distance" : {
+          "qty" : 5,
+          "units" : "km"
+        },
+        "duration" : 1800,
+        "end" : "2024-05-15 07:30:00 +0000",
+        "heartRate" : {
+          "avg" : {
+            "qty" : 150,
+            "units" : "bpm"
+          },
+          "max" : {
+            "qty" : 170,
+            "units" : "bpm"
+          },
+          "min" : {
+            "qty" : 120,
+            "units" : "bpm"
+          }
+        },
+        "heartRateData" : [
+          {
+            "Avg" : 145,
+            "date" : "2024-05-15 07:01:00 +0000",
+            "Max" : 150,
+            "Min" : 140,
+            "source" : "Watch",
+            "units" : "bpm"
+          }
+        ],
+        "id" : "W1",
+        "location" : "Outdoor",
+        "name" : "Running",
+        "pace" : {
+          "qty" : 6,
+          "units" : "min/km"
+        },
+        "route" : [
+          {
+            "altitude" : 20.5,
+            "latitude" : 37.3349,
+            "longitude" : -122.009,
+            "speed" : 3,
+            "timestamp" : "2024-05-15 07:00:00 +0000"
+          },
+          {
+            "altitude" : 21,
+            "latitude" : 37.335,
+            "longitude" : -122.0091,
+            "timestamp" : "2024-05-15 07:00:05 +0000"
+          }
+        ],
+        "source" : "Watch",
+        "start" : "2024-05-15 07:00:00 +0000"
+      }
+    ]
+  }
+}

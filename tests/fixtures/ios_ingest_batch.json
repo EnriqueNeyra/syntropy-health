@@ -1,0 +1,187 @@
+{
+  "app_version" : "2.0.0",
+  "device_id" : "ios-fixture",
+  "device_name" : "Fixture iPhone",
+  "events" : [
+    {
+      "category" : "symptoms",
+      "end" : "2024-05-15T13:00:00.000Z",
+      "event_type" : "headache",
+      "id" : "e1",
+      "name" : "Headache",
+      "source_name" : "Health",
+      "start" : "2024-05-15T12:00:00.000Z",
+      "value" : 3,
+      "value_label" : "Moderate"
+    },
+    {
+      "category" : "mindfulness",
+      "end" : "2024-05-15T20:10:00.000Z",
+      "event_type" : "mindful_session",
+      "id" : "e2",
+      "name" : "Mindful Minutes",
+      "source_name" : "Breathe",
+      "start" : "2024-05-15T20:00:00.000Z",
+      "value" : 0,
+      "value_label" : "Occurred"
+    },
+    {
+      "category" : "events",
+      "end" : "2024-05-15T15:10:00.000Z",
+      "event_type" : "high_heart_rate_event",
+      "id" : "e3",
+      "metadata" : {
+        "threshold" : "120"
+      },
+      "name" : "High Heart Rate Notification",
+      "source_name" : "Watch",
+      "start" : "2024-05-15T15:00:00.000Z",
+      "value" : 0,
+      "value_label" : "Occurred"
+    },
+    {
+      "category" : "ecg",
+      "end" : "2024-05-15T10:00:30.000Z",
+      "event_type" : "ecg",
+      "id" : "ecg1",
+      "metadata" : {
+        "sampling_frequency_hz" : "512.0",
+        "symptoms_status" : "none",
+        "voltage_measurements" : "15360"
+      },
+      "name" : "ECG",
+      "source_name" : "Watch",
+      "start" : "2024-05-15T10:00:00.000Z",
+      "value" : 64,
+      "value_label" : "Sinus Rhythm"
+    },
+    {
+      "category" : "stateOfMind",
+      "end" : "2024-05-15T21:00:00.000Z",
+      "event_type" : "state_of_mind",
+      "id" : "m1",
+      "metadata" : {
+        "associations" : "Family",
+        "kind" : "dailyMood",
+        "labels" : "Calm"
+      },
+      "name" : "Daily Mood",
+      "source_name" : "Health",
+      "start" : "2024-05-15T21:00:00.000Z",
+      "value" : 0.5,
+      "value_label" : "Pleasant"
+    }
+  ],
+  "os_version" : "iOS 18.0",
+  "samples" : [
+    {
+      "end_date" : "2024-05-15T08:01:00.000Z",
+      "hk_identifier" : "HKQuantityTypeIdentifierStepCount",
+      "id" : "s1",
+      "metric_type" : "step_count",
+      "source_name" : "Watch",
+      "start_date" : "2024-05-15T08:00:00.000Z",
+      "unit" : "count",
+      "value" : 1000
+    },
+    {
+      "end_date" : "2024-05-15T09:01:00.000Z",
+      "hk_identifier" : "HKQuantityTypeIdentifierStepCount",
+      "id" : "s2",
+      "metric_type" : "step_count",
+      "source_name" : "Watch",
+      "start_date" : "2024-05-15T09:00:00.000Z",
+      "unit" : "count",
+      "value" : 234
+    },
+    {
+      "end_date" : "2024-05-15T08:00:00.000Z",
+      "hk_identifier" : "HKQuantityTypeIdentifierHeartRate",
+      "id" : "h1",
+      "metric_type" : "heart_rate",
+      "source_name" : "Watch",
+      "start_date" : "2024-05-15T08:00:00.000Z",
+      "unit" : "count/min",
+      "value" : 72
+    },
+    {
+      "end_date" : "2024-05-15T08:00:00.000Z",
+      "hk_identifier" : "HKQuantityTypeIdentifierBloodPressureSystolic",
+      "id" : "bp1",
+      "metric_type" : "blood_pressure_systolic",
+      "source_name" : "Watch",
+      "start_date" : "2024-05-15T08:00:00.000Z",
+      "unit" : "mmHg",
+      "value" : 120
+    },
+    {
+      "end_date" : "2024-05-15T08:00:00.000Z",
+      "hk_identifier" : "HKQuantityTypeIdentifierBloodPressureDiastolic",
+      "id" : "bp2",
+      "metric_type" : "blood_pressure_diastolic",
+      "source_name" : "Watch",
+      "start_date" : "2024-05-15T08:00:00.000Z",
+      "unit" : "mmHg",
+      "value" : 80
+    },
+    {
+      "end_date" : "2024-05-15T06:00:00.000Z",
+      "hk_identifier" : "HKCategoryTypeIdentifierSleepAnalysis",
+      "id" : "sl1",
+      "metadata" : {
+        "category_description" : "Core",
+        "category_value" : "3"
+      },
+      "metric_type" : "sleep_analysis_core",
+      "source_name" : "Watch",
+      "start_date" : "2024-05-14T23:00:00.000Z",
+      "unit" : "s",
+      "value" : 25200
+    }
+  ],
+  "sync_trigger" : "fixture",
+  "synced_at" : 1715760000,
+  "workouts" : [
+    {
+      "active_energy_kcal" : 300,
+      "activity_type" : 37,
+      "avg_hr" : 150,
+      "distance_m" : 5000,
+      "duration_s" : 1800,
+      "end" : "2024-05-15T07:30:00.000Z",
+      "heart_rate" : [
+        {
+          "avg" : 145,
+          "max" : 150,
+          "min" : 140,
+          "t" : "2024-05-15T07:01:00.000Z"
+        }
+      ],
+      "id" : "W1",
+      "indoor" : false,
+      "max_hr" : 170,
+      "metadata" : {
+
+      },
+      "min_hr" : 120,
+      "name" : "Running",
+      "route" : [
+        {
+          "alt" : 20.5,
+          "lat" : 37.3349,
+          "lon" : -122.009,
+          "speed" : 3,
+          "t" : "2024-05-15T07:00:00.000Z"
+        },
+        {
+          "alt" : 21,
+          "lat" : 37.335,
+          "lon" : -122.0091,
+          "t" : "2024-05-15T07:00:05.000Z"
+        }
+      ],
+      "source_name" : "Watch",
+      "start" : "2024-05-15T07:00:00.000Z"
+    }
+  ]
+}

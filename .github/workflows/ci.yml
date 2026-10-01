@@ -1,0 +1,70 @@
+name: CI
+
+# Every push to main and every pull request; the Release workflow runs it too before publishing anything.
+# The Mac and Windows installer checks are in installers.yml, since those runners cost 10x and 2x the minutes.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:      # a newer push to the same pull request replaces the run in progress
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uvx ruff@0.13.0 check app tests desktop scripts   # settings in pyproject.toml
+
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q tests
+
+  web-and-relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax-check web app modules
+        run: for f in app/static/js/*.js app/static/js/views/*.js; do node --experimental-default-type=module --check "$f"; done
+      - name: Relay worker tests
+        working-directory: cloudflare-worker
+        run: npm test
+
+  linux-install:
+    # The home-server installer, on a real systemd machine: install, serve, back up, update, uninstall.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build --wheel -o dist .
+      - run: sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --no-ocr
+      - run: for i in $(seq 1 30); do curl -fs localhost:8000/health && exit 0; sleep 1; done; sudo journalctl -u syntropy-health --no-pager; exit 1
+      # The data folder is private to the service account, so looking inside takes root.
+      - run: systemctl is-active syntropy-health && sudo stat -c '%U' /var/lib/syntropy-health/syntropy.db | grep -x syntropy
+      - run: sudo syntropy-health backup /tmp && ls /tmp/syntropy-backup-*.zip
+      # The daily update timer: with automatic updates off (the default) its run checks and does nothing.
+      - run: |
+          systemctl is-enabled syntropy-health-update.timer
+          sudo systemctl start syntropy-health-update.service
+          systemctl show -p Result syntropy-health-update.service | grep -x Result=success
+          sudo journalctl -u syntropy-health-update --no-pager | grep -q "Automatic updates are off"
+      - run: sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --no-ocr   # running it again updates in place
+      - run: sudo sh scripts/install.sh --uninstall && sudo test -f /var/lib/syntropy-health/syntropy.db
