@@ -74,5 +74,5 @@ node_modules/
 data/secret.key
 data/uploads/
 
-# Planning notes and working docs live in a separate private repository, cloned here
+# Planning notes and working docs, kept local
 docs/
