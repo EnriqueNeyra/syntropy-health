@@ -7,3 +7,4 @@ python-multipart>=0.0.20
 pypdf>=5.0.0
 Pillow>=11.0
 zeroconf>=0.136      # announces syntropyhealth.local on the home network
+tzdata>=2024.1       # time zones where the system has none (Windows, slim containers)
