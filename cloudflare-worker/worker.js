@@ -15,7 +15,8 @@
  *                      *fragment* (never sent to any server, never logged), where the instance's
  *                      own page picks them up. Nothing is stored.
  *   POST /refresh    { provider, refresh_token } -> fresh tokens (same secret-holding role).
- *   GET  /health     liveness probe.
+ *   GET  /health     liveness probe, with the commit this deploy was built from (set by relay.yml), so anyone
+ *                    can check the running relay against the code in the repository.
  *
  * Callback and refresh requests are rate-limited per client IP (the RATE_LIMITER binding in
  * wrangler.toml), so nobody can flood Oura or WHOOP through the Syntropy client IDs.
@@ -40,7 +41,7 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
     try {
-      if (path === "/health") return json({ status: "ok", service: "syntropy-auth-relay" });
+      if (path === "/health") return json({ status: "ok", service: "syntropy-auth-relay", commit: env.COMMIT || null });
       if ((path === "/callback" || path === "/refresh") && !(await allowed(request, env))) {
         return json({ error: "rate_limited" }, 429);
       }

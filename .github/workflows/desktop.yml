@@ -3,10 +3,11 @@ name: Release
 # Builds the Mac (.dmg) and Windows (setup .exe) apps. A tag like v1.2.0 (matching APP_VERSION in app/core/config.py)
 # also drafts a GitHub release with them, the Python wheel and SHA256SUMS. Publishing that draft makes it the version
 # installers, `syntropy-health update` and the apps' update checks install, and publishes the Docker image (docker.yml).
-# Mac signing and notarization happen when these secrets exist (otherwise the app is ad-hoc signed and macOS asks
-# people to allow it in System Settings → Privacy & Security):
+# Mac signing and notarization happen when these secrets exist in the `release` environment, which only v* tags can
+# use (other builds are ad-hoc signed, and macOS asks people to allow them in System Settings → Privacy & Security):
 #   MACOS_CERT_P12 (base64 of a "Developer ID Application" .p12), MACOS_CERT_PASSWORD, MACOS_SIGN_ID,
 #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD (an app-specific password, for notarization)
+# Every release file gets a signed build provenance attestation: `gh attestation verify <file> -R EnriqueNeyra/syntropy-health`.
 # Changes to the desktop app build it too (on main and in pull requests), without releasing anything. To try the
 # apps before a release: Actions → Release → Run workflow, then download them from the run's artifacts.
 on:
@@ -34,15 +35,19 @@ jobs:
   version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: A release's tag matches the version in the code
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           version="$(python3 -c 'from app.core.config import APP_VERSION; print(APP_VERSION)')"
           [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "::error::The tag is $GITHUB_REF_NAME but APP_VERSION is $version"; exit 1; }
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          enable-cache: false      # the wheel is a release file; build it without a shared cache
       - run: uv build --wheel -o dist .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: wheel
           path: dist/*.whl
@@ -50,11 +55,14 @@ jobs:
   mac:
     needs: version
     runs-on: macos-latest      # Apple silicon
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || '' }}
     env:
       HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - run: pip install -r desktop/requirements.txt
@@ -83,7 +91,7 @@ jobs:
         run: |
           "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" version
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | SYNTROPY_DATA_DIR="$RUNNER_TEMP/data" "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" mcp | grep -q get_health_summary
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: mac
           path: desktop/dist/*.dmg
@@ -92,8 +100,10 @@ jobs:
     needs: version
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - run: pip install -r desktop/requirements.txt
@@ -111,7 +121,7 @@ jobs:
           $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
           & $iscc "/DAppVersion=$version" desktop\installer.iss
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows
           path: desktop/dist/*-setup.exe
@@ -122,8 +132,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write       # to sign the attestation
+      attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: artifacts
       # Fixed names too, so scripts/install.sh and install.ps1 can download releases/latest/download/<name>, and
@@ -134,7 +146,10 @@ jobs:
           cp artifacts/mac/*.dmg release/Syntropy-Health-mac-arm64.dmg
           cp artifacts/windows/*-setup.exe release/Syntropy-Health-windows-x64-setup.exe
           cd release && sha256sum * > SHA256SUMS && cat SHA256SUMS
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release/*
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           files: release/*
           draft: true

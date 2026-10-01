@@ -73,3 +73,8 @@ test("callback and refresh are rate-limited per client IP", async () => {
   const health = await worker.fetch(new Request("https://relay.test/health"), limited);
   assert.equal(health.status, 200);
 });
+
+test("health names the deployed commit", async () => {
+  const res = await worker.fetch(new Request("https://relay.test/health"), { ...env, COMMIT: "abc123" });
+  assert.equal((await res.json()).commit, "abc123");
+});

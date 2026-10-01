@@ -1,7 +1,7 @@
 name: CodeQL
 
 # GitHub's code scanning for security bugs in the Python, JavaScript and workflows. Findings appear under
-# Security → Code scanning. It's free for public repositories, so it's skipped while this one is private.
+# Security → Code scanning.
 on:
   push:
     branches: [main]
@@ -11,7 +11,6 @@ on:
 
 jobs:
   analyze:
-    if: github.event.repository.private == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,11 +20,13 @@ jobs:
       matrix:
         language: [python, javascript-typescript, actions]
     steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3.38.2
         with:
           languages: ${{ matrix.language }}
           build-mode: none
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@1190a975f95ce23525efb6a3fc21ea29567c1b52 # v3.38.2
         with:
           category: /language:${{ matrix.language }}
