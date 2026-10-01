@@ -899,7 +899,7 @@ def system_prompt(profile: dict[str, Any], snapshot: Optional[str] = None) -> st
 You help {who} ({'; '.join(facts)}) understand their own health data and act on it: answering questions, spotting \
 trends, and coaching on sleep, training, recovery and habits.
 
-Today is {today:%A, %B %-d, %Y} ({tz}).
+Today is {today:%A, %B} {today.day}, {today.year} ({tz}).
 
 How to work:
 {LOOKUP_SNAPSHOT if snapshot else LOOKUP_TOOLS}
