@@ -6,7 +6,7 @@ simulator's synthetic patients are the easiest way to show a problem. Security p
 
 ## Code contributions
 
-Syntropy Health is open source under the [GNU Affero General Public License v3.0 only](LICENSE). Every contributor
+Syntropy Health is open source under the [GNU Affero General Public License v3.0 only](../LICENSE). Every contributor
 signs the [Contributor License Agreement](CLA.md) once. It lets Syntropy Labs license your contributions under the AGPL
 and under other terms, such as for the parts of Syntropy Health that aren't open source, and you keep the copyright to
 your work.
@@ -62,7 +62,7 @@ cd cloudflare-worker && npm test           # if you changed the relay worker
 ```
 
 The web app has no build step: check your change in the browser in light and dark appearance, and at phone width.
-Add an entry under **Unreleased** in [CHANGELOG.md](CHANGELOG.md).
+Add an entry under **Unreleased** in [CHANGELOG.md](../CHANGELOG.md).
 
 ## What runs on GitHub
 
