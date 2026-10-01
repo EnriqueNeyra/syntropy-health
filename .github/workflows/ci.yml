@@ -19,15 +19,15 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uvx ruff@0.13.0 check app tests desktop scripts   # settings in pyproject.toml
 
   app:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -38,8 +38,8 @@ jobs:
   web-and-relay:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Syntax-check web app modules
@@ -52,8 +52,8 @@ jobs:
     # The home-server installer, on a real systemd machine: install, serve, back up, update, uninstall.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv build --wheel -o dist .
       - run: sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --no-ocr
       - run: for i in $(seq 1 30); do curl -fs localhost:8000/health && exit 0; sleep 1; done; sudo journalctl -u syntropy-health --no-pager; exit 1

@@ -34,15 +34,15 @@ jobs:
   version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: A release's tag matches the version in the code
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           version="$(python3 -c 'from app.core.config import APP_VERSION; print(APP_VERSION)')"
           [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "::error::The tag is $GITHUB_REF_NAME but APP_VERSION is $version"; exit 1; }
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
       - run: uv build --wheel -o dist .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheel
           path: dist/*.whl
@@ -53,8 +53,8 @@ jobs:
     env:
       HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install -r desktop/requirements.txt
@@ -83,7 +83,7 @@ jobs:
         run: |
           "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" version
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | SYNTROPY_DATA_DIR="$RUNNER_TEMP/data" "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" mcp | grep -q get_health_summary
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mac
           path: desktop/dist/*.dmg
@@ -92,8 +92,8 @@ jobs:
     needs: version
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install -r desktop/requirements.txt
@@ -111,7 +111,7 @@ jobs:
           $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
           & $iscc "/DAppVersion=$version" desktop\installer.iss
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: desktop/dist/*-setup.exe
@@ -123,7 +123,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       # Fixed names too, so scripts/install.sh and install.ps1 can download releases/latest/download/<name>, and
@@ -134,7 +134,7 @@ jobs:
           cp artifacts/mac/*.dmg release/Syntropy-Health-mac-arm64.dmg
           cp artifacts/windows/*-setup.exe release/Syntropy-Health-windows-x64-setup.exe
           cd release && sha256sum * > SHA256SUMS && cat SHA256SUMS
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: release/*
           draft: true

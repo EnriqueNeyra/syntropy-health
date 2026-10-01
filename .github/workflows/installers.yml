@@ -36,8 +36,8 @@ jobs:
     # (The launchd service needs a logged-in session, which CI runners don't have.)
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv build --wheel -o dist .
       - run: sh scripts/install.sh --server --no-service --no-ocr --source "$(ls dist/*.whl)"
       - run: |
@@ -50,8 +50,8 @@ jobs:
     # scripts/install.ps1 -Server on Windows: uv, the command, the sign-in task, a server that answers, uninstall.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv build --wheel -o dist .
       - shell: pwsh
         run: ./scripts/install.ps1 -Server -Port 8010 -Source (Get-Item dist/*.whl).FullName
