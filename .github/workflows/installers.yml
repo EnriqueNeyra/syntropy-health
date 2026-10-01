@@ -1,25 +1,11 @@
 name: Installer checks
 
-# scripts/install.sh on a Mac and scripts/install.ps1 on Windows. These runners bill 10x (macOS) and 2x (Windows)
-# the minutes of Linux ones, so they run only when the installers or the command they install change, before a
-# release (the Release workflow calls this), or on demand: Actions → Installer checks → Run workflow.
-# The Linux installer check stays in ci.yml and runs on every push.
+# scripts/install.sh on a Mac and scripts/install.ps1 on Windows, on every push to main and every pull request, and
+# before a release (the Release workflow calls this). The Linux installer check is in ci.yml.
 on:
   push:
     branches: [main]
-    paths:
-      - scripts/install.sh
-      - scripts/install.ps1
-      - app/cli.py
-      - pyproject.toml
-      - .github/workflows/installers.yml
   pull_request:
-    paths:
-      - scripts/install.sh
-      - scripts/install.ps1
-      - app/cli.py
-      - pyproject.toml
-      - .github/workflows/installers.yml
   workflow_call:
   workflow_dispatch:
 
@@ -36,8 +22,10 @@ jobs:
     # (The launchd service needs a logged-in session, which CI runners don't have.)
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
       - run: uv build --wheel -o dist .
       - run: sh scripts/install.sh --server --no-service --no-ocr --source "$(ls dist/*.whl)"
       - run: |
@@ -50,8 +38,10 @@ jobs:
     # scripts/install.ps1 -Server on Windows: uv, the command, the sign-in task, a server that answers, uninstall.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
       - run: uv build --wheel -o dist .
       - shell: pwsh
         run: ./scripts/install.ps1 -Server -Port 8010 -Source (Get-Item dist/*.whl).FullName

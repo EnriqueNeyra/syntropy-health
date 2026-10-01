@@ -57,3 +57,13 @@ the Content-Security-Policy.
 
 The [security overview](https://health.syntropylabs.io/docs/#security) lists the controls: password and sessions, first-run
 restrictions, encryption at rest, PKCE and single-use OAuth state, CSRF and CSP, device tokens and the access log.
+
+## Checking what you run
+
+- **Release files** (the Mac and Windows apps, the wheel, `SHA256SUMS`) and the **Docker image** are built by this
+  repository's workflows, which sign a build provenance attestation for each:
+  `gh attestation verify <file> -R EnriqueNeyra/syntropy-health`, or
+  `gh attestation verify oci://ghcr.io/enriqueneyra/syntropy-health:latest -R EnriqueNeyra/syntropy-health`.
+  The image also carries an SBOM.
+- **The OAuth relay** is deployed from `main` by a workflow, and its `/health` names the commit it runs:
+  `curl https://syntropy-auth-relay.syntropylabs.workers.dev/health`.
