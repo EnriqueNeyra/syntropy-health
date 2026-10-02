@@ -22,8 +22,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - run: uvx ruff@0.13.0 check app tests desktop scripts   # settings in pyproject.toml
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -U pip && pip install --group dev
+      - run: ruff check app tests desktop scripts   # version and settings in pyproject.toml
 
   app:
     runs-on: ubuntu-latest
@@ -35,8 +40,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: pyproject.toml
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
-      - run: pip install -r requirements-dev.txt
+      - run: python -m pip install -U pip && pip install -e . --group dev
       - run: python -m pytest -q tests
 
   app-mac-windows:
@@ -54,7 +60,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements-dev.txt
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install -U pip && pip install -e . --group dev
       - run: python -m pytest -q tests
 
   web-and-relay:

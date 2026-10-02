@@ -27,17 +27,34 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
+# The one list of dependencies: installers, Docker, the desktop apps and CI all install from here.
 dependencies = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.54.0",
     "httpx>=0.28.0",
     "cryptography>=44.0.0",
     "pydantic>=2.10.0",
     "python-multipart>=0.0.20",
-    "pypdf>=5.0.0",
-    "Pillow>=11.0",
-    "zeroconf>=0.136",
-    "tzdata>=2024.1",
+    "pypdf>=6.19.0",
+    "Pillow>=12.3.0",
+    "zeroconf>=0.136",      # announces syntropyhealth.local on the home network
+    "tzdata>=2024.1",       # time zones where the system has none (Windows, slim containers)
+]
+
+[project.optional-dependencies]
+# The Mac and Windows apps: the window, the tray icon (Windows) and the packager.  pip install -e ".[desktop]"
+desktop = [
+    "pywebview>=6.2.1",
+    "pystray>=0.19.5; sys_platform == 'win32'",
+    "pyinstaller>=6.22.3",
+]
+
+[dependency-groups]
+# Tests and lint, for development only.  pip install -e . --group dev  (pip 25.1+), or ./run.sh test
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff==0.13.0",
 ]
 
 [project.scripts]
