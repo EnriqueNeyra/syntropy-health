@@ -53,6 +53,10 @@ class CheckFailed(Exception):
     """GitHub couldn't be reached, or answered with something unexpected."""
 
 
+class InstallFailed(Exception):
+    """An installer's reason for not installing, written for the person (anything else is logged, not shown)."""
+
+
 # ---------------------------------------------------------------------------
 # Versions and releases
 # ---------------------------------------------------------------------------
@@ -218,7 +222,8 @@ def _run_installer(installer: Installer, release: dict[str, Any], automatic: boo
         installer(release, automatic)
     except Exception as exc:  # noqa: BLE001 - shown in Settings; the app keeps running the version it has
         log.exception("Couldn't install Syntropy Health %s", release.get("version"))
-        set_progress("failed", str(exc) or exc.__class__.__name__)
+        detail = str(exc) if isinstance(exc, InstallFailed) else "Something went wrong; the log has the details."
+        set_progress("failed", detail)
 
 
 # ---------------------------------------------------------------------------
