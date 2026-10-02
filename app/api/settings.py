@@ -185,8 +185,8 @@ async def verify_platform(platform: str) -> dict:
     try:
         async with httpx.AsyncClient(follow_redirects=False, timeout=10.0) as client:
             resp = await client.get(authorize, params=params)
-    except httpx.HTTPError as exc:
-        return {"ok": False, "status": "network_error", "detail": str(exc)}
+    except httpx.HTTPError:
+        return {"ok": False, "status": "network_error", "detail": f"Couldn't reach {cfg['label']}'s sign-in server."}
     location = resp.headers.get("location", "")
     bad = any(s in (location + resp.text[:2000]).lower() for s in ("unknown-client", "invalid_client", "unauthorized_client", "invalid client"))
     if resp.status_code in (200, 302, 303) and not bad and "error=" not in location:

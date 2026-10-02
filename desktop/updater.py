@@ -25,10 +25,12 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from app.services.updates import InstallFailed
+
 log = logging.getLogger("syntropy.desktop.update")
 
 
-class UpdateError(Exception):
+class UpdateError(InstallFailed):
     pass
 
 

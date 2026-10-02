@@ -125,9 +125,9 @@ def test_app_installs_updates(client, latest):
     assert len(got) == 1
 
 
-def test_failed_install_is_shown(client, latest):
+def _failed_detail(client, error):
     def installer(release, automatic):
-        raise RuntimeError("The download didn't match the release's checksum, so it wasn't installed.")
+        raise error
 
     updates.set_installer(installer)
     client.post("/api/system/updates/check")
@@ -135,9 +135,19 @@ def test_failed_install_is_shown(client, latest):
     for _ in range(50):
         progress = client.get("/api/system/updates").json()["progress"]
         if progress and progress["state"] == "failed":
-            break
+            return progress["detail"]
         time.sleep(0.02)
-    assert progress["state"] == "failed" and "checksum" in progress["detail"]
+    raise AssertionError(progress)
+
+
+def test_failed_install_is_shown(client, latest):
+    reason = updates.InstallFailed("The download didn't match the release's checksum, so it wasn't installed.")
+    assert "checksum" in _failed_detail(client, reason)
+
+
+def test_unexpected_install_error_stays_in_the_log(client, latest):
+    detail = _failed_detail(client, OSError("[Errno 13] Permission denied: '/Applications/Syntropy Health.app'"))
+    assert "/Applications" not in detail and "log" in detail
 
 
 async def test_daily_tick_checks_once_and_installs_automatically(client, latest):
