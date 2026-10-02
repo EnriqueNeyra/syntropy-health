@@ -60,7 +60,7 @@ through that service's tool. SmartScreen's warning fades as signed downloads bui
 ## Building
 
 ```bash
-python3.12 -m venv .venv-desktop && .venv-desktop/bin/pip install -r desktop/requirements.txt
+python3.12 -m venv .venv-desktop && .venv-desktop/bin/pip install -e ".[desktop]"
 PYTHON=.venv-desktop/bin/python desktop/build-mac.sh        # desktop/dist/Syntropy-Health-<version>-mac-arm64.dmg
 ```
 

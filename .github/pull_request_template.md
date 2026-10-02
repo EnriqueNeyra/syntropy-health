@@ -5,7 +5,7 @@
 ## How it was tested
 
 - [ ] `./run.sh test` passes (the suite is offline; EHR flows run against the simulator)
-- [ ] `uvx ruff check app tests desktop scripts` passes
+- [ ] `./run.sh lint` passes
 - [ ] Checked in the browser, light and dark, and at phone width if the web app changed
 
 ## Checklist

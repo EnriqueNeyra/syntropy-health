@@ -56,9 +56,9 @@ See [How it works](https://health.syntropylabs.io/docs/) for how it fits togethe
 ## Before you open a pull request
 
 ```bash
-./run.sh test                              # the whole suite, offline
-uvx ruff check app tests desktop scripts   # lint
-cd cloudflare-worker && npm test           # if you changed the relay worker
+./run.sh test                      # the whole suite, offline
+./run.sh lint                      # ruff
+cd cloudflare-worker && npm test   # if you changed the relay worker
 ```
 
 The web app has no build step: check your change in the browser in light and dark appearance, and at phone width.

@@ -15,8 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# Dependencies first, read from pyproject.toml, so code changes don't reinstall them.
+COPY pyproject.toml .
+RUN python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))" \
+        > /tmp/requirements.txt && pip install -r /tmp/requirements.txt && rm /tmp/requirements.txt
 COPY app/ ./app/
 COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
