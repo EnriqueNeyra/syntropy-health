@@ -1,7 +1,7 @@
 // Alerts: things that need the person's attention (a source to reconnect, records from someone else, new out-of-range
 // results), collected for the current profile and shown behind the bell in the top bar instead of across every page.
 
-import { api, get, post } from "./api.js";
+import { api, get } from "./api.js";
 import { fmtDate, html, icon, mount, plural } from "./ui.js";
 
 // Earlier versions kept what was seen and dismissed in each browser; the server keeps it now, so clearing alerts on
@@ -63,10 +63,6 @@ function collect({ summary, connections, status }) {
                  href: "#/sources", action: "Open Sources" });
     }
   }
-  if (status?.legacy_upgrade) {
-    out.push({ id: "legacy-upgrade", level: "info", icon: "sync", title: "Your data was upgraded to the new format",
-               text: "Wearable history was kept. Reconnect your health systems to re-import clinical records.", href: "#/sources", action: "Open Sources" });
-  }
   if (status?.update) {
     out.push({ id: `update:${status.update.version}`, level: "info", icon: "download", title: `Syntropy Health ${status.update.version} is available`,
                text: status.update.installs ? "Install it from Settings; the app opens again by itself." : "Settings shows how to update this installation.",
@@ -115,7 +111,6 @@ export function markAllSeen() {
 export function dismiss(id) {
   dismissed.add(id);
   saveState({ dismissed: [id] });
-  if (id === "legacy-upgrade") post("/api/legacy/dismiss").catch(() => {});
   alerts = alerts.filter((a) => a.id !== id);
   listeners.forEach((fn) => fn());
 }

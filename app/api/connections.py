@@ -204,9 +204,7 @@ RELAY_CSP = ("default-src 'none'; script-src 'sha256-" + base64.b64encode(hashli
 @router.get("/callback", include_in_schema=False)
 async def oauth_callback(request: Request, background: BackgroundTasks, code: Optional[str] = None,
                          state: Optional[str] = None, error: Optional[str] = None,
-                         error_description: Optional[str] = None, desc: Optional[str] = None,
-                         access_token: Optional[str] = None, refresh_token: Optional[str] = None,
-                         expires_in: Optional[float] = None, scope: Optional[str] = None):
+                         error_description: Optional[str] = None, desc: Optional[str] = None):
     if error:
         if state:
             connections.pop_pending(state)
@@ -214,19 +212,6 @@ async def oauth_callback(request: Request, background: BackgroundTasks, code: Op
         if error == "access_denied":
             message = "Access was not granted. No records were shared."
         return _done(error=message)
-    if access_token and state and not code:
-        # Relay workers deployed before the fragment hand-off send tokens in the query string.
-        # Accept them (the one-time state still authenticates the hand-off) and drop them from the URL.
-        popped = connections.pop_pending(state)
-        if not popped or popped[0] not in connect.WEARABLE_MODULES:
-            return _done(error="This sign-in link has expired or was already used. Please start the connection again.")
-        try:
-            result = await _complete(popped[0], popped[1], tokens={"access_token": access_token, "refresh_token": refresh_token,
-                                                                   "expires_in": expires_in, "scope": scope})
-        except SmartError as exc:
-            return _done(error=str(exc))
-        background.add_task(sync.sync_connection, result["connection_id"], "initial")
-        return _done(result["connection_id"])
     if not code or not state:
         # Token hand-off from the relay arrives in the URL fragment, which only the browser can read.
         return HTMLResponse(RELAY_PAGE, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer",

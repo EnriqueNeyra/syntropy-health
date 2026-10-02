@@ -16,8 +16,6 @@ const SUGGESTIONS = [
 const REDUCED_MOTION = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Conversations are saved on the server (so they follow you to the desktop and iPhone apps), per person and account.
-// Earlier versions kept one conversation in this browser; it becomes the first saved one.
-const legacyKey = (profileId) => `syntropy-chat-${profileId}`;
 const newId = () => `c_${Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 const titleOf = (messages) => {
   const first = messages.find((m) => m.role === "user")?.content || "New chat";
@@ -41,14 +39,6 @@ export async function render({ el, state, params }) {
 
   const q = { profile: profile.id };
   let chats = (await get("/api/ai/chats", q, { fresh: true }).catch(() => ({ chats: [] }))).chats;
-  try {
-    const legacy = JSON.parse(localStorage.getItem(legacyKey(profile.id)) || "[]");
-    if (legacy.length) {
-      await put(`/api/ai/chats/${newId()}?profile=${encodeURIComponent(profile.id)}`, { title: titleOf(legacy), messages: stored(legacy) });
-      localStorage.removeItem(legacyKey(profile.id));
-      chats = (await get("/api/ai/chats", q, { fresh: true })).chats;
-    }
-  } catch {}
   let chatId = newId();
   let messages = [];
   // Pick up the latest conversation, unless a new one was asked for (File → New Chat in the desktop app).

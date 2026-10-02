@@ -121,62 +121,6 @@ def reset_migration_cache() -> None:
     _migrated_paths.clear()
 
 
-def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
-    return {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
-
-
-def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
-    row = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
-    ).fetchone()
-    return row is not None
-
-
-def _prepare_legacy_schema(conn: sqlite3.Connection) -> bool:
-    """
-    Upgrades a pre-1.0 prototype database in place.
-
-    Wearable samples are preserved (they may represent years of HealthKit history);
-    clinical tables are renamed to ``legacy_*`` because they can be re-synced from the
-    source EHR and their shape is incompatible with the v1 model.
-    """
-    legacy = False
-    for view in [r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='view'")]:
-        conn.execute(f"DROP VIEW IF EXISTS {view}")
-        legacy = True
-
-    if _table_exists(conn, "clinical_records") and "profile_id" not in _table_columns(conn, "clinical_records"):
-        conn.execute("ALTER TABLE clinical_records RENAME TO legacy_clinical_records")
-        legacy = True
-    for table in ("patient_profiles", "oauth_sessions", "pending_oauth_states"):
-        if _table_exists(conn, table):
-            conn.execute(f"ALTER TABLE {table} RENAME TO legacy_{table}")
-            legacy = True
-
-    if _table_exists(conn, "biometric_samples"):
-        cols = _table_columns(conn, "biometric_samples")
-        for col in ("profile_id", "connection_id"):
-            if col not in cols:
-                conn.execute(f"ALTER TABLE biometric_samples ADD COLUMN {col} TEXT")
-                legacy = True
-        # Old indexes may collide with new names but different definitions.
-        conn.execute("DROP INDEX IF EXISTS idx_samples_metric_date")
-        conn.execute("DROP INDEX IF EXISTS idx_samples_start_date")
-        conn.execute("DROP INDEX IF EXISTS idx_samples_source")
-    if _table_exists(conn, "sync_batches"):
-        cols = _table_columns(conn, "sync_batches")
-        if "profile_id" not in cols:
-            conn.execute("ALTER TABLE sync_batches ADD COLUMN profile_id TEXT")
-            legacy = True
-        if "inserted" not in cols:
-            conn.execute("ALTER TABLE sync_batches ADD COLUMN inserted INTEGER NOT NULL DEFAULT 0")
-    # Old app_settings used different column names.
-    if _table_exists(conn, "app_settings") and "key" not in _table_columns(conn, "app_settings"):
-        conn.execute("ALTER TABLE app_settings RENAME TO legacy_app_settings")
-        legacy = True
-    return legacy
-
-
 def _run_migrations(conn: sqlite3.Connection) -> None:
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     files = sorted(MIGRATIONS_DIR.glob("*.sql"))
@@ -187,16 +131,8 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         log.info("Applying migration %s", f.name)
         conn.execute("BEGIN")
         try:
-            legacy = False
-            if num == 1:
-                legacy = _prepare_legacy_schema(conn)
             for statement in _split_sql(f.read_text(encoding="utf-8")):
                 conn.execute(statement)
-            if legacy:
-                conn.execute(
-                    "INSERT OR REPLACE INTO app_settings(key, value, updated_at) VALUES ('legacy_upgrade_pending', 'true', ?)",
-                    (time.time(),),
-                )
             conn.execute(f"PRAGMA user_version = {num}")
             conn.execute("COMMIT")
         except BaseException:

@@ -32,7 +32,6 @@ Security fixes go into the latest release. Running any install command again upd
 | Version | Supported |
 |---|---|
 | 1.x (latest) | Yes |
-| Before 1.0 (the prototype) | No: upgrade by starting 1.x against the same data folder |
 
 ## In scope
 

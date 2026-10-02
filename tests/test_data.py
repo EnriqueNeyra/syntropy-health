@@ -1,8 +1,7 @@
-"""Imports, exports, profiles, settings and the legacy prototype upgrade."""
+"""Imports, exports, profiles and settings."""
 
 import io
 import json
-import sqlite3
 import time
 import zipfile
 
@@ -187,38 +186,6 @@ def test_directory_refresh_keeps_ids_and_prefers_brand_addresses():
     [ecw] = merge([], ecw_entries({"practices": practices}), "ecw-")
     assert ecw == {"id": "ecw-abcdef", "name": "Main Street Pediatrics", "location": "Milwaukee, WI", "platform": "healow",
                    "fhir_base_url": "https://fhir4.healow.com/fhir/r4/ABCDEF"}
-
-
-def test_legacy_prototype_database_is_upgraded(isolated_data, raw_client_factory=None):
-    from app.core import db as core_db
-    path = isolated_data / "syntropy.db"
-    core_db.reset_migration_cache()
-    legacy = sqlite3.connect(path)
-    legacy.executescript("""
-        CREATE TABLE biometric_samples (id TEXT PRIMARY KEY, metric_type TEXT NOT NULL, hk_identifier TEXT NOT NULL,
-            value REAL NOT NULL, unit TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL, device_id TEXT,
-            device_name TEXT, source_name TEXT, metadata_json TEXT, created_at REAL NOT NULL);
-        CREATE TABLE sync_batches (batch_id TEXT PRIMARY KEY, device_id TEXT NOT NULL, device_name TEXT NOT NULL,
-            os_version TEXT, app_version TEXT, sync_trigger TEXT NOT NULL, sample_count INTEGER NOT NULL, synced_at REAL NOT NULL);
-        CREATE TABLE clinical_records (id TEXT PRIMARY KEY, patient_id TEXT NOT NULL, category TEXT NOT NULL);
-        CREATE TABLE oauth_sessions (provider_id TEXT PRIMARY KEY, access_token TEXT);
-        CREATE VIEW v_daily AS SELECT * FROM biometric_samples;
-        INSERT INTO biometric_samples VALUES ('a','hrv_sdnn','HK',55,'ms','2026-09-20T07:00:00Z','2026-09-20T07:00:00Z',NULL,NULL,'WHOOP 4.0',NULL,0);
-        INSERT INTO biometric_samples VALUES ('b','step_count','HK',4000,'count','2026-09-20T12:00:00Z','2026-09-20T12:10:00Z',NULL,NULL,'Apple Watch',NULL,0);
-    """)
-    legacy.commit()
-    legacy.close()
-    from fastapi.testclient import TestClient
-    from app.main import create_app
-    from tests.conftest import BASE, CSRF, LOCAL_CLIENT
-    with TestClient(create_app(), base_url=BASE, client=LOCAL_CLIENT) as c:
-        c.post("/api/setup", json={"passphrase": None}, headers=CSRF)
-        metrics = {m["metric"] for m in c.get("/api/biometrics/metrics").json()["metrics"]}
-        assert {"hrv_rmssd", "step_count"} <= metrics
-    check = sqlite3.connect(path)
-    tables = {r[0] for r in check.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"legacy_clinical_records", "legacy_oauth_sessions", "clinical_records", "profiles"} <= tables
-    assert check.execute("SELECT COUNT(*) FROM biometric_samples WHERE profile_id IS NULL").fetchone()[0] == 0
 
 
 def test_fhir_export_includes_patient_and_round_trips(client):
