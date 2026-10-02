@@ -9,7 +9,7 @@ Medical records from your patient portals, Apple Health and wearable data, and i
 
 [![CI](https://github.com/EnriqueNeyra/syntropy-health/actions/workflows/ci.yml/badge.svg)](https://github.com/EnriqueNeyra/syntropy-health/actions/workflows/ci.yml)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](pyproject.toml)
 [![FHIR R4](https://img.shields.io/badge/FHIR-R4%20%C2%B7%20SMART%20on%20FHIR-e33a3a.svg)](https://hl7.org/fhir/R4/)
 [![MCP](https://img.shields.io/badge/MCP-server-6f42c1.svg)](https://modelcontextprotocol.io)
 

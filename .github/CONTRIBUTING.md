@@ -25,7 +25,7 @@ Pull requests from contributors who haven't signed can't be merged.
 
 ```bash
 git clone https://github.com/EnriqueNeyra/syntropy-health && cd syntropy-health
-./run.sh dev          # a local server with auto-reload at http://localhost:8000 (Python 3.11+)
+./run.sh dev          # a local server with auto-reload at http://localhost:8000 (Python 3.12+)
 ```
 
 Use the built-in EHR simulator and the simulated Oura and WHOOP sources for data; never develop against real records.

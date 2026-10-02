@@ -1,78 +1,35 @@
-# Python bytecode & cache
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual environments
 .venv/
-venv/
-ENV/
-env/
-
-# Testing & Coverage
+# build/ also covers the desktop app's PyInstaller output
+build/
+dist/
+*.egg-info/
 .pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-nosetests.xml
-coverage.xml
-*.cover
-
-# Scratch & local dev artifacts
-scratch/
-*.log
-data/*.db
-data/*.db-wal
-data/*.db-shm
-data/*.json
-*.db
-*.db-wal
-*.db-shm
-
-# Environment variables & secrets
-.env
-.env.*
-
-# IDE & Editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Operating System files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+.ruff_cache/
 
 # Cloudflare Wrangler and the worker's tests
 .wrangler/
 node_modules/
 
-# Runtime secrets & uploads
-data/secret.key
-data/uploads/
+# Local data, secrets and logs
+/data/
+*.db
+*.db-wal
+*.db-shm
+*.log
+.env
+.env.*
 
-# Planning notes and working docs, kept local
-docs/
+# Local scratch files, and planning notes and working docs
+/scratch/
+/docs/
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
