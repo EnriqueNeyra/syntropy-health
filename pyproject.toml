@@ -9,7 +9,7 @@ description = "Open-source, self-hosted personal health record: medical records 
 readme = "README.md"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE", "NOTICE"]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [{ name = "Syntropy Labs", email = "contact@syntropylabs.io" }]
 keywords = [
     "personal-health-record", "phr", "self-hosted", "fhir", "smart-on-fhir", "ehr", "medical-records", "mychart",
@@ -24,7 +24,6 @@ classifiers = [
     "Intended Audience :: Healthcare Industry",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]

@@ -1,14 +1,6 @@
-.git
-.venv
-data
-tests
-cloudflare-worker
-docs
-build
-dist
-*.egg-info
-node_modules
+# Send Docker only what the Dockerfile copies, so local data, builds and scratch files never reach it.
+*
+!pyproject.toml
+!app/
+!scripts/docker-entrypoint.sh
 **/__pycache__
-*.pyc
-.env
-.env.*
