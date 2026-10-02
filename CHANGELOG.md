@@ -3,7 +3,7 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
-## Unreleased
+## 1.1.0
 
 ### Insights across your sources
 - The Overview opens with **What's changed**: a number drifting from your own normal (resting heart rate, HRV, sleep,
@@ -50,6 +50,16 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 ### Project
 - A shorter README, with detailed install and configuration moved to [the setup guides](https://health.syntropylabs.io/setup/), a
   code of conduct, and richer package metadata.
+- Release files and the Docker image carry signed build provenance (`gh attestation verify`, see
+  [SECURITY.md](.github/SECURITY.md)), and the relay's `/health` names the commit it's running.
+- Python 3.12 or newer is required. Dependencies are listed once, in `pyproject.toml`: `pip install -e ".[desktop]"`
+  for the desktop app, `pip install --group dev` for tests and linting, and `./run.sh lint`.
+- When a sign-in server can't be reached or an update fails unexpectedly, Settings shows a plain sentence; the details
+  go to the log.
+
+### Removed
+- The upgrade for databases from the prototype that came before 1.0.
+- The relay's older hand-off that put tokens in the address's query string.
 
 ### Ask
 - Answers stream in as they're written, from API keys (Anthropic and OpenAI-compatible services, including models on
