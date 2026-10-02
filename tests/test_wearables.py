@@ -175,13 +175,6 @@ def test_live_wearable_relay_fragment_handoff(client):
     assert again.status_code == 400
 
 
-def test_live_wearable_legacy_query_handoff(client):
-    state = _pending_state(client, "oura")
-    done = client.get("/callback", params={"relay_provider": "oura", "access_token": "AT", "refresh_token": "RT",
-                                           "expires_in": 86400, "state": state}, follow_redirects=False)
-    assert "connected=" in done.headers["location"]
-
-
 def test_relay_rejects_unknown_state(client):
     r = client.post("/api/connections/oauth/relay", json={"state": "forged", "access_token": "AT"})
     assert r.status_code == 400

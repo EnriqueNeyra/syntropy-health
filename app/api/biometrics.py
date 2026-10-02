@@ -329,7 +329,7 @@ async def delete_journal_entry(entry_id: str, profile: Optional[str] = None) -> 
 
 
 @router.get("/api/wearables/summary")
-def legacy_summary(principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
+def wearables_summary(principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
     """Used by the companion app to show the server-side total."""
     profile_id = principal.profile_id or resolve_profile(None)["id"]
     ov = biometrics.overview(profile_id)

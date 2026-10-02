@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import agents, assistant, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
 from app.core import auth, config, db
 from app.core.uploads import DecompressUploads
-from app.services import legacy, network, scheduler, updates
+from app.services import network, scheduler, updates
 from app.store import biometrics as biometric_store, sample_counts
 from app.simulator import server as simulator
 
@@ -62,7 +62,6 @@ log = logging.getLogger("syntropy")
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     db.ensure_migrated()
-    legacy.upgrade_if_needed()
     biometric_store.upgrade_daily_if_needed()
     sample_counts.warm()
     if config.scheduler_enabled():

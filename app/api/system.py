@@ -47,7 +47,6 @@ def status(request: Request) -> dict:
             context.PRINCIPAL.reset(token)
         account = accounts.get(principal.account_id)
         out["account"] = _account_summary(account, principal)
-        out["legacy_upgrade"] = bool(settings.get("legacy_upgrade_pending")) and principal.owner
         out["preferences"] = preferences(account)
         out["onboarding"] = bool(account and account["onboarding"])
         out["terms_accepted"] = terms_accepted(account)
@@ -391,7 +390,3 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
     return {"events": events}
 
 
-@router.post("/api/legacy/dismiss")
-async def dismiss_legacy(_=Depends(auth.require_owner)) -> dict:
-    settings.set("legacy_upgrade_pending", None)
-    return {"ok": True}
