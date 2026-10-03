@@ -1,6 +1,9 @@
 """End-to-end SMART on FHIR flow against the built-in simulator."""
 
+import asyncio
 from urllib.parse import parse_qs, urlparse
+
+import httpx
 
 from tests.conftest import BASE, connect_institution, simulated_login
 
@@ -296,6 +299,10 @@ def test_outside_developer_mode_epic_goes_to_the_health_systems_own_sign_in(clie
         seen["base"] = base
         return {"authorization_endpoint": "https://fhir.kp.org/oauth2/authorize", "token_endpoint": "https://fhir.kp.org/oauth2/token"}
     monkeypatch.setattr(smart, "discover", fake_discover)
+
+    async def no_kaiser_fix(url):
+        return url
+    monkeypatch.setattr(smart, "kaiser_sign_in_url", no_kaiser_fix)
     r = client.post("/api/connections/ehr", json={"institution_id": "epic-kaiser-permanente-california-northern"})
     assert r.status_code == 200, r.text
     assert r.json()["mode"] == "production"
@@ -307,6 +314,46 @@ def test_outside_developer_mode_epic_goes_to_the_health_systems_own_sign_in(clie
     client.put("/api/settings/developer", json={"enabled": True})
     cerner = settings.platform_config("cerner")
     assert (cerner["mode"], cerner["client_id"]) == ("sandbox", "my-cerner-sandbox-id")
+
+
+KAISER_AUTHORIZE = "https://fhir.kp.org/KPPolarisPortal/esb-envlbl/226/oauth2/authorize?client_id=c&state=s"
+
+
+def _kaiser(location: str, start_status: int) -> tuple[list[str], httpx.MockTransport]:
+    seen = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(f"{request.url.host}{request.url.path}")
+        if request.url.host == "fhir.kp.org":
+            return httpx.Response(302, headers={"Location": location})
+        return httpx.Response(start_status)
+    return seen, httpx.MockTransport(handle)
+
+
+def test_kaiser_sign_in_skips_its_broken_capitalized_page():
+    from app.connectors import smart
+
+    start = "https://healthy.kaiserpermanente.org:443/fhircs/Authentication/OAuth/Start?client_id=c&state=s&aud=https%3a%2f%2fFHIR.KP.ORG%2fx"
+    seen, transport = _kaiser(start, 500)
+    url = asyncio.run(smart.kaiser_sign_in_url(KAISER_AUTHORIZE, transport))
+    assert url == "https://healthy.kaiserpermanente.org/fhircs/authentication/oauth/start?client_id=c&state=s&aud=https%3a%2f%2fFHIR.KP.ORG%2fx"
+    assert seen == ["fhir.kp.org/KPPolarisPortal/esb-envlbl/226/oauth2/authorize",
+                    "healthy.kaiserpermanente.org/fhircs/Authentication/OAuth/Start"]
+
+    # Once Kaiser fixes the page, or for Washington's separate server, sign-in goes the normal way.
+    assert asyncio.run(smart.kaiser_sign_in_url(KAISER_AUTHORIZE, _kaiser(start, 200)[1])) == KAISER_AUTHORIZE
+    washington = "https://wa-membervanilla.kaiserpermanente.org:443/mychart-classic/Authentication/OAuth/Start?state=s"
+    assert asyncio.run(smart.kaiser_sign_in_url(KAISER_AUTHORIZE, _kaiser(washington, 500)[1])) == KAISER_AUTHORIZE
+
+
+def test_kaiser_sign_in_check_never_blocks_a_connection():
+    from app.connectors import smart
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("offline", request=request)
+    assert asyncio.run(smart.kaiser_sign_in_url(KAISER_AUTHORIZE, httpx.MockTransport(unreachable))) == KAISER_AUTHORIZE
+    other = "https://mychart.example.org/oauth2/authorize?state=s"
+    assert asyncio.run(smart.kaiser_sign_in_url(other, httpx.MockTransport(unreachable))) == other
 
 
 def test_directory_marks_platforms_that_cannot_connect_yet(client):

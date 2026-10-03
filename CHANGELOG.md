@@ -5,6 +5,9 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 
 ## Unreleased
 
+- **Kaiser Permanente connects again** in every region. Kaiser's sign-in page for all regions but Washington has been
+  failing with "Page Not Found", while the same page spelled in lowercase works, so sign-in now goes there. This is a
+  temporary workaround: it switches itself off once Kaiser fixes the page.
 - **The health-system directory is current again**, from Epic's, Oracle Health's and eClinicalWorks's lists of
   October 3: 3 Epic health systems and 509 eClinicalWorks practices are new, and SGMC's address changed. A weekly job
   keeps it current from now on.
