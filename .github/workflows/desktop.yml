@@ -147,11 +147,13 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
-      # Fixed names too, so scripts/install.sh and install.ps1 can download releases/latest/download/<name>, and
-      # SHA256SUMS, which the apps check an update against before installing it (desktop/updater.py).
+      # The apps under fixed names, the same in every release, so scripts/install.sh, install.ps1 and the apps' updater
+      # can download releases/latest/download/<name>; the release itself says which version it is. SHA256SUMS is what
+      # the apps check an update against before installing it (desktop/updater.py). The wheel keeps its version in
+      # its name, as Python packaging requires.
       - run: |
           mkdir release
-          cp artifacts/mac/*.dmg artifacts/windows/*-setup.exe artifacts/wheel/*.whl release/
+          cp artifacts/wheel/*.whl release/
           cp artifacts/mac/*.dmg release/Syntropy-Health-mac-arm64.dmg
           cp artifacts/windows/*-setup.exe release/Syntropy-Health-windows-x64-setup.exe
           cd release && sha256sum * > SHA256SUMS && cat SHA256SUMS
