@@ -251,3 +251,20 @@ def test_ecw_sandbox_mode_explains_there_is_no_shared_sandbox(client):
     client.put("/api/settings/platforms/healow", json={"mode": "sandbox", "client_id": "abc"})
     r = client.post("/api/connections/ehr", json={"institution_id": "ecw-bdeaed"})
     assert r.status_code == 400 and "Custom FHIR server" in r.text, r.text
+
+
+def test_epic_uses_syntropys_registered_client_id_for_each_mode(client, monkeypatch):
+    from app.core import settings
+
+    assert settings.platform_config("epic")["client_id"] == ""   # simulated needs none
+    settings.set("platform.epic.mode", None)                      # a new install: production
+    cfg = settings.platform_config("epic")
+    assert cfg["mode"] == "production"
+    assert (cfg["client_id"], cfg["client_id_source"]) == ("eb7944d2-58e9-4805-bae2-8c68fd70cfdf", "default")
+    # A reconnect keeps the connection's own mode, and with it that mode's client ID.
+    assert settings.platform_config("epic", "sandbox")["client_id"] == "280d55bb-e8a2-45b0-8a7b-2e3826ef5e9c"
+
+    monkeypatch.setenv("EPIC_CLIENT_ID", "from-env")
+    assert settings.platform_config("epic")["client_id"] == "from-env"
+    client.put("/api/settings/platforms/epic", json={"client_id": "from-settings"})
+    assert settings.platform_config("epic", "sandbox")["client_id"] == "from-settings"

@@ -96,10 +96,12 @@ def test_profiles_scope_data(client):
 
 
 def test_platform_settings_control_mode(client):
-    r = client.put("/api/settings/platforms/epic", json={"mode": "sandbox"})
+    r = client.put("/api/settings/platforms/cerner", json={"mode": "sandbox"})
     assert r.json()["mode"] == "sandbox"
-    fail = client.post("/api/connections/ehr", json={"institution_id": "epic-stanford-health-care"})
+    oracle = next(i["id"] for i in client.get("/api/directory", params={"platform": "cerner"}).json()["results"])
+    fail = client.post("/api/connections/ehr", json={"institution_id": oracle})
     assert fail.status_code == 400 and "client ID" in fail.json()["detail"]
+    client.put("/api/settings/platforms/epic", json={"mode": "sandbox"})
     assert client.put("/api/settings/platforms/epic", json={"mode": "bogus"}).status_code == 400
     client.put("/api/settings/platforms/epic", json={"mode": "simulated"})
     snap = client.get("/api/settings").json()

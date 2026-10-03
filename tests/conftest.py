@@ -54,6 +54,8 @@ def client(raw_client):
     r = raw_client.post("/api/setup", json={"passphrase": PASSPHRASE, "profile_name": "Alex"}, headers=CSRF)
     assert r.status_code == 200, r.text
     raw_client.headers.update(CSRF)
+    # Epic connects to real health systems by default; the tests drive its simulator instead.
+    assert raw_client.put("/api/settings/platforms/epic", json={"mode": "simulated"}).status_code == 200
     return raw_client
 
 

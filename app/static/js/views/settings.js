@@ -280,16 +280,16 @@ export async function render({ el, parts, state, navigate }) {
 
   if (tab === "developer") {
     mount(body, html`<div class="stack">
-      <div class="banner info">${icon("code")}<div class="grow"><p>These settings are for connecting to health systems for real. Until Syntropy Health is
-        registered with an EHR vendor, leave each platform on <b>Simulated</b>. With a client ID from a vendor's developer program, use
-        <b>Sandbox</b> to test, then <b>Production</b> once approved.</p></div></div>
+      <div class="banner info">${icon("code")}<div class="grow"><p>These settings are for connecting to health systems for real. Epic uses Syntropy Health's
+        registered client ID in <b>Production</b>. Other vendors stay on <b>Simulated</b> until they're registered; with a client ID from a
+        vendor's developer program, use <b>Sandbox</b> to test, then <b>Production</b> once approved.</p></div></div>
       ${section("Health record platforms", "", html`${settings.platforms.map((p) => html`<div class="set-row platform">
         <div class="set-label"><div class="set-title">${p.label}</div><div class="set-hint">${MODE_TEXT[p.mode]}</div>
           ${p.platform !== "smart-health-it" ? html`<div class="row wrap" style="margin-top:10px">
             <input class="input input-sm grow" style="min-width:200px" id="cid-${p.platform}" placeholder="Client ID" value="${p.client_id_source === "settings" ? p.client_id : ""}" aria-label="${p.label} client ID">
             <button class="btn btn-sm" data-action="save-cid" data-platform="${p.platform}">Save</button>
             <button class="btn btn-sm btn-ghost" data-action="verify" data-platform="${p.platform}" ${p.client_id ? "" : "disabled"}>Verify</button></div>
-            <div class="hint">${p.client_id_source === "env" ? `Using ${p.client_id} from the environment (.env). ` : ""}${p.sandbox_base ? html`Sandbox: <code>${p.sandbox_base}</code>` : `${p.sandbox_hint}.`}</div>`
+            <div class="hint">${p.client_id_source === "env" ? `Using ${p.client_id} from the environment (.env). ` : p.client_id_source === "default" ? "Using Syntropy Health's registered client ID. " : ""}${p.sandbox_base ? html`Sandbox: <code>${p.sandbox_base}</code>` : `${p.sandbox_hint}.`}</div>`
             : html`<div class="hint">Public test server — no registration needed. ${p.sandbox_hint}.</div>`}
           <div class="small" id="verify-${p.platform}" style="margin-top:6px"></div></div>
         <div class="set-control"><div class="segmented" role="group" aria-label="${p.label} mode">${["simulated", "sandbox", "production"].map((mode) => html`

@@ -47,9 +47,9 @@ def plan_ehr_connection(institution_id: Optional[str], origin: str, *, fhir_base
                 "display_name": fhir_base_url, "institution_id": None, "scopes": directory.USCDI_SCOPES,
                 "simulated": False}
 
-    cfg = settings.platform_config(platform)
+    cfg = settings.platform_config(platform, mode_override)
     preset = directory.PLATFORMS[platform]
-    mode = mode_override or cfg["mode"]
+    mode = cfg["mode"]
     name = inst["name"] if inst else preset["label"]
     dynamic = bool(preset.get("dynamic_registration"))
     if mode == "simulated":
