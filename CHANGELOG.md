@@ -3,6 +3,12 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
+## 1.2.1
+
+- **A way back from a health system's sign-in in the Mac app.** While the window shows another site, it has an
+  ordinary title bar naming the site and a **‹ Syntropy Health** button that returns to the app (also Go → Back to
+  Syntropy Health, ⇧⌘H). Before, the page filled the window with no way back but swiping or ⌘[.
+
 ## 1.2.0
 
 - **Health systems connect for real.** Choosing Kaiser Permanente, or any Epic health system, takes you to its own

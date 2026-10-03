@@ -7,6 +7,9 @@ The Mac window: Syntropy Health's interface drawn edge to edge in a native windo
 - A full menu bar with the usual shortcuts: Settings (⌘,), New Chat (⌘N), Find (⌘F), the sections (⌘1–⌘8), Back and
   Forward (⌘[ ⌘]), Reload (⌘R) and text size (⌘+ ⌘− ⌘0). Right-clicking the Dock icon offers the menu bar item's choices.
 - Swiping with two fingers goes back and forward, and the window remembers its size and place.
+- Another site in the window (a health system's sign-in) gets an ordinary title bar naming the site, with a
+  "Syntropy Health" button that returns to the app: those pages don't leave room for the window buttons or offer a way
+  back.
 
 The page talks to the window through a WebKit message handler, "syntropyDesktop": which theme it shows (so the sidebar
 material and title bar match it), its title (for the Window menu and Mission Control), when it's ready to be seen, and
@@ -69,7 +72,9 @@ class _MenuTarget(NSObject):
         return self
 
     def perform_(self, sender):
-        action = self.actions.get(str(sender.representedObject()))
+        # Menu items carry their action as the represented object, buttons as their identifier.
+        key = sender.representedObject() if sender.respondsToSelector_(b"representedObject") else sender.identifier()
+        action = self.actions.get(str(key))
         if action:
             action()
 
@@ -77,12 +82,42 @@ class _MenuTarget(NSObject):
         return True
 
 
+class _URLObserver(NSObject):
+    """Tells the window each time the web view's address changes (key-value observing of WKWebView.URL)."""
+
+    def initWithCallback_(self, callback):
+        self = objc.super(_URLObserver, self).init()
+        if self is not None:
+            self.callback = callback
+        return self
+
+    def observeValueForKeyPath_ofObject_change_context_(self, _path, _obj, _change, _context):
+        try:
+            self.callback()
+        except Exception:  # noqa: BLE001
+            log.exception("Couldn't follow the window's address")
+
+
+def _origin(scheme: Any, host: Any, port: Any) -> tuple[str, str, int]:
+    scheme = str(scheme or "").lower()
+    port = int(port or 0) or {"http": 80, "https": 443}.get(scheme, 0)
+    return scheme, str(host or "").lower(), port
+
+
+def _url_origin(url: Any) -> Optional[tuple[str, str, int]]:
+    """The origin of an NSURL; None for pages with none of their own (about:blank, the offline page)."""
+    if url is None or str(url.scheme() or "").lower() not in ("http", "https"):
+        return None
+    return _origin(url.scheme(), url.host(), url.port())
+
+
 class MacWindow:
     """Dresses pywebview's window. Everything here runs on the main thread."""
 
     def __init__(self, window: Any, *, background: bool, prefs: Any, tray_actions: dict[str, Callable[[], None]],
                  dock_menu_state: Callable[[], dict[str, Any]],
-                 on_request: Optional[Callable[[dict[str, Any]], None]] = None):
+                 on_request: Optional[Callable[[dict[str, Any]], None]] = None,
+                 home_url: Optional[Callable[[], str]] = None):
         self.window = window                   # the pywebview Window
         self.background = background
         self.prefs = prefs
@@ -93,6 +128,9 @@ class MacWindow:
         self.webview = None
         self.shown = False
         self.zoom = float(prefs.get("zoom", 1.0) or 1.0)
+        self.home_url = home_url                            # Syntropy Health's own pages (this Mac's or a joined server)
+        self.away = False                                   # showing another site
+        self.home_bar = None
 
     # ----------------------------------------------------------------- setup
     def install(self) -> None:
@@ -151,6 +189,8 @@ class MacWindow:
 
         self._menus()
         self._dock_menu()
+        self.url_observer = _URLObserver.alloc().initWithCallback_(self._location_changed)
+        wk.addObserver_forKeyPath_options_context_(self.url_observer, "URL", 0, None)
         # The page normally says it's ready well before this.
         AppHelper.callLater(4.0, self._show_if_hidden)
 
@@ -187,6 +227,66 @@ class MacWindow:
         elif self.on_request:
             threading.Thread(target=self.on_request, args=(msg,), daemon=True).start()
 
+    # ----------------------------------------------------------------- other sites
+    def _home(self) -> set[tuple[str, str, int]]:
+        url = AppKit.NSURL.URLWithString_(self.home_url()) if self.home_url else None
+        home = _url_origin(url)
+        if home is None:
+            return set()
+        if home[1] in ("localhost", "127.0.0.1"):      # this Mac's server answers to both names
+            return {(home[0], name, home[2]) for name in ("localhost", "127.0.0.1")}
+        return {home}
+
+    def _location_changed(self) -> None:
+        origin = _url_origin(self.webview.URL())
+        home = self._home()
+        away = bool(home) and origin is not None and origin not in home
+        if away:
+            self.ns_window.setTitle_(origin[1])        # where you are, as a browser would show it
+        if away == self.away:
+            return
+        self.away = away
+        win = self.ns_window
+        if away:
+            # An ordinary title bar: the page starts below it instead of under the window buttons.
+            win.setStyleMask_(win.styleMask() & ~AppKit.NSWindowStyleMaskFullSizeContentView)
+            win.setTitlebarAppearsTransparent_(False)
+            win.setTitleVisibility_(AppKit.NSWindowTitleVisible)
+            win.addTitlebarAccessoryViewController_(self._home_bar())
+        else:
+            if self.home_bar is not None:
+                self.home_bar.removeFromParentViewController()
+            win.setStyleMask_(win.styleMask() | AppKit.NSWindowStyleMaskFullSizeContentView)
+            win.setTitlebarAppearsTransparent_(True)
+            win.setTitleVisibility_(AppKit.NSWindowTitleHidden)
+            win.setTitle_("Syntropy Health")           # until the page names itself again
+
+    def _home_bar(self) -> Any:
+        if self.home_bar is None:
+            button = AppKit.NSButton.buttonWithTitle_target_action_("‹ Syntropy Health", self.menu_target, "perform:")
+            button.setIdentifier_("home")
+            button.setBezelStyle_(AppKit.NSBezelStyleRounded)
+            button.setToolTip_("Leave this page and go back to Syntropy Health")
+            button.sizeToFit()
+            holder = AppKit.NSView.alloc().initWithFrame_(((0, 0), (button.frame().size.width + 12, 30)))
+            button.setFrameOrigin_((6, (30 - button.frame().size.height) / 2))
+            holder.addSubview_(button)
+            self.home_bar = AppKit.NSTitlebarAccessoryViewController.alloc().init()
+            self.home_bar.setView_(holder)
+            self.home_bar.setLayoutAttribute_(AppKit.NSLayoutAttributeLeft)
+        return self.home_bar
+
+    def go_home(self) -> None:
+        """Back to the last of Syntropy Health's own pages in this window's history, else its start page."""
+        wk, home = self.webview, self._home()
+        for item in reversed(list(wk.backForwardList().backList() or [])):
+            if _url_origin(item.URL()) in home:
+                wk.goToBackForwardListItem_(item)
+                return
+        if self.home_url:
+            url = AppKit.NSURL.URLWithString_(self.home_url().rstrip("/") + "/#/sources")
+            wk.loadRequest_(AppKit.NSURLRequest.requestWithURL_(url))
+
     def run_js(self, script: str) -> None:
         if self.webview is not None:
             self.webview.evaluateJavaScript_completionHandler_(script, None)
@@ -214,6 +314,7 @@ class MacWindow:
             "find": lambda: (self.show(), self.run_js(
                 "(document.querySelector('.content input[type=search], #top-search input') || {focus(){}}).focus()")),
             "back": lambda: self.webview.goBack_(None),
+            "home": self.go_home,
             "forward": lambda: self.webview.goForward_(None),
             "reload": lambda: self.webview.reload_(None),
             "zoom-in": lambda: self.set_zoom(1),
@@ -283,7 +384,8 @@ class MacWindow:
             item("Enter Full Screen", key="f", mods=cmd | ctrl, selector="toggleFullScreen:"),
         ])
         go_top, _ = menu("Go", [
-            item("Back", "back", "["), item("Forward", "forward", "]"), None,
+            item("Back", "back", "["), item("Forward", "forward", "]"),
+            item("Back to Syntropy Health", "home", "h", cmd | shift), None,
             *[item(title, f"go-{route}", str(i + 1)) for i, (title, route) in enumerate(SECTIONS)], None,
             item("Settings", "settings", ""),
         ])
