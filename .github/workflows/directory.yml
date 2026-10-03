@@ -6,9 +6,10 @@ name: Directory refresh
 # institutions: then it waits for a person to look, since a saved connection may point at one.
 # Installed apps get the new directory with their next update.
 #
-# It then checks that every Epic health system still reaches its MyChart sign-in (scripts/check_sign_in.py, with a
-# headless Chrome pass for sites that turn away scripts) and records the ones that don't in
-# app/data/sign_in_status.json, so the app warns before sending someone to a sign-in that won't work.
+# It then checks that every Epic, Oracle Health and eClinicalWorks health system still reaches its sign-in
+# (scripts/check_sign_in.py, with a headless Chrome pass for sites that turn away scripts; about three hours, most of it
+# eClinicalWorks's 17,000 practices) and records the ones that don't in app/data/sign_in_status.json, so the app warns
+# before sending someone to a sign-in that won't work.
 #
 # Needs DIRECTORY_TOKEN, a fine-grained token for this repository with Contents and Pull requests read and write: a
 # pull request opened with the workflow's own token doesn't start CI, so its required checks would never report.
@@ -71,11 +72,11 @@ jobs:
           if report.exists():
               results = json.loads(report.read_text())
               failing = [r for r in results if r["status"] not in ("ok", "blocked", "unclear")]
-              print(f"\n**Sign-in check:** {len(results) - len(failing)} of {len(results)} Epic servers reach their sign-in "
+              print(f"\n**Sign-in check:** {len(results) - len(failing)} of {len(results)} servers reach their sign-in "
                     "or couldn't be judged.\n")
               for r in sorted(failing, key=lambda r: (r["status"], r["names"][0])):
                   more = f" (+{len(r['names']) - 1})" if len(r["names"]) > 1 else ""
-                  print(f"- `{r['status']}` {r['names'][0]}{more}: {r['detail'][:160]}")
+                  print(f"- `{r['status']}` {r['names'][0]}{more} ({r['platform']}): {r['detail'][:160]}")
           if dropped:
               print(f"\n{dropped} institutions are no longer published, so this waits for review before merging. "
                     "A saved connection to one keeps its address, but the directory can't find it by id any more.")

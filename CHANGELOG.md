@@ -3,6 +3,17 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
+## Unreleased
+
+- **Oracle Health and eClinicalWorks (healow) health systems connect for real.** Syntropy Health's client IDs for both
+  are built in, so choosing one takes you to its own sign-in, with nothing to set up. On October 3, 1,311 of Oracle
+  Health's 1,319 organizations and 95% of a sample of 300 eClinicalWorks practices reached their sign-in; most of the
+  rest are eClinicalWorks practices that don't offer patients online access. Whether eClinicalWorks keeps a connection
+  syncing after the first sign-in (with a refresh token) isn't confirmed yet; if it doesn't, a later sync asks you to
+  reconnect.
+- The weekly sign-in check covers Oracle Health and eClinicalWorks too, so their health systems whose sign-in is broken
+  are marked before you try, like Epic's.
+
 ## 1.3.0
 
 - **Health systems whose sign-in isn't working say so before you try.** A weekly check opens every Epic health

@@ -138,6 +138,8 @@ def test_pages_chrome_ends_on_are_classified():
     assert page(title="MyChart - Application Error Page", has_password=False) == "error_page"
     assert page(url="https://health.syntropylabs.io/callback?error=access_denied") == "rejected"
     assert page(title="", has_password=False, text="<div id=app></div>") == "unclear"
+    assert page(title="Loading https://idp.example.org/saml2/sso/redirect", has_password=False,
+                text="<script>if (error) showError()</script>") == "unclear"
 
 
 def test_the_status_file_records_failures_since_first_seen_and_working_listings():
@@ -157,3 +159,38 @@ def test_the_status_file_records_failures_since_first_seen_and_working_listings(
         "https://broken.example.org/fhir": {"status": "portal_error", "since": "2026-09-28", "instead": ["upmc-portal"]},
         "https://pending.example.org/fhir": {"status": "client_unknown", "since": "2026-10-05"},
     }}
+
+
+def test_oracle_health_s_script_page_moves_on_to_its_session_service():
+    props = ('{&#34;sessionServiceUri&#34;:&#34;https://fhir.example.org/session-api/realm/t-ch?to=x&amp;forceAuthn=true&#34;,'
+             '&#34;clientId&#34;:&#34;client&#34;}')
+
+    def pages(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth2/authorize":
+            return httpx.Response(200, text=f'<title>Loading...</title><script id="bootstrap-app" '
+                                            f'data-page-id="IdentityProviderRedirectPage" data-page-properties="{props}">'
+                                            '</script><div id="reactRoot">Loading...</div>')
+        if request.url.path == "/session-api/realm/t-ch":
+            assert request.url.params["forceAuthn"] == "true"
+            return httpx.Response(303, headers={"Location": "https://idp.example.org/saml2/sso/login"})
+        return httpx.Response(200, text="<title>Example Hospital - Sign In</title><input type=password>")
+    result = run(pages)
+    assert result.status == "ok" and result.hops[-1] == "200 idp.example.org/saml2/sso/login"
+
+
+def test_oracle_health_s_redirect_for_a_client_it_does_not_know():
+    def pages(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth2/authorize":
+            return httpx.Response(303, headers={"Location": "/errors/urn%3Acerner%3Aerror%3Aauthorization-server%3Aoauth2"
+                                                            "%3Agrant%3Aunknown-client/instances/1"})
+        return httpx.Response(200, text="<title>Authorization Server</title>")
+    assert run(pages).status == "client_unknown"
+
+
+def test_an_eclinicalworks_practice_without_patient_access_is_an_error_page():
+    def pages(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth2/authorize":
+            return httpx.Response(302, headers={"Location": "https://connect4.example.org/apps/jsp/fhir/error.jsp"})
+        return httpx.Response(200, text="<title>healow - Invalid Request</title><p>The page you are looking for cannot be "
+                                        "displayed because of an invalid request.</p>")
+    assert run(pages).status == "error_page"

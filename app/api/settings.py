@@ -187,7 +187,7 @@ PROBES = {
 @router.post("/platforms/{platform}/verify", dependencies=[owner])
 async def verify_platform(platform: str, mode: str = "sandbox") -> dict:
     """Checks a client ID against the vendor's live authorization server: the sandbox's, or for a production ID, a
-    featured health system's on that platform."""
+    health system's on that platform."""
     if platform not in settings.EHR_PLATFORMS or mode not in ("sandbox", "production"):
         raise HTTPException(404, "Unknown platform")
     cfg = settings.platform_config(platform, mode)
@@ -199,7 +199,9 @@ async def verify_platform(platform: str, mode: str = "sandbox") -> dict:
         authorize, aud = PROBES[platform]
         where = f"{cfg['label']}'s sandbox"
     else:
-        inst = next((i for i in directory.featured(limit=100, available={platform}) if i.get("fhir_base_url")), None)
+        # A featured health system, or any on the platform (eClinicalWorks has none featured).
+        candidates = [*directory.featured(limit=100, available={platform}), *directory.search(None, platform, 5)["results"]]
+        inst = next((i for i in candidates if i.get("fhir_base_url")), None)
         if inst is None:
             return {"ok": None, "status": "unverifiable", "detail": "No health system to check against."}
         try:

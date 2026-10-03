@@ -27,7 +27,7 @@ one private record that runs on your own Mac, PC or home server, so you can see 
 app can show you: how your sleep lines up with how you feel, what changed after a medication started, a lab result
 moving further out of range.
 
-- **Your medical records, from every provider.** Connects to patient portals such as Epic MyChart and Oracle Health
+- **Your medical records, from every provider.** Connects to patient portals such as Epic MyChart, Oracle Health and healow
   through the standard SMART on FHIR patient-access APIs, and merges labs, medications, conditions, visits and notes
   from every health system into one de-duplicated record.
 - **Your wearables and Apple Health.** Apple Watch and iPhone data through the Syntropy Health iPhone app, plus Oura,
@@ -57,9 +57,9 @@ moving further out of range.
 Then open <http://localhost:8000> and follow the setup. No accounts handy? Turn on developer mode in **Settings →
 Developer** to connect to the built-in **EHR simulator**, and add simulated Oura or WHOOP data to explore everything with synthetic records.
 
-> **Status:** Syntropy Health is in beta. Epic (MyChart) health systems connect for real; registration with other EHR
-> vendors is under way, so until it's complete their connections run against the built-in simulator (or a vendor
-> sandbox with your own client ID). Oura,
+> **Status:** Syntropy Health is in beta. Epic (MyChart), Oracle Health and eClinicalWorks (healow) health systems
+> connect for real; registration with athenahealth and the VA is under way, so until it's complete you can import a
+> record file from their patient portals instead. Oura,
 > WHOOP, Google Health, Apple Health exports and lab reports work with real data today, and the iPhone app is on its way
 > to the App Store.
 
