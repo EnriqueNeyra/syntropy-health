@@ -178,6 +178,19 @@ def test_directory_refresh_keeps_ids_and_prefers_brand_addresses():
     assert [e["id"] for e in out if e["name"] == "New Clinic"] == ["epic-new-clinic"]
     assert len(out) == 2
 
+    # Two brands with one name keep their own ids, whatever order Epic lists them in.
+    twins = [{"id": "epic-memorial-health", "name": "Memorial Health", "platform": "epic", "fhir_base_url": "https://oh/R4"},
+             {"id": "epic-hca-south-atlantic", "name": "Memorial Health", "platform": "epic", "fhir_base_url": "https://ga/R4"}]
+    brands = {"entry": [
+        {"resource": {"resourceType": "Endpoint", "id": "ga", "address": "https://ga/R4"}},
+        {"resource": {"resourceType": "Endpoint", "id": "oh", "address": "https://oh/R4"}},
+        {"resource": {"resourceType": "Organization", "id": "b1", "name": "Memorial Health", "endpoint": [{"reference": "urn:uuid:ga"}]}},
+        {"resource": {"resourceType": "Organization", "id": "b2", "name": "Memorial Health", "endpoint": [{"reference": "urn:uuid:oh"}]}},
+    ]}
+    out = merge(twins, epic_entries({"brands": brands, "r4": {"entry": []}}), "epic-")
+    assert {e["id"]: e["fhir_base_url"] for e in out} == {"epic-memorial-health": "https://oh/R4",
+                                                          "epic-hca-south-atlantic": "https://ga/R4"}
+
     practices = {"entry": [
         {"resource": {"resourceType": "Endpoint", "id": "ABCDEF", "address": "https://fhir4.eclinicalworks.com/fhir/r4/ABCDEF"}},
         {"resource": {"resourceType": "Organization", "name": "Main Street Pediatrics", "endpoint": [{"reference": "Endpoint/ABCDEF"}],

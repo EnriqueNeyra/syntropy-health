@@ -95,17 +95,6 @@
 "network": "OCHIN"
 },
 {
-"id": "epic-advance-community-health",
-"name": "Advance Community Health",
-"location": "Raleigh, NC",
-"platform": "epic",
-"fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTADVANCECH/api/FHIR/R4",
-"network": "OCHIN",
-"places": [
-"Raleigh NC"
-]
-},
-{
 "id": "epic-advanced-radiology",
 "name": "Advanced Radiology",
 "location": "CT",
@@ -478,6 +467,17 @@
 "fhir_base_url": "https://epicsoap.altru.org/fhir/api/FHIR/R4/"
 },
 {
+"id": "epic-advance-community-health",
+"name": "Amplify Health",
+"location": "Raleigh, NC",
+"platform": "epic",
+"fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTADVANCECH/api/FHIR/R4",
+"network": "OCHIN",
+"places": [
+"Raleigh NC"
+]
+},
+{
 "id": "epic-anchorage-neighborhood-health-center",
 "name": "Anchorage Neighborhood Health Center",
 "location": "Anchorage, AK",
@@ -510,8 +510,8 @@
 "ANDERSON SC",
 "Anderson SC",
 "Piedmont SC",
-"CLEMSON SC",
 "Clemson SC",
+"CLEMSON SC",
 "Pickens SC",
 "PIEDMONT SC",
 "PENDLETON SC"
@@ -963,7 +963,7 @@
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/BMC/api/FHIR/R4",
 "network": "Ardent",
 "places": [
-"Tulsa OK",
+"TULSA OK",
 "OWASSO OK"
 ]
 },
@@ -2146,12 +2146,12 @@
 "places": [
 "BUFFALO NY",
 "WEST SENECA NY",
-"ORCHARD PARK NY",
 "WILLIAMSVILLE NY",
-"LEWISTON NY",
 "NIAGARA FALLS NY",
-"LOCKPORT NY",
-"KENMORE NY"
+"ORCHARD PARK NY",
+"LEWISTON NY",
+"KENMORE NY",
+"LOCKPORT NY"
 ]
 },
 {
@@ -2788,6 +2788,23 @@
 ]
 },
 {
+"id": "epic-christianacare",
+"name": "ChristianaCare",
+"location": "DE, PA, MD, NJ",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1461.epichosted.com/FHIRProxyPRD/MYCHART/api/FHIR/R4",
+"places": [
+"Wilmington DE",
+"Newark DE",
+"Middletown DE",
+"Elkton MD",
+"New Castle DE",
+"Hockessin DE",
+"Rehoboth Beach DE",
+"West Grove PA"
+]
+},
+{
 "id": "epic-christie-clinic",
 "name": "Christie Clinic",
 "location": "Champaign, IL",
@@ -3279,7 +3296,7 @@
 {
 "id": "epic-community-health-of-south-florida",
 "name": "Community Health of South Florida",
-"location": "FL, TX, NM, HI and more",
+"location": "FL, TX, MI, NM and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
@@ -3291,7 +3308,7 @@
 "Providence RI",
 "Homestead FL",
 "Chicago IL",
-"Vero Beach FL"
+"Pontiac MI"
 ]
 },
 {
@@ -3805,7 +3822,7 @@
 "BAY CITY MI",
 "Frankenmuth MI",
 "Midland MI",
-"CARO MI"
+"Marlette MI"
 ]
 },
 {
@@ -3839,8 +3856,22 @@
 ]
 },
 {
+"id": "epic-credena-health-alaska",
+"name": "Credena Health - Alaska",
+"platform": "epic",
+"fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
+"network": "Providence Washington/Montana"
+},
+{
+"id": "epic-credena-health-washington-montana",
+"name": "Credena Health - Washington/Montana",
+"platform": "epic",
+"fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
+"network": "Providence Washington/Montana"
+},
+{
 "id": "epic-credena-health",
-"name": "Credena Health",
+"name": "Credena Health, Pharmacy Home Delivery",
 "location": "OR, CA",
 "platform": "epic",
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
@@ -3854,20 +3885,6 @@
 "FULLERTON CA",
 "TARZANA CA"
 ]
-},
-{
-"id": "epic-credena-health-alaska",
-"name": "Credena Health - Alaska",
-"platform": "epic",
-"fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
-"network": "Providence Washington/Montana"
-},
-{
-"id": "epic-credena-health-washington-montana",
-"name": "Credena Health - Washington/Montana",
-"platform": "epic",
-"fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
-"network": "Providence Washington/Montana"
 },
 {
 "id": "epic-crescent-community-health-center",
@@ -4852,12 +4869,15 @@
 {
 "id": "epic-fairview-range",
 "name": "Fairview Range",
-"location": "Hibbing, MN",
+"location": "MN",
 "platform": "epic",
 "fhir_base_url": "https://sfd.fairview.org/FHIR/Range/api/FHIR/R4",
 "network": "Fairview",
 "places": [
-"Hibbing MN"
+"HIBBING MN",
+"MOUNTAIN IRON MN",
+"Hibbing MN",
+"NASHWAUK MN"
 ]
 },
 {
@@ -6205,12 +6225,11 @@
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/HMC/api/FHIR/R4",
 "network": "Ardent",
 "places": [
-"CLAREMORE OK",
 "TULSA OK",
+"CLAREMORE OK",
 "PRYOR OK",
 "Henryetta OK",
-"CUSHING OK",
-"Tulsa OK"
+"CUSHING OK"
 ]
 },
 {
@@ -6941,13 +6960,13 @@
 {
 "id": "epic-jupiter-medical-center",
 "name": "Jupiter Medical Center",
-"location": "Jupiter, FL",
+"location": "FL",
 "platform": "epic",
 "fhir_base_url": "https://epicrp.jupitermed.com/oauth2-prd/api/FHIR/R4",
 "places": [
 "Jupiter FL",
-"PALM BEACH GARDENS FL",
 "JUPITER FL",
+"PALM BEACH GARDENS FL",
 "Palm Beach Gardens FL",
 "HOBE SOUND FL",
 "Stuart FL",
@@ -7161,7 +7180,7 @@
 {
 "id": "epic-kaleida",
 "name": "Kaleida",
-"location": "NY, PA",
+"location": "NY, PA, CT",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1455.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "Kaleida Health",
@@ -7197,8 +7216,8 @@
 "HUMBLE TX",
 "WEBSTER TX",
 "LAKE JACKSON TX",
-"PEARLAND TX",
-"KATY TX"
+"CYPRESS TX",
+"PEARLAND TX"
 ]
 },
 {
@@ -8017,8 +8036,8 @@
 "Maplewood MN",
 "EDINA MN",
 "Saint Paul MN",
-"Edina MN",
-"Woodbury MN"
+"Woodbury MN",
+"SAINT PAUL MN"
 ]
 },
 {
@@ -9030,10 +9049,10 @@
 "places": [
 "RAPID CITY SD",
 "SPEARFISH SD",
+"Rapid City SD",
 "NEWCASTLE WY",
 "HOT SPRINGS SD",
 "UPTON WY",
-"Rapid City SD",
 "CUSTER SD",
 "PHILIP SD"
 ]
@@ -9807,6 +9826,13 @@
 "network": "Community Care Cooperative"
 },
 {
+"id": "epic-north-sunflower-medical-center",
+"name": "North Sunflower Medical Center",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et0830.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "FMOL Health"
+},
+{
 "id": "epic-northeast-georgia-health-system",
 "name": "Northeast Georgia Health System",
 "location": "GA",
@@ -9868,7 +9894,7 @@
 {
 "id": "epic-northwest-orthopaedic-specialists",
 "name": "Northwest Orthopaedic Specialists",
-"location": "Spokane, WA",
+"location": "WA, ID",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et4006.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "network": "Garden Plot Orthopedics",
@@ -9876,7 +9902,8 @@
 "SPOKANE WA",
 "SPOKANE VALLEY WA",
 "ODESSA WA",
-"RITZVILLE WA"
+"RITZVILLE WA",
+"POST FALLS ID"
 ]
 },
 {
@@ -10146,11 +10173,10 @@
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/OHI/api/FHIR/R4",
 "network": "Ardent",
 "places": [
+"TULSA OK",
 "OKEMAH OK",
 "STILLWATER OK",
-"TULSA OK",
-"MUSKOGEE OK",
-"Tulsa OK"
+"MUSKOGEE OK"
 ]
 },
 {
@@ -11336,11 +11362,11 @@
 "CHICAGO IL",
 "Evanston IL",
 "Chicago IL",
-"Kankakee IL",
-"Joliet IL",
-"Chiacgo IL",
 "Lewiston ME",
-"Reno NV"
+"Kankakee IL",
+"Reno NV",
+"Joliet IL",
+"Chiacgo IL"
 ]
 },
 {
@@ -11780,11 +11806,11 @@
 "places": [
 "Vancouver WA",
 "VANCOUVER WA",
+"PORTLAND OR",
 "LAKE OSWEGO OR",
 "BATTLE GROUND WA",
 "Portland OR",
 "RIDGEFIELD WA",
-"PORTLAND OR",
 "HOOD RIVER OR"
 ]
 },
@@ -12315,13 +12341,13 @@
 "fhir_base_url": "https://eprdsoap000.saintfrancis.Com/FHIRProxy/api/FHIR/R4",
 "places": [
 "TULSA OK",
+"STILLWATER OK",
 "MUSKOGEE OK",
 "SAND SPRINGS OK",
+"PERRY OK",
 "VINITA OK",
-"BROKEN ARROW OK",
-"CLEVELAND OK",
-"BRISTOW OK",
-"OWASSO OK"
+"CUSHING OK",
+"BROKEN ARROW OK"
 ]
 },
 {
@@ -12637,6 +12663,13 @@
 "network": "St. Charles Health System"
 },
 {
+"id": "epic-sarasota-memorial-health-mychart",
+"name": "Sarasota Memorial Health MyChart",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1465.epichosted.com/APIProxyPRD/HOME/api/FHIR/R4",
+"network": "Sarasota Memorial Health Care System"
+},
+{
 "id": "epic-sawtooth-mountain-clinic",
 "name": "Sawtooth Mountain Clinic",
 "location": "Grand Marais, MN",
@@ -12904,7 +12937,7 @@
 "name": "SGMC",
 "location": "Valdosta, GA",
 "platform": "epic",
-"fhir_base_url": "https://epicproxy.et1024.epichosted.com/FHIRProxy/PARENT/api/FHIR/R4",
+"fhir_base_url": "https://epicproxy.et1024.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "SGMC Health",
 "places": [
 "Valdosta GA",
@@ -14378,19 +14411,19 @@
 {
 "id": "epic-the-center",
 "name": "The Center",
-"location": "OR, ID, WI",
+"location": "OR, WI",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et4006.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "network": "Garden Plot Orthopedics",
 "places": [
 "Bend OR",
-"PORTLAND OR",
 "John Day OR",
 "BEND OR",
 "La Pine OR",
-"POST FALLS ID",
 "Prineville OR",
-"BURNS OR"
+"BURNS OR",
+"Redmond OR",
+"Verona WI"
 ]
 },
 {
@@ -14489,13 +14522,13 @@
 "fhir_base_url": "https://ihismufhir.osumc.edu/fhir-prd/api/FHIR/R4",
 "places": [
 "Columbus OH",
-"COLUMBUS OH",
 "Dublin OH",
+"COLUMBUS OH",
 "Gahanna OH",
 "Hilliard OH",
+"Westerville OH",
 "Grove City OH",
-"Lewis Center OH",
-"New Albany OH"
+"Lewis Center OH"
 ]
 },
 {
@@ -15012,27 +15045,17 @@
 "AURORA CO",
 "GREELEY CO",
 "STEAMBOAT SPRINGS CO",
-"Fort Collins CO",
 "DENVER CO",
+"Fort Collins CO",
 "LONGMONT CO"
 ]
 },
 {
 "id": "epic-uchealth-affiliated-clinics-and-hospitals-mychart",
 "name": "UCHealth Affiliated Clinics and Hospitals MyChart",
-"location": "CO, WY, NE",
 "platform": "epic",
 "fhir_base_url": "https://ss.uch.edu/FHIRProxy/api/FHIR/R4",
-"network": "UCHealth - Colorado",
-"places": [
-"DENVER CO",
-"GUNNISON CO",
-"FORT COLLINS CO",
-"LITTLETON CO",
-"GILLETTE WY",
-"SCOTTSBLUFF NE",
-"HIGHLANDS RANCH CO"
-]
+"network": "UCHealth - Colorado"
 },
 {
 "id": "epic-uchicago-medicine",
@@ -15669,12 +15692,16 @@
 {
 "id": "epic-university-of-minnesota-physicians",
 "name": "University of Minnesota Physicians",
-"location": "Minneapolis, MN",
+"location": "MN",
 "platform": "epic",
 "fhir_base_url": "https://sfd.fairview.org/FHIR/UMP/api/FHIR/R4",
 "network": "Fairview",
 "places": [
-"Minneapolis MN"
+"Minneapolis MN",
+"MINNEAPOLIS MN",
+"Wyoming MN",
+"Edina MN",
+"SAINT LOUIS PARK MN"
 ]
 },
 {
@@ -16076,9 +16103,13 @@
 {
 "id": "epic-vail-health",
 "name": "Vail Health",
+"location": "Vail, CO",
 "platform": "epic",
 "fhir_base_url": "https://ss.uch.edu/FHIRProxy/api/FHIR/R4",
-"network": "UCHealth - Colorado"
+"network": "UCHealth - Colorado",
+"places": [
+"VAIL CO"
+]
 },
 {
 "id": "epic-valley-children-s-healthcare",

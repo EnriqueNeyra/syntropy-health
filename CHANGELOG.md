@@ -3,6 +3,14 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
+## Unreleased
+
+- **The health-system directory is current again**, from Epic's, Oracle Health's and eClinicalWorks's lists of
+  October 3: 3 Epic health systems and 509 eClinicalWorks practices are new, and SGMC's address changed. A weekly job
+  keeps it current from now on.
+- Refreshing the directory no longer swaps two health systems that share a name (Memorial Health in Ohio and in Georgia),
+  which would have shown a saved connection under the other one.
+
 ## 1.2.1
 
 - **A way back from a health system's sign-in in the Mac app.** While the window shows another site, it has an
