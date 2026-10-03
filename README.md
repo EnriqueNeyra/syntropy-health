@@ -57,8 +57,9 @@ moving further out of range.
 Then open <http://localhost:8000> and follow the setup. No accounts handy? Connect to the built-in **EHR simulator**
 and add simulated Oura or WHOOP data to explore everything with synthetic records.
 
-> **Status:** Syntropy Health is in beta. Registration with EHR vendors is under way, so until it's complete,
-> health-system connections run against the built-in simulator (or a vendor sandbox with your own client ID). Oura,
+> **Status:** Syntropy Health is in beta. Epic (MyChart) health systems connect for real; registration with other EHR
+> vendors is under way, so until it's complete their connections run against the built-in simulator (or a vendor
+> sandbox with your own client ID). Oura,
 > WHOOP, Google Health, Apple Health exports and lab reports work with real data today, and the iPhone app is on its way
 > to the App Store.
 

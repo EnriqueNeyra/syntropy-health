@@ -16,7 +16,10 @@ from app.core.db import db
 
 # Platforms that authenticate via SMART on FHIR.
 EHR_PLATFORMS: dict[str, dict[str, Any]] = {
-    "epic": {"label": "Epic (MyChart)", "env": "EPIC_CLIENT_ID", "vendor_sandbox": True},
+    # Syntropy Health's open.epic registration. Public clients' IDs aren't secret; an ID in Settings or the environment wins.
+    "epic": {"label": "Epic (MyChart)", "env": "EPIC_CLIENT_ID", "vendor_sandbox": True, "default_mode": "production",
+             "default_client_ids": {"sandbox": "280d55bb-e8a2-45b0-8a7b-2e3826ef5e9c",
+                                    "production": "eb7944d2-58e9-4805-bae2-8c68fd70cfdf"}},
     "cerner": {"label": "Oracle Health (Cerner)", "env": "CERNER_CLIENT_ID", "vendor_sandbox": True},
     "athena": {"label": "athenahealth", "env": "ATHENA_CLIENT_ID", "vendor_sandbox": True},
     "healow": {"label": "eClinicalWorks (healow)", "env": "HEALOW_CLIENT_ID", "vendor_sandbox": True},
@@ -105,21 +108,24 @@ def timezone_name() -> str:
 # EHR platform configuration
 # ---------------------------------------------------------------------------
 
-def platform_config(platform: str) -> dict[str, Any]:
+def platform_config(platform: str, mode: Optional[str] = None) -> dict[str, Any]:
+    """The platform's settings; ``mode`` picks the built-in client ID for a mode other than the current one."""
     meta = EHR_PLATFORMS.get(platform)
     if meta is None:
         raise KeyError(platform)
+    mode = mode or get(f"platform.{platform}.mode") or meta.get("default_mode", "simulated")
     env_client = config.clean_credential(config.env(meta["env"])) if meta["env"] else ""
-    client_id = config.clean_credential(get(f"platform.{platform}.client_id")) or env_client
+    saved_client = config.clean_credential(get(f"platform.{platform}.client_id"))
+    default_client = meta.get("default_client_ids", {}).get(mode, "")
+    client_id = saved_client or env_client or default_client
     if platform == "smart-health-it":
         client_id = client_id or "syntropy-health"
-    mode = get(f"platform.{platform}.mode") or "simulated"
     return {
         "platform": platform,
         "label": meta["label"],
         "mode": mode,
         "client_id": client_id,
-        "client_id_source": "settings" if get(f"platform.{platform}.client_id") else ("env" if env_client else None),
+        "client_id_source": ("settings" if saved_client else "env" if env_client else "default" if default_client else None),
         "production_ready": mode == "production" and bool(client_id),
     }
 

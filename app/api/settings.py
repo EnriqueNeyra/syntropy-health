@@ -173,7 +173,7 @@ PROBES = {
 @router.post("/platforms/{platform}/verify", dependencies=[owner])
 async def verify_platform(platform: str) -> dict:
     """Checks a sandbox client ID against the vendor's live authorization server."""
-    cfg = settings.platform_config(platform)
+    cfg = settings.platform_config(platform, "sandbox")
     if not cfg["client_id"]:
         return {"ok": False, "status": "not_configured", "detail": "No client ID configured."}
     if platform not in PROBES:
