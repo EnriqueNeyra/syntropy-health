@@ -8,6 +8,7 @@
 #   ./run.sh lint       check the code with ruff
 #   ./run.sh mcp        start the MCP server on stdio (for AI assistants)
 #   ./run.sh directory  refresh the health-system directory from Epic, Oracle Health and eClinicalWorks
+#   ./run.sh check-sign-in  check that every Epic health system reaches its MyChart sign-in
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 mkdir -p data
@@ -29,6 +30,7 @@ case "${1:-local}" in
   lint)        venv --group dev && .venv/bin/ruff check app tests desktop scripts;;
   mcp)         venv >/dev/null && exec .venv/bin/python -m app.mcp_server;;
   directory)   venv >/dev/null && exec .venv/bin/python scripts/refresh_directory.py "${@:2}";;
+  check-sign-in) venv >/dev/null && exec .venv/bin/python scripts/check_sign_in.py "${@:2}";;
   dev)         venv && exec .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --reload;;
   local|*)     venv && echo "[+] Syntropy Health at http://localhost:${PORT}" && \
                exec .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --proxy-headers;;
