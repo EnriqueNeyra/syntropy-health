@@ -356,6 +356,32 @@ def test_kaiser_sign_in_check_never_blocks_a_connection():
     assert asyncio.run(smart.kaiser_sign_in_url(other, httpx.MockTransport(unreachable))) == other
 
 
+def test_paging_follows_links_whose_host_differs_only_in_case():
+    from app.connectors import smart
+
+    base = "https://fhir.kp.org/api/FHIR/R4"
+    pages = {"1": "https://FHIR.KP.ORG/api/FHIR/R4/DocumentReference?page=2", "2": None}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        page = request.url.params.get("page", "1")
+        links = [{"relation": "next", "url": pages[page]}] if pages[page] else []
+        entry = {"resource": {"resourceType": "DocumentReference", "id": page}}
+        return httpx.Response(200, json={"resourceType": "Bundle", "link": links, "entry": [entry]})
+
+    fhir = smart.FhirClient(base, {"access_token": "t"}, "p")
+
+    async def fetch(transport):
+        async with httpx.AsyncClient(transport=transport) as client:
+            return await fhir.search_all(client, "DocumentReference", {})
+    found, status = asyncio.run(fetch(httpx.MockTransport(handle)))
+    assert (status, [r["id"] for r in found]) == ("ok", ["1", "2"])
+
+    # A link to another server still stops, so the access token never leaves the patient's health system.
+    pages["1"] = "https://elsewhere.example.org/api/FHIR/R4/DocumentReference?page=2"
+    found, status = asyncio.run(fetch(httpx.MockTransport(handle)))
+    assert (status, [r["id"] for r in found]) == ("truncated", ["1"])
+
+
 def test_directory_marks_platforms_that_cannot_connect_yet(client):
     client.put("/api/settings/developer", json={"enabled": False})
     res = client.get("/api/directory", params={"q": "medical center", "limit": 200}).json()["results"]
