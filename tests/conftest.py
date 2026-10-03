@@ -5,6 +5,7 @@ and nothing touches the network: EHR connections run against the in-process simu
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -30,8 +31,8 @@ def isolated_data(tmp_path, monkeypatch):
     for var in ("SYNTROPY_LISTEN_HOST", "SYNTROPY_LISTEN_PORT"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("TZ", "UTC")
-    for var in ("EPIC_CLIENT_ID", "CERNER_CLIENT_ID", "OURA_CLIENT_ID", "OURA_CLIENT_SECRET", "WHOOP_CLIENT_ID", "WHOOP_CLIENT_SECRET",
-                "GOOGLE_HEALTH_CLIENT_ID", "GOOGLE_HEALTH_CLIENT_SECRET"):
+    # Vendor credentials from a developer's .env would change which client each test sees.
+    for var in [v for v in os.environ if v.endswith(("_CLIENT_ID", "_CLIENT_SECRET"))]:
         monkeypatch.delenv(var, raising=False)
     from app.core import db
     from app.store import sample_counts
@@ -54,7 +55,8 @@ def client(raw_client):
     r = raw_client.post("/api/setup", json={"passphrase": PASSPHRASE, "profile_name": "Alex"}, headers=CSRF)
     assert r.status_code == 200, r.text
     raw_client.headers.update(CSRF)
-    # Epic connects to real health systems by default; the tests drive its simulator instead.
+    # Health systems connect for real by default; the tests drive the simulator, in developer mode.
+    assert raw_client.put("/api/settings/developer", json={"enabled": True}).status_code == 200
     assert raw_client.put("/api/settings/platforms/epic", json={"mode": "simulated"}).status_code == 200
     return raw_client
 

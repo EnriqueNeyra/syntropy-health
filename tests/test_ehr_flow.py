@@ -1,5 +1,7 @@
 """End-to-end SMART on FHIR flow against the built-in simulator."""
 
+from urllib.parse import parse_qs, urlparse
+
 from tests.conftest import BASE, connect_institution, simulated_login
 
 
@@ -248,7 +250,7 @@ def test_reconnect_works_after_an_institution_leaves_the_directory(client, monke
 
 
 def test_ecw_sandbox_mode_explains_there_is_no_shared_sandbox(client):
-    client.put("/api/settings/platforms/healow", json={"mode": "sandbox", "client_id": "abc"})
+    client.put("/api/settings/platforms/healow", json={"mode": "sandbox", "sandbox_client_id": "abc"})
     r = client.post("/api/connections/ehr", json={"institution_id": "ecw-bdeaed"})
     assert r.status_code == 400 and "Custom FHIR server" in r.text, r.text
 
@@ -257,7 +259,7 @@ def test_epic_uses_syntropys_registered_client_id_for_each_mode(client, monkeypa
     from app.core import settings
 
     assert settings.platform_config("epic")["client_id"] == ""   # simulated needs none
-    settings.set("platform.epic.mode", None)                      # a new install: production
+    client.put("/api/settings/developer", json={"enabled": False})  # a new install: production
     cfg = settings.platform_config("epic")
     assert cfg["mode"] == "production"
     assert (cfg["client_id"], cfg["client_id_source"]) == ("eb7944d2-58e9-4805-bae2-8c68fd70cfdf", "default")
@@ -265,6 +267,59 @@ def test_epic_uses_syntropys_registered_client_id_for_each_mode(client, monkeypa
     assert settings.platform_config("epic", "sandbox")["client_id"] == "280d55bb-e8a2-45b0-8a7b-2e3826ef5e9c"
 
     monkeypatch.setenv("EPIC_CLIENT_ID", "from-env")
+    monkeypatch.setenv("EPIC_SANDBOX_CLIENT_ID", "sandbox-from-env")
     assert settings.platform_config("epic")["client_id"] == "from-env"
-    client.put("/api/settings/platforms/epic", json={"client_id": "from-settings"})
+    assert settings.platform_config("epic", "sandbox")["client_id"] == "sandbox-from-env"
+    client.put("/api/settings/platforms/epic", json={"sandbox_client_id": "from-settings"})
     assert settings.platform_config("epic", "sandbox")["client_id"] == "from-settings"
+    assert settings.platform_config("epic")["client_id"] == "from-env"     # a sandbox ID never reaches production
+
+
+def test_outside_developer_mode_epic_goes_to_the_health_systems_own_sign_in(client, monkeypatch):
+    """A sandbox client ID or mode saved while testing must not send Kaiser to Epic's sandbox (or a test client)."""
+    from app.core import settings
+    from app.connectors import smart
+
+    settings.set("platform.epic.mode", "sandbox")
+    settings.set("platform.epic.client_id", "280d55bb-e8a2-45b0-8a7b-2e3826ef5e9c")   # saved before 1.2: one ID for all modes
+    settings.set("platform.cerner.client_id", "my-cerner-sandbox-id")
+    settings.set("platform.cerner.mode", "sandbox")
+    settings.migrate_client_ids()
+    assert settings.get("platform.epic.client_id") is None
+    assert settings.get("platform.epic.sandbox_client_id") is None          # the built-in sandbox ID covers it
+    assert settings.get("platform.cerner.sandbox_client_id") == "my-cerner-sandbox-id"
+
+    client.put("/api/settings/developer", json={"enabled": False})
+    seen = {}
+
+    async def fake_discover(base, simulated=False):
+        seen["base"] = base
+        return {"authorization_endpoint": "https://fhir.kp.org/oauth2/authorize", "token_endpoint": "https://fhir.kp.org/oauth2/token"}
+    monkeypatch.setattr(smart, "discover", fake_discover)
+    r = client.post("/api/connections/ehr", json={"institution_id": "epic-kaiser-permanente-california-northern"})
+    assert r.status_code == 200, r.text
+    assert r.json()["mode"] == "production"
+    assert seen["base"].lower().startswith("https://fhir.kp.org/")
+    params = parse_qs(urlparse(r.json()["auth_url"]).query)
+    assert params["client_id"] == ["eb7944d2-58e9-4805-bae2-8c68fd70cfdf"]
+
+    # Developer mode brings back each platform's own mode and its sandbox client ID.
+    client.put("/api/settings/developer", json={"enabled": True})
+    cerner = settings.platform_config("cerner")
+    assert (cerner["mode"], cerner["client_id"]) == ("sandbox", "my-cerner-sandbox-id")
+
+
+def test_directory_marks_platforms_that_cannot_connect_yet(client):
+    client.put("/api/settings/developer", json={"enabled": False})
+    res = client.get("/api/directory", params={"q": "medical center", "limit": 200}).json()["results"]
+    flags = [r["available"] for r in res]
+    assert True in flags and False in flags
+    assert {r["platform"] for r in res if r["available"]} == {"epic"}
+    featured = client.get("/api/directory/featured").json()["results"]
+    assert featured and all(r["available"] for r in featured)
+    assert not any(r["platform"] == "smart-health-it" for r in client.get("/api/directory", params={"q": "smart demo"}).json()["results"])
+    oracle = client.get("/api/directory", params={"platform": "cerner"}).json()["results"][0]
+    r = client.post("/api/connections/ehr", json={"institution_id": oracle["id"]})
+    assert r.status_code == 400 and "isn't registered with Oracle Health" in r.json()["detail"]
+    r = client.post("/api/connections/ehr", json={"institution_id": "smart-health-it"})
+    assert r.status_code == 400 and "developer mode" in r.json()["detail"]

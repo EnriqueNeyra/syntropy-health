@@ -44,7 +44,7 @@
 {
 "id": "epic-acumen-physician-solutions-llc",
 "name": "Acumen Physician Solutions",
-"location": "TX, IL, FL, IN…",
+"location": "TX, IL, FL, IN and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1041.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
@@ -155,7 +155,7 @@
 {
 "id": "epic-adventhealth",
 "name": "AdventHealth",
-"location": "FL, CO, IL, NC…",
+"location": "FL, CO, IL, NC and more",
 "platform": "epic",
 "fhir_base_url": "https://mobile.adventhealth.com/oauth2-PRD/api/FHIR/R4",
 "featured": true,
@@ -905,7 +905,7 @@
 {
 "id": "epic-avera-health",
 "name": "Avera Health",
-"location": "SD, MN, IA, NE…",
+"location": "SD, MN, IA, NE and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1439.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
@@ -1058,7 +1058,7 @@
 {
 "id": "epic-baptist-memorial-health-care",
 "name": "Baptist Memorial Health Care",
-"location": "MS, TN, AR, AZ…",
+"location": "MS, TN, AR, AZ and more",
 "platform": "epic",
 "fhir_base_url": "https://rxedi.bmhcc.org/prd-fhir/api/FHIR/R4/",
 "places": [
@@ -1942,7 +1942,7 @@
 {
 "id": "epic-carelon",
 "name": "Carelon",
-"location": "NY, CA, FL, OH…",
+"location": "NY, CA, FL, OH and more",
 "platform": "epic",
 "fhir_base_url": "https://interconnect.carelon.com/Interconnect-PRD-OAuth2/api/FHIR/R4",
 "places": [
@@ -2499,7 +2499,7 @@
 {
 "id": "epic-chi-health",
 "name": "CHI Health",
-"location": "NE, ND, IA, KS…",
+"location": "NE, ND, IA, KS and more",
 "platform": "epic",
 "fhir_base_url": "https://rp.chihealth.com/fhir/api/FHIR/R4",
 "network": "CommonSpirit Health Central",
@@ -2801,7 +2801,7 @@
 {
 "id": "epic-christus-health",
 "name": "Christus Health",
-"location": "TX, LA, NM, AR…",
+"location": "TX, LA, NM, AR and more",
 "platform": "epic",
 "fhir_base_url": "https://proxy.christushealth.org/FHIRPRD/api/FHIR/R4",
 "network": "CHRISTUS Health",
@@ -2932,7 +2932,7 @@
 {
 "id": "epic-cleveland-clinic-2",
 "name": "Cleveland Clinic",
-"location": "OH, FL, PA, NV…",
+"location": "OH, FL, PA, NV and more",
 "platform": "epic",
 "fhir_base_url": "https://api.ccf.org/mu/api/FHIR/R4",
 "places": [
@@ -3145,7 +3145,7 @@
 {
 "id": "epic-commonspirit-ar-ga-ky-tn-tx",
 "name": "CommonSpirit - AR/GA/KY/TN/TX",
-"location": "AR, TX, TN, GA…",
+"location": "AR, TX, TN, GA and more",
 "platform": "epic",
 "fhir_base_url": "https://rpsouth.catholichealth.net/fhir/api/FHIR/R4",
 "network": "CommonSpirit Health South",
@@ -3279,7 +3279,7 @@
 {
 "id": "epic-community-health-of-south-florida",
 "name": "Community Health of South Florida",
-"location": "FL, TX, NM, HI…",
+"location": "FL, TX, NM, HI and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
@@ -3961,7 +3961,7 @@
 {
 "id": "epic-davita-physician-solutions",
 "name": "DaVita Physician Solutions",
-"location": "TX, GA, CA, VA…",
+"location": "TX, GA, CA, VA and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1087.epichosted.com/FHIRProxy/DAVITA/api/FHIR/R4",
 "network": "DaVita",
@@ -4007,7 +4007,7 @@
 {
 "id": "epic-deaconess-health-system",
 "name": "Deaconess",
-"location": "IN, KY, IL, MI…",
+"location": "IN, KY, IL, MI and more",
 "platform": "epic",
 "fhir_base_url": "https://eprp.deaconess.com/FHIR/api/FHIR/R4",
 "network": "Deaconess Health System",
@@ -4372,7 +4372,7 @@
 {
 "id": "epic-el-camino-health",
 "name": "El Camino Health",
-"location": "CA, AZ, MI, TN…",
+"location": "CA, AZ, MI, TN and more",
 "platform": "epic",
 "fhir_base_url": "https://rwebproxy.elcaminohospital.org/FHIR/HOME/api/FHIR/R4",
 "places": [
@@ -4774,7 +4774,7 @@
 {
 "id": "epic-evernorth",
 "name": "Evernorth Home-Based Care",
-"location": "IL, MD, TX, PA…",
+"location": "IL, MD, TX, PA and more",
 "platform": "epic",
 "fhir_base_url": "https://epicarr.healthcare.cigna.com/FHIR-PRD/api/FHIR/R4",
 "network": "Evernorth",
@@ -4792,7 +4792,7 @@
 {
 "id": "epic-evernorth-workplace-care",
 "name": "Evernorth Workplace Care",
-"location": "FL, TX, GA, TN…",
+"location": "FL, TX, GA, TN and more",
 "platform": "epic",
 "fhir_base_url": "https://epicarr.healthcare.cigna.com/FHIR-PRD/api/FHIR/R4",
 "network": "Evernorth",
@@ -5731,7 +5731,7 @@
 {
 "id": "epic-harness-health-pharmacy",
 "name": "Harness Health Pharmacy",
-"location": "OH, VA, SC, ME…",
+"location": "OH, VA, SC, ME and more",
 "platform": "epic",
 "fhir_base_url": "https://carepath.health-partners.org/Proxy-FHIR/api/FHIR/R4",
 "network": "Bon Secours Mercy Health",
@@ -6567,7 +6567,7 @@
 {
 "id": "epic-innovage",
 "name": "InnovAge",
-"location": "CO, PA, VA, CA…",
+"location": "CO, PA, VA, CA and more",
 "platform": "epic",
 "fhir_base_url": "https://rp.innovage.com/OAUTH2-PRD/INNV/api/FHIR/R4",
 "places": [
@@ -6660,7 +6660,7 @@
 {
 "id": "epic-intermountain-health",
 "name": "Intermountain Health",
-"location": "UT, CO, MT, NV…",
+"location": "UT, CO, MT, NV and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0645.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
@@ -6892,7 +6892,7 @@
 {
 "id": "epic-johns-hopkins-medicine",
 "name": "Johns Hopkins Medicine",
-"location": "MD, FL, VA, DC…",
+"location": "MD, FL, VA, DC and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0842.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "featured": true,
@@ -7256,7 +7256,7 @@
 {
 "id": "epic-keycare",
 "name": "KeyCare",
-"location": "FL, IL, MN, VA…",
+"location": "FL, IL, MN, VA and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1284.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
@@ -7900,7 +7900,7 @@
 {
 "id": "epic-lovelace-health",
 "name": "Lovelace Health",
-"location": "TX, NM, OK, ID…",
+"location": "TX, NM, OK, ID and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/LHS/api/FHIR/R4",
 "network": "Ardent",
@@ -8295,7 +8295,7 @@
 {
 "id": "epic-mayo-clinic",
 "name": "Mayo Clinic",
-"location": "MN, WI, AZ, FL…",
+"location": "MN, WI, AZ, FL and more",
 "platform": "epic",
 "fhir_base_url": "https://tls.mcc.apix.mayo.edu/epic-fhir/api/FHIR/R4",
 "places": [
@@ -8858,7 +8858,7 @@
 {
 "id": "epic-cvs-health-minute-clinic",
 "name": "Minute Clinic",
-"location": "TX, FL, CA, NC…",
+"location": "TX, FL, CA, NC and more",
 "platform": "epic",
 "fhir_base_url": "https://retailepicfhir.cvshealth.com/FhirProxy/api/FHIR/R4",
 "network": "CVS Health",
@@ -9844,7 +9844,7 @@
 {
 "id": "epic-northwell-health",
 "name": "Northwell Health",
-"location": "NY, CT, FL, NJ…",
+"location": "NY, CT, FL, NJ and more",
 "platform": "epic",
 "fhir_base_url": "https://call.api.northwell.io/epic-proxy/api/fhir/R4/",
 "places": [
@@ -10049,7 +10049,7 @@
 {
 "id": "epic-ochin",
 "name": "OCHIN",
-"location": "CA, OR, NC, WA…",
+"location": "CA, OR, NC, WA and more",
 "platform": "epic",
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHART/api/FHIR/R4",
 "places": [
@@ -10066,7 +10066,7 @@
 {
 "id": "epic-ochsner-health-system",
 "name": "Ochsner Health System",
-"location": "LA, MS, TX, FL…",
+"location": "LA, MS, TX, FL and more",
 "platform": "epic",
 "fhir_base_url": "https://myc.ochsner.org/FHIR/api/FHIR/R4",
 "places": [
@@ -11122,7 +11122,7 @@
 {
 "id": "epic-planned-parenthood",
 "name": "Planned Parenthood",
-"location": "NY, OH, WI, CA…",
+"location": "NY, OH, WI, CA and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1154.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "BetterHealth",
@@ -11255,7 +11255,7 @@
 {
 "id": "epic-premise-health",
 "name": "Premise Health",
-"location": "TX, GA, NC, TN…",
+"location": "TX, GA, NC, TN and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1052.epichosted.com/FHIRProxy/PREMISE/api/FHIR/R4",
 "places": [
@@ -11329,7 +11329,7 @@
 {
 "id": "epic-prime-healthcare",
 "name": "Prime Healthcare",
-"location": "IL, NJ, TX, ME…",
+"location": "IL, NJ, TX, ME and more",
 "platform": "epic",
 "fhir_base_url": "https://phsfhir.primehealthcare.com/PHS-PRD-FHIR/api/FHIR/R4",
 "places": [
@@ -11549,7 +11549,7 @@
 {
 "id": "epic-providence-greater-portland-area",
 "name": "Providence, Greater Portland Area",
-"location": "OR, CA, WA, TX…",
+"location": "OR, CA, WA, TX and more",
 "platform": "epic",
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
@@ -11585,7 +11585,7 @@
 {
 "id": "epic-providence-washington-idaho-montana",
 "name": "Providence, Washington, Idaho, Montana",
-"location": "WA, MT, OR, ID…",
+"location": "WA, MT, OR, ID and more",
 "platform": "epic",
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
@@ -11650,7 +11650,7 @@
 {
 "id": "epic-quadmed",
 "name": "Quadmed",
-"location": "WI, IN, TX, OH…",
+"location": "WI, IN, TX, OH and more",
 "platform": "epic",
 "fhir_base_url": "https://epicicfore.quadmedical.com/FHIRPRD/api/FHIR/R4",
 "network": "QuadMed",
@@ -12217,7 +12217,7 @@
 {
 "id": "epic-rush-university-medical-center",
 "name": "Rush University Medical Center",
-"location": "IL, IN, CA, NJ…",
+"location": "IL, IN, CA, NJ and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.rush.edu/fhir-prd/api/FHIR/R4",
 "featured": true,
@@ -12528,7 +12528,7 @@
 {
 "id": "epic-sanford",
 "name": "Sanford",
-"location": "ND, SD, MN, IA…",
+"location": "ND, SD, MN, IA and more",
 "platform": "epic",
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
@@ -12824,7 +12824,7 @@
 {
 "id": "epic-select-medical",
 "name": "Select Medical",
-"location": "OH, FL, TX, PA…",
+"location": "OH, FL, TX, PA and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0948.epichosted.com/FhirProxy/api/FHIR/R4",
 "places": [
@@ -13001,7 +13001,7 @@
 {
 "id": "epic-shriner-s-childrens",
 "name": "Shriner's Childrens",
-"location": "PA, OR, WA, TX…",
+"location": "PA, OR, WA, TX and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1283.epichosted.com/FHIRProxy/SHC/api/FHIR/R4",
 "network": "Shriners Children's",
@@ -13183,7 +13183,7 @@
 {
 "id": "epic-pacific-dental-services",
 "name": "Smile Generation MyChart",
-"location": "CA, TX, AZ, FL…",
+"location": "CA, TX, AZ, FL and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1079.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "PDS Health",
@@ -13599,7 +13599,7 @@
 {
 "id": "epic-ssm-health",
 "name": "SSM Health",
-"location": "WI, MO, OK, IL…",
+"location": "WI, MO, OK, IL and more",
 "platform": "epic",
 "fhir_base_url": "https://fhir.ssmhc.com/Fhir/MyChart/api/FHIR/R4",
 "places": [
@@ -14466,7 +14466,7 @@
 {
 "id": "epic-the-nebraska-medical-center",
 "name": "The Nebraska Medical Center",
-"location": "NE, IA, KS, MO…",
+"location": "NE, IA, KS, MO and more",
 "platform": "epic",
 "fhir_base_url": "https://ocsoapprd.nebraskamed.com/FHIR-PRD/HOME/api/FHIR/R4",
 "network": "Nebraska Medicine",
@@ -14779,7 +14779,7 @@
 {
 "id": "epic-trinity-health",
 "name": "Trinity Health",
-"location": "MI, NY, CT, IA…",
+"location": "MI, NY, CT, IA and more",
 "platform": "epic",
 "fhir_base_url": "https://epic-ext.trinity-health.org/FHIR/MYCHART/api/FHIR/R4",
 "places": [
@@ -15376,7 +15376,7 @@
 {
 "id": "epic-unitypoint-health",
 "name": "UnityPoint Health",
-"location": "IA, IL, WI, MO…",
+"location": "IA, IL, WI, MO and more",
 "platform": "epic",
 "fhir_base_url": "https://epicfhir.unitypoint.org/ProdFHIR/api/FHIR/R4",
 "places": [
@@ -15824,7 +15824,7 @@
 {
 "id": "epic-university-of-pittsburgh-medical-center-upmc",
 "name": "UPMC",
-"location": "PA, NY, MD, OH…",
+"location": "PA, NY, MD, OH and more",
 "platform": "epic",
 "fhir_base_url": "https://epic-fhir-prd.upmc.com/FHIR-PRD/api/FHIR/R4",
 "network": "University of Pittsburgh Medical Center",
@@ -15848,7 +15848,7 @@
 {
 "id": "epic-upmc-patient-portal",
 "name": "UPMC Patient Portal",
-"location": "PA, NY, MD, OH…",
+"location": "PA, NY, MD, OH and more",
 "platform": "epic",
 "fhir_base_url": "https://epicent-prd-rp.upmc.com/PRD-OAUTH2/api/FHIR/R4",
 "network": "UPMC",
@@ -16719,7 +16719,7 @@
 {
 "id": "epic-west-virginia-university-medicine",
 "name": "West Virginia University",
-"location": "WV, OH, PA, MD…",
+"location": "WV, OH, PA, MD and more",
 "platform": "epic",
 "fhir_base_url": "https://apps.mywvuchart.com/FHIRproxy/api/FHIR/R4",
 "network": "WVU Medicine",

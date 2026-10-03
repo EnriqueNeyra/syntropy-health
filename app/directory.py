@@ -97,29 +97,32 @@ def get_institution(inst_id: str) -> Optional[dict[str, Any]]:
     return dict(inst) if inst else None
 
 
-def search(q: Optional[str] = None, platform: Optional[str] = None, limit: int = 25) -> dict[str, Any]:
+def search(q: Optional[str] = None, platform: Optional[str] = None, limit: int = 25, *,
+           available: Optional[set[str]] = None, hidden: frozenset[str] = frozenset()) -> dict[str, Any]:
+    """``available`` platforms rank ahead of the rest among equally good matches; ``hidden`` ones are left out."""
+    later = (lambda inst: inst["platform"] not in available) if available is not None else (lambda inst: False)
     if q and q.strip():
         term = q.strip().lower()
         words = term.split()
         scored = []
         for hay, inst in _haystacks():
-            if platform and inst["platform"] != platform:
+            if (platform and inst["platform"] != platform) or inst["platform"] in hidden:
                 continue
             if not all(w in hay for w in words):
                 continue
             name = inst["name"].lower()
             score = 0 if name.startswith(term) else 1 if any(p.startswith(term) for p in name.split()) else 2
-            scored.append((score, 0 if inst.get("featured") else 1, inst["name"], inst))
-        scored.sort(key=lambda s: s[:3])
-        items = [s[3] for s in scored]
+            scored.append((score, later(inst), 0 if inst.get("featured") else 1, inst["name"], inst))
+        scored.sort(key=lambda s: s[:4])
+        items = [s[4] for s in scored]
     else:
-        items = sorted((i for i in _institutions() if not platform or i["platform"] == platform),
-                       key=lambda i: (not i.get("featured"), i["name"]))
+        items = sorted((i for i in _institutions() if (not platform or i["platform"] == platform) and i["platform"] not in hidden),
+                       key=lambda i: (later(i), not i.get("featured"), i["name"]))
     return {"total": len(items), "results": items[:limit]}
 
 
-def featured(limit: int = 12) -> list[dict[str, Any]]:
-    picks = [i for i in _institutions() if i.get("featured")]
+def featured(limit: int = 12, available: Optional[set[str]] = None) -> list[dict[str, Any]]:
+    picks = [i for i in _institutions() if i.get("featured") and (available is None or i["platform"] in available)]
     # Put a mix of vendors first so the grid shows breadth.
     seen, first, rest = set(), [], []
     for inst in picks:
@@ -128,8 +131,10 @@ def featured(limit: int = 12) -> list[dict[str, Any]]:
     return (first + rest)[:limit]
 
 
-def stats() -> dict[str, int]:
+def stats(hidden: frozenset[str] = frozenset()) -> dict[str, int]:
     out: dict[str, int] = {}
     for i in _institutions():
+        if i["platform"] in hidden:
+            continue
         out[i["platform"]] = out.get(i["platform"], 0) + 1
     return out

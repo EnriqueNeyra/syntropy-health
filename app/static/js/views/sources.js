@@ -121,13 +121,24 @@ function offerRow(iconName, title, text, actions) {
 }
 
 // ------------------------------------------------------------------ add health system
+function institutionMeta(inst) {
+  return [inst.platform_label, inst.portal, inst.location].filter(Boolean).join(" · ");
+}
+
 function institutionButton(inst) {
-  return html`<button class="inst" data-action="choose" data-id="${inst.id}">${avatar(inst.name, inst.platform)}
-    <div class="grow" style="min-width:0"><div class="truncate"><b>${inst.name}</b></div>
-      <div class="small muted truncate">${inst.platform_label} · ${inst.portal || ""}${inst.location ? ` · ${inst.location}` : ""}</div></div></button>`;
+  return html`<button class="inst ${inst.available ? "" : "unavailable"}" data-action="choose" data-id="${inst.id}">${avatar(inst.name, inst.platform)}
+    <div class="grow" style="min-width:0"><div class="inst-name">${inst.name}</div>
+      <div class="small muted inst-meta">${institutionMeta(inst)}</div>
+      ${inst.available ? "" : html`<div class="tiny faint">Not available yet</div>`}</div></button>`;
 }
 
 function modeExplainer(inst) {
+  if (!inst.available) {
+    return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Not available yet.</b> Syntropy Health isn't registered with
+      ${inst.platform_label} yet, so ${esc(inst.name)} can't be connected directly.</p>
+      <p>You can still bring in your records: download them from its ${inst.portal || "patient portal"} (look for a health summary or
+      "download my record" option) and import the file.</p></div></div>`;
+  }
   if (inst.mode === "simulated") {
     return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Simulated sign-in.</b> Syntropy Health isn't registered with ${inst.platform_label} yet,
       so this connection goes through Syntropy's built-in EHR simulator instead of ${esc(inst.name)}'s real ${inst.portal || "portal"}.</p>
@@ -155,7 +166,7 @@ async function openAddHealthSystem(profileId) {
       <div class="inst-grid">${items.map(institutionButton)}</div>` : emptyState("No matches", "Try the organization's name, city, or portal name."));
   };
   m.setBody(html`
-    <div class="search" style="margin-bottom:14px">${icon("search")}<input class="input" id="dir-q" placeholder="Search ${featured.total} health systems — e.g. Kaiser, Mayo, Cedars…" autofocus></div>
+    <div class="search" style="margin-bottom:14px">${icon("search")}<input class="input" id="dir-q" placeholder="Search ${featured.total.toLocaleString()} health systems — e.g. Kaiser, Mayo, Cedars…" autofocus></div>
     <div id="dir-results"></div>
     <div class="divider"></div>
     <p class="small muted">Don't see yours? <button class="link-btn" data-action="custom">Connect any SMART on FHIR server</button> ·
@@ -206,12 +217,13 @@ function confirmInstitution(m, inst, profileId) {
   m.setBody(html`
     <div class="stack">
       <div class="row">${avatar(inst.name, inst.platform)}<div><h2>${inst.name}</h2>
-        <div class="small muted">${inst.platform_label} · ${inst.portal || ""}${inst.location ? ` · ${inst.location}` : ""}</div></div></div>
+        <div class="small muted">${institutionMeta(inst)}</div></div></div>
       ${modeExplainer(inst)}
-      <div class="small muted"><b>What gets shared (read-only):</b> demographics, conditions, medications, allergies, lab results, vitals,
-        immunizations, visits, procedures, clinical notes, imaging reports, care team, care plans, devices and insurance.</div>
+      ${inst.available ? html`<div class="small muted"><b>What gets shared (read-only):</b> demographics, conditions, medications, allergies, lab results, vitals,
+        immunizations, visits, procedures, clinical notes, imaging reports, care team, care plans, devices and insurance.</div>` : ""}
       <div class="row between"><button class="btn" data-action="back">Back</button>
-        <button class="btn btn-primary" data-action="go" data-id="${inst.id}">Continue</button></div>
+        ${inst.available ? html`<button class="btn btn-primary" data-action="go" data-id="${inst.id}">Continue</button>`
+          : html`<button class="btn btn-primary" data-action="import">Import a record file</button>`}</div>
       ${inst.mode === "simulated" ? html`<p class="tiny faint">Change how ${inst.platform_label} connects in Settings → Developer.</p>` : ""}
     </div>`);
 }

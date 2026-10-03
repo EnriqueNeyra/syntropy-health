@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app import directory
+from app.connectors import smart
 from app.core import auth, config, context, settings
 from app.store import accounts, biometrics
 
@@ -38,6 +39,7 @@ def _snapshot() -> dict:
         cfg["sandbox_hint"] = directory.PLATFORMS[key]["sandbox_hint"]
         platforms.append(cfg)
     return {
+        "developer_mode": settings.developer_mode(),
         "platforms": platforms,
         "wearables": wearables,
         "relay": {"redirect_uri": settings.get("relay.redirect_uri"),
@@ -68,18 +70,30 @@ def get_settings() -> dict:
 
 
 class PlatformPatch(BaseModel):
-    mode: Optional[str] = None
-    client_id: Optional[str] = Field(None, max_length=200)
+    mode: Optional[str] = None      # used while developer mode is on
+    sandbox_client_id: Optional[str] = Field(None, max_length=200)
+    production_client_id: Optional[str] = Field(None, max_length=200)
 
 
 @router.put("/platforms/{platform}", dependencies=[owner])
 async def update_platform(platform: str, req: PlatformPatch) -> dict:
     try:
-        return settings.set_platform_config(platform, req.mode, req.client_id)
+        return settings.set_platform_config(platform, req.mode, req.sandbox_client_id, req.production_client_id)
     except KeyError:
         raise HTTPException(404, "Unknown platform")
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+
+
+class DeveloperPatch(BaseModel):
+    enabled: bool
+
+
+@router.put("/developer", dependencies=[owner])
+async def update_developer(req: DeveloperPatch) -> dict:
+    """Developer mode: each platform uses its own mode (simulator, sandbox) instead of connecting for real."""
+    settings.set_developer_mode(req.enabled)
+    return _snapshot()
 
 
 class WearablePatch(BaseModel):
@@ -171,24 +185,40 @@ PROBES = {
 
 
 @router.post("/platforms/{platform}/verify", dependencies=[owner])
-async def verify_platform(platform: str) -> dict:
-    """Checks a sandbox client ID against the vendor's live authorization server."""
-    cfg = settings.platform_config(platform, "sandbox")
+async def verify_platform(platform: str, mode: str = "sandbox") -> dict:
+    """Checks a client ID against the vendor's live authorization server: the sandbox's, or for a production ID, a
+    featured health system's on that platform."""
+    if platform not in settings.EHR_PLATFORMS or mode not in ("sandbox", "production"):
+        raise HTTPException(404, "Unknown platform")
+    cfg = settings.platform_config(platform, mode)
     if not cfg["client_id"]:
-        return {"ok": False, "status": "not_configured", "detail": "No client ID configured."}
-    if platform not in PROBES:
-        return {"ok": None, "status": "unverifiable", "detail": "This vendor does not support a pre-flight check."}
-    authorize, aud = PROBES[platform]
+        return {"ok": False, "status": "not_configured", "detail": f"No {mode} client ID configured."}
+    if mode == "sandbox":
+        if platform not in PROBES:
+            return {"ok": None, "status": "unverifiable", "detail": "This vendor does not support a pre-flight check."}
+        authorize, aud = PROBES[platform]
+        where = f"{cfg['label']}'s sandbox"
+    else:
+        inst = next((i for i in directory.featured(limit=100, available={platform}) if i.get("fhir_base_url")), None)
+        if inst is None:
+            return {"ok": None, "status": "unverifiable", "detail": "No health system to check against."}
+        try:
+            authorize, aud = (await smart.discover(inst["fhir_base_url"]))["authorization_endpoint"], inst["fhir_base_url"]
+        except smart.SmartError as exc:
+            return {"ok": False, "status": "network_error", "detail": str(exc)}
+        where = inst["name"]
     params = {"response_type": "code", "client_id": cfg["client_id"], "redirect_uri": settings.get("relay.redirect_uri"),
-              "scope": "openid launch/patient patient/Patient.read", "state": "probe", "aud": aud,
+              "scope": "openid launch/patient patient/Patient.read", "state": "probe", "aud": aud.rstrip("/"),
               "code_challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", "code_challenge_method": "S256"}
     try:
         async with httpx.AsyncClient(follow_redirects=False, timeout=10.0) as client:
             resp = await client.get(authorize, params=params)
     except httpx.HTTPError:
-        return {"ok": False, "status": "network_error", "detail": f"Couldn't reach {cfg['label']}'s sign-in server."}
+        return {"ok": False, "status": "network_error", "detail": f"Couldn't reach {where}'s sign-in server."}
     location = resp.headers.get("location", "")
     bad = any(s in (location + resp.text[:2000]).lower() for s in ("unknown-client", "invalid_client", "unauthorized_client", "invalid client"))
-    if resp.status_code in (200, 302, 303) and not bad and "error=" not in location:
-        return {"ok": True, "status": "recognized", "detail": "The authorization server accepted this client ID and redirect URI."}
-    return {"ok": False, "status": "rejected", "detail": f"HTTP {resp.status_code}: the authorization server rejected this client ID or redirect URI."}
+    # Epic answers an unknown client with a 200 error page, and a known one with a redirect to the portal's sign-in.
+    recognized = resp.status_code in (302, 303) if platform == "epic" else resp.status_code in (200, 302, 303)
+    if recognized and not bad and "error=" not in location:
+        return {"ok": True, "status": "recognized", "detail": f"{where} accepted this client ID and redirect URI."}
+    return {"ok": False, "status": "rejected", "detail": f"HTTP {resp.status_code}: {where} rejected this client ID or redirect URI."}

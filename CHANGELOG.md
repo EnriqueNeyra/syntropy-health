@@ -3,8 +3,18 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
-## Unreleased
+## 1.2.0
 
+- **Health systems connect for real.** Choosing Kaiser Permanente, or any Epic health system, takes you to its own
+  MyChart sign-in. Before, a sandbox mode or client ID left in Settings sent it to Epic's test server instead.
+- **Developer mode** (Settings → Developer) is now one switch. Off, every platform connects for real with its production
+  client ID. On, each platform uses the mode you choose: the simulator, the vendor's sandbox, or production. Each platform
+  has a separate sandbox and production client ID, and a client ID saved before this version moves to the mode it was
+  saved for. In the environment, `EPIC_CLIENT_ID` and the like are production IDs; sandbox IDs go in
+  `EPIC_SANDBOX_CLIENT_ID` and the like. **Verify** checks a production ID against a real health system's sign-in.
+- **Health system search** shows full names instead of cutting them off. Health systems that can't be connected yet
+  (vendors Syntropy Health isn't registered with) are marked, listed after those that can, and suggest importing a
+  record file instead. Popular shows only ones that connect, and the SMART test server appears in developer mode only.
 - Releases carry each app once, under its fixed name (`Syntropy-Health-mac-arm64.dmg`,
   `Syntropy-Health-windows-x64-setup.exe`), instead of a second copy with the version in its name.
 
