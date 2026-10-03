@@ -3,6 +3,12 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
+## Unreleased
+
+- Releasing is a pull request: merging a change to `APP_VERSION` tags it and publishes the release, with the changelog
+  as its notes. Pull requests need one CI check, **CI passed**, which covers every job, and the tests also run on the
+  newest Python.
+
 ## 1.1.1
 
 - **Epic (MyChart) connects for real.** Syntropy Health is registered with Epic, so choosing an Epic health system

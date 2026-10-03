@@ -68,18 +68,22 @@ Add an entry under **Unreleased** in [CHANGELOG.md](../CHANGELOG.md).
 
 | Workflow | When | What |
 |---|---|---|
-| CI | pushes to main, pull requests | lint, the test suite, the relay worker's tests, and the installers on real Linux, Mac and Windows machines |
-| Docker image | pushes to main, pull requests, releases | builds and runs the image; publishes `:main` from main, and `:latest` and the version from a release |
-| Release | a `v*` tag; changes under `desktop/` | builds and checks the Mac and Windows apps; a tag also runs CI and drafts the release |
+| CI | pushes to main, pull requests | lint, the test suite (Python 3.12 and the newest), the relay worker's tests, and the installers on real Linux, Mac and Windows machines |
+| Docker image | pushes to main, pull requests, releases | builds and runs the image; publishes `:main` from main, and `:latest` and the version for a release |
+| Release | a `v*` tag; changes under `desktop/` | builds and checks the Mac and Windows apps; a tag also runs CI and publishes the release |
+| Tag release | a change to `APP_VERSION` merged into main | tags that version, which starts Release |
 | CodeQL | pushes to main, pull requests, weekly | security scanning (public repository only) |
+| CLA | pull requests | checks everyone with commits in it has signed the CLA |
+
+Pull requests into main need **CI passed** (every CI job succeeded), **image** and **CLA**.
 
 Dependabot proposes dependency updates weekly (Python, the Docker base image) and monthly (the workflows' actions).
 
 ## Releasing
 
-1. Move the **Unreleased** entries in CHANGELOG.md under the new version, and set `APP_VERSION` in
-   `app/core/config.py` to it. Push to main and wait for CI.
-2. Optionally try the apps first: Actions → Release → Run workflow, then download them from the run.
-3. `git tag v1.2.0 && git push origin v1.2.0`. This builds everything and drafts a GitHub release.
-4. Check the draft and publish it. Publishing is what makes it the version installers, `syntropy-health update`, the
-   apps' update checks and Docker's `:latest` use.
+Open a pull request that sets `APP_VERSION` in `app/core/config.py` to the new version and renames the changelog's
+**Unreleased** heading to it (`## 1.2.0`). Merging it releases: the version is tagged, CI runs again on it, and the Mac
+and Windows apps, the Python wheel and the Docker image are built and published, with that changelog section as the
+release notes. Installers, `syntropy-health update`, the apps' update checks and Docker's `:latest` then use it.
+
+To try the apps before releasing: Actions → Release → Run workflow, then download them from the run.

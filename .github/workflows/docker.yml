@@ -1,7 +1,7 @@
 name: Docker image
 
 # Publishes ghcr.io/enriqueneyra/syntropy-health for amd64 and arm64 (Raspberry Pi, ARM NAS boxes):
-#   :latest, :1.2.3 and :1.2   when a release is published (the Release workflow drafts it from a tag)
+#   :latest, :1.2.3 and :1.2   for a release (the Release workflow starts this on the release's tag)
 #   :main                      on every push to main, for trying what's next
 # Pull requests build the image and run it, without publishing.
 # The first publish creates the package under the account's Packages. Its visibility is set there (Package settings),
@@ -44,7 +44,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=ref,event=branch
           labels: |
             org.opencontainers.image.title=Syntropy Health
@@ -69,7 +69,7 @@ jobs:
           # The server runs as the data folder's owner (this runner's user), not root.
           test "$(stat -c %u "$data/syntropy.db")" = "$(id -u)"
       - name: The release's tag matches the version in the code
-        if: github.event_name == 'release'
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           version="$(docker run --rm syntropy-health:test python -c 'from app.core.config import APP_VERSION; print(APP_VERSION)')"
           [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "The tag is $GITHUB_REF_NAME but APP_VERSION is $version"; exit 1; }

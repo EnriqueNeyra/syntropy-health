@@ -1,0 +1,46 @@
+name: Tag release
+
+# Releasing is a pull request that sets APP_VERSION in app/core/config.py and moves the changelog's Unreleased entries
+# under that version. When it's merged, this tags vX.Y.Z on the merge commit and starts the Release workflow on the
+# tag, which runs CI again, builds, and publishes. Merges that leave APP_VERSION alone, or set one that's already
+# tagged, release nothing.
+# A tag made with the workflow's token doesn't start workflows by itself, hence the explicit start. The "Release tags"
+# ruleset has to allow creating v* tags; it still stops anyone moving or deleting one.
+on:
+  push:
+    branches: [main]
+    paths: ["app/core/config.py"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # to create the tag
+      actions: write        # to start the Release workflow
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tag a new version and start its release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(python3 -c 'from app.core.config import APP_VERSION; print(APP_VERSION)')"
+          tag="v$version"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --silent 2>/dev/null; then
+            echo "$tag already exists, so there's nothing to release."
+            exit 0
+          fi
+          grep -qx "## $version" CHANGELOG.md \
+            || echo "::warning::CHANGELOG.md has no '## $version' section, so the release won't have notes."
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$GITHUB_SHA" --silent \
+            || { echo "::error::Couldn't create $tag. The 'Release tags' ruleset must allow creating v* tags."; exit 1; }
+          gh workflow run desktop.yml --repo "$GITHUB_REPOSITORY" --ref "$tag"
+          echo "Tagged $tag at $GITHUB_SHA and started the Release workflow."
