@@ -3,7 +3,7 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
-## Unreleased
+## 1.3.0
 
 - **Health systems whose sign-in isn't working say so before you try.** A weekly check opens every Epic health
   system's sign-in, the way a browser would, and records the ones that fail. Choosing one now explains what's wrong
