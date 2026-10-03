@@ -3,6 +3,11 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
+## Unreleased
+
+- Releases carry each app once, under its fixed name (`Syntropy-Health-mac-arm64.dmg`,
+  `Syntropy-Health-windows-x64-setup.exe`), instead of a second copy with the version in its name.
+
 ## 1.1.2
 
 - **Updates download again in the Mac app.** It couldn't verify GitHub's certificate, so installing an update failed.
