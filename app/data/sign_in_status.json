@@ -1,0 +1,170 @@
+{
+ "servers": {
+  "https://arrprd.kdmc.net/fhir/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://arrprd.mhhcc.org/oauth2/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://edhwebportal.hitchcock.org/fhirproxy/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epic-arr.pinnaclehealth.org/prd-fhir-arr/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epic-fhir-prd.upmc.com/fhir-prd/api/fhir/r4": {
+   "status": "portal_error",
+   "since": "2026-10-03",
+   "instead": [
+    "epic-upmc-patient-portal"
+   ]
+  },
+  "https://epic-fhir.mercy.net/prdfhirsgf/chi/api/fhir/r4": {
+   "status": "portal_error",
+   "since": "2026-10-03"
+  },
+  "https://epicarr.optum.com/fhir/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epicfe.unch.unc.edu/fhir/alignment/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://epicfe.unch.unc.edu/fhir/dcopublichealth/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://epicfe.unch.unc.edu/fhir/rhcc/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://epicfe.unch.unc.edu/fhir/uncadamsdentistry/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://epicpnwarr.optum.com/fhir/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epicprdext.stfranciscare.org/fhirproxy/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epicproxy.connecticutchildrens.org/fhir/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epicproxy.et0502.epichosted.com/fhirproxy/ccmc/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://epicproxy.et0502.epichosted.com/fhirproxy/ucihealth/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://epicproxy.et0764.epichosted.com/fhirproxy/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epicproxy.et0905.epichosted.com/fhirproxy/stlumychart/api/fhir/r4": {
+   "status": "portal_error",
+   "since": "2026-10-03"
+  },
+  "https://epicproxy.et1200.epichosted.com/oauth2-prd/mobile/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://epicproxy.et1430.epichosted.com/apiproxyprd/csv/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epicproxy.et1442.epichosted.com/apiproxyprd/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epicproxy.et1447.epichosted.com/apiproxyprd/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epicsoap.wellstar.org/fhirproxy/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://epicsoap.wellstar.org/fhirproxy/home/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://fhir.lakelandregional.org/fhirproxy/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://fhir.mah.org/prd-fhir/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://haiku.bshsi.org/fhir/crmc_oauth/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://health-apis.duke.edu/fhir/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://hie.hcmed.org/fhir/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://icproxy.mycclink.org/proxy-fhir/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03",
+   "instead": [
+    "epic-contra-costa-health-services"
+   ]
+  },
+  "https://mobileproxy.sjhsyr.org/fhir/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://ocsoapprd.nebraskamed.com/fhir-prd/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://ocsoapprd.nebraskamed.com/fhir-prd/home/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://rmgpxy.riverbendmedical.com/fhir_proxy/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://rxhub.luhs.org/fhir/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://scvhhsfhir.sccgov.org/interconnect-fhir/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://soap.uhcs.org/ic-fhir/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://surescripts.mdmercy.com/fhir-prd/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-10-03"
+  },
+  "https://w1soap.wakehealth.edu/fhirproxy/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  },
+  "https://wavesurescripts.sansumclinic.org/fhir/api/fhir/r4": {
+   "status": "client_unknown",
+   "since": "2026-10-03"
+  }
+ }
+}

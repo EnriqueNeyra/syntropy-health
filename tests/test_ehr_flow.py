@@ -396,3 +396,20 @@ def test_directory_marks_platforms_that_cannot_connect_yet(client):
     assert r.status_code == 400 and "isn't registered with Oracle Health" in r.json()["detail"]
     r = client.post("/api/connections/ehr", json={"institution_id": "smart-health-it"})
     assert r.status_code == 400 and "developer mode" in r.json()["detail"]
+
+
+def test_a_health_system_whose_sign_in_failed_the_check_says_so(client, monkeypatch):
+    from app import directory
+
+    epic = [i for i in directory._institutions() if i["platform"] == "epic" and i.get("fhir_base_url")]
+    broken, working = epic[0], epic[1]
+    key = broken["fhir_base_url"].strip().rstrip("/").lower()
+    monkeypatch.setattr(directory, "_sign_in_status", lambda: {
+        key: {"status": "portal_error", "since": "2026-10-03", "instead": [working["id"], "gone-from-directory"]}})
+    client.put("/api/settings/developer", json={"enabled": False})
+
+    found = client.get(f"/api/directory/{broken['id']}").json()
+    assert found["sign_in_problem"] == {"status": "portal_error", "since": "2026-10-03",
+                                        "instead": [{"id": working["id"], "name": working["name"]}]}
+    assert client.get(f"/api/directory/{working['id']}").json()["sign_in_problem"] is None
+    assert client.get("/api/directory/not-a-real-id").status_code == 404
