@@ -342,6 +342,12 @@ QUERY_PLAN: list[tuple[str, list[dict[str, str]]]] = [
 ]
 
 
+def _same_server(a: str, b: str) -> bool:
+    """Host names ignore case: Kaiser's paging links say FHIR.KP.ORG for a server listed as fhir.kp.org."""
+    pa, pb = urlparse(a), urlparse(b)
+    return (pa.scheme, pa.hostname, pa.port) == (pb.scheme, pb.hostname, pb.port)
+
+
 @dataclass
 class FetchResult:
     patient: Optional[dict[str, Any]] = None
@@ -436,7 +442,7 @@ class FhirClient:
             url = next((l.get("url") for l in bundle.get("link") or [] if l.get("relation") == "next"), None)
             current = None
             pages += 1
-            if url and not self.simulated and urlparse(url).netloc and urlparse(url).netloc != urlparse(self.base).netloc:
+            if url and not self.simulated and urlparse(url).netloc and not _same_server(url, self.base):
                 # Never follow paging links to a different host with our bearer token.
                 return results, "truncated"
         return results, ("truncated" if url else ("ok" if results else "empty"))
