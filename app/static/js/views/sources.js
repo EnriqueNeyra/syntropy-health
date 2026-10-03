@@ -142,7 +142,7 @@ function signInProblem(inst) {
   const checked = since ? `when we checked on ${since}` : "when we last checked";
   const when = ` ${checked[0].toUpperCase()}${checked.slice(1)},`;
   const what = {
-    client_unknown: html`<b>${name} hasn't finished setting up Syntropy Health yet.</b> Epic has approved the connection, but ${checked},
+    client_unknown: html`<b>${name} hasn't finished setting up Syntropy Health yet.</b> ${inst.platform_label} has approved the connection, but ${checked},
       ${name}'s ${portal} didn't recognize Syntropy Health yet. This usually sorts itself out within days.`,
     unreachable: html`<b>${name}'s connection server isn't responding.</b>${when} it didn't answer, so signing in will probably fail.`,
     rejected: html`<b>${name} is turning down connections.</b>${when} its ${portal} refused Syntropy Health's sign-in request.`,

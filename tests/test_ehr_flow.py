@@ -385,15 +385,14 @@ def test_paging_follows_links_whose_host_differs_only_in_case():
 def test_directory_marks_platforms_that_cannot_connect_yet(client):
     client.put("/api/settings/developer", json={"enabled": False})
     res = client.get("/api/directory", params={"q": "medical center", "limit": 200}).json()["results"]
-    flags = [r["available"] for r in res]
-    assert True in flags and False in flags
-    assert {r["platform"] for r in res if r["available"]} == {"epic"}
+    assert all(r["available"] for r in res) and {r["platform"] for r in res} == {"epic", "cerner", "healow"}
     featured = client.get("/api/directory/featured").json()["results"]
     assert featured and all(r["available"] for r in featured)
     assert not any(r["platform"] == "smart-health-it" for r in client.get("/api/directory", params={"q": "smart demo"}).json()["results"])
-    oracle = client.get("/api/directory", params={"platform": "cerner"}).json()["results"][0]
-    r = client.post("/api/connections/ehr", json={"institution_id": oracle["id"]})
-    assert r.status_code == 400 and "isn't registered with Oracle Health" in r.json()["detail"]
+    athena = client.get("/api/directory", params={"platform": "athena"}).json()["results"][0]
+    assert not athena["available"]
+    r = client.post("/api/connections/ehr", json={"institution_id": athena["id"]})
+    assert r.status_code == 400 and "isn't registered with athenahealth" in r.json()["detail"]
     r = client.post("/api/connections/ehr", json={"institution_id": "smart-health-it"})
     assert r.status_code == 400 and "developer mode" in r.json()["detail"]
 

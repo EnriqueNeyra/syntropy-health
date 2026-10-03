@@ -8,7 +8,7 @@
 #   ./run.sh lint       check the code with ruff
 #   ./run.sh mcp        start the MCP server on stdio (for AI assistants)
 #   ./run.sh directory  refresh the health-system directory from Epic, Oracle Health and eClinicalWorks
-#   ./run.sh check-sign-in  check that every Epic health system reaches its MyChart sign-in
+#   ./run.sh check-sign-in  check that every health system (Epic, Oracle Health, eClinicalWorks) reaches its sign-in
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 mkdir -p data

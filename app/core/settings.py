@@ -21,9 +21,14 @@ EHR_PLATFORMS: dict[str, dict[str, Any]] = {
     "epic": {"label": "Epic (MyChart)", "env": "EPIC_CLIENT_ID", "sandbox_env": "EPIC_SANDBOX_CLIENT_ID", "default_mode": "sandbox",
              "default_client_ids": {"sandbox": "280d55bb-e8a2-45b0-8a7b-2e3826ef5e9c",
                                     "production": "eb7944d2-58e9-4805-bae2-8c68fd70cfdf"}},
-    "cerner": {"label": "Oracle Health (Cerner)", "env": "CERNER_CLIENT_ID", "sandbox_env": "CERNER_SANDBOX_CLIENT_ID"},
+    # Oracle's Code Console and eCW's healow portal each issue one client ID, for the sandbox and production alike.
+    "cerner": {"label": "Oracle Health (Cerner)", "env": "CERNER_CLIENT_ID", "sandbox_env": "CERNER_SANDBOX_CLIENT_ID",
+               "default_client_ids": {"sandbox": "bdb450fd-487c-49cd-8ab9-117cc89d55d6",
+                                      "production": "bdb450fd-487c-49cd-8ab9-117cc89d55d6"}},
     "athena": {"label": "athenahealth", "env": "ATHENA_CLIENT_ID", "sandbox_env": "ATHENA_SANDBOX_CLIENT_ID"},
-    "healow": {"label": "eClinicalWorks (healow)", "env": "HEALOW_CLIENT_ID", "sandbox_env": "HEALOW_SANDBOX_CLIENT_ID"},
+    "healow": {"label": "eClinicalWorks (healow)", "env": "HEALOW_CLIENT_ID", "sandbox_env": "HEALOW_SANDBOX_CLIENT_ID",
+               "default_client_ids": {"sandbox": "_OhOmZAdes002quTJLmoDt6ESQVyUItZvH7WuYuhFWQ",
+                                      "production": "_OhOmZAdes002quTJLmoDt6ESQVyUItZvH7WuYuhFWQ"}},
     "va": {"label": "VA Lighthouse", "env": "VA_CLIENT_ID", "sandbox_env": "VA_SANDBOX_CLIENT_ID"},
     # A public test server: offered only in developer mode.
     "smart-health-it": {"label": "SMART Health IT", "env": "", "sandbox_env": "", "developer_only": True},

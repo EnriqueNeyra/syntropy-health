@@ -1,26 +1,27 @@
 """
-Checks that every Epic health system in the directory takes a patient to its MyChart sign-in.
+Checks that every Epic, Oracle Health and eClinicalWorks health system in the directory takes a patient to its sign-in.
 
-    ./run.sh check-sign-in                     # every Epic health system
+    ./run.sh check-sign-in                     # every health system (eClinicalWorks's 17,000 practices take ~2.5 hours)
+    ./run.sh check-sign-in --platform epic     # one vendor's: epic, cerner (Oracle Health) or healow (eClinicalWorks)
     ./run.sh check-sign-in --only kaiser       # names containing "kaiser"
     ./run.sh check-sign-in --json report.json  # also save every result
     ./run.sh check-sign-in --no-browser        # skip the Chrome pass
     ./run.sh check-sign-in --write-status      # record failures in app/data/sign_in_status.json (weekly job)
 
 For each distinct FHIR server it does what the app does when someone connects: reads the SMART configuration, sends
-Syntropy Health's production client ID and redirect address to the authorize endpoint (with the Kaiser workaround
-applied, as in the app), and follows the redirects a browser would until a page loads. It stops at the sign-in page,
+Syntropy Health's production client ID for that vendor and redirect address to the authorize endpoint (with the Kaiser
+workaround applied, as in the app), and follows the redirects a browser would until a page loads. It stops at the sign-in page,
 so nobody signs in and no records are read.
 
 Some sign-in sites turn away scripts (Mayo's answers 403, others drop the connection), and some only move on by
-running JavaScript. So every server that doesn't come out ``ok`` is opened again in headless Chrome, which settles it.
+running JavaScript (Oracle Health's authorize page does). So every server that doesn't come out ``ok`` is opened again in headless Chrome, which settles it.
 That needs Playwright (``pip install -e ".[checks]"``) and Google Chrome, or Playwright's own Chromium
 (``playwright install chromium``); without them the first pass stands.
 
 | Result | Meaning |
 |---|---|
 | ``ok`` | The health system's sign-in page loaded. |
-| ``client_unknown`` | The authorize endpoint showed an error instead of redirecting: Epic hasn't delivered our client ID there yet. |
+| ``client_unknown`` | The authorize endpoint didn't recognize our client ID (at an Epic health system: Epic hasn't delivered it there yet). |
 | ``rejected`` | The authorize endpoint sent an OAuth error back to our redirect address. |
 | ``portal_error`` | A page on the way to sign-in failed (4xx or 5xx), the way Kaiser's did. A lowercase retry is noted. |
 | ``error_page`` | A page loaded, but it is an error page. |
@@ -49,7 +50,7 @@ from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -60,7 +61,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from app.connectors import smart  # noqa: E402
 from app.core import config, settings  # noqa: E402
 
-EPIC_DIRECTORY = REPO_ROOT / "app" / "data" / "institutions" / "epic.json"
+DIRECTORIES = {platform: REPO_ROOT / "app" / "data" / "institutions" / f"{name}.json"
+               for platform, name in (("epic", "epic"), ("cerner", "oracle"), ("healow", "ecw"))}
 STATUS_FILE = REPO_ROOT / "app" / "data" / "sign_in_status.json"
 RECORDED = ("portal_error", "error_page", "unreachable", "client_unknown", "rejected")
 MAX_HOPS = 20
@@ -72,13 +74,16 @@ RETRY_DELAYS = (2.0, 6.0)      # a busy name resolver or a moment's 503 isn't th
 _SCRIPT_REDIRECT = re.compile(r"""(?:(?:top|window|document)\.)?location(?:\.href)?\s*=\s*['"]([^'"]+)['"]"""
                               r"""|location\.replace\(\s*['"]([^'"]+)['"]""")
 _META_REFRESH = re.compile(r"""<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["'][^"']*url=([^"'>]+)""", re.I)
+# Oracle Health's authorize page is a script that moves on to its session service, named in the page's properties.
+_ORACLE_REDIRECT_PAGE = re.compile(r"""data-page-id=["']IdentityProviderRedirectPage["'][^>]*data-page-properties=["']([^"']+)""")
 _NOSCRIPT = re.compile(r"<noscript\b.*?</noscript>", re.I | re.S)
 _TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
 _PASSWORD = re.compile(r"""<input[^>]+type=["']?password""", re.I)
 _SIGN_IN_TITLE = ("sign in", "sign-in", "log in", "login", "mychart")
 _SIGN_IN = ("sign in", "log in", "login", "username")
 _ERROR = ("page not found", "needs some care", "oauth2 error", "invalid_client", "unauthorized_client",
-          "unknown-client", "invalid client", "something went wrong", "an error has occurred", "error occurred")
+          "unknown-client", "invalid client", "something went wrong", "an error has occurred", "error occurred",
+          "invalid request")     # eClinicalWorks practices without patient access
 _ERROR_TITLE = ("error", "not found", "access denied", "unavailable", "needs some care")
 _CLIENT_ERROR = ("oauth2 error", "invalid_client", "unauthorized_client", "unknown-client", "invalid client")
 
@@ -93,6 +98,7 @@ class Result:
     workaround: bool = False
     start_url: str = ""                                 # the sign-in address the app hands the browser
     browser: str = ""                                   # what Chrome found, when it looked
+    platform: str = ""
 
 
 def _title(text: str) -> str:
@@ -108,6 +114,13 @@ def _looks_like_sign_in(title: str, has_password: bool) -> bool:
 def _page_redirect(url: str, text: str) -> Optional[str]:
     """The next address a browser would load from a page that redirects by script or meta refresh."""
     head = _NOSCRIPT.sub("", text[:20000])      # a browser with scripts on ignores these fallbacks (Mercy's loop)
+    if match := _ORACLE_REDIRECT_PAGE.search(head):
+        try:
+            target = json.loads(html.unescape(match.group(1))).get("sessionServiceUri")
+        except ValueError:
+            target = None
+        if target:
+            return urljoin(url, target)
     for pattern in (_META_REFRESH, _SCRIPT_REDIRECT):
         match = pattern.search(head)
         if match:
@@ -172,6 +185,9 @@ async def check_server(base: str, client_id: str, redirect_uri: str,
             at_authorize = urlparse(url).hostname == authorize_host and len(result.hops) == 1
             if resp.is_redirect:
                 target = urljoin(url, resp.headers.get("location", ""))
+                if at_authorize and "unknown-client" in target.lower():      # Oracle's answer to a client it doesn't know
+                    result.status, result.detail = "client_unknown", f"{_where(url)} redirected to {_where(target)}"
+                    return result
                 if urlparse(target).hostname == urlparse(redirect_uri).hostname:
                     result.status, result.detail = "rejected", f"sent back to our redirect address: {target[:200]}"
                     return result
@@ -231,6 +247,8 @@ def classify_page(*, status: Optional[int], url: str, title: str, has_password: 
         return "ok", f"{where}: {title}"
     if status and status >= 400:
         return ("blocked" if status == 403 else "portal_error"), f"HTTP {status} at {where}" + (f" ({title})" if title else "")
+    if title.lower().startswith("loading"):       # Oracle Health's script page, caught before it moved on
+        return "unclear", f"{where}: still loading ({title[:60]})"
     lower = text.lower()
     if any(s in lower for s in _ERROR) or any(s in title.lower() for s in _ERROR_TITLE):
         return "error_page", f"{where}: {title or 'error page'}"
@@ -313,9 +331,8 @@ async def browser_pass(results: list[Result], redirect_uri: str) -> Optional[str
     return None
 
 
-def _epic_entries() -> list[dict[str, Any]]:
-    data = json.loads(EPIC_DIRECTORY.read_text())
-    return data if isinstance(data, list) else data.get("institutions", data)
+def _entries(platforms: Iterable[str] = DIRECTORIES) -> list[dict[str, Any]]:
+    return [inst for platform in platforms for inst in json.loads(DIRECTORIES[platform].read_text())]
 
 
 def address_key(url: str) -> str:
@@ -346,52 +363,54 @@ def sign_in_status(results: list[Result], entries: list[dict[str, Any]], previou
     return {"servers": dict(sorted(servers.items()))}
 
 
-def epic_servers(only: Optional[str] = None) -> dict[str, list[str]]:
-    """Distinct Epic FHIR servers and the names of the health systems on each."""
-    entries = _epic_entries()
-    servers: dict[str, list[str]] = defaultdict(list)
-    for inst in entries:
+def health_system_servers(platforms: Iterable[str], only: Optional[str] = None) -> dict[str, tuple[str, list[str]]]:
+    """Distinct FHIR servers, each with its platform and the names of the health systems on it."""
+    servers: dict[str, tuple[str, list[str]]] = {}
+    for inst in _entries(platforms):
         if not inst.get("fhir_base_url") or (only and only.lower() not in inst["name"].lower()):
             continue
-        servers[inst["fhir_base_url"].strip().rstrip("/")].append(inst["name"])
-    return dict(servers)
+        servers.setdefault(inst["fhir_base_url"].strip().rstrip("/"), (inst["platform"], []))[1].append(inst["name"])
+    return servers
 
 
-async def check_all(servers: dict[str, list[str]], client_id: str, redirect_uri: str) -> list[Result]:
+async def check_all(servers: dict[str, tuple[str, list[str]]], redirect_uri: str) -> list[Result]:
     overall = asyncio.Semaphore(CONCURRENCY)
     per_host: dict[str, asyncio.Semaphore] = defaultdict(lambda: asyncio.Semaphore(PER_HOST))
     done = 0
 
-    async def one(base: str, names: list[str]) -> Result:
+    async def one(base: str, platform: str, names: list[str]) -> Result:
         nonlocal done
+        client_id = settings.EHR_PLATFORMS[platform]["default_client_ids"]["production"]
         async with overall, per_host[(urlparse(base).hostname or "").lower()]:
             try:
                 result = await check_server(base, client_id, redirect_uri)
             except Exception as exc:  # noqa: BLE001 - one odd server shouldn't stop the run
                 result = Result("unreachable", f"{type(exc).__name__}: {exc}"[:300], base)
-        result.names = sorted(names)
+        result.names, result.platform = sorted(names), platform
         done += 1
         if done % 50 == 0 or done == len(servers):
             print(f"  {done}/{len(servers)} checked", file=sys.stderr)
         return result
 
-    return list(await asyncio.gather(*(one(base, names) for base, names in servers.items())))
+    return list(await asyncio.gather(*(one(base, platform, names) for base, (platform, names) in servers.items())))
 
 
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0].strip())
+    parser.add_argument("--platform", action="append", choices=sorted(DIRECTORIES),
+                        help="check only this vendor's health systems (can be repeated)")
     parser.add_argument("--only", help="check health systems whose name contains this text")
     parser.add_argument("--json", type=Path, help="write every result to this file")
     parser.add_argument("--no-browser", action="store_true", help="don't open anything in Chrome")
     parser.add_argument("--write-status", action="store_true", help=f"record failures in {STATUS_FILE.relative_to(REPO_ROOT)}")
     args = parser.parse_args(argv)
-    if args.write_status and args.only:
-        parser.error("--write-status needs every health system checked, so it can't be combined with --only")
+    if args.write_status and (args.only or args.platform):
+        parser.error("--write-status needs every health system checked, so it can't be combined with --only or --platform")
 
-    client_id = settings.EHR_PLATFORMS["epic"]["default_client_ids"]["production"]
-    servers = epic_servers(args.only)
-    print(f"Checking {len(servers)} Epic FHIR servers …", file=sys.stderr)
-    results = asyncio.run(check_all(servers, client_id, config.DEFAULT_RELAY_URL))
+    servers = health_system_servers(args.platform or DIRECTORIES, args.only)
+    per_platform = Counter(platform for platform, _ in servers.values())
+    print(f"Checking {len(servers)} FHIR servers ({', '.join(f'{n} {p}' for p, n in per_platform.items())}) …", file=sys.stderr)
+    results = asyncio.run(check_all(servers, config.DEFAULT_RELAY_URL))
     if not args.no_browser and (skipped := asyncio.run(browser_pass(results, config.DEFAULT_RELAY_URL))):
         print(f"Note: {skipped}.", file=sys.stderr)
 
@@ -399,12 +418,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     print("\n" + ", ".join(f"{n} {status}" for status, n in counts.most_common()))
     for r in sorted((r for r in results if r.status != "ok"), key=lambda r: (r.status, r.names[0])):
         names = r.names[0] + (f" (+{len(r.names) - 1} more)" if len(r.names) > 1 else "")
-        print(f"\n[{r.status}] {names}\n  {r.fhir_base_url}\n  {r.detail}")
+        print(f"\n[{r.status}] {names} ({r.platform})\n  {r.fhir_base_url}\n  {r.detail}")
     if args.json:
         args.json.write_text(json.dumps([asdict(r) for r in results], indent=1))
     if args.write_status:
         previous = json.loads(STATUS_FILE.read_text()) if STATUS_FILE.exists() else {}
-        status = sign_in_status(results, _epic_entries(), previous, date.today().isoformat())
+        status = sign_in_status(results, _entries(), previous, date.today().isoformat())
         STATUS_FILE.write_text(json.dumps(status, indent=1) + "\n")
     return 0 if counts["ok"] == len(results) else 1
 
