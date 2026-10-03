@@ -539,7 +539,8 @@ class DesktopApp:
         if mac:
             from mac_window import MacWindow
             self.mac = MacWindow(self.window, background=self.background, prefs=self.prefs, tray_actions=actions,
-                                 dock_menu_state=self.menu_state, on_request=self.on_request)
+                                 dock_menu_state=self.menu_state, on_request=self.on_request,
+                                 home_url=lambda: self.home_url)
 
         def started() -> None:
             self.tray.start()
