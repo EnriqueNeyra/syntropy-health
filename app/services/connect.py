@@ -120,6 +120,8 @@ async def start_ehr(profile_id: str, origin: str, *, institution_id: Optional[st
         scope=smart.fit_scopes(plan["scopes"], config.get("scopes_supported")), state=state, aud=plan["fhir_base_url"],
         code_challenge=challenge,
     )
+    if not plan["simulated"]:
+        url = await smart.kaiser_sign_in_url(url)
     return {"auth_url": url, "mode": plan["mode"], "display_name": plan["display_name"], "hint": plan.get("hint")}
 
 

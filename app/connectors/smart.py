@@ -139,6 +139,36 @@ def authorization_url(authorization_endpoint: str, *, client_id: str, redirect_u
     return f"{authorization_endpoint}{sep}{urlencode(params)}"
 
 
+# Temporary (October 2026): Kaiser's fhir.kp.org sends every region but Washington to
+# healthy.kaiserpermanente.org/<region>/Authentication/OAuth/Start, which answers 500 even without parameters, while
+# the same path in lowercase reaches Kaiser's sign-in and completes. Remove once Kaiser fixes it; until then it turns
+# itself off as soon as the capitalized page stops failing.
+_KAISER_AUTHORIZE_HOST = "fhir.kp.org"
+_KAISER_MYCHART_HOST = "healthy.kaiserpermanente.org"
+_KAISER_BROKEN_PATH = re.compile(r"^/fhir[a-z]+/Authentication/OAuth/Start$")
+
+
+async def kaiser_sign_in_url(url: str, transport: Optional[httpx.AsyncBaseTransport] = None) -> str:
+    """Follows Kaiser's first redirect and lowercases the broken sign-in path; any other URL comes back unchanged."""
+    if (urlparse(url).hostname or "").lower() != _KAISER_AUTHORIZE_HOST:
+        return url
+    try:
+        async with httpx.AsyncClient(timeout=10.0, headers={"User-Agent": USER_AGENT}, transport=transport) as client:
+            hop = await client.get(url)
+            target = urlparse(hop.headers.get("location", ""))
+            if not hop.is_redirect or (target.hostname or "").lower() != _KAISER_MYCHART_HOST \
+                    or not _KAISER_BROKEN_PATH.match(target.path):
+                return url
+            probe = await client.get(f"https://{_KAISER_MYCHART_HOST}{target.path}")
+            if probe.status_code < 500:
+                return url
+    except httpx.HTTPError as exc:
+        log.info("Kaiser sign-in check failed (%s); using the normal address", exc)
+        return url
+    log.info("Kaiser's %s is failing; sending sign-in to the lowercase path", target.path)
+    return target._replace(netloc=_KAISER_MYCHART_HOST, path=target.path.lower()).geturl()
+
+
 def _patient_from_tokens(tokens: dict[str, Any]) -> Optional[str]:
     if tokens.get("patient"):
         return str(tokens["patient"])
