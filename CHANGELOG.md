@@ -3,6 +3,13 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
+## 1.1.1
+
+- **Epic (MyChart) connects for real.** Syntropy Health is registered with Epic, so choosing an Epic health system
+  takes you to its MyChart sign-in, with no client ID to set up. Health systems receive the app from Epic over time;
+  until yours has it, signing in there won't work yet. Settings → Developer still switches Epic to
+  Simulated or Sandbox.
+
 ## 1.1.0
 
 ### Insights across your sources
