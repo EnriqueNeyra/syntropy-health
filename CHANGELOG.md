@@ -3,8 +3,12 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
-## Unreleased
+## 1.1.2
 
+- **Updates download again in the Mac app.** It couldn't verify GitHub's certificate, so installing an update failed.
+  The app also reaches a Syntropy Health server at an `https://` address when joining one. Updating to 1.1.2 itself
+  needs [downloading it](https://github.com/EnriqueNeyra/syntropy-health/releases/latest) once; later updates
+  install themselves.
 - Releasing is a pull request: merging a change to `APP_VERSION` tags it and publishes the release, with the changelog
   as its notes. Pull requests need one CI check, **CI passed**, which covers every job, and the tests also run on the
   newest Python.

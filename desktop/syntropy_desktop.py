@@ -571,10 +571,12 @@ def update_installer(fn: Optional[Callable[[dict, bool], None]]) -> None:
 
 
 def reachable(url: str) -> bool:
+    import httpx   # its own certificate authorities: the packaged Mac app has none for urllib, so https:// failed
+
     try:
-        with urllib.request.urlopen(f"{url.rstrip('/')}/api/wearables/pair", timeout=4) as r:
-            return json.loads(r.read()).get("service") == "syntropy-health"
-    except (OSError, ValueError):
+        r = httpx.get(f"{url.rstrip('/')}/api/wearables/pair", timeout=4.0, follow_redirects=True)
+        return r.json().get("service") == "syntropy-health"
+    except (httpx.HTTPError, ValueError, AttributeError):
         return False
 
 

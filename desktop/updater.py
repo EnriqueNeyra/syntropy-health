@@ -21,9 +21,10 @@ import sys
 import tempfile
 import threading
 import time
-import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Optional
+
+import httpx
 
 from app.services.updates import InstallFailed
 
@@ -35,10 +36,16 @@ class UpdateError(InstallFailed):
 
 
 def _download(url: str, dest: Path) -> None:
-    req = urllib.request.Request(url, headers={"User-Agent": "Syntropy-Health-updater"})
-    with urllib.request.urlopen(req, timeout=60) as resp, open(dest, "wb") as out:
-        while chunk := resp.read(1 << 20):
-            out.write(chunk)
+    # httpx brings its own certificate authorities (certifi). urllib relies on the system's OpenSSL ones, which the
+    # packaged Mac app doesn't have, so every HTTPS download there failed certificate verification.
+    headers = {"User-Agent": "Syntropy-Health-updater"}
+    try:
+        with httpx.stream("GET", url, headers=headers, timeout=60.0, follow_redirects=True) as resp, open(dest, "wb") as out:
+            resp.raise_for_status()
+            for chunk in resp.iter_bytes(1 << 20):
+                out.write(chunk)
+    except httpx.HTTPError as exc:
+        raise UpdateError("The new version couldn't be downloaded. Check the internet connection and try again.") from exc
 
 
 def _expected_sha256(sums: str, name: str) -> Optional[str]:

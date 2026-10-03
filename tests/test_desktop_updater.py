@@ -65,3 +65,36 @@ def test_a_release_without_this_computers_app(mac):
     u, _ = mac
     with pytest.raises(updater.UpdateError, match="no app for this computer"):
         u({"version": "9.1.0", "url": "https://example.test/release", "assets": {}}, False)
+
+
+def test_download_follows_the_release_redirect(tmp_path):
+    """GitHub serves release files through a redirect; the file lands on disk as served."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            if self.path == "/release/mac.dmg":
+                self.send_response(302)
+                self.send_header("Location", "/storage/mac.dmg")
+                self.end_headers()
+            elif self.path == "/storage/mac.dmg":
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(APP)))
+                self.end_headers()
+                self.wfile.write(APP)
+            else:
+                self.send_error(404)
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        updater._download(f"{base}/release/mac.dmg", tmp_path / "mac.dmg")
+        assert (tmp_path / "mac.dmg").read_bytes() == APP
+        with pytest.raises(updater.UpdateError, match="couldn't be downloaded"):
+            updater._download(f"{base}/missing", tmp_path / "missing")
+    finally:
+        server.shutdown()
