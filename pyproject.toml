@@ -42,6 +42,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# scripts/check_sign_in.py's Chrome pass, for sign-in sites that turn away scripts.  pip install -e ".[checks]"
+checks = ["playwright>=1.50"]
 # The Mac and Windows apps: the window, the tray icon (Windows) and the packager.  pip install -e ".[desktop]"
 desktop = [
     "pywebview>=6.2.1",

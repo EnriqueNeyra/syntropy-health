@@ -113,3 +113,47 @@ def test_an_unreachable_server_is_reported_after_retrying(monkeypatch):
     result = asyncio.run(check_server(BASE, "client", RELAY, httpx.MockTransport(handle)))
     assert result.status == "unreachable" and "ConnectError" in result.detail
     assert len(attempts) == 3
+
+
+def test_an_error_page_titled_mychart_is_not_a_sign_in():
+    def pages(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth2/authorize":
+            return httpx.Response(302, headers={"Location": "https://mychart.example.org/app/error"})
+        return httpx.Response(200, text="<title>MyChart - Application Error Page</title><p>Please log in again.</p>")
+    assert run(pages).status == "error_page"
+
+
+def test_pages_chrome_ends_on_are_classified():
+    from scripts.check_sign_in import classify_page
+
+    def page(**overrides):
+        args = {"status": 200, "url": "https://mychart.example.org/MyChart/Authentication/Login", "title": "MyChart - Login",
+                "has_password": True, "text": "", "redirect_host": "health.syntropylabs.io", **overrides}
+        return classify_page(**args)[0]
+
+    assert page() == "ok"
+    assert page(title="Log in to Mayo Clinic", url="https://account.mayoclinic.org/login") == "ok"
+    assert page(status=403, title="Access Denied", has_password=False) == "blocked"
+    assert page(status=404, title="", has_password=False) == "portal_error"
+    assert page(title="MyChart - Application Error Page", has_password=False) == "error_page"
+    assert page(url="https://health.syntropylabs.io/callback?error=access_denied") == "rejected"
+    assert page(title="", has_password=False, text="<div id=app></div>") == "unclear"
+
+
+def test_the_status_file_records_failures_since_first_seen_and_working_listings():
+    from scripts.check_sign_in import Result, sign_in_status
+
+    entries = [{"id": "upmc", "name": "UPMC", "fhir_base_url": "https://broken.example.org/FHIR/"},
+               {"id": "upmc-portal", "name": "UPMC Patient Portal", "fhir_base_url": "https://works.example.org/FHIR"},
+               {"id": "upmc-central", "name": "UPMC Central PA", "fhir_base_url": "https://pending.example.org/FHIR"},
+               {"id": "mayo", "name": "Mayo Clinic", "fhir_base_url": "https://mayo.example.org/FHIR"}]
+    results = [Result("portal_error", "404", "https://broken.example.org/FHIR"),
+               Result("ok", "", "https://works.example.org/FHIR"),
+               Result("client_unknown", "", "https://pending.example.org/FHIR"),
+               Result("blocked", "403", "https://mayo.example.org/FHIR")]
+    previous = {"servers": {"https://broken.example.org/fhir": {"status": "portal_error", "since": "2026-09-28"},
+                            "https://pending.example.org/fhir": {"status": "unreachable", "since": "2026-09-28"}}}
+    assert sign_in_status(results, entries, previous, "2026-10-05") == {"servers": {
+        "https://broken.example.org/fhir": {"status": "portal_error", "since": "2026-09-28", "instead": ["upmc-portal"]},
+        "https://pending.example.org/fhir": {"status": "client_unknown", "since": "2026-10-05"},
+    }}
