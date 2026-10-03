@@ -1,10 +1,10 @@
 ; Windows installer for Syntropy Health (Inno Setup 6). Built by .github/workflows/desktop.yml:
-;   iscc /DAppVersion=1.1.1 desktop\installer.iss
+;   iscc /DAppVersion=1.2.3 desktop\installer.iss   (CI passes APP_VERSION from app/core/config.py)
 ; Installs for the current user (no administrator needed) into %LOCALAPPDATA%\Programs\Syntropy Health.
 ; Your data lives in %LOCALAPPDATA%\Syntropy Health and is kept when you uninstall.
 
 #ifndef AppVersion
-  #define AppVersion "1.1.1"
+  #define AppVersion "0.0.0"
 #endif
 
 [Setup]

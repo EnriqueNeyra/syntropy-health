@@ -1,8 +1,10 @@
 name: Release
 
-# Builds the Mac (.dmg) and Windows (setup .exe) apps. A tag like v1.2.0 (matching APP_VERSION in app/core/config.py)
-# also drafts a GitHub release with them, the Python wheel and SHA256SUMS. Publishing that draft makes it the version
-# installers, `syntropy-health update` and the apps' update checks install, and publishes the Docker image (docker.yml).
+# Builds the Mac (.dmg) and Windows (setup .exe) apps. On a tag like v1.2.0 (matching APP_VERSION in app/core/config.py),
+# once CI passes on it, it also publishes the GitHub release: those apps, the Python wheel and SHA256SUMS, with the
+# changelog's section for that version as its notes. That's the version installers, `syntropy-health update` and the
+# apps' update checks install. It then starts the Docker image's publish (docker.yml). The tag is made by
+# tag-release.yml when a change to APP_VERSION is merged into main, which starts this workflow on it.
 # Mac signing and notarization happen when these secrets exist in the `release` environment, which only v* tags can
 # use (other builds are ad-hoc signed, and macOS asks people to allow them in System Settings → Privacy & Security):
 #   MACOS_CERT_P12 (base64 of a "Developer ID Application" .p12), MACOS_CERT_PASSWORD, MACOS_SIGN_ID,
@@ -23,14 +25,10 @@ permissions:
   contents: read
 
 jobs:
-  # A release only goes out when the full test suite and installer checks pass on the tagged commit.
+  # A release only goes out when all of CI (tests and installer checks) passes on the tagged commit.
   tests:
     if: startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/ci.yml
-
-  installers:
-    if: startsWith(github.ref, 'refs/tags/v')
-    uses: ./.github/workflows/installers.yml
 
   version:
     runs-on: ubuntu-latest
@@ -128,13 +126,24 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [tests, installers, version, mac, windows]
+    needs: [tests, version, mac, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write        # to start the Docker image's publish
       id-token: write       # to sign the attestation
       attestations: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
+      - name: Release notes from the changelog
+        run: |
+          awk -v h="## ${GITHUB_REF_NAME#v}" '$0 == h {on = 1; next} on && /^## / {exit} on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "See [CHANGELOG.md](https://github.com/$GITHUB_REPOSITORY/blob/main/CHANGELOG.md)." > notes.md
+          cat notes.md
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
@@ -152,5 +161,10 @@ jobs:
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: release/*
-          draft: true
-          generate_release_notes: true
+          body_path: notes.md
+          make_latest: true
+      # A release published with the workflow's token doesn't start other workflows, so start the image's here.
+      - name: Publish the Docker image
+        run: gh workflow run docker.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
+        env:
+          GH_TOKEN: ${{ github.token }}

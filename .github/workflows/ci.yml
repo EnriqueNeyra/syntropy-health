@@ -1,7 +1,8 @@
 name: CI
 
 # Every push to main and every pull request; the Release workflow runs it too before publishing anything.
-# The Mac and Windows installer checks are in installers.yml.
+# "CI passed" succeeds only when every job here did, so it's the one check main requires: a new job is covered by
+# adding it to that job's needs, without changing the repository's rules.
 on:
   push:
     branches: [main]
@@ -31,6 +32,11 @@ jobs:
       - run: ruff check app tests desktop scripts   # version and settings in pyproject.toml
 
   app:
+    # The oldest Python pyproject.toml allows and the newest, which people installing with pip or uv often have.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.14"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,7 +44,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
           cache: pip
           cache-dependency-path: pyproject.toml
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
@@ -101,3 +107,54 @@ jobs:
           sudo journalctl -u syntropy-health-update --no-pager | grep -q "Automatic updates are off"
       - run: sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --no-ocr   # running it again updates in place
       - run: sudo sh scripts/install.sh --uninstall && sudo test -f /var/lib/syntropy-health/syntropy.db
+
+  mac-install:
+    # scripts/install.sh --server on a Mac: uv, the syntropy-health command, a server that answers, uninstall.
+    # (The launchd service needs a logged-in session, which CI runners don't have.)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - run: uv build --wheel -o dist .
+      - run: sh scripts/install.sh --server --no-service --no-ocr --source "$(ls dist/*.whl)"
+      - run: |
+          ~/.local/bin/syntropy-health serve --port 8010 &
+          for i in $(seq 1 30); do curl -fs localhost:8010/health && exit 0; sleep 1; done; exit 1
+      - run: ~/.local/bin/syntropy-health backup "$RUNNER_TEMP" && ls "$RUNNER_TEMP"/syntropy-backup-*.zip
+      - run: sh scripts/install.sh --uninstall && test ! -e ~/.local/bin/syntropy-health
+
+  windows-install:
+    # scripts/install.ps1 -Server on Windows: uv, the command, the sign-in task, a server that answers, uninstall.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - run: uv build --wheel -o dist .
+      - shell: pwsh
+        run: ./scripts/install.ps1 -Server -Port 8010 -Source (Get-Item dist/*.whl).FullName
+      - shell: pwsh
+        run: |
+          if (-not (Get-ScheduledTask -TaskName "Syntropy Health" -ErrorAction SilentlyContinue)) { throw "no sign-in task" }
+          (Invoke-WebRequest -UseBasicParsing http://localhost:8010/health).Content
+          & "$env:UV_TOOL_BIN_DIR\syntropy-health.exe" info --port 8010     # setup-uv moves uv's tool folder
+      - shell: pwsh
+        run: |
+          ./scripts/install.ps1 -Uninstall
+          if (Get-ScheduledTask -TaskName "Syntropy Health" -ErrorAction SilentlyContinue) { throw "task left behind" }
+
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [lint, app, app-mac-windows, web-and-relay, linux-install, mac-install, windows-install]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            [ "$result" = success ] || { echo "::error::Not every job passed: $RESULTS"; exit 1; }
+          done
