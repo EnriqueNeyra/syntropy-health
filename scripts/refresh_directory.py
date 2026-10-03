@@ -189,9 +189,13 @@ def merge(existing: list[dict[str, Any]], entries: list[dict[str, Any]], prefix:
         key = address_key(old.get("fhir_base_url") or "")
         return by_addr.get(key, []) or by_addr.get(key.replace(ECW_PROVIDER_HOST, ECW_PATIENT_HOST), [])
 
-    # Names first (a shared endpoint shouldn't hand one brand's id to another), then addresses.
+    # Name and address together first (two brands can share a name: Baptist Health in Alabama and in Arkansas), then
+    # names (a shared endpoint shouldn't hand one brand's id to another), then addresses.
+    def same_entry(old: dict[str, Any]) -> list[dict[str, Any]]:
+        return [c for c in by_name.get(name_key(old["name"]), []) if c in addr_matches(old)]
+
     kept, pending = 0, list(existing)
-    for lookup in (lambda o: by_name.get(name_key(o["name"]), []), addr_matches):
+    for lookup in (same_entry, lambda o: by_name.get(name_key(o["name"]), []), addr_matches):
         rest = []
         for old in pending:
             match = max((c for c in lookup(old) if "id" not in c), key=lambda c: similarity(old["name"], c), default=None)

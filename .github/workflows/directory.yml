@@ -1,0 +1,91 @@
+name: Directory refresh
+
+# Every Monday, rebuilds the health-system directory (app/data/institutions/) from Epic's, Oracle Health's and
+# eClinicalWorks's published endpoint lists (scripts/refresh_directory.py), and opens or updates one pull request,
+# "directory-refresh", when anything changed. It merges by itself once checks pass, unless the refresh dropped
+# institutions: then it waits for a person to look, since a saved connection may point at one.
+# Installed apps get the new directory with their next update.
+#
+# Needs DIRECTORY_TOKEN, a fine-grained token for this repository with Contents and Pull requests read and write: a
+# pull request opened with the workflow's own token doesn't start CI, so its required checks would never report.
+on:
+  schedule:
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: directory
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      HAS_TOKEN: ${{ secrets.DIRECTORY_TOKEN != '' }}
+    steps:
+      - name: No token
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::error::DIRECTORY_TOKEN isn't set, so the refresh can't open a pull request" && exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Refresh
+        run: python scripts/refresh_directory.py 2>&1 | tee "$RUNNER_TEMP/refresh.log"
+      - name: Summarize
+        id: summary
+        run: |
+          python - <<'EOF' > "$RUNNER_TEMP/body.md"
+          import json, subprocess
+          from pathlib import Path
+          dropped = 0
+          print("Rebuilt from each vendor's published endpoint list by the weekly Directory refresh workflow.\n")
+          print("| File | Institutions | Added | Dropped | New address |\n|---|---|---|---|---|")
+          for path in sorted(Path("app/data/institutions").glob("*.json")):
+              if path.name == "curated.json":
+                  continue
+              old = {i["id"]: i for i in json.loads(subprocess.run(["git", "show", f"HEAD:{path}"], capture_output=True,
+                                                                   text=True, check=True).stdout)}
+              new = {i["id"]: i for i in json.loads(path.read_text())}
+              resolvable = set(new) | {f for i in new.values() for f in i.get("former_ids", ())}
+              gone = set(old) - resolvable
+              moved = sum(1 for k in old if k in new and old[k]["fhir_base_url"] != new[k]["fhir_base_url"])
+              dropped += len(gone)
+              print(f"| {path.name} | {len(new)} | {len(set(new) - set(old))} | {len(gone)} | {moved} |")
+          if dropped:
+              print(f"\n{dropped} institutions are no longer published, so this waits for review before merging. "
+                    "A saved connection to one keeps its address, but the directory can't find it by id any more.")
+          with open(__import__("os").environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"dropped={dropped}\n")
+          EOF
+          cat "$RUNNER_TEMP/body.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Open or update the pull request
+        env:
+          GH_TOKEN: ${{ secrets.DIRECTORY_TOKEN }}
+          DROPPED: ${{ steps.summary.outputs.dropped }}
+        run: |
+          if git diff --quiet -- app/data/institutions; then
+            echo "The directory is already current."
+            exit 0
+          fi
+          branch=directory-refresh
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git commit -qam "Refresh the health-system directory" -m "From each vendor's published endpoint list ($(date -u +%Y-%m-%d))."
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
+          if ! gh pr view "$branch" --json state -q .state 2>/dev/null | grep -q OPEN; then
+            gh pr create --head "$branch" --base main --title "Refresh the health-system directory" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr edit "$branch" --body-file "$RUNNER_TEMP/body.md"
+          fi
+          if [ "$DROPPED" = 0 ]; then
+            gh pr merge "$branch" --auto --rebase
+          else
+            gh pr merge "$branch" --disable-auto || true
+          fi
