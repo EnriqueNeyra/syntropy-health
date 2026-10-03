@@ -204,8 +204,8 @@ async def verify_platform(platform: str, mode: str = "sandbox") -> dict:
             return {"ok": None, "status": "unverifiable", "detail": "No health system to check against."}
         try:
             authorize, aud = (await smart.discover(inst["fhir_base_url"]))["authorization_endpoint"], inst["fhir_base_url"]
-        except smart.SmartError as exc:
-            return {"ok": False, "status": "network_error", "detail": str(exc)}
+        except smart.SmartError:
+            return {"ok": False, "status": "network_error", "detail": f"Couldn't reach {inst['name']}'s FHIR server."}
         where = inst["name"]
     params = {"response_type": "code", "client_id": cfg["client_id"], "redirect_uri": settings.get("relay.redirect_uri"),
               "scope": "openid launch/patient patient/Patient.read", "state": "probe", "aud": aud.rstrip("/"),
