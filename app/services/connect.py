@@ -4,9 +4,10 @@ Connection flows: starting OAuth authorizations and completing callbacks.
 EHR connections resolve an institution to a FHIR base URL according to the
 platform's configured mode:
 
-* ``simulated``  → the built-in simulator for that institution (default until registered)
+* ``production`` → the institution's published endpoint (requires a production client ID); always, unless
+  developer mode is on, which uses each platform's own mode:
+* ``simulated``  → the built-in simulator for that institution
 * ``sandbox``    → the vendor's public developer sandbox (requires a sandbox client ID)
-* ``production`` → the institution's published endpoint (requires a production client ID)
 """
 
 from __future__ import annotations
@@ -59,9 +60,14 @@ def plan_ehr_connection(institution_id: Optional[str], origin: str, *, fhir_base
                 "display_name": name, "scopes": directory.USCDI_SCOPES, "simulated": True,
                 "dynamic_registration": dynamic}
 
+    if cfg["developer_only"] and not cfg["developer_mode"] and not mode_override:
+        raise SmartError(f"{name} is a test server, offered in developer mode only.")
     cid = client_id or cfg["client_id"]
+    if not cid and mode == "production":
+        raise SmartError(f"Syntropy Health isn't registered with {preset['label']} yet, so {name} can't be connected. "
+                         "You can import a record file downloaded from its patient portal instead.")
     if not cid:
-        raise SmartError(f"{preset['label']} is set to {mode} mode but no client ID is configured. "
+        raise SmartError(f"{preset['label']} is set to {mode} mode but no {mode} client ID is configured. "
                          "Add it in Settings → Developer, or switch back to simulated mode.")
     if mode == "sandbox":
         base = preset["sandbox_base"]

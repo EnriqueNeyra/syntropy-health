@@ -279,21 +279,36 @@ export async function render({ el, parts, state, navigate }) {
   }
 
   if (tab === "developer") {
+    const dev = settings.developer_mode;
+    const cidField = (p, slot) => {
+      const c = p.client_ids[slot];
+      const using = c.source === "env" ? `Using ${c.client_id} from the environment (.env).`
+        : c.source === "default" ? "Using Syntropy Health's registered client ID." : "";
+      return html`<div class="cid-field" style="margin-top:10px"><label class="label" for="cid-${slot}-${p.platform}">${capitalize(slot)} client ID</label>
+        <div class="row wrap"><input class="input input-sm grow" style="min-width:200px" id="cid-${slot}-${p.platform}" placeholder="${c.source && c.source !== "settings" ? c.client_id : "Client ID"}"
+          value="${c.source === "settings" ? c.client_id : ""}">
+          <button class="btn btn-sm" data-action="save-cid" data-platform="${p.platform}" data-slot="${slot}">Save</button>
+          <button class="btn btn-sm btn-ghost" data-action="verify" data-platform="${p.platform}" data-slot="${slot}" ${c.client_id ? "" : "disabled"}>Verify</button></div>
+        ${using ? html`<div class="hint">${using}</div>` : ""}<div class="small" id="verify-${slot}-${p.platform}" style="margin-top:6px"></div></div>`;
+    };
+    const status = (p) => {
+      if (dev) return MODE_TEXT[p.mode];
+      if (p.developer_only) return "A public test server, offered in developer mode only.";
+      return p.available ? html`<span class="badge good">Connects for real</span> ${p.client_ids.production.source === "default" ? "with Syntropy Health's registered client ID." : ""}`
+        : html`<span class="badge">Not available</span> Health systems on ${p.label} are listed but can't be connected without a production client ID.`;
+    };
     mount(body, html`<div class="stack">
-      <div class="banner info">${icon("code")}<div class="grow"><p>These settings are for connecting to health systems for real. Epic uses Syntropy Health's
-        registered client ID in <b>Production</b>. Other vendors stay on <b>Simulated</b> until they're registered; with a client ID from a
-        vendor's developer program, use <b>Sandbox</b> to test, then <b>Production</b> once approved.</p></div></div>
-      ${section("Health record platforms", "", html`${settings.platforms.map((p) => html`<div class="set-row platform">
-        <div class="set-label"><div class="set-title">${p.label}</div><div class="set-hint">${MODE_TEXT[p.mode]}</div>
-          ${p.platform !== "smart-health-it" ? html`<div class="row wrap" style="margin-top:10px">
-            <input class="input input-sm grow" style="min-width:200px" id="cid-${p.platform}" placeholder="Client ID" value="${p.client_id_source === "settings" ? p.client_id : ""}" aria-label="${p.label} client ID">
-            <button class="btn btn-sm" data-action="save-cid" data-platform="${p.platform}">Save</button>
-            <button class="btn btn-sm btn-ghost" data-action="verify" data-platform="${p.platform}" ${p.client_id ? "" : "disabled"}>Verify</button></div>
-            <div class="hint">${p.client_id_source === "env" ? `Using ${p.client_id} from the environment (.env). ` : p.client_id_source === "default" ? "Using Syntropy Health's registered client ID. " : ""}${p.sandbox_base ? html`Sandbox: <code>${p.sandbox_base}</code>` : `${p.sandbox_hint}.`}</div>`
-            : html`<div class="hint">Public test server — no registration needed. ${p.sandbox_hint}.</div>`}
-          <div class="small" id="verify-${p.platform}" style="margin-top:6px"></div></div>
-        <div class="set-control"><div class="segmented" role="group" aria-label="${p.label} mode">${["simulated", "sandbox", "production"].map((mode) => html`
-          <button class="${p.mode === mode ? "active" : ""}" data-action="mode" data-platform="${p.platform}" data-mode="${mode}" aria-pressed="${p.mode === mode}">${capitalize(mode)}</button>`)}</div></div>
+      ${section("Developer mode", "", html`<label class="set-row"><div class="set-label"><div class="set-title">Test with sandboxes and the simulator</div>
+        <div class="set-hint">Off, health systems connect for real with production client IDs. On, each platform below uses the mode you
+          choose: the built-in simulator, the vendor's developer sandbox with your sandbox client IDs, or production.</div></div>
+        <div class="set-control"><span class="switch"><input type="checkbox" id="dev-mode" ${dev ? "checked" : ""}><span></span></span></div></label>`)}
+      ${section("Health record platforms", dev ? "" : "Turn on developer mode to test with sandbox client IDs or the simulator.", html`${settings.platforms.map((p) => html`<div class="set-row platform">
+        <div class="set-label"><div class="set-title">${p.label}</div><div class="set-hint">${status(p)}</div>
+          ${dev ? html`<div class="segmented" style="margin-top:8px" role="group" aria-label="${p.label} mode">${["simulated", "sandbox", "production"].map((mode) => html`
+            <button class="${p.mode === mode ? "active" : ""}" data-action="mode" data-platform="${p.platform}" data-mode="${mode}" aria-pressed="${p.mode === mode}">${capitalize(mode)}</button>`)}</div>` : ""}
+          ${p.platform === "smart-health-it" ? (dev ? html`<div class="hint">Public test server — no registration needed. ${p.sandbox_hint}.</div>` : "")
+            : html`${cidField(p, "production")}${dev ? cidField(p, "sandbox") : ""}
+              ${dev ? html`<div class="hint">${p.sandbox_base ? html`Sandbox: <code>${p.sandbox_base}</code>` : `${p.sandbox_hint}.`}</div>` : ""}`}</div>
       </div>`)}`, "flush")}
       ${section("Redirect URIs", "Where health systems and wearables send you back after sign-in.", html`
         ${row("Health records", html`Registered with EHR vendors. Default <code>${settings.relay.default_redirect_uri}</code> forwards the one-time code to this instance; use <code>${location.origin}/callback</code> if you registered it directly.`,
@@ -302,13 +317,21 @@ export async function render({ el, parts, state, navigate }) {
           html`<input class="input" id="g-wredirect" value="${settings.relay.wearable_redirect_uri}" aria-label="Wearable redirect URI">`)}
         <div class="set-foot"><button class="btn btn-sm btn-primary" data-action="save-relay">Save redirect URIs</button></div>`)}
     </div>`);
+    $("#dev-mode", body).addEventListener("change", async (ev) => {
+      try { await put("/api/settings/developer", { enabled: ev.target.checked }); }
+      catch (err) { toast(err.message, "bad"); ev.target.checked = !ev.target.checked; return; }
+      toast(`Developer mode ${ev.target.checked ? "on" : "off"}`); redraw();
+    });
     return onAction(body, {
       mode: async ({ platform, mode }) => { await put(`/api/settings/platforms/${platform}`, { mode }); toast(`${capitalize(mode)} mode`); redraw(); },
-      "save-cid": async ({ platform }) => { await put(`/api/settings/platforms/${platform}`, { client_id: $(`#cid-${platform}`, body).value.trim() }); toast("Saved"); redraw(); },
-      verify: async ({ platform }) => {
-        const out = $(`#verify-${platform}`, body);
+      "save-cid": async ({ platform, slot }) => {
+        await put(`/api/settings/platforms/${platform}`, { [`${slot}_client_id`]: $(`#cid-${slot}-${platform}`, body).value.trim() });
+        toast("Saved"); redraw();
+      },
+      verify: async ({ platform, slot }) => {
+        const out = $(`#verify-${slot}-${platform}`, body);
         mount(out, html`<span class="spinner"></span>`);
-        const r = await post(`/api/settings/platforms/${platform}/verify`);
+        const r = await post(`/api/settings/platforms/${platform}/verify?mode=${slot}`);
         mount(out, html`<span class="badge ${r.ok ? "good" : r.ok === false ? "bad" : ""}">${r.status.replace("_", " ")}</span> <span class="muted">${r.detail}</span>`);
       },
       "save-relay": async () => {

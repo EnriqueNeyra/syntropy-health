@@ -14,17 +14,19 @@ from typing import Any, Optional
 from app.core import config, security
 from app.core.db import db
 
-# Platforms that authenticate via SMART on FHIR.
+# Platforms that authenticate via SMART on FHIR. Each has a production and a sandbox client ID: Syntropy Health's own
+# registration where there is one (public clients' IDs aren't secret), else one from Settings or the environment
+# (``env`` for production, ``sandbox_env`` for the vendor's sandbox).
 EHR_PLATFORMS: dict[str, dict[str, Any]] = {
-    # Syntropy Health's open.epic registration. Public clients' IDs aren't secret; an ID in Settings or the environment wins.
-    "epic": {"label": "Epic (MyChart)", "env": "EPIC_CLIENT_ID", "vendor_sandbox": True, "default_mode": "production",
+    "epic": {"label": "Epic (MyChart)", "env": "EPIC_CLIENT_ID", "sandbox_env": "EPIC_SANDBOX_CLIENT_ID", "default_mode": "sandbox",
              "default_client_ids": {"sandbox": "280d55bb-e8a2-45b0-8a7b-2e3826ef5e9c",
                                     "production": "eb7944d2-58e9-4805-bae2-8c68fd70cfdf"}},
-    "cerner": {"label": "Oracle Health (Cerner)", "env": "CERNER_CLIENT_ID", "vendor_sandbox": True},
-    "athena": {"label": "athenahealth", "env": "ATHENA_CLIENT_ID", "vendor_sandbox": True},
-    "healow": {"label": "eClinicalWorks (healow)", "env": "HEALOW_CLIENT_ID", "vendor_sandbox": True},
-    "va": {"label": "VA Lighthouse", "env": "VA_CLIENT_ID", "vendor_sandbox": True},
-    "smart-health-it": {"label": "SMART Health IT", "env": "", "vendor_sandbox": True},
+    "cerner": {"label": "Oracle Health (Cerner)", "env": "CERNER_CLIENT_ID", "sandbox_env": "CERNER_SANDBOX_CLIENT_ID"},
+    "athena": {"label": "athenahealth", "env": "ATHENA_CLIENT_ID", "sandbox_env": "ATHENA_SANDBOX_CLIENT_ID"},
+    "healow": {"label": "eClinicalWorks (healow)", "env": "HEALOW_CLIENT_ID", "sandbox_env": "HEALOW_SANDBOX_CLIENT_ID"},
+    "va": {"label": "VA Lighthouse", "env": "VA_CLIENT_ID", "sandbox_env": "VA_SANDBOX_CLIENT_ID"},
+    # A public test server: offered only in developer mode.
+    "smart-health-it": {"label": "SMART Health IT", "env": "", "sandbox_env": "", "developer_only": True},
 }
 
 CONNECTION_MODES = ("simulated", "sandbox", "production")
@@ -50,6 +52,7 @@ def _is_secret(key: str) -> bool:
 
 DEFAULTS: dict[str, Any] = {
     "setup.completed": False,
+    "developer.mode": False,    # off: health systems connect for real; on: each platform's own mode (simulator, sandbox)
     "auth.required": True,
     "relay.redirect_uri": config.DEFAULT_RELAY_URL,
     "relay.wearable_redirect_uri": config.DEFAULT_WEARABLE_RELAY_URL,
@@ -108,37 +111,82 @@ def timezone_name() -> str:
 # EHR platform configuration
 # ---------------------------------------------------------------------------
 
+def developer_mode() -> bool:
+    return bool(get("developer.mode"))
+
+
+def set_developer_mode(on: bool) -> None:
+    set("developer.mode", bool(on) or None)
+
+
+def _client_id(platform: str, mode: str) -> tuple[str, Optional[str]]:
+    """The client ID for one mode and where it came from (settings, env, default)."""
+    if mode not in ("sandbox", "production"):
+        return "", None
+    meta = EHR_PLATFORMS[platform]
+    env_name = meta["env"] if mode == "production" else meta["sandbox_env"]
+    for value, source in ((get(f"platform.{platform}.{mode}_client_id"), "settings"),
+                          (config.env(env_name) if env_name else "", "env"),
+                          (meta.get("default_client_ids", {}).get(mode, ""), "default")):
+        if value := config.clean_credential(value):
+            return value, source
+    return "", None
+
+
+def migrate_client_ids() -> None:
+    """Before 1.2, one client ID served every mode; it moves to the mode it was saved for (a built-in ID is dropped).
+    Left as it was, a sandbox ID outranked Syntropy's production one and sent health systems a test client."""
+    for platform, meta in EHR_PLATFORMS.items():
+        legacy = config.clean_credential(get(f"platform.{platform}.client_id"))
+        if legacy and legacy not in meta.get("default_client_ids", {}).values():
+            slot = "production" if get(f"platform.{platform}.mode") == "production" else "sandbox"
+            if not get(f"platform.{platform}.{slot}_client_id"):
+                set(f"platform.{platform}.{slot}_client_id", legacy)
+        set(f"platform.{platform}.client_id", None)
+
+
 def platform_config(platform: str, mode: Optional[str] = None) -> dict[str, Any]:
-    """The platform's settings; ``mode`` picks the built-in client ID for a mode other than the current one."""
+    """The platform's settings; ``mode`` picks the client ID for a mode other than the current one (a reconnect keeps
+    its connection's mode). Outside developer mode every platform is in production."""
     meta = EHR_PLATFORMS.get(platform)
     if meta is None:
         raise KeyError(platform)
-    mode = mode or get(f"platform.{platform}.mode") or meta.get("default_mode", "simulated")
-    env_client = config.clean_credential(config.env(meta["env"])) if meta["env"] else ""
-    saved_client = config.clean_credential(get(f"platform.{platform}.client_id"))
-    default_client = meta.get("default_client_ids", {}).get(mode, "")
-    client_id = saved_client or env_client or default_client
-    if platform == "smart-health-it":
-        client_id = client_id or "syntropy-health"
+    developer = developer_mode()
+    dev_mode = get(f"platform.{platform}.mode") or meta.get("default_mode", "simulated")
+    mode = mode or (dev_mode if developer else "production")
+    client_ids = {m: dict(zip(("client_id", "source"), _client_id(platform, m))) for m in ("sandbox", "production")}
+    client_id, source = _client_id(platform, mode)
+    if platform == "smart-health-it" and mode != "simulated":
+        client_id, source = client_id or "syntropy-health", source or "default"
+    developer_only = bool(meta.get("developer_only"))
     return {
         "platform": platform,
         "label": meta["label"],
         "mode": mode,
+        "developer_mode": developer,
+        "developer_mode_setting": dev_mode,
         "client_id": client_id,
-        "client_id_source": ("settings" if saved_client else "env" if env_client else "default" if default_client else None),
+        "client_id_source": source,
+        "client_ids": client_ids,
+        "developer_only": developer_only,
+        # Whether choosing one of its health systems can start a sign-in.
+        "available": mode == "simulated" or (bool(client_id) and (developer or not developer_only)),
         "production_ready": mode == "production" and bool(client_id),
     }
 
 
-def set_platform_config(platform: str, mode: Optional[str] = None, client_id: Optional[str] = None) -> dict[str, Any]:
+def set_platform_config(platform: str, mode: Optional[str] = None, sandbox_client_id: Optional[str] = None,
+                        production_client_id: Optional[str] = None) -> dict[str, Any]:
+    """``mode`` is the platform's mode while developer mode is on."""
     if platform not in EHR_PLATFORMS:
         raise KeyError(platform)
     if mode is not None:
         if mode not in CONNECTION_MODES:
             raise ValueError(f"Unknown mode '{mode}'")
         set(f"platform.{platform}.mode", mode)
-    if client_id is not None:
-        set(f"platform.{platform}.client_id", client_id.strip() or None)
+    for slot, value in (("sandbox", sandbox_client_id), ("production", production_client_id)):
+        if value is not None:
+            set(f"platform.{platform}.{slot}_client_id", value.strip() or None)
     return platform_config(platform)
 
 

@@ -80,7 +80,7 @@ def location(places: Counter[tuple[str, str]]) -> Optional[str]:
     (city, state), top = places.most_common(1)[0]
     if len(states) == 1 and top >= 0.6 * sum(places.values()):
         return f"{city.title() if city.isupper() else city}, {state}" if city else state
-    return ", ".join(s for s, _ in states.most_common(4)) + ("…" if len(states) > 4 else "")
+    return ", ".join(s for s, _ in states.most_common(4)) + (" and more" if len(states) > 4 else "")
 
 
 def first_place(org: dict[str, Any]) -> Counter[tuple[str, str]]:

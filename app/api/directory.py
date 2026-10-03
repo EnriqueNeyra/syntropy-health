@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Query
 
@@ -12,21 +12,35 @@ from app.core import auth, settings
 router = APIRouter(prefix="/api/directory", tags=["directory"], dependencies=[Depends(auth.require_user)])
 
 
-def _decorate(inst: dict) -> dict:
-    cfg = settings.platform_config(inst["platform"]) if inst["platform"] in settings.EHR_PLATFORMS else None
+def _platforms() -> dict[str, dict[str, Any]]:
+    return {key: settings.platform_config(key) for key in settings.EHR_PLATFORMS}
+
+
+def _hidden(cfgs: dict[str, dict[str, Any]]) -> frozenset[str]:
+    """Test servers stay out of the directory unless developer mode is on."""
+    return frozenset(k for k, c in cfgs.items() if c["developer_only"] and not c["developer_mode"])
+
+
+def _decorate(inst: dict, cfgs: dict[str, dict[str, Any]]) -> dict:
+    cfg = cfgs.get(inst["platform"])
     preset = directory.PLATFORMS.get(inst["platform"], {})
     mode = cfg["mode"] if cfg else "production"
     return {**inst, "platform_label": preset.get("label", inst["platform"]), "portal": inst.get("portal") or preset.get("portal"),
-            "mode": mode, "production_available": bool(inst.get("fhir_base_url")),
+            "mode": mode, "available": cfg["available"] if cfg else True,
+            "production_available": bool(inst.get("fhir_base_url")),
             "sandbox_hint": preset.get("sandbox_hint") if mode == "sandbox" else None}
 
 
 @router.get("")
 def search(q: Optional[str] = None, platform: Optional[str] = None, limit: int = Query(25, ge=1, le=200)) -> dict:
-    res = directory.search(q, platform, limit)
-    return {"total": res["total"], "results": [_decorate(i) for i in res["results"]], "platforms": directory.stats()}
+    cfgs = _platforms()
+    hidden = _hidden(cfgs)
+    res = directory.search(q, platform, limit, available={k for k, c in cfgs.items() if c["available"]}, hidden=hidden)
+    return {"total": res["total"], "results": [_decorate(i, cfgs) for i in res["results"]], "platforms": directory.stats(hidden)}
 
 
 @router.get("/featured")
 def featured() -> dict:
-    return {"results": [_decorate(i) for i in directory.featured()], "total": sum(directory.stats().values())}
+    cfgs = _platforms()
+    picks = directory.featured(available={k for k, c in cfgs.items() if c["available"]})
+    return {"results": [_decorate(i, cfgs) for i in picks], "total": sum(directory.stats(_hidden(cfgs)).values())}

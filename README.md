@@ -54,8 +54,8 @@ moving further out of range.
 | **Docker / NAS** | `docker run -d --name syntropy-health --restart unless-stopped -p 8000:8000 -v syntropy-data:/data ghcr.io/enriqueneyra/syntropy-health` |
 | **From source** | `git clone https://github.com/EnriqueNeyra/syntropy-health && cd syntropy-health && ./run.sh` |
 
-Then open <http://localhost:8000> and follow the setup. No accounts handy? Connect to the built-in **EHR simulator**
-and add simulated Oura or WHOOP data to explore everything with synthetic records.
+Then open <http://localhost:8000> and follow the setup. No accounts handy? Turn on developer mode in **Settings →
+Developer** to connect to the built-in **EHR simulator**, and add simulated Oura or WHOOP data to explore everything with synthetic records.
 
 > **Status:** Syntropy Health is in beta. Epic (MyChart) health systems connect for real; registration with other EHR
 > vendors is under way, so until it's complete their connections run against the built-in simulator (or a vendor
