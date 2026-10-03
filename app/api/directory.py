@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app import directory
 from app.core import auth, settings
@@ -28,6 +28,7 @@ def _decorate(inst: dict, cfgs: dict[str, dict[str, Any]]) -> dict:
     return {**inst, "platform_label": preset.get("label", inst["platform"]), "portal": inst.get("portal") or preset.get("portal"),
             "mode": mode, "available": cfg["available"] if cfg else True,
             "production_available": bool(inst.get("fhir_base_url")),
+            "sign_in_problem": directory.sign_in_problem(inst) if mode == "production" else None,
             "sandbox_hint": preset.get("sandbox_hint") if mode == "sandbox" else None}
 
 
@@ -44,3 +45,12 @@ def featured() -> dict:
     cfgs = _platforms()
     picks = directory.featured(available={k for k, c in cfgs.items() if c["available"]})
     return {"results": [_decorate(i, cfgs) for i in picks], "total": sum(directory.stats(_hidden(cfgs)).values())}
+
+
+@router.get("/{inst_id}")
+def institution(inst_id: str) -> dict:
+    """One health system, as search returns it (for a listing suggested in place of another)."""
+    inst = directory.get_institution(inst_id)
+    if not inst:
+        raise HTTPException(404, "Unknown institution.")
+    return _decorate(inst, _platforms())

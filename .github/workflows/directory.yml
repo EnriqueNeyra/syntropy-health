@@ -6,6 +6,10 @@ name: Directory refresh
 # institutions: then it waits for a person to look, since a saved connection may point at one.
 # Installed apps get the new directory with their next update.
 #
+# It then checks that every Epic health system still reaches its MyChart sign-in (scripts/check_sign_in.py, with a
+# headless Chrome pass for sites that turn away scripts) and records the ones that don't in
+# app/data/sign_in_status.json, so the app warns before sending someone to a sign-in that won't work.
+#
 # Needs DIRECTORY_TOKEN, a fine-grained token for this repository with Contents and Pull requests read and write: a
 # pull request opened with the workflow's own token doesn't start CI, so its required checks would never report.
 on:
@@ -37,6 +41,12 @@ jobs:
           python-version: "3.12"
       - name: Refresh
         run: python scripts/refresh_directory.py 2>&1 | tee "$RUNNER_TEMP/refresh.log"
+      - name: Check sign-ins
+        # Chrome comes with the runner, so Playwright needs no browser download. A failing health system isn't a
+        # failed job: it's what the status file records.
+        run: |
+          pip install -q -e ".[checks]"
+          python scripts/check_sign_in.py --write-status --json "$RUNNER_TEMP/sign-in.json" | tee "$RUNNER_TEMP/sign-in.log" || true
       - name: Summarize
         id: summary
         run: |
@@ -57,6 +67,15 @@ jobs:
               moved = sum(1 for k in old if k in new and old[k]["fhir_base_url"] != new[k]["fhir_base_url"])
               dropped += len(gone)
               print(f"| {path.name} | {len(new)} | {len(set(new) - set(old))} | {len(gone)} | {moved} |")
+          report = Path(__import__("os").environ["RUNNER_TEMP"]) / "sign-in.json"
+          if report.exists():
+              results = json.loads(report.read_text())
+              failing = [r for r in results if r["status"] not in ("ok", "blocked", "unclear")]
+              print(f"\n**Sign-in check:** {len(results) - len(failing)} of {len(results)} Epic servers reach their sign-in "
+                    "or couldn't be judged.\n")
+              for r in sorted(failing, key=lambda r: (r["status"], r["names"][0])):
+                  more = f" (+{len(r['names']) - 1})" if len(r["names"]) > 1 else ""
+                  print(f"- `{r['status']}` {r['names'][0]}{more}: {r['detail'][:160]}")
           if dropped:
               print(f"\n{dropped} institutions are no longer published, so this waits for review before merging. "
                     "A saved connection to one keeps its address, but the directory can't find it by id any more.")
@@ -69,7 +88,7 @@ jobs:
           GH_TOKEN: ${{ secrets.DIRECTORY_TOKEN }}
           DROPPED: ${{ steps.summary.outputs.dropped }}
         run: |
-          if git diff --quiet -- app/data/institutions; then
+          if git diff --quiet -- app/data/institutions app/data/sign_in_status.json; then
             echo "The directory is already current."
             exit 0
           fi
@@ -77,7 +96,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$branch"
-          git commit -qam "Refresh the health-system directory" -m "From each vendor's published endpoint list ($(date -u +%Y-%m-%d))."
+          git add app/data/institutions app/data/sign_in_status.json
+          git commit -qm "Refresh the health-system directory" -m "From each vendor's published endpoint list, with the sign-in check ($(date -u +%Y-%m-%d))."
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
           if ! gh pr view "$branch" --json state -q .state 2>/dev/null | grep -q OPEN; then
             gh pr create --head "$branch" --base main --title "Refresh the health-system directory" --body-file "$RUNNER_TEMP/body.md"

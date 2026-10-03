@@ -129,7 +129,28 @@ function institutionButton(inst) {
   return html`<button class="inst ${inst.available ? "" : "unavailable"}" data-action="choose" data-id="${inst.id}">${avatar(inst.name, inst.platform)}
     <div class="grow" style="min-width:0"><div class="inst-name">${inst.name}</div>
       <div class="small muted inst-meta">${institutionMeta(inst)}</div>
-      ${inst.available ? "" : html`<div class="tiny faint">Not available yet</div>`}</div></button>`;
+      ${!inst.available ? html`<div class="tiny faint">Not available yet</div>`
+        : inst.sign_in_problem ? html`<div class="tiny faint">Sign-in not working right now</div>` : ""}</div></button>`;
+}
+
+// Why a health system's sign-in failed the weekly check (scripts/check_sign_in.py), in the user's words.
+function signInProblem(inst) {
+  const p = inst.sign_in_problem;
+  const name = esc(inst.name);
+  const portal = inst.portal || "patient portal";
+  const since = p.since ? new Date(`${p.since}T12:00:00`).toLocaleDateString(undefined, { month: "long", day: "numeric" }) : "";
+  const checked = since ? `when we checked on ${since}` : "when we last checked";
+  const when = ` ${checked[0].toUpperCase()}${checked.slice(1)},`;
+  const what = {
+    client_unknown: html`<b>${name} hasn't finished setting up Syntropy Health yet.</b> Epic has approved the connection, but ${checked},
+      ${name}'s ${portal} didn't recognize Syntropy Health yet. This usually sorts itself out within days.`,
+    unreachable: html`<b>${name}'s connection server isn't responding.</b>${when} it didn't answer, so signing in will probably fail.`,
+    rejected: html`<b>${name} is turning down connections.</b>${when} its ${portal} refused Syntropy Health's sign-in request.`,
+  }[p.status] || html`<b>${name}'s sign-in page isn't working.</b>${when} its ${portal} showed an error instead of a sign-in page,
+      so signing in will probably fail until ${name} fixes it.`;
+  return html`<div class="banner warn">${icon("alert")}<div class="grow"><p>${what}</p>
+    ${p.instead.length ? html`<p>Try ${p.instead.map((alt, i) => html`${i ? " or " : ""}<button class="link-btn" data-action="choose" data-id="${alt.id}">${esc(alt.name)}</button>`)} instead: it's working.</p>` : ""}
+    <p>You can also import a file downloaded from ${name}'s ${portal}, or try signing in anyway.</p></div></div>`;
 }
 
 function modeExplainer(inst) {
@@ -182,7 +203,10 @@ async function openAddHealthSystem(profileId) {
   }, 200));
 
   onAction(m.el, {
-    choose: ({ id }) => confirmInstitution(m, byId.get(id), profileId),
+    choose: async ({ id }) => {
+      if (!byId.has(id)) byId.set(id, await get(`/api/directory/${encodeURIComponent(id)}`));
+      confirmInstitution(m, byId.get(id), profileId);
+    },
     custom: () => customServer(m, profileId),
     import: () => { m.close(); location.hash = "#/sources?add=import"; },
     back: () => { m.close(); openAddHealthSystem(profileId); },
@@ -218,12 +242,14 @@ function confirmInstitution(m, inst, profileId) {
     <div class="stack">
       <div class="row">${avatar(inst.name, inst.platform)}<div><h2>${inst.name}</h2>
         <div class="small muted">${institutionMeta(inst)}</div></div></div>
-      ${modeExplainer(inst)}
+      ${inst.available && inst.sign_in_problem ? signInProblem(inst) : modeExplainer(inst)}
       ${inst.available ? html`<div class="small muted"><b>What gets shared (read-only):</b> demographics, conditions, medications, allergies, lab results, vitals,
         immunizations, visits, procedures, clinical notes, imaging reports, care team, care plans, devices and insurance.</div>` : ""}
       <div class="row between"><button class="btn" data-action="back">Back</button>
-        ${inst.available ? html`<button class="btn btn-primary" data-action="go" data-id="${inst.id}">Continue</button>`
-          : html`<button class="btn btn-primary" data-action="import">Import a record file</button>`}</div>
+        ${!inst.available ? html`<button class="btn btn-primary" data-action="import">Import a record file</button>`
+          : inst.sign_in_problem ? html`<div class="row"><button class="btn" data-action="go" data-id="${inst.id}">Try anyway</button>
+              <button class="btn btn-primary" data-action="import">Import a record file</button></div>`
+          : html`<button class="btn btn-primary" data-action="go" data-id="${inst.id}">Continue</button>`}</div>
       ${inst.mode === "simulated" ? html`<p class="tiny faint">Change how ${inst.platform_label} connects in Settings → Developer.</p>` : ""}
     </div>`);
 }

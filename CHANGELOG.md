@@ -5,6 +5,11 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 
 ## Unreleased
 
+- **Health systems whose sign-in isn't working say so before you try.** A weekly check opens every Epic health
+  system's sign-in, the way a browser would, and records the ones that fail. Choosing one now explains what's wrong
+  (its sign-in page is broken, its server isn't answering, or it hasn't finished setting up Syntropy Health), offers to
+  import a record file, and still lets you try. When another listing of the same health system works, it's suggested:
+  UPMC's broken listing points to **UPMC Patient Portal**. Listings that work come first in search.
 - **Kaiser Permanente connects again** in every region. Kaiser's sign-in page for all regions but Washington has been
   failing with "Page Not Found", while the same page spelled in lowercase works, so sign-in now goes there. This is a
   temporary workaround: it switches itself off once Kaiser fixes the page.
