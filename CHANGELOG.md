@@ -13,6 +13,8 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
   reconnect.
 - The weekly sign-in check covers Oracle Health and eClinicalWorks too, so their health systems whose sign-in is broken
   are marked before you try, like Epic's.
+- **athenahealth practices connect for real.** Syntropy Health's production client ID is built in, so choosing
+  athenahealth takes you to its patient sign-in with nothing to set up.
 - **athenahealth connections keep syncing.** Renewing access now sends the scope athenahealth requires, so a connection
   stays live past its first hour (athenahealth's refresh token lasts 90 days from its last use, and each sync renews
   it). The sign-in no longer asks for insurance coverage, which athenahealth refused outright, and medications are

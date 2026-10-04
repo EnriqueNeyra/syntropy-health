@@ -396,11 +396,12 @@ def test_directory_marks_platforms_that_cannot_connect_yet(client):
     assert all(r["available"] for r in res) and {r["platform"] for r in res} == {"epic", "cerner", "healow"}
     featured = client.get("/api/directory/featured").json()["results"]
     assert featured and all(r["available"] for r in featured)
+    assert client.get("/api/directory", params={"platform": "athena"}).json()["results"][0]["available"]
     assert not any(r["platform"] == "smart-health-it" for r in client.get("/api/directory", params={"q": "smart demo"}).json()["results"])
-    athena = client.get("/api/directory", params={"platform": "athena"}).json()["results"][0]
-    assert not athena["available"]
-    r = client.post("/api/connections/ehr", json={"institution_id": athena["id"]})
-    assert r.status_code == 400 and "isn't registered with athenahealth" in r.json()["detail"]
+    va = client.get("/api/directory", params={"platform": "va"}).json()["results"][0]
+    assert not va["available"]
+    r = client.post("/api/connections/ehr", json={"institution_id": va["id"]})
+    assert r.status_code == 400 and "isn't registered with VA Lighthouse" in r.json()["detail"]
     r = client.post("/api/connections/ehr", json={"institution_id": "smart-health-it"})
     assert r.status_code == 400 and "developer mode" in r.json()["detail"]
 
