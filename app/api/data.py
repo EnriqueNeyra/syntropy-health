@@ -5,9 +5,12 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
+import shutil
 import sqlite3
 import tempfile
 import time
+import unicodedata
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
@@ -16,7 +19,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.deps import check_access, resolve_profile
 from app.core import auth, config
-from app.core.db import audit, db, new_id
+from app.core.db import audit, db, new_id, read
 from app.services import imports
 from app.store import activity, biometrics, records, sample_counts
 
@@ -82,7 +85,10 @@ def export_fhir(profile: Optional[str] = None) -> StreamingResponse:
 
     with db() as conn:
         audit(conn, "user", "export.fhir", None, prof["id"])
-    filename = f"syntropy-{prof['name'].lower().replace(' ', '-')}-fhir-{_stamp()}.json"
+    # Only safe characters in the header: a name in another script failed to encode (a 500), and a quote broke it.
+    ascii_name = unicodedata.normalize("NFKD", prof["name"]).encode("ascii", "ignore").decode().lower()
+    person = re.sub(r"[^a-z0-9]+", "-", ascii_name).strip("-") or "record"
+    filename = f"syntropy-{person}-fhir-{_stamp()}.json"
     return StreamingResponse(stream(), media_type="application/fhir+json",
                              headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
@@ -120,7 +126,7 @@ def export_csv(kind: str = "records", profile: Optional[str] = None) -> Streamin
                              r.get("interpretation"), r.get("source_name"), (r.get("narrative") or "")[:2000]])
     elif kind == "daily":
         writer.writerow(["day", "metric", "source", "value", "unit", "min", "max", "samples"])
-        with db() as conn:
+        with read() as conn:
             for row in conn.execute("SELECT * FROM biometric_daily WHERE profile_id = ? ORDER BY day, metric_type",
                                     (prof["id"],)):
                 writer.writerow([row["day"], row["metric_type"], row["source_name"], row["value"], row["unit"],
@@ -163,7 +169,7 @@ def export_backup(background: BackgroundTasks) -> FileResponse:
         src.close()
     with db() as conn:
         audit(conn, "user", "export.backup")
-    background.add_task(lambda: tmp.unlink(missing_ok=True))
+    background.add_task(shutil.rmtree, tmp.parent, ignore_errors=True)     # the snapshot and its folder
     return FileResponse(tmp, media_type="application/vnd.sqlite3", filename=tmp.name)
 
 

@@ -405,6 +405,9 @@ def test_compressed_uploads(client):
                      headers={**auth, "Content-Type": "application/json", "Content-Encoding": "gzip"}).status_code == 400
     assert anon.post("/api/ingest/wearables", content=body,
                      headers={**auth, "Content-Type": "application/json", "Content-Encoding": "br"}).status_code == 415
+    # Uncompressed, the same cap: the body is read before the device token is checked.
+    huge = b" " * (65 * 1024 * 1024)
+    assert anon.post("/api/ingest/wearables", content=huge, headers={"Content-Type": "application/json"}).status_code == 413
 
 
 def test_phone_reports_history_progress(client):

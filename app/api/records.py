@@ -61,10 +61,12 @@ def get_record(record_id: str) -> dict:
 # journal (symptoms, doses, notes; not daily check-ins) and device alerts (ECGs, notifications); workouts, being
 # near daily, have their own filter.
 LIFE = {"workouts", "journal", "checkins", "signals"}
+MOMENT_MAX = 1000        # the most items one moment can add to a page
 EVERYTHING_LIFE = {"journal", "signals"}
 
 
-def _life_items(profile_id: str, kinds: set[str], before: Optional[str], q: Optional[str], limit: int) -> list[dict]:
+def _life_items(profile_id: str, kinds: set[str], before: Optional[str], q: Optional[str], limit: int,
+                inclusive: bool = False) -> list[dict]:
     out: list[dict] = []
     end = before or None
     if "workouts" in kinds and not q:
@@ -87,7 +89,7 @@ def _life_items(profile_id: str, kinds: set[str], before: Optional[str], q: Opti
                             "title": e["name"], "effective_at": e["start_date"], "value": e["value"],
                             "value_label": e["value_label"], "note": e["note"], "manual": e["manual"],
                             "source_name": e["source_name"]})
-    return [i for i in out if not before or i["effective_at"] < before]
+    return [i for i in out if not before or i["effective_at"] < before or (inclusive and i["effective_at"] == before)]
 
 
 @router.get("/timeline")
@@ -99,13 +101,24 @@ def timeline(profile: Optional[str] = None, before: Optional[str] = None, q: Opt
     cats = categories.split(",") if categories else []
     life = {c for c in cats if c in LIFE} if cats else EVERYTHING_LIFE
     clinical = [c for c in cats if c not in LIFE]
-    items = records.timeline(prof["id"], categories=clinical or None, limit=limit, before=before, q=q) if clinical or not cats else []
-    if life:
-        items += _life_items(prof["id"], life, before, q, limit)
-    items.sort(key=lambda i: i.get("effective_at") or "", reverse=True)
-    more = len(items) > limit or (len(items) == limit)
-    items = items[:limit]
-    return {"items": items, "next_before": items[-1]["effective_at"] if more and items else None}
+
+    def collect(until: Optional[str], n: int, inclusive: bool = False) -> list[dict]:
+        items = (records.timeline(prof["id"], categories=clinical or None, limit=n, before=until, q=q, inclusive=inclusive)
+                 if clinical or not cats else [])
+        if life:
+            items += _life_items(prof["id"], life, until, q, n, inclusive)
+        items.sort(key=lambda i: i.get("effective_at") or "", reverse=True)
+        return items
+
+    items = collect(before, limit)
+    if len(items) < limit:
+        return {"items": items, "next_before": None}
+    # The next page starts strictly before this one's last moment, so everything at that moment comes on this page
+    # (a lab panel's results share one): cut at the count alone, the rest of them were never shown.
+    boundary = items[limit - 1].get("effective_at") or ""
+    page = [i for i in items if (i.get("effective_at") or "") > boundary]
+    page += [i for i in collect(boundary, MOMENT_MAX, inclusive=True) if i.get("effective_at") == boundary]
+    return {"items": page, "next_before": boundary or None}
 
 
 @router.get("/observations")

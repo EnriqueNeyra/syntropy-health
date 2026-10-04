@@ -65,7 +65,9 @@ def create_profile(
 
 
 def update_profile(profile_id: str, **fields: Any) -> Optional[dict[str, Any]]:
-    allowed = {k: v for k, v in fields.items() if k in ("name", "relationship", "birth_date", "sex", "color") and v is not None}
+    # None clears a birth date or sex; the rest can only be changed.
+    allowed = {k: v for k, v in fields.items()
+               if k in ("name", "relationship", "birth_date", "sex", "color") and (v is not None or k in ("birth_date", "sex"))}
     with db() as conn:
         if fields.get("is_default"):
             conn.execute("UPDATE profiles SET is_default = 0")

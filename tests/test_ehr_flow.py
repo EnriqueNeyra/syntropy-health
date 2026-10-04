@@ -466,3 +466,18 @@ def test_access_log_names_who_connected(client):
     events = client.get("/api/audit").json()["events"]
     created = next(e for e in events if e["action"] == "connection.created")
     assert created["actor"].startswith("user:") and created["who"] == "Alex"
+
+
+def test_timeline_pages_dont_skip_records_that_share_a_time(client):
+    # A lab panel's results share one time; a page that ended partway through one skipped the rest.
+    connect_institution(client, "epic-stanford-health-care")
+    everything = client.get("/api/timeline", params={"categories": "labs", "limit": 500}).json()
+    assert everything["next_before"] is None
+    seen, before = [], None
+    for _ in range(200):
+        page = client.get("/api/timeline", params={"categories": "labs", "limit": 7, "before": before}).json()
+        seen += [i["id"] for i in page["items"]]
+        before = page["next_before"]
+        if not before:
+            break
+    assert len(seen) == len(set(seen)) == len(everything["items"])

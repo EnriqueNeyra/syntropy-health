@@ -214,3 +214,11 @@ def test_fhir_export_includes_patient_and_round_trips(client):
     res = client.post("/api/imports/fhir", files=files, data={"profile_id": other["id"]}).json()
     assert res["records"] == len(types) - 1
     assert client.get("/api/summary", params={"profile": other["id"]}).json()["identities"][0]["full_name"] == "Alex Rivera"
+
+
+def test_fhir_export_named_for_anyone(client):
+    pid = client.get("/api/profiles").json()["profiles"][0]["id"]
+    for name, expected in (("José \"Pepe\" Núñez", "syntropy-jose-pepe-nunez-fhir-"), ("李小龙", "syntropy-record-fhir-")):
+        assert client.patch(f"/api/profiles/{pid}", json={"name": name}).status_code == 200
+        r = client.get("/api/export/fhir", params={"profile": pid})
+        assert r.status_code == 200 and f'filename="{expected}' in r.headers["content-disposition"]

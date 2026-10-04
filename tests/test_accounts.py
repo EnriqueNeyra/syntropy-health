@@ -271,3 +271,13 @@ def test_a_new_mac_can_look_for_a_server_to_join(raw_client, monkeypatch):
     assert raw_client.post("/api/desktop/probe", json={"url": "ftp://x"}, headers=CSRF).status_code == 400
     _signed_in_owner(raw_client)
     assert raw_client.get("/api/desktop/discover").status_code == 404      # this Mac is the server now
+
+
+def test_profile_changes_are_checked_and_birth_date_can_be_cleared(client):
+    pid = client.post("/api/profiles", json={"name": "Sam", "relationship": "child", "birth_date": "2015-06-01"}).json()["id"]
+    assert client.patch(f"/api/profiles/{pid}", json={"birth_date": None}).json()["birth_date"] is None
+    for bad in ({"name": "  "}, {"birth_date": "2015-02-31"}, {"birth_date": "June 1"}, {"relationship": "pet"},
+                {"color": "red;"}):
+        assert client.patch(f"/api/profiles/{pid}", json=bad).status_code == 422, bad
+    assert client.post("/api/profiles", json={"name": "Kim", "birth_date": "yesterday"}).status_code == 422
+    assert client.patch(f"/api/profiles/{pid}", json={"name": " Sammy "}).json()["name"] == "Sammy"

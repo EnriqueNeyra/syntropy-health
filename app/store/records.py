@@ -285,13 +285,14 @@ def distinct_people(idents: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def timeline(profile_id: str, *, categories: Optional[list[str]] = None, limit: int = 150,
-             before: Optional[str] = None, q: Optional[str] = None) -> list[dict[str, Any]]:
+             before: Optional[str] = None, q: Optional[str] = None, inclusive: bool = False) -> list[dict[str, Any]]:
+    """Clinical records newest first, before ``before`` (or at it too, with ``inclusive``)."""
     cats = categories or ["encounters", "labs", "conditions", "medications", "procedures", "immunizations",
                           "notes", "reports", "allergies"]
     where = [f"category IN ({','.join('?' * len(cats))})", "profile_id = ?", "effective_at IS NOT NULL"]
     params: list[Any] = [*cats, profile_id]
     if before:
-        where.append("effective_at < ?")
+        where.append("effective_at <= ?" if inclusive else "effective_at < ?")
         params.append(before)
     if q:
         where.append("(lower(title) LIKE ? OR lower(coalesce(narrative,'')) LIKE ?)")
