@@ -191,6 +191,14 @@ def source_priority(source_name: Optional[str]) -> int:
 # Ingest
 # ---------------------------------------------------------------------------
 
+def id_held_elsewhere(conn: Any, table: str, item_id: str, profile_id: str) -> Optional[str]:
+    """When a row's id (HealthKit's own UUID) is already stored for someone else, the id to store it under for this
+    person instead; None when it's free or already theirs. A phone first paired to the wrong person and then to the
+    right one sends the same samples again, which must reach the second person rather than count as duplicates."""
+    row = conn.execute(f"SELECT profile_id FROM {table} WHERE id = ?", (item_id,)).fetchone()
+    return f"{item_id}@{profile_id}" if row and row[0] != profile_id else None
+
+
 def normalize_sample(s: dict[str, Any]) -> dict[str, Any]:
     metric = s["metric_type"]
     value = float(s["value"])
@@ -230,17 +238,20 @@ def insert_samples(
             source = s.get("source_name") or "Unknown"
             # Idempotent on the sample id *and* on its natural key, so the same HealthKit sample
             # arriving via the companion app and via an export.xml import is stored once.
-            cur = conn.execute(
+            insert = lambda sample_id: conn.execute(
                 """INSERT OR IGNORE INTO biometric_samples(id, profile_id, connection_id, metric_type, hk_identifier,
                        value, unit, start_date, end_date, device_id, device_name, source_name, metadata_json, created_at)
                    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                    WHERE NOT EXISTS (SELECT 1 FROM biometric_samples WHERE profile_id = ? AND metric_type = ?
                                      AND start_date = ? AND end_date = ? AND source_name = ? AND value = ?)""",
-                (s["id"], profile_id, connection_id, s["metric_type"], s.get("hk_identifier"), s["value"],
+                (sample_id, profile_id, connection_id, s["metric_type"], s.get("hk_identifier"), s["value"],
                  s.get("unit") or "", s["start_date"], s["end_date"], s.get("device_id"), s.get("device_name"),
                  source, dumps(meta) if meta else None, now,
                  profile_id, s["metric_type"], s["start_date"], s["end_date"], source, s["value"]),
             )
+            cur = insert(s["id"])
+            if not cur.rowcount and (own := id_held_elsewhere(conn, "biometric_samples", s["id"], profile_id)):
+                cur = insert(own)
             if cur.rowcount:
                 inserted += 1
                 changed_metrics.add(s["metric_type"])

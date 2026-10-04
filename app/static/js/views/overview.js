@@ -64,6 +64,13 @@ export function insightText(i) {
   const m = { metric: d.metric, unit: d.unit };
   const v = (x) => `${metricValue(m, x)}${metricUnit(m) ? ` ${metricUnit(m)}` : ""}`;
   if (i.kind === "change") return `${i.title.split(" is ")[0]} averaged ${v(d.recent)} over the last ${d.days} days, ${d.recent > d.usual ? "up" : "down"} from your usual ${v(d.usual)}.`;
+  if (i.kind === "sleep" && d.bedtime && d.spread_min != null) {
+    // The usual bedtime in the reader's clock (8:57 PM, or 20:57), not the server's.
+    const [h, min] = String(d.bedtime).split(":").map(Number);
+    const at = Number.isFinite(h) && Number.isFinite(min)
+      ? new Date(2000, 0, 1, h, min).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : d.bedtime;
+    return `Your bedtime varied by about ±${d.spread_min} minutes over the last two weeks (usually around ${at}). A steadier schedule tends to make sleep more restful.`;
+  }
   if (i.kind === "medication") return `In the month after you started ${d.medication} (${fmtDate(d.started)}), this averaged ${v(d.after)}, against ${v(d.before)} the month before. Other things change too, so talk it over with whoever prescribed it rather than reading it as an effect.`;
   return i.text;
 }

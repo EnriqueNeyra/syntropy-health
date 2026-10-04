@@ -97,6 +97,13 @@ export async function renderAiTab(body, { state, redraw }) {
 
   // ------------------------------------------------------------------ the default
   const defaultCard = () => {
+    if (!cfg.configured && connectedRows().length) {
+      // Found on this computer (an AI app already signed in) but not chosen for Ask yet.
+      return html`<section class="card ai-default off"><span class="ai-default-logo">${icon("sparkles")}</span>
+        <div class="grow"><div class="ai-default-title">Choose an AI for Ask</div>
+          <div class="small muted">${owner ? "Make one of the AIs below the default to start using Ask. Nothing is sent anywhere until you do."
+            : "The server's owner hasn't chosen an AI for Ask yet."}</div></div></section>`;
+    }
     if (!cfg.configured) {
       return html`<section class="card ai-default off"><span class="ai-default-logo">${icon("sparkles")}</span>
         <div class="grow"><div class="ai-default-title">No AI connected yet</div>

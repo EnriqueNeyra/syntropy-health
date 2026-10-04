@@ -1,5 +1,5 @@
 import { get } from "../api.js";
-import { appBridge } from "../app.js";
+import { appBridge, nativeNav } from "../app.js";
 import { metricUnit, metricValue } from "./overview.js";
 import { recordValue } from "../units.js";
 import { age, capitalize, fmtDate, fmtDateTime, html, icon, loading, mount } from "../ui.js";
@@ -23,7 +23,7 @@ export async function render({ el, state }) {
   mount(el, html`
     <div class="page-head no-print"><div><h1>Visit summary</h1>
       <p>A one-page summary of ${r.profile.name}'s record to bring to appointments.</p></div>
-      <div class="row"><a class="btn btn-ghost" href="#/records">${icon("chevronLeft")} Records</a>
+      <div class="row">${nativeNav ? "" : html`<a class="btn btn-ghost" href="#/records">${icon("chevronLeft")} Records</a>`}
         <button class="btn btn-primary" id="print-btn">${icon("printer")} Print or save PDF</button></div></div>
     <article class="report card card-pad">
       <div class="report-head">

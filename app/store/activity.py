@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 
 from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
-from app.store.biometrics import _tz as local_tz, parse_ts, source_kind, to_utc_iso
+from app.store.biometrics import _tz as local_tz, id_held_elsewhere, parse_ts, source_kind, to_utc_iso
 
 WORKOUT_FIELDS = (
     "activity_type", "name", "duration_s", "active_energy_kcal", "total_energy_kcal", "distance_m", "step_count",
@@ -73,16 +73,19 @@ def insert_workouts(profile_id: str, connection_id: Optional[str], workouts: Ite
             values["humidity_pct"] = humidity_pct(values["humidity_pct"])
             values["source_name"] = source
             values["name"] = (w.get("name") or "Workout")[:120]
-            cur = conn.execute(
+            insert = lambda workout_id: conn.execute(
                 f"""INSERT OR IGNORE INTO workouts(id, profile_id, connection_id, start_date, end_date,
                         {", ".join(WORKOUT_FIELDS)}, metadata_json, heart_rate_json, route_json, created_at)
                     SELECT ?, ?, ?, ?, ?, {", ".join("?" * len(WORKOUT_FIELDS))}, ?, ?, ?, ?
                     WHERE NOT EXISTS (SELECT 1 FROM workouts WHERE profile_id = ? AND start_date = ? AND end_date = ?
                                       AND source_name = ?)""",
-                (w["id"], profile_id, connection_id, start, end, *[values[k] for k in WORKOUT_FIELDS],
+                (workout_id, profile_id, connection_id, start, end, *[values[k] for k in WORKOUT_FIELDS],
                  dumps(w.get("metadata") or None), dumps(w.get("heart_rate") or None), dumps(w.get("route") or None), now,
                  profile_id, start, end, source),
             )
+            cur = insert(w["id"])
+            if not cur.rowcount and (own := id_held_elsewhere(conn, "workouts", w["id"], profile_id)):
+                cur = insert(own)
             inserted += cur.rowcount
     return inserted
 
@@ -97,17 +100,20 @@ def insert_events(profile_id: str, connection_id: Optional[str], events: Iterabl
             except (ValueError, KeyError, TypeError, AttributeError):
                 continue
             source = e.get("source_name") or "Unknown"
-            cur = conn.execute(
+            insert = lambda event_id: conn.execute(
                 """INSERT OR IGNORE INTO health_events(id, profile_id, connection_id, event_type, category, name,
                        start_date, end_date, value, value_label, source_name, metadata_json, created_at)
                    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                    WHERE NOT EXISTS (SELECT 1 FROM health_events WHERE profile_id = ? AND event_type = ?
                                      AND start_date = ? AND end_date = ? AND source_name = ?)""",
-                (e["id"], profile_id, connection_id, e["event_type"][:80], (e.get("category") or "other")[:40],
+                (event_id, profile_id, connection_id, e["event_type"][:80], (e.get("category") or "other")[:40],
                  (e.get("name") or e["event_type"])[:120], start, end, e.get("value"), e.get("value_label"), source,
                  dumps(e.get("metadata") or None), now,
                  profile_id, e["event_type"][:80], start, end, source),
             )
+            cur = insert(e["id"])
+            if not cur.rowcount and (own := id_held_elsewhere(conn, "health_events", e["id"], profile_id)):
+                cur = insert(own)
             inserted += cur.rowcount
     return inserted
 

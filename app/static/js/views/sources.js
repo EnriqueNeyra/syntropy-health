@@ -3,6 +3,7 @@ import {
   $, confirmDialog, debounce, dropdown, emptyState, esc, fmtAgo, fmtDate, fmtDateTime, html, icon, initials, loading, modal, modeBadge, mount,
   onAction, plural, toast,
 } from "../ui.js";
+import { embedded } from "../app.js";
 import { networkStatus, renderNetworkPanel } from "../network.js";
 
 const PLATFORM_COLORS = { epic: "#c2410c", cerner: "#b91c1c", athena: "#7c3aed", healow: "#0f766e", va: "#1d4ed8", "smart-health-it": "#0369a1", custom: "#4b5563" };
@@ -293,10 +294,10 @@ async function openPairing(profile) {
       <ol class="small" style="margin:0;padding-left:18px;line-height:1.8">
         <li>In the app, open <b>Settings</b> → <b>Connect to my server</b>.</li>
         <li>Server address: <code>${res.server_url}</code></li>
-        <li>Sign in with your password, or tap <b>Use a pairing code instead</b> and enter:</li></ol>
+        <li>Sign in with your password, or tap <b>Use a pairing code</b> and enter:</li></ol>
       <div class="code-box">${res.code}</div>
       ${away ? html`<p class="small muted">Away from home: in the app's <b>Settings</b> → <b>Addresses</b> → <b>Away from home</b>, enter <code>${away.url}</code> to sync over Tailscale.</p>` : ""}
-      <a class="btn" href="${link}" style="align-self:center">${icon("phone")} Open in the app (when viewing this page on the iPhone)</a>
+      ${embedded ? "" : html`<a class="btn" href="${link}" style="align-self:center">${icon("phone")} Open in the app (when viewing this page on the iPhone)</a>`}
       <p class="small muted" style="text-align:center">Data is saved to <b>${profile.name}</b>. The code expires in 10 minutes and works once.
         Pairing the same iPhone again picks up where it left off.</p>
     </div>`);

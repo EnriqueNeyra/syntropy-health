@@ -1,5 +1,5 @@
 import { del, get, patch, post, put } from "../api.js";
-import { ACCENTS, applyAccent, currentAccent, refreshProfiles, setAccent, setProfile, setTheme, state as appState, themePreference } from "../app.js";
+import { ACCENTS, applyAccent, currentAccent, embedded, refreshProfiles, setAccent, setProfile, setTheme, state as appState, themePreference } from "../app.js";
 import { regionSystem, setUnitPreference, unitPreference } from "../units.js";
 import { renderAiTab } from "./settings-ai.js";
 import { addressList, networkStatus, renderNetworkPanel } from "../network.js";
@@ -52,7 +52,15 @@ export async function render({ el, parts, state, navigate }) {
       </div>`)}</nav>
       <div class="settings-body"><h2 class="settings-title">${label}</h2><div id="set-body">${loading(3)}</div></div>
     </div>`);
-  $(".settings-nav a.active", el)?.scrollIntoView({ block: "nearest", inline: "center" });
+  // On a phone the sections are a row that scrolls sideways: bring the chosen one into view once the page is on screen
+  // (it's drawn before it's shown, when there's nothing to scroll yet).
+  const showChosen = (tries = 0) => {
+    const nav = $(".settings-nav", el), chosen = $(".settings-nav a.active", el);
+    if (!nav || !chosen) return;
+    if (!el.isConnected) { if (tries < 120) requestAnimationFrame(() => showChosen(tries + 1)); return; }
+    if (nav.scrollWidth > nav.clientWidth) nav.scrollLeft = chosen.offsetLeft - nav.offsetLeft - (nav.clientWidth - chosen.offsetWidth) / 2;
+  };
+  showChosen();
   const body = $("#set-body", el);
   const settings = await get("/api/settings");
   const redraw = () => navigate(`#/settings/${tab}`);
@@ -65,7 +73,7 @@ export async function render({ el, parts, state, navigate }) {
     const unitPref = unitPreference() || "";
     mount(body, html`<div class="stack">
       ${section("Appearance", "", html`
-        ${row("Theme", "System follows your device's light or dark setting.",
+        ${embedded ? "" : row("Theme", "System follows your device's light or dark setting.",
           html`<div class="segmented" role="group" aria-label="Theme">${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([k, name]) =>
             html`<button class="${k === pref ? "active" : ""}" data-action="theme" data-theme="${k}" aria-pressed="${k === pref}">${name}</button>`)}</div>`)}
         ${row("Accent color", "Buttons, highlights and charts, on every device: here, the desktop app and the iPhone app.",
