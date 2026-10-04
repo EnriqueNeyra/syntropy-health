@@ -2,7 +2,7 @@
 
 import { api, clearCache, get, onDataChanged, onUnauthorized, post, put, unreachableMessage } from "./api.js";
 import { markAllSeen, onAlertsChange, refreshAlerts, renderPanel, dismiss, unreadCount } from "./alerts.js";
-import { $, closeAnimated, html, icon, initials, mount, onAction, scrollToTop, toast, esc, wordmark } from "./ui.js";
+import { $, closeAnimated, closeDialogs, html, icon, initials, mount, onAction, scrollToTop, toast, esc, wordmark } from "./ui.js";
 import { renderOnboarding, renderPasswordGate, renderSetup, renderTermsGate } from "./onboarding.js";
 import { termsCheckbox } from "./consent.js";
 import { setUnitPreference } from "./units.js";
@@ -453,6 +453,8 @@ async function route(opts) {
   const def = ROUTES[name];
   if (!def) return redirect("#/overview");
   closePopover();
+  // A dialog left open (Back, a link inside it, the address changed) would cover the next page.
+  if (!keepScroll) closeDialogs();
   markActive(name);
   document.title = name === "overview" ? "Syntropy Health" : `${def.label} — Syntropy Health`;
   desktopBridge({ type: "title", title: document.title });

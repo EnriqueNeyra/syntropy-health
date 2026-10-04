@@ -215,7 +215,7 @@ export async function render({ el, parts, state, navigate }) {
         </form>`)}
       ${section("Other devices", "Your iPhone, other computers, and your devices on Tailscale.", html`<div id="net-panel" class="set-pad"><div class="skeleton" style="height:64px"></div></div>`)}
       ${section(household() ? "Where you're signed in" : "Signed-in browsers", "", html`<div class="list">${sessions.map((s) => html`<div class="list-item small">
-          <span class="ev-icon">${icon(s.device_name ? "phone" : "monitor")}</span><div class="grow truncate">${s.device_name ? `The iPhone app (${s.device_name})` : s.user_agent || "Unknown browser"}
+          <span class="ev-icon">${icon(s.device_name ? "phone" : "monitor")}</span><div class="grow truncate">${s.device_name ? `The iPhone app (${s.device_name})` : browserName(s.user_agent)}
           <div class="meta">${s.ip} · last active ${fmtDateTime(s.last_seen_at)}</div></div></div>`)}
           ${sessions.length ? "" : html`<div class="list-item small muted">No browser sessions.</div>`}</div>
         <div class="set-foot small muted">Phones and agents use their own tokens: see Sources → iPhone and Settings → AI.</div>`, "flush")}
@@ -282,7 +282,7 @@ export async function render({ el, parts, state, navigate }) {
       : "Sign-ins, syncs, exports and assistant lookups for you and the people you can see, newest first."}</p>
       <div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th></tr></thead>
       <tbody>${events.map((e) => html`<tr><td class="small" style="white-space:nowrap">${fmtDateTime(e.at)}</td><td class="small">${e.who || e.actor}</td><td>${e.action}</td>
-        <td class="small muted mono" style="max-width:420px;word-break:break-word">${e.detail || ""}</td></tr>`)}</tbody></table></div></div>`);
+        <td class="small muted" style="max-width:420px;word-break:break-word">${auditDetail(e.detail)}</td></tr>`)}</tbody></table></div></div>`);
     return null;
   }
 
@@ -366,6 +366,28 @@ function personBadges(p) {
   if (p.access === "view") b.push(html`<span class="badge">View only</span>`);
   if (p.invited_until) b.push(html`<span class="badge warn">Invited</span>`);
   return b;
+}
+
+/** An access-log entry's details as "name: Sutter Health · status: success" rather than raw JSON. */
+function auditDetail(detail) {
+  if (!detail) return "";
+  let value;
+  try { value = JSON.parse(detail); } catch { return detail; }
+  if (value === null || typeof value !== "object") return String(value);
+  const text = (v) => (v && typeof v === "object" ? JSON.stringify(v) : String(v));
+  return Object.entries(value).filter(([, v]) => v !== null && v !== "").map(([k, v]) => `${k.replace(/_/g, " ")}: ${text(v)}`).join(" · ");
+}
+
+/** "Safari on Mac", "the Windows app"... from a browser's user agent, for the list of where you're signed in. */
+function browserName(ua) {
+  if (!ua) return "Unknown browser";
+  const app = /SyntropyHealthDesktop\/[\d.]+ \((Mac|Windows)\)/.exec(ua);
+  if (app) return `The ${app[1]} app`;
+  const os = /iPhone|iPad/.test(ua) ? (/iPad/.test(ua) ? "iPad" : "iPhone") : /Android/.test(ua) ? "Android"
+    : /Mac OS X|Macintosh/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /CrOS/.test(ua) ? "ChromeOS" : /Linux/.test(ua) ? "Linux" : "";
+  const browser = /Edg\//.test(ua) ? "Edge" : /Firefox\/|FxiOS/.test(ua) ? "Firefox" : /OPR\//.test(ua) ? "Opera"
+    : /Chrome\/|CriOS/.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "";
+  return browser ? `${browser}${os ? ` on ${os}` : ""}` : os || ua.slice(0, 60);
 }
 
 async function renderPeople(body, { redraw }) {
