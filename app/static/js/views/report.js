@@ -1,5 +1,5 @@
 import { get } from "../api.js";
-import { appBridge, nativeNav } from "../app.js";
+import { appBridge, nativeNav, setToolbar } from "../app.js";
 import { metricUnit, metricValue } from "./overview.js";
 import { recordValue } from "../units.js";
 import { age, capitalize, fmtDate, fmtDateTime, html, icon, loading, mount } from "../ui.js";
@@ -20,11 +20,13 @@ export async function render({ el, state }) {
   const sources = [...new Set(r.identities.map((i) => i.source_name))];
   const flu = r.immunizations.filter((i) => /influenza/i.test(i.title));
   const vaccines = r.immunizations.filter((i) => !/influenza/i.test(i.title));
+  // In the iPhone app, printing (or saving a PDF) is the title bar's button.
+  const appPrint = setToolbar([{ id: "print", title: "Print or Save PDF", symbol: "printer", run: () => appBridge({ type: "print" }) }]);
   mount(el, html`
     <div class="page-head no-print"><div><h1>Visit summary</h1>
       <p>A one-page summary of ${r.profile.name}'s record to bring to appointments.</p></div>
       <div class="row">${nativeNav ? "" : html`<a class="btn btn-ghost" href="#/records">${icon("chevronLeft")} Records</a>`}
-        <button class="btn btn-primary" id="print-btn">${icon("printer")} Print or save PDF</button></div></div>
+        ${appPrint ? "" : html`<button class="btn btn-primary" id="print-btn">${icon("printer")} Print or save PDF</button>`}</div></div>
     <article class="report card card-pad">
       <div class="report-head">
         <div><h1>${identity.full_name || r.profile.name}</h1>
@@ -74,5 +76,5 @@ export async function render({ el, state }) {
         Patient-assembled record for informational purposes; verify against the original source records. Not a medical device and not medical advice.</p>
     </article>`);
   // In the iPhone app, the app prints the page (and offers Save as PDF); web views can't open the print dialog.
-  el.querySelector("#print-btn").addEventListener("click", () => appBridge({ type: "print" }) || window.print());
+  el.querySelector("#print-btn")?.addEventListener("click", () => appBridge({ type: "print" }) || window.print());
 }

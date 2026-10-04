@@ -2,24 +2,30 @@
 
 import { api, clearCache, get, onDataChanged, onUnauthorized, post, put, unreachableMessage } from "./api.js";
 import { markAllSeen, onAlertsChange, refreshAlerts, renderPanel, dismiss, unreadCount } from "./alerts.js";
-import { $, closeAnimated, closeDialogs, html, icon, initials, mount, onAction, scrollToTop, toast, esc, wordmark } from "./ui.js";
+import {
+  $, appMenuChosen, closeAnimated, closeDialogs, html, icon, initials, mount, onAction, scrollToTop, toast, esc, wordmark,
+} from "./ui.js";
 import { renderOnboarding, renderPasswordGate, renderSetup, renderTermsGate } from "./onboarding.js";
 import { termsCheckbox } from "./consent.js";
 import { setUnitPreference } from "./units.js";
 
+// `symbol` is the section's icon in the iPhone app (an SF Symbol name), and `tab` puts it in the app's tab bar until the
+// person picks their own tabs.
 const ROUTES = {
-  overview: { label: "Overview", icon: "home", load: () => import("./views/overview.js") },
-  ask: { label: "Ask", icon: "sparkles", load: () => import("./views/ask.js") },
-  timeline: { label: "Timeline", icon: "timeline", load: () => import("./views/timeline.js") },
-  records: { label: "Records", icon: "records", load: () => import("./views/records.js") },
-  trends: { label: "Trends", icon: "trends", load: () => import("./views/trends.js") },
-  workouts: { label: "Workouts", icon: "activity", load: () => import("./views/workouts.js") },
-  journal: { label: "Journal", icon: "book", load: () => import("./views/journal.js") },
-  sources: { label: "Sources", icon: "sources", load: () => import("./views/sources.js") },
-  report: { label: "Visit summary", icon: "printer", load: () => import("./views/report.js") },
-  settings: { label: "Settings", icon: "settings", load: () => import("./views/settings.js") },
+  overview: { label: "Overview", icon: "home", symbol: "house", tab: true, load: () => import("./views/overview.js") },
+  ask: { label: "Ask", icon: "sparkles", symbol: "sparkles", tab: true, load: () => import("./views/ask.js") },
+  timeline: { label: "Timeline", icon: "timeline", symbol: "clock", load: () => import("./views/timeline.js") },
+  records: { label: "Records", icon: "records", symbol: "list.bullet.clipboard", tab: true, load: () => import("./views/records.js") },
+  trends: { label: "Trends", icon: "trends", symbol: "chart.line.uptrend.xyaxis", tab: true, load: () => import("./views/trends.js") },
+  workouts: { label: "Workouts", icon: "activity", symbol: "figure.run", load: () => import("./views/workouts.js") },
+  journal: { label: "Journal", icon: "book", symbol: "book", load: () => import("./views/journal.js") },
+  sources: { label: "Sources", icon: "sources", symbol: "point.3.connected.trianglepath.dotted", load: () => import("./views/sources.js") },
+  report: { label: "Visit summary", icon: "printer", symbol: "doc.richtext", load: () => import("./views/report.js") },
+  settings: { label: "Settings", icon: "settings", symbol: "gearshape", load: () => import("./views/settings.js") },
   // A single record as a page: the iPhone app's record screen (elsewhere records open in a drawer).
   _record: { label: "Record", icon: "records", load: () => import("./views/record-detail.js") },
+  // A workout as a page: the iPhone app's workout screen (elsewhere workouts open in a side panel).
+  _workout: { label: "Workout", icon: "activity", load: () => import("./views/workout-detail.js") },
 };
 // Sidebar sections. The visit summary is reached from Records and Settings rather than taking a place of its own
 // (on phones and in the iPhone app too).
@@ -47,6 +53,59 @@ export function appBridge(message) {
   if (!handler) return false;
   handler.postMessage(message);
   return true;
+}
+
+// What the iPhone app can draw natively for a page, as it lists in window.SyntropyApp (apps before 2.1 list nothing,
+// and the page then draws these itself). Checking for each one, rather than an app version, lets the server and the
+// app be updated separately: a page uses what the app on this phone has, and the app ignores what it doesn't know.
+//   toolbar   buttons and menus in the screen's navigation bar (setToolbar)
+//   composer  a message field at the bottom of the screen, above the keyboard (setComposer)
+//   sections  the app builds its tabs and More from the sections the server lists
+//   scroll    scrolling the screen (appScroll)
+//   haptics   a tap of the phone's haptics (haptic)
+//   menu      a page's menus (the "⋯" on a source) as the phone's own (dropdown in ui.js)
+export const appCan = (capability) => nativeNav && (window.SyntropyApp?.capabilities || []).includes(capability);
+
+let toolbarActions = new Map();       // the page's toolbar items and menu choices → what each does
+let toolbarShown = false;
+let composerHandlers = null;
+
+/**
+ * Shows buttons in the app's navigation bar for this page. Each item is { id, title, symbol (SF Symbol), run } or
+ * { id, title, symbol, menu: [{ title?, items: [{ id, title, subtitle?, symbol?, checked?, destructive?, run }] }] }.
+ * Returns false when the app can't (the page shows its own controls then).
+ */
+export function setToolbar(items) {
+  if (!appCan("toolbar")) return false;
+  toolbarActions = new Map();
+  toolbarShown = items.length > 0;
+  const plain = (item) => {
+    if (item.run) toolbarActions.set(item.id, item.run);
+    const { run, menu, ...rest } = item;
+    return menu ? { ...rest, menu: menu.map((section) => ({ title: section.title || null, items: section.items.map(plain) })) } : rest;
+  };
+  return appBridge({ type: "toolbar", items: items.map(plain) });
+}
+
+/**
+ * The app's message field at the bottom of the screen: { placeholder, busy, onSend(text), onStop() }, or null to remove
+ * it. Returns false when the app can't (the page keeps its own field).
+ */
+export function setComposer(options) {
+  if (!appCan("composer")) return false;
+  composerHandlers = options;
+  return appBridge(options ? { type: "composer", visible: true, placeholder: options.placeholder || "", busy: !!options.busy }
+    : { type: "composer", visible: false });
+}
+
+/** Scrolls the app's screen: to the bottom (a conversation), only if it's already near there when `follow` is set. */
+export function appScroll(to, { animated = true, follow = false } = {}) {
+  return appCan("scroll") && appBridge({ type: "scroll", to, animated, follow });
+}
+
+/** A light tap of the phone's haptics: "selection" (moving through choices), "light", "medium" or "success". */
+export function haptic(style = "selection") {
+  return appCan("haptics") && appBridge({ type: "haptic", style });
 }
 
 // Running in the Mac or Windows app (see theme.js), which draws the window: title bar, menus, appearance.
@@ -460,6 +519,9 @@ async function route(opts) {
   desktopBridge({ type: "title", title: document.title });
   const seq = ++renderSeq;
   if (cleanup) { try { cleanup(); } catch {} cleanup = null; }
+  // The app's toolbar and message field belong to the page that set them; a page drawn again in place sets its own.
+  if (!keepScroll && toolbarShown) setToolbar([]);
+  if (!keepScroll && composerHandlers) setComposer(null);
   const next = document.createElement("main");
   next.className = "content";
   // Another section slides in; a tab or filter within the same page cross-fades; fresh data redraws in place.
@@ -572,7 +634,32 @@ window.SyntropyShell = nativeNav ? {
   openAlerts() { openAlerts(null); },
   /** The accent was chosen on another screen or in the app's own Settings. */
   setAccent(id) { if (id !== currentAccent()) themeTransition(() => applyAccent(id)); },
+  /** A toolbar button or menu choice was tapped (see setToolbar). */
+  action(id) { const run = toolbarActions.get(id); if (run) Promise.resolve().then(run).catch((err) => toast(err.message, "bad")); },
+  /** A menu the page asked the app to show was answered (see dropdown in ui.js): the item's index, or -1. */
+  menuChosen(id, index) { appMenuChosen(id, index); },
+  /** The message field: { type: "send", text } or { type: "stop" } (see setComposer). */
+  composer(event) {
+    if (event?.type === "send") composerHandlers?.onSend?.(String(event.text || ""));
+    else if (event?.type === "stop") composerHandlers?.onStop?.();
+  },
 } : undefined;
+
+// The sections in the iPhone app's order: its tabs first (as they're laid out), then More's list.
+const APP_SECTIONS = ["overview", "trends", "ask", "records", "workouts", "journal", "timeline", "report", "sources", "settings"];
+
+/** The sections, for the app's tabs and More: the server decides what there is. */
+function sendSections() {
+  if (!appCan("sections")) return;
+  const keys = [...APP_SECTIONS, ...Object.keys(ROUTES).filter((k) => !k.startsWith("_") && !APP_SECTIONS.includes(k))];
+  appBridge({ type: "sections", sections: keys.map((key) => ({ route: key, label: ROUTES[key].label, symbol: ROUTES[key].symbol,
+                                                               tab: !!ROUTES[key].tab })) });
+}
+
+/** Settings the app follows on its own screens (the units for Apple Health data). */
+export function sendPreferences() {
+  if (nativeNav) appBridge({ type: "preferences", units: state.status?.preferences?.units || "auto", accent: currentAccent() });
+}
 
 // ------------------------------------------------------------------ auth screens
 function authScreen(content) {
@@ -749,7 +836,11 @@ async function boot() {
   document.getElementById("root").innerHTML = "";
   renderShell();
   route();
-  if (nativeNav) appBridge({ type: "booted" });
+  if (nativeNav) {
+    sendSections();
+    sendPreferences();
+    appBridge({ type: "booted" });
+  }
   // Overview reports its own alerts once loaded; every other page asks for them here.
   if (parseHash().route !== "overview") refreshAlerts(state.profile, state.status);
   // Signing in again (after locking, or a session that ran out) boots again: these are set up only once.

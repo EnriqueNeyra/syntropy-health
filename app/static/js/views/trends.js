@@ -175,9 +175,12 @@ export async function render({ el, parts, params, state, navigate }) {
       : it.kind === "signal" ? `?event=${encodeURIComponent(it.eventType)}` : `?code=${encodeURIComponent(it.code)}`;
     return `#/trends/${it?.topic || topic}${q}`;
   };
-  const address = () => history.replaceState(null, "", hashFor(selected));
   // In the iPhone app a chart is a screen of its own, with the app's back button: the page shows only that chart.
   const detailScreen = nativeNav && showDetail;
+  // The list's own screen in the app keeps only its topic in the address. With a chart in it, drawing the page again
+  // (pull to refresh, a change on another screen, another person) would show that chart in the list's place, with no
+  // way back to the list.
+  const address = () => history.replaceState(null, "", nativeNav && !detailScreen ? `#/trends/${topic}` : hashFor(selected));
   if (detailScreen) {
     $("#tr-tabs", el).hidden = true;
     el.dataset.appTitle = selected.title;     // the screen's title in the app, instead of "Trends"

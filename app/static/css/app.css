@@ -419,6 +419,7 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .dash-ghost { position: fixed; z-index: 1000; pointer-events: none; margin: 0; transform: rotate(1deg) scale(1.02); box-shadow: var(--shadow-lg);
   border-radius: var(--radius); opacity: .95; }
 .dash-ghost .dash-inner > .card { outline: 0; }
+.dash-ghost.cut { overflow: hidden; -webkit-mask-image: linear-gradient(#000 calc(100% - 48px), transparent); mask-image: linear-gradient(#000 calc(100% - 48px), transparent); }
 .dash-hint { margin-bottom: 16px; }
 .dash-hint svg { width: 14px; height: 14px; vertical-align: -2px; }
 .dash-add-section { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin: 4px 0 8px; }
@@ -484,6 +485,10 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
   padding: 8px 11px; outline: none;
 }
 .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-2); }
+/* iPhone and iPad draw date and time fields their own way, at a width of their own: as wide as the form, text at the start. */
+.input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"]) { -webkit-appearance: none; appearance: none; display: block;
+  min-width: 0; min-height: 38px; }
+.input::-webkit-date-and-time-value { text-align: left; }
 .label { display: block; font-weight: 600; font-size: 12.5px; margin: 0 0 5px; color: var(--text-2); }
 .field { margin-bottom: 14px; }
 .hint { font-size: 12px; color: var(--text-3); margin-top: 5px; }
@@ -1070,8 +1075,9 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 /* Companion mode: the app draws a native tab bar and title bar, and shows each page's heading as its title. The page
    keeps only its content; the app insets the scrolling area below and above its bars. */
 /* iOS's grouped colors, so the page and the app's bars read as one surface and cards look like the system's. */
-/* The app keeps what's pinned to the screen (sheets, messages) clear of its bars itself: no insets of the page's own. */
-:root[data-native-nav] { --inset-top: 0px; --inset-bottom: 0px; }
+/* The app's title bar is above the page, but its tab bar (and Ask's message field) cover the page's bottom: the app says how
+   much, so panels and dialogs end above it. */
+:root[data-native-nav] { --inset-top: 0px; --inset-bottom: var(--app-inset-bottom, 0px); }
 :root[data-native-nav] { --bg: #f2f2f7; --surface: #ffffff; --surface-2: #eeeef3; --surface-3: #e5e5ea; }
 :root[data-native-nav][data-theme="dark"] { --bg: #000000; --surface: #1c1c1e; --surface-2: #2c2c2e; --surface-3: #3a3a3c;
   --border: #38383a; --border-strong: #48484a; }
@@ -1100,6 +1106,49 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 [data-native-nav] body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 /* Like a native app: text can be selected where it's worth copying (answers, record details, forms), not in controls. */
 [data-native-nav] :is(input, textarea, [contenteditable], pre, code, .msg, .drawer, .modal) { -webkit-user-select: text; user-select: text; }
+/* The app's screens are as tall as their content: a full-height page would scroll past its end, under the app's bars. */
+[data-native-nav] body, [data-native-nav] .app { min-height: 0; }
+/* No double-tap zoom (and no delay waiting for one): taps act at once, as in the app's own screens. */
+[data-embedded] { touch-action: manipulation; }
+
+/* Ask in the app: the conversation is the screen, like Messages. The app draws the message field and the title bar's
+   controls (model, conversations, new chat); the page scrolls with the screen rather than inside a box. */
+.ask-native { padding-bottom: 16px; }
+.ask-native .ask-privacy { justify-content: center; text-align: center; max-width: 34em; margin: 2px auto 14px; font-size: 12px; color: var(--text-3); }
+.ask-native .ask-privacy:empty { display: none; }
+.ask-native .chat-log { overflow: visible; padding: 0; scrollbar-gutter: auto; gap: 16px; }
+.ask-native .chat-log:has(> .chat-empty) { min-height: 50vh; }
+.ask-native .msg-ai { max-width: 100%; }
+.ask-native .msg-user { max-width: 82%; font-size: 15.5px; padding: 8px 14px; border-radius: 19px 19px 5px 19px; }
+.ask-native .chat-empty .chips { flex-direction: column; align-items: stretch; gap: 8px; }
+.ask-native .chat-empty .chip { justify-content: flex-start; text-align: left; white-space: normal; padding: 10px 14px; border-radius: 14px;
+  background: var(--surface); border-color: transparent; font-size: 14px; line-height: 1.35; }
+.ask-native .chat-foot { text-align: center; margin: 22px auto 0; max-width: 32em; }
+
+/* A workout's own screen in the app: its numbers two to a row, as in the Fitness app. */
+.workout-page .grid.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+
+/* Sources in the app: laid out like the phone's own settings (see group() in sources.js). */
+.src-native { margin-bottom: 26px; background: none; border: 0; box-shadow: none; }
+.src-native .src-group-title { font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: .02em; color: var(--text-3); margin: 0 16px 7px; }
+.src-native .src-card { background: var(--surface); border-radius: 12px; overflow: hidden; }
+.src-native .src-rows, .src-native .src-empty { border-top: 0; }
+.src-native .src-rows + .src-add-row, .src-native .src-empty + .src-add-row, .src-native .src-drops + .src-add-row { border-top: 1px solid var(--border); }
+.src-native .src-group-foot { font-size: 12.5px; line-height: 1.4; color: var(--text-3); margin: 7px 16px 0; }
+.src-native .src-drops { padding: 12px 14px 14px; }
+.src-native .src-drop-status:not(:empty) { padding: 0 14px 14px; }
+.src-native .src-add-row .btn { width: 100%; justify-content: flex-start; gap: 12px; height: auto; padding: 13px 16px; border: 0; border-radius: 0;
+  background: none; box-shadow: none; color: var(--accent); font-size: 15px; font-weight: 500; }
+.src-native .src-add-row .btn svg { width: 18px; height: 18px; }
+.src-native .src-add-row .btn:active { background: var(--surface-2); transform: none; }
+[data-native-nav] .src-summary { margin: 0 16px 16px; font-size: 12.5px; gap: 4px 14px; }
+[data-native-nav] .src-title { flex-wrap: nowrap; }
+[data-native-nav] .src-name { white-space: nowrap; }
+/* Offers (a wearable not connected yet): their buttons as the phone's text buttons. */
+[data-native-nav] .src-offer .src-actions { gap: 4px 18px; margin-top: 4px; }
+[data-native-nav] .src-offer .src-actions .btn { height: auto; padding: 4px 0; border: 0; background: none; box-shadow: none; color: var(--accent);
+  font-size: 14px; font-weight: 500; }
+[data-native-nav] .src-offer .src-actions .btn-primary { font-weight: 650; }
 
 /* ---------- AI: provider logos, Settings → AI, and the model picker ---------- */
 .ai-logo { width: 20px; height: 20px; flex: none; display: block; }
@@ -1381,3 +1430,4 @@ svg.spark.intro { animation: wipe .8s cubic-bezier(.4, 0, .2, 1) both; }
 @media (hover: hover) { .chat-history-item:hover { background: var(--surface-2); } }
 .chat-history-open { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 8px 10px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .chat-history-open .truncate { max-width: 100%; font-weight: 550; }
+

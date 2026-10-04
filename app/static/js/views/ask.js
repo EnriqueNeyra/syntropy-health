@@ -1,10 +1,11 @@
 // Ask: chat about your health data with the AI chosen in Settings — a local model, your own key, or an agent on this
 // computer (read-only tools, one person at a time).
 import { del, get, put, unreachableMessage } from "../api.js";
+import { appCan, appScroll, setComposer, setToolbar } from "../app.js";
 import { $, confirmDialog, emptyState, fmtAgo, html, icon, loading, markdown, mount, toast } from "../ui.js";
 import { confirmAiProvider } from "../consent.js";
 import { logo, logoId } from "../ai-logos.js";
-import { openModelPicker } from "../model-picker.js";
+import { openModelPicker, sameChoice } from "../model-picker.js";
 
 const SUGGESTIONS = [
   "How has my sleep changed over the last month?",
@@ -24,7 +25,7 @@ const titleOf = (messages) => {
 const stored = (messages) => messages.filter((m) => !m.pending && !m.error && (m.content || m.role === "user"))
   .map(({ role, content, steps, note, by }) => ({ role, content, ...(steps?.length ? { steps } : {}), ...(note ? { note } : {}), ...(by ? { by } : {}) }));
 
-export async function render({ el, state, params }) {
+export async function render({ el, state, params, navigate }) {
   const profile = state.profile;
   mount(el, loading(2));
   const cfg = await get("/api/ai/config");
@@ -54,11 +55,25 @@ export async function render({ el, state, params }) {
     if (!keep.some((m) => m.role === "assistant")) return;
     try {
       await put(`/api/ai/chats/${chatId}?profile=${encodeURIComponent(profile.id)}`, { title: titleOf(keep), messages: keep });
+      if (native) reloadChats();       // the app's Conversations menu lists it now
     } catch (err) { toast(`Couldn't save this conversation: ${err.message}`, "bad"); }
   };
 
-  el.classList.add("page-fill");     // the conversation fills the window and scrolls by itself: one scrollbar
-  mount(el, html`
+  // In the iPhone app the conversation is the screen itself, like Messages: it scrolls with the screen, the message
+  // field is the app's own (above the keyboard), and the model, past conversations and New chat are in its title bar.
+  const native = appCan("composer") && appCan("toolbar");
+  // Elsewhere the conversation fills the window and scrolls by itself: one scrollbar.
+  el.classList.add(native ? "ask-native" : "page-fill");
+  // The model menu's contents, fetched now so it opens at once (finding local models and AI apps takes a moment).
+  let choices = null;
+  const loadChoices = () => get("/api/ai/choices", null, { fresh: true }).then((res) => { choices = res; return res; });
+  let choicesReady = loadChoices().catch(() => null);
+
+  if (native) mount(el, html`
+    <p class="small ask-privacy" id="ask-privacy"></p>
+    <div class="chat-log" id="chat-log" aria-live="polite"></div>
+    <p class="tiny faint chat-foot">Read-only access to ${profile.name}'s records. Not medical advice; check anything important with your care team.</p>`);
+  else mount(el, html`
     <div class="page-head">
       <div><h1>Ask</h1><p class="small ask-privacy" id="ask-privacy"></p></div>
       <div class="row"><button class="model-btn" id="model-btn" aria-haspopup="true" aria-expanded="false"></button>
@@ -83,31 +98,34 @@ export async function render({ el, state, params }) {
         ? html`${icon(c.address?.private ? "shieldCheck" : "globe")}<span>${c.address?.private ? "Runs on your own hardware. Nothing leaves your network." : `Runs on ${c.label}, a server you chose.`}${c.tools === false ? " It answers from a summary of your data." : ""}</span>`
         : html`${icon("globe")}<span>Your questions and only the data it looks up go to ${c.label}.</span>`);
     $("#ask-privacy", el).classList.toggle("private", c.kind === "local" && !!c.address?.private);
+    if (!modelBtn) return drawToolbar();
     mount(modelBtn, html`<span class="model-btn-kind">${logo(logoId({ provider: c.provider, agent: c.agent_id, label: c.label }), c.label, "", c.kind === "local" ? "monitor" : "globe")}</span>
       <span class="truncate">${modelName(c)} <span class="muted">${c.label}</span></span>${icon("chevronDown")}`);
     modelBtn.setAttribute("aria-label", `AI: ${byline(c)}. Choose another`);
   };
-  drawHeader();
 
   // The model menu: every AI that's connected. Choosing one switches Ask to it (and makes it the default, as in Settings).
+  const pickModel = async (o, g) => {
+    if (busy) return toast("Wait for the current answer first.");
+    if ((g.kind !== "local" || !g.private) && !current.cloud_ack) {
+      if (!(await confirmAiProvider(g.kind === "agent" ? g.vendor : g.label))) return;
+      current = { ...current, cloud_ack: true };
+    }
+    try {
+      current = await put("/api/ai/config", o.provider === "agent" ? { provider: "agent", agent: o.agent, model: o.model }
+        : { provider: o.provider, model: o.model });
+      if (choices) choices.current = { provider: o.provider, agent: o.agent || null, model: o.model };
+      drawHeader();
+      toast(`Now using ${byline(current)}`);
+      choicesReady = loadChoices().then(() => drawToolbar(), () => null);    // the recently used list changed
+    } catch (err) { toast(err.message, "bad"); }
+  };
   let closeMenu = null;
   const openMenu = () => {
     if (closeMenu && document.querySelector(".model-menu:not(.closing)")) { closeMenu(); closeMenu = null; return; }
-    closeMenu = openModelPicker(modelBtn, { onPick: async (o, g) => {
-      if (busy) return toast("Wait for the current answer first.");
-      if ((g.kind !== "local" || !g.private) && !current.cloud_ack) {
-        if (!(await confirmAiProvider(g.kind === "agent" ? g.vendor : g.label))) return;
-        current = { ...current, cloud_ack: true };
-      }
-      try {
-        current = await put("/api/ai/config", o.provider === "agent" ? { provider: "agent", agent: o.agent, model: o.model }
-          : { provider: o.provider, model: o.model });
-        drawHeader();
-        toast(`Now using ${byline(current)}`);
-      } catch (err) { toast(err.message, "bad"); }
-    } });
+    closeMenu = openModelPicker(modelBtn, { onPick: pickModel, choices: choices || choicesReady });
   };
-  modelBtn.addEventListener("click", openMenu);
+  modelBtn?.addEventListener("click", openMenu);
 
   const log = $("#chat-log", el);
   const text = $("#chat-text", el);
@@ -115,9 +133,11 @@ export async function render({ el, state, params }) {
   const nodes = new Map();          // message → its element, so a streaming answer updates in place
   let controller = null;            // aborts the answer being written (the Stop button)
 
-  // Follow the answer as it grows, unless the person has scrolled up to read something.
-  const nearBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 80;
-  const toBottom = (smooth) => log.scrollTo({ top: log.scrollHeight, behavior: smooth && !REDUCED_MOTION() ? "smooth" : "auto" });
+  // Follow the answer as it grows, unless the person has scrolled up to read something. In the app the screen itself
+  // scrolls, and the app knows whether it's near the bottom.
+  const nearBottom = () => native || log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+  const toBottom = (smooth, follow = false) => (native ? appScroll("bottom", { animated: smooth && !REDUCED_MOTION(), follow })
+    : log.scrollTo({ top: log.scrollHeight, behavior: smooth && !REDUCED_MOTION() ? "smooth" : "auto" }));
 
   const bubble = (m, enter) => {
     const node = document.createElement("div");
@@ -165,12 +185,14 @@ export async function render({ el, state, params }) {
         <span class="chat-empty-icon">${icon("sparkles")}</span>
         <h3>What would you like to know?</h3>
         <div class="chips">${SUGGESTIONS.map((s) => html`<button class="chip" type="button" data-suggest="${s}">${s}</button>`)}</div></div>`);
+      if (native) appScroll("top", { animated: false });
       return;
     }
     log.replaceChildren(...messages.map((m) => bubble(m, false)));
     toBottom(false);
     // The page is built before it's on screen: open at the latest message once it has a size.
-    if (!log.clientHeight) {
+    if (native) requestAnimationFrame(() => requestAnimationFrame(() => toBottom(false)));
+    else if (!log.clientHeight) {
       const ro = new ResizeObserver(() => { if (log.clientHeight) { ro.disconnect(); toBottom(false); } });
       ro.observe(log);
     }
@@ -203,7 +225,7 @@ export async function render({ el, state, params }) {
       const follow = nearBottom();
       r.text = r.target.slice(0, end);
       patch(m);
-      if (follow) toBottom(false);
+      if (follow) toBottom(false, true);
       if (r.text !== r.target) r.raf = requestAnimationFrame(step);
       else if (r.onDone) r.onDone();
     };
@@ -218,9 +240,10 @@ export async function render({ el, state, params }) {
     r.kick();
   });
 
-  const autosize = () => { text.style.height = "auto"; text.style.height = `${Math.min(text.scrollHeight, 200)}px`; };
+  const autosize = () => { if (text) { text.style.height = "auto"; text.style.height = `${Math.min(text.scrollHeight, 200)}px`; } };
   const setBusy = (on) => {
     busy = on;
+    if (native) return showComposer();
     send.classList.toggle("stop", on);
     mount(send, icon(on ? "stop" : "send"));
     send.setAttribute("aria-label", on ? "Stop" : "Send");
@@ -248,7 +271,7 @@ export async function render({ el, state, params }) {
     append(mine);
     startReveal(reply);
     append(reply);
-    text.value = ""; autosize();
+    if (text) { text.value = ""; autosize(); }
     toBottom(true);
     controller = new AbortController();
     let answer = null;
@@ -296,10 +319,83 @@ export async function render({ el, state, params }) {
       setBusy(false);
       const follow = nearBottom();
       patch(reply);
-      if (follow) toBottom(true);
-      text.focus();
+      if (follow) toBottom(true, true);
+      text?.focus();
       saveChat();
     }
+  }
+
+  log.addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-suggest]");
+    if (chip) ask(chip.dataset.suggest);
+  });
+  const newChat = () => {
+    if (busy) return toast("Wait for the current answer first.");
+    chatId = newId(); messages = []; drawAll(); text?.focus();
+    drawToolbar();
+  };
+  const openChat = async (id) => {
+    if (busy) return toast("Wait for the current answer first.");
+    const chat = await get(`/api/ai/chats/${id}`, q, { fresh: true }).catch((err) => { toast(err.message, "bad"); return null; });
+    if (chat) { chatId = chat.id; messages = chat.messages; drawAll(); text?.focus(); drawToolbar(); }
+  };
+  const deleteChat = async (id) => {
+    if (!(await confirmDialog("Delete this conversation?", "It's removed from this server for good.", { confirmLabel: "Delete", danger: true }))) return;
+    try { await del(`/api/ai/chats/${id}`, q); } catch (err) { return toast(err.message, "bad"); }
+    chats = chats.filter((c) => c.id !== id);
+    if (id === chatId) { chatId = newId(); messages = []; drawAll(); }
+    drawToolbar();
+    toast("Conversation deleted");
+  };
+  const reloadChats = async () => {
+    chats = (await get("/api/ai/chats", q, { fresh: true }).catch(() => ({ chats }))).chats;
+    drawToolbar();
+  };
+
+  // ---- In the iPhone app: its message field and title bar
+  function showComposer() {
+    setComposer({ placeholder: "Ask about your health data", busy, onSend: (question) => ask(question), onStop: () => controller?.abort() });
+  }
+
+  function drawToolbar() {
+    if (!native) return;
+    const modelSections = (choices?.groups || []).map((g, gi) => {
+      const option = (o, oi) => ({
+        id: `model:${gi}:${oi}`, title: o.name, checked: sameChoice(o, choices.current),
+        subtitle: o.tools === false ? "Answers from a summary of your data"
+          : o.model && o.name.toLowerCase() !== o.model.toLowerCase() ? o.model : null,
+        run: () => pickModel(o, g),
+      });
+      const all = g.options.map(option);
+      const pinned = g.options.map((o, i) => (o.pinned || sameChoice(o, choices.current) ? i : -1)).filter((i) => i >= 0);
+      const first = all.length <= 6 ? all : [...new Set([...pinned, 0, 1, 2, 3, 4])].slice(0, Math.max(5, pinned.length)).sort((a, b) => a - b).map((i) => all[i]);
+      const items = g.kind === "local" && !g.reachable ? [{ id: `model:${gi}:off`, title: "Not reachable right now", disabled: true }] : first;
+      if (first.length < all.length) items.push({ id: `model:${gi}:all`, title: `All ${all.length} Models`, symbol: "ellipsis", menu: [{ items: all }] });
+      return { title: g.label, items };
+    });
+    const manage = { items: [{ id: "manage", title: "Manage AI Connections", symbol: "gearshape", run: () => navigate("#/settings/ai") }] };
+    const name = modelName(current);
+    const saved = chats.some((c) => c.id === chatId);
+    setToolbar([
+      { id: "model", title: name.length > 16 ? `${name.slice(0, 15).trim()}…` : name, accessibilityLabel: `AI: ${byline(current)}. Choose another`,
+        menu: choices ? [...modelSections, manage] : [{ items: [{ id: "model:loading", title: "Finding your models…", disabled: true }] }, manage] },
+      { id: "history", title: "Conversations", symbol: "clock.arrow.circlepath", menu: [
+        { title: chats.length ? `Conversations about ${profile.name}` : null, items: chats.length
+          ? chats.slice(0, 30).map((c) => ({ id: `chat:${c.id}`, title: c.title, subtitle: `${fmtAgo(c.updated_at)} · ${c.messages} messages`,
+                                            checked: c.id === chatId, run: () => openChat(c.id) }))
+          : [{ id: "chat:none", title: "No saved conversations yet", disabled: true }] },
+        ...(saved ? [{ items: [{ id: "chat:delete", title: "Delete This Conversation", symbol: "trash", destructive: true, run: () => deleteChat(chatId) }] }] : []),
+      ] },
+      { id: "new", title: "New Chat", symbol: "square.and.pencil", run: newChat },
+    ]);
+  }
+
+  if (native) {
+    drawHeader();
+    showComposer();
+    drawAll();
+    choicesReady.then(() => drawToolbar());
+    return () => controller?.abort();
   }
 
   $("#chat-form", el).addEventListener("submit", (e) => { e.preventDefault(); ask(text.value); });
@@ -308,14 +404,7 @@ export async function render({ el, state, params }) {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(text.value); }
   });
   text.addEventListener("input", autosize);
-  log.addEventListener("click", (e) => {
-    const chip = e.target.closest("[data-suggest]");
-    if (chip) ask(chip.dataset.suggest);
-  });
-  $("#ask-new", el).addEventListener("click", () => {
-    if (busy) return toast("Wait for the current answer first.");
-    chatId = newId(); messages = []; drawAll(); text.focus();
-  });
+  $("#ask-new", el).addEventListener("click", newChat);
 
   // Past conversations: open one to carry on, or delete it.
   const historyBtn = $("#ask-history", el);
@@ -350,22 +439,12 @@ export async function render({ el, state, params }) {
     document.addEventListener("keydown", onKey, true);
     menu.addEventListener("click", async (e) => {
       const open = e.target.closest("[data-open]"), gone = e.target.closest("[data-delete]");
-      if (open) {
-        if (busy) return toast("Wait for the current answer first.");
-        const chat = await get(`/api/ai/chats/${open.dataset.open}`, q, { fresh: true }).catch((err) => { toast(err.message, "bad"); return null; });
-        closeHistory();
-        if (chat) { chatId = chat.id; messages = chat.messages; drawAll(); text.focus(); }
-      } else if (gone) {
-        const id = gone.dataset.delete;
-        closeHistory();
-        if (!(await confirmDialog("Delete this conversation?", "It's removed from this server for good.", { confirmLabel: "Delete", danger: true }))) return;
-        try { await del(`/api/ai/chats/${id}`, q); } catch (err) { return toast(err.message, "bad"); }
-        if (id === chatId) { chatId = newId(); messages = []; drawAll(); }
-        toast("Conversation deleted");
-      }
+      if (open) { closeHistory(); openChat(open.dataset.open); }
+      else if (gone) { closeHistory(); deleteChat(gone.dataset.delete); }
     });
   };
   historyBtn.addEventListener("click", openHistory);
+  drawHeader();
   drawAll();
   text.focus();
   return () => { closeMenu?.(); closeHistory?.(); controller?.abort(); };

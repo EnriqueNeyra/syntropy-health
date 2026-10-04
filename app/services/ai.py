@@ -303,6 +303,45 @@ def is_set_up(provider: str, agent: Optional[str] = None) -> bool:
     return bool(spec["base_url"]) if provider == "local" else _configured(provider, spec)
 
 
+# The model menu opens often and what it lists changes rarely: what was found is reused for a while, and once it's older
+# the menu shows it anyway while it's looked up again in the background.
+MENU_FRESH_S = 60
+AGENTS_FRESH_S = 600
+_local_found: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+_background: set[asyncio.Task] = set()
+
+
+def _in_background(coro: Any) -> None:
+    task = asyncio.ensure_future(coro)
+    _background.add(task)
+    task.add_done_callback(_background.discard)
+
+
+async def _check_local(base_url: str, key: Optional[str]) -> list[dict[str, Any]]:
+    try:
+        found = [{"id": m["id"], "name": m["id"]} for m in (await ai_local.check(base_url, key))["models"]]
+    except ValueError:
+        found = []
+    _local_found[base_url] = (time.time(), found)
+    return found
+
+
+async def _local_models(base_url: str, key: Optional[str]) -> list[dict[str, Any]]:
+    """The local server's models, for the menu."""
+    hit = _local_found.get(base_url)
+    if hit and time.time() - hit[0] > MENU_FRESH_S:
+        _in_background(_check_local(base_url, key))
+    return hit[1] if hit else await _check_local(base_url, key)
+
+
+async def _agents() -> dict[str, Any]:
+    """The AI apps installed and signed in here, for the menu."""
+    last = ai_agents.last_detected()
+    if last and time.time() - last[0] > AGENTS_FRESH_S:
+        _in_background(asyncio.to_thread(ai_agents.detect, True))
+    return last[1] if last else await asyncio.to_thread(ai_agents.detect)
+
+
 async def choices() -> dict[str, Any]:
     """What Ask's model menu offers: every AI that's connected, grouped, with all of its models (the saved and recently
     used ones first), plus the one in use."""
@@ -317,22 +356,23 @@ async def choices() -> dict[str, Any]:
                  "pinned": m in pinned} for m in ids]
 
     local = _resolve("local")
+    key_providers = [p for p in KEY_PROVIDERS if _configured(p, _resolve(p))]
+    # Finding what's there (the local server's models, AI apps signed in here) takes seconds: all at once, and from
+    # what was found a moment ago when there is that.
+    found, listed, agents = await asyncio.gather(
+        _local_models(local["base_url"], local["key"]) if local["base_url"] else asyncio.sleep(0, []),
+        asyncio.gather(*(refresh_models(p) for p in key_providers)),
+        _agents(),
+    )
     if local["base_url"]:
-        found: list[dict[str, Any]] = []
-        try:
-            found = [{"id": m["id"], "name": m["id"]} for m in (await ai_local.check(local["base_url"], local["key"]))["models"]]
-        except ValueError:
-            pass
         private = ai_local.is_private_host(urlsplit(local["base_url"]).hostname or "")
         groups.append({"id": "local", "kind": "local", "label": local["label"], "private": private, "reachable": bool(found),
                        "options": options("local", found, [local["model"]] if not found else
                                           [m for m in [local["model"], *(settings.get("ai.recent.local") or [])] if m in {f["id"] for f in found}])})
-    listed = await asyncio.gather(*(refresh_models(p) for p in KEY_PROVIDERS if _configured(p, _resolve(p))))
-    for provider, models in zip([p for p in KEY_PROVIDERS if _configured(p, _resolve(p))], listed):
+    for provider, models in zip(key_providers, listed):
         spec = _resolve(provider)
         groups.append({"id": provider, "kind": "key", "label": spec["label"], "private": False,
                        "options": options(provider, models, [spec["model"], *(settings.get(f"ai.recent.{provider}") or [])])})
-    agents = await asyncio.to_thread(ai_agents.detect)
     for agent in agents.get("agents", []):
         if not agent["installed"] or agent["signed_in"] is False:
             continue

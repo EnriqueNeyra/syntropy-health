@@ -3,7 +3,7 @@ import {
   $, confirmDialog, debounce, dropdown, emptyState, esc, fmtAgo, fmtDate, fmtDateTime, html, icon, initials, loading, modal, modeBadge, mount,
   onAction, plural, toast,
 } from "../ui.js";
-import { embedded } from "../app.js";
+import { embedded, nativeNav, setToolbar } from "../app.js";
 import { networkStatus, renderNetworkPanel } from "../network.js";
 
 const PLATFORM_COLORS = { epic: "#c2410c", cerner: "#b91c1c", athena: "#7c3aed", healow: "#0f766e", va: "#1d4ed8", "smart-health-it": "#0369a1", custom: "#4b5563" };
@@ -14,12 +14,17 @@ const WEARABLES = [
   ["google", "Google Health", "Fitbit and Pixel Watch: steps, sleep stages, HRV, resting heart rate and workouts."],
 ];
 const WEARABLE_SHORT = { oura: "Oura", whoop: "WHOOP", google: "Google Health" };
+// The Add menu's icons in the web app (the iPhone app shows its own symbols).
+const ADD_ICONS = { "add:phone": "phone", "add:ehr": "building", "add:file": "upload" };
 
 function avatar(name, platform) {
   const c = PLATFORM_COLORS[platform] || "#4b5563";
   return html`<span class="src-avatar" style="color:${c};background:color-mix(in srgb, ${c} 10%, var(--surface))">${initials(name)}</span>`;
 }
 const iconAvatar = (name) => html`<span class="src-avatar">${icon(name)}</span>`;
+
+/** A source's name, without "(simulated)" where the badge beside it says so. */
+const shownName = (c) => (c.mode === "simulated" ? c.display_name.replace(/\s*\(simulated\)$/i, "") : c.display_name);
 
 /** Status at a glance: a coloured dot and a word. */
 function statusLine(c, paired) {
@@ -87,7 +92,7 @@ function sourceRow(c, devices = []) {
   return html`<div class="src-row ${live || paired ? "" : "is-off"}" id="conn-${c.id}">
     ${ava}
     <div class="src-main">
-      <div class="src-title"><span class="src-name" title="${c.display_name}${c.patient_ref ? ` · patient ${c.patient_ref}` : ""}">${c.display_name}</span>
+      <div class="src-title"><span class="src-name" title="${c.display_name}${c.patient_ref ? ` · patient ${c.patient_ref}` : ""}">${shownName(c)}</span>
         ${c.mode === "simulated" || c.mode === "sandbox" ? modeBadge(c.mode) : ""}</div>
       <div class="src-line">${statusLine(c, paired)}<span>${count}</span>${synced ? html`<span>${synced}</span>` : ""}
         ${where ? html`<span class="src-extra">${where}</span>` : ""}${access ? html`<span class="src-extra">${access}</span>` : ""}
@@ -316,10 +321,11 @@ async function openPairing(profile) {
 }
 
 function importZones() {
+  // The iPhone app sends Apple Health itself, so an export file is only offered elsewhere.
   return html`<div class="src-drops" id="import-card">
-      <label class="drop-zone" data-drop="apple">
+      ${embedded ? "" : html`<label class="drop-zone" data-drop="apple">
         ${icon("upload")}<div><b>Apple Health export</b><div class="small muted">Health app → your photo → Export All Health Data → <code>export.zip</code>. Includes Health Records if present.</div></div>
-        <input type="file" id="imp-apple" accept=".zip,.xml" hidden></label>
+        <input type="file" id="imp-apple" accept=".zip,.xml" hidden></label>`}
       <label class="drop-zone" data-drop="fhir">
         ${icon("records")}<div><b>FHIR record file</b><div class="small muted">A FHIR R4 Bundle (.json) or bulk-data NDJSON downloaded from a portal or app.</div></div>
         <input type="file" id="imp-fhir" accept=".json,.ndjson,application/json" hidden></label>
@@ -349,8 +355,18 @@ async function uploadApple(file, profile, statusEl, refresh) {
 }
 
 // ------------------------------------------------------------------ view
-/** A section of Sources: one panel with a heading (and its action) over a list of rows. */
+/**
+ * A section of Sources: one panel with a heading (and its action) over a list of rows. In the iPhone app it's laid out
+ * like the phone's own settings: the heading above a grouped list, the action as the list's last row, the hint below.
+ */
 function group(title, hint, action, body) {
+  if (nativeNav) {
+    return html`<section class="src-group src-native">
+      <h2 class="src-group-title">${title}</h2>
+      <div class="src-card">${body}${action ? html`<div class="src-add-row">${action}</div>` : ""}</div>
+      ${hint ? html`<p class="src-group-foot">${hint}</p>` : ""}
+    </section>`;
+  }
   return html`<section class="card src-group">
     <header class="src-group-head"><div><h2>${title}</h2>${hint ? html`<p>${hint}</p>` : ""}</div>${action}</header>
     ${body}
@@ -380,9 +396,11 @@ export async function render({ el, params, state }) {
     const attention = active.filter((c) => !c.access_ended && ["needs_reauth", "error"].includes(c.status));
     const lastSync = active.map((c) => c.last_sync_at).filter(Boolean).sort().pop();
 
+    // In the iPhone app, Add is the title bar's + menu.
+    const appAdd = setToolbar([{ id: "add", title: "Add a Source", symbol: "plus", menu: addMenu() }]);
     mount(el, html`
       <div class="page-head"><div><h1>Sources</h1><p>Where ${profile.name}'s data comes from. Everything syncs into the database on this machine.</p></div>
-        <button class="btn btn-primary" data-action="add" aria-haspopup="menu" aria-expanded="false">${icon("plus")} Add a source</button></div>
+        ${appAdd ? "" : html`<button class="btn btn-primary" data-action="add" aria-haspopup="menu" aria-expanded="false">${icon("plus")} Add a source</button>`}</div>
       ${all.length ? html`<div class="src-summary">
         <span><b>${active.length}</b> ${active.length === 1 ? "source" : "sources"} connected</span>
         ${attention.length ? html`<span class="warn"><span class="dot warn"></span> ${plural(attention.length, "needs", "need")} attention</span>` : ""}
@@ -469,6 +487,20 @@ export async function render({ el, params, state }) {
     }
   };
 
+  // What Add offers: in a menu under the button, or the app's + menu.
+  function addMenu() {
+    return [
+      { items: [
+        { id: "add:phone", title: "Phone & Watch", label: "Phone & watch", symbol: "iphone", run: () => handlers.pair() },
+        ...WEARABLES.map(([provider, label]) => ({ id: `add:${provider}`, title: label, symbol: "applewatch", run: () => handlers.wearable({ provider, mode: "live" }) })),
+      ] },
+      { items: [
+        { id: "add:ehr", title: "Hospital or Clinic", label: "Hospital or clinic", symbol: "building.2", run: () => openAddHealthSystem(profile.id) },
+        { id: "add:file", title: "Import a File", label: "Import a file", symbol: "square.and.arrow.down", run: () => $("#import-card", el)?.scrollIntoView({ behavior: "smooth" }) },
+      ] },
+    ];
+  }
+
   await refresh();
   if (params.get("add") === "ehr") openAddHealthSystem(profile.id);
   if (params.get("add") === "iphone" || params.get("add") === "phone") openPairing(profile);
@@ -476,13 +508,8 @@ export async function render({ el, params, state }) {
 
   const handlers = {
     "add-ehr": () => openAddHealthSystem(profile.id),
-    add: (_, btn) => dropdown(btn, [
-      { label: "Phone & watch", icon: "phone", run: () => handlers.pair() },
-      ...WEARABLES.map(([provider, label]) => ({ label, icon: "watch", run: () => handlers.wearable({ provider, mode: "live" }) })),
-      "-",
-      { label: "Hospital or clinic", icon: "building", run: () => openAddHealthSystem(profile.id) },
-      { label: "Import a file", icon: "upload", run: () => $("#import-card", el)?.scrollIntoView({ behavior: "smooth" }) },
-    ]),
+    add: (_, btn) => dropdown(btn, addMenu().flatMap(({ items }, i) => [...(i ? ["-"] : []), ...items.map((it) => ({
+      label: it.label || it.title, icon: ADD_ICONS[it.id] || "watch", run: it.run }))])),
     menu: ({ id }, btn) => {
       const c = shown.all.find((x) => x.id === id);
       if (c) dropdown(btn, sourceMenu(c, shown.devices.filter((d) => d.connection_id === id), (name, data) => handlers[name](data, btn)));
