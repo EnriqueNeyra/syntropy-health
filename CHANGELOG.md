@@ -3,7 +3,7 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
-## Unreleased
+## 1.4.0
 
 - **Oracle Health and eClinicalWorks (healow) health systems connect for real.** Syntropy Health's client IDs for both
   are built in, so choosing one takes you to its own sign-in, with nothing to set up. On October 3, 1,311 of Oracle

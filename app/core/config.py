@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 APP_DIR = REPO_ROOT / "app"
 
 APP_NAME = "Syntropy Health"
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.4.0"
 
 DEFAULT_RELAY_URL = "https://health.syntropylabs.io/callback"
 DEFAULT_WEARABLE_RELAY_URL = "https://syntropy-auth-relay.syntropylabs.workers.dev/callback"
