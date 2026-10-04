@@ -70,7 +70,8 @@ def _ocr(image: Any) -> str:
     img.save(buf, "PNG")
     try:
         proc = subprocess.run(["tesseract", "stdin", "stdout", "--psm", "6", "-l", "eng", "-c", "preserve_interword_spaces=1"],
-                              input=buf.getvalue(), capture_output=True, timeout=OCR_TIMEOUT, check=False)
+                              input=buf.getvalue(), capture_output=True, timeout=OCR_TIMEOUT, check=False,
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))     # no console flash on Windows
     except subprocess.TimeoutExpired as exc:
         raise ReportError("Reading the photo took too long. Try a smaller or clearer photo.") from exc
     if proc.returncode != 0:
