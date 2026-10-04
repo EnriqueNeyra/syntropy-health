@@ -506,7 +506,7 @@ def _union(spans: list[tuple[float, float]]) -> list[tuple[float, float]]:
 # per-type Data Sources list. Defaults: rings and straps are worn overnight and usually measure sleep and
 # overnight vitals best; the Watch is best for activity and daytime heart rate.
 
-SOURCE_KINDS = {"watch": "Apple Watch", "ring": "Oura, WHOOP or Google (Fitbit, Pixel Watch)", "phone": "iPhone",
+SOURCE_KINDS = {"watch": "Apple Watch or Galaxy Watch", "ring": "Oura, WHOOP or Google (Fitbit, Pixel Watch)", "phone": "Phone",
                 "other": "Other apps and devices"}
 
 PRIORITY_GROUPS: dict[str, dict[str, Any]] = {
@@ -536,8 +536,10 @@ def source_kind(source_name: Optional[str]) -> str:
     s = (source_name or "").lower()
     if "watch" in s:
         return "watch"
-    if "oura" in s or "whoop" in s or "ring" in s or "google health" in s:
-        return "ring"      # worn overnight: Oura, WHOOP, and Fitbit / Pixel Watch through Google Health
+    if "oura" in s or "whoop" in s or "ring" in s or "google health" in s or "fitbit" in s:
+        return "ring"      # worn overnight: Oura, WHOOP, and Fitbit / Pixel Watch (Google Health, or Health Connect)
+    if "samsung health" in s:
+        return "watch"     # Galaxy Watch, through Health Connect on an Android phone
     if "iphone" in s or "phone" in s:
         return "phone"
     return "other"

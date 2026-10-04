@@ -37,15 +37,17 @@ def claim(code: str, device_name: str, platform: Optional[str] = None) -> Option
             return None
         conn.execute("DELETE FROM pairing_codes WHERE code_hash = ?", (security.hash_token(normalized),))
     profile_id, account_id = row["profile_id"], row["account_id"]
-    name = (device_name or "iPhone").strip()[:80]
-    display = name if platform == "healthkit-export" else f"Apple Health · {name}"
+    name = (device_name or ("Android phone" if platform == "android" else "iPhone")).strip()[:80]
+    # The phone apps: Apple Health from the iPhone app, Health Connect from the Android app.
+    store, provider = ("Health Connect", "health_connect") if platform == "android" else ("Apple Health", "apple_health")
+    display = name if platform == "healthkit-export" else f"{store} · {name}"
     # Pairing the same phone again (after reinstalling the app, or signing out and back in) picks up its existing
     # source, so its data stays in one place rather than a new copy each time.
     connection = _existing_source(profile_id, display)
     if connection:
         conn_store.update(connection["id"], status="active", last_error=None, metadata={"platform": platform or "ios"})
     else:
-        connection = conn_store.create(profile_id, "device", "apple_health", display, mode="live",
+        connection = conn_store.create(profile_id, "device", provider, display, mode="live",
                                        metadata={"platform": platform or "ios"})
     token = security.random_token()
     device_id = new_id("dev")

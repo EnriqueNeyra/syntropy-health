@@ -5,6 +5,12 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 
 ## Unreleased
 
+- **Android phones send their health data too.** The new Syntropy Health Android app reads Health Connect (Fitbit,
+  Pixel Watch, Samsung Health, Oura and other apps that write to it) and sends it to this server like the iPhone app
+  sends Apple Health, with nothing in between. Pair it from **Sources → Phones & watches**; it shows as
+  **Health Connect · *phone name***. Fitbit data from a phone is ranked with Oura and WHOOP for sleep and overnight
+  vitals, and Samsung Health with the watches. Without Google's paid yearly security review, this is how Fitbit and
+  Pixel Watch data reaches a server that doesn't bring its own Google Cloud app.
 - **An iPhone paired again for someone else sends them its data.** Samples, workouts and journal entries keep
   HealthKit's own ids, which were unique across the whole server, so a phone first paired to the wrong person and then
   to the right one had everything counted as duplicates: the second person got nothing. They're now stored for each

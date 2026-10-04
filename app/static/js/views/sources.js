@@ -36,23 +36,28 @@ function statusLine(c, paired) {
   return html`<span class="src-status good"><span class="dot good"></span> Connected</span>`;
 }
 
-/** A phone still sending Health's history (the iPhone app reports it): moving right now, or waiting for the app. */
+/** A phone still sending Health's history (the phone apps report it): moving right now, or waiting for the app. */
 function historyStatus(c) {
+  const android = c.metadata?.platform === "android";
   const h = c.metadata.history;
   const lastActive = Math.max(h.updated_at || 0, c.last_sync_at || 0);
   const types = h.types_total ? ` · ${h.types_done || 0} of ${h.types_total} types` : "";
   if (Date.now() / 1000 - lastActive < 180) {
     return html`<span class="src-status"><span class="spinner"></span> Sending Health history${types}</span>`;
   }
-  return html`<span class="src-status warn" title="Health data can only be read while the iPhone is unlocked. Open Syntropy Health on the iPhone and keep it open to finish."><span class="dot warn"></span> History not finished</span>
-    <span class="src-extra">open the app on the iPhone to finish</span>`;
+  const phone = android ? "phone" : "iPhone";
+  const why = android ? "Android sends it a little at a time in the background." : "Health data can only be read while the iPhone is unlocked.";
+  return html`<span class="src-status warn" title="${why} Open Syntropy Health on the ${phone} and keep it open to finish."><span class="dot warn"></span> History not finished</span>
+    <span class="src-extra">open the app on the ${phone} to finish</span>`;
 }
 
 /** Where it comes from, in a few words (shown on wider screens). */
 function origin(c) {
   if (c.kind === "ehr") return PLATFORM_LABELS[c.provider] || c.provider.toUpperCase();
   if (c.kind === "wearable") return c.mode === "simulated" ? "" : "Cloud sync";
-  if (c.kind === "device") return c.metadata?.platform === "healthkit-export" ? "HealthKit export" : "Syntropy iPhone app";
+  if (c.kind === "device") {
+    return { "healthkit-export": "HealthKit export", android: "Syntropy Android app" }[c.metadata?.platform] || "Syntropy iPhone app";
+  }
   return c.provider === "manual" ? "Lab results you entered" : `Imported ${fmtDate(c.created_at)}`;
 }
 
@@ -276,7 +281,7 @@ function customServer(m) {
 
 // ------------------------------------------------------------------ pairing & imports
 async function openPairing(profile) {
-  const m = modal({ title: "Pair the iPhone app", body: loading(2) });
+  const m = modal({ title: "Pair a phone", body: loading(2) });
   const [res, net] = await Promise.all([
     post("/api/devices/pairing-code", { profile_id: profile.id }),
     networkStatus().catch(() => null),
@@ -287,19 +292,21 @@ async function openPairing(profile) {
   const away = net?.addresses.find((a) => a.kind === "tailscale");
   m.setBody(html`
     <div class="stack">
-      ${blocked ? html`<div class="banner warn">${icon("phone")}<div class="grow"><p><b>Your iPhone can't reach this computer yet.</b></p>
+      ${blocked ? html`<div class="banner warn">${icon("phone")}<div class="grow"><p><b>Your phone can't reach this computer yet.</b></p>
           <div id="pair-net"></div></div></div>` : ""}
-      <p class="muted">The Syntropy Health iPhone app sends Apple Health data (heart, HRV, sleep stages, steps, workouts with routes,
-        symptoms, cycle tracking, ECG and more) straight to this server over your network, with no cloud in between.</p>
+      <p class="muted">The Syntropy Health apps send your phone's health data straight to this server over your network, with no
+        cloud in between: Apple Health from the iPhone app (heart, HRV, sleep stages, steps, workouts with routes, symptoms,
+        cycle tracking, ECG and more), and Health Connect from the Android app (Fitbit, Pixel Watch, Samsung Health, Oura and
+        other apps that write to it).</p>
       <ol class="small" style="margin:0;padding-left:18px;line-height:1.8">
         <li>In the app, open <b>Settings</b> → <b>Connect to my server</b>.</li>
         <li>Server address: <code>${res.server_url}</code></li>
-        <li>Sign in with your password, or tap <b>Use a pairing code</b> and enter:</li></ol>
+        <li>Sign in with your password, or choose to use a pairing code and enter:</li></ol>
       <div class="code-box">${res.code}</div>
       ${away ? html`<p class="small muted">Away from home: in the app's <b>Settings</b> → <b>Addresses</b> → <b>Away from home</b>, enter <code>${away.url}</code> to sync over Tailscale.</p>` : ""}
-      ${embedded ? "" : html`<a class="btn" href="${link}" style="align-self:center">${icon("phone")} Open in the app (when viewing this page on the iPhone)</a>`}
+      ${embedded ? "" : html`<a class="btn" href="${link}" style="align-self:center">${icon("phone")} Open in the app (when viewing this page on the phone)</a>`}
       <p class="small muted" style="text-align:center">Data is saved to <b>${profile.name}</b>. The code expires in 10 minutes and works once.
-        Pairing the same iPhone again picks up where it left off.</p>
+        Pairing the same phone again picks up where it left off.</p>
     </div>`);
   const panel = m.body.querySelector("#pair-net");
   if (panel && net) renderNetworkPanel(panel, net, { onChange: () => { m.close(); openPairing(profile); } });
@@ -380,12 +387,14 @@ export async function render({ el, params, state }) {
       </div>` : ""}
       <div id="src-banner"></div>
 
-      ${group("iPhone & Apple Watch", "Apple Health data from the Syntropy iPhone app, sent over your own network.",
-        phones.length ? html`<button class="btn btn-sm" data-action="pair">${icon("phone")} Pair iPhone</button>` : "",
-        html`<div class="src-rows">${phones.length ? phones.map((c) => sourceRow(c, devicesFor(c)))
-          : offerRow("phone", "Syntropy Health iPhone app", "Heart, HRV, sleep stages, steps, workouts with routes, symptoms, cycle tracking, ECG and more, synced in the background.", html`
+      ${group("Phones & watches", "Apple Health and Health Connect data from the Syntropy phone apps, sent over your own network.",
+        phones.length ? html`<button class="btn btn-sm" data-action="pair">${icon("phone")} Pair phone</button>` : "",
+        html`<div class="src-rows">${phones.length ? phones.map((c) => sourceRow(c, devicesFor(c))) : html`
+          ${offerRow("phone", "Syntropy Health iPhone app", "Apple Health from iPhone and Apple Watch: heart, HRV, sleep stages, steps, workouts with routes, symptoms, cycle tracking, ECG and more, synced in the background.", html`
             <button class="btn btn-sm btn-primary" data-action="pair">${icon("phone")} Pair iPhone</button>
-            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">Get the app</a>`)}</div>`)}
+            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">Get the app</a>`)}
+          ${offerRow("phone", "Syntropy Health Android app", "Health Connect from Fitbit, Pixel Watch, Samsung Health, Oura and other apps: heart, HRV, sleep stages, steps, workouts and more, synced in the background.", html`
+            <button class="btn btn-sm btn-primary" data-action="pair">${icon("phone")} Pair Android phone</button>`)}`}</div>`)}
 
       ${group("Wearables", "Oura, WHOOP and Google Health (Fitbit, Pixel Watch) sync from their cloud every few hours. Signing in passes through Syntropy Labs' sign-in relay, which completes the sign-in and keeps nothing.", "",
         html`<div class="src-rows">${WEARABLES.map(([provider, label, blurb]) => {
@@ -459,13 +468,13 @@ export async function render({ el, params, state }) {
 
   await refresh();
   if (params.get("add") === "ehr") openAddHealthSystem(profile.id);
-  if (params.get("add") === "iphone") openPairing(profile);
+  if (params.get("add") === "iphone" || params.get("add") === "phone") openPairing(profile);
   if (params.get("add") === "import") $("#import-card", el)?.scrollIntoView({ behavior: "smooth" });
 
   const handlers = {
     "add-ehr": () => openAddHealthSystem(profile.id),
     add: (_, btn) => dropdown(btn, [
-      { label: "iPhone & Apple Watch", icon: "phone", run: () => handlers.pair() },
+      { label: "Phone & watch", icon: "phone", run: () => handlers.pair() },
       ...WEARABLES.map(([provider, label]) => ({ label, icon: "watch", run: () => handlers.wearable({ provider, mode: "live" }) })),
       "-",
       { label: "Hospital or clinic", icon: "building", run: () => openAddHealthSystem(profile.id) },
@@ -492,7 +501,7 @@ export async function render({ el, params, state }) {
       const phone = kind === "device";
       const m = modal({
         title: `Remove ${name}?`,
-        body: html`<p>${phone ? "Unpairing stops the iPhone sending data" : "Disconnecting stops syncing"} and keeps what it already brought in;
+        body: html`<p>${phone ? "Unpairing stops the phone sending data" : "Disconnecting stops syncing"} and keeps what it already brought in;
           the source stays listed so you can reconnect or delete it later. Removing it also deletes its data from this machine.</p>`,
         footer: html`<button class="btn" data-keep>${phone ? "Unpair, keep data" : "Disconnect, keep data"}</button><button class="btn btn-danger" data-wipe>Remove and delete data</button>`,
       });
@@ -506,7 +515,7 @@ export async function render({ el, params, state }) {
     },
     pair: async () => { await openPairing(profile); },
     unpair: async ({ id, name }) => {
-      if (!(await confirmDialog(`Unpair ${name}?`, "The iPhone stops sending data until it's paired again. What it already sent is kept.", { confirmLabel: "Unpair", danger: true }))) return;
+      if (!(await confirmDialog(`Unpair ${name}?`, "The phone stops sending data until it's paired again. What it already sent is kept.", { confirmLabel: "Unpair", danger: true }))) return;
       const devices = (await get("/api/devices", { profile: profile.id }, { fresh: true })).devices.filter((d) => d.connection_id === id);
       await Promise.all(devices.map((d) => del(`/api/devices/${d.id}`)));
       toast("Unpaired");
