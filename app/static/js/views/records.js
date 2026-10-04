@@ -77,9 +77,12 @@ export async function render({ el, parts, params, state, navigate }) {
         ${items.length < total ? html`<button class="btn btn-sm" data-action="more">Load more</button>` : ""}</div>`);
   };
 
+  let loadSeq = 0;
   const load = async (append = false) => {
+    const seq = ++loadSeq;
     if (!append) { offset = 0; mount($("#rec-list", el), loading(4)); }
     const res = await get("/api/records", { profile: profile.id, category: category || undefined, q: q || undefined, connection, limit: PAGE, offset });
+    if (seq !== loadSeq) return;      // a newer search or category answered first (or will): this one is stale
     total = res.total;
     items = append ? items.concat(res.items) : res.items;
     drawList();

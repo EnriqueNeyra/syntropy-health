@@ -101,9 +101,12 @@ export async function render({ el, state, navigate }) {
     ${nextBefore ? html`<div style="text-align:center;padding-top:14px"><button class="btn" data-action="more">Show earlier</button></div>` : ""}`);
   };
 
+  let loadSeq = 0;
   const load = async (append = false) => {
+    const seq = ++loadSeq;
     const res = await get("/api/timeline", { profile: profile.id, categories: filter || undefined, q: q || undefined,
                                              before: append ? nextBefore : undefined, limit: 150 });
+    if (seq !== loadSeq) return;       // a newer filter or search is loading
     items = append ? items.concat(res.items) : res.items;
     nextBefore = res.next_before;
     draw();
