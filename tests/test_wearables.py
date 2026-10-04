@@ -469,3 +469,24 @@ def test_overnight_wrist_temperature_counts_toward_the_morning(client):
         "start_date": (morning - timedelta(hours=1)).isoformat(), "end_date": (morning + timedelta(hours=7)).isoformat()}])
     pts = biometrics.daily_series(prof["id"], "sleeping_wrist_temperature", days=3)["points"]
     assert [p["day"] for p in pts] == [morning.date().isoformat()]
+
+
+def test_wearable_sync_resumes_from_the_last_sync_that_worked(client, monkeypatch):
+    # Failed syncs move last_sync_at on (to pace retries); after days of them, the days in between are fetched too.
+    import asyncio
+    import time as _time
+
+    from app.services import sync
+    from app.store import connections
+
+    cid = client.post("/api/connections/wearable", json={"provider": "oura", "mode": "simulated"}).json()["connection_id"]
+    asked = []
+    real = oura.simulate
+    monkeypatch.setattr(oura, "simulate", lambda days, until, seed: asked.append(days) or real(days=days, until=until, seed=seed))
+    day = 86400
+    from app.core.db import db
+    with db() as c:      # its first sync (when it was connected) was 20 days ago
+        c.execute("UPDATE sync_runs SET started_at = ? WHERE connection_id = ?", (_time.time() - 20 * day, cid))
+    connections.finish_run(connections.start_run(cid, "scheduled"), cid, "error", {"failure_kind": "error"}, "boom")
+    asyncio.run(sync.sync_connection(cid, "manual"))
+    assert asked and asked[-1] >= 23        # 20 days since it last worked, plus the 3-day overlap

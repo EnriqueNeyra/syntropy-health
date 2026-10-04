@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import math
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 from app.core.db import read
@@ -39,7 +39,7 @@ def _age(birth: Optional[str]) -> Optional[int]:
 
 
 def max_heart_rate(profile_id: str) -> dict[str, Any]:
-    since = (datetime.utcnow() - timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    since = (datetime.now(timezone.utc) - timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
     with read() as conn:
         row = conn.execute("SELECT MAX(max_hr) FROM workouts WHERE profile_id = ? AND start_date >= ? AND max_hr < 230",
                            (profile_id, since)).fetchone()
