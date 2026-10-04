@@ -3,6 +3,15 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
+## Unreleased
+
+- **eClinicalWorks (healow) connections are one-time imports, and say so.** healow gives refresh tokens only to
+  confidential apps, so access from a sign-in ends within minutes. A connection whose access has ended now shows as
+  **Imported** with an **Update** button that signs in again, instead of a "Reconnect needed" warning that came back
+  after every sign-in. Scheduled syncs leave it alone, a reminder to update arrives once a month and can be dismissed
+  until the next one, and choosing an eClinicalWorks practice explains this before you sign in. Any other connection
+  that can't renew its access (such as an Epic one whose registration failed) is treated the same way.
+
 ## 1.4.0
 
 - **Oracle Health and eClinicalWorks (healow) health systems connect for real.** Syntropy Health's client IDs for both

@@ -20,15 +20,27 @@ def _present(row: Optional[dict[str, Any]], include_credentials: bool = False) -
     if row is None:
         return None
     creds = row.pop("credentials_enc", None)
+    c = security.decrypt_json(creds) or {}
     if include_credentials:
-        row["credentials"] = security.decrypt_json(creds) or {}
+        row["credentials"] = c
     else:
-        c = security.decrypt_json(creds) or {}
         row["token_expires_at"] = c.get("expires_at")
         row["has_refresh_token"] = bool(c.get("refresh_token") or c.get("dynamic_client"))  # either renews access
+    if row.get("kind") == "ehr":
+        row["access_ended"] = _access_ended(row, c)
     if "record_count" in row:   # listings: how much each source brought in
         row["sample_count"] = sample_counts.for_connection(row["id"])
     return row
+
+
+def _access_ended(row: dict[str, Any], creds: dict[str, Any]) -> bool:
+    """A health record connection whose access ran out and can't be renewed: a one-time import, such as healow's
+    (which gives public apps no refresh token). That's expected, not a fault: signing in again brings in what's new."""
+    if row.get("status") == "disconnected" or creds.get("refresh_token") or creds.get("dynamic_client"):
+        return False
+    expires_at = creds.get("expires_at")
+    return (row.get("status") == "needs_reauth" or not creds.get("access_token")
+            or bool(expires_at and expires_at <= time.time()))
 
 
 def create(

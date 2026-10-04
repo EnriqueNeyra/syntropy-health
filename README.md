@@ -58,7 +58,7 @@ Then open <http://localhost:8000> and follow the setup. No accounts handy? Turn 
 Developer** to connect to the built-in **EHR simulator**, and add simulated Oura or WHOOP data to explore everything with synthetic records.
 
 > **Status:** Syntropy Health is in beta. Epic (MyChart), Oracle Health, athenahealth and eClinicalWorks (healow)
-> health systems connect for real; registration with the VA is under way, so until it's complete you can import a
+> health systems connect for real (eClinicalWorks connections are one-time imports: sign in again to update them); registration with the VA is under way, so until it's complete you can import a
 > record file from its patient portal instead. Oura,
 > WHOOP, Google Health, Apple Health exports and lab reports work with real data today, and the iPhone app is on its way
 > to the App Store.

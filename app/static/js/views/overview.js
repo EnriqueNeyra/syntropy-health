@@ -193,8 +193,9 @@ export const WIDGETS = [
   { id: "sources", title: "Sources", desc: "Each connected source and when it last synced", size: "m", on: false, needs: ["conns"],
     render: (d) => listCard("Sources", "sources", d.connections, (c) => html`
       <a class="list-item clickable" href="#/sources" style="color:inherit;text-decoration:none">
-        <span class="dot ${c.status === "active" ? "good" : c.status === "disconnected" ? "" : "warn"}"></span>
-        <div class="grow"><div class="title truncate">${c.display_name}</div><div class="meta">${c.status === "needs_reauth" ? "Reconnect needed" : c.status === "error" ? "Sync failed" : `Synced ${fmtAgo(c.last_sync_at)}`}</div></div></a>`,
+        <span class="dot ${c.access_ended || c.status === "disconnected" ? "" : c.status === "active" ? "good" : "warn"}"></span>
+        <div class="grow"><div class="title truncate">${c.display_name}</div><div class="meta">${c.access_ended ? `Imported ${fmtAgo(c.last_sync_at)}`
+          : c.status === "needs_reauth" ? "Reconnect needed" : c.status === "error" ? "Sync failed" : `Synced ${fmtAgo(c.last_sync_at)}`}</div></div></a>`,
       "No sources yet.", { href: "#/sources", more: "Manage sources" }) },
 ];
 const BY_ID = new Map(WIDGETS.map((w) => [w.id, w]));
@@ -321,7 +322,7 @@ export async function render({ el, state, navigate }) {
       return;
     }
 
-    const issues = connections.filter((c) => c.status === "needs_reauth" || c.status === "error");
+    const issues = connections.filter((c) => !c.access_ended && (c.status === "needs_reauth" || c.status === "error"));
     const syncing = connections.some((c) => c.syncing);
     const lastSync = connections.map((c) => c.last_sync_at).filter(Boolean).sort().pop();
     const items = layout.filter((w) => w.visible).map((w) => ({ w, out: content(w) })).filter((x) => x.out);

@@ -27,7 +27,7 @@ def _decorate(inst: dict, cfgs: dict[str, dict[str, Any]]) -> dict:
     mode = cfg["mode"] if cfg else "production"
     return {**inst, "platform_label": preset.get("label", inst["platform"]), "portal": inst.get("portal") or preset.get("portal"),
             "mode": mode, "available": cfg["available"] if cfg else True,
-            "production_available": bool(inst.get("fhir_base_url")),
+            "production_available": bool(inst.get("fhir_base_url")), "one_time": bool(preset.get("one_time")),
             "sign_in_problem": directory.sign_in_problem(inst) if mode == "production" else None,
             "sandbox_hint": preset.get("sandbox_hint") if mode == "sandbox" else None}
 
