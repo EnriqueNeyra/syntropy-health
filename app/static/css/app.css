@@ -229,7 +229,7 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .seg > button, .seg > label { position: relative; border: 0; background: none; padding: 5px 11px; border-radius: 7px; font-size: 13px; font-weight: 550;
   color: var(--text-3); cursor: pointer; white-space: nowrap; }
 @media (hover: hover) { .seg > button:hover, .seg > label:hover { color: var(--text); } }
-.seg > .active { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / .1); }
+.seg > .active, .seg > label:has(input:checked) { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / .1); }
 .seg > label input { position: absolute; opacity: 0; pointer-events: none; }
 .seg > label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
 .seg-wrap { flex-wrap: wrap; overflow: visible; }
@@ -399,7 +399,9 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .dash-item.size-xl { grid-column: 1 / -1; }
 .dash-inner { position: relative; }
 .dash-inner > .card { height: auto; }
-.dash-item.is-tile .tile { margin: 0; }
+.dash-item.is-tile .tile { margin: 0; display: flex; flex-direction: column; }
+/* Tiles share one height (see masonry()): the sparkline sits at the bottom of a taller one. */
+.dash-item.is-tile .tile svg.spark { margin-top: auto; padding-top: 6px; box-sizing: content-box; }
 .dash.editing .dash-inner > :not(.dash-controls) { pointer-events: none; user-select: none; }
 .dash.editing .dash-inner > .card { outline: 1.5px dashed var(--border-strong); outline-offset: 3px; }
 .dash-controls { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; align-items: center; gap: 4px; padding: 3px;
@@ -1339,6 +1341,8 @@ svg.spark.intro { animation: wipe .8s cubic-bezier(.4, 0, .2, 1) both; }
 .insights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .insight { display: flex; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); align-items: flex-start; }
 .insights .insight:nth-child(odd) { border-right: 1px solid var(--border); }
+/* An odd one out at the end takes the whole row, rather than leaving half the card empty. */
+.insights .insight:nth-child(odd):last-child { grid-column: 1 / -1; border-right: 0; }
 .insight-icon { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--info-bg); color: var(--info); }
 .insight-icon svg { width: 16px; height: 16px; }
 .insight.attention .insight-icon { background: var(--warn-bg); color: var(--warn); }

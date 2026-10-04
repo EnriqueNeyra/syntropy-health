@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import check_access, request_origin, resolve_profile
 from app.connectors import smart
 from app.connectors.smart import SmartError
-from app.core import auth
+from app.core import auth, context
 from app.services import connect, sync
 from app.store import biometrics, connections, devices, records
 
@@ -220,6 +220,7 @@ async def oauth_callback(request: Request, background: BackgroundTasks, code: Op
     if not popped:
         return _done(error="This sign-in link has expired or was already used. Please start the connection again.")
     kind, pending = popped
+    context.ACTING_FOR.set(pending.get("actor"))
     try:
         result = await _complete(kind, pending, code=code)
     except SmartError as exc:
@@ -245,6 +246,7 @@ async def relay_complete(req: RelayTokens, request: Request, background: Backgro
     if not popped or popped[0] not in connect.WEARABLE_MODULES:
         raise HTTPException(400, "This sign-in link has expired or was already used. Please start the connection again.")
     kind, pending = popped
+    context.ACTING_FOR.set(pending.get("actor"))
     try:
         result = await _complete(kind, pending, tokens=req.model_dump(exclude={"state", "relay_provider"}))
     except SmartError as exc:

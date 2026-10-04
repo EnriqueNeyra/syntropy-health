@@ -302,6 +302,11 @@ export function closeAnimated(el, done) {
 }
 
 // ---------------------------------------------------------------- modal & drawer
+const openDialogs = new Set();
+
+/** Closes every open dialog and drawer: they belong to the page they were opened from (see route in app.js). */
+export function closeDialogs() { for (const close of [...openDialogs]) close(); }
+
 export function modal({ title, body, footer = "", wide = false, drawer = false, onClose } = {}) {
   const overlay = document.createElement("div");
   overlay.className = `overlay${drawer ? " drawer-overlay" : ""}`;
@@ -317,6 +322,7 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
   const close = () => {
     if (closed) return;
     closed = true;
+    openDialogs.delete(close);
     document.removeEventListener("keydown", onKey);
     closeAnimated(overlay);
     // Keyboard focus goes back where it was before the dialog opened.
@@ -327,6 +333,7 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
   overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(); });
   overlay.querySelector("[data-close]").addEventListener("click", close);
   document.addEventListener("keydown", onKey);
+  openDialogs.add(close);
   document.body.appendChild(overlay);
   const panel = overlay.firstElementChild;
   // Focus moves into the dialog: its first field, or the dialog itself (so Tab and Escape work from the keyboard).

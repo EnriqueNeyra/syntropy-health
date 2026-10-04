@@ -380,7 +380,7 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
     where += ")"
     with db() as conn:
         rows = conn.execute(f"SELECT a.* FROM audit_log a WHERE {where} ORDER BY a.at DESC LIMIT ?",
-                            (*params, min(limit, 500))).fetchall()
+                            (*params, max(1, min(limit, 500)))).fetchall()
         names = {r["id"]: r["name"] for r in conn.execute("SELECT a.id, p.name FROM accounts a JOIN profiles p ON p.id = a.profile_id")}
         devices = {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM devices")}
     events = rows_to_dicts(rows)

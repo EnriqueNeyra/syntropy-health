@@ -188,13 +188,14 @@ export async function render({ el, params, state }) {
     if (weeksEl) {
       const pts = tr.weeks.map((wk) => {
         const d = new Date(`${wk.week}T12:00:00`);
-        return { day: wk.week, value: wk.minutes, tickLabel: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        return { day: wk.week, value: wk.minutes / 60, tickLabel: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
           tipLabel: `Week of ${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
           source: [plural(wk.count, "workout"), wk.distance_m ? distance(wk.distance_m) : null, `load ${fmtNum(wk.load, 0)}`].filter(Boolean).join(" · "),
           partial: wk === tr.weeks[tr.weeks.length - 1] };
       });
       const avg = pts.slice(0, -1).filter((p) => p.value).reduce((a, p, _, arr) => a + p.value / arr.length, 0);
-      stops.push(responsive(weeksEl, () => barChart(weeksEl, pts, { unit: "min", label: "Workout minutes each week", format: (v) => duration(v * 60), avg: avg || null, height: 200 })));
+      stops.push(responsive(weeksEl, () => barChart(weeksEl, pts, { unit: "h", label: "Workout hours each week", format: (v) => duration(v * 3600),
+        tick: (v) => (v ? `${fmtNum(v)}h` : "0"), avg: avg || null, height: 200 })));
     }
     const progEl = el.querySelector("[data-chart=progress]");
     if (progEl) {

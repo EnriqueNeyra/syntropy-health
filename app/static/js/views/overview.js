@@ -92,7 +92,7 @@ const DEFAULT_TILES = 6;   // numbers shown until the person arranges their own
 function listCard(title, iconName, items, renderItem, emptyText, { href, more = "View all" } = {}) {
   return html`<div class="card widget-card">
     <div class="card-head"><h3>${icon(iconName)} ${title}</h3>${items.length ? html`<span class="badge">${items.length}</span>` : ""}</div>
-    <div class="list">${items.length ? items.slice(0, LIST_MAX).map(renderItem) : html`<div class="list-item muted small">${emptyText}</div>`}</div>
+    <div class="list">${items.length ? items.slice(0, LIST_MAX).map(renderItem) : html`<div class="list-item muted small"><span>${emptyText}</span></div>`}</div>
     ${href && items.length ? html`<a class="card-foot" href="${href}">${items.length > LIST_MAX && more === "View all" ? `View all ${items.length}` : more} ${icon("arrowRight")}</a>` : ""}
   </div>`;
 }
@@ -130,7 +130,7 @@ export const WIDGETS = [
             <div class="meta">${g.direction === "min" ? "At least" : "At most"} ${metricValue({ metric: g.metric, unit: g.unit }, g.target)} ${metricUnit({ metric: g.metric, unit: g.unit })}${g.streak >= 3 ? ` · ${g.streak} days in a row` : ""}</div></div>
           <span class="goal-dots" aria-label="${g.met} of ${g.days} days met">${g.history.slice(-7).map((h) => html`<i class="${h.met ? "met" : h.partial ? "open" : ""}" title="${fmtDate(h.day)}: ${metricValue({ metric: g.metric, unit: g.unit }, h.value)}"></i>`)}</span>
           <b class="small">${g.met}/${g.days}</b></a>`)}</div>`
-          : html`<div class="list-item muted small">No goals yet. Open any measurement in <a href="#/trends/sleep?metric=sleep_duration">Trends</a> and choose Set goal: sleep, steps, resting heart rate…</div>`}
+          : html`<div class="list-item muted small"><span>No goals yet. Open any measurement in <a href="#/trends/sleep?metric=sleep_duration">Trends</a> and choose Set goal: sleep, steps, resting heart rate…</span></div>`}
       </div>`;
     } },
   { id: "sleep", title: "Sleep", desc: "Hours asleep each night for the last two weeks", size: "m", on: true, needs: ["sleep"],
@@ -468,13 +468,25 @@ const GROUP_LABELS = { activity: "Activity", mobility: "Activity", heart: "Heart
  * next to a tall card without stretching, and the dense flow fills the gaps. Returns a function that stops watching.
  */
 function masonry(grid) {
-  const fit = (item) => {
-    const inner = item.firstElementChild;
-    item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((inner.getBoundingClientRect().height + 16) / 2))}`;
-  };
   const items = $$(".dash-item", grid);
-  items.forEach(fit);
-  const ro = new ResizeObserver((entries) => entries.forEach((e) => fit(e.target.parentElement)));
+  const cards = items.filter((i) => i.classList.contains("is-tile")).map((i) => $(".tile", i)).filter(Boolean);
+  const layout = () => {
+    // The number tiles share one height, so they line up in rows: a tile with a goal line is a little taller, and on
+    // its own it pushed the next row's first tile over a column.
+    cards.forEach((c) => { c.style.minHeight = ""; });
+    const tallest = Math.max(0, ...cards.map((c) => c.getBoundingClientRect().height));
+    cards.forEach((c) => { c.style.minHeight = `${tallest}px`; });
+    for (const item of items) {
+      item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((item.firstElementChild.getBoundingClientRect().height + 16) / 2))}`;
+    }
+  };
+  layout();
+  let queued = false;
+  const ro = new ResizeObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; layout(); });
+  });
   items.forEach((item) => ro.observe(item.firstElementChild));
   return () => ro.disconnect();
 }

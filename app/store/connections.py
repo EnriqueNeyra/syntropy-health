@@ -223,6 +223,8 @@ def recent_runs(connection_id: str, limit: int = 10) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 def save_pending(state: str, kind: str, payload: dict[str, Any], ttl: int = 900) -> None:
+    from app.core import context
+    payload = {**payload, "actor": context.actor()}      # who the sign-in returns to (see context.ACTING_FOR)
     now = time.time()
     with db() as conn:
         conn.execute("DELETE FROM oauth_pending WHERE expires_at < ?", (now,))

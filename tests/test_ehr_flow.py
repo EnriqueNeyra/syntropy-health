@@ -458,3 +458,11 @@ def test_a_health_system_whose_sign_in_failed_the_check_says_so(client, monkeypa
                                         "instead": [{"id": working["id"], "name": working["name"]}]}
     assert client.get(f"/api/directory/{working['id']}").json()["sign_in_problem"] is None
     assert client.get("/api/directory/not-a-real-id").status_code == 404
+
+
+def test_access_log_names_who_connected(client):
+    # The health system's sign-in returns to /callback without the app's session; it acts for whoever started it.
+    connect_institution(client, "epic-stanford-health-care")
+    events = client.get("/api/audit").json()["events"]
+    created = next(e for e in events if e["action"] == "connection.created")
+    assert created["actor"].startswith("user:") and created["who"] == "Alex"
