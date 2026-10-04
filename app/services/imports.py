@@ -9,6 +9,7 @@ processed.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import logging
 import threading
@@ -49,6 +50,9 @@ def _update(job_id: str, **fields: Any) -> None:
 def _new_job(kind: str, filename: str, profile_id: str) -> str:
     job_id = new_id("job")
     with _jobs_lock:
+        # Finished jobs are kept for a day, for the page polling them; then they go.
+        for old in [k for k, j in _jobs.items() if j["finished_at"] and j["finished_at"] < time.time() - 86400]:
+            del _jobs[old]
         _jobs[job_id] = {"id": job_id, "kind": kind, "filename": filename, "profile_id": profile_id,
                          "status": "queued", "processed": 0, "inserted": 0, "started_at": time.time(),
                          "finished_at": None, "error": None, "result": None}
@@ -92,8 +96,9 @@ def import_fhir_file(profile_id: str, filename: str, raw: bytes) -> dict[str, An
 
 def start_apple_health_import(profile_id: str, path: Path, filename: str) -> str:
     job_id = _new_job("apple_health", filename, profile_id)
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, _run_apple_health, job_id, profile_id, path, filename)
+    loop = asyncio.get_running_loop()
+    # With the request's context, so what the import records is attributed to whoever started it.
+    loop.run_in_executor(None, contextvars.copy_context().run, _run_apple_health, job_id, profile_id, path, filename)
     return job_id
 
 
