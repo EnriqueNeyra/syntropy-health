@@ -181,7 +181,7 @@ export async function render({ el, params, state }) {
       </div>`
       : html`<div class="card">${anyInRange || type
         ? emptyState("No workouts in this range", "Try a longer range, or all kinds of workouts.")
-        : emptyState("No workouts yet", "Workouts arrive from the Syntropy iPhone app (Apple Watch and iPhone) and from Oura or WHOOP. A first sync of your full Apple Health history can take a while; workouts are sent early.",
+        : emptyState("No workouts yet", "Workouts arrive from the Syntropy phone apps (Apple Health on iPhone, Health Connect on Android) and from Oura or WHOOP. A first sync of a phone's full history can take a while; workouts are sent early.",
           html`<a class="btn btn-primary" href="#/sources">${icon("plus")} Add a source</a>`)}</div>`}`);
 
     const weeksEl = el.querySelector("[data-chart=weeks]");

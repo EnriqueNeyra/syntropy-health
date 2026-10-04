@@ -97,6 +97,15 @@ def test_device_source_migration_folds_duplicates(client):
     assert [d["id"] for d in client.get("/api/devices").json()["devices"]] == ["dev_new"]
 
 
+def test_health_connect_sources_rank_like_their_devices():
+    """The Android app names a sample's source by the app that wrote it to Health Connect."""
+    from app.store.biometrics import source_kind
+    assert source_kind("Fitbit") == "ring"             # Fitbit and Pixel Watch, as through Google Health
+    assert source_kind("Samsung Health") == "watch"    # Galaxy Watch
+    assert source_kind("Oura") == "ring"
+    assert source_kind("Strava") == "other"
+
+
 def test_overview_layout_is_saved_per_person(client):
     profile = client.get("/api/profiles").json()["profiles"][0]["id"]
     assert client.get(f"/api/profiles/{profile}/overview").json() == {"widgets": None}

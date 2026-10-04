@@ -30,8 +30,8 @@ moving further out of range.
 - **Your medical records, from every provider.** Connects to patient portals such as Epic MyChart, Oracle Health, athenahealth and healow
   through the standard SMART on FHIR patient-access APIs, and merges labs, medications, conditions, visits and notes
   from every health system into one de-duplicated record.
-- **Your wearables and Apple Health.** Apple Watch and iPhone data through the Syntropy Health iPhone app, plus Oura,
-  WHOOP and Google Health (Fitbit, Pixel Watch), without double-counting devices.
+- **Your wearables and phone.** Apple Health through the Syntropy Health iPhone app, Health Connect (Fitbit, Pixel
+  Watch, Samsung Health) through the Android app, plus Oura, WHOOP and Google Health, without double-counting devices.
 - **Insights across sources.** Trends, sleep, training and a daily journal in one place, with patterns and changes
   from your own normal surfaced for you, always with the numbers behind them.
 - **Ask with the AI you choose.** A local model (Ollama, LM Studio) so nothing leaves your network, your own API key,

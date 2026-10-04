@@ -1,7 +1,8 @@
 """Workouts, health events and HealthKit export JSON ingest.
 
-The fixtures in tests/fixtures are written by the iPhone app's own Swift code
-(SyntropyCore in the separate iOS repo, ``FixtureExport`` test), so these tests pin the wire format end to end.
+The fixtures in tests/fixtures are written by the phone apps' own code: the iPhone app's (SyntropyCore in the separate
+iOS repo, ``FixtureExport`` test) and the Android app's (its ``core`` module, ``fixtureExport`` test), so these tests pin
+the wire format end to end.
 """
 
 from __future__ import annotations
@@ -71,6 +72,32 @@ def test_ios_batch_with_workouts_and_events(client):
     conn_id = [c for c in client.get("/api/connections").json()["connections"] if c["kind"] == "device"][0]["id"]
     assert client.delete(f"/api/connections/{conn_id}", params={"delete_data": True}).status_code == 200
     assert client.get("/api/biometrics/overview").json()["activity"] == {"workouts": 0, "events": 0}
+
+
+def test_android_health_connect_batch(client):
+    code = client.post("/api/devices/pairing-code", json={}).json()["code"]
+    phone = TestClient(client.app, base_url=BASE)
+    paired = phone.post("/api/devices/pair", json={"code": code, "device_name": "Pixel 9", "platform": "android"})
+    headers = {"X-Syntropy-Device-Token": paired.json()["device_token"]}
+    source = [c for c in client.get("/api/connections").json()["connections"] if c["kind"] == "device"][0]
+    assert source["display_name"] == "Health Connect · Pixel 9"
+    assert source["provider"] == "health_connect" and source["metadata"]["platform"] == "android"
+
+    batch = json.loads((FIXTURES / "android_health_connect_batch.json").read_text())
+    r = phone.post("/api/ingest/wearables", json=batch, headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["inserted"] == len(batch["samples"]) == 7
+    assert body["workouts_inserted"] == 1 and body["events_inserted"] == 1
+    assert _daily(client, "step_count")[-1]["value"] == 1234
+    assert _daily(client, "oxygen_saturation")[-1]["value"] == 96.5     # sent as a fraction, shown as a percentage
+    assert _daily(client, "sleep_deep")[-1]["value"] == 1.0
+    w = client.get("/api/biometrics/workouts", params={"days": 0}).json()["workouts"][0]
+    assert w["name"] == "Running" and w["avg_hr"] == 148 and w["distance_m"] == 10200
+
+    # Re-sending is idempotent: a sync that's interrupted sends its last page again.
+    again = phone.post("/api/ingest/wearables", json=batch, headers=headers).json()
+    assert again["inserted"] == 0 and again["workouts_inserted"] == 0 and again["events_inserted"] == 0
 
 
 def test_healthkit_export_json_from_ios_app(client):

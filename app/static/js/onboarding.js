@@ -92,7 +92,7 @@ export function renderSetup(status, onDone) {
         on this computer.</p>
       <ul class="check-list onboard-points">
         <li>Your data stays here. Nothing is sent anywhere unless you connect it.</li>
-        <li>Sync your iPhone and Apple Watch, Oura, WHOOP and patient portals like MyChart.</li>
+        <li>Sync your iPhone or Android phone, your watch, Oura, WHOOP and patient portals like MyChart.</li>
         <li>Ask questions about it with an AI you choose, including one that runs on this computer.</li></ul>
       <form id="ob-name">
         <div class="field"><label class="label" for="s-name">Your first name</label>
@@ -208,7 +208,7 @@ export function renderOnboarding(status, onDone) {
   const devices = async () => {
     screen(3, html`
       <h1>Your other devices</h1>
-      <p class="muted onboard-lede">Syntropy Health runs on this computer. Your iPhone syncs to it, and you can open it from your other
+      <p class="muted onboard-lede">Syntropy Health runs on this computer. Your phone syncs to it, and you can open it from your other
         devices too.</p>
       <div id="ob-net">${html`<div class="skeleton" style="height:72px"></div>`}</div>
       <div class="onboard-foot"><span class="grow"></span><button class="btn btn-primary" data-action="next">Continue</button></div>`);
@@ -228,7 +228,7 @@ export function renderOnboarding(status, onDone) {
       <p class="muted onboard-lede">${owner ? "Start with whatever you have." : "Your health data is yours here: only you see it, unless you share it. Start with whatever you have."}
         You can add the rest any time from Sources.</p>
       <div class="onboard-tiles">
-        ${tile("iphone", "phone", "iPhone and Apple Watch", "Heart, sleep, workouts and more from Apple Health, with the Syntropy Health app")}
+        ${tile("iphone", "phone", "Your phone and watch", "Heart, sleep, workouts and more from Apple Health or Health Connect, with the Syntropy Health app")}
         ${tile("wearables", "watch", "Oura, WHOOP or Google Health", "Sign in once; new days sync on their own")}
         ${tile("ehr", "records", "Doctors and hospitals", "MyChart and other patient portals: visits, labs, medications")}
         ${tile("import", "upload", "Files", "An Apple Health export, a FHIR file or a lab report PDF")}

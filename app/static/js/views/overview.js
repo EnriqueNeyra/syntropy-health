@@ -315,7 +315,7 @@ export async function render({ el, state, navigate }) {
           <p>Let's bring your health data together. Everything is stored locally on this machine.</p></div></div>
         <div class="grid grid-auto">
           ${[
-            ["watch", "Wearables and iPhone", "Pair the Syntropy iPhone app for Apple Health, or link Oura, WHOOP or Google Health for sleep, recovery, HRV and training.", "#/sources", "Connect a device"],
+            ["watch", "Wearables and phones", "Pair the Syntropy iPhone or Android app for Apple Health or Health Connect, or link Oura, WHOOP or Google Health for sleep, recovery, HRV and training.", "#/sources", "Connect a device"],
             ["building", "Medical records", "Bring in your labs, medications, conditions and visits from patient portals like Epic MyChart, Oracle Health, athenahealth and the VA.", "#/sources?add=ehr", "Find my health system"],
             ["upload", "Import files", "Drop in an Apple Health export or any FHIR record file you downloaded from a portal.", "#/sources?add=import", "Import a file"],
             ["shieldCheck", "Private by design", "No cloud account. Tokens are encrypted at rest and every access is recorded in your access log.", "#/settings/security", "Review security"],
