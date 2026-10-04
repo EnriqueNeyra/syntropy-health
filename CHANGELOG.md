@@ -5,6 +5,28 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 
 ## Unreleased
 
+- **The Windows app opens.** It handed its window a PNG icon, which Windows' window toolkit can only read as an
+  .ico: creating the window failed and nothing appeared, from the installer or the Start menu. Without the Microsoft
+  Edge WebView2 Runtime it now opens in your browser (and says where to get the runtime), and a start-up problem shows
+  a message instead of exiting silently. The release build now opens the Windows app and checks its window.
+- **Wearable syncs fill the gap after failures.** An Oura, WHOOP or Google Health sync started from the last attempt,
+  so after more than three days of failed syncs (an expired sign-in, reconnected later) the days in between were never
+  fetched. It starts from the last sync that worked; an Oura endpoint that errors fails the sync instead of counting
+  as an empty success.
+- **No more missing lab results in the Timeline.** A page that ended partway through a lab panel skipped the rest of
+  it.
+- **A long workout no longer stops the iPhone's workouts syncing.** A route of more than 100,000 points (a day-long
+  hike) was refused, and the phone sent the same page again on every sync. Routes and heart rate are thinned to 20,000
+  points, and over-long text is cut to fit.
+- **The server stays responsive during big jobs.** Health-system and wearable syncs, FHIR file imports, changing the
+  time zone, and deleting a person or a source's data no longer hold up every other request while they run.
+- Dialogs close when you go to another page (one could stay over the next page); the goal dialog shows its choice;
+  Overview's number tiles line up when one shows a goal; Records, Timeline and the health-system search show the
+  answer to what was typed last; Workouts' weekly volume is charted in hours; Settings → Security names browsers, and
+  the access log reads as words and names who connected a health system or wearable.
+- Profiles: a birth date can be cleared, and names, dates and colors are checked when changed. The FHIR export's file
+  name works for any name. A health system's access token is never sent to an attachment on another host.
+
 - **Android phones send their health data too.** The new Syntropy Health Android app reads Health Connect (Fitbit,
   Pixel Watch, Samsung Health, Oura and other apps that write to it) and sends it to this server like the iPhone app
   sends Apple Health, with nothing in between. Pair it from **Sources → Phones & watches**; it shows as
