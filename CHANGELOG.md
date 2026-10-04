@@ -3,6 +3,24 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
+## 1.6.0
+
+- **The iPhone app feels like an iPhone app.** Pages tell the app what to draw natively, when the app says it can:
+  title-bar buttons and menus, a message field above the keyboard, menus as action sheets, haptics. The app builds its
+  tabs and More from the sections the server lists, so a new section reaches the app without an app update, and
+  apps and servers of different versions keep working together.
+- **Ask in the iPhone app is a native chat.** The conversation scrolls with the screen instead of inside a box, the
+  message field sits above the keyboard and grows as you type, and the model, past conversations and New chat are
+  title-bar menus.
+- **The model menu opens at once.** Ask fetches it as the page loads, and the server reuses what it found (models on
+  your network, AI apps signed in on this computer) while it looks again in the background.
+- **Trends in the iPhone app no longer gets stuck on a chart.** Refreshing the Trends tab (or a change on another
+  screen) showed the selected test's chart in place of the list, with no way back.
+- In the iPhone app: no pinch or double-tap zoom, and no zoom on a focused field; a dragged Overview card stays under
+  your finger; Sources is laid out like iOS settings; a workout opens as its own screen; dialogs end above the tab bar;
+  Journal, Records and the visit summary have their main action in the title bar. Date fields fit their form on
+  iPhone and iPad.
+
 ## 1.5.0
 
 - **The Windows app opens.** It handed its window a PNG icon, which Windows' window toolkit can only read as an
