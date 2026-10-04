@@ -485,7 +485,7 @@ async function route(opts) {
         if (document.documentElement.dataset.vt === motion) delete document.documentElement.dataset.vt;
       });
     } else swap();
-    if (motion === "section") {
+    if (motion === "section" && !document.hidden) {     // hidden, the animation may never run and leave it see-through
       next.classList.add("page-enter");
       next.addEventListener("animationend", () => next.classList.remove("page-enter"), { once: true });
     }
@@ -509,7 +509,7 @@ async function route(opts) {
     show();
     // The app shows the page's heading as its title (the page hides its own; see [data-native-nav] in app.css).
     if (nativeNav && seq === renderSeq) {
-      const title = next.querySelector(".page-head h1")?.textContent.trim() || def.label;
+      const title = next.dataset.appTitle || next.querySelector(".page-head h1")?.textContent.trim() || def.label;
       appBridge({ type: "page", route: name, hash: location.hash || "#/overview", title, label: def.label });
     }
   }
@@ -521,6 +521,8 @@ function pageError(err) {
   const code = err instanceof TypeError && /module|import/i.test(err.message || "");
   const message = code ? `${unreachableMessage().replace(/ then try again\.$/, "")} If Syntropy Health was just updated, reload the page.`
     : (err?.message || String(err));
+  // The iPhone app shows its own "can't reach your server" screen, like its other screens, over this one.
+  if (nativeNav && (code || err?.status === 0)) appBridge({ type: "unreachable", message: unreachableMessage() });
   const box = mount(document.createElement("div"), html`<div class="empty page-error" role="alert">${icon("alert")}<h3>This page couldn't be shown</h3>
     <p>${message}</p><button class="btn" type="button">${icon("sync")}<span>${code ? "Reload" : "Try again"}</span></button></div>`);
   box.querySelector("button").addEventListener("click", () => (code ? location.reload() : route({ keepScroll: true })));
@@ -566,6 +568,8 @@ window.SyntropyShell = nativeNav ? {
   /** Something changed elsewhere: draw this section again from fresh data. */
   refresh() { clearCache(); if (state.status) { route({ keepScroll: true }); refreshAlerts(state.profile, state.status); } },
   openAlerts() { openAlerts(null); },
+  /** The accent was chosen on another screen or in the app's own Settings. */
+  setAccent(id) { if (id !== currentAccent()) themeTransition(() => applyAccent(id)); },
 } : undefined;
 
 // ------------------------------------------------------------------ auth screens
@@ -726,9 +730,14 @@ async function boot() {
     return state.status.authenticated && state.status.auth_required ? renderJoinWhileSignedIn(joinParts[0] || "") : renderJoin(joinParts[0] || "");
   }
   if (!state.status.authenticated) return renderLogin();
-  if (state.status.password_missing) return renderPasswordGate(state.status, boot);
-  if (!state.status.terms_accepted) return renderTermsGate(boot);
-  if (state.status.onboarding) return renderOnboarding(state.status, boot);
+  // A step to finish before anything else (setting a password, accepting the terms): in the iPhone app the screen is
+  // shown as is, rather than left behind the app's spinner waiting for a page.
+  const gate = () => nativeNav && appBridge({ type: "page", route: "_gate", hash: location.hash || "#/", title: "Syntropy Health", label: "Syntropy Health" });
+  if (state.status.password_missing) { renderPasswordGate(state.status, boot); gate(); return; }
+  if (!state.status.terms_accepted) { renderTermsGate(boot); gate(); return; }
+  // First run (other devices, bringing in data, AI) is for the browser: the iPhone app has its own, and in companion mode
+  // each of its screens would show it. It stays waiting for the first visit from a browser.
+  if (state.status.onboarding && !nativeNav) return renderOnboarding(state.status, boot);
   state.profiles = state.status.profiles || [];
   setUnitPreference(state.status.preferences?.units);
   if (state.status.preferences?.accent && state.status.preferences.accent !== currentAccent()) applyAccent(state.status.preferences.accent);

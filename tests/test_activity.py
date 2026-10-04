@@ -232,3 +232,28 @@ def test_same_session_from_two_devices_is_one_workout(client):
     assert res["workouts"][1]["also_recorded_by"][0]["source_name"] == "WHOOP"
     assert res["summary"]["count"] == 2 and res["summary"]["energy_kcal"] == 420
     assert client.get("/api/export/csv", params={"kind": "workouts"}).text.count("\n") == 4   # header + all three
+
+
+def test_phone_paired_again_for_someone_else_sends_them_its_data(client):
+    """A phone first paired to the wrong person, then to the right one, sends the same HealthKit samples (same ids)
+    again: they reach the second person too instead of counting as duplicates of the first person's."""
+    batch = json.loads((FIXTURES / "ios_ingest_batch.json").read_text())
+    phone, alex = _pair(client)
+    assert phone.post("/api/ingest/wearables", json=batch, headers=alex).json()["inserted"] == len(batch["samples"])
+
+    jordan = client.post("/api/profiles", json={"name": "Jordan", "relationship": "spouse"}).json()["id"]
+    code = client.post("/api/devices/pairing-code", json={"profile_id": jordan}).json()["code"]
+    token = phone.post("/api/devices/pair", json={"code": code, "device_name": "Alex's iPhone"}).json()["device_token"]
+    headers = {"X-Syntropy-Device-Token": token}
+    body = phone.post("/api/ingest/wearables", json=batch, headers=headers).json()
+    assert body["inserted"] == len(batch["samples"]) and body["workouts_inserted"] == 1 and body["events_inserted"] == 5
+    again = phone.post("/api/ingest/wearables", json=batch, headers=headers).json()
+    assert again["inserted"] == 0 and again["workouts_inserted"] == 0 and again["events_inserted"] == 0
+
+    for profile in (None, jordan):
+        params = {"days": 0, **({"profile": profile} if profile else {})}
+        workouts = client.get("/api/biometrics/workouts", params=params).json()["workouts"]
+        assert len(workouts) == 1
+        detail = client.get(f"/api/biometrics/workouts/{workouts[0]['id']}", params=params)
+        assert detail.status_code == 200 and len(detail.json()["route"]) == 2
+        assert len(client.get("/api/biometrics/events", params=params).json()["events"]) == 5

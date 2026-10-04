@@ -3,6 +3,7 @@
 // side by side instead of on two different pages.
 
 import { get } from "../api.js";
+import { appBridge, nativeNav } from "../app.js";
 import { barChart, lineChart, responsive } from "../charts.js";
 import { metricUnit, metricValue } from "./overview.js";
 import { drawSleep } from "./sleep-view.js";
@@ -168,12 +169,19 @@ export async function render({ el, parts, params, state, navigate }) {
       <div class="split-detail stack" id="tr-detail"></div>
     </div>`);
 
-  const address = () => {
-    const q = !selected ? "" : selected.kind === "wearable" ? `?metric=${encodeURIComponent(selected.metric)}`
-      + (cmp.b ? `&compare=${encodeURIComponent(cmp.b)}${cmp.lag ? `&lag=${cmp.lag}` : ""}` : "")
-      : selected.kind === "signal" ? `?event=${encodeURIComponent(selected.eventType)}` : `?code=${encodeURIComponent(selected.code)}`;
-    history.replaceState(null, "", `#/trends/${topic}${q}`);
+  const hashFor = (it) => {
+    const q = !it ? "" : it.kind === "wearable" ? `?metric=${encodeURIComponent(it.metric)}`
+      + (it === selected && cmp.b ? `&compare=${encodeURIComponent(cmp.b)}${cmp.lag ? `&lag=${cmp.lag}` : ""}` : "")
+      : it.kind === "signal" ? `?event=${encodeURIComponent(it.eventType)}` : `?code=${encodeURIComponent(it.code)}`;
+    return `#/trends/${it?.topic || topic}${q}`;
   };
+  const address = () => history.replaceState(null, "", hashFor(selected));
+  // In the iPhone app a chart is a screen of its own, with the app's back button: the page shows only that chart.
+  const detailScreen = nativeNav && showDetail;
+  if (detailScreen) {
+    $("#tr-tabs", el).hidden = true;
+    el.dataset.appTitle = selected.title;     // the screen's title in the app, instead of "Trends"
+  }
 
   const drawTabs = () => mount($("#tr-tabs", el), topics.map(([k, label]) => {
     const n = items.filter((i) => i.topic === k).length;
@@ -419,6 +427,8 @@ export async function render({ el, parts, params, state, navigate }) {
     pick: ({ key }) => {
       const next = items.find((i) => i.key === key);
       if (!next) return;
+      // The iPhone app opens the chart as a new screen.
+      if (nativeNav && narrow() && !showDetail && appBridge({ type: "visit", hash: hashFor(next) })) return;
       if (next.key !== selected?.key) { source = ""; cmp.b = null; cmp.lag = 0; }
       selected = next;
       showDetail = true;

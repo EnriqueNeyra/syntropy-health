@@ -216,8 +216,12 @@ export function barChart(container, points, opts = {}) {
 function intro(container) {
   if (container.dataset.drawn) return "";
   container.dataset.drawn = "1";
-  return "intro";
+  return visible() ? "intro" : "";
 }
+
+/** Whether anyone can see the page. A chart drawn while it's hidden (another screen in the iPhone app, a background
+ * tab) is drawn complete: the animation might never run there, which left a line out. */
+function visible() { return document.visibilityState === "visible"; }
 
 /** A dashed goal line with its value at the right end. */
 function goalLine(goal, gy, width, digits, fmt) {
@@ -392,7 +396,7 @@ export function sparkline(values) {
   const pts = vals.map((v, i) => [pad + (i / (vals.length - 1)) * (w - pad * 2), h - pad - ((v - min) / span) * (h - pad * 2)]);
   const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("");
   const last = pts[pts.length - 1];
-  return `<svg class="spark intro" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" vector-effect="non-scaling-stroke"/><circle cx="${last[0]}" cy="${last[1]}" r="3"/></svg>`;
+  return `<svg class="spark ${visible() ? "intro" : ""}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" vector-effect="non-scaling-stroke"/><circle cx="${last[0]}" cy="${last[1]}" r="3"/></svg>`;
 }
 
 /** Re-render charts when their container width changes. */

@@ -5,9 +5,24 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 
 ## Unreleased
 
+- **An iPhone paired again for someone else sends them its data.** Samples, workouts and journal entries keep
+  HealthKit's own ids, which were unique across the whole server, so a phone first paired to the wrong person and then
+  to the right one had everything counted as duplicates: the second person got nothing. They're now stored for each
+  person, and still only once per person.
+- **The iPhone app's companion mode feels more like the rest of iOS.** A chart picked in Trends opens as its own screen
+  with the chart's name as its title and the app's back button, instead of replacing the list with an extra back link;
+  the Visit summary drops its own back link too. Records' search runs across the screen with its filters in one row
+  that scrolls sideways, like Journal's and Timeline's. Rows and buttons no longer stay highlighted after a tap on a
+  touch screen. Screens that redraw in the background no longer lose a chart's line, a page that can't reach the
+  server shows the app's own "can't reach your server" screen, an accent chosen on one screen recolors the others, and
+  an account that joins from the iPhone goes straight to its data rather than a first-run welcome on every tab. In the
+  app, Settings no longer offers a theme (it follows the iPhone's) and pairing no longer offers a link back into the
+  app itself.
+- The usual bedtime in the irregular-bedtime insight is shown in your own clock (8:57 PM rather than 20:57), and
+  Settings → AI says "Choose an AI for Ask" when one is found on the computer but none is chosen yet, instead of "No AI
+  connected yet" above it.
 - **Workout humidity is a percentage again.** The iPhone app sent humidity from Apple's Workout app in hundredths of a
   percent (65% arrived as 6500); the server now reads both, and workouts already stored are corrected.
-
 - **eClinicalWorks (healow) connections are one-time imports, and say so.** healow gives refresh tokens only to
   confidential apps, so access from a sign-in ends within minutes. A connection whose access has ended now shows as
   **Imported** with an **Update** button that signs in again, instead of a "Reconnect needed" warning that came back
