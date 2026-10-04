@@ -260,6 +260,8 @@ async def token(request: Request) -> JSONResponse:
         claims = security.unsign(str(form.get("refresh_token", "")), "sim-token")
         if not claims or claims.get("typ") != "refresh":
             return _token_error("invalid_grant", "Refresh token is invalid or expired.")
+        if not form.get("scope"):
+            return _token_error("invalid_request", "scope is required with a refresh token.")  # as athenahealth's is
         return JSONResponse(_issue_tokens(claims, origin), headers={"Cache-Control": "no-store"})
     if grant == "urn:ietf:params:oauth:grant-type:jwt-bearer":
         claims, error = _verify_assertion(str(form.get("assertion", "")), f"{origin}/sim/oauth/token")
@@ -394,6 +396,8 @@ async def fhir_search(platform: str, tenant: str, rtype: str, request: Request) 
     requested = next((qp.get(k) for k in SEARCH_PARAMS_PATIENT if qp.get(k)), None)
     if rtype != "Patient" and not requested:
         return _outcome(400, "required", "A patient search parameter is required.")
+    if platform == "athena" and rtype == "MedicationRequest" and not qp.get("intent"):  # as athenahealth's is
+        return _outcome(403, "forbidden", "One of the required parameter combinations [[patient,intent],[_id]] was not provided.")
     if requested:
         requested = requested.split("/")[-1]
         if requested != patient:

@@ -4,6 +4,7 @@ import asyncio
 from urllib.parse import parse_qs, urlparse
 
 import httpx
+import pytest
 
 from tests.conftest import BASE, connect_institution, simulated_login
 
@@ -175,12 +176,19 @@ def test_epic_registers_a_dynamic_client_instead_of_a_refresh_token(client):
     assert client.get(f"/api/connections/{cid}").json()["status"] == "active"
 
 
-def test_other_platforms_keep_using_refresh_tokens(client):
-    cid = connect_institution(client, "banner-health")["connection_id"]
+@pytest.mark.parametrize("institution", ["banner-health", "athenahealth"])
+def test_other_platforms_keep_using_refresh_tokens(client, institution):
+    cid = connect_institution(client, institution)["connection_id"]
     creds = _credentials(cid)
     assert creds.get("refresh_token") and "dynamic_client" not in creds
     _expire(cid)
     assert client.post(f"/api/connections/{cid}/sync").json()["status"] in ("success", "partial")
+
+
+def test_athenahealth_medications_are_searched_with_an_intent(client):
+    cid = connect_institution(client, "athenahealth")["connection_id"]
+    stats = client.get(f"/api/connections/{cid}").json()["last_run"]["stats"]
+    assert stats["queries"]["MedicationRequest"] == "ok" and stats["by_category"].get("medications"), stats
 
 
 def test_failed_registration_still_connects_then_asks_to_reconnect(client, monkeypatch):
