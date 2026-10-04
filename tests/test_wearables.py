@@ -508,3 +508,21 @@ async def test_oura_endpoint_failure_fails_the_sync(monkeypatch):
     monkeypatch.setattr(oura, "_fetch", fake)
     with pytest.raises(SmartError, match="sleep"):
         await oura.fetch_live({"access_token": "AT"}, date(2026, 9, 1), date(2026, 9, 26))
+
+
+def test_long_routes_and_names_are_kept_not_refused(client):
+    # A refused batch is sent again on every sync, so one day-long hike recorded every second (or an odd long name)
+    # stopped every later workout from arriving. Routes are thinned and text is cut to fit instead.
+    anon, auth = _paired_phone(client)
+    start = datetime(2026, 9, 1, 6, tzinfo=timezone.utc)
+    route = [{"t": (start + timedelta(seconds=i)).strftime("%Y-%m-%dT%H:%M:%SZ"), "lat": 37 + i * 1e-6, "lon": -122.0}
+             for i in range(130_000)]
+    batch = {"device_id": "ios-1", "device_name": "Alex's iPhone", "workouts": [{
+        "id": "hike-1", "name": "Hiking " + "x" * 300, "start": route[0]["t"], "end": route[-1]["t"], "duration_s": 130_000,
+        "route": route}], "events": [{"id": "ev-1", "event_type": "symptom_headache", "name": "Headache",
+                                      "start": route[0]["t"], "value_label": "v" * 500}]}
+    r = anon.post("/api/ingest/wearables", json=batch, headers=auth)
+    assert r.status_code == 200 and r.json()["workouts_inserted"] == 1, r.text[:300]
+    workout_id = client.get("/api/biometrics/workouts", params={"days": 0}).json()["workouts"][0]["id"]
+    w = client.get(f"/api/biometrics/workouts/{workout_id}").json()
+    assert len(w["route"]) <= 20_000 and w["route"][-1]["t"] == route[-1]["t"] and len(w["name"]) <= 120
