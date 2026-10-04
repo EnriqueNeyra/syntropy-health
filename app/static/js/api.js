@@ -44,7 +44,7 @@ export async function api(path, { method = "GET", body, query, form, raw = false
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith("/api/auth/")) listeners.unauthorized.forEach((fn) => fn());
     let msg = data && data.detail;
-    if (Array.isArray(msg)) msg = msg.map((d) => d.msg).join("; ");
+    if (Array.isArray(msg)) msg = msg.map((d) => String(d.msg || "").replace(/^Value error, /, "")).join("; ");
     throw new ApiError(res.status, msg || `Request failed (${res.status})`, data);
   }
   if (method !== "GET" && !keepCache) listeners.changed.forEach((fn) => fn());

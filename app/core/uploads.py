@@ -62,7 +62,7 @@ class DecompressUploads:
         headers = scope.get("headers") or []
         encoding = next((v.decode("latin-1").strip().lower() for k, v in headers if k == b"content-encoding"), "")
         if not encoding or encoding == "identity":
-            return await self.app(scope, receive, send)
+            return await self._plain(scope, receive, send, headers)
         if encoding not in UPLOAD_ENCODINGS:
             return await _reply(send, 415, b'{"detail":"Unsupported Content-Encoding."}')
 
@@ -98,6 +98,25 @@ class DecompressUploads:
             return await receive()
 
         await self.app({**scope, "headers": plain_headers}, replay, send)
+
+
+    async def _plain(self, scope: Scope, receive: Receive, send: Send, headers: list) -> None:
+        """An uncompressed upload gets the same cap as an inflated one: the body is parsed before the device token is
+        checked, so without it anyone on the network could make the server read any amount of JSON."""
+        length = next((v for k, v in headers if k == b"content-length"), None)
+        if length is not None and length.isdigit() and int(length) > MAX_INFLATED:
+            return await _reply(send, 413, b'{"detail":"Upload too large."}')
+        size = 0
+
+        async def counted() -> dict[str, Any]:
+            nonlocal size
+            message = await receive()
+            size += len(message.get("body", b""))
+            if size > MAX_INFLATED:          # a body sent without its length: stop reading it
+                return {"type": "http.disconnect"}
+            return message
+
+        await self.app(scope, counted, send)
 
 
 async def _reply(send: Send, status: int, body: bytes) -> None:

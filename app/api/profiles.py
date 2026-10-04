@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.deps import check_access, phone_origin, resolve_profile
 from app.core import auth, context, settings
@@ -14,20 +15,44 @@ from app.store import accounts, profiles
 router = APIRouter(prefix="/api/profiles", tags=["profiles"], dependencies=[Depends(auth.require_user)])
 
 
+DATE = r"^\d{4}-\d{2}-\d{2}$"
+
+
+def _real_date(value: Optional[str]) -> Optional[str]:
+    """A birth date the age can be worked out from (the pattern alone lets 2026-02-31 through), or none."""
+    if value:
+        try:
+            date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError("Dates must look like 2026-01-31.") from exc
+    return value or None
+
+
 class ProfileIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=80)
     relationship: str = "other"
-    birth_date: Optional[str] = None
-    sex: Optional[str] = None
+    birth_date: Optional[str] = Field(None, max_length=10)
+    sex: Optional[str] = Field(None, max_length=20)
+
+    check_birth_date = field_validator("birth_date")(_real_date)
 
 
 class ProfilePatch(BaseModel):
     name: Optional[str] = Field(None, max_length=80)
-    relationship: Optional[str] = None
-    birth_date: Optional[str] = None
-    sex: Optional[str] = None
-    color: Optional[str] = None
+    relationship: Optional[str] = Field(None, pattern=f"^({'|'.join(profiles.RELATIONSHIPS)})$")
+    birth_date: Optional[str] = Field(None, max_length=10)       # null clears it
+    sex: Optional[str] = Field(None, max_length=20)              # null clears it
+    color: Optional[str] = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
     is_default: Optional[bool] = None       # earlier versions: whom to open first (now always yourself)
+
+    check_birth_date = field_validator("birth_date")(_real_date)
+
+    @field_validator("name")
+    @classmethod
+    def _named(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and not value.strip():
+            raise ValueError("A name is needed.")
+        return value.strip() if value is not None else None
 
 
 def visible_profiles() -> list[dict[str, Any]]:
@@ -67,7 +92,10 @@ async def create_profile(req: ProfileIn) -> dict:
 @router.patch("/{profile_id}")
 async def update_profile(profile_id: str, req: ProfilePatch) -> dict:
     check_access(profile_id, "manage")
-    prof = profiles.update_profile(profile_id, **req.model_dump(exclude_none=True, exclude={"is_default"}))
+    fields = req.model_dump(exclude_unset=True, exclude={"is_default"})
+    # A name, relationship or color can only be changed; a birth date or sex can also be cleared (sent as null).
+    fields = {k: v for k, v in fields.items() if v is not None or k in ("birth_date", "sex")}
+    prof = profiles.update_profile(profile_id, **fields)
     if not prof:
         raise HTTPException(404, "Profile not found")
     return prof
