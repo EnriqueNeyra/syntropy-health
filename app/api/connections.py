@@ -130,7 +130,7 @@ async def rename(connection_id: str, req: RenameRequest) -> dict:
 
 
 @router.delete("/api/connections/{connection_id}", dependencies=[user])
-async def remove(connection_id: str, delete_data: bool = False) -> dict:
+def remove(connection_id: str, delete_data: bool = False) -> dict:
     conn = _mine(connection_id)
     if conn["kind"] == "device":
         devices.revoke_for_connection(connection_id)   # the phone stops sending to a source that's gone

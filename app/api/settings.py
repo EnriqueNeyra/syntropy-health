@@ -7,6 +7,7 @@ from zoneinfo import available_timezones
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app import directory
@@ -154,10 +155,13 @@ async def update_general(req: GeneralPatch) -> dict:
     if req.timezone is not None:
         if req.timezone and req.timezone not in available_timezones():
             raise HTTPException(400, "Unknown time zone.")
+        before = settings.timezone_name()
         settings.set("display.timezone", req.timezone or None)
-        from app.store import biometrics, profiles
-        for prof in profiles.list_profiles():
-            biometrics.rebuild_daily(prof["id"])
+        if settings.timezone_name() != before:
+            # Days are grouped in the new zone: every rollup is recomputed, which can take a while with years of data,
+            # so in a thread (the server keeps answering meanwhile).
+            from app.store import profiles
+            await run_in_threadpool(lambda: [biometrics.rebuild_daily(p["id"]) for p in profiles.list_profiles()])
     return _snapshot()
 
 

@@ -102,7 +102,7 @@ async def update_profile(profile_id: str, req: ProfilePatch) -> dict:
 
 
 @router.delete("/{profile_id}")
-async def delete_profile(profile_id: str) -> dict:
+def delete_profile(profile_id: str) -> dict:
     """Deletes a person and all their data. Someone who signs in: only they can (their own account), or an owner
     removing them from the server. Anyone else: whoever manages them."""
     principal = context.principal()
