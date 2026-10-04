@@ -207,10 +207,13 @@ async function openAddHealthSystem(profileId) {
   showList(current, "Popular");
   const input = m.body.querySelector("#dir-q");
   input.focus();
+  let searchSeq = 0;
   input.addEventListener("input", debounce(async () => {
     const q = input.value.trim();
+    const seq = ++searchSeq;
     if (!q) return showList(featured.results, "Popular");
     const res = await get("/api/directory", { q, limit: 30 });
+    if (seq !== searchSeq) return;     // the search changed while this one was answering
     showList(res.results, `${res.total} match${res.total === 1 ? "" : "es"}`);
   }, 200));
 
