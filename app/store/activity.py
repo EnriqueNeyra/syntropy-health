@@ -48,6 +48,14 @@ def _window(days: Optional[int], start: Optional[str], end: Optional[str]) -> tu
 # Writes
 # ---------------------------------------------------------------------------
 
+def humidity_pct(value: Any) -> Optional[float]:
+    """Workout humidity as 0–100. Apple's Workout app stores 65% as "6500 %", which iPhone app versions before the fix
+    sent as 6500."""
+    if value is None:
+        return None
+    return value / 100 if value > 100 else value
+
+
 def insert_workouts(profile_id: str, connection_id: Optional[str], workouts: Iterable[dict[str, Any]]) -> int:
     """Stores workouts; idempotent on id and on (start, end, source) so re-sent workouts are kept once."""
     now = time.time()
@@ -62,6 +70,7 @@ def insert_workouts(profile_id: str, connection_id: Optional[str], workouts: Ite
             indoor = w.get("indoor")
             values = {k: w.get(k) for k in WORKOUT_FIELDS}
             values["indoor"] = None if indoor is None else int(bool(indoor))
+            values["humidity_pct"] = humidity_pct(values["humidity_pct"])
             values["source_name"] = source
             values["name"] = (w.get("name") or "Workout")[:120]
             cur = conn.execute(

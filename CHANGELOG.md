@@ -5,6 +5,9 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 
 ## Unreleased
 
+- **Workout humidity is a percentage again.** The iPhone app sent humidity from Apple's Workout app in hundredths of a
+  percent (65% arrived as 6500); the server now reads both, and workouts already stored are corrected.
+
 - **eClinicalWorks (healow) connections are one-time imports, and say so.** healow gives refresh tokens only to
   confidential apps, so access from a sign-in ends within minutes. A connection whose access has ended now shows as
   **Imported** with an **Update** button that signs in again, instead of a "Reconnect needed" warning that came back
