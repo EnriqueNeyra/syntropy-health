@@ -79,10 +79,17 @@ async def fetch_live(credentials: dict[str, Any], since: date, until: date) -> d
             return_exceptions=True,
         )
     data: dict[str, list[dict[str, Any]]] = {}
+    failed = []
     for ep, res in zip(DAILY_ENDPOINTS + ["heartrate"], results):
         if isinstance(res, SmartError):
             raise res
-        data[ep] = res if isinstance(res, list) else []
+        if isinstance(res, BaseException):
+            failed.append(ep)
+            continue
+        data[ep] = res
+    if failed:
+        # Counted as a success, the next sync would start after the days these didn't bring; as an error it retries.
+        raise SmartError(f"Oura didn't answer for {', '.join(failed)}. Syntropy Health will try again.", "error")
     return data
 
 

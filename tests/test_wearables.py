@@ -490,3 +490,21 @@ def test_wearable_sync_resumes_from_the_last_sync_that_worked(client, monkeypatc
     connections.finish_run(connections.start_run(cid, "scheduled"), cid, "error", {"failure_kind": "error"}, "boom")
     asyncio.run(sync.sync_connection(cid, "manual"))
     assert asked and asked[-1] >= 23        # 20 days since it last worked, plus the 3-day overlap
+
+
+async def test_oura_endpoint_failure_fails_the_sync(monkeypatch):
+    # An endpoint that errored used to come back empty and the sync counted as a success, so its days were skipped.
+    from datetime import date
+
+    import httpx
+    import pytest
+
+    from app.connectors.smart import SmartError
+
+    async def fake(client, token, endpoint, params):
+        if endpoint == "sleep":
+            raise httpx.ConnectTimeout("slow")
+        return []
+    monkeypatch.setattr(oura, "_fetch", fake)
+    with pytest.raises(SmartError, match="sleep"):
+        await oura.fetch_live({"access_token": "AT"}, date(2026, 9, 1), date(2026, 9, 26))

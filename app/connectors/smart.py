@@ -406,6 +406,8 @@ class FhirClient:
 
     async def read_binary_text(self, client: httpx.AsyncClient, url: str, max_bytes: int = 512_000) -> Optional[tuple[str, bytes]]:
         target = url if url.startswith("http") else f"{self.base}/{url.lstrip('/')}"
+        if not self.simulated and not _same_server(target, self.base):
+            return None         # an attachment elsewhere never gets this source's access token (as with paging links)
         resp = await client.get(target, headers={**self._headers(), "Accept": "application/fhir+json, text/*"})
         if resp.status_code != 200 or len(resp.content) > max_bytes:
             return None
