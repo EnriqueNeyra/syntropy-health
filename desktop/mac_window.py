@@ -7,6 +7,8 @@ The Mac window: Syntropy Health's interface drawn edge to edge in a native windo
 - A full menu bar with the usual shortcuts: Settings (⌘,), New Chat (⌘N), Find (⌘F), the sections (⌘1–⌘8), Back and
   Forward (⌘[ ⌘]), Reload (⌘R) and text size (⌘+ ⌘− ⌘0). Right-clicking the Dock icon offers the menu bar item's choices.
 - Swiping with two fingers goes back and forward, and the window remembers its size and place.
+- The app is in the Dock (and ⌘-Tab) only while its window is open. Closed, it runs on in the menu bar alone, like
+  other menu bar apps; opening the window from there puts it back in the Dock.
 - Another site in the window (a health system's sign-in) gets an ordinary title bar naming the site, with a
   "Syntropy Health" button that returns to the app: those pages don't leave room for the window buttons or offer a way
   back.
@@ -111,6 +113,15 @@ def _url_origin(url: Any) -> Optional[tuple[str, str, int]]:
     return _origin(url.scheme(), url.host(), url.port())
 
 
+def _set_in_dock(on: bool) -> None:
+    # A "regular" app has a Dock icon, a menu bar and a place in ⌘-Tab; an "accessory" one has none of them, but its
+    # menu bar item and windows keep working.
+    app = AppKit.NSApplication.sharedApplication()
+    policy = AppKit.NSApplicationActivationPolicyRegular if on else AppKit.NSApplicationActivationPolicyAccessory
+    if app.activationPolicy() != policy:
+        app.setActivationPolicy_(policy)
+
+
 class MacWindow:
     """Dresses pywebview's window. Everything here runs on the main thread."""
 
@@ -131,6 +142,8 @@ class MacWindow:
         self.home_url = home_url                            # Syntropy Health's own pages (this Mac's or a joined server)
         self.away = False                                   # showing another site
         self.home_bar = None
+        if background:              # opened at login: only the menu bar item, from the start (this is the main thread)
+            _set_in_dock(False)
 
     # ----------------------------------------------------------------- setup
     def install(self) -> None:
@@ -200,8 +213,13 @@ class MacWindow:
 
     def show(self) -> None:
         self.shown = True
+        _set_in_dock(True)
         self.ns_window.makeKeyAndOrderFront_(None)
         AppKit.NSApp.activateIgnoringOtherApps_(True)
+
+    def in_dock(self, on: bool) -> None:
+        """In the Dock while the window is open, only in the menu bar while it's closed (from any thread)."""
+        AppHelper.callAfter(_set_in_dock, on)
 
     # ----------------------------------------------------------------- the page
     def _on_message(self, msg: dict[str, Any]) -> None:
