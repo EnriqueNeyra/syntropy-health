@@ -343,6 +343,7 @@ class DesktopApp:
         if self.window:
             if self.mac:
                 self.mac.shown = True
+                self.mac.in_dock(True)
             self.window.show()
             self.window.restore()
             if self.tray:
@@ -511,6 +512,8 @@ class DesktopApp:
             return True
         self.hidden = True
         self.window.hide()
+        if self.mac:
+            self.mac.in_dock(False)       # it runs on in the menu bar alone
         if self.tray:
             self.tray.hidden_hint()
         return False
