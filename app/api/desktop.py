@@ -51,8 +51,9 @@ def _normalize(raw: str) -> Optional[str]:
     parts = urlsplit(raw)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         return None
-    port = parts.port or (8000 if parts.scheme == "http" and ":" not in parts.netloc else None)
-    return f"{parts.scheme}://{parts.hostname}{f':{port}' if port else ''}"
+    port = parts.port or (8000 if parts.scheme == "http" and parts.port is None else None)
+    host = f"[{parts.hostname}]" if ":" in parts.hostname else parts.hostname       # an IPv6 address keeps its brackets
+    return f"{parts.scheme}://{host}{f':{port}' if port else ''}"
 
 
 @router.post("/probe")

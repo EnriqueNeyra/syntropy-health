@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import ipaddress
+from datetime import date
 from typing import Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
@@ -150,6 +152,22 @@ class SetupRequest(BaseModel):
     accept_terms: bool = False
 
 
+def _date_or_none(value: Optional[str]) -> Optional[str]:
+    try:
+        return date.fromisoformat(value).isoformat() if value else None
+    except ValueError:
+        return None
+
+
+def _known_zone(name: str) -> bool:
+    """A time zone this system knows (the browser's name for it), else the setting keeps its default."""
+    try:
+        ZoneInfo(name)
+        return True
+    except (ValueError, ZoneInfoNotFoundError):
+        return False
+
+
 @router.post("/api/setup")
 async def setup(req: SetupRequest, request: Request, response: Response) -> dict:
     if auth.is_setup_complete():
@@ -162,9 +180,11 @@ async def setup(req: SetupRequest, request: Request, response: Response) -> dict
     password = req.password or req.passphrase or None
     if not password and not auth.password_optional():
         raise HTTPException(400, "Choose a password to protect your health records.")
+    if password:
+        auth.validate_password(password)        # before anything is saved
     prof = profiles.default_profile()
-    profiles.update_profile(prof["id"], name=req.profile_name or "Me", birth_date=req.birth_date)
-    if req.timezone:
+    profiles.update_profile(prof["id"], name=(req.profile_name or "").strip() or "Me", birth_date=_date_or_none(req.birth_date))
+    if req.timezone and _known_zone(req.timezone):
         settings.set("display.timezone", req.timezone)
     owner = auth.complete_setup(password, prof["id"])
     accounts.set_flags(owner["id"], onboarding=True)     # the rest of first-run: other devices, data, AI

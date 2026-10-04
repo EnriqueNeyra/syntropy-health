@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.deps import check_access, resolve_profile
@@ -35,7 +36,8 @@ async def import_fhir(file: UploadFile = File(...), profile_id: Optional[str] = 
     if len(raw) > MAX_FHIR_UPLOAD:
         raise HTTPException(413, "File is too large (max 200 MB).")
     try:
-        return imports.import_fhir_file(prof["id"], file.filename or "upload.json", raw)
+        # Parsing and storing a large file takes a while: in a thread, so the server keeps answering meanwhile.
+        return await run_in_threadpool(imports.import_fhir_file, prof["id"], file.filename or "upload.json", raw)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
 
@@ -174,7 +176,7 @@ def export_backup(background: BackgroundTasks) -> FileResponse:
 
 
 @router.delete("/profiles/{profile_id}/data")
-async def wipe_profile_data(profile_id: str) -> dict:
+def wipe_profile_data(profile_id: str) -> dict:
     """Deletes all records, samples and connections for a profile but keeps the profile itself."""
     prof = resolve_profile(profile_id)
     with db() as conn:
