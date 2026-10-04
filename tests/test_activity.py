@@ -178,6 +178,44 @@ def test_journal_hides_stand_hours_but_export_keeps_them(client):
     assert "apple_stand_hour" in client.get("/api/export/csv", params={"kind": "events"}).text
 
 
+def test_workout_humidity_is_a_percentage(client):
+    from app.store import activity
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    activity.insert_workouts(profile, None, [
+        {"id": "w-old-app", "name": "Running", "start": "2026-09-24T23:47:00Z", "end": "2026-09-25T00:05:00Z",
+         "humidity_pct": 6500.0, "source_name": "Apple Watch"},
+        {"id": "w-new-app", "name": "Walking", "start": "2026-09-23T20:50:00Z", "end": "2026-09-23T21:40:00Z",
+         "humidity_pct": 58, "source_name": "Apple Watch"}])
+    detail = {w: client.get(f"/api/biometrics/workouts/{w}").json() for w in ("w-old-app", "w-new-app")}
+    assert detail["w-old-app"]["humidity_pct"] == 65 and detail["w-new-app"]["humidity_pct"] == 58
+
+
+def test_migration_fixes_stored_workout_humidity(tmp_path):
+    import sqlite3
+    from app.core import config, db
+    path = config.db_path()
+    conn = sqlite3.connect(str(path))
+    for f in sorted(db.MIGRATIONS_DIR.glob("*.sql")):
+        if int(f.name.split("_", 1)[0]) > 11:
+            break
+        for statement in db._split_sql(f.read_text()):
+            conn.execute(statement)
+    conn.execute("PRAGMA user_version = 11")
+    conn.executemany("INSERT INTO workouts(id, profile_id, name, start_date, end_date, humidity_pct, created_at) VALUES (?, 'p', 'Run', ?, ?, ?, 0)",
+                     [("a", "2026-09-24T23:47:00Z", "2026-09-25T00:05:00Z", 6500.0),
+                      ("b", "2026-09-20T23:42:00Z", "2026-09-21T00:06:00Z", 5799.9999999999991),
+                      ("c", "2026-09-19T00:00:00Z", "2026-09-19T00:30:00Z", 71.0),
+                      ("d", "2026-09-18T00:00:00Z", "2026-09-18T00:30:00Z", None)])
+    conn.commit()
+    conn.close()
+    db.reset_migration_cache()
+    db.ensure_migrated(path)
+    conn = sqlite3.connect(str(path))
+    rows = dict(conn.execute("SELECT id, humidity_pct FROM workouts").fetchall())
+    conn.close()
+    assert rows["a"] == 65 and round(rows["b"], 6) == 58 and rows["c"] == 71 and rows["d"] is None
+
+
 def test_same_session_from_two_devices_is_one_workout(client):
     from app.store import activity
     profile = client.get("/api/status").json()["profiles"][0]["id"]
