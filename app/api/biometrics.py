@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette.concurrency import run_in_threadpool
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 from app.api.deps import check_access, phone_origin, request_origin, resolve_profile, visible_profile_ids
 from app.core import auth, config, context
@@ -62,14 +62,34 @@ def samples(profile: Optional[str] = None, metric: Optional[str] = None, limit: 
 # Companion app (iOS) — device-token authenticated
 # ---------------------------------------------------------------------------
 
+def _clip(limit: int) -> BeforeValidator:
+    """Text longer than the server keeps is cut to fit rather than refused: a refused batch is sent again on every
+    sync, so one odd item would stop everything after it from ever arriving."""
+    return BeforeValidator(lambda v: v[:limit] if isinstance(v, str) else v)
+
+
+Text40, Text80, Text100, Text120, Text200 = (Annotated[str, _clip(n)] for n in (40, 80, 100, 120, 200))
+# A workout's route and heart rate are kept at up to this many points: plenty for a map, splits and zones. Longer ones
+# (a day-long hike recorded every second) are thinned evenly rather than refused.
+SERIES_KEPT = 20_000
+
+
+def thin(points: list, keep: int = SERIES_KEPT) -> list:
+    """Every n-th point, always keeping the first and the last."""
+    if len(points) <= keep:
+        return points
+    step = (len(points) - 1) / (keep - 1)
+    return [points[round(i * step)] for i in range(keep)]
+
+
 class IngestSample(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
 
     id: str = Field(..., max_length=200)
-    metric_type: str = Field(..., max_length=100)
-    hk_identifier: Optional[str] = Field(None, max_length=200)
+    metric_type: Text100
+    hk_identifier: Optional[Text200] = None
     value: float
-    unit: str = Field("", max_length=40)
+    unit: Text40 = ""
     start_date: str
     end_date: str
     device_id: Optional[str] = None
@@ -102,7 +122,7 @@ class IngestWorkout(BaseModel):
 
     id: str = Field(..., max_length=200)
     activity_type: Optional[int] = None
-    name: str = Field("Workout", max_length=120)
+    name: Text120 = "Workout"
     start: str
     end: str
     duration_s: Optional[float] = None
@@ -118,31 +138,31 @@ class IngestWorkout(BaseModel):
     indoor: Optional[bool] = None
     temperature_c: Optional[float] = None
     humidity_pct: Optional[float] = None
-    source_name: Optional[str] = Field(None, max_length=200)
-    device_name: Optional[str] = Field(None, max_length=200)
+    source_name: Optional[Text200] = None
+    device_name: Optional[Text200] = None
     metadata: Optional[dict[str, Any]] = None
-    heart_rate: list[WorkoutHeartRate] = Field(default_factory=list, max_length=20000)
-    route: list[WorkoutRoutePoint] = Field(default_factory=list, max_length=100000)
+    heart_rate: list[WorkoutHeartRate] = Field(default_factory=list, max_length=500_000)     # thinned when stored
+    route: list[WorkoutRoutePoint] = Field(default_factory=list, max_length=500_000)
 
 
 class IngestEvent(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
 
     id: str = Field(..., max_length=200)
-    event_type: str = Field(..., max_length=80)
-    category: str = Field("other", max_length=40)
-    name: str = Field("", max_length=120)
+    event_type: Text80
+    category: Text40 = "other"
+    name: Text120 = ""
     start: str
     end: Optional[str] = None
     value: Optional[float] = None
-    value_label: Optional[str] = Field(None, max_length=200)
-    source_name: Optional[str] = Field(None, max_length=200)
+    value_label: Optional[Text200] = None
+    source_name: Optional[Text200] = None
     metadata: Optional[dict[str, Any]] = None
 
 
 class IngestBatch(BaseModel):
     device_id: str = Field(..., max_length=200)
-    device_name: str = Field(..., max_length=200)
+    device_name: Text200
     os_version: Optional[str] = None
     app_version: Optional[str] = None
     sync_trigger: str = "manual"
@@ -165,6 +185,8 @@ def _store(profile_id: str, connection_id: Optional[str], samples: list[dict], w
     try:
         result = biometrics.insert_samples(profile_id, connection_id, samples, batch_meta=batch_meta)
         result["workouts_received"] = len(workouts)
+        for w in workouts:
+            w["route"], w["heart_rate"] = thin(w.get("route") or []), thin(w.get("heart_rate") or [])
         result["workouts_inserted"] = activity.insert_workouts(profile_id, connection_id, workouts)
         result["events_received"] = len(events)
         result["events_inserted"] = activity.insert_events(profile_id, connection_id, events)
