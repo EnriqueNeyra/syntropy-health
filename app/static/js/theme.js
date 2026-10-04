@@ -11,7 +11,12 @@
   root.setAttribute("data-theme", dark ? "dark" : "light");
   // The accent is chosen once for every device (it's stored on the server); this is the last one seen here.
   if (accent && accent !== "heart") root.setAttribute("data-accent", accent);
-  if (embedded) root.setAttribute("data-embedded", "ios");
+  if (embedded) {
+    root.setAttribute("data-embedded", "ios");
+    // An app screen, not a web page: no pinch or double-tap zoom, and no zooming in on a field when it's focused.
+    var viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) viewport.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover");
+  }
   // Newer iPhone apps draw native navigation around the page (tab bar, title bars, back buttons); the page then shows
   // only its content and hands navigation between sections to the app.
   if (embedded && /SyntropyNav\/\d/.test(ua)) root.setAttribute("data-native-nav", "");

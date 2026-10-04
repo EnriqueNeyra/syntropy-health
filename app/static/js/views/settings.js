@@ -1,5 +1,8 @@
 import { del, get, patch, post, put } from "../api.js";
-import { ACCENTS, applyAccent, currentAccent, embedded, refreshProfiles, setAccent, setProfile, setTheme, state as appState, themePreference } from "../app.js";
+import {
+  ACCENTS, applyAccent, currentAccent, embedded, refreshProfiles, sendPreferences, setAccent, setProfile, setTheme, state as appState,
+  themePreference,
+} from "../app.js";
 import { regionSystem, setUnitPreference, unitPreference } from "../units.js";
 import { renderAiTab } from "./settings-ai.js";
 import { addressList, networkStatus, renderNetworkPanel } from "../network.js";
@@ -145,6 +148,7 @@ export async function render({ el, parts, state, navigate }) {
         await put("/api/preferences", { units });
         setUnitPreference(units);
         if (appState.status) appState.status.preferences = { ...(appState.status.preferences || {}), units: units || null };
+        sendPreferences();          // the iPhone app shows its Apple Health data in the same units
         toast(units ? `Showing ${units === "us" ? "US" : "metric"} units` : "Units follow your region");
         redraw();
       },

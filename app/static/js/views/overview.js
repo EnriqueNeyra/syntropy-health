@@ -1,5 +1,6 @@
 import { del, get, put } from "../api.js";
 import { refreshAlerts } from "../alerts.js";
+import { haptic } from "../app.js";
 import { barChart, responsive, sparkline } from "../charts.js";
 import { openRecord } from "./record-detail.js";
 import { moodLabel } from "./journal.js";
@@ -495,6 +496,8 @@ function masonry(grid) {
  * Drag items around the grid by their handle (mouse, touch and pen): the item moves in the page as it's dragged, and
  * a copy follows the pointer. The arrow keys on a handle move its item one place. Calls onReorder(ids) after a move.
  */
+const DRAG_MAX_HEIGHT = 240;     // a dragged card's copy is no taller than this (px)
+
 function sortableGrid(grid, onReorder) {
   const ids = () => $$(".dash-item", grid).map((x) => x.dataset.id);
   grid.addEventListener("pointerdown", (e) => {
@@ -506,10 +509,16 @@ function sortableGrid(grid, onReorder) {
     const r = item.getBoundingClientRect();
     const ghost = item.cloneNode(true);
     ghost.className = `${item.className} dash-ghost`;
-    Object.assign(ghost.style, { width: `${r.width}px`, height: `${r.height}px`, left: `${r.left}px`, top: `${r.top}px` });
-    document.body.appendChild(ghost);
+    // The copy follows the finger from the point it was picked up by, and leans and grows around that point, so the
+    // finger stays on the handle. A long card (the full-width ones) is cut short, so the copy doesn't cover the page.
     const dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const height = Math.min(r.height, Math.max(DRAG_MAX_HEIGHT, dy + 60));
+    Object.assign(ghost.style, { width: `${r.width}px`, height: `${height}px`, left: `${r.left}px`, top: `${r.top}px`,
+                                 transformOrigin: `${dx}px ${dy}px` });
+    ghost.classList.toggle("cut", height < r.height);
+    document.body.appendChild(ghost);
     item.classList.add("dragging");
+    haptic("medium");
     const pointer = e.pointerId;
     let last = { x: e.clientX, y: e.clientY };
     let raf = null;
@@ -522,11 +531,14 @@ function sortableGrid(grid, onReorder) {
       // Before the target when the pointer is in its first half (left half, or top half of a full-width item).
       const first = t.width > grid.clientWidth * 0.9 ? last.y < t.top + t.height / 2 : last.x < t.left + t.width / 2;
       const ref = first ? target : target.nextElementSibling;
-      if (ref !== item && item.nextElementSibling !== ref) grid.insertBefore(item, ref);
+      if (ref !== item && item.nextElementSibling !== ref) { grid.insertBefore(item, ref); haptic("selection"); }
     };
-    // Scrolls the page while dragging near the top or bottom of the window.
+    // Scrolls the page while dragging near the top or bottom of what's visible (in the iPhone app the page runs under
+    // its title and tab bars, so the visible part is the visual viewport, not the window).
     const edgeScroll = () => {
-      const edge = last.y < 60 ? -10 : last.y > window.innerHeight - 60 ? 10 : 0;
+      const vv = window.visualViewport;
+      const top = (vv?.offsetTop || 0) + 70, bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 70;
+      const edge = last.y < top ? -10 : last.y > bottom ? 10 : 0;
       if (edge) { pageScroller().scrollBy(0, edge); place(); }
       raf = requestAnimationFrame(edgeScroll);
     };

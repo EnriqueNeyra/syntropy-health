@@ -3,6 +3,7 @@
 // and heart rate are changing and what your best efforts are. Daily activity charts are in Trends.
 
 import { get } from "../api.js";
+import { appBridge, nativeNav } from "../app.js";
 import { barChart, lineChart, responsive } from "../charts.js";
 import { emptyState, esc, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, plural, raw } from "../ui.js";
 import { convert, displayUnit, fmtMeasure, unitSystem } from "../units.js";
@@ -256,9 +257,25 @@ function workoutRow(w) {
     ${w.has_route ? html`<span class="badge hide-narrow">Route</span>` : ""}</button>`;
 }
 
-/** A workout's details (route map, heart rate, zones, splits) in a side panel. */
+/** A workout's details (route map, heart rate, zones, splits) in a side panel; in the iPhone app, a screen of its own. */
 export async function openWorkout(profile, id) {
+  if (nativeNav && appBridge({ type: "visit", hash: `#/_workout/${encodeURIComponent(id)}` })) return;
   const m = modal({ title: "Workout", body: loading(3), drawer: true });
+  const detail = await workoutDetail(profile, id);
+  m.setBody(detail.body);
+  detail.draw(m.el);
+}
+
+/** A workout as a page (#/_workout/<id>): the iPhone app's workout screen. */
+export async function renderWorkout({ el, parts, state }) {
+  const detail = await workoutDetail(state.profile, decodeURIComponent(parts[0] || ""));
+  el.dataset.appTitle = detail.workout.name;
+  mount(el, html`<div class="card card-pad workout-page">${detail.body}</div>`);
+  detail.draw(el);
+}
+
+/** What a workout's panel or page shows, and `draw(container)` for its chart once it's on the page. */
+async function workoutDetail(profile, id) {
   const w = await get(`/api/biometrics/workouts/${id}`, { profile: profile.id, split: unitSystem() === "us" ? "mi" : "km" });
   const pace = paceText(w.name, w.pace_s_per_km);
   const stats = [["Duration", duration(w.duration_s)], ["Distance", w.distance_m ? distance(w.distance_m) : null],
@@ -275,7 +292,7 @@ export async function openWorkout(profile, id) {
   const zoneTotal = (w.zones || []).reduce((a, z) => a + z.minutes, 0);
   const splitUnit = unitSystem() === "us" ? "mi" : "km";
   const fastest = Math.min(...(w.splits || []).filter((s) => !s.partial).map((s) => s.seconds));
-  m.setBody(html`<div class="stack">
+  const body = html`<div class="stack">
     <div class="row" style="gap:12px"><span class="ev-icon lg">${icon(workoutIcon(w.name))}</span>
       <div><h2 style="margin:0">${w.name}</h2><div class="small muted">${fmtDateTime(w.start_date)}</div></div></div>
     ${w.route.length > 1 ? routeSvg(w.route) : ""}
@@ -292,11 +309,13 @@ export async function openWorkout(profile, id) {
       <tbody>${w.splits.map((s) => html`<tr><td>${s.partial ? fmtMeasure(s.distance_m, "m", "distance_walking_running") : s.n}</td>
         <td class="num">${duration(s.seconds).replace(" min", "m")}${s.seconds === fastest ? html` <span class="badge good">Fastest</span>` : ""}</td>
         <td>${paceText(w.name, s.seconds / (s.distance_m / 1000))}</td></tr>`)}</tbody></table></div>` : ""}
-  </div>`);
-  if (w.heart_rate.length) {
-    lineChart(m.el.querySelector("#wk-hr"), [{ name: "Heart rate", points: w.heart_rate.map((p) => ({ t: p.t, v: p.avg })) }],
+  </div>`;
+  const draw = (container) => {
+    if (!w.heart_rate.length) return;
+    lineChart(container.querySelector("#wk-hr"), [{ name: "Heart rate", points: w.heart_rate.map((p) => ({ t: p.t, v: p.avg })) }],
       { unit: "bpm", label: "Heart rate", height: 180 });
-  }
+  };
+  return { workout: w, body, draw };
 }
 
 /** Route as an SVG polyline (equirectangular projection; plenty for a workout-sized area). */

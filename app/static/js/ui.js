@@ -390,12 +390,43 @@ export function debounce(fn, ms = 250) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+// In the iPhone app a menu is the phone's own (an action sheet), when the app can show one (see appCan in app.js).
+let appMenuItems = null;
+let appMenuSeq = 0;
+
+function appMenu(items, button) {
+  const handler = window.webkit?.messageHandlers?.syntropy;
+  if (!handler || !document.documentElement.hasAttribute("data-native-nav") || !(window.SyntropyApp?.capabilities || []).includes("menu")) return false;
+  const entries = items.filter((it) => it !== "-");
+  appMenuItems = { id: ++appMenuSeq, entries };
+  const r = button?.getBoundingClientRect();       // where the menu points from
+  handler.postMessage({ type: "menu", id: appMenuItems.id, items: entries.map((it) => ({ title: it.label, destructive: !!it.danger })),
+                        rect: r ? { x: r.left, y: r.top, width: r.width, height: r.height } : null });
+  return true;
+}
+
+/** The app's menu was answered: the chosen item's index, or -1 when it was cancelled. */
+export function appMenuChosen(id, index) {
+  if (appMenuItems?.id !== id) return;
+  const item = appMenuItems.entries[index];
+  appMenuItems = null;
+  if (!item) return;
+  if (item.href) {
+    // Through a link, so a link to another section opens as a new screen.
+    const a = Object.assign(document.createElement("a"), { href: item.href });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } else item.run?.();
+}
+
 /**
  * A small menu under `button`: items are { label, icon, run, href, danger } or "-" for a divider. Closes on a choice,
  * a click elsewhere, Escape or scrolling the page. Opening it again from the same button closes it.
  */
 let openMenu = null;
 export function dropdown(button, items) {
+  if (appMenu(items, button)) return;
   const same = openMenu?.button === button;
   openMenu?.close();
   if (same) return;

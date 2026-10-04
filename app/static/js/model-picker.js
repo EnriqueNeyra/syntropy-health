@@ -14,13 +14,14 @@ function groupTag(g) {
   return html`<span class="badge">${TAG[g.kind]}</span>`;
 }
 
-const sameChoice = (o, cur) => cur && o.provider === cur.provider && (o.agent || null) === (cur.agent || null) && o.model === cur.model;
+export const sameChoice = (o, cur) => cur && o.provider === cur.provider && (o.agent || null) === (cur.agent || null) && o.model === cur.model;
 
 /**
  * Opens the picker under ``anchor``. ``onPick(option, group)`` is called with the chosen model; the picker closes
- * first. Returns a function that closes it.
+ * first. ``choices`` is what /api/ai/choices returned (or a promise of it), when the page fetched it ahead of time.
+ * Returns a function that closes it.
  */
-export function openModelPicker(anchor, { onPick, manageHref = "#/settings/ai" } = {}) {
+export function openModelPicker(anchor, { onPick, manageHref = "#/settings/ai", choices = null } = {}) {
   const menu = document.createElement("div");
   menu.className = "popover model-menu";
   menu.setAttribute("role", "dialog");
@@ -115,7 +116,7 @@ export function openModelPicker(anchor, { onPick, manageHref = "#/settings/ai" }
   document.addEventListener("keydown", keys, true);
   window.addEventListener("resize", place);
 
-  get("/api/ai/choices", null, { fresh: true }).then((res) => {
+  Promise.resolve(choices).then((ready) => ready || get("/api/ai/choices", null, { fresh: true })).then((res) => {
     if (!menu.isConnected) return;
     data = res;
     const total = data.groups.reduce((n, g) => n + g.options.length, 0);

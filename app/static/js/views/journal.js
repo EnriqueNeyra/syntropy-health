@@ -4,6 +4,7 @@
 // Trends; workouts have their own page.
 
 import { del, get, post, put } from "../api.js";
+import { setToolbar } from "../app.js";
 import { $, confirmDialog, debounce, emptyState, fmtNum, html, icon, loading, modal, mount, onAction, plural, raw, toast } from "../ui.js";
 import { rangeHash, rangeLabel, rangePicker, rangeQuery, readRange, saveRange, wireRange } from "../range.js";
 
@@ -105,8 +106,10 @@ export async function render({ el, params, state }) {
     history.replaceState(null, "", `#/journal${parts.length ? `?${parts.join("&")}` : ""}`);
   };
 
+  // In the iPhone app, New entry is the title bar's +.
+  const appNew = setToolbar([{ id: "new", title: "New Entry", symbol: "plus", run: () => openEntry(profile, null, reloadAll, [...(recent?.events || []), ...(res?.events || [])]) }]);
   mount(el, html`<div class="page-head"><div><h1>Journal</h1><p>How you've been feeling, day by day.</p></div>
-      <button class="btn btn-primary" data-action="new">${icon("plus")} New entry</button></div>
+      ${appNew ? "" : html`<button class="btn btn-primary" data-action="new">${icon("plus")} New entry</button>`}</div>
     <div class="jr-top"><div class="card" id="jr-checkin">${loading(3)}</div><div class="card" id="jr-month">${loading(3)}</div></div>
     <div class="toolbar">
       <div id="jr-range"></div>

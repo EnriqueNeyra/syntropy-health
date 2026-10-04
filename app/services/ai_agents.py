@@ -160,6 +160,13 @@ def _signed_in(agent_id: str, binary: str) -> Optional[bool]:
 _detected: tuple[float, list[dict[str, Any]]] = (0.0, [])
 
 
+def last_detected() -> Optional[tuple[float, dict[str, Any]]]:
+    """When the agents were last looked for, and what was found; None before the first look (or inside Docker)."""
+    if in_docker() or not _detected[0]:
+        return None
+    return _detected[0], {"available": True, "agents": _detected[1]}
+
+
 def detect(refresh: bool = False) -> dict[str, Any]:
     """The agents installed here, whether each is signed in, and what using it means."""
     global _detected
