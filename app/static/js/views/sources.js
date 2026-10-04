@@ -26,6 +26,8 @@ function statusLine(c, paired) {
   if (c.kind === "device" && paired && c.metadata?.history && !c.metadata.history.complete) return historyStatus(c);
   if (c.kind === "device") return paired ? html`<span class="src-status good"><span class="dot good"></span> Paired</span>`
     : html`<span class="src-status"><span class="dot"></span> Not paired</span>`;
+  // A one-time import (healow keeps no connection): nothing's wrong, signing in again brings in what's new.
+  if (c.access_ended) return html`<span class="src-status"><span class="dot"></span> Imported</span>`;
   if (c.status === "needs_reauth") return html`<span class="src-status warn"><span class="dot warn"></span> Reconnect needed</span>`;
   if (c.status === "error") return html`<span class="src-status bad" title="${c.last_error || ""}"><span class="dot bad"></span> Sync failed</span>`;
   if (c.status === "disconnected") return html`<span class="src-status"><span class="dot"></span> Disconnected</span>`;
@@ -63,16 +65,17 @@ function sourceRow(c, devices = []) {
   const count = c.kind === "ehr" || (c.kind === "import" && c.record_count) ? plural(c.record_count || 0, "record")
     : plural(c.sample_count || 0, "sample");
   const live = c.status !== "disconnected";
-  const canSync = (isEhr || c.kind === "wearable") && live;
+  const ended = isEhr && c.access_ended;
+  const canSync = (isEhr || c.kind === "wearable") && live && !ended;
   const canReconnect = isEhr || (c.kind === "wearable" && c.mode === "live");
-  const needsAttention = ["needs_reauth", "error"].includes(c.status) || (c.status === "disconnected" && canReconnect);
+  const needsAttention = !ended && (["needs_reauth", "error"].includes(c.status) || (c.status === "disconnected" && canReconnect));
   const ava = isEhr ? avatar(c.display_name, c.provider)
     : iconAvatar(c.kind === "wearable" ? "watch" : c.kind === "device" ? "phone" : c.provider === "manual" ? "flask" : "upload");
   const lastSeen = devices.map((d) => d.last_seen_at).filter(Boolean).sort().pop();
   const synced = c.kind === "import" ? null
     : html`<span class="src-word">synced </span>${fmtAgo(c.kind === "device" ? (c.last_sync_at || lastSeen) : c.last_sync_at)}`;
   // Only worth mentioning when access will run out.
-  const access = isEhr && c.token_expires_at && live && !c.has_refresh_token
+  const access = ended ? "sign in again to update" : isEhr && c.token_expires_at && live && !c.has_refresh_token
     ? `access until ${(c.token_expires_at * 1000 - Date.now() < 86400000 ? fmtDateTime : fmtDate)(c.token_expires_at)}` : null;
   const where = origin(c);
   return html`<div class="src-row ${live || paired ? "" : "is-off"}" id="conn-${c.id}">
@@ -86,13 +89,14 @@ function sourceRow(c, devices = []) {
     </div>
     <div class="src-actions">
       ${needsAttention && canReconnect ? html`<button class="btn btn-sm btn-primary" data-action="reconnect" data-id="${c.id}">Reconnect</button>` : ""}
+      ${ended ? html`<button class="btn btn-sm" data-action="reconnect" data-id="${c.id}" title="Sign in again to bring in new records">${icon("sync")}<span class="btn-label">Update</span></button>` : ""}
       ${canSync ? html`<button class="btn btn-sm" data-action="sync" data-id="${c.id}" ${c.syncing ? "disabled" : ""} aria-label="Sync ${c.display_name} now" title="Sync now">
         ${icon("sync")}<span class="btn-label">Sync now</span></button>` : ""}
       ${c.kind === "device" && !paired && c.metadata?.platform !== "healthkit-export" ? html`<button class="btn btn-sm" data-action="pair">${icon("phone")}<span class="btn-label">Pair again</span></button>` : ""}
       <button class="btn btn-sm btn-ghost btn-icon" data-action="menu" data-id="${c.id}" aria-haspopup="menu" aria-expanded="false"
         aria-label="More for ${c.display_name}" title="More">${icon("more")}</button>
     </div>
-    ${c.last_error && ["needs_reauth", "error"].includes(c.status) ? html`<div class="src-error">${icon("alert")} ${c.last_error}</div>` : ""}
+    ${c.last_error && !ended && ["needs_reauth", "error"].includes(c.status) ? html`<div class="src-error">${icon("alert")} ${c.last_error}</div>` : ""}
   </div>`;
 }
 
@@ -172,7 +176,9 @@ function modeExplainer(inst) {
       ${inst.sandbox_hint ? html`<p>${inst.sandbox_hint}</p>` : ""}</div></div>`;
   }
   return html`<div class="banner">${icon("shieldCheck")}<div class="grow"><p>You'll be taken to <b>${esc(inst.name)}</b>'s ${inst.portal || "patient portal"} to sign in and approve sharing.
-    Syntropy never sees your password; records download directly to this machine.</p></div></div>`;
+    Syntropy never sees your password; records download directly to this machine.</p>
+    ${inst.one_time ? html`<p><b>A one-time import.</b> ${inst.portal || inst.platform_label} doesn't let apps like Syntropy Health stay connected, so this
+      brings in your records as they are today. To update them later, choose Update beside it in Sources and sign in again.</p>` : ""}</div></div>`;
 }
 
 async function openAddHealthSystem(profileId) {
@@ -360,7 +366,7 @@ export async function render({ el, params, state }) {
     const phones = all.filter((c) => c.kind === "device");
     const files = all.filter((c) => c.kind === "import");
     const active = all.filter((c) => c.status !== "disconnected" || devicesFor(c).length);
-    const attention = active.filter((c) => ["needs_reauth", "error"].includes(c.status));
+    const attention = active.filter((c) => !c.access_ended && ["needs_reauth", "error"].includes(c.status));
     const lastSync = active.map((c) => c.last_sync_at).filter(Boolean).sort().pop();
 
     mount(el, html`

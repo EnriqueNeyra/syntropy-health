@@ -191,7 +191,7 @@ def test_athenahealth_medications_are_searched_with_an_intent(client):
     assert stats["queries"]["MedicationRequest"] == "ok" and stats["by_category"].get("medications"), stats
 
 
-def test_failed_registration_still_connects_then_asks_to_reconnect(client, monkeypatch):
+def test_failed_registration_still_connects_as_a_one_time_import(client, monkeypatch):
     from app.connectors import smart
 
     async def refuse(**_):
@@ -201,8 +201,45 @@ def test_failed_registration_still_connects_then_asks_to_reconnect(client, monke
     conn = client.get(f"/api/connections/{cid}").json()
     assert conn["status"] == "active" and conn["record_count"] > 0
     _expire(cid)
-    client.post(f"/api/connections/{cid}/sync")
-    assert client.get(f"/api/connections/{cid}").json()["status"] == "needs_reauth"
+    res = client.post(f"/api/connections/{cid}/sync").json()
+    assert res["status"] == "skipped" and res["sign_in"], res
+    assert client.get(f"/api/connections/{cid}").json()["access_ended"]
+
+
+def test_healow_connections_are_one_time_imports_not_failures(client):
+    from app.services import sync
+
+    client.put("/api/settings/platforms/healow", json={"mode": "simulated"})
+    assert client.get("/api/directory/ecw-bdeaed").json()["one_time"]
+    assert not client.get("/api/directory/epic-duke-health").json()["one_time"]
+    cid = connect_institution(client, "ecw-bdeaed")["connection_id"]
+    epic = connect_institution(client, "epic-duke-health")["connection_id"]
+    assert "refresh_token" not in _credentials(cid)          # healow gives public apps none
+    conn = client.get(f"/api/connections/{cid}").json()
+    assert conn["record_count"] > 0 and conn["status"] == "active" and not conn["access_ended"]
+
+    _expire(cid)
+    _expire(epic)
+    conn = client.get(f"/api/connections/{cid}").json()
+    assert conn["access_ended"] and conn["status"] == "active"
+    due = {c["id"] for c in sync.due_connections(0, 0)}
+    assert cid not in due and epic in due                    # the scheduler leaves it be: no failing syncs, no warning
+    res = client.post(f"/api/connections/{cid}/sync").json()
+    assert res["status"] == "skipped" and res["sign_in"], res
+    assert client.get(f"/api/connections/{cid}").json()["status"] == "active"
+
+    r = client.post(f"/api/connections/{cid}/reconnect")    # "Update": sign in again
+    done = client.get(simulated_login(client, r.json()["auth_url"])[len(BASE):], follow_redirects=False)
+    assert done.headers["location"].endswith(cid)
+    assert not client.get(f"/api/connections/{cid}").json()["access_ended"]
+
+
+def test_a_renewable_connection_that_fails_still_asks_to_reconnect(client):
+    cid = connect_institution(client, "banner-health")["connection_id"]
+    from app.store import connections
+    connections.update(cid, status="needs_reauth")
+    conn = client.get(f"/api/connections/{cid}").json()
+    assert conn["status"] == "needs_reauth" and not conn["access_ended"]
 
 
 def test_simulator_rejects_forged_and_replayed_assertions(client):

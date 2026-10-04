@@ -55,6 +55,9 @@ PLATFORMS: dict[str, dict[str, Any]] = {
         "sandbox_base": None,
         "sandbox_hint": "eClinicalWorks gives each developer a sandbox practice; connect to it under Custom FHIR server",
         "scopes": USCDI_SCOPES,
+        # healow gives refresh tokens only to confidential apps, and Syntropy's is public: each sign-in is a one-time
+        # import, and signing in again brings in anything new.
+        "one_time": True,
     },
     "va": {
         "label": "VA Lighthouse", "portal": "VA.gov",

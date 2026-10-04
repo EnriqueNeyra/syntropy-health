@@ -221,7 +221,7 @@ def _issue_tokens(claims: dict[str, Any], origin: str) -> dict[str, Any]:
         "scope": claims["scope"], "patient": patient,
     }
     offline = "offline_access" in claims["scope"] or "online_access" in claims["scope"]
-    if offline and claims["platform"] != "epic":
+    if offline and claims["platform"] not in ("epic", "healow"):  # like the real ones, to public apps
         body["refresh_token"] = security.sign({**base, "typ": "refresh", "exp": now + REFRESH_TTL}, "sim-token")
     if "openid" in claims["scope"]:
         fhir_user = f"{origin}{fhir_base_path(claims['platform'], claims['tenant'])}/Patient/{patient}"

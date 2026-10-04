@@ -48,6 +48,9 @@ async def sync_connection(connection_id: str, trigger: str = "manual") -> dict[s
         return {"status": "skipped", "reason": "disconnected"}
     if conn["kind"] in ("device", "import", "manual"):
         return {"status": "skipped", "reason": "This source pushes data to Syntropy; there is nothing to pull."}
+    if conn.get("access_ended"):
+        return {"status": "skipped", "sign_in": True,
+                "reason": f"Sign in to {conn['display_name']} again to bring in new records."}
 
     lock = _lock(connection_id)
     if lock.locked():
@@ -237,7 +240,7 @@ def due_connections(ehr_hours: float, wearable_hours: float) -> list[dict[str, A
     now = time.time()
     due = []
     for c in connections.list_active_all():
-        if c["kind"] not in ("ehr", "wearable") or c["status"] == "needs_reauth":
+        if c["kind"] not in ("ehr", "wearable") or c["status"] == "needs_reauth" or c.get("access_ended"):
             continue
         interval = (ehr_hours if c["kind"] == "ehr" else wearable_hours) * 3600
         last = c.get("last_sync_at") or 0

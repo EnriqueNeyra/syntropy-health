@@ -35,6 +35,7 @@ function saveState(change) {
 }
 
 const STALE_PHONE_DAYS = 3;
+const UPDATE_REMINDER_DAYS = 30;
 
 /** Builds the alert list from the profile's summary and connections. */
 function collect({ summary, connections, status }) {
@@ -49,7 +50,15 @@ function collect({ summary, connections, status }) {
     });
   }
   for (const c of connections || []) {
-    if (c.status === "needs_reauth") {
+    const age = c.last_sync_at ? Math.floor((Date.now() / 1000 - c.last_sync_at) / 86400) : 0;
+    if (c.access_ended) {
+      // A one-time import (healow): a gentle nudge each month, never a warning. Dismissing it lasts until the next one.
+      if (age >= UPDATE_REMINDER_DAYS) {
+        out.push({ id: `conn:${c.id}:update:${Math.floor(c.last_sync_at)}:${Math.floor(age / UPDATE_REMINDER_DAYS)}`, level: "info", icon: "sources",
+                   title: `Update ${c.display_name}?`, text: `Its records here are from ${fmtDate(c.last_sync_at)}. Sign in again to bring in anything new.`,
+                   href: "#/sources", action: "Open Sources" });
+      }
+    } else if (c.status === "needs_reauth") {
       out.push({ id: `conn:${c.id}:reauth`, level: "warn", icon: "sources", title: `Reconnect ${c.display_name}`,
                  text: "Access expired, so new records aren't coming in.", href: "#/sources", action: "Reconnect" });
     } else if (c.status === "error") {
