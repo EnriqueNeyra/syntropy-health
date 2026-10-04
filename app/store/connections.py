@@ -209,6 +209,18 @@ def finish_run(run_id: int, connection_id: str, status: str, stats: dict[str, An
         )
 
 
+def last_success_at(connection: dict[str, Any]) -> Optional[float]:
+    """When this connection last synced without an error. ``last_sync_at`` moves on failed syncs too (it paces the
+    retries), so it can't say what has been fetched. Only the last 50 runs are kept: past those, a connection whose
+    latest sync failed has no known success, and the caller fetches its whole first window again."""
+    with read() as conn:
+        row = conn.execute("SELECT MAX(started_at) FROM sync_runs WHERE connection_id = ? AND status IN ('success', 'partial')",
+                           (connection["id"],)).fetchone()
+    if row and row[0]:
+        return row[0]
+    return connection.get("last_sync_at") if connection.get("last_sync_status") in ("success", "partial") else None
+
+
 def recent_runs(connection_id: str, limit: int = 10) -> list[dict[str, Any]]:
     with read() as conn:
         rows = conn.execute(

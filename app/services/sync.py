@@ -101,14 +101,18 @@ async def _sync_ehr(conn: dict[str, Any]) -> dict[str, Any]:
     if client.refreshed:
         connections.update(conn["id"], credentials=client.credentials)
 
-    patient, recs = fhir_normalize.normalize_resources([fetched.patient] + fetched.resources)  # type: ignore[list-item]
+    # Normalizing and storing thousands of records is plain CPU and SQLite work: it runs in a thread so the server
+    # keeps answering (the page, the phone) meanwhile.
+    patient, recs = await asyncio.to_thread(fhir_normalize.normalize_resources, [fetched.patient] + fetched.resources)  # type: ignore[list-item]
     notes_fetched = await _fetch_note_bodies(conn, client, recs, simulated)
 
-    if patient:
-        records.upsert_identity(conn["id"], conn["profile_id"], patient)
-    write = records.upsert_records(conn["profile_id"], conn["id"], conn["display_name"], recs)
-    seen = {f"{r['resource_type']}/{r['resource_id']}" for r in recs}
-    pruned = records.prune_missing(conn["id"], fetched.complete_types, seen)
+    def store() -> tuple[dict[str, Any], int]:
+        if patient:
+            records.upsert_identity(conn["id"], conn["profile_id"], patient)
+        write = records.upsert_records(conn["profile_id"], conn["id"], conn["display_name"], recs)
+        seen = {f"{r['resource_type']}/{r['resource_id']}" for r in recs}
+        return write, records.prune_missing(conn["id"], fetched.complete_types, seen)
+    write, pruned = await asyncio.to_thread(store)
 
     warnings = [f"{k}: {v}" for k, v in fetched.status.items() if v not in ("ok", "empty", "not-granted")]
     by_category: dict[str, int] = {}
@@ -174,14 +178,16 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
     if module is None:
         raise SmartError(f"Unknown wearable provider '{conn['provider']}'")
     today = datetime.now(timezone.utc).date()
-    if conn.get("last_sync_at"):
-        since = datetime.fromtimestamp(conn["last_sync_at"], timezone.utc).date() - timedelta(days=WEARABLE_OVERLAP_DAYS)
+    # From the last sync that worked: after days of failures (an expired sign-in), the days in between are fetched too.
+    last_ok = connections.last_success_at(conn)
+    if last_ok:
+        since = datetime.fromtimestamp(last_ok, timezone.utc).date() - timedelta(days=WEARABLE_OVERLAP_DAYS)
     else:
         since = today - timedelta(days=WEARABLE_INITIAL_DAYS)
 
     if conn["mode"] == "simulated":
         days = (today - since).days + 1
-        data = module.simulate(days=days, until=today, seed=f"{conn['provider']}-{conn['id']}")
+        data = await asyncio.to_thread(module.simulate, days=days, until=today, seed=f"{conn['provider']}-{conn['id']}")
     else:
         creds = conn.get("credentials") or {}
         if not creds.get("access_token"):
@@ -198,18 +204,20 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
             connections.update(conn["id"], credentials=creds)
             data = await module.fetch_live(creds, since, today)
 
-    samples = module.normalize(data)
-    workouts = module.normalize_workouts(data)
-    if conn["mode"] == "simulated":
-        # Label demo data so it is never mistaken for, or preferred over, real measurements.
-        for item in (*samples, *workouts):
-            item["source_name"] = f"{item['source_name']} (simulated)"
-    result = biometrics.insert_samples(
-        conn["profile_id"], conn["id"], samples,
-        batch_meta={"device_id": f"{conn['provider']}-cloud", "device_name": conn["display_name"],
-                    "sync_trigger": "simulated" if conn["mode"] == "simulated" else "cloud"},
-    )
-    workouts = activity.insert_workouts(conn["profile_id"], conn["id"], workouts)
+    def store() -> tuple[dict[str, Any], int]:      # in a thread, like the EHR's records
+        samples = module.normalize(data)
+        workouts = module.normalize_workouts(data)
+        if conn["mode"] == "simulated":
+            # Label demo data so it is never mistaken for, or preferred over, real measurements.
+            for item in (*samples, *workouts):
+                item["source_name"] = f"{item['source_name']} (simulated)"
+        result = biometrics.insert_samples(
+            conn["profile_id"], conn["id"], samples,
+            batch_meta={"device_id": f"{conn['provider']}-cloud", "device_name": conn["display_name"],
+                        "sync_trigger": "simulated" if conn["mode"] == "simulated" else "cloud"},
+        )
+        return result, activity.insert_workouts(conn["profile_id"], conn["id"], workouts)
+    result, workouts = await asyncio.to_thread(store)
     return {"since": since.isoformat(), "samples": result["received"], "inserted": result["inserted"],
             "duplicates": result["duplicates"], "days_updated": result["days_updated"], "workouts": workouts,
             "warnings": []}
