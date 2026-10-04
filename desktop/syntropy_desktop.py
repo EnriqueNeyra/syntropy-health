@@ -307,6 +307,7 @@ class DesktopApp:
         self.switching = threading.Lock()
         self.mac = None            # mac_window.MacWindow on a Mac
         self.hidden = background   # the window is closed (the app runs on in the menu bar or tray)
+        self.browser_mode = False  # Windows without WebView2: pages open in the default browser instead
 
     # ----------------------------------------------------------- state shown in the menu
     @property
@@ -336,6 +337,8 @@ class DesktopApp:
 
     # ----------------------------------------------------------- actions
     def show(self) -> None:
+        if self.browser_mode:
+            return self.open_browser()
         self.hidden = False
         if self.window:
             if self.mac:
@@ -347,6 +350,14 @@ class DesktopApp:
 
     def open_browser(self) -> None:
         webbrowser.open(self.home_url)
+
+    def open_page(self, path: str) -> None:
+        """Show one of the app's own pages (e.g. "/#/settings/security"): in the window, else in the browser."""
+        if self.browser_mode or not self.window:
+            webbrowser.open(self.server.url + path)
+            return
+        self.show()
+        self.window.load_url(self.server.url + path)
 
     # ----------------------------------------------------------- joining another computer's server
     def on_request(self, msg: dict[str, Any]) -> None:
@@ -408,9 +419,7 @@ class DesktopApp:
         if self.joined:
             return
         if not self.lan and not self.server.status().get("auth_required"):
-            self.show()
-            if self.window:
-                self.window.load_url(self.server.url + "/#/settings/security")   # the page's CSP blocks evaluate_js
+            self.open_page("/#/settings/security")      # the page's CSP blocks evaluate_js
             return
         self.set_lan(not self.lan)
         if self.window:
@@ -455,9 +464,7 @@ class DesktopApp:
                 updates.check()
             except Exception:  # noqa: BLE001 - the page shows what's known
                 log.exception("Update check failed")
-            self.show()
-            if self.window:
-                self.window.load_url(self.server.url + "/#/settings/general/updates")
+            self.open_page("/#/settings/general/updates")
             return
         try:
             release = updates.fetch_latest()
@@ -476,9 +483,10 @@ class DesktopApp:
                 self.message("Couldn't install the update", str(exc))
 
     def message(self, title: str, text: str) -> None:
+        if not self.window:
+            return alert(title, text)
         self.show()
-        if self.window:
-            self.window.create_confirmation_dialog(title, text)
+        self.window.create_confirmation_dialog(title, text)
 
     def toggle_login(self) -> None:
         set_open_at_login(not open_at_login())
@@ -549,10 +557,29 @@ class DesktopApp:
             if self.joined and first_url == "about:blank":      # the server's computer is off or away
                 self.open_joined()
 
-        # On a Mac the bundle's icon.icns is the Dock icon; passing an icon here would replace it with the full-bleed
-        # window icon, which looks oversized next to other apps.
-        icon = {} if mac else {"icon": str(resource("icon-256.png"))}
-        webview.start(started, private_mode=False, storage_path=str(self.data / "webview"), user_agent=user_agent(), **icon)
+        webview.start(started, private_mode=False, storage_path=str(self.data / "webview"), user_agent=user_agent(),
+                      **window_icon())
+        self.server.stop()
+
+    def run_in_browser(self) -> None:
+        """Windows without the WebView2 runtime: the server and tray icon run as usual, and the app opens in the
+        default browser instead of its own window."""
+        instance = SingleInstance(self.data, self.open_browser)
+        if instance.signal_existing():
+            return
+        instance.listen()
+        self.prefs.set("role", None)
+        self.start_own_server()
+        actions = {"show": self.show, "browser": self.open_browser, "lan": self.toggle_lan,
+                   "login": self.toggle_login, "quit": self.quit, "switch": self.switch_server,
+                   "updates": self.check_for_updates}
+        from tray import make_tray
+        self.tray = make_tray(actions, self.menu_state, self.on_app_quit)
+        self.browser_mode = True
+        self.hidden = True          # no window to interrupt: automatic updates install when they're ready
+        if not self.background:
+            self.open_browser()
+        self.tray.icon.run()        # until Quit
         self.server.stop()
 
     def on_app_quit(self) -> None:
@@ -569,6 +596,50 @@ def network_controller(fn: Optional[Callable[[bool], None]]) -> None:
 def update_installer(fn: Optional[Callable[[dict, bool], None]]) -> None:
     from app.services import updates
     updates.set_installer(fn)
+
+
+def window_icon() -> dict[str, str]:
+    """The icon argument for webview.start, for Linux only.
+
+    Windows: without one, the window takes the icon built into the .exe. Given a file, WinForms reads it with
+    System.Drawing.Icon, which throws on a PNG while it creates the window, so the app never opened.
+    Mac: the bundle's icon.icns is the Dock icon; passing one here would replace it with the full-bleed window icon,
+    which looks oversized next to other apps."""
+    if sys.platform in ("darwin", "win32"):
+        return {}
+    return {"icon": str(resource("icon-256.png"))}
+
+
+WEBVIEW2_RUNTIME = "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+WEBVIEW2_DOWNLOAD = "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+
+
+def webview2_installed() -> bool:
+    """Whether the Microsoft Edge WebView2 runtime the window needs is installed (built into Windows 11 and most
+    Windows 10 PCs; without it pywebview falls back to Internet Explorer, which can't run the app)."""
+    if sys.platform != "win32":
+        return True
+    import winreg
+    places = [(winreg.HKEY_LOCAL_MACHINE, rf"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_RUNTIME}"),
+              (winreg.HKEY_LOCAL_MACHINE, rf"SOFTWARE\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_RUNTIME}"),
+              (winreg.HKEY_CURRENT_USER, rf"Software\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_RUNTIME}")]
+    for root, path in places:
+        try:
+            with winreg.OpenKey(root, path) as key:
+                version = str(winreg.QueryValueEx(key, "pv")[0])
+        except OSError:
+            continue
+        if version and version != "0.0.0.0":
+            return True
+    return False
+
+
+def alert(title: str, text: str) -> None:
+    """A message box with no window of the app's own (Windows), for when the window itself can't open."""
+    log.info("%s: %s", title, text)
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, text, title, 0x40 | 0x10000)      # MB_ICONINFORMATION | MB_SETFOREGROUND
 
 
 def reachable(url: str) -> bool:
@@ -609,10 +680,22 @@ def main() -> None:
         cli_main(argv)
         return
     setup_logging()
+    background = "--background" in argv
     try:
-        DesktopApp(background="--background" in argv).run()
-    except Exception:  # noqa: BLE001 - leave a trace for support; a windowed app can't print
+        desktop = DesktopApp(background=background)
+        if webview2_installed():
+            desktop.run()
+            return
+        log.warning("The Microsoft Edge WebView2 runtime isn't installed; opening in the browser instead")
+        if not background:
+            threading.Thread(target=alert, daemon=True, args=(
+                APP_NAME, f"{APP_NAME} is open in your web browser, because this PC doesn't have the Microsoft Edge "
+                          f"WebView2 Runtime its window needs. Install it from {WEBVIEW2_DOWNLOAD} (free, from "
+                          f"Microsoft), then quit {APP_NAME} from its notification-area icon and open it again.")).start()
+        desktop.run_in_browser()
+    except Exception as exc:  # noqa: BLE001 - leave a trace for support; a windowed app can't print
         log.exception("Syntropy Health stopped")
+        alert(f"{APP_NAME} couldn't start", f"{exc}\n\nDetails are in {log_path()}.")
         raise
 
 

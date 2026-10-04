@@ -65,7 +65,9 @@ def _sha256(path: Path) -> str:
 
 
 def _run(cmd: list[str]) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    # On Windows, keep a console window from flashing up over the app (PowerShell checks the signatures).
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=300, creationflags=flags)
 
 
 class Updater:
