@@ -481,3 +481,16 @@ def test_timeline_pages_dont_skip_records_that_share_a_time(client):
         if not before:
             break
     assert len(seen) == len(set(seen)) == len(everything["items"])
+
+
+async def test_note_attachments_elsewhere_dont_get_the_token():
+    from app.connectors import smart
+    sent = []
+
+    class Client:
+        async def get(self, url, **kw):
+            sent.append(url)
+            raise AssertionError("no request expected")
+    fhir = smart.FhirClient("https://fhir.example.org/r4", {"access_token": "AT"}, "p1")
+    assert await fhir.read_binary_text(Client(), "https://attacker.example.net/Binary/1") is None
+    assert sent == []
