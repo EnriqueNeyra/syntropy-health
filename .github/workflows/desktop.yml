@@ -121,7 +121,9 @@ jobs:
           for ($i = 0; $i -lt 90 -and -not $app.HasExited; $i++) {
             Start-Sleep -Seconds 1
             $app.Refresh()
-            try { $up = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:8000/health" -TimeoutSec 2).StatusCode -eq 200 } catch { $up = $false }
+            $prefs = "$env:SYNTROPY_DATA_DIR\desktop.json"     # the port it chose (8000 unless that was taken)
+            $port = if (Test-Path $prefs) { (Get-Content $prefs | ConvertFrom-Json).port } else { 8000 }
+            try { $up = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/health" -TimeoutSec 2).StatusCode -eq 200 } catch { $up = $false }
             if ($up -and $app.MainWindowHandle -ne 0) { $ok = $true; break }
           }
           if ($ok) { Start-Sleep -Seconds 5; $app.Refresh(); $ok = -not $app.HasExited }
