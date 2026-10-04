@@ -82,7 +82,7 @@ def plan_ehr_connection(institution_id: Optional[str], origin: str, *, fhir_base
     return {"platform": platform, "mode": mode, "institution_id": institution_id, "fhir_base_url": base.rstrip("/"),
             "client_id": cid, "redirect_uri": settings.get("relay.redirect_uri"), "display_name": display,
             "scopes": preset["scopes"], "simulated": False, "dynamic_registration": dynamic,
-            "hint": preset.get("sandbox_hint") if mode == "sandbox" else None}
+            "relay_signed": smart.relay_signs(cid), "hint": preset.get("sandbox_hint") if mode == "sandbox" else None}
 
 
 async def start_ehr(profile_id: str, origin: str, *, institution_id: Optional[str] = None,
@@ -128,11 +128,14 @@ async def start_ehr(profile_id: str, origin: str, *, institution_id: Optional[st
 async def complete_ehr(pending: dict[str, Any], code: str) -> dict[str, Any]:
     creds, patient = await smart.exchange_code(
         token_endpoint=pending["token_endpoint"], code=code, redirect_uri=pending["redirect_uri"],
-        client_id=pending["client_id"], code_verifier=pending["code_verifier"], simulated=pending["simulated"],
+        client_id=pending["client_id"], code_verifier=pending["code_verifier"],
+        relay_signed=bool(pending.get("relay_signed")), simulated=pending["simulated"],
     )
     if not patient:
         raise SmartError("Authorization succeeded but the source did not identify the patient (missing launch/patient).", "auth")
     creds.update({"token_endpoint": pending["token_endpoint"], "client_id": pending["client_id"]})
+    if pending.get("relay_signed"):
+        creds["relay_signed"] = True
     if pending.get("registration_endpoint"):
         try:
             creds["dynamic_client"] = await smart.register_dynamic_client(

@@ -37,6 +37,10 @@ EHR_PLATFORMS: dict[str, dict[str, Any]] = {
 
 CONNECTION_MODES = ("simulated", "sandbox", "production")
 
+# Confidential apps whose token requests the relay signs (its /assertion route, which lists the same IDs): healow gives
+# refresh tokens only to confidential apps.
+RELAY_SIGNED_CLIENT_IDS: frozenset[str] = frozenset()
+
 # Client IDs of the Syntropy apps registered with Oura and WHOOP. Their secrets live only on the
 # relay worker (see cloudflare-worker/), which performs the code exchange for these IDs. Google Health has
 # no Syntropy app yet (its scopes need Google's restricted-scope review), so it needs your own OAuth client.

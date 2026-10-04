@@ -15,6 +15,13 @@
  *                      *fragment* (never sent to any server, never logged), where the instance's
  *                      own page picks them up. Nothing is stored.
  *   POST /refresh    { provider, refresh_token } -> fresh tokens (same secret-holding role).
+ *   POST /assertion  { client_id, aud } -> a 5-minute JWT client assertion for a confidential EHR app (healow).
+ *                    healow gives refresh tokens only to apps that sign their token requests with a key published
+ *                    at a JWKS URL. A self-hosted app can't keep such a key secret, so the relay holds it (the
+ *                    CLIENT_SIGNING_KEY secret, made by new-signing-key.mjs) and signs for the client IDs in
+ *                    SIGNED_CLIENT_IDS, for token endpoints on healow's hosts only. The instance then calls the
+ *                    token endpoint itself: EHR tokens never pass through the relay.
+ *   GET  /jwks.json  the public half of that key: the JWKS URL registered with healow.
  *   GET  /health     liveness probe, with the commit this deploy was built from (set by relay.yml), so anyone
  *                    can check the running relay against the code in the repository.
  *
@@ -33,6 +40,9 @@ const PROVIDERS = {
   // refresh_token on refresh, and the instance keeps the one it has.
   google: { tokenUrl: "https://oauth2.googleapis.com/token", idVar: "GOOGLE_HEALTH_CLIENT_ID", secretVar: "GOOGLE_HEALTH_CLIENT_SECRET" },
 };
+// Token endpoints the relay signs assertions for: eClinicalWorks's patient (healow) and provider hosts.
+const ASSERTION_HOSTS = [".healow.com", ".eclinicalworks.com"];
+const ASSERTION_TTL = 300;
 const DEFAULT_TARGET = "http://localhost:8000";
 const SITE = "https://health.syntropylabs.io";
 
@@ -42,11 +52,13 @@ export default {
     const path = url.pathname.replace(/\/+$/, "") || "/";
     try {
       if (path === "/health") return json({ status: "ok", service: "syntropy-auth-relay", commit: env.COMMIT || null });
-      if ((path === "/callback" || path === "/refresh") && !(await allowed(request, env))) {
+      if ((path === "/callback" || path === "/refresh" || path === "/assertion") && !(await allowed(request, env))) {
         return json({ error: "rate_limited" }, 429);
       }
       if (path === "/callback" && request.method === "GET") return await handleCallback(url, env);
       if (path === "/refresh" && request.method === "POST") return await handleRefresh(request, env);
+      if (path === "/assertion" && request.method === "POST") return await handleAssertion(request, env);
+      if (path === "/jwks.json" || path === "/.well-known/jwks.json") return await handleJwks(env);
       if (path === "/") return Response.redirect(SITE, 302);
       return new Response("Not found", { status: 404 });
     } catch (err) {
@@ -163,6 +175,61 @@ async function handleRefresh(request, env) {
   const tokens = await tokenRequest(cfg.tokenUrl, form);
   if (tokens.error) return json({ error: "refresh_failed", error_description: tokens.error }, 400);
   return json({ access_token: tokens.access_token, refresh_token: tokens.refresh_token, expires_in: tokens.expires_in, scope: tokens.scope });
+}
+
+async function handleAssertion(request, env) {
+  let body;
+  try { body = await request.json(); } catch (_) { return json({ error: "invalid_request" }, 400); }
+  const clientId = typeof body.client_id === "string" ? body.client_id : "";
+  const signed = String(env.SIGNED_CLIENT_IDS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!clientId || !signed.includes(clientId)) return json({ error: "unknown_client" }, 400);
+  if (!assertionAudience(body.aud)) return json({ error: "invalid_audience" }, 400);
+  const key = signingKey(env);
+  if (!key) return json({ error: "not_configured" }, 500);
+  const now = Math.floor(Date.now() / 1000);
+  const claims = { iss: clientId, sub: clientId, aud: body.aud, jti: crypto.randomUUID(), iat: now, nbf: now, exp: now + ASSERTION_TTL };
+  return json({ client_assertion: await signJwt(claims, key), expires_in: ASSERTION_TTL });
+}
+
+export function assertionAudience(aud) {
+  if (typeof aud !== "string" || aud.length > 512) return false;
+  try {
+    const u = new URL(aud);
+    return u.protocol === "https:" && !u.port && !u.username && ASSERTION_HOSTS.some((h) => u.hostname.endsWith(h));
+  } catch (_) {
+    return false;
+  }
+}
+
+async function handleJwks(env) {
+  const key = signingKey(env);
+  if (!key) return json({ keys: [] });
+  const { kty, n, e, kid } = key;
+  return json({ keys: [{ kty, n, e, kid, alg: "RS384", use: "sig" }] });
+}
+
+function signingKey(env) {
+  try {
+    const key = JSON.parse(env.CLIENT_SIGNING_KEY || "null");
+    return key && key.kty === "RSA" && key.d && key.kid ? key : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function signJwt(claims, jwk) {
+  const enc = (o) => b64url(new TextEncoder().encode(JSON.stringify(o)));
+  const input = `${enc({ alg: "RS384", typ: "JWT", kid: jwk.kid })}.${enc(claims)}`;
+  const key = await crypto.subtle.importKey("jwk", { ...jwk, alg: "RS384", ext: true },
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-384" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(input));
+  return `${input}.${b64url(new Uint8Array(sig))}`;
+}
+
+function b64url(bytes) {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 async function tokenRequest(tokenUrl, form) {

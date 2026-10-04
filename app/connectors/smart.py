@@ -25,7 +25,7 @@ from urllib.parse import urlencode, urlparse
 
 import httpx
 
-from app.core import security
+from app.core import security, settings
 
 log = logging.getLogger("syntropy.smart")
 
@@ -200,11 +200,14 @@ def _token_credentials(tokens: dict[str, Any], previous: Optional[dict[str, Any]
 
 
 async def exchange_code(*, token_endpoint: str, code: str, redirect_uri: str, client_id: str,
-                        code_verifier: str, simulated: bool = False) -> tuple[dict[str, Any], Optional[str]]:
+                        code_verifier: str, relay_signed: bool = False,
+                        simulated: bool = False) -> tuple[dict[str, Any], Optional[str]]:
     data = {"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri,
             "client_id": client_id, "code_verifier": code_verifier}
     async with http_client(simulated) as client:
         try:
+            if relay_signed:
+                data.update(await relay_client_assertion(client, client_id, token_endpoint))
             resp = await client.post(token_endpoint, data=data, headers={"Accept": "application/json"})
         except httpx.HTTPError as exc:
             raise SmartError(f"Token endpoint unreachable: {exc}", "network") from exc
@@ -232,12 +235,47 @@ async def refresh(credentials: dict[str, Any], simulated: bool = False) -> dict[
         data["scope"] = credentials["scope"]  # athenahealth requires it on a refresh; the others accept the granted scope
     async with http_client(simulated) as client:
         try:
+            if credentials.get("relay_signed"):
+                data.update(await relay_client_assertion(client, data["client_id"], credentials["token_endpoint"]))
             resp = await client.post(credentials["token_endpoint"], data=data, headers={"Accept": "application/json"})
         except httpx.HTTPError as exc:
             raise SmartError(f"Token endpoint unreachable: {exc}", "network") from exc
     if resp.status_code != 200:
         raise SmartError(f"Refreshing access failed ({resp.status_code}). Reconnect to continue.", "auth")
     return _token_credentials(resp.json(), credentials)
+
+
+# ---------------------------------------------------------------------------
+# Relay-signed client assertions (healow's confidential app)
+# ---------------------------------------------------------------------------
+#
+# healow gives refresh tokens only to confidential apps, which authenticate each token request with a JWT signed by a
+# key published at the app's JWKS URL. A self-hosted app can't keep that key secret, so Syntropy's relay holds it and
+# publishes the public half. For each code exchange and refresh the app asks the relay for a five-minute assertion
+# naming the token endpoint, then calls the token endpoint itself: tokens never pass through the relay.
+
+CLIENT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+
+
+def relay_signs(client_id: str) -> bool:
+    return client_id in settings.RELAY_SIGNED_CLIENT_IDS
+
+
+async def relay_client_assertion(client: httpx.AsyncClient, client_id: str, token_endpoint: str) -> dict[str, str]:
+    parsed = urlparse(settings.get("relay.wearable_redirect_uri"))
+    try:
+        resp = await client.post(f"{parsed.scheme}://{parsed.netloc}/assertion",
+                                 json={"client_id": client_id, "aud": token_endpoint})
+    except httpx.HTTPError as exc:
+        raise SmartError(f"The Syntropy relay is unreachable: {exc}", "network") from exc
+    try:
+        assertion = resp.json().get("client_assertion") if resp.status_code == 200 else None
+    except ValueError:
+        assertion = None
+    if not assertion:
+        raise SmartError(f"The Syntropy relay didn't sign the token request ({resp.status_code}): {_error_text(resp)}",
+                         "network" if resp.status_code in (429, 500, 502, 503) else "error")
+    return {"client_assertion_type": CLIENT_ASSERTION_TYPE, "client_assertion": assertion}
 
 
 # ---------------------------------------------------------------------------

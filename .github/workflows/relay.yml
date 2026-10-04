@@ -4,7 +4,8 @@ name: Relay
 # the code in this repository. Its /health reports the commit it was deployed from:
 #   curl https://syntropy-auth-relay.syntropylabs.workers.dev/health
 # Needs CLOUDFLARE_API_TOKEN (an "Edit Cloudflare Workers" token) and CLOUDFLARE_ACCOUNT_ID in the `relay` environment,
-# which only main can use. The Oura and WHOOP client secrets stay in Cloudflare; a deploy keeps them.
+# which only main can use. The Oura and WHOOP client secrets stay in Cloudflare; a deploy keeps them. The healow signing
+# key (CLIENT_SIGNING_KEY) is made here the first time, straight into Cloudflare, so no one ever sees or copies it.
 on:
   push:
     branches: [main]
@@ -41,6 +42,15 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: cloudflare-worker
           command: deploy --var COMMIT:${{ github.sha }}
+      - name: The relay has a signing key
+        if: env.HAS_TOKEN == 'true'
+        working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@4.147.0 secret list | grep -q CLIENT_SIGNING_KEY && exit 0
+          node new-signing-key.mjs | npx --yes wrangler@4.147.0 secret put CLIENT_SIGNING_KEY
       - name: The relay answers with this commit
         if: env.HAS_TOKEN == 'true'
         run: |
@@ -49,3 +59,6 @@ jobs:
             sleep 3
           done
           echo "::error::The relay's /health doesn't report $GITHUB_SHA"; exit 1
+      - name: The relay publishes its public key
+        if: env.HAS_TOKEN == 'true'
+        run: curl -fs https://syntropy-auth-relay.syntropylabs.workers.dev/jwks.json | grep -q '"kty":"RSA"'

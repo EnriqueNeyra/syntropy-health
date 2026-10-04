@@ -1,6 +1,7 @@
 """End-to-end SMART on FHIR flow against the built-in simulator."""
 
 import asyncio
+import json
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -258,6 +259,56 @@ def test_reconnect_works_after_an_institution_leaves_the_directory(client, monke
     r = client.post(f"/api/connections/{cid}/reconnect")
     assert r.status_code == 200, r.text
     assert directory.get_institution("epic-no-longer-listed") is None
+
+
+HEALOW_TOKEN = "https://oauthserver.eclinicalworks.com/oauth/oauth2/token"
+
+
+def _healow_transport(seen: list, relay_status: int = 200) -> httpx.MockTransport:
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path == "/assertion":
+            return httpx.Response(relay_status, json={"client_assertion": "signed.jwt.x"} if relay_status == 200
+                                  else {"error": "unknown_client"})
+        return httpx.Response(200, json={"access_token": f"AT{len(seen)}", "refresh_token": f"RT{len(seen)}",
+                                         "expires_in": 300, "patient": "p1", "scope": "patient/*.read offline_access"})
+    return httpx.MockTransport(handle)
+
+
+def test_healow_token_requests_are_signed_by_the_relay(client, monkeypatch):
+    from app.connectors import smart
+    from app.core import settings
+    from app.services import connect
+
+    healow_id = settings.platform_config("healow", "production")["client_id"]
+    monkeypatch.setattr(settings, "RELAY_SIGNED_CLIENT_IDS", frozenset({healow_id}))
+    client.put("/api/settings/developer", json={"enabled": False})
+    assert connect.plan_ehr_connection("ecw-bdeaed", BASE)["relay_signed"] is True
+    assert connect.plan_ehr_connection("epic-duke-health", BASE)["relay_signed"] is False
+    monkeypatch.setenv("HEALOW_CLIENT_ID", "a-self-hosters-own-app")          # their own app signs for itself
+    assert connect.plan_ehr_connection("ecw-bdeaed", BASE)["relay_signed"] is False
+
+    seen: list = []
+    monkeypatch.setattr(smart, "http_client", lambda simulated=False: httpx.AsyncClient(transport=_healow_transport(seen)))
+    creds, patient = asyncio.run(smart.exchange_code(token_endpoint=HEALOW_TOKEN, code="c", redirect_uri="r",
+                                                     client_id=healow_id, code_verifier="v", relay_signed=True))
+    relay, token = seen
+    assert str(relay.url) == "https://syntropy-auth-relay.syntropylabs.workers.dev/assertion"
+    assert json.loads(relay.content) == {"client_id": healow_id, "aud": HEALOW_TOKEN}
+    form = parse_qs(token.content.decode())
+    assert form["client_assertion"] == ["signed.jwt.x"] and form["code_verifier"] == ["v"]
+    assert form["client_assertion_type"] == [smart.CLIENT_ASSERTION_TYPE]
+    assert patient == "p1" and creds["refresh_token"]
+
+    creds.update({"token_endpoint": HEALOW_TOKEN, "client_id": healow_id, "relay_signed": True})
+    renewed = asyncio.run(smart.refresh(creds))
+    form = parse_qs(seen[-1].content.decode())
+    assert form["grant_type"] == ["refresh_token"] and form["client_assertion"] == ["signed.jwt.x"]
+    assert renewed["refresh_token"] == "RT4" and renewed["relay_signed"]
+
+    monkeypatch.setattr(smart, "http_client", lambda simulated=False: httpx.AsyncClient(transport=_healow_transport(seen, 400)))
+    with pytest.raises(smart.SmartError, match="relay didn't sign"):
+        asyncio.run(smart.refresh(creds))
 
 
 def test_ecw_sandbox_mode_explains_there_is_no_shared_sandbox(client):

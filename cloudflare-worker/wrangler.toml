@@ -21,8 +21,11 @@ simple = { limit = 30, period = 60 }
 ENVIRONMENT = "production"
 WHOOP_CLIENT_ID = "91dbd202-060d-477e-a9b7-3aedd1def98c"
 OURA_CLIENT_ID = "386fc575-d55b-431e-acbe-5d1bd8da3036"
+# Confidential EHR apps whose token requests /assertion signs (comma-separated): Syntropy Health's healow app.
+SIGNED_CLIENT_IDS = ""
 
 # Secrets to set in Cloudflare dashboard or via wrangler secret put:
 # - WHOOP_CLIENT_SECRET
 # - OURA_CLIENT_SECRET
+# - CLIENT_SIGNING_KEY: node new-signing-key.mjs | npx wrangler secret put CLIENT_SIGNING_KEY
 # - GOOGLE_HEALTH_CLIENT_SECRET, plus GOOGLE_HEALTH_CLIENT_ID under [vars], once the Google app passes review
