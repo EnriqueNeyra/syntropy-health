@@ -228,6 +228,8 @@ async def refresh(credentials: dict[str, Any], simulated: bool = False) -> dict[
         raise SmartError("Access expired and the source did not grant offline access. Reconnect to continue.", "auth")
     data = {"grant_type": "refresh_token", "refresh_token": credentials["refresh_token"],
             "client_id": credentials.get("client_id", "")}
+    if credentials.get("scope"):
+        data["scope"] = credentials["scope"]  # athenahealth requires it on a refresh; the others accept the granted scope
     async with http_client(simulated) as client:
         try:
             resp = await client.post(credentials["token_endpoint"], data=data, headers={"Accept": "application/json"})
@@ -319,6 +321,8 @@ def _error_text(resp: httpx.Response) -> str:
 # FHIR data access
 # ---------------------------------------------------------------------------
 
+MEDICATION_INTENTS = "proposal,plan,order,original-order,reflex-order,filler-order,instance-order,option"
+
 # (resource type, list of alternative query parameter sets tried in order)
 QUERY_PLAN: list[tuple[str, list[dict[str, str]]]] = [
     ("Observation", [{"category": "vital-signs"}]),
@@ -327,7 +331,9 @@ QUERY_PLAN: list[tuple[str, list[dict[str, str]]]] = [
     # Smoking status and screening questionnaires (Synthea-based sandboxes file smoking status here).
     ("Observation", [{"category": "survey"}]),
     ("Condition", [{}, {"category": "problem-list-item"}]),
-    ("MedicationRequest", [{"_include": "MedicationRequest:medication"}, {}]),
+    # athenahealth answers a search without intent 403 ("required parameter combinations [[patient,intent],[_id]]").
+    ("MedicationRequest", [{"_include": "MedicationRequest:medication"}, {},
+                           {"_include": "MedicationRequest:medication", "intent": MEDICATION_INTENTS}]),
     ("AllergyIntolerance", [{}, {"clinical-status": "active"}]),
     ("Immunization", [{}]),
     ("Encounter", [{}]),
@@ -476,7 +482,7 @@ class FhirClient:
                             if key not in seen:
                                 seen.add(key)
                                 out.resources.append(res)
-                        if status == "empty" and params is not alternatives[-1]:
+                        if status in ("empty", "forbidden") and params is not alternatives[-1]:
                             continue
                         break
                 out.status[label] = status

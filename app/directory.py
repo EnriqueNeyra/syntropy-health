@@ -44,8 +44,9 @@ PLATFORMS: dict[str, dict[str, Any]] = {
     "athena": {
         "label": "athenahealth", "portal": "athenahealth patient portal",
         "sandbox_base": "https://api.preview.platform.athenahealth.com/fhir/r4",
-        "sandbox_hint": "Use a synthetic patient from your athenahealth developer console",
-        "scopes": USCDI_SCOPES,
+        "sandbox_hint": "athenahealth sandbox test patient: phrtest_preview@mailinator.com / Password1",
+        # athenahealth turns away a sign-in asking for a scope the app isn't approved for; Coverage isn't among ours.
+        "scopes": USCDI_SCOPES.replace(" patient/Coverage.read", ""),
     },
     "healow": {
         "label": "eClinicalWorks", "portal": "healow",
