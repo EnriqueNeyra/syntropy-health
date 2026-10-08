@@ -13,7 +13,7 @@ Medical records from your patient portals, Apple Health and wearable data, and i
 [![FHIR R4](https://img.shields.io/badge/FHIR-R4%20%C2%B7%20SMART%20on%20FHIR-e33a3a.svg)](https://hl7.org/fhir/R4/)
 [![MCP](https://img.shields.io/badge/MCP-server-6f42c1.svg)](https://modelcontextprotocol.io)
 
-[Website](https://health.syntropylabs.io) · [Get started](#get-started) · [Docs](#documentation) · [Changelog](CHANGELOG.md)
+**[health.syntropylabs.io](https://health.syntropylabs.io/)** · [Download](https://health.syntropylabs.io/setup/) · [Get started](#get-started) · [Docs](#documentation) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -27,11 +27,12 @@ one private record that runs on your own Mac, PC or home server, so you can see 
 app can show you: how your sleep lines up with how you feel, what changed after a medication started, a lab result
 moving further out of range.
 
-- **Your medical records, from every provider.** Connects to patient portals such as Epic MyChart, Oracle Health, athenahealth and healow
-  through the standard SMART on FHIR patient-access APIs, and merges labs, medications, conditions, visits and notes
+- **Your medical records, from every provider.** Connects to patient portals at 20,000+ U.S. hospitals and clinics on
+  Epic MyChart, Oracle Health, athenahealth and healow through the standard SMART on FHIR patient-access APIs, and merges labs, medications, conditions, visits and notes
   from every health system into one de-duplicated record.
-- **Your wearables and phone.** Apple Health through the Syntropy Health iPhone app, Health Connect (Fitbit, Pixel
-  Watch, Samsung Health) through the Android app, plus Oura, WHOOP and Google Health, without double-counting devices.
+- **Your wearables and phone.** Oura, WHOOP and Google Health (Fitbit, Pixel Watch), plus Apple Health and Health
+  Connect through the iPhone and Android apps (coming soon to the App Store and Google Play), without double-counting
+  devices.
 - **Insights across sources.** Trends, sleep, training and a daily journal in one place, with patterns and changes
   from your own normal surfaced for you, always with the numbers behind them.
 - **Ask with the AI you choose.** A local model (Ollama, LM Studio) so nothing leaves your network, your own API key,
@@ -48,13 +49,13 @@ moving further out of range.
 
 | Your computer | Install |
 |---|---|
-| **Mac** | `curl -fsSL https://health.syntropylabs.io/install.sh \| sh` |
-| **Windows** | `irm https://health.syntropylabs.io/install.ps1 \| iex` (PowerShell) |
+| **Mac** (Apple silicon, macOS 12+) | [Download the app](https://health.syntropylabs.io/download/mac), or `curl -fsSL https://health.syntropylabs.io/install.sh \| sh` |
+| **Windows** (10 and 11, 64-bit) | [Download the app](https://health.syntropylabs.io/download/windows), or `irm https://health.syntropylabs.io/install.ps1 \| iex` (PowerShell) |
 | **Linux home server** | `curl -fsSL https://health.syntropylabs.io/install.sh \| sudo sh` |
 | **Docker / NAS** | `docker run -d --name syntropy-health --restart unless-stopped -p 8000:8000 -v syntropy-data:/data ghcr.io/enriqueneyra/syntropy-health` |
 | **From source** | `git clone https://github.com/EnriqueNeyra/syntropy-health && cd syntropy-health && ./run.sh` |
 
-Then open <http://localhost:8000> and follow the setup. No accounts handy? Turn on developer mode in **Settings →
+The Mac and Windows apps walk you through setup; otherwise open <http://localhost:8000> and follow it. No accounts handy? Turn on developer mode in **Settings →
 Developer** to connect to the built-in **EHR simulator**, and add simulated Oura or WHOOP data to explore everything with synthetic records.
 
 > **Status:** Syntropy Health is in beta. Epic (MyChart), Oracle Health, athenahealth and eClinicalWorks (healow)
