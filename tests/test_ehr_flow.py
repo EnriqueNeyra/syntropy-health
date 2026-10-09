@@ -430,7 +430,9 @@ def test_paging_follows_links_whose_host_differs_only_in_case():
 def test_directory_marks_platforms_that_cannot_connect_yet(client):
     client.put("/api/settings/developer", json={"enabled": False})
     res = client.get("/api/directory", params={"q": "medical center", "limit": 200}).json()["results"]
-    assert all(r["available"] for r in res) and {r["platform"] for r in res} == {"epic", "cerner", "healow"}
+    assert {r["platform"] for r in res if r["available"]} == {"epic", "cerner", "healow"}
+    assert all(r["platform"] in ("trubridge", "greenway", "modmed", "nextgen", "practicefusion", "medhost")
+               for r in res if not r["available"])
     featured = client.get("/api/directory/featured").json()["results"]
     assert featured and all(r["available"] for r in featured)
     assert client.get("/api/directory", params={"platform": "athena"}).json()["results"][0]["available"]

@@ -3,6 +3,13 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
+## Unreleased
+
+- **Seven more EHR vendors' health systems are in the directory:** TruBridge and MEDHOST hospitals, Greenway, ModMed,
+  NextGen and Practice Fusion practices, and the Indian Health Service. Syntropy Health's registration with them is
+  under way, so for now they're marked *Not available yet* and suggest importing a record file instead; each one
+  connects as soon as its client ID is built in. The weekly directory refresh keeps their lists current.
+
 ## 1.6.0
 
 - **The iPhone app feels like an iPhone app.** Pages tell the app what to draw natively, when the app says it can:

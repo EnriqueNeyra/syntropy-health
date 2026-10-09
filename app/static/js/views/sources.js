@@ -6,8 +6,8 @@ import {
 import { embedded, nativeNav, setToolbar } from "../app.js";
 import { networkStatus, renderNetworkPanel } from "../network.js";
 
-const PLATFORM_COLORS = { epic: "#c2410c", cerner: "#b91c1c", athena: "#7c3aed", healow: "#0f766e", va: "#1d4ed8", "smart-health-it": "#0369a1", custom: "#4b5563" };
-const PLATFORM_LABELS = { epic: "Epic MyChart", cerner: "Oracle Health", athena: "athenahealth", healow: "healow", va: "VA", "smart-health-it": "SMART Health IT", custom: "FHIR server" };
+const PLATFORM_COLORS = { epic: "#c2410c", cerner: "#b91c1c", athena: "#7c3aed", healow: "#0f766e", trubridge: "#0e7490", greenway: "#15803d", ihs: "#a16207", modmed: "#be185d", nextgen: "#4338ca", practicefusion: "#0891b2", medhost: "#9333ea", va: "#1d4ed8", "smart-health-it": "#0369a1", custom: "#4b5563" };
+const PLATFORM_LABELS = { epic: "Epic MyChart", cerner: "Oracle Health", athena: "athenahealth", healow: "healow", trubridge: "TruBridge", greenway: "Greenway", ihs: "IHS", modmed: "ModMed", nextgen: "NextGen", practicefusion: "Practice Fusion", medhost: "MEDHOST", va: "VA", "smart-health-it": "SMART Health IT", custom: "FHIR server" };
 const WEARABLES = [
   ["oura", "Oura Ring", "Sleep stages, readiness, HRV, temperature and activity."],
   ["whoop", "WHOOP", "Recovery, strain, HRV and sleep performance."],
