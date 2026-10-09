@@ -5,10 +5,12 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 
 ## Unreleased
 
-- **Seven more EHR vendors' health systems are in the directory:** TruBridge and MEDHOST hospitals, Greenway, ModMed,
-  NextGen and Practice Fusion practices, and the Indian Health Service. Syntropy Health's registration with them is
+- **Six more EHR vendors' health systems are in the directory:** TruBridge and MEDHOST hospitals, and Greenway, ModMed,
+  NextGen and Practice Fusion practices. Syntropy Health's registration with them is
   under way, so for now they're marked *Not available yet* and suggest importing a record file instead; each one
   connects as soon as its client ID is built in. The weekly directory refresh keeps their lists current.
+- **The VA is no longer listed.** Syntropy Health isn't pursuing VA registration for now, so the VA's listing (which
+  couldn't connect) is gone. Veterans can still import a record file downloaded from VA.gov.
 
 ## 1.6.0
 

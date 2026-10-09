@@ -17,8 +17,7 @@ Rebuilds the vendor directories in ``app/data/institutions/`` from each vendor's
 | Practice Fusion | ``practicefusion.json`` | Practice Fusion's service base URLs: each practice's *Patient Access* endpoint (api.patientfusion.com, or the FollowMyHealth-backed …/fhir/fmh/r4/v1/), not its provider endpoint. |
 | MEDHOST | ``medhost.json`` | MEDHOST's JSON list of facility name, NPI and service base URL. |
 
-athenahealth (one national endpoint), the VA, the Indian Health Service and the SMART demo are hand-maintained in
-``curated.json``.
+athenahealth (one national endpoint) and the SMART demo are hand-maintained in ``curated.json``.
 
 Existing ids are kept (matched by name, then address) so saved connections still resolve; an id whose entry merged into
 another stays resolvable through ``former_ids``. ``featured`` flags carry over.
