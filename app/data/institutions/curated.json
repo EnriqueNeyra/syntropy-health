@@ -9,22 +9,6 @@
 "featured": true
 },
 {
-"id": "va-lighthouse",
-"name": "Veterans Affairs (VA Healthcare)",
-"location": "Nationwide",
-"platform": "va",
-"portal": "VA.gov",
-"fhir_base_url": "https://api.va.gov/services/fhir/v0/r4",
-"featured": true
-},
-{
-"id": "indian-health-service",
-"name": "Indian Health Service (IHS, tribal and urban sites)",
-"location": "Nationwide",
-"platform": "ihs",
-"fhir_base_url": "https://ihs4dhapim.ihs.gov/FHIR/r4"
-},
-{
 "id": "athenahealth",
 "name": "athenahealth practices",
 "location": "Nationwide — any practice on athenahealth",

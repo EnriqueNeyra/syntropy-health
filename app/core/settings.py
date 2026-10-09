@@ -30,11 +30,9 @@ EHR_PLATFORMS: dict[str, dict[str, Any]] = {
     "healow": {"label": "eClinicalWorks (healow)", "env": "HEALOW_CLIENT_ID", "sandbox_env": "HEALOW_SANDBOX_CLIENT_ID",
                "default_client_ids": {"sandbox": "_OhOmZAdes002quTJLmoDt6ESQVyUItZvH7WuYuhFWQ",
                                       "production": "_OhOmZAdes002quTJLmoDt6ESQVyUItZvH7WuYuhFWQ"}},
-    "va": {"label": "VA Lighthouse", "env": "VA_CLIENT_ID", "sandbox_env": "VA_SANDBOX_CLIENT_ID"},
     # Not registered yet: their health systems are listed but can't be connected until a client ID is set.
     "trubridge": {"label": "TruBridge", "env": "TRUBRIDGE_CLIENT_ID", "sandbox_env": "TRUBRIDGE_SANDBOX_CLIENT_ID"},
     "greenway": {"label": "Greenway", "env": "GREENWAY_CLIENT_ID", "sandbox_env": "GREENWAY_SANDBOX_CLIENT_ID"},
-    "ihs": {"label": "Indian Health Service", "env": "IHS_CLIENT_ID", "sandbox_env": "IHS_SANDBOX_CLIENT_ID"},
     "modmed": {"label": "ModMed", "env": "MODMED_CLIENT_ID", "sandbox_env": "MODMED_SANDBOX_CLIENT_ID"},
     "nextgen": {"label": "NextGen", "env": "NEXTGEN_CLIENT_ID", "sandbox_env": "NEXTGEN_SANDBOX_CLIENT_ID"},
     "practicefusion": {"label": "Practice Fusion", "env": "PRACTICEFUSION_CLIENT_ID",

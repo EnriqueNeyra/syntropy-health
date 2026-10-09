@@ -107,7 +107,7 @@ def _scope_types(scopes: Any) -> Optional[set[str]]:
 
 
 def fit_scopes(requested: str, scopes_supported: Optional[list[str]]) -> str:
-    """Drops resource scopes for types the server doesn't offer (the VA has no CarePlan, Oracle no Medication), since
+    """Drops resource scopes for types the server doesn't offer (Oracle has no Medication), since
     some authorization servers reject the whole request over one unknown scope. Servers that don't list resource
     scopes (Epic lists none) get the request unchanged."""
     offered = _scope_types(scopes_supported)

@@ -96,10 +96,10 @@ def test_profiles_scope_data(client):
 
 
 def test_platform_settings_control_mode(client):
-    r = client.put("/api/settings/platforms/va", json={"mode": "sandbox"})
+    r = client.put("/api/settings/platforms/trubridge", json={"mode": "sandbox"})
     assert r.json()["mode"] == "sandbox"
-    va = next(i["id"] for i in client.get("/api/directory", params={"platform": "va"}).json()["results"])
-    fail = client.post("/api/connections/ehr", json={"institution_id": va})
+    hospital = next(i["id"] for i in client.get("/api/directory", params={"platform": "trubridge"}).json()["results"])
+    fail = client.post("/api/connections/ehr", json={"institution_id": hospital})
     assert fail.status_code == 400 and "client ID" in fail.json()["detail"]
     client.put("/api/settings/platforms/epic", json={"mode": "sandbox"})
     assert client.put("/api/settings/platforms/epic", json={"mode": "bogus"}).status_code == 400
@@ -137,18 +137,17 @@ def test_directory_finds_brands_by_network_and_town_and_keeps_old_ids(client):
     assert directory.get_institution("austin-family-medicine")["id"] == "athenahealth"   # placeholder → national entry
 
 
-def test_directory_covers_oracle_ecw_athena_and_va_with_real_endpoints(client):
+def test_directory_covers_oracle_ecw_and_athena_with_real_endpoints(client):
     from app import directory
     stats = directory.stats()
-    assert stats["cerner"] > 1000 and stats["healow"] > 15000 and stats["athena"] == 1 and stats["va"] == 1
+    assert stats["cerner"] > 1000 and stats["healow"] > 15000 and stats["athena"] == 1 and "va" not in stats
     banner = directory.get_institution("banner-health")
     assert banner["platform"] == "cerner" and banner["fhir_base_url"].startswith("https://fhir-myrecord.cerner.com/r4/")
     ecw = directory.search(platform="healow", limit=200)["results"]
     assert all(i["fhir_base_url"].startswith("https://fhir4.healow.com/fhir/r4/") for i in ecw)   # the patient host
     from scripts.refresh_directory import TEST_NAME
     assert not any(TEST_NAME.search(i["name"]) for i in directory.search(platform="healow", limit=20000)["results"])
-    for inst_id in ("athenahealth", "va-lighthouse"):
-        assert directory.get_institution(inst_id)["fhir_base_url"].startswith("https://api.")
+    assert directory.get_institution("athenahealth")["fhir_base_url"].startswith("https://api.")
 
 
 def test_directory_refresh_keeps_ids_and_prefers_brand_addresses():
@@ -283,11 +282,10 @@ def test_unregistered_vendors_are_listed_but_not_connectable(client):
     from app import directory
     client.put("/api/settings/developer", json={"enabled": False})
     stats = directory.stats()
-    assert stats["trubridge"] > 500 and stats["greenway"] > 1000 and stats["ihs"] == 1
+    assert stats["trubridge"] > 500 and stats["greenway"] > 1000 and "ihs" not in stats
     assert stats["modmed"] > 1000 and stats["nextgen"] > 3000 and stats["practicefusion"] > 3000 and stats["medhost"] > 100
-    for inst_id in ("indian-health-service", *(directory.search(platform=p, limit=1)["results"][0]["id"]
-                                               for p in ("trubridge", "greenway", "modmed", "nextgen", "practicefusion",
-                                                         "medhost"))):
+    for inst_id in (directory.search(platform=p, limit=1)["results"][0]["id"]
+                    for p in ("trubridge", "greenway", "modmed", "nextgen", "practicefusion", "medhost")):
         inst = client.get(f"/api/directory/{inst_id}").json()
         assert inst["mode"] == "production" and not inst["available"]
         res = client.post("/api/connections/ehr", json={"institution_id": inst_id})

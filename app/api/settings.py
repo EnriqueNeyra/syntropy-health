@@ -182,7 +182,6 @@ PROBES = {
              "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4"),
     "cerner": ("https://authorization.cerner.com/tenants/ec2458f2-1e24-41c8-b71b-0e701af7583d/protocols/oauth2/profiles/smart-v1/personas/patient/authorize",
                "https://fhir-myrecord.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d"),
-    "va": ("https://sandbox-api.va.gov/oauth2/health/v1/authorization", "https://sandbox-api.va.gov/services/fhir/v0/r4"),
     "athena": ("https://api.preview.platform.athenahealth.com/oauth2/v1/authorize",
                "https://api.preview.platform.athenahealth.com/fhir/r4"),
 }
