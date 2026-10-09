@@ -1,7 +1,8 @@
 name: Directory refresh
 
-# Every Monday, rebuilds the health-system directory (app/data/institutions/) from Epic's, Oracle Health's and
-# eClinicalWorks's published endpoint lists (scripts/refresh_directory.py), and opens or updates one pull request,
+# Every Monday, rebuilds the health-system directory (app/data/institutions/) from each vendor's published endpoint
+# list (Epic, Oracle Health, eClinicalWorks, TruBridge, Greenway, ModMed, NextGen, Practice Fusion and MEDHOST;
+# scripts/refresh_directory.py), and opens or updates one pull request,
 # "directory-refresh", when anything changed. It merges by itself once checks pass, unless the refresh dropped
 # institutions: then it waits for a person to look, since a saved connection may point at one.
 # Installed apps get the new directory with their next update.

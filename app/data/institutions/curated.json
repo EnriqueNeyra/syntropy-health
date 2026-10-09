@@ -18,6 +18,13 @@
 "featured": true
 },
 {
+"id": "indian-health-service",
+"name": "Indian Health Service (IHS, tribal and urban sites)",
+"location": "Nationwide",
+"platform": "ihs",
+"fhir_base_url": "https://ihs4dhapim.ihs.gov/FHIR/r4"
+},
+{
 "id": "athenahealth",
 "name": "athenahealth practices",
 "location": "Nationwide — any practice on athenahealth",

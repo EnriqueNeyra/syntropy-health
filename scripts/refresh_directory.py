@@ -10,8 +10,15 @@ Rebuilds the vendor directories in ``app/data/institutions/`` from each vendor's
 | Epic | ``epic.json`` | **Brands bundle** (open.epic.com/Endpoints/Brands, ~95 MB): each patient-facing brand with its endpoint, and every facility (``partOf`` the brand) with its city and state. It is Epic's current list; the **legacy R4 list** (open.epic.com/Endpoints/R4) only fills in endpoints no brand uses yet. |
 | Oracle Health | ``oracle.json`` | Millennium patient R4 endpoints (github.com/oracle-samples/ignite-endpoints). |
 | eClinicalWorks | ``ecw.json`` | fhir.eclinicalworks.com/ecwopendev/external/practiceList. Its addresses use the provider host; patient apps must use ``fhir4.healow.com`` (the other host answers 403 before any sign-in page), so the host is rewritten. Test and training databases are dropped. |
+| TruBridge | ``trubridge.json`` | TruBridge's production endpoint directory (thrive-gw.cpsi-cloud.com/api/fhir/r4/.well-known/endpoint): each facility with its endpoint, referenced by ``urn:uuid`` full URL. Training facilities are dropped. |
+| Greenway | ``greenway.json`` | Greenway's service base URL bundle: each practice that turned on patient API access. Test systems are dropped. |
+| ModMed | ``modmed.json`` | ModMed's Endpoint searches (EMA and gGastro), paged, with each endpoint's managing practice. One endpoint (and sign-in) per practice location. Slow: about 50 pages. |
+| NextGen | ``nextgen.json`` | NextGen Enterprise's service base bundle: every practice shares the national patient endpoint, so the practices are only search entries. Placeholder and test practices are dropped. NextGen Office (fhir.meditouchehr.com) registers separately and isn't included. |
+| Practice Fusion | ``practicefusion.json`` | Practice Fusion's service base URLs: each practice's *Patient Access* endpoint (api.patientfusion.com, or the FollowMyHealth-backed …/fhir/fmh/r4/v1/), not its provider endpoint. |
+| MEDHOST | ``medhost.json`` | MEDHOST's JSON list of facility name, NPI and service base URL. |
 
-athenahealth (one national endpoint), the VA and the SMART demo are hand-maintained in ``curated.json``.
+athenahealth (one national endpoint), the VA, the Indian Health Service and the SMART demo are hand-maintained in
+``curated.json``.
 
 Existing ids are kept (matched by name, then address) so saved connections still resolve; an id whose entry merged into
 another stays resolvable through ``former_ids``. ``featured`` flags carry over.
@@ -38,6 +45,17 @@ ORACLE_URL = ("https://raw.githubusercontent.com/oracle-samples/ignite-endpoints
               "oracle_health_fhir_endpoints/millennium_patient_r4_endpoints.json")
 ECW_URL = "https://fhir.eclinicalworks.com/ecwopendev/external/practiceList"
 ECW_PROVIDER_HOST, ECW_PATIENT_HOST = "fhir4.eclinicalworks.com", "fhir4.healow.com"
+TRUBRIDGE_URL = "https://thrive-gw.cpsi-cloud.com/api/fhir/r4/.well-known/endpoint"
+GREENWAY_URL = "https://fhir-servicebaseurl.fhirhlprod.greenwayhealth.com/servicebundle.json"
+MODMED_URL = ("https://public-api.mmi.prod.fhir.ema-api.com/fhir/r4/Endpoint"
+              "?_include=Endpoint:managingOrganization&connection-type=hl7-fhir-rest")
+MODMED_GASTRO_URL = ("https://public-api.gastro.prod.fhir.ema-api.com/fhir/r4/Endpoint"
+                     "?_include=Endpoint:managingOrganization&connection-type=hl7-fhir-rest")
+NEXTGEN_URL = "https://services.fhir.nextgen.com/FhirServiceBaseBundle-R4"
+PRACTICE_FUSION_URL = "https://www.practicefusion.com/assets/static_files/ServiceBaseURLs.json"
+MEDHOST_URL = "https://api.mhdi10xasayd.com/medhost-developer-composition/v1/fhir-base-urls.json"
+# NextGen's bundle carries placeholders ("A003", "002", "Person") and demo practices ("*NextGen Family Practice", "ZZ…").
+NEXTGEN_PLACEHOLDER = re.compile(r"^(?:[A-Z]?\d+|person|\*.*|zz.*|.*\bzee\b.*)$", re.I)
 TEST_NAME = re.compile(r"\b(test|tests|testing|train|training|demo|sandbox|tst)\b|test ?db|-test\b|----", re.I)
 
 
@@ -46,10 +64,21 @@ TEST_NAME = re.compile(r"\b(test|tests|testing|train|training|demo|sandbox|tst)\
 # ---------------------------------------------------------------------------
 
 def fetch(url: str) -> Any:
+    """The document at ``url``; a paged FHIR search (ModMed's) is followed to its last page and returned as one Bundle."""
     print(f"Downloading {url} …", file=sys.stderr)
-    req = Request(url, headers={"Accept": "application/json", "User-Agent": "SyntropyHealth directory refresh"})
-    with urlopen(req, timeout=600) as resp:  # noqa: S310 - fixed https URLs
-        return json.load(resp)
+    first: Any = None
+    next_url: Optional[str] = url
+    while next_url:
+        req = Request(next_url, headers={"Accept": "application/json", "User-Agent": "SyntropyHealth directory refresh"})
+        with urlopen(req, timeout=600) as resp:  # noqa: S310 - https URLs from the vendor's own list
+            page = json.load(resp)
+        if first is None:
+            first = page
+        elif page.get("entry"):
+            first.setdefault("entry", []).extend(page["entry"])
+        next_url = (next((l.get("url") for l in page.get("link") or [] if l.get("relation") == "next"), None)
+                    if isinstance(page, dict) and page.get("resourceType") == "Bundle" else None)
+    return first
 
 
 def address_key(url: str) -> str:
@@ -96,6 +125,58 @@ def resources(bundle: dict[str, Any], rtype: str) -> list[dict[str, Any]]:
 
 def ref_id(ref: str) -> str:
     return re.split(r"[:/]", ref)[-1]
+
+
+def by_full_url(bundle: dict[str, Any], rtype: str) -> dict[str, dict[str, Any]]:
+    """Resources keyed by every way a reference may name them: ``urn:uuid:…`` full URL, ``Type/id`` and bare id."""
+    out: dict[str, dict[str, Any]] = {}
+    for e in bundle.get("entry", []):
+        r = e.get("resource") or {}
+        if r.get("resourceType") == rtype:
+            for key in (e.get("fullUrl"), f"{rtype}/{r.get('id')}", r.get("id")):
+                if key:
+                    out[key] = r
+    return out
+
+
+SMALL_WORDS = {"of", "and", "the", "at", "in", "on", "for", "to", "by", "w"}
+ABBREVIATIONS = {"st", "mt", "ft", "dr", "jr", "sr"}     # words without a vowel that aren't acronyms
+ACRONYMS = {"md", "do", "pa", "pc", "pllc", "llc", "lp", "rhc", "fqhc", "ii", "iii", "iv", "us", "usa"}
+
+
+def readable_name(name: str) -> str:
+    """'OTTO KAISER MEMORIAL HOSPITAL' → 'Otto Kaiser Memorial Hospital'; acronyms (RHC, MC, LLC) stay capitals.
+    Names already in mixed case are left alone."""
+    if not name.isupper():
+        return name
+
+    def word(m: re.Match[str]) -> str:
+        w, low = m.group(0), m.group(0).lower()
+        if low in ACRONYMS or (low not in ABBREVIATIONS and not re.search(r"[aeiouy]", low)):
+            return w
+        if low in SMALL_WORDS and m.start() > 0:
+            return low
+        return low.capitalize()
+
+    return re.sub(r"[A-Za-z]+(?:'[A-Za-z]+)?", word, name)
+
+
+def directory_entries(bundle: dict[str, Any], platform: str,
+                      use: Callable[[dict[str, Any]], bool] = lambda endpoint: True) -> list[dict[str, Any]]:
+    """Organizations and their endpoints from a vendor's FHIR endpoint directory; ``use`` picks among an
+    organization's endpoints (Practice Fusion lists a provider and a patient one)."""
+    endpoints = by_full_url(bundle, "Endpoint")
+    out = []
+    for org in resources(bundle, "Organization"):
+        name = (org.get("name") or "").strip().lstrip("*").strip()
+        endpoint = next((ep for e in org.get("endpoint") or [] if (ep := endpoints.get(e.get("reference", ""))) and use(ep)),
+                        None)
+        if (not endpoint or not endpoint.get("address") or endpoint.get("status", "active") != "active"
+                or not org.get("active", True) or not name or TEST_NAME.search(name)):
+            continue
+        out.append({"name": readable_name(name), "location": location(first_place(org)), "platform": platform,
+                    "fhir_base_url": endpoint["address"].strip()})
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -165,11 +246,66 @@ def ecw_entries(sources: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+def trubridge_entries(sources: dict[str, Any]) -> list[dict[str, Any]]:
+    return directory_entries(sources["facilities"], "trubridge")
+
+
+def greenway_entries(sources: dict[str, Any]) -> list[dict[str, Any]]:
+    return directory_entries(sources["practices"], "greenway")
+
+
+def modmed_entries(sources: dict[str, Any]) -> list[dict[str, Any]]:
+    """ModMed lists endpoints, each managed by a practice (one practice can have several locations)."""
+    out, seen = [], set()
+    for bundle in (sources["endpoints"], sources["gastro"]):
+        orgs = by_full_url(bundle, "Organization")
+        for endpoint in resources(bundle, "Endpoint"):
+            org = orgs.get((endpoint.get("managingOrganization") or {}).get("reference", "")) or {}
+            name = ((endpoint.get("name") or org.get("name") or "")).strip().strip('"').strip()
+            address = (endpoint.get("address") or "").strip()
+            # gGastro lists unconfigured practices as "Client", with no address or NPI.
+            if (not address or address_key(address) in seen or endpoint.get("status", "active") != "active"
+                    or len(name) < 3 or name.lower() == "client" or TEST_NAME.search(name)):
+                continue
+            seen.add(address_key(address))
+            out.append({"name": readable_name(name), "location": location(first_place(org)), "platform": "modmed",
+                        "fhir_base_url": address})
+    return out
+
+
+def nextgen_entries(sources: dict[str, Any]) -> list[dict[str, Any]]:
+    bundle = sources["practices"]
+    real = {"entry": [e for e in bundle.get("entry", []) if (e.get("resource") or {}).get("resourceType") != "Organization"
+                      or not NEXTGEN_PLACEHOLDER.match((e["resource"].get("name") or "").strip())]}
+    named = directory_entries(real, "nextgen")
+    # The same practice can be listed more than once; one entry per name and place.
+    return list({(e["name"].lower(), e.get("location")): e for e in named}.values())
+
+
+def practicefusion_entries(sources: dict[str, Any]) -> list[dict[str, Any]]:
+    return directory_entries(sources["practices"], "practicefusion",
+                             use=lambda ep: (ep.get("name") or "").lower() == "patient access")
+
+
+def medhost_entries(sources: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"name": readable_name(f["facilityName"].strip()), "platform": "medhost",
+             "fhir_base_url": f["serviceBaseUrl"].strip()}
+            for f in sources["facilities"]
+            if f.get("facilityName") and f.get("serviceBaseUrl") and not TEST_NAME.search(f["facilityName"])]
+
+
 # name: (file, id prefix, sources {key: url}, builder)
 VENDORS: dict[str, tuple[str, str, dict[str, str], Callable[[dict[str, Any]], list[dict[str, Any]]]]] = {
     "epic": ("epic.json", "epic-", {"brands": EPIC_BRANDS_URL, "r4": EPIC_R4_URL}, epic_entries),
     "oracle": ("oracle.json", "oracle-", {"endpoints": ORACLE_URL}, oracle_entries),
     "ecw": ("ecw.json", "ecw-", {"practices": ECW_URL}, ecw_entries),
+    "trubridge": ("trubridge.json", "trubridge-", {"facilities": TRUBRIDGE_URL}, trubridge_entries),
+    "greenway": ("greenway.json", "greenway-", {"practices": GREENWAY_URL}, greenway_entries),
+    "modmed": ("modmed.json", "modmed-", {"endpoints": MODMED_URL, "gastro": MODMED_GASTRO_URL}, modmed_entries),
+    "nextgen": ("nextgen.json", "nextgen-", {"practices": NEXTGEN_URL}, nextgen_entries),
+    "practicefusion": ("practicefusion.json", "practicefusion-", {"practices": PRACTICE_FUSION_URL},
+                       practicefusion_entries),
+    "medhost": ("medhost.json", "medhost-", {"facilities": MEDHOST_URL}, medhost_entries),
 }
 
 
@@ -239,7 +375,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("vendors", nargs="*", help=f"vendors to refresh: {', '.join(VENDORS)} (default: all)")
     parser.add_argument("--source", action="append", default=[], metavar="KEY=FILE",
-                        help="use a saved copy of a source instead of downloading it (keys: brands, r4, endpoints, practices)")
+                        help="use a saved copy of a source instead of downloading it "
+                             "(keys: brands, r4, endpoints, practices, facilities, gastro)")
     args = parser.parse_args()
     saved = dict(s.split("=", 1) for s in args.source)
     unknown = [v for v in args.vendors if v not in VENDORS]
