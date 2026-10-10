@@ -11,6 +11,10 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
   connects as soon as its client ID is built in. The weekly directory refresh keeps their lists current.
 - **The VA is no longer listed.** Syntropy Health isn't pursuing VA registration for now, so the VA's listing (which
   couldn't connect) is gone. Veterans can still import a record file downloaded from VA.gov.
+- **No more raw record IDs in place of names.** When a portal names a clinician, location or organization only by
+  reference (`Practitioner/3e17…`), that name is left out instead of shown as an ID. Portal records pick up the fix on
+  their next sync.
+- **Sources shows the directory's real size** (now about 39,500 health systems) instead of "20,000+".
 
 ## 1.6.0
 

@@ -380,9 +380,10 @@ export async function render({ el, params, state }) {
   let shown = { all: [], devices: [] };   // what the page is showing, for the "⋯" menus
 
   const refresh = async (fresh = false) => {
-    const [conns, devs] = await Promise.all([
+    const [conns, devs, dir] = await Promise.all([
       get("/api/connections", { profile: profile.id, include_disconnected: true }, { fresh }),
       get("/api/devices", { profile: profile.id }, { fresh }),
+      get("/api/directory/featured").catch(() => null),   // only for the directory's size
     ]);
     const all = conns.connections;
     const devicesFor = (c) => devs.devices.filter((d) => d.connection_id === c.id);
@@ -430,7 +431,7 @@ export async function render({ el, params, state }) {
       ${group("Medical records", "Your history from hospitals and clinics, through their patient portals.",
         html`<button class="btn btn-sm" data-action="add-ehr">${icon("plus")} Connect a health system</button>`,
         ehr.length ? html`<div class="src-rows">${ehr.map((c) => sourceRow(c))}</div>`
-          : html`<div class="src-empty">No health systems connected yet. Search 20,000+ US health systems and practices that offer patient access.</div>`)}
+          : html`<div class="src-empty">No health systems connected yet. Search ${dir ? `${dir.total.toLocaleString()} ` : ""}US health systems and practices that offer patient access.</div>`)}
 
       ${group("Files", "One-off imports of an Apple Health export or a record file from a portal. Drop a file on a box, or click to choose one.", "",
         html`${importZones()}${files.length ? html`<div class="src-rows">${files.map((c) => sourceRow(c))}</div>` : ""}`)}

@@ -95,8 +95,9 @@ def status_code(concept: Any) -> Optional[str]:
 
 
 def ref_display(ref: Any) -> Optional[str]:
+    """A reference's human-readable name; None when it has only a raw reference (``Practitioner/3e17…``)."""
     if isinstance(ref, dict):
-        return ref.get("display") or ref.get("reference")
+        return ref.get("display") or None
     return None
 
 

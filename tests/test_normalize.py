@@ -57,6 +57,16 @@ def test_medication_reference_resolved_and_dedup_by_rxnorm():
     assert recs[0]["title"] == "Lisinopril 10 MG" and recs[0]["dedup_key"] == "med|314076"
 
 
+def test_references_without_a_display_name_are_left_out():
+    enc = {"resourceType": "Encounter", "id": "e1", "status": "finished", "type": [{"text": "Encounter for symptom"}],
+           "period": {"start": "2020-08-12"},
+           "participant": [{"individual": {"reference": "Practitioner/3e177bd6"}},
+                           {"individual": {"reference": "Practitioner/9a1", "display": "Dr. Rivera"}}],
+           "serviceProvider": {"reference": "Organization/5e76"}}
+    d = fn.normalize_encounter(enc)["details"]
+    assert d["clinicians"] == ["Dr. Rivera"] and d["provider"] is None
+
+
 def test_html_note_decoded_and_stripped():
     html = "<html><body><p>Hello &amp; welcome</p><script>x()</script></body></html>"
     doc = {"resourceType": "DocumentReference", "id": "d1", "status": "current", "date": "2024-02-02",
