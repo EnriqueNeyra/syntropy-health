@@ -36,7 +36,7 @@ class TokenRequest(BaseModel):
 
 
 @router.post("/api/agents/tokens")
-async def create_token(req: TokenRequest) -> dict:
+def create_token(req: TokenRequest) -> dict:
     if req.profile_id:
         resolve_profile(req.profile_id, "view")
     principal = context.principal()
@@ -52,7 +52,7 @@ def local_command() -> dict:
 
 
 @router.delete("/api/agents/tokens/{token_id}")
-async def revoke_token(token_id: str) -> dict:
+def revoke_token(token_id: str) -> dict:
     principal = context.principal()
     if not agents.revoke(token_id, principal.account_id if principal else None):
         raise HTTPException(404, "Token not found")

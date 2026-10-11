@@ -77,7 +77,7 @@ class PlatformPatch(BaseModel):
 
 
 @router.put("/platforms/{platform}", dependencies=[owner])
-async def update_platform(platform: str, req: PlatformPatch) -> dict:
+def update_platform(platform: str, req: PlatformPatch) -> dict:
     try:
         return settings.set_platform_config(platform, req.mode, req.sandbox_client_id, req.production_client_id)
     except KeyError:
@@ -91,7 +91,7 @@ class DeveloperPatch(BaseModel):
 
 
 @router.put("/developer", dependencies=[owner])
-async def update_developer(req: DeveloperPatch) -> dict:
+def update_developer(req: DeveloperPatch) -> dict:
     """Developer mode: each platform uses its own mode (simulator, sandbox) instead of connecting for real."""
     settings.set_developer_mode(req.enabled)
     return _snapshot()
@@ -103,7 +103,7 @@ class WearablePatch(BaseModel):
 
 
 @router.put("/wearables/{provider}", dependencies=[owner])
-async def update_wearable(provider: str, req: WearablePatch) -> dict:
+def update_wearable(provider: str, req: WearablePatch) -> dict:
     try:
         settings.set_wearable_credentials(provider, req.client_id, req.client_secret)
     except KeyError:
@@ -121,7 +121,7 @@ class GeneralPatch(BaseModel):
 
 
 @router.put("/source-order", dependencies=[owner])
-async def update_source_order(orders: dict[str, list[str]]) -> dict:
+def update_source_order(orders: dict[str, list[str]]) -> dict:
     """Which kind of device wins, per group of metrics, when several report the same day."""
     try:
         biometrics.set_source_orders(orders)

@@ -184,6 +184,7 @@ def wipe_profile_data(profile_id: str) -> dict:
         conn.execute("DELETE FROM patient_identities WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM biometric_samples WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM biometric_daily WHERE profile_id = ?", (prof["id"],))
+        biometrics.mark_daily_changed(conn, prof["id"])
         conn.execute("DELETE FROM sync_batches WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM workouts WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM health_events WHERE profile_id = ?", (prof["id"],))

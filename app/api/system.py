@@ -169,7 +169,7 @@ def _known_zone(name: str) -> bool:
 
 
 @router.post("/api/setup")
-async def setup(req: SetupRequest, request: Request, response: Response) -> dict:
+def setup(req: SetupRequest, request: Request, response: Response) -> dict:
     if auth.is_setup_complete():
         raise HTTPException(409, "Setup has already been completed.")
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
@@ -296,7 +296,7 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/api/auth/login")
-async def login(req: LoginRequest, request: Request, response: Response) -> dict:
+def login(req: LoginRequest, request: Request, response: Response) -> dict:
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
     token = auth.login(request, req.password or req.passphrase or "", req.account)
@@ -313,7 +313,7 @@ class InviteCode(BaseModel):
 
 
 @router.post("/api/invites/check")
-async def check_invite(req: InviteCode, request: Request) -> dict:
+def check_invite(req: InviteCode, request: Request) -> dict:
     """Whom an invitation is for, before choosing a password. Counts toward the guessing limits like a sign-in."""
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
@@ -332,7 +332,7 @@ class JoinRequest(BaseModel):
 
 
 @router.post("/api/invites/accept")
-async def accept_invite(req: JoinRequest, request: Request, response: Response) -> dict:
+def accept_invite(req: JoinRequest, request: Request, response: Response) -> dict:
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
     if not auth.is_setup_complete():
@@ -351,7 +351,7 @@ async def accept_invite(req: JoinRequest, request: Request, response: Response) 
 
 
 @router.post("/api/auth/logout")
-async def logout(request: Request, response: Response) -> dict:
+def logout(request: Request, response: Response) -> dict:
     auth.logout(request)
     response.delete_cookie(auth.SESSION_COOKIE, path="/")
     return {"ok": True}
@@ -365,7 +365,7 @@ class PasswordRequest(BaseModel):
 
 @router.post("/api/auth/password")
 @router.post("/api/auth/passphrase", include_in_schema=False)     # earlier address
-async def change_password(req: PasswordRequest, request: Request, response: Response,
+def change_password(req: PasswordRequest, request: Request, response: Response,
                           principal: auth.Principal = Depends(auth.require_user_to_set_password)) -> dict:
     if not principal.account_id:
         raise HTTPException(400, "No account to change the password of.")

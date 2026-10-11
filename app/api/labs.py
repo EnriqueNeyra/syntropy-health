@@ -99,7 +99,7 @@ def _manual_connection(profile_id: str) -> dict:
 
 
 @router.post("")
-async def add_results(entry: LabEntry) -> dict:
+def add_results(entry: LabEntry) -> dict:
     if not DATE.match(entry.collected):
         raise HTTPException(400, "Collection date must be YYYY-MM-DD.")
     prof = resolve_profile(entry.profile_id)
@@ -113,7 +113,7 @@ async def add_results(entry: LabEntry) -> dict:
 
 
 @router.delete("/{record_id}")
-async def delete_result(record_id: str) -> dict:
+def delete_result(record_id: str) -> dict:
     rec = records.get_record(record_id)
     conn = connections.get(rec["connection_id"]) if rec else None
     if not rec or not conn or conn["provider"] != MANUAL_PROVIDER:
