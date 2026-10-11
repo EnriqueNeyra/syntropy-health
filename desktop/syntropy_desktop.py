@@ -22,9 +22,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import plistlib
 import secrets
+import shutil
 import socket
 import socketserver
+import subprocess
 import sys
 import threading
 import time
@@ -192,11 +195,25 @@ def choose_port(saved: Optional[int]) -> int:
 # Open at login
 # ---------------------------------------------------------------------------
 
-LOGIN_LABEL = "io.syntropyhealth.desktop"
+LOGIN_LABEL = "io.syntropyhealth.desktop"      # also the Mac app's bundle identifier
 
 
 def _launch_agent() -> Path:
     return Path.home() / "Library" / "LaunchAgents" / f"{LOGIN_LABEL}.plist"
+
+
+def _login_command() -> list[str]:
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "--background"]
+    return [sys.executable, str(Path(__file__).resolve()), "--background"]
+
+
+def _launch_agent_program() -> Optional[str]:
+    """The program the Mac's login item opens."""
+    try:
+        return plistlib.loads(_launch_agent().read_bytes())["ProgramArguments"][0]
+    except (OSError, ValueError, KeyError, IndexError, plistlib.InvalidFileException):
+        return None
 
 
 def open_at_login() -> bool:
@@ -214,20 +231,15 @@ def open_at_login() -> bool:
 
 
 def set_open_at_login(on: bool) -> None:
-    exe = sys.executable
     if sys.platform == "darwin":
         path = _launch_agent()
         if on:
+            agent: dict[str, Any] = {"Label": LOGIN_LABEL, "ProgramArguments": _login_command(), "RunAtLoad": True,
+                                     "ProcessType": "Interactive"}
+            if getattr(sys, "frozen", False):        # listed under the app's name in Settings → General → Login Items
+                agent["AssociatedBundleIdentifiers"] = [LOGIN_LABEL]
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>Label</key><string>{LOGIN_LABEL}</string>
-  <key>ProgramArguments</key><array><string>{exe}</string><string>--background</string></array>
-  <key>RunAtLoad</key><true/>
-  <key>ProcessType</key><string>Interactive</string>
-</dict></plist>
-""")
+            path.write_bytes(plistlib.dumps(agent))
         else:
             path.unlink(missing_ok=True)
     elif sys.platform == "win32":
@@ -235,12 +247,66 @@ def set_open_at_login(on: bool) -> None:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
                             winreg.KEY_SET_VALUE) as key:
             if on:
-                winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, f'"{exe}" --background')
+                winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, subprocess.list2cmdline(_login_command()))
             else:
                 try:
                     winreg.DeleteValue(key, APP_NAME)
                 except OSError:
                     pass
+
+
+def runs_from_temporary_place() -> bool:
+    """A Mac app opened from its disk image, or from Downloads before it was moved (macOS then runs it from a
+    temporary copy): a login item pointing there would stop working."""
+    exe = sys.executable
+    return sys.platform == "darwin" and getattr(sys, "frozen", False) and (
+        "/AppTranslocation/" in exe or exe.startswith("/Volumes/"))
+
+
+def heal_open_at_login() -> None:
+    """The app was moved after Open at Login was turned on (from Downloads into Applications, say): open this copy."""
+    if (sys.platform == "darwin" and getattr(sys, "frozen", False) and not runs_from_temporary_place()
+            and open_at_login() and _launch_agent_program() != sys.executable):
+        log.info("Pointing Open at Login at %s", sys.executable)
+        set_open_at_login(True)
+
+
+# ---------------------------------------------------------------------------
+# Uninstalling (Mac; Windows has its own uninstaller, desktop/installer.iss, which asks the same question)
+# ---------------------------------------------------------------------------
+
+def app_bundle() -> Optional[Path]:
+    """The Syntropy Health.app this is running from (None when run from source)."""
+    if sys.platform != "darwin" or not getattr(sys, "frozen", False):
+        return None
+    from Foundation import NSBundle
+    bundle = NSBundle.mainBundle()
+    if bundle.bundleIdentifier() != LOGIN_LABEL:
+        return None
+    return Path(bundle.bundlePath())
+
+
+def remove_server_service(bundle: Path) -> None:
+    """`Syntropy Health service install` (the command-line server, run from inside this app) starts with the Mac too;
+    it can't outlive the app. One installed from elsewhere (install.sh --server) is left alone."""
+    from app.cli import LAUNCHD_LABEL
+    path = Path.home() / "Library" / "LaunchAgents" / f"{LAUNCHD_LABEL}.plist"
+    try:
+        program = Path(plistlib.loads(path.read_bytes())["ProgramArguments"][0])
+    except (OSError, ValueError, KeyError, IndexError, plistlib.InvalidFileException):
+        return
+    if program.is_relative_to(bundle):
+        subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}", str(path)], capture_output=True, check=False)
+        path.unlink(missing_ok=True)
+
+
+def move_to_trash(path: Path) -> bool:
+    from Foundation import NSURL, NSFileManager
+    ok, _where, error = NSFileManager.defaultManager().trashItemAtURL_resultingItemURL_error_(
+        NSURL.fileURLWithPath_(str(path)), None, None)
+    if not ok:
+        log.warning("Couldn't move %s to the Trash: %s", path, error)
+    return bool(ok)
 
 
 # ---------------------------------------------------------------------------
@@ -490,8 +556,36 @@ class DesktopApp:
         self.window.create_confirmation_dialog(title, text)
 
     def toggle_login(self) -> None:
+        if not open_at_login() and runs_from_temporary_place():
+            return self.message("Move Syntropy Health to Applications first",
+                                f"{APP_NAME} is running from its disk image or Downloads, so opening it at login "
+                                f"wouldn't find it later. Drag it into Applications, open it from there, then turn on "
+                                f"Open at Login.")
         set_open_at_login(not open_at_login())
         self.refresh_menu()
+
+    def uninstall(self, erase: bool) -> None:
+        """Mac, from the app menu once the person has confirmed (see MacWindow.confirm_uninstall): stop opening at
+        login, move the app to the Trash and quit, and with erase delete everything it kept on this Mac first."""
+        log.info("Uninstalling (and deleting the data in %s: %s)", self.data, erase)
+        set_open_at_login(False)
+        bundle = app_bundle()
+        if bundle:
+            remove_server_service(bundle)
+        self.quitting = True
+        if not self.joined:
+            self.server.stop()
+        if erase:
+            if self.mac and bundle:
+                self.mac.forget_website_data(LOGIN_LABEL)
+            shutil.rmtree(self.data, ignore_errors=True)
+        else:
+            shutil.rmtree(self.data / "updates", ignore_errors=True)      # downloaded installers
+        if bundle and not move_to_trash(bundle):
+            self.message(f"Drag {APP_NAME} to the Trash to finish",
+                         f"{APP_NAME} couldn't move itself to the Trash. It will quit now: drag it from {bundle.parent} "
+                         f"to the Trash.")
+        self.quit()
 
     def quit(self) -> None:
         self.quitting = True
@@ -554,9 +648,10 @@ class DesktopApp:
         self.tray = make_tray(actions, self.menu_state, self.on_app_quit)
         if mac:
             from mac_window import MacWindow
+            heal_open_at_login()
             self.mac = MacWindow(self.window, background=self.background, prefs=self.prefs, tray_actions=actions,
                                  dock_menu_state=self.menu_state, on_request=self.on_request,
-                                 home_url=lambda: self.home_url)
+                                 home_url=lambda: self.home_url, on_uninstall=self.uninstall)
 
         def started() -> None:
             self.tray.start()

@@ -35,3 +35,56 @@ def test_page_opens_in_the_browser_without_a_window(monkeypatch, tmp_path):
     app.open_page("/#/settings/general/updates")
     app.show()
     assert opened == [f"{app.server.url}/#/settings/general/updates", app.server.url]
+
+
+def _packaged_mac(monkeypatch, tmp_path, exe):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(syntropy_desktop.sys, "platform", "darwin")
+    monkeypatch.setattr(syntropy_desktop.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(syntropy_desktop.sys, "executable", exe)
+
+
+def test_mac_login_item_is_valid_and_follows_the_app(monkeypatch, tmp_path):
+    import plistlib
+    # A folder with "&" in its name used to make the login item's XML invalid, so it never opened.
+    _packaged_mac(monkeypatch, tmp_path, "/Users/a/R&D/Syntropy Health.app/Contents/MacOS/Syntropy Health")
+    syntropy_desktop.set_open_at_login(True)
+    agent = plistlib.loads(syntropy_desktop._launch_agent().read_bytes())
+    assert agent["ProgramArguments"] == [syntropy_desktop.sys.executable, "--background"]
+    assert agent["AssociatedBundleIdentifiers"] == ["io.syntropyhealth.desktop"]
+
+    # Moved into Applications: the login item opens the new place.
+    moved = "/Applications/Syntropy Health.app/Contents/MacOS/Syntropy Health"
+    monkeypatch.setattr(syntropy_desktop.sys, "executable", moved)
+    syntropy_desktop.heal_open_at_login()
+    assert syntropy_desktop._launch_agent_program() == moved
+
+    # Opened from the disk image (or a temporary copy macOS made): left pointing at the installed one.
+    for temporary in ("/Volumes/Syntropy Health/Syntropy Health.app/Contents/MacOS/Syntropy Health",
+                      "/private/var/folders/x/AppTranslocation/1/d/Syntropy Health.app/Contents/MacOS/Syntropy Health"):
+        monkeypatch.setattr(syntropy_desktop.sys, "executable", temporary)
+        assert syntropy_desktop.runs_from_temporary_place()
+        syntropy_desktop.heal_open_at_login()
+        assert syntropy_desktop._launch_agent_program() == moved
+
+    syntropy_desktop.set_open_at_login(False)
+    assert not syntropy_desktop.open_at_login()
+
+
+def test_uninstalling_removes_only_this_apps_server_service(monkeypatch, tmp_path):
+    import plistlib
+    monkeypatch.setenv("HOME", str(tmp_path))
+    ran = []
+    monkeypatch.setattr(syntropy_desktop.subprocess, "run", lambda cmd, **_: ran.append(cmd))
+    agents = tmp_path / "Library" / "LaunchAgents"
+    agents.mkdir(parents=True)
+    plist = agents / "io.syntropyhealth.server.plist"
+    bundle = Path("/Applications/Syntropy Health.app")
+
+    plist.write_bytes(plistlib.dumps({"ProgramArguments": [str(Path.home() / ".local/bin/syntropy-health"), "serve"]}))
+    syntropy_desktop.remove_server_service(bundle)          # installed with install.sh --server: not the app's
+    assert plist.exists() and not ran
+
+    plist.write_bytes(plistlib.dumps({"ProgramArguments": [str(bundle / "Contents/MacOS/Syntropy Health"), "serve"]}))
+    syntropy_desktop.remove_server_service(bundle)
+    assert not plist.exists() and ran[0][:2] == ["launchctl", "bootout"]

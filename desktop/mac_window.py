@@ -153,13 +153,15 @@ class MacWindow:
     def __init__(self, window: Any, *, background: bool, prefs: Any, tray_actions: dict[str, Callable[[], None]],
                  dock_menu_state: Callable[[], dict[str, Any]],
                  on_request: Optional[Callable[[dict[str, Any]], None]] = None,
-                 home_url: Optional[Callable[[], str]] = None):
+                 home_url: Optional[Callable[[], str]] = None,
+                 on_uninstall: Optional[Callable[[bool], None]] = None):
         self.window = window                   # the pywebview Window
         self.background = background
         self.prefs = prefs
         self.tray_actions = tray_actions
         self.dock_menu_state = dock_menu_state
         self.on_request = on_request           # what the app itself acts on (joining a server...)
+        self.on_uninstall = on_uninstall       # given whether to delete the data too, once the person has confirmed
         self.ns_window = None
         self.webview = None
         self.shown = False
@@ -390,6 +392,7 @@ class MacWindow:
             "lan": lambda: threading.Thread(target=self.tray_actions["lan"], daemon=True).start(),
             "switch": lambda: threading.Thread(target=self.tray_actions["switch"], daemon=True).start(),
             "updates": lambda: threading.Thread(target=self.tray_actions["updates"], daemon=True).start(),
+            "uninstall": self.confirm_uninstall,
         }
         for _, route in SECTIONS:
             actions[f"go-{route}"] = (lambda r=route: self.go(f"#/{r}"))
@@ -426,6 +429,7 @@ class MacWindow:
             item("Hide Syntropy Health", key="h", selector="hide:"),
             item("Hide Others", key="h", mods=cmd | opt, selector="hideOtherApplications:"),
             item("Show All", selector="unhideAllApplications:"), None,
+            item("Uninstall Syntropy Health…", "uninstall"),
             item("Quit Syntropy Health", key="q", selector="terminate:"),
         ])
         AppKit.NSApp.setServicesMenu_(services)
@@ -463,6 +467,60 @@ class MacWindow:
         AppKit.NSApp.setMainMenu_(main)
         AppKit.NSApp.setWindowsMenu_(window_menu)
         AppKit.NSApp.setHelpMenu_(help_menu)
+
+    def confirm_uninstall(self) -> None:
+        """Uninstall Syntropy Health… in the app menu. Keeping the data is the default: it's the only copy of anything
+        added here (journal entries, lab results typed in, the iPhone's history beyond what it keeps)."""
+        if not self.on_uninstall:
+            return
+        self.show()
+        joined = bool(self.dock_menu_state().get("joined"))
+        ask = AppKit.NSAlert.alloc().init()
+        ask.setMessageText_("Uninstall Syntropy Health?")
+        ask.setInformativeText_(
+            "Syntropy Health will quit, stop opening at login and move to the Trash."
+            + ("" if joined else " Your iPhone stops syncing to this Mac.")
+            + "\n\nYour health data stays on this Mac unless you choose to delete it, so it's there if you install "
+              "Syntropy Health again.")
+        ask.addButtonWithTitle_("Uninstall")
+        ask.addButtonWithTitle_("Cancel")
+        ask.setShowsSuppressionButton_(True)
+        ask.suppressionButton().setTitle_("Also delete my health data from this Mac")
+        if ask.runModal() != AppKit.NSAlertFirstButtonReturn:
+            return
+        erase = ask.suppressionButton().state() == AppKit.NSControlStateValueOn
+        if erase:
+            sure = AppKit.NSAlert.alloc().init()
+            sure.setAlertStyle_(AppKit.NSAlertStyleCritical)
+            sure.setMessageText_("Delete all of Syntropy Health's data on this Mac?")
+            sure.setInformativeText_(
+                "Every profile, account, record, wearable sample and setting Syntropy Health keeps on this Mac is "
+                "permanently deleted. This can't be undone.\n\nTo keep a copy, choose Cancel and download a backup "
+                "from Settings → Your data first.")
+            delete = sure.addButtonWithTitle_("Delete and Uninstall")
+            if delete.respondsToSelector_(b"setHasDestructiveAction:"):          # macOS 11+
+                delete.setHasDestructiveAction_(True)
+            delete.setKeyEquivalent_("")                 # Return cancels: deleting takes a click
+            sure.addButtonWithTitle_("Cancel").setKeyEquivalent_("\r")
+            if sure.runModal() != AppKit.NSAlertFirstButtonReturn:
+                return
+        # Stopping the server waits for it; the main thread must keep running meanwhile.
+        threading.Thread(target=self.on_uninstall, args=(erase,), daemon=True).start()
+
+    def forget_website_data(self, bundle_id: str) -> None:
+        """Deletes what the window itself kept (sign-in cookies, page preferences, its cache) and the app's macOS
+        preferences (the window's size and place). Call from another thread: waits until WebKit is done."""
+        done = threading.Event()
+
+        def remove() -> None:
+            import WebKit
+            store = WebKit.WKWebsiteDataStore.defaultDataStore()
+            store.removeDataOfTypes_modifiedSince_completionHandler_(
+                WebKit.WKWebsiteDataStore.allWebsiteDataTypes(), AppKit.NSDate.distantPast(), done.set)
+            AppKit.NSUserDefaults.standardUserDefaults().removePersistentDomainForName_(bundle_id)
+
+        AppHelper.callAfter(remove)
+        done.wait(10)
 
     def _dock_menu(self) -> None:
         """Right-clicking the Dock icon: the network switch and Open in Browser, like the menu bar item."""

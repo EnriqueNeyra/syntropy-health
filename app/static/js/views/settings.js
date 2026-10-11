@@ -266,8 +266,10 @@ export async function render({ el, parts, state, navigate }) {
         ${row("Daily wearable data (CSV)", "One row per metric per day.", dl(`/api/export/csv?kind=daily&profile=${p.id}`))}
         ${row("Workouts (CSV)", "", dl(`/api/export/csv?kind=workouts&profile=${p.id}`))}
         ${row("Health journal (CSV)", "Symptoms, cycle tracking, mood and more.", dl(`/api/export/csv?kind=events&profile=${p.id}`))}`)}
-      ${!isOwner() ? "" : section("Backup", "", row("Database backup", html`A complete copy of everything, for all people. Store it somewhere only you can reach: it holds your health records unencrypted (sign-in tokens in it stay encrypted; keep <code>secret.key</code> with it to restore).`,
-        html`<a class="btn btn-sm btn-primary" href="/api/export/backup" download>${icon("download")} Download backup</a>`))}
+      ${!isOwner() ? "" : section("Backup", "", html`
+        ${row("Database backup", html`A complete copy of everything, for all people. Store it somewhere only you can reach: it holds your health records unencrypted (sign-in tokens in it stay encrypted; keep <code>secret.key</code> with it to restore).`,
+          html`<a class="btn btn-sm btn-primary" href="/api/export/backup" download>${icon("download")} Download backup</a>`)}
+        ${row("Uninstalling", uninstallHint(), "")}`)}
       ${p.access !== "manage" ? "" : section("Delete data", "", row(`Delete all of ${p.name}'s data`, "Removes their sources, records, wearable data and paired devices from this machine. This can't be undone.",
         html`<button class="btn btn-sm btn-danger" data-action="wipe">Delete…</button>`), "danger")}
     </div>`);
@@ -373,6 +375,15 @@ function personBadges(p) {
 }
 
 /** An access-log entry's details as "name: Sutter Health · status: success" rather than raw JSON. */
+// How removing this install treats its data. The desktop apps ask; elsewhere the data folder stays until it's deleted.
+function uninstallHint() {
+  const shell = document.documentElement.dataset.shell;
+  const kept = "Otherwise it stays in the data folder, and installing again picks up where you left off.";
+  if (shell === "mac") return `Choose Syntropy Health → Uninstall Syntropy Health… in the menu bar. It asks whether to delete everyone's data from this Mac too. ${kept}`;
+  if (shell === "windows") return `Uninstall Syntropy Health from Windows Settings → Apps. It asks whether to delete everyone's data from this PC too. ${kept}`;
+  return html`Removing Syntropy Health keeps the data folder (and everyone's records in it) until you delete it. <a href="${SOURCE_URL}/blob/main/docs/self-hosting.md#uninstalling" target="_blank" rel="noopener">How to remove each kind of install</a>`;
+}
+
 function auditDetail(detail) {
   if (!detail) return "";
   let value;
