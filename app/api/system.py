@@ -12,7 +12,7 @@ from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app.core import auth, config, context, settings
-from app.core.db import audit, db, rows_to_dicts
+from app.core.db import audit, db, read, rows_to_dicts
 from app.services import network, updates
 from app.store import accounts, profiles
 
@@ -21,7 +21,7 @@ router = APIRouter(tags=["system"])
 
 @router.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
 def health() -> dict:
-    with db() as conn:
+    with read() as conn:
         mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
     return {"status": "ok", "service": "syntropy-health", "version": config.APP_VERSION, "journal_mode": mode}
 
@@ -398,7 +398,7 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
     if principal.owner:
         where += " OR a.profile_id IS NULL"
     where += ")"
-    with db() as conn:
+    with read() as conn:
         rows = conn.execute(f"SELECT a.* FROM audit_log a WHERE {where} ORDER BY a.at DESC LIMIT ?",
                             (*params, max(1, min(limit, 500)))).fetchall()
         names = {r["id"]: r["name"] for r in conn.execute("SELECT a.id, p.name FROM accounts a JOIN profiles p ON p.id = a.profile_id")}
