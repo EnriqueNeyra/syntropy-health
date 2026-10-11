@@ -245,9 +245,12 @@ export function resolveLayout(saved, defaultMetrics) {
 export async function render({ el, state, navigate }) {
   mount(el, loading(4));
   const profile = state.profile;
-  // The summary, sources and the default numbers are needed whatever the layout, so they load alongside it.
+  // The summary, sources, goals and the default numbers are needed whatever the layout, so they load alongside it.
+  // So do the insights, the slowest to work out: most layouts show them, and waiting for the layout first held up the page.
   const early = { summary: get("/api/summary", { profile: profile.id }), conns: get("/api/connections", { profile: profile.id }),
-    bio: get("/api/biometrics/overview", { profile: profile.id, brief: true }) };
+    bio: get("/api/biometrics/overview", { profile: profile.id, brief: true }),
+    goals: get("/api/goals", { profile: profile.id }).catch(() => ({ progress: [] })),
+    insights: get("/api/insights", { profile: profile.id }).catch(() => ({ insights: [] })) };
   const [saved, defaults] = await Promise.all([get(`/api/profiles/${profile.id}/overview`).catch(() => ({ widgets: null })), early.bio]);
   const defaultMetrics = () => defaults.headline.slice(0, DEFAULT_TILES).map((h) => h.metric);
   let layout = resolveLayout(saved.widgets, defaultMetrics());
@@ -269,9 +272,9 @@ export async function render({ el, state, navigate }) {
       sleep: () => needs.has("sleep") ? get("/api/biometrics/daily", { profile: profile.id, metric: "sleep_duration", days: 14 }) : null,
       workouts: () => needs.has("workouts") ? get("/api/biometrics/workouts", { profile: profile.id, days: 30, limit: LIST_MAX }) : null,
       events: () => needs.has("events") ? get("/api/biometrics/events", { profile: profile.id, view: "journal", days: 30, limit: 20 }) : null,
-      insights: () => needs.has("insights") ? get("/api/insights", { profile: profile.id }).catch(() => ({ insights: [] })) : null,
+      insights: () => needs.has("insights") ? early.insights : null,
       // Goals also show on the number tiles, so they load whenever there are any.
-      goals: () => get("/api/goals", { profile: profile.id }).catch(() => ({ progress: [] })),
+      goals: () => early.goals,
     };
     const keys = Object.keys(jobs);
     const results = await Promise.all(keys.map((k) => (data[k] && k !== "bio" ? data[k] : jobs[k]())));

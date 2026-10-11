@@ -81,12 +81,10 @@ export function measureFormat(meta) {
 }
 
 // ------------------------------------------------------------------ goals
-let goalCache = null;
-export async function loadGoals(profileId, fresh = false) {
-  if (!fresh && goalCache?.profileId === profileId) return goalCache.data;
-  const data = await get("/api/goals", { profile: profileId }, { fresh: true });
-  goalCache = { profileId, data };
-  return data;
+// These lookups go through api.js's short-lived cache (emptied by any change) rather than being kept for good, so a
+// goal set on another device, or records from a new sync, show up without reloading the app.
+export function loadGoals(profileId, fresh = false) {
+  return get("/api/goals", { profile: profileId }, { fresh });
 }
 
 /** "at least 7h 30m", "at most 60 bpm". */
@@ -143,12 +141,8 @@ export function openGoal(profile, meta, current, suggested, onSaved) {
 }
 
 // ------------------------------------------------------------------ events from health records
-let markerCache = null;
 export async function loadMarkers(profileId) {
-  if (markerCache?.profileId === profileId) return markerCache.list;
-  const list = (await get("/api/insights/markers", { profile: profileId }).catch(() => ({ markers: [] }))).markers;
-  markerCache = { profileId, list };
-  return list;
+  return (await get("/api/insights/markers", { profile: profileId }).catch(() => ({ markers: [] }))).markers;
 }
 const MARKERS_KEY = "syntropy-trends-markers";
 export function markersOn() { try { return localStorage.getItem(MARKERS_KEY) !== "0"; } catch { return true; } }
@@ -161,12 +155,8 @@ export const markerList = (list) => (list.length ? html`<div class="marker-list 
   html`<span><span class="marker-dot"></span>${fmtDate(m.t)} · ${m.label}</span>`)}${list.length > 6 ? html`<span class="faint">and ${list.length - 6} more</span>` : ""}</div>` : "");
 
 // ------------------------------------------------------------------ compare
-let comparableCache = null;
 async function comparable(profileId) {
-  if (comparableCache?.profileId === profileId) return comparableCache.list;
-  const list = (await get("/api/insights/comparable", { profile: profileId })).measures;
-  comparableCache = { profileId, list };
-  return list;
+  return (await get("/api/insights/comparable", { profile: profileId })).measures;
 }
 const GROUP_NAMES = { journal: "How you felt (Journal)", workouts: "Workouts", sleep: "Sleep", readiness: "Recovery", heart: "Heart",
   activity: "Activity", vitals: "Vitals", body: "Body", mobility: "Mobility", nutrition: "Nutrition", hearing: "Hearing" };

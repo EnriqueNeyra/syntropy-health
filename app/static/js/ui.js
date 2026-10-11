@@ -329,7 +329,8 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
     if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
     onClose && onClose();
   };
-  const onKey = (e) => { if (e.key === "Escape") close(); };
+  // Escape closes the dialog on top (a confirmation over an editor closes alone).
+  const onKey = (e) => { if (e.key === "Escape" && [...openDialogs].at(-1) === close) close(); };
   overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(); });
   overlay.querySelector("[data-close]").addEventListener("click", close);
   document.addEventListener("keydown", onKey);
@@ -417,7 +418,12 @@ export function appMenuChosen(id, index) {
     document.body.appendChild(a);
     a.click();
     a.remove();
-  } else item.run?.();
+  } else runItem(item);
+}
+
+/** A menu choice runs like a button's action: a failure is shown, not lost. */
+function runItem(item) {
+  Promise.resolve().then(() => item.run?.()).catch((err) => { toast(err.message || String(err), "bad"); console.error(err); });
 }
 
 /**
@@ -455,23 +461,24 @@ export function dropdown(button, items) {
     closeAnimated(el);
     button.setAttribute("aria-expanded", "false");
     document.removeEventListener("mousedown", outside, true);
-    document.removeEventListener("keydown", key);
+    document.removeEventListener("keydown", key, true);
     document.removeEventListener("scroll", scrolled, true);
     if (openMenu?.el === el) openMenu = null;
   };
   const outside = (e) => { if (!el.contains(e.target) && !button.contains(e.target)) close(); };
-  const key = (e) => { if (e.key === "Escape") { close(); button.focus(); } };
+  // Escape closes the menu alone, not the dialog it was opened in (this listener runs first).
+  const key = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); button.focus(); } };
   // The menu is pinned to the screen, so it goes once the page has really moved (not a nudge while tapping).
   const scrolled = () => { if (Math.abs(scroller.scrollTop - startY) > 30) close(); };
   el.addEventListener("click", (e) => {
     const b = e.target.closest("[data-i], a");
     if (!b) return;
     close();
-    if (b.dataset.i != null) items[Number(b.dataset.i)].run?.();
+    if (b.dataset.i != null) runItem(items[Number(b.dataset.i)]);
   });
   setTimeout(() => {
     document.addEventListener("mousedown", outside, true);
-    document.addEventListener("keydown", key);
+    document.addEventListener("keydown", key, true);
     document.addEventListener("scroll", scrolled, { passive: true, capture: true });
   });
   openMenu = { el, button, close };

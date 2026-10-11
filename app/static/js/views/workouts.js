@@ -261,7 +261,13 @@ function workoutRow(w) {
 export async function openWorkout(profile, id) {
   if (nativeNav && appBridge({ type: "visit", hash: `#/_workout/${encodeURIComponent(id)}` })) return;
   const m = modal({ title: "Workout", body: loading(3), drawer: true });
-  const detail = await workoutDetail(profile, id);
+  let detail;
+  try {
+    detail = await workoutDetail(profile, id);
+  } catch (err) {
+    m.close();          // not left loading; the caller shows what went wrong
+    throw err;
+  }
   m.setBody(detail.body);
   detail.draw(m.el);
 }
