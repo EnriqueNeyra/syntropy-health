@@ -522,6 +522,11 @@ class DesktopApp:
     def run(self) -> None:
         import webview
 
+        # Exports and backups (Settings → Your data) are downloads: without this pywebview cancels them on Windows,
+        # and on a Mac the window navigated to the file instead (a CSV filled the window, with no way back).
+        # With it, each asks where to save, as a browser would.
+        webview.settings["ALLOW_DOWNLOADS"] = True
+
         instance = SingleInstance(self.data, self.show)
         if instance.signal_existing():
             return

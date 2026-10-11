@@ -10,14 +10,16 @@ The Mac window: Syntropy Health's interface drawn edge to edge in a native windo
 - The app is in the Dock (and ⌘-Tab) only while its window is open. Closed, it runs on in the menu bar alone, like
   other menu bar apps; opening the window from there puts it back in the Dock.
 - Another site in the window (a health system's sign-in) gets an ordinary title bar naming the site, with a
-  "Syntropy Health" button that returns to the app: those pages don't leave room for the window buttons or offer a way
-  back.
+  "‹ Syntropy Health" back button beside the window buttons (a navigational toolbar item, like Safari's) that returns to
+  the app: those pages don't leave room for the window buttons or offer a way back. The window keeps its size and place
+  through the change.
 
 The page talks to the window through a WebKit message handler, "syntropyDesktop": which theme it shows (so the sidebar
 material and title bar match it), its title (for the Window menu and Mission Control), when it's ready to be seen, and
-when the top of the window is dragged. pywebview's own JavaScript bridge can't be used: it builds functions with
-new Function(), which the page's Content-Security-Policy forbids. The window runs scripts in the page with
-evaluateJavaScript, which that policy doesn't restrict.
+when the top of the window is dragged. Only Syntropy Health's own pages are listened to; another site in the window
+can't rename it or move it. pywebview's own JavaScript bridge can't be used: it builds functions with new Function(),
+which the page's Content-Security-Policy forbids. The window runs scripts in the page with evaluateJavaScript, which that
+policy doesn't restrict.
 """
 
 from __future__ import annotations
@@ -41,8 +43,10 @@ HELP_URL = "https://health.syntropylabs.io/docs/"
 SECTIONS = [("Overview", "overview"), ("Ask", "ask"), ("Trends", "trends"), ("Workouts", "workouts"),
             ("Journal", "journal"), ("Timeline", "timeline"), ("Records", "records"), ("Sources", "sources")]
 ZOOM_STEPS = [0.75, 0.85, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5]
+BACK_ITEM = "syntropy.back"          # the toolbar's "‹ Syntropy Health" button, shown on other sites
 
 WKScriptMessageHandler = objc.protocolNamed("WKScriptMessageHandler")
+NSToolbarDelegate = objc.protocolNamed("NSToolbarDelegate")
 
 
 class _Bridge(NSObject, protocols=[WKScriptMessageHandler]):
@@ -61,6 +65,7 @@ class _Bridge(NSObject, protocols=[WKScriptMessageHandler]):
                 # Where the message came from: some requests are only taken from this Mac's own server.
                 origin = message.frameInfo().securityOrigin()
                 data["_origin"] = f"{origin.protocol()}://{origin.host()}:{origin.port()}"
+                data["_from"] = _origin(origin.protocol(), origin.host(), origin.port())
                 self.callback(data)
         except Exception:  # noqa: BLE001 - a bad message must never take the app down
             log.exception("Couldn't handle a message from the page")
@@ -74,14 +79,34 @@ class _MenuTarget(NSObject):
         return self
 
     def perform_(self, sender):
-        # Menu items carry their action as the represented object, buttons as their identifier.
-        key = sender.representedObject() if sender.respondsToSelector_(b"representedObject") else sender.identifier()
+        # Menu items carry their action as the represented object, buttons as their identifier. (A button answers
+        # representedObject too, with nothing, so ask what the sender is rather than what it responds to.)
+        key = sender.representedObject() if sender.isKindOfClass_(AppKit.NSMenuItem) else sender.identifier()
         action = self.actions.get(str(key))
         if action:
             action()
 
     def validateMenuItem_(self, item):
         return True
+
+
+class _ToolbarDelegate(NSObject, protocols=[NSToolbarDelegate]):
+    """Makes the toolbar's one optional item, the back button shown on other sites."""
+
+    def initWithMaker_(self, make):
+        self = objc.super(_ToolbarDelegate, self).init()
+        if self is not None:
+            self.make = make
+        return self
+
+    def toolbarAllowedItemIdentifiers_(self, _toolbar):
+        return [BACK_ITEM]
+
+    def toolbarDefaultItemIdentifiers_(self, _toolbar):
+        return []
+
+    def toolbar_itemForItemIdentifier_willBeInsertedIntoToolbar_(self, _toolbar, identifier, _inserted):
+        return self.make() if identifier == BACK_ITEM else None
 
 
 class _URLObserver(NSObject):
@@ -141,7 +166,6 @@ class MacWindow:
         self.zoom = float(prefs.get("zoom", 1.0) or 1.0)
         self.home_url = home_url                            # Syntropy Health's own pages (this Mac's or a joined server)
         self.away = False                                   # showing another site
-        self.home_bar = None
         if background:              # opened at login: only the menu bar item, from the start (this is the main thread)
             _set_in_dock(False)
 
@@ -174,6 +198,9 @@ class MacWindow:
         win.setTitleVisibility_(AppKit.NSWindowTitleHidden)
         toolbar = AppKit.NSToolbar.alloc().initWithIdentifier_("SyntropyHealth")
         toolbar.setShowsBaselineSeparator_(False)
+        toolbar.setDisplayMode_(AppKit.NSToolbarDisplayModeIconOnly)
+        self.toolbar_delegate = _ToolbarDelegate.alloc().initWithMaker_(self._back_item)    # the toolbar doesn't retain it
+        toolbar.setDelegate_(self.toolbar_delegate)
         win.setToolbar_(toolbar)
         win.setToolbarStyle_(AppKit.NSWindowToolbarStyleUnified)
 
@@ -223,6 +250,11 @@ class MacWindow:
 
     # ----------------------------------------------------------------- the page
     def _on_message(self, msg: dict[str, Any]) -> None:
+        # Only Syntropy Health's own pages (and the "can't reach" page this app writes itself, which has no web origin)
+        # talk to the window: a health system's sign-in page has no business renaming or moving it.
+        sender = msg.get("_from") or ("", "", 0)
+        if sender[0] in ("http", "https") and sender not in self._home():
+            return
         kind = msg.get("type")
         if kind == "ready":
             if not self.shown and not self.background:
@@ -264,35 +296,49 @@ class MacWindow:
         if away == self.away:
             return
         self.away = away
-        win = self.ns_window
+        win, toolbar = self.ns_window, self.ns_window.toolbar()
+        # Changing whether the page runs under the title bar would grow or shrink the window by the title bar's height
+        # (AppKit keeps the content's size): keep the window where it is. A full-screen window keeps its own frame.
+        full_screen = bool(win.styleMask() & AppKit.NSWindowStyleMaskFullScreen)
+        frame = win.frame()
         if away:
-            # An ordinary title bar: the page starts below it instead of under the window buttons.
+            # An ordinary title bar naming the site, with a back button beside the window buttons: the page starts
+            # below it instead of under them, on a white page as in a browser (it may not paint a background).
             win.setStyleMask_(win.styleMask() & ~AppKit.NSWindowStyleMaskFullSizeContentView)
             win.setTitlebarAppearsTransparent_(False)
             win.setTitleVisibility_(AppKit.NSWindowTitleVisible)
-            win.addTitlebarAccessoryViewController_(self._home_bar())
+            self.webview.setValue_forKey_(True, "drawsBackground")
+            if toolbar is not None and not any(i.itemIdentifier() == BACK_ITEM for i in toolbar.items()):
+                toolbar.insertItemWithItemIdentifier_atIndex_(BACK_ITEM, 0)
         else:
-            if self.home_bar is not None:
-                self.home_bar.removeFromParentViewController()
+            if toolbar is not None:
+                for index, item in enumerate(toolbar.items()):
+                    if item.itemIdentifier() == BACK_ITEM:
+                        toolbar.removeItemAtIndex_(index)
+                        break
+            self.webview.setValue_forKey_(False, "drawsBackground")
             win.setStyleMask_(win.styleMask() | AppKit.NSWindowStyleMaskFullSizeContentView)
             win.setTitlebarAppearsTransparent_(True)
             win.setTitleVisibility_(AppKit.NSWindowTitleHidden)
             win.setTitle_("Syntropy Health")           # until the page names itself again
+        if not full_screen:
+            win.setFrame_display_(frame, True)
 
-    def _home_bar(self) -> Any:
-        if self.home_bar is None:
-            button = AppKit.NSButton.buttonWithTitle_target_action_("‹ Syntropy Health", self.menu_target, "perform:")
-            button.setIdentifier_("home")
-            button.setBezelStyle_(AppKit.NSBezelStyleRounded)
-            button.setToolTip_("Leave this page and go back to Syntropy Health")
-            button.sizeToFit()
-            holder = AppKit.NSView.alloc().initWithFrame_(((0, 0), (button.frame().size.width + 12, 30)))
-            button.setFrameOrigin_((6, (30 - button.frame().size.height) / 2))
-            holder.addSubview_(button)
-            self.home_bar = AppKit.NSTitlebarAccessoryViewController.alloc().init()
-            self.home_bar.setView_(holder)
-            self.home_bar.setLayoutAttribute_(AppKit.NSLayoutAttributeLeft)
-        return self.home_bar
+    def _back_item(self) -> Any:
+        """The toolbar's back button: "‹ Syntropy Health", next to the window buttons."""
+        item = AppKit.NSToolbarItem.alloc().initWithItemIdentifier_(BACK_ITEM)
+        image = AppKit.NSImage.imageWithSystemSymbolName_accessibilityDescription_("chevron.backward", None)
+        button = AppKit.NSButton.buttonWithTitle_image_target_action_("Syntropy Health", image, self.menu_target, "perform:")
+        button.setIdentifier_("home")
+        button.setImagePosition_(AppKit.NSImageLeading)
+        button.setBezelStyle_(getattr(AppKit, "NSBezelStyleToolbar", AppKit.NSBezelStyleTexturedRounded))
+        button.setToolTip_("Leave this page and go back to Syntropy Health")
+        item.setView_(button)
+        item.setLabel_("Syntropy Health")
+        item.setToolTip_("Leave this page and go back to Syntropy Health")
+        if item.respondsToSelector_(b"setNavigational:"):
+            item.setNavigational_(True)               # at the leading edge, beside the window buttons
+        return item
 
     def go_home(self) -> None:
         """Back to the last of Syntropy Health's own pages in this window's history, else its start page."""
