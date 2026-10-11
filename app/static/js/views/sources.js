@@ -194,7 +194,9 @@ function modeExplainer(inst) {
 
 async function openAddHealthSystem(profileId) {
   const m = modal({ title: "Connect a health system", wide: true, body: loading(3) });
-  const featured = await get("/api/directory/featured");
+  let featured;
+  try { featured = await get("/api/directory/featured"); }
+  catch (err) { m.close(); toast(err.message, "bad"); return; }
   let current = featured.results;
   const byId = new Map(current.map((i) => [i.id, i]));
 
@@ -217,7 +219,9 @@ async function openAddHealthSystem(profileId) {
     const q = input.value.trim();
     const seq = ++searchSeq;
     if (!q) return showList(featured.results, "Popular");
-    const res = await get("/api/directory", { q, limit: 30 });
+    let res;
+    try { res = await get("/api/directory", { q, limit: 30 }); }
+    catch (err) { if (seq === searchSeq) toast(err.message, "bad"); return; }
     if (seq !== searchSeq) return;     // the search changed while this one was answering
     showList(res.results, `${res.total} match${res.total === 1 ? "" : "es"}`);
   }, 200));
@@ -333,15 +337,24 @@ function importZones() {
     <div id="imp-status" class="src-drop-status"></div>`;
 }
 
-async function uploadApple(file, profile, statusEl, refresh) {
+async function uploadApple(file, profile, statusEl, refresh, left) {
   const form = new FormData();
   form.append("file", file);
   form.append("profile_id", profile.id);
   mount(statusEl, html`<div class="small">Uploading ${file.name}…</div><div class="progress"><div style="width:15%"></div></div>`);
   const { job_id } = await api("/api/imports/apple-health", { method: "POST", form });
+  let misses = 0;
   for (;;) {
     await new Promise((r) => setTimeout(r, 800));
-    const job = await get(`/api/imports/${job_id}`, undefined, { fresh: true });
+    // The import carries on on the server; once the page is left there's nothing here to update.
+    if (left()) return;
+    let job;
+    try { job = await get(`/api/imports/${job_id}`, undefined, { fresh: true }); misses = 0; }
+    catch (err) {
+      // A moment without an answer (the server busy with a big import) isn't a failure; a lasting one is.
+      if (err.status || ++misses > 10) throw err;
+      continue;
+    }
     if (job.status === "error") { mount(statusEl, html`<div class="banner bad">${job.error}</div>`); return; }
     if (job.status === "completed") {
       const r = job.result || {};
@@ -377,6 +390,7 @@ export async function render({ el, params, state }) {
   const profile = state.profile;
   mount(el, loading(4));
   let pollTimer = null;
+  let gone = false;                       // the page was left: an answer still on its way draws nothing
   let shown = { all: [], devices: [] };   // what the page is showing, for the "⋯" menus
 
   const refresh = async (fresh = false) => {
@@ -385,6 +399,7 @@ export async function render({ el, params, state }) {
       get("/api/devices", { profile: profile.id }, { fresh }),
       get("/api/directory/featured").catch(() => null),   // only for the directory's size
     ]);
+    if (gone) return;
     const all = conns.connections;
     const devicesFor = (c) => devs.devices.filter((d) => d.connection_id === c.id);
     shown = { all, devices: devs.devices };
@@ -439,21 +454,27 @@ export async function render({ el, params, state }) {
     wireUploads();
     renderBanner();
     clearTimeout(pollTimer);
-    if (all.some((c) => c.syncing)) pollTimer = setTimeout(() => refresh(true), 1500);
+    // While a source syncs, look again shortly (a failed look tries again rather than stopping).
+    if (all.some((c) => c.syncing)) pollTimer = setTimeout(() => refresh(true).catch(() => { if (!gone) pollTimer = setTimeout(() => refresh(true), 5000); }), 1500);
   };
 
   let bannerShown = false;
   const renderBanner = () => {
-    if (bannerShown) return;
     const box = $("#src-banner", el);
+    if (bannerShown) {
+      // Drawn again (while syncing): keep the message about the connection that just came back.
+      if (bannerShown !== true) mount(box, bannerShown);
+      return;
+    }
     if (params.get("error")) {
-      mount(box, html`<div class="banner bad">${icon("alert")}<div class="grow"><b>The connection didn't complete.</b><p>${params.get("error")}</p></div></div>`);
-      bannerShown = true;
+      bannerShown = html`<div class="banner bad">${icon("alert")}<div class="grow"><b>The connection didn't complete.</b><p>${params.get("error")}</p></div></div>`;
+      mount(box, bannerShown);
     } else if (params.get("connected")) {
       toast("Connected. Downloading records…", "good");
       bannerShown = true;
-    }
-    history.replaceState(null, "", "#/sources");
+    } else return;
+    // A reload shouldn't say it again. (Only while this page is still the one on screen.)
+    if (location.hash.startsWith("#/sources")) history.replaceState(null, "", "#/sources");
   };
 
   const importFhir = async (file, status) => {
@@ -468,7 +489,7 @@ export async function render({ el, params, state }) {
     } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };
   const importApple = async (file, status) => {
-    try { await uploadApple(file, profile, status, refresh); } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
+    try { await uploadApple(file, profile, status, refresh, () => gone); } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };
 
   const wireUploads = () => {
@@ -518,11 +539,13 @@ export async function render({ el, params, state }) {
     sync: async ({ id }, btn) => {
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Syncing…';
-      const res = await post(`/api/connections/${id}/sync`);
-      if (res.status === "error") toast(res.error, "bad");
-      else if (res.status === "skipped") toast(res.reason);
-      else toast(`Synced · ${plural(res.inserted || 0, "new item")}`, "good");
-      await refresh();
+      try {
+        const res = await post(`/api/connections/${id}/sync`);
+        if (res.status === "error") toast(res.error, "bad");
+        else if (res.status === "skipped") toast(res.reason);
+        else toast(`Synced · ${plural(res.inserted || 0, "new item")}`, "good");
+      } catch (err) { toast(err.message, "bad"); }
+      if (!gone) await refresh(true);     // the row shows how it went (and the button comes back)
     },
     reconnect: async ({ id }) => {
       const res = await post(`/api/connections/${id}/reconnect`);
@@ -554,5 +577,5 @@ export async function render({ el, params, state }) {
     },
   };
   const off = onAction(el, handlers);
-  return () => { off(); clearTimeout(pollTimer); };
+  return () => { gone = true; off(); clearTimeout(pollTimer); };
 }

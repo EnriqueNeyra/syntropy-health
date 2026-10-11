@@ -102,7 +102,10 @@ export function renderNetworkPanel(el, net, { onChange, waited = 0 } = {}) {
     net = { ...net, password_set: true };
     apply(true);
   });
-  onAction(el, {
+  // Drawn again after each change (and while the .local name appears): one set of handlers, not one per drawing, or a
+  // click would switch the network or copy an address several times over.
+  el._netOff?.();
+  el._netOff = onAction(el, {
     "no-pass": () => apply(true, true),
     "copy-addr": async ({ url }) => {
       try { await navigator.clipboard.writeText(url); toast("Copied", "good"); }
