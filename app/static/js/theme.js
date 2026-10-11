@@ -28,8 +28,8 @@
     try { chosen = localStorage.getItem("syntropy-theme"); } catch (err) {}
     if (!embedded && chosen) return;
     var apply = function () { root.setAttribute("data-theme", e.matches ? "dark" : "light"); };
-    // A cross-fade rather than a snap (see themeTransition in app.js).
-    if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    // A cross-fade rather than a snap (see themeTransition in app.js; not in the Mac app, where it flickers).
+    if (document.startViewTransition && !(shell && shell[1] === "Mac") && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       root.setAttribute("data-vt", "theme");
       document.startViewTransition(apply).finished.then(function () { root.removeAttribute("data-vt"); }, function () {});
     } else apply();

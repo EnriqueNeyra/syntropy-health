@@ -91,6 +91,9 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+/* The scrollbar's room is kept on pages too short to scroll, so the layout doesn't shift sideways between sections
+   where scroll bars take space (Windows, or a Mac with them always shown). The Mac app scrolls its main column instead. */
+:root:not([data-shell="mac"]) { scrollbar-gutter: stable; }
 body {
   background: var(--bg); color: var(--text); font: 14px/1.5 var(--font-body);
   -webkit-font-smoothing: antialiased; min-height: 100vh;
@@ -1297,14 +1300,17 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 :root[data-shell="mac"] .topbar .top-brand .wordmark { height: 19px; }
 :root[data-shell="mac"] .nav { gap: 12px; }
 :root[data-shell="mac"] .nav-label { text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 650; color: var(--text-3); padding: 0 10px 3px; }
-:root[data-shell="mac"] .nav a { padding: 5px 10px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text); }
+/* The selection moves at once, as in a Mac sidebar, rather than fading across. */
+:root[data-shell="mac"] .nav a { padding: 5px 10px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text); transition: none; }
 :root[data-shell="mac"] .nav a svg { color: var(--accent); opacity: 1; width: 16px; height: 16px; }
 @media (hover: hover) { :root[data-shell="mac"] .nav a:hover { background: transparent; } }
 :root[data-shell="mac"] .nav a.active { background: rgba(0, 0, 0, .09); }
 :root[data-shell="mac"][data-theme="dark"] .nav a.active { background: rgba(255, 255, 255, .1); }
 :root[data-shell="mac"] .sidebar .profile-btn { background: transparent; border-color: transparent; }
 @media (hover: hover) { :root[data-shell="mac"] .sidebar .profile-btn:hover { background: rgba(127, 127, 127, .12); } }
-:root[data-shell="mac"] .main { background: var(--bg); height: 100vh; overflow-y: auto; }
+/* Room for the scrollbar is kept even on pages too short to scroll, so the top bar doesn't shift sideways between
+   sections when scroll bars are always shown (System Settings → Appearance, or with a mouse). */
+:root[data-shell="mac"] .main { background: var(--bg); height: 100vh; overflow-y: auto; scrollbar-gutter: stable; }
 /* Sign-in, setup and password screens fill the window and scroll on their own (the page itself doesn't scroll here). */
 :root[data-shell="mac"] .auth-wrap { background: var(--bg); height: 100vh; min-height: 0; overflow-y: auto; padding-top: calc(var(--titlebar) + 8px); }
 :root[data-shell="mac"] .topbar { flex: none; height: var(--titlebar); padding: 0 20px; background: color-mix(in srgb, var(--bg) 82%, transparent); }
@@ -1317,19 +1323,14 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .page-error p { line-height: 1.5; }
 
 /* ---------- Motion ----------
-   Switching sections: the page content slides up and fades in while the old one fades out (View Transitions where
-   the browser has them, a fade-in elsewhere). Tabs and filters within a page cross-fade. Theme and accent changes
-   cross-fade the whole window. Everything is off for people who ask for reduced motion. */
-/* The window cross-fades (the old page fades out quickly); the new page's content slides in as it appears. */
-/* Old and new use the same timing, so unchanged parts (the sidebar, the top bar) never dim in between. */
-:root[data-vt="section"]::view-transition-old(root), :root[data-vt="tab"]::view-transition-old(root) { animation: vt-fade-out .18s ease both; }
-:root[data-vt="section"]::view-transition-new(root), :root[data-vt="tab"]::view-transition-new(root) { animation: fade-in .18s ease both; }
+   Switching sections: the new page's content rises in quickly as it replaces the old one; the sidebar and top bar
+   don't move. Tabs and filters within a page swap in place. Theme and accent changes cross-fade the whole window
+   (View Transitions where the browser has them). Everything is off for people who ask for reduced motion. */
 :root[data-vt="theme"]::view-transition-old(root), :root[data-vt="theme"]::view-transition-new(root) {
   animation-duration: .32s; animation-timing-function: ease;
 }
-.page-enter { animation: vt-page-in .26s cubic-bezier(.2, .8, .2, 1) both; }
-@keyframes vt-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes vt-fade-out { to { opacity: 0; } }
+.page-enter { animation: page-in .2s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes page-in { from { opacity: .25; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 /* Without View Transitions: colors ease into the new theme. */
 .theme-anim, .theme-anim *, .theme-anim *::before, .theme-anim *::after {
   transition: background-color .3s ease, color .3s ease, border-color .3s ease, fill .3s ease, stroke .3s ease, box-shadow .3s ease !important;

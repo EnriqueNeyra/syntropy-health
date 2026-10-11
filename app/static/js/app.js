@@ -149,8 +149,7 @@ export const state = {
 
 let cleanup = null;
 let renderSeq = 0;
-let shownRoute = null;       // the section on screen, so switching sections and switching tabs animate differently
-let pageTransition = null;
+let shownRoute = null;       // the section on screen: only going to another section animates
 
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, "");
@@ -207,7 +206,9 @@ const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)"
 /** Changes colors (theme, accent) with a short cross-fade rather than a snap. */
 export function themeTransition(apply) {
   if (reducedMotion()) return apply();
-  if (document.startViewTransition) {
+  // Not with a View Transition in the Mac app: it snapshots the whole window, and over the see-through sidebar the
+  // snapshot dims and flickers while the window's own sidebar material changes at once. The colors ease instead.
+  if (document.startViewTransition && shell !== "mac") {
     document.documentElement.dataset.vt = "theme";
     const t = document.startViewTransition(apply);
     t.finished.finally(() => { if (document.documentElement.dataset.vt === "theme") delete document.documentElement.dataset.vt; });
@@ -524,8 +525,10 @@ async function route(opts) {
   if (!keepScroll && composerHandlers) setComposer(null);
   const next = document.createElement("main");
   next.className = "content";
-  // Another section slides in; a tab or filter within the same page cross-fades; fresh data redraws in place.
-  const motion = keepScroll || nativeNav || reducedMotion() ? null : name !== shownRoute ? "section" : "tab";
+  // Another section's content rises in; a tab or filter within the same page, and fresh data, swap in place. Only the
+  // content moves: the sidebar and top bar stay put. (A View Transition cross-faded the whole window, which
+  // double-exposed both pages, dimmed the Mac app's see-through sidebar and made the top bar jump.)
+  const motion = !keepScroll && !nativeNav && !reducedMotion() && name !== shownRoute;
   // Fresh data drawn in place (keepScroll) doesn't replay the charts' intro.
   document.documentElement.classList.toggle("no-intro", keepScroll);
   shownRoute = name;
@@ -533,26 +536,14 @@ async function route(opts) {
   const show = () => {
     if (shown || seq !== renderSeq) return;
     shown = true;
-    const swap = () => {
-      if (seq !== renderSeq) return;      // a later page replaced this one before its transition ran
-      const current = $("#view");
-      next.id = "view";
-      current.replaceWith(next);
-      if (!keepScroll) scrollToTop();
-    };
-    pageTransition?.skipTransition();
-    if (motion && document.startViewTransition && !document.hidden) {
-      document.documentElement.dataset.vt = motion;
-      pageTransition = document.startViewTransition(swap);
-      pageTransition.finished.finally(() => {
-        pageTransition = null;
-        if (document.documentElement.dataset.vt === motion) delete document.documentElement.dataset.vt;
-      });
-    } else swap();
-    if (motion === "section" && !document.hidden) {     // hidden, the animation may never run and leave it see-through
+    const current = $("#view");
+    next.id = "view";
+    if (motion && !document.hidden) {     // hidden, the animation may never run and leave it see-through
       next.classList.add("page-enter");
       next.addEventListener("animationend", () => next.classList.remove("page-enter"), { once: true });
     }
+    current.replaceWith(next);
+    if (!keepScroll) scrollToTop();
   };
   const timer = setTimeout(show, PLACEHOLDER_AFTER_MS);
   const progress = setTimeout(() => { if (seq === renderSeq) setLoading(true); }, PROGRESS_AFTER_MS);
@@ -855,6 +846,16 @@ async function boot() {
 let started = false;
 
 onUnauthorized(() => { state.status = null; renderLogin(); });
+// Back from another site (a health system's sign-in page), the browser may show this page just as it was left, from
+// its back-forward cache: a dialog still saying "Preparing secure sign-in…", data from before. Draw it afresh.
+window.addEventListener("pageshow", (e) => {
+  if (!e.persisted || !state.status?.authenticated) return;
+  closePopover();
+  closeDialogs();
+  clearCache();
+  route({ keepScroll: true });
+  refreshAlerts(state.profile, state.status);
+});
 window.addEventListener("hashchange", () => {
   if (parseHash().route === "join" && !embedded) boot();     // an invitation link opened in this tab
   else if (state.status?.authenticated) route();

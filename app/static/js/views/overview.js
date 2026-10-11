@@ -303,7 +303,6 @@ export async function render({ el, state, navigate }) {
 
   const draw = () => {
     const { summary, bio, connections } = data;
-    refreshAlerts(profile, state.status, { summary, connections });
     const conflict = summary.identity_conflict || [];
     const identity = conflict.length ? null : summary.identities[0];   // don't guess age/sex from someone else's chart
     const years = age(profile.birth_date || identity?.birth_date);
@@ -388,6 +387,8 @@ export async function render({ el, state, navigate }) {
 
   await load();
   draw();
+  // The bell's alerts come from the same summary and sources (other pages ask for them themselves).
+  refreshAlerts(profile, state.status, { summary: data.summary, connections: data.connections });
 
   const off = onAction(el, {
     record: ({ id }) => openRecord(id),
@@ -481,9 +482,14 @@ function masonry(grid) {
       item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((item.firstElementChild.getBoundingClientRect().height + 16) / 2))}`;
     }
   };
-  layout();
+  // The page is built before it's on screen, when nothing has a height yet: measured then, every item would span a
+  // sliver and the first frame shown would be a pile of collapsed cards. So the first layout runs as soon as the items
+  // have a size (the observer's first answer comes before that frame is painted), later ones once per frame.
+  if (grid.isConnected) layout();
+  let first = !grid.isConnected;
   let queued = false;
   const ro = new ResizeObserver(() => {
+    if (first) { first = false; layout(); return; }
     if (queued) return;
     queued = true;
     requestAnimationFrame(() => { queued = false; layout(); });
