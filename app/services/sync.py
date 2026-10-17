@@ -17,7 +17,7 @@ from typing import Any
 from app.connectors import fhir_normalize, google_health, oura, smart, whoop
 from app.connectors import wearable_common as wc
 from app.connectors.smart import SmartError
-from app.core.db import audit, db
+from app.core.db import audit, db, read
 from app.store import activity, biometrics, connections, records
 
 log = logging.getLogger("syntropy.sync")
@@ -132,7 +132,7 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
     if not pending:
         return 0
     existing: dict[str, str] = {}
-    with db() as c:
+    with read() as c:       # without the write lock: this runs on the event loop, and a big upload may hold it
         rows = c.execute(
             "SELECT resource_id, narrative FROM clinical_records WHERE connection_id = ? "
             "AND category IN ('notes', 'reports') AND narrative IS NOT NULL",

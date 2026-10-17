@@ -6,7 +6,7 @@ import time
 from typing import Any, Optional
 
 from app.core import security
-from app.core.db import audit, db, new_id, rows_to_dicts
+from app.core.db import audit, db, new_id, read, rows_to_dicts
 
 TOKEN_PREFIX = "sh_agent_"
 
@@ -23,7 +23,7 @@ def create(name: str, profile_id: Optional[str] = None, account_id: Optional[str
 
 
 def list_tokens() -> list[dict[str, Any]]:
-    with db() as conn:
+    with read() as conn:
         return rows_to_dicts(conn.execute(
             """SELECT t.id, t.name, t.profile_id, p.name AS profile_name, t.created_at, t.last_used_at, t.last_call,
                       t.last_call_at, t.account_id

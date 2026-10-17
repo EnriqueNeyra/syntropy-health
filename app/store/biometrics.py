@@ -494,7 +494,7 @@ DAILY_VERSION = 3
 def upgrade_daily_if_needed() -> None:
     if settings.get("biometrics.daily_version") == DAILY_VERSION:
         return
-    with db() as conn:
+    with read() as conn:
         profiles = [r[0] for r in conn.execute("SELECT DISTINCT profile_id FROM biometric_samples").fetchall()]
     for profile_id in profiles:
         rebuild_daily(profile_id)
