@@ -251,6 +251,13 @@ function toggleTheme() {
   setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
 }
 
+// The appearance button shows the other theme's icon, also when the device switches between light and dark by itself
+// (theme.js follows it without drawing the shell again).
+new MutationObserver(() => {
+  const btn = document.getElementById("theme-btn");
+  if (btn) mount(btn, icon(document.documentElement.getAttribute("data-theme") === "dark" ? "sun" : "moon"));
+}).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
 /** Lock, or sign out of a household's server. If the server can't be reached, say so rather than appear to have locked. */
 async function signOut() {
   try { await post("/api/auth/logout"); }

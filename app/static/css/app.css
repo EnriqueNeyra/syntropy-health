@@ -18,8 +18,9 @@
   --border-strong: #cfd4dc;
   --text: #111827;
   --text-2: #4b5563;
-  --text-3: #6b7280;
-  --text-4: #9ca3af;
+  /* Muted and faint text still read at WCAG AA (4.5:1) on cards, faint text sits a step lighter. */
+  --text-3: #5f6673;
+  --text-4: #6f7682;
   /* The accent (Settings → General → Accent color; see the [data-accent] blocks below). --accent is for text, icons and
      borders; --accent-fill carries white text (buttons, the switch, chat bubbles). */
   --accent: #d6204a;
@@ -27,9 +28,9 @@
   --on-accent: #fff;
   --accent-2: color-mix(in srgb, var(--accent) 10%, var(--surface));
   --accent-text: color-mix(in srgb, var(--accent) 78%, #000);
-  --good: #059669;  --good-bg: #ecfdf5;
+  --good: #047857;  --good-bg: #ecfdf5;
   --warn: #b45309;  --warn-bg: #fffbeb;
-  --bad: #dc2626;   --bad-bg: #fef2f2;
+  --bad: #c81e1e;   --bad-bg: #fef2f2;
   --info: #0369a1;  --info-bg: #f0f9ff;
   --band: rgba(16, 185, 129, 0.10);
   --series-1: var(--accent);
@@ -53,8 +54,8 @@
   --border-strong: #37373f;
   --text: #f4f4f5;
   --text-2: #b4b4bb;
-  --text-3: #8b8b94;
-  --text-4: #5f5f68;
+  --text-3: #96969f;
+  --text-4: #80808a;
   --accent: #ff6b8b;
   --accent-fill: #e0294f;
   --accent-2: color-mix(in srgb, var(--accent) 16%, var(--surface));
