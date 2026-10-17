@@ -165,11 +165,23 @@ async def update_general(req: GeneralPatch) -> dict:
     return _snapshot()
 
 
+def _place_zones() -> set[str]:
+    """One time zone for each place people live (tzdata's zone.tab), without the retired names kept for old systems
+    (America/Buenos_Aires, Africa/Timbuktu…). Region/City names from this system if that list isn't there."""
+    try:
+        from importlib import resources
+        table = (resources.files("tzdata") / "zoneinfo" / "zone.tab").read_text(encoding="utf-8")
+        zones = {line.split("\t")[2] for line in table.splitlines() if line.strip() and not line.startswith("#")}
+        return zones & available_timezones()
+    except (ImportError, OSError, IndexError):
+        return {tz for tz in available_timezones() if "/" in tz and not tz.startswith(("Etc/", "SystemV/"))}
+
+
 @router.get("/timezones")
 def timezones() -> dict:
-    # Region/City names, plus UTC (servers and containers often run on it), plus whatever is in use now even if it's an
-    # older name, so the list always shows the current setting rather than falling back to its first entry.
-    zones = {tz for tz in available_timezones() if "/" in tz and not tz.startswith(("Etc/", "SystemV/"))}
+    # The places, plus UTC (servers and containers often run on it), plus whatever is in use now even if it's an older
+    # name, so the list always shows the current setting rather than falling back to its first entry.
+    zones = _place_zones()
     current = settings.timezone_name()
     zones.discard("UTC")
     extra = [current] if current not in zones and current != "UTC" and current in available_timezones() else []

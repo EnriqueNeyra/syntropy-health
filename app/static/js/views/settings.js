@@ -88,8 +88,8 @@ export async function render({ el, parts, state, navigate }) {
           html`<div class="segmented" role="group" aria-label="Units">${[["", `Automatic · ${regionSystem() === "us" ? "US" : "Metric"}`], ["metric", "Metric"], ["us", "US"]].map(([k, name]) =>
             html`<button class="${k === unitPref ? "active" : ""}" data-action="units" data-units="${k}" aria-pressed="${k === unitPref}">${name}</button>`)}</div>`)}
         ${row("Time zone", isOwner() ? "Wearable data is grouped into days in this time zone." : "Wearable data is grouped into days in this time zone, set by the server's owner.",
-          isOwner() ? html`<select class="input" id="g-tz" data-save="timezone">${timezones.map((tz) => html`<option ${tz === settings.timezone ? "selected" : ""}>${tz}</option>`)}</select>`
-            : html`<span>${settings.timezone}</span>`)}`)}
+          isOwner() ? html`<select class="input" id="g-tz" data-save="timezone" aria-label="Time zone">${timezones.map((tz) => html`<option value="${tz}" ${tz === settings.timezone ? "selected" : ""}>${tz.replaceAll("_", " ")}</option>`)}</select>`
+            : html`<span>${settings.timezone.replaceAll("_", " ")}</span>`)}`)}
       ${isOwner() ? section("Background sync", settings.sync.scheduler_enabled ? "New data is fetched automatically while Syntropy Health is running."
         : html`<span style="color:var(--warn)">Background sync is off on this instance (SYNTROPY_SCHEDULER=false). Use Sync now on Sources.</span>`, html`
         ${row("Health records", "How often to check connected health systems.",
