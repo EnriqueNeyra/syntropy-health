@@ -210,10 +210,11 @@ export async function render({ el, parts, state, navigate }) {
       ${section(household() ? "Your password" : "Password", on ? `Needed to open Syntropy Health${household() ? ` as ${appState.status.account.name}` : " in a browser"}. Changing it signs out your other browsers.`
         : html`<span style="color:var(--warn)">No password is set: anyone who can reach this server can open your records.</span>`, html`
         <form class="set-form" id="pw-form">
-          ${on ? row("Current password", "", html`<input class="input" type="password" id="pw-cur" autocomplete="current-password">`) : ""}
+          ${on ? row("Current password", "", html`<input class="input" type="password" id="pw-cur" autocomplete="current-password" aria-label="Current password">`) : ""}
           ${row(on ? "New password" : "Password", isOwner() ? "At least 8 characters. Keep it in your password manager: to reset it, you'd need the command line on this computer."
             : html`At least 8 characters. Keep it in your password manager. If you forget it, ${ownerName()} can reset it from the command line on the computer this server runs on.`,
-            html`<input class="input" type="password" id="pw-new" minlength="8" autocomplete="new-password">`)}
+            html`<input class="input" type="password" id="pw-new" minlength="8" autocomplete="new-password" aria-label="${on ? "New password" : "Password"}">`)}
+          ${row(on ? "Confirm new password" : "Confirm password", "", html`<input class="input" type="password" id="pw-new2" autocomplete="new-password" aria-label="Confirm the password">`)}
           <div class="set-foot"><button class="btn btn-primary btn-sm" type="submit">${on ? "Change password" : "Set password"}</button>
             ${on && appState.status?.password_optional ? html`<button class="btn btn-ghost btn-danger btn-sm" type="button" data-action="remove-pass">Remove password (development)</button>` : ""}</div>
         </form>`)}
@@ -240,7 +241,9 @@ export async function render({ el, parts, state, navigate }) {
     $("#pw-form", body).addEventListener("submit", async (e) => {
       e.preventDefault();
       const next = $("#pw-new", body).value;
-      if (next.length < 8) return toast("Use at least 8 characters", "bad");
+      if (next.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
+      // There's no recovery: a typo here would lock you out.
+      if (next !== $("#pw-new2", body).value) return toast("The passwords don't match.", "bad");
       try {
         await post("/api/auth/password", { current: $("#pw-cur", body)?.value, new: next });
         toast("Password updated", "good"); redraw();
