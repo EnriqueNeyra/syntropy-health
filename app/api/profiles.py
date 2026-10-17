@@ -80,7 +80,7 @@ def list_profiles() -> dict:
 
 
 @router.post("")
-async def create_profile(req: ProfileIn) -> dict:
+def create_profile(req: ProfileIn) -> dict:
     """Someone to look after (a child, a parent): whoever adds them manages them, and can invite them to sign in."""
     prof = profiles.create_profile(req.name, req.relationship, req.birth_date, req.sex)
     principal = context.principal()
@@ -90,7 +90,7 @@ async def create_profile(req: ProfileIn) -> dict:
 
 
 @router.patch("/{profile_id}")
-async def update_profile(profile_id: str, req: ProfilePatch) -> dict:
+def update_profile(profile_id: str, req: ProfilePatch) -> dict:
     check_access(profile_id, "manage")
     fields = req.model_dump(exclude_unset=True, exclude={"is_default"})
     # A name, relationship or color can only be changed; a birth date or sex can also be cleared (sent as null).
@@ -149,7 +149,7 @@ class AccessRequest(BaseModel):
 
 
 @router.put("/{profile_id}/access")
-async def set_access(profile_id: str, req: AccessRequest) -> dict:
+def set_access(profile_id: str, req: AccessRequest) -> dict:
     check_access(profile_id, "manage")
     if not accounts.get(req.account_id):
         raise HTTPException(404, "Account not found")
@@ -164,7 +164,7 @@ async def set_access(profile_id: str, req: AccessRequest) -> dict:
 
 
 @router.post("/{profile_id}/invite")
-async def invite(profile_id: str, request: Request) -> dict:
+def invite(profile_id: str, request: Request) -> dict:
     """A one-time code (a week) for this person to choose their own password. Once they do, their data is theirs:
     whoever manages them now stops seeing it unless they share it back."""
     check_access(profile_id, "manage")
@@ -181,7 +181,7 @@ async def invite(profile_id: str, request: Request) -> dict:
 
 
 @router.delete("/{profile_id}/invite")
-async def cancel_invite(profile_id: str) -> dict:
+def cancel_invite(profile_id: str) -> dict:
     check_access(profile_id, "manage")
     accounts.cancel_invite(profile_id)
     return {"ok": True}
@@ -213,7 +213,7 @@ def get_overview_layout(profile_id: str) -> dict:
 
 
 @router.put("/{profile_id}/overview")
-async def set_overview_layout(profile_id: str, req: OverviewLayout) -> dict:
+def set_overview_layout(profile_id: str, req: OverviewLayout) -> dict:
     resolve_profile(profile_id, "view")
     widgets = [{k: v for k, v in w.model_dump().items() if v is not None} for w in req.widgets]
     if len(str(widgets)) > 12000:
@@ -223,7 +223,7 @@ async def set_overview_layout(profile_id: str, req: OverviewLayout) -> dict:
 
 
 @router.delete("/{profile_id}/overview")
-async def reset_overview_layout(profile_id: str) -> dict:
+def reset_overview_layout(profile_id: str) -> dict:
     resolve_profile(profile_id, "view")
     settings.set(_layout_key(profile_id), None)
     return {"widgets": None}
@@ -259,7 +259,7 @@ def get_alert_state(profile_id: str) -> dict:
 
 
 @router.post("/{profile_id}/alerts")
-async def add_alert_state(profile_id: str, req: AlertState) -> dict:
+def add_alert_state(profile_id: str, req: AlertState) -> dict:
     """Adds ids to the seen and dismissed lists (nothing is ever un-seen). Only the most recent ids are kept. Each
     account has its own: seeing an alert about someone doesn't mark it seen for the others who look after them."""
     resolve_profile(profile_id, "view")

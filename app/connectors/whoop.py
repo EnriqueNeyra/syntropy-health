@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 import random
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any, Optional
 from urllib.parse import urlencode
 
@@ -154,8 +154,12 @@ def normalize_workouts(data: dict[str, list[dict[str, Any]]]) -> list[dict[str, 
     return out
 
 
-def simulate(days: int = 90, until: Optional[date] = None, seed: str = "whoop") -> dict[str, list[dict[str, Any]]]:
-    until = until or datetime.now(timezone.utc).date()
+def simulate(days: int = 90, until: Optional[date] = None, seed: str = "whoop",
+             tz: tzinfo = timezone.utc) -> dict[str, list[dict[str, Any]]]:
+    """``days`` ending ``until``, on the clock in ``tz``: waking around 6:45, workouts later in the day. A day whose
+    sleep hasn't ended yet has no cycle, recovery or sleep, as with a real strap."""
+    now = datetime.now(timezone.utc)
+    until = until or now.astimezone(tz).date()
     rng = random.Random(seed)
     out: dict[str, list[dict[str, Any]]] = {"recovery": [], "cycle": [], "sleep": [], "workout": []}
     for i in range(days):
@@ -168,29 +172,33 @@ def simulate(days: int = 90, until: Optional[date] = None, seed: str = "whoop") 
         recovery = int(min(99, max(8, 70 + (hrv - 60) * 1.4 - load * 10 + rng.gauss(0, 6))))
         sleep_ms = int((7.1 + rng.gauss(0, 0.6) - load * 0.3) * 3600 * 1000)
         awake_ms = int(max(300_000, rng.gauss(1_800_000, 600_000)))
-        wake = datetime(d.year, d.month, d.day, 13, 45, tzinfo=timezone.utc)
+        wake = wc.simulated_wake(d, 6, 45, tz, seed)
         bed = wake - timedelta(milliseconds=sleep_ms + awake_ms)
         cycle_end = wake + timedelta(hours=16)
         fmt = "%Y-%m-%dT%H:%M:%S.000Z"
-        out["cycle"].append({"id": cid, "start": wake.strftime(fmt), "end": cycle_end.strftime(fmt), "score_state": "SCORED",
-                             "score": {"strain": strain, "kilojoule": round(8400 + strain * 310 + rng.gauss(0, 250), 1),
-                                       "average_heart_rate": int(66 + strain + rng.gauss(0, 2)), "max_heart_rate": int(150 + strain * 2)}})
-        out["recovery"].append({"cycle_id": cid, "sleep_id": f"sim-{cid}", "created_at": wake.strftime(fmt), "score_state": "SCORED",
-                                "score": {"recovery_score": recovery, "resting_heart_rate": rhr, "hrv_rmssd_milli": hrv,
-                                          "spo2_percentage": round(96.5 + rng.gauss(0, 0.8), 1),
-                                          "skin_temp_celsius": round(33.4 + rng.gauss(0, 0.3), 2)}})
-        out["sleep"].append({"id": f"sim-{cid}", "start": bed.strftime(fmt), "end": wake.strftime(fmt), "nap": False, "score_state": "SCORED",
-                             "score": {"stage_summary": {"total_in_bed_time_milli": sleep_ms + awake_ms, "total_awake_time_milli": awake_ms,
-                                                         "total_light_sleep_time_milli": int(sleep_ms * 0.52),
-                                                         "total_slow_wave_sleep_time_milli": int(sleep_ms * 0.23),
-                                                         "total_rem_sleep_time_milli": int(sleep_ms * 0.25)},
-                                       "sleep_performance_percentage": int(min(100, max(45, sleep_ms / 3600000 / 8 * 100 + rng.gauss(0, 4)))),
-                                       "respiratory_rate": round(15.1 + rng.gauss(0, 0.5), 1)}})
+        cycle = {"id": cid, "start": wake.strftime(fmt), "end": cycle_end.strftime(fmt), "score_state": "SCORED",
+                 "score": {"strain": strain, "kilojoule": round(8400 + strain * 310 + rng.gauss(0, 250), 1),
+                           "average_heart_rate": int(66 + strain + rng.gauss(0, 2)), "max_heart_rate": int(150 + strain * 2)}}
+        recovered = {"cycle_id": cid, "sleep_id": f"sim-{cid}", "created_at": wake.strftime(fmt), "score_state": "SCORED",
+                     "score": {"recovery_score": recovery, "resting_heart_rate": rhr, "hrv_rmssd_milli": hrv,
+                               "spo2_percentage": round(96.5 + rng.gauss(0, 0.8), 1),
+                               "skin_temp_celsius": round(33.4 + rng.gauss(0, 0.3), 2)}}
+        sleep = {"id": f"sim-{cid}", "start": bed.strftime(fmt), "end": wake.strftime(fmt), "nap": False, "score_state": "SCORED",
+                 "score": {"stage_summary": {"total_in_bed_time_milli": sleep_ms + awake_ms, "total_awake_time_milli": awake_ms,
+                                             "total_light_sleep_time_milli": int(sleep_ms * 0.52),
+                                             "total_slow_wave_sleep_time_milli": int(sleep_ms * 0.23),
+                                             "total_rem_sleep_time_milli": int(sleep_ms * 0.25)},
+                           "sleep_performance_percentage": int(min(100, max(45, sleep_ms / 3600000 / 8 * 100 + rng.gauss(0, 4)))),
+                           "respiratory_rate": round(15.1 + rng.gauss(0, 0.5), 1)}}
+        if wake <= now:
+            out["cycle"].append(cycle)
+            out["recovery"].append(recovered)
+            out["sleep"].append(sleep)
         wr = random.Random(f"{seed}-{d.isoformat()}-workout")   # per day, so re-syncs yield the same workouts
         sport, speed = wr.choice([("running", 2.9), ("cycling", 6.5), ("weightlifting", 0.0), ("functional-fitness", 0.0)])
         minutes = wr.randint(30, 80)
         w_start = wake + timedelta(hours=wr.uniform(2, 9))
-        if wr.random() < 0.5 and w_start + timedelta(minutes=minutes) < datetime.now(timezone.utc):
+        if wr.random() < 0.5 and w_start + timedelta(minutes=minutes) < now:
             avg_hr = int(125 + load * 12 + wr.gauss(0, 6))
             out["workout"].append({"id": f"sim-wo-{cid}", "sport_name": sport, "score_state": "SCORED",
                                    "start": w_start.strftime(fmt), "end": (w_start + timedelta(minutes=minutes)).strftime(fmt),

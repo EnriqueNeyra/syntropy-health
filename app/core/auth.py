@@ -23,9 +23,10 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from fastapi import HTTPException, Request, status
+from starlette.concurrency import run_in_threadpool
 
 from app.core import config, context, security, settings
-from app.core.db import audit, db
+from app.core.db import audit, db, read
 from app.store import accounts
 
 SESSION_COOKIE = "syntropy_session"
@@ -200,12 +201,14 @@ def _session(token: Optional[str]) -> Optional[dict]:
         return None
     now = time.time()
     h = security.hash_token(token)
-    with db() as conn:
+    # Looked up without the write lock (every request does this); written only every few minutes, to slide the expiry.
+    with read() as conn:
         row = conn.execute("SELECT account_id, device_id, expires_at, last_seen_at FROM user_sessions WHERE token_hash = ?",
                            (h,)).fetchone()
-        if not row or row["expires_at"] < now:
-            return None
-        if now - row["last_seen_at"] > 300:  # sliding expiration, throttled writes
+    if not row or row["expires_at"] < now:
+        return None
+    if now - row["last_seen_at"] > 300:  # sliding expiration, throttled writes
+        with db() as conn:
             conn.execute(
                 "UPDATE user_sessions SET last_seen_at = ?, expires_at = ? WHERE token_hash = ?",
                 (now, now + SESSION_TTL, h),
@@ -275,17 +278,23 @@ def _check_csrf(request: Request) -> None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Missing X-Requested-With: syntropy header.")
 
 
-async def require_user(request: Request) -> Principal:
-    """Dependency for dashboard API routes."""
+def _signed_in(request: Request, *, password_set: bool = True) -> Principal:
+    """Who's asking, for the dependencies below. It reads the database, so they run it in a worker thread: on the
+    event loop, a slow read (or one waiting on the disk) would hold up every other request."""
     if not is_setup_complete():
         raise HTTPException(status.HTTP_428_PRECONDITION_REQUIRED, "Setup required.")
     _check_csrf(request)
     principal = current_user(request)
     if principal is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authentication required.")
-    if password_missing():
+    if password_set and password_missing():
         _password_needed()
-    return _enter(request, principal)
+    return principal
+
+
+async def require_user(request: Request) -> Principal:
+    """Dependency for dashboard API routes."""
+    return _enter(request, await run_in_threadpool(_signed_in, request))
 
 
 async def require_owner(request: Request) -> Principal:
@@ -298,31 +307,35 @@ async def require_owner(request: Request) -> Principal:
 
 async def require_user_to_set_password(request: Request) -> Principal:
     """Like require_user, but also while the password still has to be chosen (the route that chooses it)."""
-    if not is_setup_complete():
-        raise HTTPException(status.HTTP_428_PRECONDITION_REQUIRED, "Setup required.")
-    _check_csrf(request)
-    principal = current_user(request)
-    if principal is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authentication required.")
-    return _enter(request, principal)
+    return _enter(request, await run_in_threadpool(_signed_in, request, password_set=False))
 
 
 def get_device(device_id: str) -> Optional[dict]:
-    with db() as conn:
+    with read() as conn:
         row = conn.execute("SELECT * FROM devices WHERE id = ? AND revoked_at IS NULL", (device_id,)).fetchone()
     return dict(row) if row else None
+
+
+DEVICE_SEEN_EVERY_S = 60
 
 
 def device_from_token(token: Optional[str]) -> Optional[dict]:
     if not token:
         return None
-    with db() as conn:
+    with read() as conn:
         row = conn.execute(
             "SELECT * FROM devices WHERE token_hash = ? AND revoked_at IS NULL", (security.hash_token(token),)
         ).fetchone()
-        if row:
-            conn.execute("UPDATE devices SET last_seen_at = ? WHERE id = ?", (time.time(), row["id"]))
-    return dict(row) if row else None
+    if not row:
+        return None
+    device = dict(row)
+    # When it was last heard from (Sources shows it), without a write on each of a sync's many requests.
+    now = time.time()
+    if now - (device.get("last_seen_at") or 0) > DEVICE_SEEN_EVERY_S:
+        with db() as conn:
+            conn.execute("UPDATE devices SET last_seen_at = ? WHERE id = ?", (now, device["id"]))
+        device["last_seen_at"] = now
+    return device
 
 
 def _bearer(request: Request) -> Optional[str]:
@@ -335,22 +348,26 @@ def _bearer(request: Request) -> Optional[str]:
     return None
 
 
-async def require_device_or_user(request: Request) -> Principal:
-    """Ingest endpoints accept a paired device token, or a logged-in dashboard session."""
+def _device_or_user(request: Request) -> Principal:
     device = device_from_token(_bearer(request))
     if device:
         # A phone sends for one person; it reads only what its preferences need.
-        return _enter(request, Principal(kind="device", device_id=device["id"], profile_id=device["profile_id"],
-                                         account_id=device.get("account_id"), access={device["profile_id"]: "manage"},
-                                         home=device["profile_id"]))
+        return Principal(kind="device", device_id=device["id"], profile_id=device["profile_id"],
+                         account_id=device.get("account_id"), access={device["profile_id"]: "manage"},
+                         home=device["profile_id"])
     if is_setup_complete():
         principal = current_user(request)
         if principal is not None:
             _check_csrf(request)
             if password_missing():
                 _password_needed()
-            return _enter(request, principal)
+            return principal
     raise HTTPException(
         status.HTTP_401_UNAUTHORIZED,
-        "Device not paired. Generate a pairing code in Syntropy Health → Sources → iPhone companion.",
+        "This phone isn't paired. Pair it again from Syntropy Health → Sources → Phones & watches.",
     )
+
+
+async def require_device_or_user(request: Request) -> Principal:
+    """Ingest endpoints accept a paired device token, or a logged-in dashboard session."""
+    return _enter(request, await run_in_threadpool(_device_or_user, request))

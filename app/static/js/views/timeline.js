@@ -58,7 +58,7 @@ export async function render({ el, state, navigate }) {
 
   mount(el, html`
     <div class="page-head"><div><h1>Timeline</h1><p>Your health history in order: every institution, with what you logged and your devices noticed along the way.</p></div>
-      <div class="search" style="min-width:240px">${icon("search")}<input class="input" id="tl-q" placeholder="Filter timeline…"></div></div>
+      <div class="search" style="min-width:240px">${icon("search")}<input class="input" id="tl-q" placeholder="Filter timeline…" aria-label="Filter the timeline"></div></div>
     <div class="chips" id="tl-filters" style="margin-bottom:16px"></div>
     <div class="card card-pad" id="tl-body">${loading(4)}</div>`);
 
@@ -68,7 +68,10 @@ export async function render({ el, state, navigate }) {
   const draw = () => {
     const body = $("#tl-body", el);
     if (!items.length) {
-      mount(body, emptyState("Nothing on your timeline yet", "Connect a health system to build your history."));
+      mount(body, q ? emptyState("Nothing matches", `Nothing on the timeline matches “${q}”.`)
+        : filter ? emptyState("Nothing here yet", "Choose Everything to see the rest of your history.")
+        : emptyState("Nothing on your timeline yet", "Connect a health system, or log how you're feeling in the Journal, to start your history.",
+          html`<a class="btn btn-primary" href="#/sources?add=ehr">${icon("plus")} Connect a health system</a>`));
       return;
     }
     const groups = new Map();

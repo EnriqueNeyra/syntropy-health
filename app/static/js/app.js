@@ -149,8 +149,7 @@ export const state = {
 
 let cleanup = null;
 let renderSeq = 0;
-let shownRoute = null;       // the section on screen, so switching sections and switching tabs animate differently
-let pageTransition = null;
+let shownRoute = null;       // the section on screen: only going to another section animates
 
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, "");
@@ -207,7 +206,9 @@ const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)"
 /** Changes colors (theme, accent) with a short cross-fade rather than a snap. */
 export function themeTransition(apply) {
   if (reducedMotion()) return apply();
-  if (document.startViewTransition) {
+  // Not with a View Transition in the Mac app: it snapshots the whole window, and over the see-through sidebar the
+  // snapshot dims and flickers while the window's own sidebar material changes at once. The colors ease instead.
+  if (document.startViewTransition && shell !== "mac") {
     document.documentElement.dataset.vt = "theme";
     const t = document.startViewTransition(apply);
     t.finished.finally(() => { if (document.documentElement.dataset.vt === "theme") delete document.documentElement.dataset.vt; });
@@ -248,6 +249,20 @@ export async function setAccent(id) {
 
 function toggleTheme() {
   setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+}
+
+// The appearance button shows the other theme's icon, also when the device switches between light and dark by itself
+// (theme.js follows it without drawing the shell again).
+new MutationObserver(() => {
+  const btn = document.getElementById("theme-btn");
+  if (btn) mount(btn, icon(document.documentElement.getAttribute("data-theme") === "dark" ? "sun" : "moon"));
+}).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+/** Lock, or sign out of a household's server. If the server can't be reached, say so rather than appear to have locked. */
+async function signOut() {
+  try { await post("/api/auth/logout"); }
+  catch (err) { toast(err.message, "bad"); return; }
+  location.reload();
 }
 
 // ------------------------------------------------------------------ popovers (alerts, profile menu, mobile "More")
@@ -337,7 +352,7 @@ function openMore(button) {
     if (!b) return;
     closePopover();
     if (b.dataset.more === "theme") toggleTheme();
-    if (b.dataset.more === "lock") { await post("/api/auth/logout"); location.reload(); }
+    if (b.dataset.more === "lock") await signOut();
   });
 }
 
@@ -398,7 +413,7 @@ function renderShell() {
       </div>`);
     onAction(root.querySelector(".topbar"), {
       theme: toggleTheme,
-      logout: async () => { await post("/api/auth/logout"); location.reload(); },
+      logout: signOut,
       alerts: (_, btn) => openAlerts(btn),
     });
     onAction(root.querySelector(".sidebar"), { profile: (_, btn) => openProfileMenu(btn, { above: true }) });
@@ -524,8 +539,10 @@ async function route(opts) {
   if (!keepScroll && composerHandlers) setComposer(null);
   const next = document.createElement("main");
   next.className = "content";
-  // Another section slides in; a tab or filter within the same page cross-fades; fresh data redraws in place.
-  const motion = keepScroll || nativeNav || reducedMotion() ? null : name !== shownRoute ? "section" : "tab";
+  // Another section's content rises in; a tab or filter within the same page, and fresh data, swap in place. Only the
+  // content moves: the sidebar and top bar stay put. (A View Transition cross-faded the whole window, which
+  // double-exposed both pages, dimmed the Mac app's see-through sidebar and made the top bar jump.)
+  const motion = !keepScroll && !nativeNav && !reducedMotion() && name !== shownRoute;
   // Fresh data drawn in place (keepScroll) doesn't replay the charts' intro.
   document.documentElement.classList.toggle("no-intro", keepScroll);
   shownRoute = name;
@@ -533,26 +550,14 @@ async function route(opts) {
   const show = () => {
     if (shown || seq !== renderSeq) return;
     shown = true;
-    const swap = () => {
-      if (seq !== renderSeq) return;      // a later page replaced this one before its transition ran
-      const current = $("#view");
-      next.id = "view";
-      current.replaceWith(next);
-      if (!keepScroll) scrollToTop();
-    };
-    pageTransition?.skipTransition();
-    if (motion && document.startViewTransition && !document.hidden) {
-      document.documentElement.dataset.vt = motion;
-      pageTransition = document.startViewTransition(swap);
-      pageTransition.finished.finally(() => {
-        pageTransition = null;
-        if (document.documentElement.dataset.vt === motion) delete document.documentElement.dataset.vt;
-      });
-    } else swap();
-    if (motion === "section" && !document.hidden) {     // hidden, the animation may never run and leave it see-through
+    const current = $("#view");
+    next.id = "view";
+    if (motion && !document.hidden) {     // hidden, the animation may never run and leave it see-through
       next.classList.add("page-enter");
       next.addEventListener("animationend", () => next.classList.remove("page-enter"), { once: true });
     }
+    current.replaceWith(next);
+    if (!keepScroll) scrollToTop();
   };
   const timer = setTimeout(show, PLACEHOLDER_AFTER_MS);
   const progress = setTimeout(() => { if (seq === renderSeq) setLoading(true); }, PROGRESS_AFTER_MS);
@@ -663,6 +668,7 @@ export function sendPreferences() {
 
 // ------------------------------------------------------------------ auth screens
 function authScreen(content) {
+  document.title = "Syntropy Health";        // not the section that was open before signing in
   mount(document.getElementById("root"), html`
     <div class="auth-wrap"><div class="card auth-card">
       <div class="brand">${wordmark()}</div>${content}
@@ -808,8 +814,12 @@ async function boot() {
       <p class="muted" style="margin-bottom:18px">${err.status ? err.message : unreachableMessage()}</p>
       <button class="btn btn-primary" style="width:100%" type="button" data-retry>Try again</button>`);
     document.querySelector("[data-retry]").addEventListener("click", boot);
-    // Back on the network (the laptop woke up, the server came back): try again by itself.
-    window.addEventListener("online", boot, { once: true });
+    // Back on the network (the laptop woke up, the server came back): try again by itself, once however many tries
+    // failed meanwhile.
+    if (!retryOnline) {
+      retryOnline = true;
+      window.addEventListener("online", () => { retryOnline = false; boot(); }, { once: true });
+    }
     return;
   }
   if (!state.status.setup_complete) return renderSetup(state.status, () => { history.replaceState(null, "", "#/"); boot(); });
@@ -853,8 +863,32 @@ async function boot() {
   setTimeout(() => Object.values(ROUTES).forEach((r) => r.load().catch(() => {})), 1500);
 }
 let started = false;
+let retryOnline = false;
 
-onUnauthorized(() => { state.status = null; renderLogin(); });
+// The session ran out (or was signed out elsewhere) while the app was open: the sign-in screen, as it shows on opening
+// (who's signing in, with names to choose from nearby), drawn once however many requests were turned away.
+let signingIn = false;
+onUnauthorized(async () => {
+  if (signingIn) return;
+  signingIn = true;
+  clearCache();
+  try { state.status = await get("/api/status", undefined, { fresh: true }); } catch { state.status = null; }
+  signingIn = false;
+  if (state.status?.authenticated) return;
+  closePopover();
+  closeDialogs();
+  renderLogin();
+});
+// Back from another site (a health system's sign-in page), the browser may show this page just as it was left, from
+// its back-forward cache: a dialog still saying "Preparing secure sign-in…", data from before. Draw it afresh.
+window.addEventListener("pageshow", (e) => {
+  if (!e.persisted || !state.status?.authenticated) return;
+  closePopover();
+  closeDialogs();
+  clearCache();
+  route({ keepScroll: true });
+  refreshAlerts(state.profile, state.status);
+});
 window.addEventListener("hashchange", () => {
   if (parseHash().route === "join" && !embedded) boot();     // an invitation link opened in this tab
   else if (state.status?.authenticated) route();

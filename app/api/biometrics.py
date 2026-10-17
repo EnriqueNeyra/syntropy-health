@@ -328,13 +328,13 @@ def _entry(req: JournalEntryIn) -> dict:
 
 
 @router.post("/api/journal", dependencies=[user])
-async def create_journal_entry(req: JournalEntryIn, profile: Optional[str] = None) -> dict:
+def create_journal_entry(req: JournalEntryIn, profile: Optional[str] = None) -> dict:
     prof = resolve_profile(profile)
     return activity.create_entry(prof["id"], _entry(req))
 
 
 @router.put("/api/journal/{entry_id}", dependencies=[user])
-async def update_journal_entry(entry_id: str, req: JournalEntryIn, profile: Optional[str] = None) -> dict:
+def update_journal_entry(entry_id: str, req: JournalEntryIn, profile: Optional[str] = None) -> dict:
     prof = resolve_profile(profile)
     updated = activity.update_entry(prof["id"], entry_id, _entry(req))
     if not updated:
@@ -343,7 +343,7 @@ async def update_journal_entry(entry_id: str, req: JournalEntryIn, profile: Opti
 
 
 @router.delete("/api/journal/{entry_id}", dependencies=[user])
-async def delete_journal_entry(entry_id: str, profile: Optional[str] = None) -> dict:
+def delete_journal_entry(entry_id: str, profile: Optional[str] = None) -> dict:
     prof = resolve_profile(profile)
     if not activity.delete_entry(prof["id"], entry_id):
         raise HTTPException(404, "Only entries logged in the Journal can be deleted.")
@@ -399,7 +399,7 @@ class PairingCodeRequest(BaseModel):
 
 
 @router.post("/api/devices/pairing-code", dependencies=[user])
-async def pairing_code(req: PairingCodeRequest, request: Request) -> dict:
+def pairing_code(req: PairingCodeRequest, request: Request) -> dict:
     """A code for a phone to send one person's Health data (someone the account manages: itself, or a child)."""
     prof = resolve_profile(req.profile_id, "manage")
     principal = context.principal()
@@ -418,7 +418,7 @@ PAIR_WINDOW, PAIR_MAX_FAILURES = 900, 10
 
 
 @router.post("/api/devices/pair")
-async def pair(req: PairRequest, request: Request) -> dict:
+def pair(req: PairRequest, request: Request) -> dict:
     ip = request.client.host if request.client else "unknown"
     now = time.time()
     recent = [t for t in _pair_failures.get(ip, []) if now - t < PAIR_WINDOW]
@@ -433,7 +433,7 @@ async def pair(req: PairRequest, request: Request) -> dict:
 
 
 @router.post("/api/devices/web-session")
-async def web_session(request: Request, principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
+def web_session(request: Request, principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
     """Signs the paired iPhone app's Syntropy tab in to the web app, so it never asks for the password. The app
     sets the returned cookie in its web view. Each device has at most one such session, and revoking the device
     ends it."""
@@ -445,13 +445,13 @@ async def web_session(request: Request, principal: auth.Principal = Depends(auth
     # for a person they look after opens only that person (see auth._account_principal).
     account = accounts.get(principal.account_id) or accounts.for_profile(principal.profile_id or "")
     if not account:
-        raise HTTPException(403, "Pair this iPhone again to open Syntropy Health in the app.")
+        raise HTTPException(403, "Pair this phone again to open Syntropy Health in the app.")
     token = auth.create_session(request, account["id"], device_id=principal.device_id)
     return {"cookie": {"name": auth.SESSION_COOKIE, "value": token, "max_age": auth.SESSION_TTL}}
 
 
 @router.post("/api/devices/self/revoke")
-async def revoke_self(principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
+def revoke_self(principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
     """The app disconnecting: revokes its own token (and web session) so it doesn't linger as a source."""
     if principal.kind != "device":
         raise HTTPException(403, "Only a paired device can revoke itself.")
@@ -468,7 +468,7 @@ def list_devices(profile: Optional[str] = None) -> dict:
 
 
 @router.delete("/api/devices/{device_id}", dependencies=[user])
-async def revoke_device(device_id: str) -> dict:
+def revoke_device(device_id: str) -> dict:
     device = devices.get_device(device_id)
     if not device:
         raise HTTPException(404, "Device not found")

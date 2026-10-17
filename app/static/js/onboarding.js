@@ -37,7 +37,7 @@ export function renderSetup(status, onDone) {
             at home. Sign in there as yourself.</span></span>${icon("chevronRight")}</button>
         <button class="onboard-tile" type="button" data-action="host"><span class="ev-icon">${icon("monitor")}</span>
           <span class="grow"><b>Set it up on this Mac</b><span class="small muted">This Mac becomes the server: it keeps everyone's
-            records and should stay on for your iPhone to sync.</span></span>${icon("chevronRight")}</button>
+            records and should stay on for your phone to sync.</span></span>${icon("chevronRight")}</button>
       </div>`);
     onAction($(".onboard-card"), { join, host: welcome });
     looking.then((found) => {
@@ -111,7 +111,7 @@ export function renderSetup(status, onDone) {
     screen(2, html`
       <h1>Protect your records</h1>
       <p class="muted onboard-lede">Your records are private, so Syntropy Health asks for this password whenever it's opened, on this
-        computer or another device. Your iPhone gets its own sign-in when you pair it.</p>
+        computer or another device. Your phone gets its own sign-in when you pair it.</p>
       <form id="setup-form">
         <div class="field"><label class="label" for="s-pass">Password</label>
           <input class="input" id="s-pass" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
@@ -122,7 +122,7 @@ export function renderSetup(status, onDone) {
           <span>Development mode: don't use a password.</span></label>` : ""}
         <div class="field">${termsCheckbox()}</div>
         <p class="tiny faint field">Time zone: ${tz}</p>
-        <div class="onboard-foot"><button class="btn" type="button" data-action="back">Back</button>
+        <div class="onboard-foot"><button class="btn" type="button" data-action="back">Back</button><span class="grow"></span>
           <button class="btn btn-primary" type="submit">Create my health record</button></div>
       </form>`);
     const form = $("#setup-form");

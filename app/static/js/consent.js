@@ -13,7 +13,7 @@ export function termsCheckbox(id = "s-terms") {
   return html`<label class="checkbox small terms-check"><input type="checkbox" id="${id}" required>
     <span>I understand that my health records are stored on this computer, that keeping it secure and backed up is up to
       me, and that Syntropy Health isn't medical advice.
-      <a href="${TERMS_URL}" target="_blank" rel="noopener">Terms</a> · <a href="${PRIVACY_URL}" target="_blank" rel="noopener">Privacy</a></span></label>`;
+      <span class="nowrap"><a href="${TERMS_URL}" target="_blank" rel="noopener">Terms</a> · <a href="${PRIVACY_URL}" target="_blank" rel="noopener">Privacy</a></span></span></label>`;
 }
 
 /** Asked once, before Ask first uses an AI outside the person's network. Resolves true once confirmed. */

@@ -1,8 +1,9 @@
 """
 SQLite access layer.
 
-* One short-lived connection per unit of work (``with db() as conn``), which is the
-  safest pattern for SQLite under an async server with background tasks.
+* One short-lived connection per unit of work that writes (``with db() as conn``), which is the
+  safest pattern for SQLite under an async server with background tasks. Reads (``with read() as conn``)
+  borrow a kept connection from a small pool instead, since a page's requests read many times.
 * WAL journaling + busy timeout so the scheduler, ingest and UI never block each other.
 * Versioned migrations (``PRAGMA user_version``) from ``app/core/migrations``,
   including an upgrade path for databases created by the pre-1.0 prototype.
@@ -31,13 +32,56 @@ _migrated_paths: set[str] = set()
 _migrate_lock = threading.Lock()
 
 
-def _connect(path: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(path), timeout=15.0, isolation_level=None)
+def _connect(path: Path, *, check_same_thread: bool = True) -> sqlite3.Connection:
+    conn = sqlite3.connect(str(path), timeout=15.0, isolation_level=None, check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout = 15000")
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA synchronous = NORMAL")
     return conn
+
+
+# Read connections are kept and reused: opening one costs about as much as a small query, and a page's request reads a
+# dozen times (who's asking, settings, then the data). Each read takes one for itself (so nested reads, and a
+# generator that reads across yields, never share one), and gives it back when done; a connection whose read failed
+# is closed instead. Kept per database file, so tests that switch folders start afresh (see reset_migration_cache).
+_READ_POOL_MAX = 16
+_read_pool: dict[str, list[sqlite3.Connection]] = {}
+_read_pool_lock = threading.Lock()
+
+
+def _take_reader(path: Path) -> sqlite3.Connection:
+    with _read_pool_lock:
+        idle = _read_pool.get(str(path))
+        if idle:
+            return idle.pop()
+    # Handed between threads (a streamed response's generator resumes in whichever worker is free), but only ever
+    # used by one at a time: the pool gives each connection to one read.
+    conn = _connect(path, check_same_thread=False)
+    conn.execute("PRAGMA query_only = ON")
+    conn.execute("PRAGMA cache_size = -8000")      # 8 MB of pages, kept between reads
+    return conn
+
+
+def _return_reader(path: Path, conn: sqlite3.Connection) -> None:
+    with _read_pool_lock:
+        idle = _read_pool.setdefault(str(path), [])
+        if len(idle) < _READ_POOL_MAX:
+            idle.append(conn)
+            return
+    conn.close()
+
+
+def close_readers() -> None:
+    with _read_pool_lock:
+        pools = list(_read_pool.values())
+        _read_pool.clear()
+    for idle in pools:
+        for conn in idle:
+            try:
+                conn.close()
+            except sqlite3.Error:
+                pass
 
 
 @contextmanager
@@ -73,14 +117,21 @@ def read() -> Iterator[sqlite3.Connection]:
     it never waits for the writer or other readers, and page requests run side by side. Writes are refused."""
     path = config.db_path()
     ensure_migrated(path)
-    conn = _connect(path)
+    conn = _take_reader(path)
+    done = False
     try:
-        conn.execute("PRAGMA query_only = ON")
         conn.execute("BEGIN")
         yield conn
         conn.execute("COMMIT")
+        done = True
     finally:
-        conn.close()
+        if done:
+            _return_reader(path, conn)
+        else:
+            try:
+                conn.close()          # closing ends any transaction left open
+            except sqlite3.Error:
+                pass
 
 
 def _make_private(path: Path) -> None:
@@ -119,6 +170,7 @@ def ensure_migrated(path: Optional[Path] = None) -> None:
 
 def reset_migration_cache() -> None:
     _migrated_paths.clear()
+    close_readers()
 
 
 def _run_migrations(conn: sqlite3.Connection) -> None:

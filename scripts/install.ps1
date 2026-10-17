@@ -121,7 +121,7 @@ if (-not $NoService) {
       New-NetFirewallRule -DisplayName "Syntropy Health" -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow -Profile Private | Out-Null
     }
   } else {
-    Write-Host "    For your iPhone and other devices to connect, allow port $Port through Windows Firewall on private networks"
+    Write-Host "    For your phone and other devices to connect, allow port $Port through Windows Firewall on private networks"
     Write-Host "    (or run this installer once as administrator)."
   }
 }

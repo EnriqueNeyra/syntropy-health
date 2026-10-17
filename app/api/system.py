@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ipaddress
+import json
+import time
 from datetime import date
 from typing import Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -12,7 +14,7 @@ from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app.core import auth, config, context, settings
-from app.core.db import audit, db, rows_to_dicts
+from app.core.db import audit, db, read, rows_to_dicts
 from app.services import network, updates
 from app.store import accounts, profiles
 
@@ -21,7 +23,7 @@ router = APIRouter(tags=["system"])
 
 @router.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
 def health() -> dict:
-    with db() as conn:
+    with read() as conn:
         mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
     return {"status": "ok", "service": "syntropy-health", "version": config.APP_VERSION, "journal_mode": mode}
 
@@ -169,7 +171,7 @@ def _known_zone(name: str) -> bool:
 
 
 @router.post("/api/setup")
-async def setup(req: SetupRequest, request: Request, response: Response) -> dict:
+def setup(req: SetupRequest, request: Request, response: Response) -> dict:
     if auth.is_setup_complete():
         raise HTTPException(409, "Setup has already been completed.")
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
@@ -296,7 +298,7 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/api/auth/login")
-async def login(req: LoginRequest, request: Request, response: Response) -> dict:
+def login(req: LoginRequest, request: Request, response: Response) -> dict:
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
     token = auth.login(request, req.password or req.passphrase or "", req.account)
@@ -313,7 +315,7 @@ class InviteCode(BaseModel):
 
 
 @router.post("/api/invites/check")
-async def check_invite(req: InviteCode, request: Request) -> dict:
+def check_invite(req: InviteCode, request: Request) -> dict:
     """Whom an invitation is for, before choosing a password. Counts toward the guessing limits like a sign-in."""
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
@@ -332,7 +334,7 @@ class JoinRequest(BaseModel):
 
 
 @router.post("/api/invites/accept")
-async def accept_invite(req: JoinRequest, request: Request, response: Response) -> dict:
+def accept_invite(req: JoinRequest, request: Request, response: Response) -> dict:
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
     if not auth.is_setup_complete():
@@ -351,7 +353,7 @@ async def accept_invite(req: JoinRequest, request: Request, response: Response) 
 
 
 @router.post("/api/auth/logout")
-async def logout(request: Request, response: Response) -> dict:
+def logout(request: Request, response: Response) -> dict:
     auth.logout(request)
     response.delete_cookie(auth.SESSION_COOKIE, path="/")
     return {"ok": True}
@@ -365,7 +367,7 @@ class PasswordRequest(BaseModel):
 
 @router.post("/api/auth/password")
 @router.post("/api/auth/passphrase", include_in_schema=False)     # earlier address
-async def change_password(req: PasswordRequest, request: Request, response: Response,
+def change_password(req: PasswordRequest, request: Request, response: Response,
                           principal: auth.Principal = Depends(auth.require_user_to_set_password)) -> dict:
     if not principal.account_id:
         raise HTTPException(400, "No account to change the password of.")
@@ -380,10 +382,11 @@ async def change_password(req: PasswordRequest, request: Request, response: Resp
 @router.get("/api/auth/sessions")
 def list_sessions(principal: auth.Principal = Depends(auth.require_user)) -> dict:
     """Where this account is signed in (its browsers and the screens of phones it paired)."""
-    with db() as conn:
-        rows = conn.execute("SELECT s.created_at, s.last_seen_at, s.expires_at, s.user_agent, s.ip, d.name AS device_name "
-                            "FROM user_sessions s LEFT JOIN devices d ON d.id = s.device_id WHERE s.account_id IS ? "
-                            "ORDER BY s.last_seen_at DESC", (principal.account_id,)).fetchall()
+    with read() as conn:
+        rows = conn.execute("SELECT s.created_at, s.last_seen_at, s.expires_at, s.user_agent, s.ip, d.name AS device_name, "
+                            "d.platform AS device_platform FROM user_sessions s LEFT JOIN devices d ON d.id = s.device_id "
+                            "WHERE s.account_id IS ? AND s.expires_at > ? ORDER BY s.last_seen_at DESC",
+                            (principal.account_id, time.time())).fetchall()
     return {"sessions": rows_to_dicts(rows)}
 
 
@@ -398,15 +401,50 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
     if principal.owner:
         where += " OR a.profile_id IS NULL"
     where += ")"
-    with db() as conn:
+    with read() as conn:
         rows = conn.execute(f"SELECT a.* FROM audit_log a WHERE {where} ORDER BY a.at DESC LIMIT ?",
                             (*params, max(1, min(limit, 500)))).fetchall()
         names = {r["id"]: r["name"] for r in conn.execute("SELECT a.id, p.name FROM accounts a JOIN profiles p ON p.id = a.profile_id")}
         devices = {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM devices")}
+        known = {"source": {r["id"]: r["display_name"] for r in conn.execute("SELECT id, display_name FROM connections")},
+                 "person": names,
+                 "for": {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM profiles")},
+                 "app": {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM agent_tokens")}}
     events = rows_to_dicts(rows)
     for e in events:
         kind, _, ref = (e["actor"] or "").partition(":")
         e["who"] = (names.get(ref) if kind == "user" else devices.get(ref) if kind == "device" else None) or e["actor"]
+        e["detail"] = _readable_detail(e["action"], e["detail"], known)
     return {"events": events}
+
+
+# Ids in an entry's details that have a name to show instead: {key in the details: its key once named}.
+_DETAIL_IDS = {"connection": "source", "account": "person", "profile": "for"}
+# What's shown for an id whose thing has since been deleted.
+_GONE = {"source": "a removed source", "person": "a removed account", "for": "someone removed", "app": "a removed app"}
+
+
+def _readable_detail(action: str, detail: Optional[str], known: dict[str, dict[str, str]]) -> Optional[str]:
+    """An entry's details with names where they hold ids ("source: Sutter Health" rather than "connection: con_8f2…"),
+    and an id left out when the entry names what it's about already."""
+    try:
+        value = json.loads(detail) if detail else None
+    except ValueError:
+        return detail
+    if not isinstance(value, dict):
+        return detail
+    out = {}
+    for key, v in value.items():
+        if key in _DETAIL_IDS and isinstance(v, str):
+            new = _DETAIL_IDS[key]
+            out[new] = known[new].get(v, _GONE[new])
+        elif key == "id" and isinstance(v, str):
+            if "name" in value:
+                continue
+            what = "source" if action.startswith("connection.") else "app" if action.startswith("agent.") else None
+            out["name" if what else key] = known[what].get(v, _GONE[what]) if what else v
+        else:
+            out[key] = v
+    return json.dumps(out)
 
 

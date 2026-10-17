@@ -1,15 +1,23 @@
 // Add lab results: typed in, or read from a report (PDF or photo) on the server or with the person's AI provider key,
 // then reviewed and saved.
 import { api, get, post } from "../api.js";
-import { $, $$, html, icon, modal, toast } from "../ui.js";
+import { $, $$, html, icon, loading, modal, toast } from "../ui.js";
 import { confirmAiProvider } from "../consent.js";
 
 const NUMBER = /^-?\d+(\.\d+)?$/;
 const today = () => new Date().toLocaleDateString("en-CA");   // YYYY-MM-DD in local time
 
 export async function openLabEntry(profile, onSaved) {
-  const [catalog, ai, reader] = await Promise.all([get("/api/labs/catalog", { profile: profile.id }), get("/api/ai/config"),
-    get("/api/labs/reader")]);
+  // The dialog opens at once; what it needs to know loads inside it.
+  const m = modal({ title: "Add lab results", wide: true, body: loading(3),
+    footer: html`<button class="btn" data-cancel>Cancel</button><button class="btn btn-primary" data-save disabled>Save results</button>` });
+  m.el.querySelector("[data-cancel]").addEventListener("click", m.close);
+  let catalog, ai, reader;
+  try {
+    [catalog, ai, reader] = await Promise.all([get("/api/labs/catalog", { profile: profile.id }), get("/api/ai/config"),
+      get("/api/labs/reader")]);
+  } catch (err) { m.close(); toast(err.message, "bad"); return; }
+  m.el.querySelector("[data-save]").disabled = false;
   const known = new Map();
   for (const t of [...catalog.common, ...catalog.yours]) known.set(t.name.toLowerCase(), t);
   let mode = "type";
@@ -20,8 +28,6 @@ export async function openLabEntry(profile, onSaved) {
   let fromReport = null;    // how the rows in the table were read
   let file = null;          // kept across redraws, so a report can be read again another way
 
-  const m = modal({ title: "Add lab results", wide: true, body: "",
-    footer: html`<button class="btn" data-cancel>Cancel</button><button class="btn btn-primary" data-save>Save results</button>` });
 
   const readRows = () => {
     collected = $("#lab-date", m.el)?.value || collected;
@@ -119,7 +125,6 @@ export async function openLabEntry(profile, onSaved) {
     const unit = tr.querySelector("[data-k=unit]");
     if (hit?.unit && !unit.value) unit.value = hit.unit.replace(/\{[^}]*\}/g, "");
   });
-  m.el.querySelector("[data-cancel]").addEventListener("click", m.close);
   m.el.querySelector("[data-save]").addEventListener("click", async (e) => {
     readRows();
     const num = (v) => (v === "" || v == null ? null : NUMBER.test(String(v).trim()) ? Number(v) : null);

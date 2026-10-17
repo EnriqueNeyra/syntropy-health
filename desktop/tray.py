@@ -187,7 +187,7 @@ class WindowsTray:
     def hidden_hint(self) -> None:
         if not self.hinted:
             self.hinted = True
-            self.icon.notify(f"{APP_NAME} is still running, so your iPhone can keep syncing. Quit it from this icon.",
+            self.icon.notify(f"{APP_NAME} is still running, so your phone can keep syncing. Quit it from this icon.",
                              APP_NAME)
 
 

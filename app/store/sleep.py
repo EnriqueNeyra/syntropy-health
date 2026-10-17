@@ -74,8 +74,11 @@ def _summary_night(parts: dict[str, list[tuple[float, float, float]]]) -> dict[s
     }
 
 
-def _all_nights(profile_id: str, start: date, end: date, tz) -> dict[tuple[str, str], dict[str, Any]]:
-    """(day, source) -> night, for nights ending between ``start`` and ``end``."""
+def _all_nights(profile_id: str, start: date, end: date, tz,
+                segments_on: Optional[str] = None) -> dict[tuple[str, str], dict[str, Any]]:
+    """(day, source) -> night, for nights ending between ``start`` and ``end``. Only nights ending on ``segments_on``
+    (the latest, whose hypnogram is drawn) keep their stage-by-stage segments: writing them out for years of nights
+    took most of the time."""
     # A night can start up to a day before the morning it counts toward.
     lo_utc, hi_utc = (datetime.combine(d, time.min, tz).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                       for d in (start - timedelta(days=2), end + timedelta(days=2)))
@@ -121,7 +124,8 @@ def _all_nights(profile_id: str, start: date, end: date, tz) -> dict[tuple[str, 
         for woke, night in groups:
             day = datetime.fromtimestamp(woke, tz).date().isoformat()
             if start.isoformat() <= day <= end.isoformat():
-                out[(day, source)] = {"day": day, "source": source, **_staged_night(night, tz, keep_segments=True)}
+                out[(day, source)] = {"day": day, "source": source,
+                                      **_staged_night(night, tz, keep_segments=day == segments_on)}
     return out
 
 
@@ -154,12 +158,14 @@ def nights(profile_id: str, days: int = 30, source: Optional[str] = None, end: O
     tz = _tz()
     series = biometrics.daily_series(profile_id, "sleep_duration", days=days, source=source, end=end)
     start, last = date.fromisoformat(series["start"]), date.fromisoformat(series["end"])
-    found = _all_nights(profile_id, start, last, tz)
+    points = series["points"]
+    found = _all_nights(profile_id, start, last, tz, segments_on=points[-1]["day"] if points else None)
+    any_source: dict[str, dict[str, Any]] = {}       # a night from another source, when the chosen one has none
+    for (d, _), v in found.items():
+        any_source.setdefault(d, v)
     out = []
-    for p in series["points"]:
-        n = found.get((p["day"], p["source"]))
-        if n is None:
-            n = next((v for (d, _), v in found.items() if d == p["day"]), None)
+    for p in points:
+        n = found.get((p["day"], p["source"])) or any_source.get(p["day"])
         if n is None:
             continue
         in_bed = max(n["asleep_h"], (n["wake_ts"] - n["bed_ts"]) / 3600.0)

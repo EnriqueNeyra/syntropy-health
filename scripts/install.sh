@@ -108,7 +108,13 @@ mac_main() {
     rm -rf "$APP"
     command -v uv >/dev/null 2>&1 && uv tool uninstall syntropy-health >/dev/null 2>&1 || true
     rm -f "$BIN/syntropy-health"
-    if [ "$PURGE" = 1 ]; then rm -rf "$DATA"; say "Removed Syntropy Health and its data."
+    if [ "$PURGE" = 1 ]; then
+      # The app's window keeps its own sign-in cookies, cache and window position under its bundle identifier.
+      for kept in WebKit Caches HTTPStorages; do rm -rf "$HOME/Library/$kept/io.syntropyhealth.desktop"; done
+      rm -rf "$DATA" "$HOME/Library/HTTPStorages/io.syntropyhealth.desktop.binarycookies" \
+        "$HOME/Library/Saved Application State/io.syntropyhealth.desktop.savedState"
+      defaults delete io.syntropyhealth.desktop >/dev/null 2>&1 || true
+      say "Removed Syntropy Health and its data."
     else say "Removed Syntropy Health. Your data is still in $DATA (delete it with --uninstall --purge)."; fi
     exit 0
   fi

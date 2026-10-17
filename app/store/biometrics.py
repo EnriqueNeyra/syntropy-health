@@ -15,6 +15,7 @@ interval the preferred sources did not cover. Steps taken with only the phone ar
 from __future__ import annotations
 
 import bisect
+import copy
 import math
 import time
 from collections import defaultdict
@@ -418,7 +419,41 @@ def rebuild_daily(profile_id: str, days: Optional[list[str]] = None, metrics: Op
                  max(i[2] for i in items), len(items), METRICS[metric][1]),
             )
             written += 1
+        mark_daily_changed(conn, profile_id)
     return written
+
+
+def mark_daily_changed(conn: Any, profile_id: str) -> None:
+    """Raises the person's rollup revision (in the same transaction as the change): what's cached from their daily rows
+    is worked out again on the next request. Called wherever biometric_daily changes."""
+    conn.execute("INSERT INTO daily_revisions(profile_id, rev) VALUES (?, 1) "
+                 "ON CONFLICT(profile_id) DO UPDATE SET rev = rev + 1", (profile_id,))
+
+
+def daily_revision(profile_id: str) -> int:
+    with read() as conn:
+        row = conn.execute("SELECT rev FROM daily_revisions WHERE profile_id = ?", (profile_id,)).fetchone()
+    return row[0] if row else 0
+
+
+# Worked out from the daily rows and kept until they change (see mark_daily_changed), or until what else they depend on
+# does (the day, the time zone, the source order): {(what, profile_id): (key, value)}. The revision lives in the database,
+# so another process (the MCP server) sees a change made by this one.
+_derived: dict[tuple[str, str], tuple[Any, Any]] = {}
+_DERIVED_MAX = 256
+
+
+def _cached(what: str, profile_id: str, key: Any, compute: Any) -> Any:
+    full = (daily_revision(profile_id), datetime.now(_tz()).date().isoformat(), settings.timezone_name(),
+            dumps(source_orders()), key)
+    hit = _derived.get((what, profile_id))
+    if hit and hit[0] == full:
+        return copy.deepcopy(hit[1])
+    value = compute()
+    if len(_derived) >= _DERIVED_MAX:
+        _derived.clear()
+    _derived[(what, profile_id)] = (full, value)
+    return copy.deepcopy(value)
 
 
 def _sleep_nights(stages: dict[str, list[tuple[float, float, str]]], tz: ZoneInfo) -> dict[tuple[str, str, str], list[float]]:
@@ -459,7 +494,7 @@ DAILY_VERSION = 3
 def upgrade_daily_if_needed() -> None:
     if settings.get("biometrics.daily_version") == DAILY_VERSION:
         return
-    with db() as conn:
+    with read() as conn:
         profiles = [r[0] for r in conn.execute("SELECT DISTINCT profile_id FROM biometric_samples").fetchall()]
     for profile_id in profiles:
         rebuild_daily(profile_id)
@@ -665,6 +700,11 @@ def in_progress(metric: str) -> bool:
 
 
 def available_metrics(profile_id: str) -> list[dict[str, Any]]:
+    """Every metric the person has daily values for, with how many days, the latest day and its sources."""
+    return _cached("metrics", profile_id, None, lambda: _available_metrics(profile_id))
+
+
+def _available_metrics(profile_id: str) -> list[dict[str, Any]]:
     with read() as conn:
         rows = conn.execute(
             "SELECT metric_type, COUNT(DISTINCT day) AS days, MAX(day) AS latest_day, GROUP_CONCAT(DISTINCT source_name) AS sources "
@@ -682,19 +722,28 @@ def available_metrics(profile_id: str) -> list[dict[str, Any]]:
 
 def with_latest_values(profile_id: str, metrics: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Adds each metric's value on its most recent day, from the source "Best source" would show."""
+    latest = _cached("latest", profile_id, None, lambda: {
+        m["metric"]: _latest_value(profile_id, m) for m in available_metrics(profile_id)})
     for m in metrics:
-        m["latest_value"] = None
-        if not m.get("latest_day"):
-            continue
-        points = daily_series(profile_id, m["metric"], days=1, end=date.fromisoformat(m["latest_day"]))["points"]
-        if points:
-            m["latest_value"] = points[-1]["value"]
+        m["latest_value"] = latest.get(m["metric"])
     return metrics
+
+
+def _latest_value(profile_id: str, m: dict[str, Any]) -> Optional[float]:
+    if not m.get("latest_day"):
+        return None
+    points = daily_series(profile_id, m["metric"], days=1, end=date.fromisoformat(m["latest_day"]))["points"]
+    return points[-1]["value"] if points else None
 
 
 def headline(profile_id: str, metrics: Optional[list[str]] = None) -> list[dict[str, Any]]:
     """Latest value plus 7/30-day averages and a 30-day sparkline for the key metrics, or for ``metrics`` (the ones
     chosen for the Overview) in that order."""
+    chosen = tuple(metrics[:40]) if metrics else None
+    return _cached(f"headline:{chosen}", profile_id, chosen, lambda: _headline(profile_id, metrics))
+
+
+def _headline(profile_id: str, metrics: Optional[list[str]] = None) -> list[dict[str, Any]]:
     have = {m["metric"] for m in available_metrics(profile_id)}
     out = []
     for metric in (metrics[:40] if metrics else HEADLINE_METRICS):
@@ -726,10 +775,9 @@ _source_totals: dict[str, tuple[tuple, list[dict[str, Any]]]] = {}
 
 def _samples_signature(conn: Any, profile_id: str) -> tuple:
     """Changes whenever the profile's samples do: new rows raise the highest rowid, and every insert or delete is
-    followed by a rebuild of the (small) daily table, which changes its counts."""
-    daily = conn.execute("SELECT COUNT(*), COALESCE(SUM(sample_count), 0) FROM biometric_daily WHERE profile_id = ?",
-                         (profile_id,)).fetchone()
-    return (daily[0], daily[1], conn.execute("SELECT MAX(rowid) FROM biometric_samples").fetchone()[0])
+    followed by a rebuild of the daily rows, which raises their revision."""
+    rev = conn.execute("SELECT rev FROM daily_revisions WHERE profile_id = ?", (profile_id,)).fetchone()
+    return (rev[0] if rev else 0, conn.execute("SELECT MAX(rowid) FROM biometric_samples").fetchone()[0])
 
 
 def overview(profile_id: str) -> dict[str, Any]:

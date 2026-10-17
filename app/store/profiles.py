@@ -86,6 +86,7 @@ def delete_profile(profile_id: str) -> None:
     with db() as conn:
         conn.execute("DELETE FROM biometric_samples WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM biometric_daily WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM daily_revisions WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM sync_batches WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM workouts WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM health_events WHERE profile_id = ?", (profile_id,))

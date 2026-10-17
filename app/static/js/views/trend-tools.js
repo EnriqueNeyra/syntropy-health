@@ -5,7 +5,7 @@ import { api, get } from "../api.js";
 import { barChart, lineChart, responsive, scatterChart } from "../charts.js";
 import { hoursText, metricUnit, metricValue } from "./overview.js";
 import { convert, displayUnit } from "../units.js";
-import { fmtDate, fmtNum, html, icon, modal, mount, toast } from "../ui.js";
+import { fmtDate, fmtNum, html, icon, modal, mount, plural, toast } from "../ui.js";
 
 // Periods, the same words as Workouts and the Journal. "All" asks for ten years; the chart starts at the first day.
 export const RANGES = [[7, "7 days"], [30, "30 days"], [90, "90 days"], [365, "1 year"], [3650, "All"]];
@@ -81,12 +81,10 @@ export function measureFormat(meta) {
 }
 
 // ------------------------------------------------------------------ goals
-let goalCache = null;
-export async function loadGoals(profileId, fresh = false) {
-  if (!fresh && goalCache?.profileId === profileId) return goalCache.data;
-  const data = await get("/api/goals", { profile: profileId }, { fresh: true });
-  goalCache = { profileId, data };
-  return data;
+// These lookups go through api.js's short-lived cache (emptied by any change) rather than being kept for good, so a
+// goal set on another device, or records from a new sync, show up without reloading the app.
+export function loadGoals(profileId, fresh = false) {
+  return get("/api/goals", { profile: profileId }, { fresh });
 }
 
 /** "at least 7h 30m", "at most 60 bpm". */
@@ -143,12 +141,8 @@ export function openGoal(profile, meta, current, suggested, onSaved) {
 }
 
 // ------------------------------------------------------------------ events from health records
-let markerCache = null;
 export async function loadMarkers(profileId) {
-  if (markerCache?.profileId === profileId) return markerCache.list;
-  const list = (await get("/api/insights/markers", { profile: profileId }).catch(() => ({ markers: [] }))).markers;
-  markerCache = { profileId, list };
-  return list;
+  return (await get("/api/insights/markers", { profile: profileId }).catch(() => ({ markers: [] }))).markers;
 }
 const MARKERS_KEY = "syntropy-trends-markers";
 export function markersOn() { try { return localStorage.getItem(MARKERS_KEY) !== "0"; } catch { return true; } }
@@ -161,24 +155,21 @@ export const markerList = (list) => (list.length ? html`<div class="marker-list 
   html`<span><span class="marker-dot"></span>${fmtDate(m.t)} · ${m.label}</span>`)}${list.length > 6 ? html`<span class="faint">and ${list.length - 6} more</span>` : ""}</div>` : "");
 
 // ------------------------------------------------------------------ compare
-let comparableCache = null;
 async function comparable(profileId) {
-  if (comparableCache?.profileId === profileId) return comparableCache.list;
-  const list = (await get("/api/insights/comparable", { profile: profileId })).measures;
-  comparableCache = { profileId, list };
-  return list;
+  return (await get("/api/insights/comparable", { profile: profileId })).measures;
 }
 const GROUP_NAMES = { journal: "How you felt (Journal)", workouts: "Workouts", sleep: "Sleep", readiness: "Recovery", heart: "Heart",
   activity: "Activity", vitals: "Vitals", body: "Body", mobility: "Mobility", nutrition: "Nutrition", hearing: "Hearing" };
 
-/** A label inside a sentence: "Steps" → "steps", but "HRV (RMSSD)" and "VO₂ max" stay as they are. */
-const soft = (label) => (/^[A-Z][a-z]/.test(label) ? label[0].toLowerCase() + label.slice(1) : label);
+/** A label inside a sentence: "Steps" → "steps", but "HRV (RMSSD)", "VO₂ max" and "SpO2" stay as they are. */
+const soft = (label) => (/^[A-Z][a-z]+(\s|$)/.test(label) ? label[0].toLowerCase() + label.slice(1) : label);
 const lagWords = (lag) => (lag === 1 ? "the next day" : lag === -1 ? "the day before" : lag > 1 ? `${lag} days later` : lag < -1 ? `${-lag} days before` : "on the same day");
 
 function describe(res) {
   const fa = measureFormat(res.a), fb = measureFormat(res.b);
   const when = lagWords(res.lag);
-  if (res.n < 7) return `Only ${res.n} days have both, not enough to compare yet.`;
+  if (res.n < 7) return res.n ? `Only ${plural(res.n, "day has", "days have")} both, not enough to compare yet.`
+    : "No days have both yet, so there's nothing to compare.";
   const a = soft(res.a.label), b = soft(res.b.label);
   const lead = res.strength === "no clear link" ? `No clear link between ${a} and ${b} ${when}`
     : `A ${res.strength} ${res.r > 0 ? "positive" : "negative"} link (r = ${fmtNum(res.r, 2)}): ${res.r > 0 ? "higher" : "lower"} ${b} ${res.lag ? when : ""} tended to go with higher ${a}`;

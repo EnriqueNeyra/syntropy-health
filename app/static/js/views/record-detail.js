@@ -31,7 +31,7 @@ function detailRows(r) {
       return [...common, ["Onset", fmtDate(r.effective_at)], ["Resolved", r.effective_end ? fmtDate(r.effective_end) : null],
               ["ICD-10", d.icd10], ["SNOMED CT", d.snomed], ["Verification", d.verification], ["Severity", d.severity]];
     case "allergies":
-      return [...common, ["Category", d.category], ["Criticality", d.criticality],
+      return [...common, ["Category", d.category ? capitalize(d.category) : null], ["Criticality", d.criticality ? capitalize(d.criticality) : null],
               ["Reactions", (d.reactions || []).map((x) => `${x.manifestation || "Reaction"}${x.severity ? ` (${x.severity})` : ""}`)]];
     case "immunizations":
       return [...common, ["Dose", d.dose], ["Lot", d.lot], ["Manufacturer", d.manufacturer], ["Site", d.site], ["Route", d.route]];
@@ -72,8 +72,8 @@ function recordBody(r, text) {
           style="text-align:left;width:100%;background:none;border:0;cursor:pointer">
           <span class="grow">${x.title}</span>
           <b>${x.category === "vitals" ? recordValue(x) : x.value_num != null ? `${fmtNum(x.value_num)}${x.unit ? ` ${x.unit}` : ""}` : x.value_text || "—"}</b>
-          ${x.interpretation && x.interpretation !== "normal" ? html`<span class="badge warn">${x.interpretation}</span>` : ""}</button>`)}</div></div>` : ""}
-      ${r.narrative && !text ? html`<div><div class="label">Notes</div><p>${r.narrative}</p></div>` : ""}
+          ${flagBadge(x.interpretation)}</button>`)}</div></div>` : ""}
+      ${r.narrative && !text && !shownAbove(r) ? html`<div><div class="label">Notes</div><p>${r.narrative}</p></div>` : ""}
       ${text ? html`<div><div class="row between" style="margin-bottom:6px"><div class="label" style="margin:0">Full text</div>
         <button class="btn btn-sm" data-copy>Copy</button></div><div class="note-text">${text}</div></div>` : ""}
       ${r.duplicates?.length ? html`<div><div class="label">Also reported by</div>
@@ -87,6 +87,10 @@ function recordBody(r, text) {
     </div>`;
 }
 
+/** An allergy's narrative is its reactions, already listed above. */
+const shownAbove = (r) => r.category === "allergies" && (r.details?.reactions || []).length > 0
+  && r.details.reactions.every((x) => r.narrative.includes(x.manifestation || ""));
+
 const fullText = (r) => (r.category === "notes" ? r.narrative : (r.category === "reports" ? (r.details?.full_text || r.narrative) : null));
 
 /** The record's buttons: another result, delete (a result entered by hand), copy the note. `done` runs after a delete. */
@@ -96,12 +100,16 @@ function wire(el, r, text, { leave, done }) {
   }));
   el.querySelector("[data-delete]")?.addEventListener("click", async () => {
     if (!(await confirmDialog("Delete result", `Delete ${r.title} from ${fmtDate(r.effective_at)}?`, { confirmLabel: "Delete", danger: true }))) return;
-    await del(`/api/labs/${encodeURIComponent(r.id)}`);
+    try { await del(`/api/labs/${encodeURIComponent(r.id)}`); } catch (err) { toast(err.message, "bad"); return; }
     toast("Deleted");
     done();
   });
+  // The clipboard needs a secure page: opened by its home-network address over plain http, it isn't there.
   const copy = el.querySelector("[data-copy]");
-  if (copy) copy.addEventListener("click", async () => { await navigator.clipboard.writeText(text); toast("Copied"); });
+  if (copy) copy.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(text); toast("Copied"); }
+    catch { toast("Copy isn't available here; select the text instead.", "bad"); }
+  });
 }
 
 export async function openRecord(id, onChange) {

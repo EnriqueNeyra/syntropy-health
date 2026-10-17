@@ -2,7 +2,7 @@
 // computer (read-only tools, one person at a time).
 import { del, get, put, unreachableMessage } from "../api.js";
 import { appCan, appScroll, setComposer, setToolbar } from "../app.js";
-import { $, confirmDialog, emptyState, fmtAgo, html, icon, loading, markdown, mount, toast } from "../ui.js";
+import { $, confirmDialog, emptyState, fmtAgo, html, icon, loading, markdown, mount, plural, toast } from "../ui.js";
 import { confirmAiProvider } from "../consent.js";
 import { logo, logoId } from "../ai-logos.js";
 import { openModelPicker, sameChoice } from "../model-picker.js";
@@ -62,6 +62,9 @@ export async function render({ el, state, params, navigate }) {
   // In the iPhone app the conversation is the screen itself, like Messages: it scrolls with the screen, the message
   // field is the app's own (above the keyboard), and the model, past conversations and New chat are in its title bar.
   const native = appCan("composer") && appCan("toolbar");
+  // Set once the person has gone to another page: an answer finishing, or the model list arriving, after that must not
+  // put Ask's message field and title bar back on the page they went to.
+  let left = false;
   // Elsewhere the conversation fills the window and scrolls by itself: one scrollbar.
   el.classList.add(native ? "ask-native" : "page-fill");
   // The model menu's contents, fetched now so it opens at once (finding local models and AI apps takes a moment).
@@ -320,7 +323,7 @@ export async function render({ el, state, params, navigate }) {
       const follow = nearBottom();
       patch(reply);
       if (follow) toBottom(true, true);
-      text?.focus();
+      if (!left) text?.focus();
       saveChat();
     }
   }
@@ -354,11 +357,12 @@ export async function render({ el, state, params, navigate }) {
 
   // ---- In the iPhone app: its message field and title bar
   function showComposer() {
+    if (left) return;
     setComposer({ placeholder: "Ask about your health data", busy, onSend: (question) => ask(question), onStop: () => controller?.abort() });
   }
 
   function drawToolbar() {
-    if (!native) return;
+    if (!native || left) return;
     const modelSections = (choices?.groups || []).map((g, gi) => {
       const option = (o, oi) => ({
         id: `model:${gi}:${oi}`, title: o.name, checked: sameChoice(o, choices.current),
@@ -381,7 +385,7 @@ export async function render({ el, state, params, navigate }) {
         menu: choices ? [...modelSections, manage] : [{ items: [{ id: "model:loading", title: "Finding your models…", disabled: true }] }, manage] },
       { id: "history", title: "Conversations", symbol: "clock.arrow.circlepath", menu: [
         { title: chats.length ? `Conversations about ${profile.name}` : null, items: chats.length
-          ? chats.slice(0, 30).map((c) => ({ id: `chat:${c.id}`, title: c.title, subtitle: `${fmtAgo(c.updated_at)} · ${c.messages} messages`,
+          ? chats.slice(0, 30).map((c) => ({ id: `chat:${c.id}`, title: c.title, subtitle: `${fmtAgo(c.updated_at)} · ${plural(c.messages, "message")}`,
                                             checked: c.id === chatId, run: () => openChat(c.id) }))
           : [{ id: "chat:none", title: "No saved conversations yet", disabled: true }] },
         ...(saved ? [{ items: [{ id: "chat:delete", title: "Delete This Conversation", symbol: "trash", destructive: true, run: () => deleteChat(chatId) }] }] : []),
@@ -395,7 +399,7 @@ export async function render({ el, state, params, navigate }) {
     showComposer();
     drawAll();
     choicesReady.then(() => drawToolbar());
-    return () => controller?.abort();
+    return () => { left = true; controller?.abort(); };
   }
 
   $("#chat-form", el).addEventListener("submit", (e) => { e.preventDefault(); ask(text.value); });
@@ -418,7 +422,7 @@ export async function render({ el, state, params, navigate }) {
     menu.setAttribute("aria-label", "Past conversations");
     mount(menu, html`<div class="chat-history-head"><b>Conversations</b><span class="tiny faint">about ${profile.name}</span></div>
       ${list.length ? html`<div class="chat-history-list">${list.map((c) => html`<div class="chat-history-item ${c.id === chatId ? "current" : ""}">
-        <button class="chat-history-open" data-open="${c.id}"><span class="truncate">${c.title}</span><span class="tiny faint">${fmtAgo(c.updated_at)} · ${c.messages} messages</span></button>
+        <button class="chat-history-open" data-open="${c.id}"><span class="truncate">${c.title}</span><span class="tiny faint">${fmtAgo(c.updated_at)} · ${plural(c.messages, "message")}</span></button>
         <button class="btn btn-ghost btn-icon btn-sm" data-delete="${c.id}" aria-label="Delete “${c.title}”" title="Delete">${icon("trash")}</button></div>`)}</div>`
         : html`<div class="small muted" style="padding:12px 14px">No saved conversations yet. They're kept here after each answer.</div>`}`);
     document.body.appendChild(menu);
@@ -447,7 +451,7 @@ export async function render({ el, state, params, navigate }) {
   drawHeader();
   drawAll();
   text.focus();
-  return () => { closeMenu?.(); closeHistory?.(); controller?.abort(); };
+  return () => { left = true; closeMenu?.(); closeHistory?.(); controller?.abort(); };
 }
 
 /** The model's readable name ("Claude Sonnet 4.5", "qwen3:8b", "Default model" for an app's own default). */

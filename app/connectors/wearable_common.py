@@ -1,8 +1,10 @@
-"""Shared plumbing for cloud wearable connectors (Oura, WHOOP)."""
+"""Shared plumbing for cloud wearable connectors (Oura, WHOOP, Google Health)."""
 
 from __future__ import annotations
 
+import random
 import time
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any, Optional
 from urllib.parse import urlparse
 
@@ -14,6 +16,19 @@ from app.connectors.smart import SmartError, USER_AGENT
 
 def redirect_uri() -> str:
     return settings.get("relay.wearable_redirect_uri")
+
+
+def wall_clock(d: date, hour: int, minute: int, tz: tzinfo) -> datetime:
+    """``hour:minute`` on day ``d`` by the clock in ``tz``, as UTC. Simulated data keeps the person's own hours (asleep
+    at night, waking in the morning), wherever they are."""
+    return datetime(d.year, d.month, d.day, hour, minute, tzinfo=tz).astimezone(timezone.utc)
+
+
+def simulated_wake(d: date, hour: int, minute: int, tz: tzinfo, seed: str) -> datetime:
+    """When a simulated night ends: around ``hour:minute``, a little different each morning and later at weekends. The
+    same for the same day and seed, so syncing again gives the same nights."""
+    rng = random.Random(f"{seed}-{d.isoformat()}-wake")
+    return wall_clock(d, hour, minute, tz) + timedelta(minutes=rng.randint(-25, 30) + (40 if d.weekday() >= 5 else 0))
 
 
 def uses_local_exchange(provider: str, origin: str) -> bool:

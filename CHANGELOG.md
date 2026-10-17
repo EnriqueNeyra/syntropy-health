@@ -15,6 +15,41 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
   reference (`Practitioner/3e17…`), that name is left out instead of shown as an ID. Portal records pick up the fix on
   their next sync.
 - **Sources shows the directory's real size** (now about 39,500 health systems) instead of "20,000+".
+- **Faster with years of data, and nothing waits behind an upload.** The Overview's numbers, Trends' list and insights
+  are kept until the data behind them changes (the Overview's numbers went from 63 ms to 2 ms with 1.9 million
+  samples), and a year of sleep loads faster. Reading a setting or a session no longer takes the database's
+  write lock, so pages stop stalling while a phone uploads, and sign-in checks and saves no longer hold up other
+  requests.
+- **Simulated wearables sleep at night where you are.** "Try simulated data" made up Oura, WHOOP and Google Health
+  nights on fixed UTC hours, so in California Trends showed sleep from 4:24 PM to 11:30 PM. Nights, workouts and heart
+  rate follow the server's time zone, waking a little differently each morning.
+- **Uninstalling asks whether to delete your data, on Mac and Windows.** The Windows uninstaller asks (keeping it is
+  the default) and stops anything still running from the app's folder; on a Mac, **Syntropy Health → Uninstall
+  Syntropy Health…** quits, removes the login item and moves the app to the Trash. The README lists how to remove each
+  kind of install (Settings → Your data linked to a page that wasn't published).
+- **The Mac app's way back from a sign-in works.** On a health system's sign-in page, "‹ Syntropy Health" sits beside
+  the window buttons and takes you back; the window keeps its size between sites, and exports and backups ask where
+  to save instead of filling the window.
+- **Switching sections no longer flickers.** Only the content changes; the sidebar and top bar stay still, and the
+  Overview no longer shows a pile of collapsed cards for a frame.
+- **Easier to read.** Muted and faint text, and green and red status text, now meet WCAG AA contrast in both themes.
+  Health systems listed in capitals ("BANNER HEALTH") read normally. The access log says what happened in words
+  (Synced, Source added) and names sources, people and AI apps instead of showing their ids.
+- **Changing your password asks for it twice,** since there's no way to recover one.
+- **Someone else's Overview is headed with their name.** Viewing a child or a parent you look after, it greeted them
+  ("Good morning, Sam") rather than you.
+- **A session that runs out shows the usual sign-in,** with your name, instead of a name-and-password form, and
+  closes any dialog that was open.
+- Sources: an imported file isn't called "Connected"; removing an already-disconnected source only offers removing
+  it; failures when removing or pairing say so, and the simulator's notice no longer says Syntropy Health isn't
+  registered with Epic. Records: High/Low badges instead of "critical_low", allergies without repeated reactions, and
+  "15/min" rather than "15 /min". Ranges a lab wrote with a hyphen show with a dash like the others. Timeline,
+  Journal and Workouts say "nothing matches" when a filter finds nothing, in plain words. Insights keep labels'
+  capitals ("HRV (RMSSD)") and write goals in your units. The time zone list has one entry per place, without retired
+  names. Escape closes only the topmost dialog, a menu choice that fails says so, and chart hover is faster on long
+  ranges.
+- Wording that predated the Android app says "phone" where any phone applies, and the stale-phone alert names Health
+  Connect for an Android phone. `syntropy-health --help` no longer shows "==SUPPRESS==".
 
 ## 1.6.0
 

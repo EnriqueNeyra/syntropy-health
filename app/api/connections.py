@@ -97,7 +97,7 @@ class WearableConnectRequest(BaseModel):
 
 
 @router.post("/api/connections/wearable", dependencies=[user])
-async def connect_wearable(req: WearableConnectRequest, request: Request, background: BackgroundTasks) -> dict:
+def connect_wearable(req: WearableConnectRequest, request: Request, background: BackgroundTasks) -> dict:
     prof = resolve_profile(req.profile_id)
     try:
         result = connect.start_wearable(prof["id"], req.provider, request_origin(request),
@@ -123,7 +123,7 @@ class RenameRequest(BaseModel):
 
 
 @router.patch("/api/connections/{connection_id}", dependencies=[user])
-async def rename(connection_id: str, req: RenameRequest) -> dict:
+def rename(connection_id: str, req: RenameRequest) -> dict:
     _mine(connection_id)
     connections.update(connection_id, display_name=req.display_name)
     return connections.get(connection_id)  # type: ignore[return-value]

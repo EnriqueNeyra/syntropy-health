@@ -224,6 +224,15 @@ def test_activity_log_shows_what_each_account_may_see(raw_client):
     assert any(e["who"] == "Maria" for e in theirs)
 
 
+def test_activity_log_names_what_its_ids_point_to(client):
+    # "source: Oura Ring (simulated)" rather than "connection: con_8f2…", and no id beside a name already given.
+    cid = client.post("/api/connections/wearable", json={"provider": "oura", "mode": "simulated"}).json()["connection_id"]
+    events = {e["action"]: json.loads(e["detail"] or "{}") for e in client.get("/api/audit").json()["events"]}
+    assert events["sync.completed"]["source"] == "Oura Ring (simulated)" and "connection" not in events["sync.completed"]
+    assert events["connection.created"] == {"provider": "oura", "name": "Oura Ring (simulated)"}
+    assert cid not in json.dumps(events)
+
+
 def test_an_instance_from_before_accounts_keeps_its_password(tmp_path, monkeypatch):
     """The owner's password, agreement and layout carry over; everyone else stays in the owner's care."""
     from app.core import config, db, security

@@ -10,14 +10,16 @@ The Mac window: Syntropy Health's interface drawn edge to edge in a native windo
 - The app is in the Dock (and ⌘-Tab) only while its window is open. Closed, it runs on in the menu bar alone, like
   other menu bar apps; opening the window from there puts it back in the Dock.
 - Another site in the window (a health system's sign-in) gets an ordinary title bar naming the site, with a
-  "Syntropy Health" button that returns to the app: those pages don't leave room for the window buttons or offer a way
-  back.
+  "‹ Syntropy Health" back button beside the window buttons (a navigational toolbar item, like Safari's) that returns to
+  the app: those pages don't leave room for the window buttons or offer a way back. The window keeps its size and place
+  through the change.
 
 The page talks to the window through a WebKit message handler, "syntropyDesktop": which theme it shows (so the sidebar
 material and title bar match it), its title (for the Window menu and Mission Control), when it's ready to be seen, and
-when the top of the window is dragged. pywebview's own JavaScript bridge can't be used: it builds functions with
-new Function(), which the page's Content-Security-Policy forbids. The window runs scripts in the page with
-evaluateJavaScript, which that policy doesn't restrict.
+when the top of the window is dragged. Only Syntropy Health's own pages are listened to; another site in the window
+can't rename it or move it. pywebview's own JavaScript bridge can't be used: it builds functions with new Function(),
+which the page's Content-Security-Policy forbids. The window runs scripts in the page with evaluateJavaScript, which that
+policy doesn't restrict.
 """
 
 from __future__ import annotations
@@ -41,8 +43,10 @@ HELP_URL = "https://health.syntropylabs.io/docs/"
 SECTIONS = [("Overview", "overview"), ("Ask", "ask"), ("Trends", "trends"), ("Workouts", "workouts"),
             ("Journal", "journal"), ("Timeline", "timeline"), ("Records", "records"), ("Sources", "sources")]
 ZOOM_STEPS = [0.75, 0.85, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5]
+BACK_ITEM = "syntropy.back"          # the toolbar's "‹ Syntropy Health" button, shown on other sites
 
 WKScriptMessageHandler = objc.protocolNamed("WKScriptMessageHandler")
+NSToolbarDelegate = objc.protocolNamed("NSToolbarDelegate")
 
 
 class _Bridge(NSObject, protocols=[WKScriptMessageHandler]):
@@ -61,6 +65,7 @@ class _Bridge(NSObject, protocols=[WKScriptMessageHandler]):
                 # Where the message came from: some requests are only taken from this Mac's own server.
                 origin = message.frameInfo().securityOrigin()
                 data["_origin"] = f"{origin.protocol()}://{origin.host()}:{origin.port()}"
+                data["_from"] = _origin(origin.protocol(), origin.host(), origin.port())
                 self.callback(data)
         except Exception:  # noqa: BLE001 - a bad message must never take the app down
             log.exception("Couldn't handle a message from the page")
@@ -74,14 +79,34 @@ class _MenuTarget(NSObject):
         return self
 
     def perform_(self, sender):
-        # Menu items carry their action as the represented object, buttons as their identifier.
-        key = sender.representedObject() if sender.respondsToSelector_(b"representedObject") else sender.identifier()
+        # Menu items carry their action as the represented object, buttons as their identifier. (A button answers
+        # representedObject too, with nothing, so ask what the sender is rather than what it responds to.)
+        key = sender.representedObject() if sender.isKindOfClass_(AppKit.NSMenuItem) else sender.identifier()
         action = self.actions.get(str(key))
         if action:
             action()
 
     def validateMenuItem_(self, item):
         return True
+
+
+class _ToolbarDelegate(NSObject, protocols=[NSToolbarDelegate]):
+    """Makes the toolbar's one optional item, the back button shown on other sites."""
+
+    def initWithMaker_(self, make):
+        self = objc.super(_ToolbarDelegate, self).init()
+        if self is not None:
+            self.make = make
+        return self
+
+    def toolbarAllowedItemIdentifiers_(self, _toolbar):
+        return [BACK_ITEM]
+
+    def toolbarDefaultItemIdentifiers_(self, _toolbar):
+        return []
+
+    def toolbar_itemForItemIdentifier_willBeInsertedIntoToolbar_(self, _toolbar, identifier, _inserted):
+        return self.make() if identifier == BACK_ITEM else None
 
 
 class _URLObserver(NSObject):
@@ -128,20 +153,21 @@ class MacWindow:
     def __init__(self, window: Any, *, background: bool, prefs: Any, tray_actions: dict[str, Callable[[], None]],
                  dock_menu_state: Callable[[], dict[str, Any]],
                  on_request: Optional[Callable[[dict[str, Any]], None]] = None,
-                 home_url: Optional[Callable[[], str]] = None):
+                 home_url: Optional[Callable[[], str]] = None,
+                 on_uninstall: Optional[Callable[[bool], None]] = None):
         self.window = window                   # the pywebview Window
         self.background = background
         self.prefs = prefs
         self.tray_actions = tray_actions
         self.dock_menu_state = dock_menu_state
         self.on_request = on_request           # what the app itself acts on (joining a server...)
+        self.on_uninstall = on_uninstall       # given whether to delete the data too, once the person has confirmed
         self.ns_window = None
         self.webview = None
         self.shown = False
         self.zoom = float(prefs.get("zoom", 1.0) or 1.0)
         self.home_url = home_url                            # Syntropy Health's own pages (this Mac's or a joined server)
         self.away = False                                   # showing another site
-        self.home_bar = None
         if background:              # opened at login: only the menu bar item, from the start (this is the main thread)
             _set_in_dock(False)
 
@@ -174,6 +200,9 @@ class MacWindow:
         win.setTitleVisibility_(AppKit.NSWindowTitleHidden)
         toolbar = AppKit.NSToolbar.alloc().initWithIdentifier_("SyntropyHealth")
         toolbar.setShowsBaselineSeparator_(False)
+        toolbar.setDisplayMode_(AppKit.NSToolbarDisplayModeIconOnly)
+        self.toolbar_delegate = _ToolbarDelegate.alloc().initWithMaker_(self._back_item)    # the toolbar doesn't retain it
+        toolbar.setDelegate_(self.toolbar_delegate)
         win.setToolbar_(toolbar)
         win.setToolbarStyle_(AppKit.NSWindowToolbarStyleUnified)
 
@@ -223,6 +252,11 @@ class MacWindow:
 
     # ----------------------------------------------------------------- the page
     def _on_message(self, msg: dict[str, Any]) -> None:
+        # Only Syntropy Health's own pages (and the "can't reach" page this app writes itself, which has no web origin)
+        # talk to the window: a health system's sign-in page has no business renaming or moving it.
+        sender = msg.get("_from") or ("", "", 0)
+        if sender[0] in ("http", "https") and sender not in self._home():
+            return
         kind = msg.get("type")
         if kind == "ready":
             if not self.shown and not self.background:
@@ -264,35 +298,49 @@ class MacWindow:
         if away == self.away:
             return
         self.away = away
-        win = self.ns_window
+        win, toolbar = self.ns_window, self.ns_window.toolbar()
+        # Changing whether the page runs under the title bar would grow or shrink the window by the title bar's height
+        # (AppKit keeps the content's size): keep the window where it is. A full-screen window keeps its own frame.
+        full_screen = bool(win.styleMask() & AppKit.NSWindowStyleMaskFullScreen)
+        frame = win.frame()
         if away:
-            # An ordinary title bar: the page starts below it instead of under the window buttons.
+            # An ordinary title bar naming the site, with a back button beside the window buttons: the page starts
+            # below it instead of under them, on a white page as in a browser (it may not paint a background).
             win.setStyleMask_(win.styleMask() & ~AppKit.NSWindowStyleMaskFullSizeContentView)
             win.setTitlebarAppearsTransparent_(False)
             win.setTitleVisibility_(AppKit.NSWindowTitleVisible)
-            win.addTitlebarAccessoryViewController_(self._home_bar())
+            self.webview.setValue_forKey_(True, "drawsBackground")
+            if toolbar is not None and not any(i.itemIdentifier() == BACK_ITEM for i in toolbar.items()):
+                toolbar.insertItemWithItemIdentifier_atIndex_(BACK_ITEM, 0)
         else:
-            if self.home_bar is not None:
-                self.home_bar.removeFromParentViewController()
+            if toolbar is not None:
+                for index, item in enumerate(toolbar.items()):
+                    if item.itemIdentifier() == BACK_ITEM:
+                        toolbar.removeItemAtIndex_(index)
+                        break
+            self.webview.setValue_forKey_(False, "drawsBackground")
             win.setStyleMask_(win.styleMask() | AppKit.NSWindowStyleMaskFullSizeContentView)
             win.setTitlebarAppearsTransparent_(True)
             win.setTitleVisibility_(AppKit.NSWindowTitleHidden)
             win.setTitle_("Syntropy Health")           # until the page names itself again
+        if not full_screen:
+            win.setFrame_display_(frame, True)
 
-    def _home_bar(self) -> Any:
-        if self.home_bar is None:
-            button = AppKit.NSButton.buttonWithTitle_target_action_("‹ Syntropy Health", self.menu_target, "perform:")
-            button.setIdentifier_("home")
-            button.setBezelStyle_(AppKit.NSBezelStyleRounded)
-            button.setToolTip_("Leave this page and go back to Syntropy Health")
-            button.sizeToFit()
-            holder = AppKit.NSView.alloc().initWithFrame_(((0, 0), (button.frame().size.width + 12, 30)))
-            button.setFrameOrigin_((6, (30 - button.frame().size.height) / 2))
-            holder.addSubview_(button)
-            self.home_bar = AppKit.NSTitlebarAccessoryViewController.alloc().init()
-            self.home_bar.setView_(holder)
-            self.home_bar.setLayoutAttribute_(AppKit.NSLayoutAttributeLeft)
-        return self.home_bar
+    def _back_item(self) -> Any:
+        """The toolbar's back button: "‹ Syntropy Health", next to the window buttons."""
+        item = AppKit.NSToolbarItem.alloc().initWithItemIdentifier_(BACK_ITEM)
+        image = AppKit.NSImage.imageWithSystemSymbolName_accessibilityDescription_("chevron.backward", None)
+        button = AppKit.NSButton.buttonWithTitle_image_target_action_("Syntropy Health", image, self.menu_target, "perform:")
+        button.setIdentifier_("home")
+        button.setImagePosition_(AppKit.NSImageLeading)
+        button.setBezelStyle_(getattr(AppKit, "NSBezelStyleToolbar", AppKit.NSBezelStyleTexturedRounded))
+        button.setToolTip_("Leave this page and go back to Syntropy Health")
+        item.setView_(button)
+        item.setLabel_("Syntropy Health")
+        item.setToolTip_("Leave this page and go back to Syntropy Health")
+        if item.respondsToSelector_(b"setNavigational:"):
+            item.setNavigational_(True)               # at the leading edge, beside the window buttons
+        return item
 
     def go_home(self) -> None:
         """Back to the last of Syntropy Health's own pages in this window's history, else its start page."""
@@ -344,6 +392,7 @@ class MacWindow:
             "lan": lambda: threading.Thread(target=self.tray_actions["lan"], daemon=True).start(),
             "switch": lambda: threading.Thread(target=self.tray_actions["switch"], daemon=True).start(),
             "updates": lambda: threading.Thread(target=self.tray_actions["updates"], daemon=True).start(),
+            "uninstall": self.confirm_uninstall,
         }
         for _, route in SECTIONS:
             actions[f"go-{route}"] = (lambda r=route: self.go(f"#/{r}"))
@@ -380,6 +429,7 @@ class MacWindow:
             item("Hide Syntropy Health", key="h", selector="hide:"),
             item("Hide Others", key="h", mods=cmd | opt, selector="hideOtherApplications:"),
             item("Show All", selector="unhideAllApplications:"), None,
+            item("Uninstall Syntropy Health…", "uninstall"),
             item("Quit Syntropy Health", key="q", selector="terminate:"),
         ])
         AppKit.NSApp.setServicesMenu_(services)
@@ -417,6 +467,60 @@ class MacWindow:
         AppKit.NSApp.setMainMenu_(main)
         AppKit.NSApp.setWindowsMenu_(window_menu)
         AppKit.NSApp.setHelpMenu_(help_menu)
+
+    def confirm_uninstall(self) -> None:
+        """Uninstall Syntropy Health… in the app menu. Keeping the data is the default: it's the only copy of anything
+        added here (journal entries, lab results typed in, the iPhone's history beyond what it keeps)."""
+        if not self.on_uninstall:
+            return
+        self.show()
+        joined = bool(self.dock_menu_state().get("joined"))
+        ask = AppKit.NSAlert.alloc().init()
+        ask.setMessageText_("Uninstall Syntropy Health?")
+        ask.setInformativeText_(
+            "Syntropy Health will quit, stop opening at login and move to the Trash."
+            + ("" if joined else " Your phone stops syncing to this Mac.")
+            + "\n\nYour health data stays on this Mac unless you choose to delete it, so it's there if you install "
+              "Syntropy Health again.")
+        ask.addButtonWithTitle_("Uninstall")
+        ask.addButtonWithTitle_("Cancel")
+        ask.setShowsSuppressionButton_(True)
+        ask.suppressionButton().setTitle_("Also delete my health data from this Mac")
+        if ask.runModal() != AppKit.NSAlertFirstButtonReturn:
+            return
+        erase = ask.suppressionButton().state() == AppKit.NSControlStateValueOn
+        if erase:
+            sure = AppKit.NSAlert.alloc().init()
+            sure.setAlertStyle_(AppKit.NSAlertStyleCritical)
+            sure.setMessageText_("Delete all of Syntropy Health's data on this Mac?")
+            sure.setInformativeText_(
+                "Every profile, account, record, wearable sample and setting Syntropy Health keeps on this Mac is "
+                "permanently deleted. This can't be undone.\n\nTo keep a copy, choose Cancel and download a backup "
+                "from Settings → Your data first.")
+            delete = sure.addButtonWithTitle_("Delete and Uninstall")
+            if delete.respondsToSelector_(b"setHasDestructiveAction:"):          # macOS 11+
+                delete.setHasDestructiveAction_(True)
+            delete.setKeyEquivalent_("")                 # Return cancels: deleting takes a click
+            sure.addButtonWithTitle_("Cancel").setKeyEquivalent_("\r")
+            if sure.runModal() != AppKit.NSAlertFirstButtonReturn:
+                return
+        # Stopping the server waits for it; the main thread must keep running meanwhile.
+        threading.Thread(target=self.on_uninstall, args=(erase,), daemon=True).start()
+
+    def forget_website_data(self, bundle_id: str) -> None:
+        """Deletes what the window itself kept (sign-in cookies, page preferences, its cache) and the app's macOS
+        preferences (the window's size and place). Call from another thread: waits until WebKit is done."""
+        done = threading.Event()
+
+        def remove() -> None:
+            import WebKit
+            store = WebKit.WKWebsiteDataStore.defaultDataStore()
+            store.removeDataOfTypes_modifiedSince_completionHandler_(
+                WebKit.WKWebsiteDataStore.allWebsiteDataTypes(), AppKit.NSDate.distantPast(), done.set)
+            AppKit.NSUserDefaults.standardUserDefaults().removePersistentDomainForName_(bundle_id)
+
+        AppHelper.callAfter(remove)
+        done.wait(10)
 
     def _dock_menu(self) -> None:
         """Right-clicking the Dock icon: the network switch and Open in Browser, like the menu bar item."""

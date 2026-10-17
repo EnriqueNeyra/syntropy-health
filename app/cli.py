@@ -71,8 +71,9 @@ def info(port: Optional[int]) -> None:
     print(f"Open:     http://localhost:{port}")
     home, tailscale = network.home_addresses(), network.tailscale_addresses()
     if (home or tailscale) and not _answers((home + tailscale)[0], port):
-        print("          (only from this computer: other devices can't connect. In the app, turn on Let Your iPhone"
-              " and Other Devices Connect)")
+        how = ("In the app, turn on Let Your iPhone and Other Devices Connect" if getattr(sys, "frozen", False)
+               else "Start it with --host 0.0.0.0 to change that")
+        print(f"          (only from this computer: other devices can't connect. {how})")
     else:
         for addr in home:
             print(f"          http://{addr}:{port}  (other devices on your home network)")
@@ -443,7 +444,8 @@ def accounts_command(action: Optional[str], name: Optional[str]) -> None:
 
 def main(argv: Optional[list[str]] = None) -> None:
     parser = argparse.ArgumentParser(prog="syntropy-health", description="Syntropy Health: your health records, on your own computer.")
-    parser.add_argument("--data-dir", help="where the database lives (default: %(default)s)", default=None)
+    parser.add_argument("--data-dir", help="where the data lives (default: the usual place on this computer, which "
+                                           "`syntropy-health info` shows)", default=None)
     sub = parser.add_subparsers(dest="command")
     p = sub.add_parser("serve", help="run the server in the foreground")
     p.add_argument("--host", default="0.0.0.0", help="0.0.0.0 lets other devices connect; 127.0.0.1 keeps it to this computer")
@@ -461,11 +463,11 @@ def main(argv: Optional[list[str]] = None) -> None:
     i = sub.add_parser("info", help="where the data is and which addresses to open")
     i.add_argument("--port", type=int, default=None, help="default: the running server's")
     sub.add_parser("mcp", help="the MCP server on stdio, for AI apps on this computer")
-    sub.add_parser("version")
+    sub.add_parser("version", help="print the version")
     a = sub.add_parser("accounts", help="who signs in; reset-password NAME for someone locked out")
     a.add_argument("action", nargs="?", choices=["list", "reset-password"], default="list")
     a.add_argument("name", nargs="?")
-    d = sub.add_parser("dev", help=argparse.SUPPRESS)
+    d = sub.add_parser("dev", help="development only: dev no-password on|off lets this instance run without a password")
     d.add_argument("setting", choices=["no-password"])
     d.add_argument("state", nargs="?", choices=["on", "off"])
     args = parser.parse_args(argv)

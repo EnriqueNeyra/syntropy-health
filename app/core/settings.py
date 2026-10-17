@@ -12,7 +12,7 @@ import time
 from typing import Any, Optional
 
 from app.core import config, security
-from app.core.db import db
+from app.core.db import db, read
 
 # Platforms that authenticate via SMART on FHIR. Each has a production and a sandbox client ID: Syntropy Health's own
 # registration where there is one (public clients' IDs aren't secret), else one from Settings or the environment
@@ -79,7 +79,9 @@ DEFAULTS: dict[str, Any] = {
 
 
 def _raw_get(key: str) -> Optional[str]:
-    with db() as conn:
+    # A read, not a write transaction: settings are read several times on every request, and taking the write lock
+    # for each made every request wait behind an iPhone upload or a sync.
+    with read() as conn:
         row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
     return row["value"] if row else None
 

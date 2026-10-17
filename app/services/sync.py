@@ -17,7 +17,7 @@ from typing import Any
 from app.connectors import fhir_normalize, google_health, oura, smart, whoop
 from app.connectors import wearable_common as wc
 from app.connectors.smart import SmartError
-from app.core.db import audit, db
+from app.core.db import audit, db, read
 from app.store import activity, biometrics, connections, records
 
 log = logging.getLogger("syntropy.sync")
@@ -132,7 +132,7 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
     if not pending:
         return 0
     existing: dict[str, str] = {}
-    with db() as c:
+    with read() as c:       # without the write lock: this runs on the event loop, and a big upload may hold it
         rows = c.execute(
             "SELECT resource_id, narrative FROM clinical_records WHERE connection_id = ? "
             "AND category IN ('notes', 'reports') AND narrative IS NOT NULL",
@@ -186,8 +186,11 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
         since = today - timedelta(days=WEARABLE_INITIAL_DAYS)
 
     if conn["mode"] == "simulated":
-        days = (today - since).days + 1
-        data = await asyncio.to_thread(module.simulate, days=days, until=today, seed=f"{conn['provider']}-{conn['id']}")
+        # Days on this server's clock, so the made-up nights fall at night here.
+        tz = biometrics._tz()
+        until = datetime.now(tz).date()
+        days = (until - since).days + 1
+        data = await asyncio.to_thread(module.simulate, days=days, until=until, seed=f"{conn['provider']}-{conn['id']}", tz=tz)
     else:
         creds = conn.get("credentials") or {}
         if not creds.get("access_token"):

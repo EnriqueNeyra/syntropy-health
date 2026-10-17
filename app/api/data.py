@@ -70,6 +70,13 @@ def _stamp() -> str:
     return time.strftime("%Y%m%d-%H%M%S")
 
 
+def _person(prof: dict[str, Any]) -> str:
+    """The person's name for a file name. Only safe characters go in the header: a name in another script failed to
+    encode (a 500), and a quote broke it."""
+    ascii_name = unicodedata.normalize("NFKD", prof["name"]).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", "-", ascii_name).strip("-") or "record"
+
+
 @router.get("/export/fhir")
 def export_fhir(profile: Optional[str] = None) -> StreamingResponse:
     prof = resolve_profile(profile)
@@ -87,10 +94,7 @@ def export_fhir(profile: Optional[str] = None) -> StreamingResponse:
 
     with db() as conn:
         audit(conn, "user", "export.fhir", None, prof["id"])
-    # Only safe characters in the header: a name in another script failed to encode (a 500), and a quote broke it.
-    ascii_name = unicodedata.normalize("NFKD", prof["name"]).encode("ascii", "ignore").decode().lower()
-    person = re.sub(r"[^a-z0-9]+", "-", ascii_name).strip("-") or "record"
-    filename = f"syntropy-{person}-fhir-{_stamp()}.json"
+    filename = f"syntropy-{_person(prof)}-fhir-{_stamp()}.json"
     return StreamingResponse(stream(), media_type="application/fhir+json",
                              headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
@@ -154,7 +158,7 @@ def export_csv(kind: str = "records", profile: Optional[str] = None) -> Streamin
         audit(conn, "user", f"export.csv.{kind}", None, prof["id"])
     data = buf.getvalue().encode()
     return StreamingResponse(iter([data]), media_type="text/csv",
-                             headers={"Content-Disposition": f'attachment; filename="syntropy-{kind}-{_stamp()}.csv"'})
+                             headers={"Content-Disposition": f'attachment; filename="syntropy-{_person(prof)}-{kind}-{_stamp()}.csv"'})
 
 
 @router.get("/export/backup", dependencies=[Depends(auth.require_owner)])
@@ -184,6 +188,7 @@ def wipe_profile_data(profile_id: str) -> dict:
         conn.execute("DELETE FROM patient_identities WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM biometric_samples WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM biometric_daily WHERE profile_id = ?", (prof["id"],))
+        biometrics.mark_daily_changed(conn, prof["id"])
         conn.execute("DELETE FROM sync_batches WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM workouts WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM health_events WHERE profile_id = ?", (prof["id"],))

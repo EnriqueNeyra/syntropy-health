@@ -207,7 +207,7 @@ export async function renderAiTab(body, { state, redraw }) {
         <div class="grow" style="min-width:0"><b>${t.name}</b><div class="meta">${t.profile_name ? `Only ${t.profile_name}` : "Everyone you can see"} ·
           ${t.last_call ? html`last looked up ${t.last_call.replaceAll("_", " ")} ${fmtAgo(t.last_call_at)}`
             : t.last_used_at ? `connected ${fmtAgo(t.last_used_at)}` : `created ${fmtDate(t.created_at)}, not connected yet`}</div></div>
-        <button class="btn btn-sm btn-ghost" data-action="check-tokens" title="See the latest lookup">${icon("sync")}</button>
+        <button class="btn btn-sm btn-ghost" data-action="check-tokens" title="See the latest lookup" aria-label="See ${t.name}'s latest lookup">${icon("sync")}</button>
         <button class="btn btn-sm btn-ghost btn-danger" data-action="revoke" data-id="${t.id}" data-name="${t.name}">Revoke</button></div>`)}</div>`
       : html`<p class="small muted" style="padding:0 18px 16px">No apps connected yet.</p>`}
   </section>`;

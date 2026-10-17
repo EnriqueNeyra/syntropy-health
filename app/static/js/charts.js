@@ -20,6 +20,20 @@ function niceTicks(min, max, count = 4) {
   return { lo, hi, ticks };
 }
 
+/** [min, max] of numbers, without spreading them into arguments (years of points overflow the call stack). */
+function extent(values) {
+  let lo = Infinity, hi = -Infinity;
+  for (const v of values) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  return [lo, hi];
+}
+
+/** The value in an ascending array closest to t. */
+function closest(sorted, t) {
+  let a = 0, b = sorted.length - 1;
+  while (b - a > 1) { const m = (a + b) >> 1; if (sorted[m] < t) a = m; else b = m; }
+  return Math.abs(sorted[b] - t) < Math.abs(sorted[a] - t) ? sorted[b] : sorted[a];
+}
+
 function tipBox(container) {
   let tip = container.querySelector(".chart-tip");
   if (!tip) { tip = document.createElement("div"); tip.className = "chart-tip"; tip.hidden = true; container.appendChild(tip); }
@@ -35,7 +49,7 @@ export function lineChart(container, series, opts = {}) {
   const height = opts.height || 240;
   const all = series.flatMap((s) => s.points.map((p) => ({ ...p, time: parseDate(p.t)?.getTime() }))).filter((p) => p.time);
   if (!all.length) { container.innerHTML = `<div class="empty small">No data points yet.</div>`; return; }
-  let vmin = Math.min(...all.map((p) => p.v)), vmax = Math.max(...all.map((p) => p.v));
+  let [vmin, vmax] = extent(all.map((p) => p.v));
   if (opts.band) {
     if (opts.band.low != null) vmin = Math.min(vmin, opts.band.low);
     if (opts.band.high != null) vmax = Math.max(vmax, opts.band.high);
@@ -44,7 +58,7 @@ export function lineChart(container, series, opts = {}) {
   const padV = (vmax - vmin) * 0.12 || Math.abs(vmax) * 0.1 || 1;
   // Values that can't go below zero (steps, minutes) never get a negative axis from the padding.
   const { lo, hi, ticks } = niceTicks(vmin >= 0 ? Math.max(0, vmin - padV) : vmin - padV, vmax + padV);
-  let tmin = Math.min(...all.map((p) => p.time)), tmax = Math.max(...all.map((p) => p.time));
+  let [tmin, tmax] = extent(all.map((p) => p.time));
   if (opts.range) { tmin = Math.min(tmin, parseDate(opts.range[0]).getTime()); tmax = Math.max(tmax, parseDate(opts.range[1]).getTime()); }
   if (tmin === tmax) { tmin -= 86400000 * 15; tmax += 86400000 * 15; }
   const iw = width - PAD.left - PAD.right, ih = height - PAD.top - PAD.bottom;
@@ -99,14 +113,20 @@ export function lineChart(container, series, opts = {}) {
   const tip = tipBox(container);
   const cursor = container.querySelector(".cursor");
   const svgEl = container.querySelector("svg");
+  // Looked up on every mouse move: each series' points by time, and the times in order.
   const times = [...new Set(all.map((p) => p.time))].sort((a, b) => a - b);
+  const atTime = series.map((s) => {
+    const m = new Map();
+    for (const q of s.points) { const t = parseDate(q.t)?.getTime(); if (t && !m.has(t)) m.set(t, q); }
+    return m;
+  });
   svgEl.addEventListener("mousemove", (ev) => {
     const rect = svgEl.getBoundingClientRect();
     const px = ((ev.clientX - rect.left) / rect.width) * width;
     const t = tmin + ((px - PAD.left) / iw) * (tmax - tmin);
-    const nearest = times.reduce((a, b) => (Math.abs(b - t) < Math.abs(a - t) ? b : a), times[0]);
-    const rows = series.map((s) => {
-      const p = s.points.find((q) => parseDate(q.t)?.getTime() === nearest);
+    const nearest = closest(times, t);
+    const rows = series.map((s, i) => {
+      const p = atTime[i].get(nearest);
       return p ? `<div>${series.length > 1 ? esc(s.name) + ": " : ""}<b>${esc(fmtNum(p.v, opts.digits))}</b> ${esc(opts.unit || "")}${p.label ? " · " + esc(p.label) : ""}</div>` : "";
     }).join("");
     if (!rows) return;
@@ -125,8 +145,8 @@ export function lineChart(container, series, opts = {}) {
       const cx = Number(cursor.getAttribute("x1"));
       if (cx < 0) return;
       const t = tmin + ((cx - PAD.left) / iw) * (tmax - tmin);
-      const p = all.reduce((a, b) => (Math.abs(b.time - t) < Math.abs(a.time - t) ? b : a), all[0]);
-      opts.onPointClick(p);
+      const near = closest(times, t);
+      opts.onPointClick(all.find((p) => p.time === near));
     });
   }
 }
@@ -142,7 +162,7 @@ export function barChart(container, points, opts = {}) {
   const height = opts.height || 220;
   if (!points.length) { container.innerHTML = `<div class="empty small">No data for this range.</div>`; return; }
   const fmt = opts.format || ((v) => `${fmtNum(v, opts.digits)}${opts.unit ? ` ${opts.unit}` : ""}`);
-  const vmax = Math.max(...points.map((p) => p.value), opts.avg || 0, opts.goal || 0);
+  const vmax = Math.max(extent(points.map((p) => p.value))[1], opts.avg || 0, opts.goal || 0);
   const { hi, ticks } = niceTicks(0, vmax * 1.08);
   const iw = width - PAD.left - PAD.right, ih = height - PAD.top - PAD.bottom;
   const slot = iw / points.length;
@@ -257,8 +277,8 @@ export function rangeChart(container, rows, opts = {}) {
   const height = opts.height || 220;
   if (!rows.length) { container.innerHTML = `<div class="empty small">No nights in this range.</div>`; return; }
   const fmt = opts.format || ((m) => String(m));
-  const lo = Math.floor((Math.min(...rows.map((r) => r.from)) - 30) / 60) * 60;
-  const hi = Math.ceil((Math.max(...rows.map((r) => r.to)) + 30) / 60) * 60;
+  const lo = Math.floor((extent(rows.map((r) => r.from))[0] - 30) / 60) * 60;
+  const hi = Math.ceil((extent(rows.map((r) => r.to))[1] + 30) / 60) * 60;
   const iw = width - PAD.left - PAD.right, ih = height - PAD.top - PAD.bottom;
   const slot = iw / rows.length, bw = Math.min(18, Math.max(3, slot - 3));
   const y = (m) => PAD.top + ((m - lo) / (hi - lo)) * ih;     // earlier times at the top
@@ -309,7 +329,7 @@ export function hypnogram(container, segments, lanes, opts = {}) {
   const height = top + lanes.length * laneH + 24;
   const segs = segments.map((s) => ({ ...s, a: parseDate(s.start).getTime(), b: parseDate(s.end).getTime() })).filter((s) => s.b > s.a);
   if (!segs.length) { container.innerHTML = ""; return; }
-  const t0 = Math.min(...segs.map((s) => s.a)), t1 = Math.max(...segs.map((s) => s.b));
+  const t0 = extent(segs.map((s) => s.a))[0], t1 = extent(segs.map((s) => s.b))[1];
   const iw = width - left - right;
   const x = (t) => left + ((t - t0) / (t1 - t0)) * iw;
   const lane = new Map(lanes.map((l, i) => [l.key, i]));
@@ -348,7 +368,7 @@ export function scatterChart(container, points, opts = {}) {
   const pad = { ...PAD, bottom: 40, left: 52 };
   const fx = opts.fx || ((v) => fmtNum(v)), fy = opts.fy || ((v) => fmtNum(v));
   const xs = points.map((p) => p.x), ys = points.map((p) => p.y);
-  const xt = niceTicks(Math.min(...xs), Math.max(...xs)), yt = niceTicks(Math.min(...ys), Math.max(...ys));
+  const xt = niceTicks(...extent(xs)), yt = niceTicks(...extent(ys));
   const iw = width - pad.left - pad.right, ih = height - pad.top - pad.bottom;
   const x = (v) => pad.left + ((v - xt.lo) / (xt.hi - xt.lo)) * iw;
   const y = (v) => pad.top + ih - ((v - yt.lo) / (yt.hi - yt.lo)) * ih;
@@ -391,7 +411,7 @@ export function sparkline(values) {
   const vals = values.filter((v) => v !== null && v !== undefined);
   if (vals.length < 2) return "";
   const w = 160, h = 34, pad = 5;
-  const min = Math.min(...vals), max = Math.max(...vals);
+  const [min, max] = extent(vals);
   const span = max - min || 1;
   const pts = vals.map((v, i) => [pad + (i / (vals.length - 1)) * (w - pad * 2), h - pad - ((v - min) / span) * (h - pad * 2)]);
   const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("");

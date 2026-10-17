@@ -6,13 +6,14 @@ import { openRecord } from "./record-detail.js";
 import { moodLabel } from "./journal.js";
 import { duration, openWorkout } from "./workouts.js";
 import {
-  pageScroller, $, $$, age, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw, plural, toast,
+  pageScroller, $, $$, age, capitalize, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw,
+  plural, toast,
 } from "../ui.js";
 import { displayUnit, fmtMeasure, recordValue, unitSystem } from "../units.js";
 
 function greeting() {
   const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  return h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 18 ? "Good afternoon" : "Good evening";   // up late: still evening
 }
 
 /** Hours as "7h 5m" (rounded to the minute first, so 7.999 h is "8h 0m", not "7h 60m"). */
@@ -73,6 +74,7 @@ export function insightText(i) {
     return `Your bedtime varied by about ±${d.spread_min} minutes over the last two weeks (usually around ${at}). A steadier schedule tends to make sleep more restful.`;
   }
   if (i.kind === "medication") return `In the month after you started ${d.medication} (${fmtDate(d.started)}), this averaged ${v(d.after)}, against ${v(d.before)} the month before. Other things change too, so talk it over with whoever prescribed it rather than reading it as an effect.`;
+  if (i.kind === "goal" && d.unit) return `You met this goal (${d.direction === "min" ? "at least" : "at most"} ${v(d.target)}) on ${d.met} of the last ${d.days} days${d.streak >= 3 ? `, ${d.streak} in a row` : ""}.`;
   return i.text;
 }
 
@@ -180,7 +182,7 @@ export const WIDGETS = [
     render: (d) => listCard("Allergies", "alert", d.summary.allergies, (a) => html`
       <div class="list-item clickable" data-action="record" data-id="${a.id}">
         <div class="grow"><div class="title">${a.title}</div><div class="meta">${a.narrative || ""}</div></div>
-        ${a.details?.criticality === "high" ? html`<span class="badge bad">High risk</span>` : html`<span class="badge">${a.details?.category || "allergy"}</span>`}
+        ${a.details?.criticality === "high" ? html`<span class="badge bad">High risk</span>` : html`<span class="badge">${capitalize(a.details?.category || "allergy")}</span>`}
       </div>`, d.summary.allergy_note || "No allergies on record.", { href: "#/records/allergies" }) },
   { id: "vitals", title: "Latest vitals", desc: "Blood pressure, weight and other measurements from your visits", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Latest vitals", "heart", d.summary.latest_vitals, (v) => html`
@@ -245,9 +247,12 @@ export function resolveLayout(saved, defaultMetrics) {
 export async function render({ el, state, navigate }) {
   mount(el, loading(4));
   const profile = state.profile;
-  // The summary, sources and the default numbers are needed whatever the layout, so they load alongside it.
+  // The summary, sources, goals and the default numbers are needed whatever the layout, so they load alongside it.
+  // So do the insights, the slowest to work out: most layouts show them, and waiting for the layout first held up the page.
   const early = { summary: get("/api/summary", { profile: profile.id }), conns: get("/api/connections", { profile: profile.id }),
-    bio: get("/api/biometrics/overview", { profile: profile.id, brief: true }) };
+    bio: get("/api/biometrics/overview", { profile: profile.id, brief: true }),
+    goals: get("/api/goals", { profile: profile.id }).catch(() => ({ progress: [] })),
+    insights: get("/api/insights", { profile: profile.id }).catch(() => ({ insights: [] })) };
   const [saved, defaults] = await Promise.all([get(`/api/profiles/${profile.id}/overview`).catch(() => ({ widgets: null })), early.bio]);
   const defaultMetrics = () => defaults.headline.slice(0, DEFAULT_TILES).map((h) => h.metric);
   let layout = resolveLayout(saved.widgets, defaultMetrics());
@@ -269,9 +274,9 @@ export async function render({ el, state, navigate }) {
       sleep: () => needs.has("sleep") ? get("/api/biometrics/daily", { profile: profile.id, metric: "sleep_duration", days: 14 }) : null,
       workouts: () => needs.has("workouts") ? get("/api/biometrics/workouts", { profile: profile.id, days: 30, limit: LIST_MAX }) : null,
       events: () => needs.has("events") ? get("/api/biometrics/events", { profile: profile.id, view: "journal", days: 30, limit: 20 }) : null,
-      insights: () => needs.has("insights") ? get("/api/insights", { profile: profile.id }).catch(() => ({ insights: [] })) : null,
+      insights: () => needs.has("insights") ? early.insights : null,
       // Goals also show on the number tiles, so they load whenever there are any.
-      goals: () => get("/api/goals", { profile: profile.id }).catch(() => ({ progress: [] })),
+      goals: () => early.goals,
     };
     const keys = Object.keys(jobs);
     const results = await Promise.all(keys.map((k) => (data[k] && k !== "bio" ? data[k] : jobs[k]())));
@@ -303,21 +308,24 @@ export async function render({ el, state, navigate }) {
 
   const draw = () => {
     const { summary, bio, connections } = data;
-    refreshAlerts(profile, state.status, { summary, connections });
     const conflict = summary.identity_conflict || [];
     const identity = conflict.length ? null : summary.identities[0];   // don't guess age/sex from someone else's chart
     const years = age(profile.birth_date || identity?.birth_date);
     const first = profile.name.split(" ")[0];
+    // Someone else's Overview (a child, a parent you look after, someone who shares with you) is headed with their name:
+    // the greeting is for whoever is signed in.
+    const self = !state.status?.account || state.status.account.profile_id === profile.id;
+    const heading = self ? `${greeting()}, ${first}` : profile.name;
     data.hasRecords = Object.values(summary.counts || {}).some((n) => n > 0);
 
     if (!connections.length && !bio.has_samples) {
       mount(el, html`
-        <div class="page-head"><div><h1>${greeting()}, ${first}</h1>
-          <p>Let's bring your health data together. Everything is stored locally on this machine.</p></div></div>
+        <div class="page-head"><div><h1>${heading}</h1>
+          <p>Let's bring ${self ? "your" : `${first}'s`} health data together. Everything is stored locally on this machine.</p></div></div>
         <div class="grid grid-auto">
           ${[
             ["watch", "Wearables and phones", "Pair the Syntropy iPhone or Android app for Apple Health or Health Connect, or link Oura, WHOOP or Google Health for sleep, recovery, HRV and training.", "#/sources", "Connect a device"],
-            ["building", "Medical records", "Bring in your labs, medications, conditions and visits from patient portals like Epic MyChart, Oracle Health, athenahealth and healow.", "#/sources?add=ehr", "Find my health system"],
+            ["building", "Medical records", "Bring in labs, medications, conditions and visits from patient portals like Epic MyChart, Oracle Health, athenahealth and healow.", "#/sources?add=ehr", "Find my health system"],
             ["upload", "Import files", "Drop in an Apple Health export or any FHIR record file you downloaded from a portal.", "#/sources?add=import", "Import a file"],
             ["shieldCheck", "Private by design", "No cloud account. Tokens are encrypted at rest and every access is recorded in your access log.", "#/settings/security", "Review security"],
           ].map(([ic, t, text, href, cta]) => html`
@@ -336,7 +344,7 @@ export async function render({ el, state, navigate }) {
     const items = layout.filter((w) => w.visible).map((w) => ({ w, out: content(w) })).filter((x) => x.out);
     mount(el, html`
       <div class="page-head">
-        <div><h1>${greeting()}, ${first}</h1>
+        <div><h1>${heading}</h1>
           <p>${[years != null ? `${years} years` : null, identity?.gender ? identity.gender.charAt(0).toUpperCase() + identity.gender.slice(1) : null].filter(Boolean).join(" · ")}</p></div>
         <div class="row wrap" style="gap:8px">
           ${editing ? html`<button class="btn btn-sm btn-ghost" data-action="reset">Reset</button>
@@ -344,7 +352,7 @@ export async function render({ el, state, navigate }) {
               <button class="btn btn-sm btn-primary" data-action="done">${icon("check")} Done</button>`
             : html`<a class="sync-pill" href="#/sources"><span class="dot ${syncing ? "info pulse" : issues.length ? "warn" : "good"}"></span>
               ${syncing ? "Syncing…" : issues.length ? `${plural(issues.length, "source")} need${issues.length === 1 ? "s" : ""} attention`
-                : `${plural(connections.length, "source")} · synced ${fmtAgo(lastSync)}`}</a>
+                : `${plural(connections.length, "source")}${lastSync ? ` · synced ${fmtAgo(lastSync)}` : ""}`}</a>
               <button class="btn btn-sm" data-action="edit">${icon("sliders")} Edit</button>`}
         </div>
       </div>
@@ -388,6 +396,8 @@ export async function render({ el, state, navigate }) {
 
   await load();
   draw();
+  // The bell's alerts come from the same summary and sources (other pages ask for them themselves).
+  refreshAlerts(profile, state.status, { summary: data.summary, connections: data.connections });
 
   const off = onAction(el, {
     record: ({ id }) => openRecord(id),
@@ -456,7 +466,8 @@ function openAdd({ profile, getLayout, data, onAdd }) {
     const b = e.target.closest("[data-add]");
     if (!b) return;
     b.disabled = true;
-    await onAdd(b.dataset.add);
+    try { await onAdd(b.dataset.add); }
+    catch (err) { b.disabled = false; toast(err.message, "bad"); return; }
     draw();
   });
 }
@@ -481,9 +492,14 @@ function masonry(grid) {
       item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((item.firstElementChild.getBoundingClientRect().height + 16) / 2))}`;
     }
   };
-  layout();
+  // The page is built before it's on screen, when nothing has a height yet: measured then, every item would span a
+  // sliver and the first frame shown would be a pile of collapsed cards. So the first layout runs as soon as the items
+  // have a size (the observer's first answer comes before that frame is painted), later ones once per frame.
+  if (grid.isConnected) layout();
+  let first = !grid.isConnected;
   let queued = false;
   const ro = new ResizeObserver(() => {
+    if (first) { first = false; layout(); return; }
     if (queued) return;
     queued = true;
     requestAnimationFrame(() => { queued = false; layout(); });

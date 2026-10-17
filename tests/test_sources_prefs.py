@@ -156,8 +156,6 @@ def test_accent_is_shared_with_paired_devices(client):
 
 
 def test_password_endpoints_accept_new_and_old_names(raw_client):
-    from app.core import auth
-    auth._failed_logins.clear()      # other tests' failed attempts count against the same test client address
     raw_client.post("/api/setup", json={"password": PASSPHRASE, "profile_name": "Alex"}, headers=CSRF)
     raw_client.post("/api/auth/logout", headers=CSRF)
     wrong = raw_client.post("/api/auth/login", json={"password": "nope"}, headers=CSRF)
@@ -175,6 +173,7 @@ def test_time_zone_list_includes_utc_and_the_current_setting(client, monkeypatch
     zones = client.get("/api/settings/timezones").json()["timezones"]
     assert zones[0] == "UTC" and zones.count("UTC") == 1
     assert "America/New_York" in zones
+    assert "America/Buenos_Aires" not in zones and "Asia/Calcutta" not in zones     # retired names: their new ones are
     # An older name set in the environment still shows as the choice in use.
     monkeypatch.setenv("TZ", "Etc/GMT+5")
     assert "Etc/GMT+5" in client.get("/api/settings/timezones").json()["timezones"]

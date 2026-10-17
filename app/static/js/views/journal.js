@@ -6,7 +6,7 @@
 import { del, get, post, put } from "../api.js";
 import { setToolbar } from "../app.js";
 import { $, confirmDialog, debounce, emptyState, fmtNum, html, icon, loading, modal, mount, onAction, plural, raw, toast } from "../ui.js";
-import { rangeHash, rangeLabel, rangePicker, rangeQuery, readRange, saveRange, wireRange } from "../range.js";
+import { rangeHash, rangePhrase, rangePicker, rangeQuery, readRange, saveRange, wireRange } from "../range.js";
 
 const RANGE_KEY = "syntropy-journal-range";
 const PAGE = 200;
@@ -234,7 +234,7 @@ export async function render({ el, params, state }) {
           <button class="btn btn-sm" data-action="more">Show more</button></div>` : ""}
       </div>`
       : html`<div class="card">${filtered
-        ? emptyState("Nothing matches", `No entries ${rangeLabel(range).toLowerCase() === "all time" ? "" : `in ${rangeLabel(range).toLowerCase()} `}match these filters.`)
+        ? emptyState("Nothing matches", `No entries ${rangePhrase(range) ? `${rangePhrase(range)} ` : ""}match these filters.`)
         : emptyState("Nothing logged yet", "Check in above, or log a symptom, a dose or a note. Moods and symptoms you log in Apple Health on your iPhone show up here too.")}</div>`);
   };
 
@@ -331,12 +331,9 @@ function openDeviceEntry(e) {
 }
 
 // The person's current medications from their health records, offered as one-tap choices when logging a dose.
-let activeMeds = null;
 async function medicationChips(profile, form, recentNames) {
-  if (activeMeds?.profileId !== profile.id) {
-    const summary = await get("/api/summary", { profile: profile.id }).catch(() => null);
-    activeMeds = { profileId: profile.id, list: (summary?.active_medications || []).map((m) => ({ name: m.title, dose: doseOf(m.title) })) };
-  }
+  const summary = await get("/api/summary", { profile: profile.id }).catch(() => null);      // cached briefly by api.js
+  const activeMeds = { list: (summary?.active_medications || []).map((m) => ({ name: m.title, dose: doseOf(m.title) })) };
   const box = form.querySelector("#jr-med-chips");
   if (!box) return;
   const seen = new Set(activeMeds.list.map((m) => m.name.toLowerCase()));

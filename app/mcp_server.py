@@ -302,12 +302,13 @@ TOOLS: dict[str, tuple[Callable[[dict[str, Any]], Any], str, dict[str, Any], lis
     "get_daily_metric": (t_daily_metric, "Day-by-day values of one wearable metric (one source per day, no double counting).", {
         **PROFILE_ARG, "metric": {"type": "string", "description": "Metric id from list_wearable_metrics, e.g. 'sleep_duration'."},
         "days": {"type": "integer", "minimum": 1, "maximum": 3650, "default": 30}}, ["metric"]),
-    "list_workouts": (t_list_workouts, "Workouts from Apple Health (type, time, duration, distance, energy, heart rate) with "
-                      "totals by workout type.", {
+    "list_workouts": (t_list_workouts, "Workouts from the phone apps (Apple Health, Health Connect) and from Oura, WHOOP and "
+                      "Google Health (type, time, duration, distance, energy, heart rate), with totals by workout type.", {
         **PROFILE_ARG, "days": {"type": "integer", "minimum": 1, "maximum": 36500, "default": 90},
         "limit": {"type": "integer", "minimum": 1, "maximum": 500, "default": 50}}, []),
-    "get_health_journal": (t_health_journal, "Logged symptoms (with severity), cycle tracking, heart-rate and noise notifications, "
-                           "mindful sessions, ECG classifications and State of Mind entries from Apple Health.", {
+    "get_health_journal": (t_health_journal, "The person's journal: daily check-ins (mood, energy, stress), symptoms (with "
+                           "severity), doses, notes and cycle tracking logged in Syntropy Health or on their phone, plus "
+                           "heart-rate and noise notifications, mindful sessions and ECG classifications from their devices.", {
         **PROFILE_ARG, "days": {"type": "integer", "minimum": 1, "maximum": 36500, "default": 90},
         "category": {"type": "string", "enum": list(activity.EVENT_CATEGORIES)},
         "event_type": {"type": "string", "description": "e.g. 'headache', 'menstrual_flow', 'ecg', 'state_of_mind'."},

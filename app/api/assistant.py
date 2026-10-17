@@ -60,20 +60,20 @@ async def put_config(req: AIConfig, principal: auth.Principal = Depends(auth.req
 
 
 @router.post("/api/ai/acknowledge")
-async def acknowledge() -> dict:
+def acknowledge() -> dict:
     """Confirms that an AI outside the person's network sees their questions and what it looks up (asked once)."""
     ai.acknowledge_cloud()
     return {"ok": True}
 
 
 @router.delete("/api/ai/config", dependencies=[owner])
-async def turn_off() -> dict:
+def turn_off() -> dict:
     ai.disable()
     return ai.config()
 
 
 @router.delete("/api/ai/providers/{provider}", dependencies=[owner])
-async def disconnect(provider: str) -> dict:
+def disconnect(provider: str) -> dict:
     """Forgets a provider's key, address and model list."""
     try:
         return ai.disconnect(provider)

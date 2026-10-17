@@ -34,6 +34,8 @@ function statusLine(c, paired) {
     : html`<span class="src-status"><span class="dot"></span> Not paired</span>`;
   // A one-time import (healow keeps no connection): nothing's wrong, signing in again brings in what's new.
   if (c.access_ended) return html`<span class="src-status"><span class="dot"></span> Imported</span>`;
+  // A file, or results typed in: nothing to be connected to. The row says what came in and when.
+  if (c.kind === "import") return "";
   if (c.status === "needs_reauth") return html`<span class="src-status warn"><span class="dot warn"></span> Reconnect needed</span>`;
   if (c.status === "error") return html`<span class="src-status bad" title="${c.last_error || ""}"><span class="dot bad"></span> Sync failed</span>`;
   if (c.status === "disconnected") return html`<span class="src-status"><span class="dot"></span> Disconnected</span>`;
@@ -63,7 +65,7 @@ function origin(c) {
   if (c.kind === "device") {
     return { "healthkit-export": "HealthKit export", android: "Syntropy Android app" }[c.metadata?.platform] || "Syntropy iPhone app";
   }
-  return c.provider === "manual" ? "Lab results you entered" : `Imported ${fmtDate(c.created_at)}`;
+  return c.provider === "manual" ? "Lab results you entered" : fmtDate(c.created_at);
 }
 
 /**
@@ -121,8 +123,9 @@ function sourceMenu(c, devices, act) {
   }
   if (c.kind === "device" && paired) items.push({ label: "Unpair", icon: "phone", run: () => act("unpair", { id: c.id, name: c.display_name }) });
   if (items.length) items.push("-");
-  items.push({ label: c.kind === "device" ? "Remove…" : "Disconnect or remove…", icon: "trash", danger: true,
-               run: () => act("remove", { id: c.id, name: c.display_name, kind: c.kind }) });
+  const off = c.status === "disconnected" && !paired;
+  items.push({ label: c.kind === "device" || off ? "Remove…" : "Disconnect or remove…", icon: "trash", danger: true,
+               run: () => act("remove", { id: c.id, name: c.display_name, kind: c.kind, off: off ? "1" : "" }) });
   return items;
 }
 
@@ -176,8 +179,8 @@ function modeExplainer(inst) {
       "download my record" option) and import the file.</p></div></div>`;
   }
   if (inst.mode === "simulated") {
-    return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Simulated sign-in.</b> Syntropy Health isn't registered with ${inst.platform_label} yet,
-      so this connection goes through Syntropy's built-in EHR simulator instead of ${esc(inst.name)}'s real ${inst.portal || "portal"}.</p>
+    return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Simulated sign-in.</b> Developer mode connects ${inst.platform_label} through
+      Syntropy's built-in EHR simulator, so this goes there instead of ${esc(inst.name)}'s real ${inst.portal || "portal"}.</p>
       <p>You'll see a sign-in page with test patients (password <code>syntropy</code>). The full protocol — OAuth consent, PKCE token exchange,
       FHIR download, normalization — is exactly what runs for a real connection.</p></div></div>`;
   }
@@ -194,7 +197,9 @@ function modeExplainer(inst) {
 
 async function openAddHealthSystem(profileId) {
   const m = modal({ title: "Connect a health system", wide: true, body: loading(3) });
-  const featured = await get("/api/directory/featured");
+  let featured;
+  try { featured = await get("/api/directory/featured"); }
+  catch (err) { m.close(); toast(err.message, "bad"); return; }
   let current = featured.results;
   const byId = new Map(current.map((i) => [i.id, i]));
 
@@ -217,7 +222,9 @@ async function openAddHealthSystem(profileId) {
     const q = input.value.trim();
     const seq = ++searchSeq;
     if (!q) return showList(featured.results, "Popular");
-    const res = await get("/api/directory", { q, limit: 30 });
+    let res;
+    try { res = await get("/api/directory", { q, limit: 30 }); }
+    catch (err) { if (seq === searchSeq) toast(err.message, "bad"); return; }
     if (seq !== searchSeq) return;     // the search changed while this one was answering
     showList(res.results, `${res.total} match${res.total === 1 ? "" : "es"}`);
   }, 200));
@@ -231,12 +238,13 @@ async function openAddHealthSystem(profileId) {
     import: () => { m.close(); location.hash = "#/sources?add=import"; },
     back: () => { m.close(); openAddHealthSystem(profileId); },
     go: async ({ id }, btn) => {
+      const label = btn.textContent;
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Preparing secure sign-in…';
       try {
         const res = await post("/api/connections/ehr", { institution_id: id, profile_id: profileId });
         window.location.assign(res.auth_url);
-      } catch (err) { toast(err.message, "bad"); btn.disabled = false; btn.textContent = "Continue"; }
+      } catch (err) { toast(err.message, "bad"); btn.disabled = false; btn.textContent = label; }
     },
     discover: async () => {
       const url = m.body.querySelector("#c-url").value.trim();
@@ -279,8 +287,8 @@ function customServer(m) {
     <div class="stack">
       <p class="muted">Connect directly to any SMART on FHIR (R4) patient-access endpoint. You need a client ID registered with that server,
         with this redirect URI: <code>${location.origin}/callback</code> (or your relay URL from Settings).</p>
-      <div><label class="label">FHIR base URL</label><input class="input" id="c-url" placeholder="https://fhir.example.org/r4"></div>
-      <div><label class="label">Client ID</label><input class="input" id="c-client"></div>
+      <div><label class="label" for="c-url">FHIR base URL</label><input class="input" id="c-url" placeholder="https://fhir.example.org/r4"></div>
+      <div><label class="label" for="c-client">Client ID</label><input class="input" id="c-client"></div>
       <div class="row"><button class="btn" data-action="discover">Test discovery</button><span class="grow"></span>
         <button class="btn" data-action="back">Back</button><button class="btn btn-primary" data-action="custom-go">Connect</button></div>
       <pre class="raw" id="c-out" style="min-height:40px"></pre>
@@ -290,10 +298,13 @@ function customServer(m) {
 // ------------------------------------------------------------------ pairing & imports
 async function openPairing(profile) {
   const m = modal({ title: "Pair a phone", body: loading(2) });
-  const [res, net] = await Promise.all([
-    post("/api/devices/pairing-code", { profile_id: profile.id }),
-    networkStatus().catch(() => null),
-  ]);
+  let res, net;
+  try {
+    [res, net] = await Promise.all([
+      post("/api/devices/pairing-code", { profile_id: profile.id }),
+      networkStatus().catch(() => null),
+    ]);
+  } catch (err) { m.close(); throw err; }     // the page's handler says what went wrong
   const link = `syntropyhealth://pair?server=${encodeURIComponent(res.server_url)}&code=${encodeURIComponent(res.code)}`;
   // The Mac and Windows apps start out reachable only from this computer; the phone can't connect until that changes.
   const blocked = net && !net.on_network && /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(res.server_url);
@@ -333,15 +344,24 @@ function importZones() {
     <div id="imp-status" class="src-drop-status"></div>`;
 }
 
-async function uploadApple(file, profile, statusEl, refresh) {
+async function uploadApple(file, profile, statusEl, refresh, left) {
   const form = new FormData();
   form.append("file", file);
   form.append("profile_id", profile.id);
   mount(statusEl, html`<div class="small">Uploading ${file.name}…</div><div class="progress"><div style="width:15%"></div></div>`);
   const { job_id } = await api("/api/imports/apple-health", { method: "POST", form });
+  let misses = 0;
   for (;;) {
     await new Promise((r) => setTimeout(r, 800));
-    const job = await get(`/api/imports/${job_id}`, undefined, { fresh: true });
+    // The import carries on on the server; once the page is left there's nothing here to update.
+    if (left()) return;
+    let job;
+    try { job = await get(`/api/imports/${job_id}`, undefined, { fresh: true }); misses = 0; }
+    catch (err) {
+      // A moment without an answer (the server busy with a big import) isn't a failure; a lasting one is.
+      if (err.status || ++misses > 10) throw err;
+      continue;
+    }
     if (job.status === "error") { mount(statusEl, html`<div class="banner bad">${job.error}</div>`); return; }
     if (job.status === "completed") {
       const r = job.result || {};
@@ -377,6 +397,7 @@ export async function render({ el, params, state }) {
   const profile = state.profile;
   mount(el, loading(4));
   let pollTimer = null;
+  let gone = false;                       // the page was left: an answer still on its way draws nothing
   let shown = { all: [], devices: [] };   // what the page is showing, for the "⋯" menus
 
   const refresh = async (fresh = false) => {
@@ -385,6 +406,7 @@ export async function render({ el, params, state }) {
       get("/api/devices", { profile: profile.id }, { fresh }),
       get("/api/directory/featured").catch(() => null),   // only for the directory's size
     ]);
+    if (gone) return;
     const all = conns.connections;
     const devicesFor = (c) => devs.devices.filter((d) => d.connection_id === c.id);
     shown = { all, devices: devs.devices };
@@ -439,21 +461,27 @@ export async function render({ el, params, state }) {
     wireUploads();
     renderBanner();
     clearTimeout(pollTimer);
-    if (all.some((c) => c.syncing)) pollTimer = setTimeout(() => refresh(true), 1500);
+    // While a source syncs, look again shortly (a failed look tries again rather than stopping).
+    if (all.some((c) => c.syncing)) pollTimer = setTimeout(() => refresh(true).catch(() => { if (!gone) pollTimer = setTimeout(() => refresh(true), 5000); }), 1500);
   };
 
   let bannerShown = false;
   const renderBanner = () => {
-    if (bannerShown) return;
     const box = $("#src-banner", el);
+    if (bannerShown) {
+      // Drawn again (while syncing): keep the message about the connection that just came back.
+      if (bannerShown !== true) mount(box, bannerShown);
+      return;
+    }
     if (params.get("error")) {
-      mount(box, html`<div class="banner bad">${icon("alert")}<div class="grow"><b>The connection didn't complete.</b><p>${params.get("error")}</p></div></div>`);
-      bannerShown = true;
+      bannerShown = html`<div class="banner bad">${icon("alert")}<div class="grow"><b>The connection didn't complete.</b><p>${params.get("error")}</p></div></div>`;
+      mount(box, bannerShown);
     } else if (params.get("connected")) {
       toast("Connected. Downloading records…", "good");
       bannerShown = true;
-    }
-    history.replaceState(null, "", "#/sources");
+    } else return;
+    // A reload shouldn't say it again. (Only while this page is still the one on screen.)
+    if (location.hash.startsWith("#/sources")) history.replaceState(null, "", "#/sources");
   };
 
   const importFhir = async (file, status) => {
@@ -468,7 +496,7 @@ export async function render({ el, params, state }) {
     } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };
   const importApple = async (file, status) => {
-    try { await uploadApple(file, profile, status, refresh); } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
+    try { await uploadApple(file, profile, status, refresh, () => gone); } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };
 
   const wireUploads = () => {
@@ -518,26 +546,38 @@ export async function render({ el, params, state }) {
     sync: async ({ id }, btn) => {
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Syncing…';
-      const res = await post(`/api/connections/${id}/sync`);
-      if (res.status === "error") toast(res.error, "bad");
-      else if (res.status === "skipped") toast(res.reason);
-      else toast(`Synced · ${plural(res.inserted || 0, "new item")}`, "good");
-      await refresh();
+      try {
+        const res = await post(`/api/connections/${id}/sync`);
+        if (res.status === "error") toast(res.error, "bad");
+        else if (res.status === "skipped") toast(res.reason);
+        else toast(`Synced · ${plural(res.inserted || 0, "new item")}`, "good");
+      } catch (err) { toast(err.message, "bad"); }
+      if (!gone) await refresh(true);     // the row shows how it went (and the button comes back)
     },
     reconnect: async ({ id }) => {
       const res = await post(`/api/connections/${id}/reconnect`);
       window.location.assign(res.auth_url);
     },
-    remove: async ({ id, name, kind }) => {
+    remove: async ({ id, name, kind, off }) => {
       const phone = kind === "device";
+      // Already disconnected, with its data kept: what's left is deleting that data.
       const m = modal({
         title: `Remove ${name}?`,
-        body: html`<p>${phone ? "Unpairing stops the phone sending data" : "Disconnecting stops syncing"} and keeps what it already brought in;
+        body: off ? html`<p>It's already disconnected. Removing it deletes what it brought in from this machine.</p>`
+          : html`<p>${phone ? "Unpairing stops the phone sending data" : "Disconnecting stops syncing"} and keeps what it already brought in;
           the source stays listed so you can reconnect or delete it later. Removing it also deletes its data from this machine.</p>`,
-        footer: html`<button class="btn" data-keep>${phone ? "Unpair, keep data" : "Disconnect, keep data"}</button><button class="btn btn-danger" data-wipe>Remove and delete data</button>`,
+        footer: html`${off ? html`<button class="btn" data-cancel>Cancel</button>`
+          : html`<button class="btn" data-keep>${phone ? "Unpair, keep data" : "Disconnect, keep data"}</button>`}<button class="btn btn-danger" data-wipe>Remove and delete data</button>`,
       });
-      m.el.querySelector("[data-keep]").addEventListener("click", async () => { m.close(); await del(`/api/connections/${id}`); toast(phone ? "Unpaired. Its data is kept." : "Disconnected. Its data is kept."); refresh(); });
-      m.el.querySelector("[data-wipe]").addEventListener("click", async () => { m.close(); await del(`/api/connections/${id}`, { delete_data: true }); toast("Removed with its data"); refresh(); });
+      const run = async (query, done) => {
+        m.close();
+        try { await del(`/api/connections/${id}`, query); } catch (err) { toast(err.message, "bad"); return; }
+        toast(done);
+        refresh();
+      };
+      m.el.querySelector("[data-cancel]")?.addEventListener("click", () => m.close());
+      m.el.querySelector("[data-keep]")?.addEventListener("click", () => run(undefined, phone ? "Unpaired. Its data is kept." : "Disconnected. Its data is kept."));
+      m.el.querySelector("[data-wipe]").addEventListener("click", () => run({ delete_data: true }, "Removed with its data"));
     },
     wearable: async ({ provider, mode }) => {
       const res = await post("/api/connections/wearable", { provider, mode, profile_id: profile.id });
@@ -554,5 +594,5 @@ export async function render({ el, params, state }) {
     },
   };
   const off = onAction(el, handlers);
-  return () => { off(); clearTimeout(pollTimer); };
+  return () => { gone = true; off(); clearTimeout(pollTimer); };
 }

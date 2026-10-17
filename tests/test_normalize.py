@@ -24,6 +24,13 @@ def test_interpretation_codes_and_fallback_to_range():
     assert r["interpretation"] == "low" and r["ref_text"] == "70–99"
 
 
+def test_a_labs_range_text_uses_the_same_dash():
+    texts = {"70-99": "70–99", "3.5 - 5.0 mmol/L": "3.5–5.0 mmol/L", "<5.7": "<5.7", "Negative": "Negative"}
+    for given, shown in texts.items():
+        r = fn.normalize_observation(obs(valueQuantity={"value": 80, "unit": "mg/dL"}, referenceRange=[{"text": given}]))
+        assert r["ref_text"] == shown
+
+
 def test_mmol_glucose_normalized_with_reference_range():
     r = fn.normalize_observation(obs(valueQuantity={"value": 5.0, "unit": "mmol/L"},
                                      referenceRange=[{"low": {"value": 3.9}, "high": {"value": 5.5}}]))

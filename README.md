@@ -73,6 +73,23 @@ Install options, configuration and remote access are in the step-by-step guides 
 - [Set up](https://health.syntropylabs.io/setup/): install on a Mac, Windows PC, Linux home server or Docker, and the iPhone app
 - [How it works](https://health.syntropylabs.io/docs/): architecture, the data handled and the security model
 
+## Uninstalling
+
+Removing Syntropy Health keeps your data (every person's profile, sign-in and records) unless you choose to delete
+it, so installing again picks up where you left off. Back it up first if you might want it later.
+
+| Install | Remove it | Your data |
+|---|---|---|
+| Mac app | **Syntropy Health → Uninstall Syntropy Health…** in the menu bar: it quits, stops opening at login and moves to the Trash | It asks whether to delete it too. Dragging the app to the Trash yourself keeps it in `~/Library/Application Support/Syntropy Health` |
+| Windows app | **Settings → Apps → Installed apps → Syntropy Health → Uninstall** | The uninstaller asks whether to delete it too (`%LOCALAPPDATA%\Syntropy Health`) |
+| Mac or Windows background server | `curl -fsSL https://health.syntropylabs.io/install.sh \| sh -s -- --uninstall` or `& ([scriptblock]::Create((irm https://health.syntropylabs.io/install.ps1))) -Uninstall` | Kept; add `--purge` or `-Purge` to delete it |
+| Linux home server | `curl -fsSL https://health.syntropylabs.io/install.sh \| sudo sh -s -- --uninstall` | Kept in `/var/lib/syntropy-health`; add `--purge` to delete it |
+| Docker | `docker compose down` (or `docker rm -f syntropy-health`) | Kept in `./data` (or the `syntropy-data` volume): delete the folder, or `docker volume rm syntropy-data` |
+| `uv tool` or `pipx` | `syntropy-health service uninstall`, then `uv tool uninstall syntropy-health` | Kept; `syntropy-health info` shows where |
+
+Your phone keeps what it already synced; pair it again after reinstalling. Health-system sign-ins end with the data:
+delete it and you connect each one again.
+
 ## Contributing
 
 Bug reports, ideas and pull requests are welcome. Read [CONTRIBUTING.md](.github/CONTRIBUTING.md) to get set up (the test suite

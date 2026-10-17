@@ -77,7 +77,7 @@ class PlatformPatch(BaseModel):
 
 
 @router.put("/platforms/{platform}", dependencies=[owner])
-async def update_platform(platform: str, req: PlatformPatch) -> dict:
+def update_platform(platform: str, req: PlatformPatch) -> dict:
     try:
         return settings.set_platform_config(platform, req.mode, req.sandbox_client_id, req.production_client_id)
     except KeyError:
@@ -91,7 +91,7 @@ class DeveloperPatch(BaseModel):
 
 
 @router.put("/developer", dependencies=[owner])
-async def update_developer(req: DeveloperPatch) -> dict:
+def update_developer(req: DeveloperPatch) -> dict:
     """Developer mode: each platform uses its own mode (simulator, sandbox) instead of connecting for real."""
     settings.set_developer_mode(req.enabled)
     return _snapshot()
@@ -103,7 +103,7 @@ class WearablePatch(BaseModel):
 
 
 @router.put("/wearables/{provider}", dependencies=[owner])
-async def update_wearable(provider: str, req: WearablePatch) -> dict:
+def update_wearable(provider: str, req: WearablePatch) -> dict:
     try:
         settings.set_wearable_credentials(provider, req.client_id, req.client_secret)
     except KeyError:
@@ -121,7 +121,7 @@ class GeneralPatch(BaseModel):
 
 
 @router.put("/source-order", dependencies=[owner])
-async def update_source_order(orders: dict[str, list[str]]) -> dict:
+def update_source_order(orders: dict[str, list[str]]) -> dict:
     """Which kind of device wins, per group of metrics, when several report the same day."""
     try:
         biometrics.set_source_orders(orders)
@@ -165,11 +165,23 @@ async def update_general(req: GeneralPatch) -> dict:
     return _snapshot()
 
 
+def _place_zones() -> set[str]:
+    """One time zone for each place people live (tzdata's zone.tab), without the retired names kept for old systems
+    (America/Buenos_Aires, Africa/Timbuktu…). Region/City names from this system if that list isn't there."""
+    try:
+        from importlib import resources
+        table = (resources.files("tzdata") / "zoneinfo" / "zone.tab").read_text(encoding="utf-8")
+        zones = {line.split("\t")[2] for line in table.splitlines() if line.strip() and not line.startswith("#")}
+        return zones & available_timezones()
+    except (ImportError, OSError, IndexError):
+        return {tz for tz in available_timezones() if "/" in tz and not tz.startswith(("Etc/", "SystemV/"))}
+
+
 @router.get("/timezones")
 def timezones() -> dict:
-    # Region/City names, plus UTC (servers and containers often run on it), plus whatever is in use now even if it's an
-    # older name, so the list always shows the current setting rather than falling back to its first entry.
-    zones = {tz for tz in available_timezones() if "/" in tz and not tz.startswith(("Etc/", "SystemV/"))}
+    # The places, plus UTC (servers and containers often run on it), plus whatever is in use now even if it's an older
+    # name, so the list always shows the current setting rather than falling back to its first entry.
+    zones = _place_zones()
     current = settings.timezone_name()
     zones.discard("UTC")
     extra = [current] if current not in zones and current != "UTC" and current in available_timezones() else []
