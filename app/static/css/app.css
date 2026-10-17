@@ -734,10 +734,15 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .eyebrow { font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 3px; }
 .tab .n { font-weight: 500; font-size: 11.5px; color: var(--text-4); margin-left: 2px; }
 .tab .dot { width: 6px; height: 6px; margin-left: 5px; vertical-align: 2px; }
-.segmented { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+/* One line, like .seg: on a phone, "7 days" broke over two lines; what doesn't fit scrolls sideways. */
+.segmented { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border);
+  max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.segmented::-webkit-scrollbar { display: none; }
 .segmented button {
   border: 0; background: none; padding: 5px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 600; color: var(--text-3); cursor: pointer;
+  white-space: nowrap; flex: none;
 }
+@media (max-width: 480px) { .segmented button { padding: 5px 9px; } }
 @media (hover: hover) { .segmented button:hover { color: var(--text); } }
 .segmented button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 .input-sm, select.input-sm { padding: 5px 9px; font-size: 13px; }
