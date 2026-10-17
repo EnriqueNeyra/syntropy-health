@@ -172,6 +172,47 @@ jobs:
           $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
           & $iscc "/DAppVersion=$version" desktop\installer.iss
+      # Uninstalling removes a `service install` made from the app (its sign-in task or Run value) and stops what runs
+      # from its folder, but leaves a server installed from elsewhere (install.ps1 -Server) alone.
+      - name: Uninstaller
+        shell: pwsh
+        run: |
+          $setup = (Get-Item desktop\dist\*-setup.exe).FullName
+          $dir = "$env:RUNNER_TEMP\Syntropy Health"
+          $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+          function Install { Start-Process $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$dir`"" -Wait }
+          function Uninstall {
+            Start-Process "$dir\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
+            for ($i = 0; $i -lt 60 -and (Test-Path "$dir\Syntropy Health.exe"); $i++) { Start-Sleep -Seconds 1 }
+            if (Test-Path "$dir\Syntropy Health.exe") { throw "The app is still there after uninstalling" }
+          }
+          function Task { Get-ScheduledTask -TaskName "Syntropy Health" -ErrorAction SilentlyContinue }
+
+          # A server installed from elsewhere stays.
+          Install
+          $elsewhere = "C:\elsewhere\syntropy-health.exe"
+          Register-ScheduledTask -TaskName "Syntropy Health" -Action (New-ScheduledTaskAction -Execute $elsewhere -Argument serve) -Trigger (New-ScheduledTaskTrigger -AtLogOn) | Out-Null
+          Set-ItemProperty $runKey "Syntropy Health Server" "`"$elsewhere`" serve"
+          Uninstall
+          if (-not (Task)) { throw "Uninstalling removed a sign-in task that wasn't the app's" }
+          if (-not (Get-ItemProperty $runKey -Name "Syntropy Health Server" -ErrorAction SilentlyContinue)) { throw "Uninstalling removed a Run value that wasn't the app's" }
+          Unregister-ScheduledTask -TaskName "Syntropy Health" -Confirm:$false
+
+          # The app's own goes, and its running server stops.
+          Install
+          & "$dir\syntropy-health.exe" service install --host 127.0.0.1 --port 8020
+          if (-not (Task)) { throw "service install made no sign-in task" }
+          Set-ItemProperty $runKey "Syntropy Health Server" "`"$dir\Syntropy Health.exe`" serve"
+          $up = $false
+          for ($i = 0; $i -lt 60 -and -not $up; $i++) {
+            Start-Sleep -Seconds 1
+            try { $up = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8020/health -TimeoutSec 2).StatusCode -eq 200 } catch {}
+          }
+          if (-not $up) { throw "The app's server didn't start" }
+          Uninstall
+          if (Task) { throw "The app's sign-in task outlived the app" }
+          if (Get-ItemProperty $runKey -Name "Syntropy Health Server" -ErrorAction SilentlyContinue) { throw "The app's Run value outlived the app" }
+          if (Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith("$dir\", 'OrdinalIgnoreCase') }) { throw "Something from the app's folder is still running" }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows
