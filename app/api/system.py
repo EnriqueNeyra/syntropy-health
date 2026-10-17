@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ipaddress
+import json
+import time
 from datetime import date
 from typing import Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -380,10 +382,11 @@ def change_password(req: PasswordRequest, request: Request, response: Response,
 @router.get("/api/auth/sessions")
 def list_sessions(principal: auth.Principal = Depends(auth.require_user)) -> dict:
     """Where this account is signed in (its browsers and the screens of phones it paired)."""
-    with db() as conn:
-        rows = conn.execute("SELECT s.created_at, s.last_seen_at, s.expires_at, s.user_agent, s.ip, d.name AS device_name "
-                            "FROM user_sessions s LEFT JOIN devices d ON d.id = s.device_id WHERE s.account_id IS ? "
-                            "ORDER BY s.last_seen_at DESC", (principal.account_id,)).fetchall()
+    with read() as conn:
+        rows = conn.execute("SELECT s.created_at, s.last_seen_at, s.expires_at, s.user_agent, s.ip, d.name AS device_name, "
+                            "d.platform AS device_platform FROM user_sessions s LEFT JOIN devices d ON d.id = s.device_id "
+                            "WHERE s.account_id IS ? AND s.expires_at > ? ORDER BY s.last_seen_at DESC",
+                            (principal.account_id, time.time())).fetchall()
     return {"sessions": rows_to_dicts(rows)}
 
 
@@ -403,10 +406,45 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
                             (*params, max(1, min(limit, 500)))).fetchall()
         names = {r["id"]: r["name"] for r in conn.execute("SELECT a.id, p.name FROM accounts a JOIN profiles p ON p.id = a.profile_id")}
         devices = {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM devices")}
+        known = {"source": {r["id"]: r["display_name"] for r in conn.execute("SELECT id, display_name FROM connections")},
+                 "person": names,
+                 "for": {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM profiles")},
+                 "app": {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM agent_tokens")}}
     events = rows_to_dicts(rows)
     for e in events:
         kind, _, ref = (e["actor"] or "").partition(":")
         e["who"] = (names.get(ref) if kind == "user" else devices.get(ref) if kind == "device" else None) or e["actor"]
+        e["detail"] = _readable_detail(e["action"], e["detail"], known)
     return {"events": events}
+
+
+# Ids in an entry's details that have a name to show instead: {key in the details: its key once named}.
+_DETAIL_IDS = {"connection": "source", "account": "person", "profile": "for"}
+# What's shown for an id whose thing has since been deleted.
+_GONE = {"source": "a removed source", "person": "a removed account", "for": "someone removed", "app": "a removed app"}
+
+
+def _readable_detail(action: str, detail: Optional[str], known: dict[str, dict[str, str]]) -> Optional[str]:
+    """An entry's details with names where they hold ids ("source: Sutter Health" rather than "connection: con_8f2…"),
+    and an id left out when the entry names what it's about already."""
+    try:
+        value = json.loads(detail) if detail else None
+    except ValueError:
+        return detail
+    if not isinstance(value, dict):
+        return detail
+    out = {}
+    for key, v in value.items():
+        if key in _DETAIL_IDS and isinstance(v, str):
+            new = _DETAIL_IDS[key]
+            out[new] = known[new].get(v, _GONE[new])
+        elif key == "id" and isinstance(v, str):
+            if "name" in value:
+                continue
+            what = "source" if action.startswith("connection.") else "app" if action.startswith("agent.") else None
+            out["name" if what else key] = known[what].get(v, _GONE[what]) if what else v
+        else:
+            out[key] = v
+    return json.dumps(out)
 
 

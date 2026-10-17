@@ -94,7 +94,7 @@ export async function render({ el, parts, state, navigate }) {
         : html`<span style="color:var(--warn)">Background sync is off on this instance (SYNTROPY_SCHEDULER=false). Use Sync now on Sources.</span>`, html`
         ${row("Health records", "How often to check connected health systems.",
           html`<div class="input-unit"><input class="input" id="g-ehr" data-save="ehr_interval_hours" type="number" min="1" value="${settings.sync.ehr_interval_hours}"><span>hours</span></div>`)}
-        ${row("Wearables", "How often to fetch from Oura, WHOOP and Google Health. The iPhone app sends its data on its own.",
+        ${row("Wearables", "How often to fetch from Oura, WHOOP and Google Health. The phone apps send their data on their own.",
           html`<div class="input-unit"><input class="input" id="g-wear" data-save="wearable_interval_hours" type="number" min="0.5" step="0.5" value="${settings.sync.wearable_interval_hours}"><span>hours</span></div>`)}`) : ""}
       ${isOwner() ? section("Updates", "", html`<div id="upd-panel" class="upd-panel"><div class="skeleton" style="height:64px"></div></div>`, "upd-card") : ""}
       ${section("About", "", html`
@@ -219,15 +219,15 @@ export async function render({ el, parts, state, navigate }) {
         </form>`)}
       ${section("Other devices", "Your iPhone, other computers, and your devices on Tailscale.", html`<div id="net-panel" class="set-pad"><div class="skeleton" style="height:64px"></div></div>`)}
       ${section(household() ? "Where you're signed in" : "Signed-in browsers", "", html`<div class="list">${sessions.map((s) => html`<div class="list-item small">
-          <span class="ev-icon">${icon(s.device_name ? "phone" : "monitor")}</span><div class="grow truncate">${s.device_name ? `The iPhone app (${s.device_name})` : browserName(s.user_agent)}
+          <span class="ev-icon">${icon(s.device_name ? "phone" : "monitor")}</span><div class="grow truncate">${s.device_name ? `The ${s.device_platform === "android" ? "Android" : "iPhone"} app (${s.device_name})` : browserName(s.user_agent)}
           <div class="meta">${s.ip} · last active ${fmtDateTime(s.last_seen_at)}</div></div></div>`)}
           ${sessions.length ? "" : html`<div class="list-item small muted">No browser sessions.</div>`}</div>
-        <div class="set-foot small muted">Phones and agents use their own tokens: see Sources → iPhone and Settings → AI.</div>`, "flush")}
+        <div class="set-foot small muted">Phones and AI apps use their own tokens: see Sources → Phones & watches and Settings → AI.</div>`, "flush")}
       ${section("How your data is protected", "", html`<ul class="check-list">
           <li>Everything lives in <code>${settings.data_dir}</code> on this machine.</li>
           <li>Sign-in tokens and secrets are encrypted at rest (key in <code>secret.key</code> or <code>SYNTROPY_SECRET_KEY</code>).</li>
           <li>Health record connections use PKCE; the relay only ever sees a one-time code.</li>
-          <li>Phones and agents use individual tokens you can revoke.</li>
+          <li>Phones and AI apps use individual tokens you can revoke.</li>
           <li>Every sign-in, sync and export is recorded in the <a href="#/settings/log">access log</a>.</li></ul>`)}
     </div>`);
     networkStatus().then((net) => {
@@ -287,7 +287,7 @@ export async function render({ el, parts, state, navigate }) {
     mount(body, html`<p class="small muted" style="margin:-4px 0 12px">${isOwner() ? "Every sign-in, sync, export and assistant lookup on this instance, newest first."
       : "Sign-ins, syncs, exports and assistant lookups for you and the people you can see, newest first."}</p>
       <div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th></tr></thead>
-      <tbody>${events.map((e) => html`<tr><td class="small" style="white-space:nowrap">${fmtDateTime(e.at)}</td><td class="small">${e.who || e.actor}</td><td>${e.action}</td>
+      <tbody>${events.map((e) => html`<tr><td class="small" style="white-space:nowrap">${fmtDateTime(e.at)}</td><td class="small">${e.who || e.actor}</td><td title="${e.action}">${auditAction(e.action)}</td>
         <td class="small muted" style="max-width:420px;word-break:break-word">${auditDetail(e.detail)}</td></tr>`)}</tbody></table></div></div>`);
     return null;
   }
@@ -374,7 +374,6 @@ function personBadges(p) {
   return b;
 }
 
-/** An access-log entry's details as "name: Sutter Health · status: success" rather than raw JSON. */
 // How removing this install treats its data. The desktop apps ask; elsewhere the data folder stays until it's deleted.
 function uninstallHint() {
   const shell = document.documentElement.dataset.shell;
@@ -384,6 +383,28 @@ function uninstallHint() {
   return html`Removing Syntropy Health keeps the data folder (and everyone's records in it) until you delete it. <a href="${SOURCE_URL}/blob/main/docs/self-hosting.md#uninstalling" target="_blank" rel="noopener">How to remove each kind of install</a>`;
 }
 
+// What each access-log entry was, in words (the log keeps a short code for each: "sync.completed").
+const AUDIT_ACTIONS = {
+  "setup.completed": "Finished setting up", "account.created": "Account created", "account.role": "Role changed",
+  "auth.login": "Signed in", "auth.login_failed": "Sign-in refused", "auth.password_changed": "Password changed",
+  "auth.password_reset": "Password reset", "terms.accepted": "Agreed to the terms",
+  "access.granted": "Shared access", "access.revoked": "Stopped sharing", "invite.created": "Invitation made",
+  "invite.accepted": "Joined by invitation", "connection.created": "Source added", "connection.disconnected": "Source disconnected",
+  "connection.removed": "Source removed with its data", "sync.completed": "Synced", "device.paired": "Phone paired",
+  "device.revoked": "Phone unpaired", "labs.entered": "Lab results entered", "labs.report_read": "Lab report read",
+  "export.fhir": "Exported a FHIR file", "export.backup": "Downloaded a backup", "profile.data_deleted": "Deleted all data",
+  "network.enabled": "Other devices allowed", "network.disabled": "This computer only", "updates.settings": "Update settings changed",
+  "updates.install": "Update installed", "ai.chat": "Asked the AI", "ai.provider_data_acknowledged": "Agreed to an online AI",
+  "agent.token_created": "AI app access created", "agent.token_revoked": "AI app access revoked",
+};
+function auditAction(action) {
+  if (AUDIT_ACTIONS[action]) return AUDIT_ACTIONS[action];
+  if (action?.startsWith("export.csv.")) return "Exported a CSV file";
+  if (action?.startsWith("mcp.")) return `AI app looked up ${action.slice(4).replace(/^(get|list)_/, "").replaceAll("_", " ")}`;
+  return action;
+}
+
+/** An access-log entry's details as "name: Sutter Health · status: success" rather than raw JSON. */
 function auditDetail(detail) {
   if (!detail) return "";
   let value;
@@ -544,7 +565,7 @@ async function openInvite(p, redraw) {
       return;
     }
     if (e.target.closest("[data-cancel-invite]")) {
-      await del(`/api/profiles/${p.id}/invite`);
+      try { await del(`/api/profiles/${p.id}/invite`); } catch (err) { toast(err.message, "bad"); return; }
       toast("Invitation cancelled"); m.close(); redraw();
     }
   });
