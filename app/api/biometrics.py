@@ -445,7 +445,7 @@ def web_session(request: Request, principal: auth.Principal = Depends(auth.requi
     # for a person they look after opens only that person (see auth._account_principal).
     account = accounts.get(principal.account_id) or accounts.for_profile(principal.profile_id or "")
     if not account:
-        raise HTTPException(403, "Pair this iPhone again to open Syntropy Health in the app.")
+        raise HTTPException(403, "Pair this phone again to open Syntropy Health in the app.")
     token = auth.create_session(request, account["id"], device_id=principal.device_id)
     return {"cookie": {"name": auth.SESSION_COOKIE, "value": token, "max_age": auth.SESSION_TTL}}
 
