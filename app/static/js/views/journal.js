@@ -6,7 +6,7 @@
 import { del, get, post, put } from "../api.js";
 import { setToolbar } from "../app.js";
 import { $, confirmDialog, debounce, emptyState, fmtNum, html, icon, loading, modal, mount, onAction, plural, raw, toast } from "../ui.js";
-import { rangeHash, rangeLabel, rangePicker, rangeQuery, readRange, saveRange, wireRange } from "../range.js";
+import { rangeHash, rangePhrase, rangePicker, rangeQuery, readRange, saveRange, wireRange } from "../range.js";
 
 const RANGE_KEY = "syntropy-journal-range";
 const PAGE = 200;
@@ -234,7 +234,7 @@ export async function render({ el, params, state }) {
           <button class="btn btn-sm" data-action="more">Show more</button></div>` : ""}
       </div>`
       : html`<div class="card">${filtered
-        ? emptyState("Nothing matches", `No entries ${rangeLabel(range).toLowerCase() === "all time" ? "" : `in ${rangeLabel(range).toLowerCase()} `}match these filters.`)
+        ? emptyState("Nothing matches", `No entries ${rangePhrase(range) ? `${rangePhrase(range)} ` : ""}match these filters.`)
         : emptyState("Nothing logged yet", "Check in above, or log a symptom, a dose or a note. Moods and symptoms you log in Apple Health on your iPhone show up here too.")}</div>`);
   };
 

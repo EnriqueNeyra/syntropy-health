@@ -251,6 +251,13 @@ function toggleTheme() {
   setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
 }
 
+/** Lock, or sign out of a household's server. If the server can't be reached, say so rather than appear to have locked. */
+async function signOut() {
+  try { await post("/api/auth/logout"); }
+  catch (err) { toast(err.message, "bad"); return; }
+  location.reload();
+}
+
 // ------------------------------------------------------------------ popovers (alerts, profile menu, mobile "More")
 let openPopover = null;
 
@@ -338,7 +345,7 @@ function openMore(button) {
     if (!b) return;
     closePopover();
     if (b.dataset.more === "theme") toggleTheme();
-    if (b.dataset.more === "lock") { await post("/api/auth/logout"); location.reload(); }
+    if (b.dataset.more === "lock") await signOut();
   });
 }
 
@@ -399,7 +406,7 @@ function renderShell() {
       </div>`);
     onAction(root.querySelector(".topbar"), {
       theme: toggleTheme,
-      logout: async () => { await post("/api/auth/logout"); location.reload(); },
+      logout: signOut,
       alerts: (_, btn) => openAlerts(btn),
     });
     onAction(root.querySelector(".sidebar"), { profile: (_, btn) => openProfileMenu(btn, { above: true }) });
@@ -654,6 +661,7 @@ export function sendPreferences() {
 
 // ------------------------------------------------------------------ auth screens
 function authScreen(content) {
+  document.title = "Syntropy Health";        // not the section that was open before signing in
   mount(document.getElementById("root"), html`
     <div class="auth-wrap"><div class="card auth-card">
       <div class="brand">${wordmark()}</div>${content}
@@ -799,8 +807,12 @@ async function boot() {
       <p class="muted" style="margin-bottom:18px">${err.status ? err.message : unreachableMessage()}</p>
       <button class="btn btn-primary" style="width:100%" type="button" data-retry>Try again</button>`);
     document.querySelector("[data-retry]").addEventListener("click", boot);
-    // Back on the network (the laptop woke up, the server came back): try again by itself.
-    window.addEventListener("online", boot, { once: true });
+    // Back on the network (the laptop woke up, the server came back): try again by itself, once however many tries
+    // failed meanwhile.
+    if (!retryOnline) {
+      retryOnline = true;
+      window.addEventListener("online", () => { retryOnline = false; boot(); }, { once: true });
+    }
     return;
   }
   if (!state.status.setup_complete) return renderSetup(state.status, () => { history.replaceState(null, "", "#/"); boot(); });
@@ -844,8 +856,22 @@ async function boot() {
   setTimeout(() => Object.values(ROUTES).forEach((r) => r.load().catch(() => {})), 1500);
 }
 let started = false;
+let retryOnline = false;
 
-onUnauthorized(() => { state.status = null; renderLogin(); });
+// The session ran out (or was signed out elsewhere) while the app was open: the sign-in screen, as it shows on opening
+// (who's signing in, with names to choose from nearby), drawn once however many requests were turned away.
+let signingIn = false;
+onUnauthorized(async () => {
+  if (signingIn) return;
+  signingIn = true;
+  clearCache();
+  try { state.status = await get("/api/status", undefined, { fresh: true }); } catch { state.status = null; }
+  signingIn = false;
+  if (state.status?.authenticated) return;
+  closePopover();
+  closeDialogs();
+  renderLogin();
+});
 // Back from another site (a health system's sign-in page), the browser may show this page just as it was left, from
 // its back-forward cache: a dialog still saying "Preparing secure sign-in…", data from before. Draw it afresh.
 window.addEventListener("pageshow", (e) => {

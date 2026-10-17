@@ -5,7 +5,7 @@ import { api, get } from "../api.js";
 import { barChart, lineChart, responsive, scatterChart } from "../charts.js";
 import { hoursText, metricUnit, metricValue } from "./overview.js";
 import { convert, displayUnit } from "../units.js";
-import { fmtDate, fmtNum, html, icon, modal, mount, toast } from "../ui.js";
+import { fmtDate, fmtNum, html, icon, modal, mount, plural, toast } from "../ui.js";
 
 // Periods, the same words as Workouts and the Journal. "All" asks for ten years; the chart starts at the first day.
 export const RANGES = [[7, "7 days"], [30, "30 days"], [90, "90 days"], [365, "1 year"], [3650, "All"]];
@@ -168,7 +168,8 @@ const lagWords = (lag) => (lag === 1 ? "the next day" : lag === -1 ? "the day be
 function describe(res) {
   const fa = measureFormat(res.a), fb = measureFormat(res.b);
   const when = lagWords(res.lag);
-  if (res.n < 7) return `Only ${res.n} days have both, not enough to compare yet.`;
+  if (res.n < 7) return res.n ? `Only ${plural(res.n, "day has", "days have")} both, not enough to compare yet.`
+    : "No days have both yet, so there's nothing to compare.";
   const a = soft(res.a.label), b = soft(res.b.label);
   const lead = res.strength === "no clear link" ? `No clear link between ${a} and ${b} ${when}`
     : `A ${res.strength} ${res.r > 0 ? "positive" : "negative"} link (r = ${fmtNum(res.r, 2)}): ${res.r > 0 ? "higher" : "lower"} ${b} ${res.lag ? when : ""} tended to go with higher ${a}`;

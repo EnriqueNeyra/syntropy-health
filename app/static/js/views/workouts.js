@@ -1,6 +1,7 @@
-// Workouts from the iPhone app (Apple Watch and iPhone, with routes and heart rate) and from Oura and WHOOP: how much
-// you train week by week, whether this week's load is a jump from your usual, and for one kind of workout how pace
-// and heart rate are changing and what your best efforts are. Daily activity charts are in Trends.
+// Workouts from the phone apps (Apple Watch and iPhone with routes and heart rate, Health Connect on Android) and from
+// Oura, WHOOP and Google Health: how much you train week by week, whether this week's load is a jump from your usual,
+// and for one kind of workout how pace and heart rate are changing and what your best efforts are. Daily activity
+// charts are in Trends.
 
 import { get } from "../api.js";
 import { appBridge, nativeNav } from "../app.js";
@@ -83,7 +84,7 @@ export async function render({ el, params, state }) {
   };
 
   const head = html`<div class="page-head"><div><h1>Workouts</h1>
-    <p>How much you train, how hard, and how it's going. From the iPhone app, your Apple Watch, Oura and WHOOP; daily activity is in <a href="#/trends/activity">Trends</a>.</p></div></div>`;
+    <p>How much you train, how hard, and how it's going, from your phone, watch, Oura, WHOOP and Google Health. Daily activity is in <a href="#/trends/activity">Trends</a>.</p></div></div>`;
 
   const draw = () => {
     stops.forEach((f) => f()); stops = [];
@@ -138,7 +139,7 @@ export async function render({ el, params, state }) {
           <p class="small muted" style="margin:10px 0 0">${loadText}</p>
           ${zoneTotal ? html`<div class="wk-zones-title small">Heart-rate zones this week</div>
             <div class="zone-bar" role="img" aria-label="Minutes in each heart-rate zone this week">${thisWeek.zones.map((m, i) => (m ? html`<span class="z${i + 1}" style="flex:${m}" title="${tr.zones[i].name}: ${Math.round(m)} min"></span>` : ""))}</div>
-            <div class="zone-legend tiny">${tr.zones.map((z, i) => html`<span><i class="z${i + 1}"></i>${z.name} ${Math.round(thisWeek.zones[i])}m</span>`)}</div>` : ""}
+            <div class="zone-legend tiny">${tr.zones.map((z, i) => html`<span><i class="z${i + 1}"></i>${z.name} ${Math.round(thisWeek.zones[i])} min</span>`)}</div>` : ""}
           <p class="tiny faint" style="margin:8px 0 0">Load is workout minutes weighted by heart-rate zone (max ${tr.max_hr.bpm} bpm, ${tr.max_hr.basis}).</p>
         </div>
         <div class="card card-pad">

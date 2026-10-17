@@ -1,9 +1,9 @@
 """
 Built-in SMART on FHIR EHR simulator.
 
-Until Syntropy Health is registered with each EHR vendor, connections run against
-this simulator by default. It implements the same protocol surface a real
-patient-access endpoint exposes, so the production code path is exercised end to end:
+In developer mode, a platform set to "simulated" connects to this simulator instead of the
+vendor's health systems (the tests and demos use it too). It implements the same protocol
+surface a real patient-access endpoint exposes, so the production code path is exercised end to end:
 
 * ``GET  /sim/fhir/{platform}/{tenant}/r4/.well-known/smart-configuration``
 * ``GET  /sim/fhir/{platform}/{tenant}/r4/metadata``          (CapabilityStatement)
@@ -479,9 +479,9 @@ def _header(platform: str, tenant: str) -> str:
     meta = directory.PLATFORMS.get(platform, {})
     portal = meta.get("portal", "Patient Portal")
     return (
-        "<div class='banner'><b>Simulated sign-in.</b> Syntropy Health is not yet registered with "
-        f"{html.escape(meta.get('label', platform))}, so this built-in simulator stands in for the "
-        f"{html.escape(portal)} sign-in page. All records are synthetic.</div>"
+        "<div class='banner'><b>Simulated sign-in.</b> This built-in simulator stands in for the "
+        f"{html.escape(meta.get('label', platform))} {html.escape(portal)} sign-in page, for testing in developer mode. "
+        "All records are synthetic.</div>"
         f"<div class='inst'>{html.escape(meta.get('label', platform))} · {html.escape(portal)}</div>"
         f"<h1>{html.escape(tenant_name(tenant))}</h1>"
     )

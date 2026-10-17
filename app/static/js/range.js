@@ -53,6 +53,19 @@ export function rangeLabel(range) {
   return range.preset === "365" ? "Last 12 months" : `Last ${range.preset} days`;
 }
 
+/** The range inside a sentence: "in the last 90 days", "from Mar 1 to Apr 30, 2026", "" for all time. */
+export function rangePhrase(range) {
+  if (range.preset === "custom") {
+    const fmt = (s) => new Date(`${s}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    if (range.from && range.to) return `from ${fmt(range.from)} to ${fmt(range.to)}`;
+    if (range.from) return `since ${fmt(range.from)}`;
+    if (range.to) return `up to ${fmt(range.to)}`;
+    return "";
+  }
+  if (range.preset === "0") return "";
+  return range.preset === "365" ? "in the last 12 months" : `in the last ${range.preset} days`;
+}
+
 /** The chips, and the date fields when Custom is chosen. Clicks arrive as data-action="range" / inputs as data-range-*. */
 export function rangePicker(range) {
   const today = isoDay(new Date());

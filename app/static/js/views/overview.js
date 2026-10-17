@@ -6,13 +6,14 @@ import { openRecord } from "./record-detail.js";
 import { moodLabel } from "./journal.js";
 import { duration, openWorkout } from "./workouts.js";
 import {
-  pageScroller, $, $$, age, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw, plural, toast,
+  pageScroller, $, $$, age, capitalize, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw,
+  plural, toast,
 } from "../ui.js";
 import { displayUnit, fmtMeasure, recordValue, unitSystem } from "../units.js";
 
 function greeting() {
   const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  return h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 18 ? "Good afternoon" : "Good evening";   // up late: still evening
 }
 
 /** Hours as "7h 5m" (rounded to the minute first, so 7.999 h is "8h 0m", not "7h 60m"). */
@@ -180,7 +181,7 @@ export const WIDGETS = [
     render: (d) => listCard("Allergies", "alert", d.summary.allergies, (a) => html`
       <div class="list-item clickable" data-action="record" data-id="${a.id}">
         <div class="grow"><div class="title">${a.title}</div><div class="meta">${a.narrative || ""}</div></div>
-        ${a.details?.criticality === "high" ? html`<span class="badge bad">High risk</span>` : html`<span class="badge">${a.details?.category || "allergy"}</span>`}
+        ${a.details?.criticality === "high" ? html`<span class="badge bad">High risk</span>` : html`<span class="badge">${capitalize(a.details?.category || "allergy")}</span>`}
       </div>`, d.summary.allergy_note || "No allergies on record.", { href: "#/records/allergies" }) },
   { id: "vitals", title: "Latest vitals", desc: "Blood pressure, weight and other measurements from your visits", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Latest vitals", "heart", d.summary.latest_vitals, (v) => html`
@@ -310,12 +311,16 @@ export async function render({ el, state, navigate }) {
     const identity = conflict.length ? null : summary.identities[0];   // don't guess age/sex from someone else's chart
     const years = age(profile.birth_date || identity?.birth_date);
     const first = profile.name.split(" ")[0];
+    // Someone else's Overview (a child, a parent you look after, someone who shares with you) is headed with their name:
+    // the greeting is for whoever is signed in.
+    const self = !state.status?.account || state.status.account.profile_id === profile.id;
+    const heading = self ? `${greeting()}, ${first}` : profile.name;
     data.hasRecords = Object.values(summary.counts || {}).some((n) => n > 0);
 
     if (!connections.length && !bio.has_samples) {
       mount(el, html`
-        <div class="page-head"><div><h1>${greeting()}, ${first}</h1>
-          <p>Let's bring your health data together. Everything is stored locally on this machine.</p></div></div>
+        <div class="page-head"><div><h1>${heading}</h1>
+          <p>Let's bring ${self ? "your" : `${first}'s`} health data together. Everything is stored locally on this machine.</p></div></div>
         <div class="grid grid-auto">
           ${[
             ["watch", "Wearables and phones", "Pair the Syntropy iPhone or Android app for Apple Health or Health Connect, or link Oura, WHOOP or Google Health for sleep, recovery, HRV and training.", "#/sources", "Connect a device"],
@@ -338,7 +343,7 @@ export async function render({ el, state, navigate }) {
     const items = layout.filter((w) => w.visible).map((w) => ({ w, out: content(w) })).filter((x) => x.out);
     mount(el, html`
       <div class="page-head">
-        <div><h1>${greeting()}, ${first}</h1>
+        <div><h1>${heading}</h1>
           <p>${[years != null ? `${years} years` : null, identity?.gender ? identity.gender.charAt(0).toUpperCase() + identity.gender.slice(1) : null].filter(Boolean).join(" · ")}</p></div>
         <div class="row wrap" style="gap:8px">
           ${editing ? html`<button class="btn btn-sm btn-ghost" data-action="reset">Reset</button>
@@ -346,7 +351,7 @@ export async function render({ el, state, navigate }) {
               <button class="btn btn-sm btn-primary" data-action="done">${icon("check")} Done</button>`
             : html`<a class="sync-pill" href="#/sources"><span class="dot ${syncing ? "info pulse" : issues.length ? "warn" : "good"}"></span>
               ${syncing ? "Syncing…" : issues.length ? `${plural(issues.length, "source")} need${issues.length === 1 ? "s" : ""} attention`
-                : `${plural(connections.length, "source")} · synced ${fmtAgo(lastSync)}`}</a>
+                : `${plural(connections.length, "source")}${lastSync ? ` · synced ${fmtAgo(lastSync)}` : ""}`}</a>
               <button class="btn btn-sm" data-action="edit">${icon("sliders")} Edit</button>`}
         </div>
       </div>
@@ -460,7 +465,8 @@ function openAdd({ profile, getLayout, data, onAdd }) {
     const b = e.target.closest("[data-add]");
     if (!b) return;
     b.disabled = true;
-    await onAdd(b.dataset.add);
+    try { await onAdd(b.dataset.add); }
+    catch (err) { b.disabled = false; toast(err.message, "bad"); return; }
     draw();
   });
 }

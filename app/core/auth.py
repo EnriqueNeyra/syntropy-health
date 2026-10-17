@@ -364,7 +364,7 @@ def _device_or_user(request: Request) -> Principal:
             return principal
     raise HTTPException(
         status.HTTP_401_UNAUTHORIZED,
-        "Device not paired. Generate a pairing code in Syntropy Health → Sources → iPhone companion.",
+        "This phone isn't paired. Pair it again from Syntropy Health → Sources → Phones & watches.",
     )
 
 

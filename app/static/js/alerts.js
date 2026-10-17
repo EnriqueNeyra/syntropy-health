@@ -66,8 +66,9 @@ function collect({ summary, connections, status }) {
                  text: c.last_error || "The last sync failed.", href: "#/sources", action: "Open Sources" });
     } else if (c.kind === "device" && c.status === "active" && c.last_sync_at && Date.now() / 1000 - c.last_sync_at > STALE_PHONE_DAYS * 86400) {
       // A paired phone that has gone quiet: usually the app hasn't been opened, or the server was unreachable from it.
+      const store = c.metadata?.platform === "android" ? "Health Connect" : "Apple Health";
       out.push({ id: `conn:${c.id}:stale:${Math.floor(c.last_sync_at / 86400)}`, level: "warn", icon: "phone",
-                 title: `No Apple Health data since ${fmtDate(c.last_sync_at)}`,
+                 title: `No ${store} data since ${fmtDate(c.last_sync_at)}`,
                  text: `${c.display_name} hasn't sent anything in ${Math.floor((Date.now() / 1000 - c.last_sync_at) / 86400)} days. Open the Syntropy Health app on it to catch up.`,
                  href: "#/sources", action: "Open Sources" });
     }

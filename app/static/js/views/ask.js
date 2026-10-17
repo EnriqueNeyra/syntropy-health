@@ -2,7 +2,7 @@
 // computer (read-only tools, one person at a time).
 import { del, get, put, unreachableMessage } from "../api.js";
 import { appCan, appScroll, setComposer, setToolbar } from "../app.js";
-import { $, confirmDialog, emptyState, fmtAgo, html, icon, loading, markdown, mount, toast } from "../ui.js";
+import { $, confirmDialog, emptyState, fmtAgo, html, icon, loading, markdown, mount, plural, toast } from "../ui.js";
 import { confirmAiProvider } from "../consent.js";
 import { logo, logoId } from "../ai-logos.js";
 import { openModelPicker, sameChoice } from "../model-picker.js";
@@ -385,7 +385,7 @@ export async function render({ el, state, params, navigate }) {
         menu: choices ? [...modelSections, manage] : [{ items: [{ id: "model:loading", title: "Finding your models…", disabled: true }] }, manage] },
       { id: "history", title: "Conversations", symbol: "clock.arrow.circlepath", menu: [
         { title: chats.length ? `Conversations about ${profile.name}` : null, items: chats.length
-          ? chats.slice(0, 30).map((c) => ({ id: `chat:${c.id}`, title: c.title, subtitle: `${fmtAgo(c.updated_at)} · ${c.messages} messages`,
+          ? chats.slice(0, 30).map((c) => ({ id: `chat:${c.id}`, title: c.title, subtitle: `${fmtAgo(c.updated_at)} · ${plural(c.messages, "message")}`,
                                             checked: c.id === chatId, run: () => openChat(c.id) }))
           : [{ id: "chat:none", title: "No saved conversations yet", disabled: true }] },
         ...(saved ? [{ items: [{ id: "chat:delete", title: "Delete This Conversation", symbol: "trash", destructive: true, run: () => deleteChat(chatId) }] }] : []),
@@ -422,7 +422,7 @@ export async function render({ el, state, params, navigate }) {
     menu.setAttribute("aria-label", "Past conversations");
     mount(menu, html`<div class="chat-history-head"><b>Conversations</b><span class="tiny faint">about ${profile.name}</span></div>
       ${list.length ? html`<div class="chat-history-list">${list.map((c) => html`<div class="chat-history-item ${c.id === chatId ? "current" : ""}">
-        <button class="chat-history-open" data-open="${c.id}"><span class="truncate">${c.title}</span><span class="tiny faint">${fmtAgo(c.updated_at)} · ${c.messages} messages</span></button>
+        <button class="chat-history-open" data-open="${c.id}"><span class="truncate">${c.title}</span><span class="tiny faint">${fmtAgo(c.updated_at)} · ${plural(c.messages, "message")}</span></button>
         <button class="btn btn-ghost btn-icon btn-sm" data-delete="${c.id}" aria-label="Delete “${c.title}”" title="Delete">${icon("trash")}</button></div>`)}</div>`
         : html`<div class="small muted" style="padding:12px 14px">No saved conversations yet. They're kept here after each answer.</div>`}`);
     document.body.appendChild(menu);
