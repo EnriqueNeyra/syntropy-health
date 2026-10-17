@@ -34,6 +34,8 @@ function statusLine(c, paired) {
     : html`<span class="src-status"><span class="dot"></span> Not paired</span>`;
   // A one-time import (healow keeps no connection): nothing's wrong, signing in again brings in what's new.
   if (c.access_ended) return html`<span class="src-status"><span class="dot"></span> Imported</span>`;
+  // A file, or results typed in: nothing to be connected to. The row says what came in and when.
+  if (c.kind === "import") return "";
   if (c.status === "needs_reauth") return html`<span class="src-status warn"><span class="dot warn"></span> Reconnect needed</span>`;
   if (c.status === "error") return html`<span class="src-status bad" title="${c.last_error || ""}"><span class="dot bad"></span> Sync failed</span>`;
   if (c.status === "disconnected") return html`<span class="src-status"><span class="dot"></span> Disconnected</span>`;
@@ -63,7 +65,7 @@ function origin(c) {
   if (c.kind === "device") {
     return { "healthkit-export": "HealthKit export", android: "Syntropy Android app" }[c.metadata?.platform] || "Syntropy iPhone app";
   }
-  return c.provider === "manual" ? "Lab results you entered" : `Imported ${fmtDate(c.created_at)}`;
+  return c.provider === "manual" ? "Lab results you entered" : fmtDate(c.created_at);
 }
 
 /**
