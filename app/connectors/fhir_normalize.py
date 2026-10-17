@@ -18,6 +18,9 @@ from typing import Any, Callable, Optional
 
 from app.connectors import units
 
+# A lab's own range text written with a hyphen ("15-150", "3.5-5.0 mmol/L"), shown with the dash used elsewhere.
+_RANGE_DASH = re.compile(r"^(\d+(?:\.\d+)?) ?- ?(\d+(?:\.\d+)?)(?=\s|$)")
+
 LOINC = "http://loinc.org"
 SNOMED = "http://snomed.info/sct"
 RXNORM = "http://www.nlm.nih.gov/research/umls/rxnorm"
@@ -281,7 +284,7 @@ def normalize_observation(res: dict[str, Any]) -> Optional[dict[str, Any]]:
     for rr in res.get("referenceRange") or []:
         low = _num((rr.get("low") or {}).get("value"))
         high = _num((rr.get("high") or {}).get("value"))
-        ref_text = rr.get("text")
+        ref_text = _RANGE_DASH.sub("\\1–\\2", rr["text"].strip()) if isinstance(rr.get("text"), str) else None
         if not ref_text:
             if low is not None and high is not None:
                 ref_text = f"{_fmt(low)}–{_fmt(high)}"
