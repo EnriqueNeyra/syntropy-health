@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 import random
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any, Optional
 from urllib.parse import urlencode
 
@@ -288,8 +288,12 @@ def normalize_workouts(data: dict[str, list[dict[str, Any]]]) -> list[dict[str, 
 # Simulated mode: the API's own payload shapes, so normalize() is exercised as in production
 # ---------------------------------------------------------------------------
 
-def simulate(days: int = 90, until: Optional[date] = None, seed: str = "google") -> dict[str, list[dict[str, Any]]]:
-    until = until or datetime.now(timezone.utc).date()
+def simulate(days: int = 90, until: Optional[date] = None, seed: str = "google",
+             tz: tzinfo = timezone.utc) -> dict[str, list[dict[str, Any]]]:
+    """``days`` ending ``until``, on the clock in ``tz``: waking around 7:30, workouts later in the day. What a night's
+    sleep measures (heart rate variability, oxygen, breathing, temperature) isn't there before that night ends."""
+    now = datetime.now(timezone.utc)
+    until = until or now.astimezone(tz).date()
     rng = random.Random(seed)
     device = {"device": {"formFactor": "WATCH", "manufacturer": "Google", "displayName": "Pixel Watch 3"}}
     out: dict[str, list[dict[str, Any]]] = {f"rollup:{t}": [] for t in ROLLUPS} | {t: [] for t in LISTS}
@@ -306,34 +310,39 @@ def simulate(days: int = 90, until: Optional[date] = None, seed: str = "google")
         out["rollup:total-calories"].append({**span, "totalCalories": {"kcalSum": round(1750 + steps * 0.05 + rng.gauss(0, 60), 1)}})
         out["rollup:floors"].append({**span, "floors": {"countSum": str(max(0, int(rng.gauss(9, 4))))}})
         out["daily-resting-heart-rate"].append({"dataSource": device, "dailyRestingHeartRate": {"date": dd, "beatsPerMinute": str(int(rng.gauss(58, 2)))}})
-        out["daily-heart-rate-variability"].append({"dataSource": device, "dailyHeartRateVariability": {
-            "date": dd, "averageHeartRateVariabilityMilliseconds": round(rng.gauss(42, 6), 1)}})
-        out["daily-oxygen-saturation"].append({"dataSource": device, "dailyOxygenSaturation": {"date": dd, "averagePercentage": round(rng.gauss(96.4, 0.7), 1)}})
-        out["daily-respiratory-rate"].append({"dataSource": device, "dailyRespiratoryRate": {"date": dd, "breathsPerMinute": round(rng.gauss(14.6, 0.5), 1)}})
-        out["daily-sleep-temperature-derivations"].append({"dataSource": device, "dailySleepTemperatureDerivations": {
-            "date": dd, "nightlyTemperatureCelsius": round(34.1 + rng.gauss(0, 0.25), 2), "baselineTemperatureCelsius": 34.1}})
+        nightly = [
+            ("daily-heart-rate-variability", {"dataSource": device, "dailyHeartRateVariability": {
+                "date": dd, "averageHeartRateVariabilityMilliseconds": round(rng.gauss(42, 6), 1)}}),
+            ("daily-oxygen-saturation", {"dataSource": device, "dailyOxygenSaturation": {"date": dd, "averagePercentage": round(rng.gauss(96.4, 0.7), 1)}}),
+            ("daily-respiratory-rate", {"dataSource": device, "dailyRespiratoryRate": {"date": dd, "breathsPerMinute": round(rng.gauss(14.6, 0.5), 1)}}),
+            ("daily-sleep-temperature-derivations", {"dataSource": device, "dailySleepTemperatureDerivations": {
+                "date": dd, "nightlyTemperatureCelsius": round(34.1 + rng.gauss(0, 0.25), 2), "baselineTemperatureCelsius": 34.1}}),
+        ]
         if i % 7 == 0:
             out["daily-vo2-max"].append({"dataSource": device, "dailyVo2Max": {"date": dd, "vo2Max": round(rng.gauss(44, 1), 1)}})
-        wake = datetime(d.year, d.month, d.day, 14, 30, tzinfo=timezone.utc)
+        wake = wc.simulated_wake(d, 7, 30, tz, seed)
         asleep = int(rng.gauss(430, 35))
         awake = int(max(10, rng.gauss(35, 10)))
         bed = wake - timedelta(minutes=asleep + awake)
         stages = [("DEEP", 0.18), ("REM", 0.22), ("LIGHT", 0.60)]
-        out["sleep"].append({"name": f"users/me/dataTypes/sleep/dataPoints/sim-{d.isoformat()}", "dataSource": device, "sleep": {
+        nightly.append(("sleep", {"name": f"users/me/dataTypes/sleep/dataPoints/sim-{d.isoformat()}", "dataSource": device, "sleep": {
             "interval": {"startTime": bed.strftime(fmt), "endTime": wake.strftime(fmt), "civilEndTime": {"date": dd}},
             "type": "STAGES", "metadata": {"nap": False, "processed": True},
             "summary": {"minutesAsleep": str(asleep), "minutesAwake": str(awake),
                         "stagesSummary": [{"type": t, "minutes": str(int(asleep * share))} for t, share in stages]
-                                         + [{"type": "AWAKE", "minutes": str(awake)}]}}})
+                                         + [{"type": "AWAKE", "minutes": str(awake)}]}}}))
         if i % 3 == 0:
             weight += rng.gauss(-0.05, 0.3)
-            out["weight"].append({"dataSource": {"device": {"displayName": "Withings Body+"}}, "weight": {
-                "sampleTime": {"physicalTime": (wake + timedelta(minutes=20)).strftime(fmt)}, "weightGrams": round(weight * 1000)}})
+            nightly.append(("weight", {"dataSource": {"device": {"displayName": "Withings Body+"}}, "weight": {
+                "sampleTime": {"physicalTime": (wake + timedelta(minutes=20)).strftime(fmt)}, "weightGrams": round(weight * 1000)}}))
+        if wake <= now:
+            for kind, item in nightly:
+                out[kind].append(item)
         wr = random.Random(f"{seed}-{d.isoformat()}-exercise")   # per day, so re-syncs yield the same workouts
         if wr.random() < 0.45:
             start = wake + timedelta(hours=wr.uniform(2, 9))
             minutes = wr.randint(25, 70)
-            if start + timedelta(minutes=minutes) < datetime.now(timezone.utc):
+            if start + timedelta(minutes=minutes) < now:
                 kind, speed = wr.choice([("RUNNING", 2.8), ("WALKING", 1.4), ("BIKING", 6.0), ("WEIGHTLIFTING", 0.0)])
                 out["exercise"].append({"name": f"users/me/dataTypes/exercise/dataPoints/sim-{d.isoformat()}", "dataSource": device,
                                         "exercise": {"interval": {"startTime": start.strftime(fmt),

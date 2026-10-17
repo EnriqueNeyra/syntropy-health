@@ -186,8 +186,11 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
         since = today - timedelta(days=WEARABLE_INITIAL_DAYS)
 
     if conn["mode"] == "simulated":
-        days = (today - since).days + 1
-        data = await asyncio.to_thread(module.simulate, days=days, until=today, seed=f"{conn['provider']}-{conn['id']}")
+        # Days on this server's clock, so the made-up nights fall at night here.
+        tz = biometrics._tz()
+        until = datetime.now(tz).date()
+        days = (until - since).days + 1
+        data = await asyncio.to_thread(module.simulate, days=days, until=until, seed=f"{conn['provider']}-{conn['id']}", tz=tz)
     else:
         creds = conn.get("credentials") or {}
         if not creds.get("access_token"):

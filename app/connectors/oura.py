@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import math
 import random
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any, Optional
 from urllib.parse import urlencode
 
@@ -176,8 +176,12 @@ def normalize_workouts(data: dict[str, list[dict[str, Any]]]) -> list[dict[str, 
 # Simulation
 # ---------------------------------------------------------------------------
 
-def simulate(days: int = 90, until: Optional[date] = None, seed: str = "oura") -> dict[str, list[dict[str, Any]]]:
-    until = until or datetime.now(timezone.utc).date()
+def simulate(days: int = 90, until: Optional[date] = None, seed: str = "oura",
+             tz: tzinfo = timezone.utc) -> dict[str, list[dict[str, Any]]]:
+    """``days`` ending ``until``, on the clock in ``tz``: waking around 6:30, workouts in the day. A night that hasn't
+    ended yet (today, before waking) isn't there, as with the real ring."""
+    now = datetime.now(timezone.utc)
+    until = until or now.astimezone(tz).date()
     rng = random.Random(seed)
     data: dict[str, list[dict[str, Any]]] = {k: [] for k in DAILY_ENDPOINTS + ["heartrate"]}
     for i in range(days):
@@ -191,34 +195,37 @@ def simulate(days: int = 90, until: Optional[date] = None, seed: str = "oura") -
         awake = int(max(300, rng.gauss(1500, 500)))
         deep = int(total_sleep * rng.uniform(0.15, 0.22))
         rem = int(total_sleep * rng.uniform(0.19, 0.25))
-        bed = datetime(d.year, d.month, d.day, 6, 30, tzinfo=timezone.utc) - timedelta(seconds=total_sleep + awake)
+        wake = wc.simulated_wake(d, 6, 30, tz, seed)
+        bed = wake - timedelta(seconds=total_sleep + awake)
         sid = f"sim-{seed}-{ds}"
-        data["sleep"].append({
-            "id": f"{sid}-sleep", "day": ds, "type": "long_sleep",
-            "bedtime_start": bed.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
-            "bedtime_end": (bed + timedelta(seconds=total_sleep + awake)).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
-            "total_sleep_duration": total_sleep, "deep_sleep_duration": deep, "rem_sleep_duration": rem,
-            "light_sleep_duration": total_sleep - deep - rem, "awake_time": awake,
-            "lowest_heart_rate": rhr, "average_hrv": hrv, "average_breath": round(14.2 + rng.gauss(0, 0.4), 1),
-        })
+        breath = round(14.2 + rng.gauss(0, 0.4), 1)
         sleep_score = int(min(98, max(55, 80 + (total_sleep - 7 * 3600) / 360 - fatigue * 8 + rng.gauss(0, 3))))
-        data["daily_sleep"].append({"id": f"{sid}-ds", "day": ds, "score": sleep_score, "timestamp": f"{ds}T00:00:00+00:00"})
         readiness = int(min(97, max(50, 84 - fatigue * 22 + (hrv - 48) * 0.6 + rng.gauss(0, 3))))
-        data["daily_readiness"].append({"id": f"{sid}-dr", "day": ds, "score": readiness,
-                                        "temperature_deviation": round(rng.gauss(0, 0.18) + fatigue * 0.2, 2),
-                                        "timestamp": f"{ds}T00:00:00+00:00"})
+        temperature = round(rng.gauss(0, 0.18) + fatigue * 0.2, 2)
+        spo2 = round(96.8 + rng.gauss(0, 0.6), 1)
+        if wake <= now:
+            data["sleep"].append({
+                "id": f"{sid}-sleep", "day": ds, "type": "long_sleep",
+                "bedtime_start": bed.strftime("%Y-%m-%dT%H:%M:%S+00:00"), "bedtime_end": wake.strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+                "total_sleep_duration": total_sleep, "deep_sleep_duration": deep, "rem_sleep_duration": rem,
+                "light_sleep_duration": total_sleep - deep - rem, "awake_time": awake,
+                "lowest_heart_rate": rhr, "average_hrv": hrv, "average_breath": breath,
+            })
+            data["daily_sleep"].append({"id": f"{sid}-ds", "day": ds, "score": sleep_score, "timestamp": f"{ds}T00:00:00+00:00"})
+            data["daily_readiness"].append({"id": f"{sid}-dr", "day": ds, "score": readiness, "temperature_deviation": temperature,
+                                            "timestamp": f"{ds}T00:00:00+00:00"})
+            data["daily_spo2"].append({"id": f"{sid}-spo2", "day": ds, "spo2_percentage": {"average": spo2}})
         steps = int(max(1500, 8200 + weekly * 2200 + rng.gauss(0, 1800)))
         data["daily_activity"].append({"id": f"{sid}-da", "day": ds, "steps": steps,
                                        "active_calories": int(steps * 0.045 + rng.gauss(0, 40)),
                                        "total_calories": int(2250 + steps * 0.045 + rng.gauss(0, 60)),
                                        "score": int(min(99, max(40, 70 + steps / 600 + rng.gauss(0, 4)))),
                                        "timestamp": f"{ds}T00:00:00+00:00"})
-        data["daily_spo2"].append({"id": f"{sid}-spo2", "day": ds, "spo2_percentage": {"average": round(96.8 + rng.gauss(0, 0.6), 1)}})
         wr = random.Random(f"{seed}-{ds}-workout")   # per day, so a re-sync of recent days yields the same workouts
         activity, speed = wr.choice([("walking", 1.4), ("running", 2.9), ("cycling", 6.0), ("strength_training", 0.0)])
         minutes = wr.randint(25, 70)
-        start = datetime(d.year, d.month, d.day, 23, 0, tzinfo=timezone.utc) - timedelta(minutes=wr.randint(0, 600))
-        if wr.random() < 0.45 and start + timedelta(minutes=minutes) < datetime.now(timezone.utc):
+        start = wc.wall_clock(d, 19, 0, tz) - timedelta(minutes=wr.randint(0, 600))      # between 9 am and 7 pm
+        if wr.random() < 0.45 and start + timedelta(minutes=minutes) < now:
             data["workout"].append({
                 "id": f"{sid}-wo", "day": ds, "activity": activity, "intensity": wr.choice(["easy", "moderate", "hard"]),
                 "calories": round(minutes * wr.uniform(5, 11), 1), "distance": round(minutes * 60 * speed) or None,
@@ -227,8 +234,8 @@ def simulate(days: int = 90, until: Optional[date] = None, seed: str = "oura") -
                 "end_datetime": (start + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
             })
     for h in range(0, 24 * 3):   # three days of hourly heart rate for the intraday chart
-        t = datetime(until.year, until.month, until.day, tzinfo=timezone.utc) - timedelta(hours=72 - h)
+        t = datetime(until.year, until.month, until.day, tzinfo=tz) - timedelta(hours=72 - h)
         base = 58 if t.hour < 7 else 72
         data["heartrate"].append({"bpm": int(base + rng.gauss(0, 5)), "source": "awake" if t.hour >= 7 else "rest",
-                                  "timestamp": t.strftime("%Y-%m-%dT%H:%M:%S+00:00")})
+                                  "timestamp": t.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")})
     return data

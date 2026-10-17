@@ -219,6 +219,26 @@ def test_whoop_workout_normalization():
     assert w["metadata"]["strain"] == 11.2
 
 
+def test_simulated_nights_follow_the_local_clock():
+    """Demo sleep falls at night where the server is (it ended at 11:30 PM in California), and never in the future."""
+    from zoneinfo import ZoneInfo
+    from app.connectors import google_health
+    for zone in ("America/Los_Angeles", "Asia/Tokyo", "Europe/London"):
+        tz = ZoneInfo(zone)
+        now = datetime.now(timezone.utc)
+        oura_nights = [(n["bedtime_start"], n["bedtime_end"]) for n in oura.simulate(days=10, tz=tz)["sleep"]]
+        whoop_nights = [(n["start"], n["end"]) for n in whoop.simulate(days=10, tz=tz)["sleep"]]
+        google_nights = [(n["sleep"]["interval"]["startTime"], n["sleep"]["interval"]["endTime"])
+                         for n in google_health.simulate(days=10, tz=tz)["sleep"]]
+        for nights in (oura_nights, whoop_nights, google_nights):
+            assert len(nights) >= 9 and len({end[11:16] for _, end in nights}) > 3     # not the same minute every day
+            for start, end in nights:
+                bed = datetime.fromisoformat(start.replace("Z", "+00:00")).astimezone(tz)
+                woke = datetime.fromisoformat(end.replace("Z", "+00:00"))
+                assert woke <= now
+                assert 6 <= woke.astimezone(tz).hour <= 8 and (bed.hour >= 20 or bed.hour <= 2)
+
+
 def test_simulated_sleep_stages_add_up():
     sleeps = oura.simulate(days=30)["sleep"]
     assert all(s["deep_sleep_duration"] + s["rem_sleep_duration"] + s["light_sleep_duration"] == s["total_sleep_duration"]
@@ -482,7 +502,7 @@ def test_wearable_sync_resumes_from_the_last_sync_that_worked(client, monkeypatc
     cid = client.post("/api/connections/wearable", json={"provider": "oura", "mode": "simulated"}).json()["connection_id"]
     asked = []
     real = oura.simulate
-    monkeypatch.setattr(oura, "simulate", lambda days, until, seed: asked.append(days) or real(days=days, until=until, seed=seed))
+    monkeypatch.setattr(oura, "simulate", lambda days, until, seed, tz: asked.append(days) or real(days=days, until=until, seed=seed, tz=tz))
     day = 86400
     from app.core.db import db
     with db() as c:      # its first sync (when it was connected) was 20 days ago
