@@ -34,10 +34,13 @@ def isolated_data(tmp_path, monkeypatch):
     # Vendor credentials from a developer's .env would change which client each test sees.
     for var in [v for v in os.environ if v.endswith(("_CLIENT_ID", "_CLIENT_SECRET"))]:
         monkeypatch.delenv(var, raising=False)
-    from app.core import db
+    from app.core import auth, db
     from app.store import sample_counts
     db.reset_migration_cache()
     sample_counts.forget()   # counts are kept in memory; each test has its own database
+    # Failed sign-ins are counted in memory too: another test's wrong passwords mustn't lock this one out.
+    auth._failed_logins.clear()
+    auth._all_failures.clear()
     yield tmp_path
     db.reset_migration_cache()
 

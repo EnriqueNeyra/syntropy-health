@@ -156,8 +156,6 @@ def test_accent_is_shared_with_paired_devices(client):
 
 
 def test_password_endpoints_accept_new_and_old_names(raw_client):
-    from app.core import auth
-    auth._failed_logins.clear()      # other tests' failed attempts count against the same test client address
     raw_client.post("/api/setup", json={"password": PASSPHRASE, "profile_name": "Alex"}, headers=CSRF)
     raw_client.post("/api/auth/logout", headers=CSRF)
     wrong = raw_client.post("/api/auth/login", json={"password": "nope"}, headers=CSRF)
