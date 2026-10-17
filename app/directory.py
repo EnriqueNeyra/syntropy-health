@@ -12,8 +12,10 @@ SMART demo). Each platform preset describes how to reach the vendor's developer 
 from __future__ import annotations
 
 import json
+import re
+from collections import Counter
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from app.core import config
 
@@ -119,7 +121,58 @@ def _institutions() -> tuple[dict[str, Any], ...]:
     for path in sorted((config.APP_DIR / "data" / "institutions").glob("*.json")):
         with open(path, encoding="utf-8") as fh:
             out.extend(json.load(fh))
+    vocab = _vocabulary(i["name"] for i in out if i.get("name"))
+    for inst in out:
+        if inst.get("name"):
+            inst["name"] = display_name(inst["name"], vocab)
     return tuple(out)
+
+
+# Some vendors list practices in capitals ("BANNER HEALTH", "ROUSE FAMILY MEDICAL CLINIC, P.A."). They're shown the way
+# the rest of the directory writes names, keeping what reads as letters: business suffixes and credentials (LLC, MD),
+# initials (GI, CTMC) and names with no ordinary word in them (AACI, CHCO NAPA), which are left as they are.
+_WORD = re.compile(r"[A-Za-z]+")
+_KEEP_CAPS = {"LLC", "PLLC", "PLC", "LLP", "PC", "PA", "PSC", "SC", "MD", "DO", "DDS", "DMD", "DPM", "OD", "NP", "FNP", "APRN",
+              "DPT", "MPH", "RN", "CNM", "ENT", "OB", "GYN", "OBGYN", "HIV", "ADHD", "ICU", "USA", "MRI", "DBA", "II", "III", "IV", "IT",
+              # states whose codes aren't also words
+              "AZ", "AR", "CA", "CT", "DC", "FL", "GA", "IA", "IL", "KS", "KY", "MI", "MN", "MO", "MS", "NC", "ND", "NE", "NH",
+              "NJ", "NM", "NV", "NY", "RI", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY"}
+_ABBREVIATIONS = {"LTD": "Ltd", "JR": "Jr", "SR": "Sr", "DR": "Dr", "ST": "St", "MT": "Mt", "FT": "Ft"}
+_SMALL_WORDS = {"of", "and", "the", "at", "for", "in", "on", "by", "to", "de", "la", "del", "y"}
+
+
+def _vocabulary(names: Iterable[str]) -> frozenset[str]:
+    """Words the directory writes in ordinary case somewhere ("Medical", "Clinic", "Bay"), in capitals."""
+    seen: Counter[str] = Counter()
+    for name in names:
+        if name != name.upper():
+            seen.update(w.upper() for w in _WORD.findall(name) if w[0].isupper() and w[1:].islower())
+    return frozenset(w for w, n in seen.items() if n >= 2)
+
+
+def display_name(name: str, vocab: frozenset[str]) -> str:
+    """``name`` as the directory shows it: one written all in capitals in title case, when it has ordinary words."""
+    if name != name.upper() or not any(len(w) >= 4 and w in vocab for w in _WORD.findall(name)):
+        return name
+    first = True
+
+    def word(m: re.Match) -> str:
+        nonlocal first
+        w, at_start = m.group(0), first
+        first = False
+        if m.start() and name[m.start() - 1].isdigit() and w in ("ST", "ND", "RD", "TH"):
+            return w.lower()                                    # 2ND
+        if m.start() and name[m.start() - 1] == "'" and w == "S":
+            return "s"                                          # CHILDREN'S
+        if w in _ABBREVIATIONS:
+            return _ABBREVIATIONS[w]
+        if w.lower() in _SMALL_WORDS and not at_start:
+            return w.lower()
+        if w in _KEEP_CAPS or (len(w) <= 2 and w not in vocab) or not re.search(r"[AEIOUY]", w):
+            return w                                            # initials (GI, CTMC, DPC)
+        return w.capitalize()
+
+    return _WORD.sub(word, name)
 
 
 @lru_cache(maxsize=1)

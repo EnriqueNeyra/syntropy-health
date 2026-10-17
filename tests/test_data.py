@@ -150,6 +150,17 @@ def test_directory_covers_oracle_ecw_and_athena_with_real_endpoints(client):
     assert directory.get_institution("athenahealth")["fhir_base_url"].startswith("https://api.")
 
 
+def test_directory_names_listed_in_capitals_read_normally():
+    from app import directory
+    assert directory.get_institution("banner-health")["name"] == "Banner Health"       # Oracle lists it as BANNER HEALTH
+    vocab = directory._vocabulary(["Saint Luke's Hospital", "Mercy Medical Center", "Mercy Clinic", "Medical Center",
+                                   "Family Practice", "Family Care", "Practice Partners", "Hospital of the Lakes"])
+    cases = {"ST. LUKE'S HOSPITAL": "St. Luke's Hospital", "MERCY FAMILY PRACTICE, PLLC": "Mercy Family Practice, PLLC",
+             "2ND FAMILY CARE OF NY, MD PA": "2nd Family Care of NY, MD PA", "CTMC ER": "CTMC ER", "AACI": "AACI",
+             "GI MEDICAL CENTER": "GI Medical Center", "Mercy Clinic": "Mercy Clinic"}
+    assert {name: directory.display_name(name, vocab) for name in cases} == cases
+
+
 def test_directory_refresh_keeps_ids_and_prefers_brand_addresses():
     from scripts.refresh_directory import ecw_entries, epic_entries, merge
     existing = [
@@ -311,3 +322,5 @@ def test_fhir_export_named_for_anyone(client):
         assert client.patch(f"/api/profiles/{pid}", json={"name": name}).status_code == 200
         r = client.get("/api/export/fhir", params={"profile": pid})
         assert r.status_code == 200 and f'filename="{expected}' in r.headers["content-disposition"]
+        csv = client.get("/api/export/csv", params={"profile": pid, "kind": "records"})    # whose CSV it is, too
+        assert f'filename="{expected.replace("-fhir-", "-records-")}' in csv.headers["content-disposition"]
