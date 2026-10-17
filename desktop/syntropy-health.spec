@@ -48,7 +48,7 @@ if sys.platform == "darwin":
                "NSHumanReadableCopyright": "© 2026 Syntropy Labs",
                # The window loads the app from its own server on this computer.
                "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True},
-               "NSLocalNetworkUsageDescription": "Syntropy Health lets your iPhone and other devices on your network "
+               "NSLocalNetworkUsageDescription": "Syntropy Health lets your phone and other devices on your network "
                                                  "reach it when you turn that on.",
                # Announced as syntropyhealth.local when other devices may connect.
                "NSBonjourServices": ["_http._tcp"],

@@ -1,4 +1,4 @@
-// Who can reach this server: only this computer, or the iPhone and other devices at home and on Tailscale too.
+// Who can reach this server: only this computer, or phones and other devices at home and on Tailscale too.
 // Used by Settings → Security, onboarding and the iPhone pairing dialog.
 import { get, post, put } from "./api.js";
 import { $, html, icon, mount, onAction, toast } from "./ui.js";
@@ -38,8 +38,8 @@ function explain(net) {
       : html`This server only accepts connections from this computer. To change that, start it with <code>--host 0.0.0.0</code>.`;
   }
   return net.on_network
-    ? html`Your iPhone and other devices at home${net.tailscale ? " and on Tailscale" : ""} can connect. Open it from them at:`
-    : html`Only this computer can open Syntropy Health. Turn this on to sync your iPhone and open it from your other devices at home${net.tailscale ? " or over Tailscale" : ""}.`;
+    ? html`Your phone and other devices at home${net.tailscale ? " and on Tailscale" : ""} can connect. Open it from them at:`
+    : html`Only this computer can open Syntropy Health. Turn this on to sync your phone and open it from your other devices at home${net.tailscale ? " or over Tailscale" : ""}.`;
 }
 
 /**
@@ -61,7 +61,7 @@ export function renderNetworkPanel(el, net, { onChange, waited = 0 } = {}) {
         <div class="set-control"><span class="switch"><input type="checkbox" id="net-on" ${net.on_network ? "checked" : ""}><span></span></span></div></label>`
       : html`<p class="small muted">${explain(net)}</p>`}
     ${needsChoice ? html`<div class="banner warn net-needs-pass" hidden>${icon("shield")}<div class="grow">
-        <p><b>Set a password first.</b> Otherwise anyone on your Wi-Fi could open your records. Your iPhone gets its own sign-in either way.</p>
+        <p><b>Set a password first.</b> Otherwise anyone on your Wi-Fi could open your records. Your phone gets its own sign-in either way.</p>
         <form class="net-pass" id="net-pass">
           <input class="input" type="password" id="net-pass1" minlength="8" autocomplete="new-password" placeholder="Password (8 or more characters)" aria-label="Password">
           <input class="input" type="password" id="net-pass2" autocomplete="new-password" placeholder="Confirm password" aria-label="Confirm password">

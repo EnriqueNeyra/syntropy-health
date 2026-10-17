@@ -217,7 +217,7 @@ export async function render({ el, parts, state, navigate }) {
           <div class="set-foot"><button class="btn btn-primary btn-sm" type="submit">${on ? "Change password" : "Set password"}</button>
             ${on && appState.status?.password_optional ? html`<button class="btn btn-ghost btn-danger btn-sm" type="button" data-action="remove-pass">Remove password (development)</button>` : ""}</div>
         </form>`)}
-      ${section("Other devices", "Your iPhone, other computers, and your devices on Tailscale.", html`<div id="net-panel" class="set-pad"><div class="skeleton" style="height:64px"></div></div>`)}
+      ${section("Other devices", "Your phone, other computers, and your devices on Tailscale.", html`<div id="net-panel" class="set-pad"><div class="skeleton" style="height:64px"></div></div>`)}
       ${section(household() ? "Where you're signed in" : "Signed-in browsers", "", html`<div class="list">${sessions.map((s) => html`<div class="list-item small">
           <span class="ev-icon">${icon(s.device_name ? "phone" : "monitor")}</span><div class="grow truncate">${s.device_name ? `The ${s.device_platform === "android" ? "Android" : "iPhone"} app (${s.device_name})` : browserName(s.user_agent)}
           <div class="meta">${s.ip} · last active ${fmtDateTime(s.last_seen_at)}</div></div></div>`)}
@@ -380,7 +380,7 @@ function uninstallHint() {
   const kept = "Otherwise it stays in the data folder, and installing again picks up where you left off.";
   if (shell === "mac") return `Choose Syntropy Health → Uninstall Syntropy Health… in the menu bar. It asks whether to delete everyone's data from this Mac too. ${kept}`;
   if (shell === "windows") return `Uninstall Syntropy Health from Windows Settings → Apps. It asks whether to delete everyone's data from this PC too. ${kept}`;
-  return html`Removing Syntropy Health keeps the data folder (and everyone's records in it) until you delete it. <a href="${SOURCE_URL}/blob/main/docs/self-hosting.md#uninstalling" target="_blank" rel="noopener">How to remove each kind of install</a>`;
+  return html`Removing Syntropy Health keeps the data folder (and everyone's records in it) until you delete it. <a href="${SOURCE_URL}#uninstalling" target="_blank" rel="noopener">How to remove each kind of install</a>`;
 }
 
 // What each access-log entry was, in words (the log keeps a short code for each: "sync.completed").

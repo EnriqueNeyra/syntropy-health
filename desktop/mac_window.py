@@ -479,7 +479,7 @@ class MacWindow:
         ask.setMessageText_("Uninstall Syntropy Health?")
         ask.setInformativeText_(
             "Syntropy Health will quit, stop opening at login and move to the Trash."
-            + ("" if joined else " Your iPhone stops syncing to this Mac.")
+            + ("" if joined else " Your phone stops syncing to this Mac.")
             + "\n\nYour health data stays on this Mac unless you choose to delete it, so it's there if you install "
               "Syntropy Health again.")
         ask.addButtonWithTitle_("Uninstall")

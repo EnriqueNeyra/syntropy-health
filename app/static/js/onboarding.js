@@ -37,7 +37,7 @@ export function renderSetup(status, onDone) {
             at home. Sign in there as yourself.</span></span>${icon("chevronRight")}</button>
         <button class="onboard-tile" type="button" data-action="host"><span class="ev-icon">${icon("monitor")}</span>
           <span class="grow"><b>Set it up on this Mac</b><span class="small muted">This Mac becomes the server: it keeps everyone's
-            records and should stay on for your iPhone to sync.</span></span>${icon("chevronRight")}</button>
+            records and should stay on for your phone to sync.</span></span>${icon("chevronRight")}</button>
       </div>`);
     onAction($(".onboard-card"), { join, host: welcome });
     looking.then((found) => {

@@ -1394,6 +1394,8 @@ svg.spark.intro { animation: wipe .8s cubic-bezier(.4, 0, .2, 1) both; }
 .insights .insight:nth-child(odd) { border-right: 1px solid var(--border); }
 /* An odd one out at the end takes the whole row, rather than leaving half the card empty. */
 .insights .insight:nth-child(odd):last-child { grid-column: 1 / -1; border-right: 0; }
+/* At the bottom of the card, its own edge closes the last row: a line there cut straight across its rounded corners. */
+.insights:last-child > .insight:last-child, .insights:last-child > .insight:nth-child(odd):nth-last-child(2) { border-bottom: 0; }
 .insight-icon { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--info-bg); color: var(--info); }
 .insight-icon svg { width: 16px; height: 16px; }
 .insight.attention .insight-icon { background: var(--warn-bg); color: var(--warn); }
@@ -1410,7 +1412,11 @@ svg.spark.intro { animation: wipe .8s cubic-bezier(.4, 0, .2, 1) both; }
 @media (hover: none) {
   .list-item.clickable:not(.selected):active, .table tr.clickable:active td, .menu-item:active, .alert-item:active { background: var(--surface-2); }
 }
-@media (max-width: 900px) { .insights { grid-template-columns: minmax(0, 1fr); } .insights .insight:nth-child(odd) { border-right: 0; } }
+@media (max-width: 900px) {
+  .insights { grid-template-columns: minmax(0, 1fr); }
+  .insights .insight:nth-child(odd) { border-right: 0; }
+  .insights:last-child > .insight:nth-child(odd):nth-last-child(2) { border-bottom: 1px solid var(--border); }
+}
 .tile-goal { display: flex; align-items: center; gap: 4px; color: var(--good); font-weight: 600; }
 .tile-goal svg { width: 11px; height: 11px; }
 .goal-dots { display: inline-flex; gap: 3px; }

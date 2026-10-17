@@ -20,7 +20,7 @@ Uninstalling asks whether to delete that data too, and keeps it unless you say s
 Uninstall Syntropy Health…** quits, removes the login item, moves the app to the Trash and, if chosen, deletes the data
 folder and what the window kept (cookies, cache, window position); on Windows the uninstaller asks, and also stops
 anything still running from the app's folder and removes a `service install` made from it. Silent uninstalls keep the
-data. See [Uninstalling](../docs/self-hosting.md#uninstalling).
+data. See [Uninstalling](../README.md#uninstalling).
 
 Started with a command, the app acts as the `syntropy-health` command instead, without a window:
 `"Syntropy Health.app/Contents/MacOS/Syntropy Health" mcp` (AI apps' stdio MCP), `… backup ~/Desktop`, `… info`. On

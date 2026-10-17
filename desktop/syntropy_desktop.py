@@ -244,8 +244,9 @@ def set_open_at_login(on: bool) -> None:
             path.unlink(missing_ok=True)
     elif sys.platform == "win32":
         import winreg
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
-                            winreg.KEY_SET_VALUE) as key:
+        # Created if it isn't there yet (a new Windows account), as `syntropy-health service install` does.
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
+                                winreg.KEY_SET_VALUE) as key:
             if on:
                 winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, subprocess.list2cmdline(_login_command()))
             else:
