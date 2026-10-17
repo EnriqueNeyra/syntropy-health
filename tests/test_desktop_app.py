@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "desktop"))
 import syntropy_desktop  # noqa: E402
 
@@ -71,6 +73,7 @@ def test_mac_login_item_is_valid_and_follows_the_app(monkeypatch, tmp_path):
     assert not syntropy_desktop.open_at_login()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="a Mac LaunchAgent: launchctl, and a home folder from HOME")
 def test_uninstalling_removes_only_this_apps_server_service(monkeypatch, tmp_path):
     import plistlib
     monkeypatch.setenv("HOME", str(tmp_path))
