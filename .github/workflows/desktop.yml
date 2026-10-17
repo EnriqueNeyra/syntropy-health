@@ -180,6 +180,7 @@ jobs:
           $setup = (Get-Item desktop\dist\*-setup.exe).FullName
           $dir = "$env:RUNNER_TEMP\Syntropy Health"
           $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+          if (-not (Test-Path $runKey)) { New-Item $runKey -Force | Out-Null }     # a fresh runner's account has none yet
           function Install { Start-Process $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$dir`"" -Wait }
           function Uninstall {
             Start-Process "$dir\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
