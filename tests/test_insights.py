@@ -196,3 +196,10 @@ def test_new_tools_for_ai_apps(client):
         assert not err, text
     text, err = mcp_server.call_tool("compare_measures", {"a": "step_count", "b": "workouts:minutes", "days": 14})
     assert not err and '"strength"' in text
+
+
+def test_labels_inside_sentences_keep_their_capitals():
+    # "You met your hrv (rmssd) goal" read wrong; only an ordinary capitalized word starting a label is lowered.
+    from app.services.insights import _soft
+    assert [_soft(x) for x in ("Resting heart rate", "Steps", "HRV (RMSSD)", "VO₂ max", "SpO2")] == \
+        ["resting heart rate", "steps", "HRV (RMSSD)", "VO₂ max", "SpO2"]

@@ -10,6 +10,7 @@ and other AI apps) and the numbers behind it (so the apps can show them in the p
 from __future__ import annotations
 
 import math
+import re
 import statistics
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -34,6 +35,12 @@ WORKOUT_SERIES = {
 MOOD_WORDS = ["very unpleasant", "unpleasant", "neutral", "pleasant", "very pleasant"]
 ENERGY_WORDS = ["drained", "low", "okay", "good", "energized"]
 STRESS_WORDS = ["calm", "a little", "some", "high", "very high"]
+
+
+def _soft(label: str) -> str:
+    """A label inside a sentence: "Resting heart rate" → "resting heart rate", but "HRV (RMSSD)", "VO₂ max" and "SpO2"
+    stay as they are."""
+    return label[0].lower() + label[1:] if re.match(r"[A-Z][a-z]+(\s|$)", label) else label
 
 
 def _window(days: int, end: Optional[date] = None) -> tuple[date, date]:
@@ -428,7 +435,7 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
             out.append({
                 "id": f"med:{m['record_id']}:{metric}", "kind": "medication", "tone": "info",
                 "title": f"{label} since {name}",
-                "text": (f"In the month after you started {name} ({_day(m['t'])}), your {label.lower()} averaged "
+                "text": (f"In the month after you started {name} ({_day(m['t'])}), your {_soft(label)} averaged "
                          f"{_fmt(metric, a)}, against {_fmt(metric, b)} the month before. Other things change too, "
                          "so it's worth discussing with whoever prescribed it rather than reading it as an effect."),
                 "data": {"metric": metric, "unit": METRICS[metric][1], "before": round(b, 3), "after": round(a, 3),
@@ -479,10 +486,10 @@ def _goal_notes(profile_id: str) -> list[dict[str, Any]]:
         out.append({
             "id": f"goal:{g['metric']}", "kind": "goal", "tone": tone,
             "title": f"{g['label']} goal: {g['met']} of {g['days']} days",
-            "text": (f"You met your {g['label'].lower()} goal ({'at least' if g['direction'] == 'min' else 'at most'} "
+            "text": (f"You met your {_soft(g['label'])} goal ({'at least' if g['direction'] == 'min' else 'at most'} "
                      f"{_fmt(g['metric'], g['target'])}) on {g['met']} of the last {g['days']} days"
                      + (f", {g['streak']} in a row." if g["streak"] >= 3 else ".")),
-            "data": {k: g[k] for k in ("metric", "target", "direction", "met", "days", "streak")},
+            "data": {k: g[k] for k in ("metric", "unit", "target", "direction", "met", "days", "streak")},
             "link": f"#/trends?metric={g['metric']}",
         })
     return out

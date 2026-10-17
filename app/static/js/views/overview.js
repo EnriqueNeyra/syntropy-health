@@ -74,6 +74,7 @@ export function insightText(i) {
     return `Your bedtime varied by about ±${d.spread_min} minutes over the last two weeks (usually around ${at}). A steadier schedule tends to make sleep more restful.`;
   }
   if (i.kind === "medication") return `In the month after you started ${d.medication} (${fmtDate(d.started)}), this averaged ${v(d.after)}, against ${v(d.before)} the month before. Other things change too, so talk it over with whoever prescribed it rather than reading it as an effect.`;
+  if (i.kind === "goal" && d.unit) return `You met this goal (${d.direction === "min" ? "at least" : "at most"} ${v(d.target)}) on ${d.met} of the last ${d.days} days${d.streak >= 3 ? `, ${d.streak} in a row` : ""}.`;
   return i.text;
 }
 

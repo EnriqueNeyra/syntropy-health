@@ -161,8 +161,8 @@ async function comparable(profileId) {
 const GROUP_NAMES = { journal: "How you felt (Journal)", workouts: "Workouts", sleep: "Sleep", readiness: "Recovery", heart: "Heart",
   activity: "Activity", vitals: "Vitals", body: "Body", mobility: "Mobility", nutrition: "Nutrition", hearing: "Hearing" };
 
-/** A label inside a sentence: "Steps" → "steps", but "HRV (RMSSD)" and "VO₂ max" stay as they are. */
-const soft = (label) => (/^[A-Z][a-z]/.test(label) ? label[0].toLowerCase() + label.slice(1) : label);
+/** A label inside a sentence: "Steps" → "steps", but "HRV (RMSSD)", "VO₂ max" and "SpO2" stay as they are. */
+const soft = (label) => (/^[A-Z][a-z]+(\s|$)/.test(label) ? label[0].toLowerCase() + label.slice(1) : label);
 const lagWords = (lag) => (lag === 1 ? "the next day" : lag === -1 ? "the day before" : lag > 1 ? `${lag} days later` : lag < -1 ? `${-lag} days before` : "on the same day");
 
 function describe(res) {
