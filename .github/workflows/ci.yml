@@ -8,6 +8,10 @@ on:
     branches: [main]
   pull_request:
   workflow_call:
+    inputs:
+      release:            # the Release workflow builds the apps itself, signed
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -146,15 +150,22 @@ jobs:
           ./scripts/install.ps1 -Uninstall
           if (Get-ScheduledTask -TaskName "Syntropy Health" -ErrorAction SilentlyContinue) { throw "task left behind" }
 
+  apps:
+    # The Mac and Windows apps, built, opened, and on Windows installed and uninstalled (apps.yml).
+    if: ${{ !inputs.release }}
+    uses: ./.github/workflows/apps.yml
+
   ci-passed:
     name: CI passed
     if: always()
-    needs: [lint, app, app-mac-windows, web-and-relay, linux-install, mac-install, windows-install]
+    needs: [lint, app, app-mac-windows, web-and-relay, linux-install, mac-install, windows-install, apps]
     runs-on: ubuntu-latest
     steps:
       - env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
-        run: |
+          RELEASE: ${{ inputs.release }}
+        run: |      # (for a release, apps is skipped)
           for result in $RESULTS; do
-            [ "$result" = success ] || { echo "::error::Not every job passed: $RESULTS"; exit 1; }
+            [ "$result" = success ] || { [ "$result" = skipped ] && [ "$RELEASE" = true ]; } \
+              || { echo "::error::Not every job passed: $RESULTS"; exit 1; }
           done

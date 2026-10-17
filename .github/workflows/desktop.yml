@@ -10,15 +10,12 @@ name: Release
 #   MACOS_CERT_P12 (base64 of a "Developer ID Application" .p12), MACOS_CERT_PASSWORD, MACOS_SIGN_ID,
 #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD (an app-specific password, for notarization)
 # Every release file gets a signed build provenance attestation: `gh attestation verify <file> -R EnriqueNeyra/syntropy-health`.
-# Changes to the desktop app build it too (on main and in pull requests), without releasing anything. To try the
-# apps before a release: Actions → Release → Run workflow, then download them from the run's artifacts.
+# The apps are built by apps.yml, which CI also runs (unsigned) on every pull request and push to main, so each run
+# of CI has them as artifacts to try. Running this by hand (Actions → Release → Run workflow) builds them without
+# releasing anything.
 on:
   push:
     tags: ["v*"]
-    branches: [main]
-    paths: ["desktop/**", ".github/workflows/desktop.yml"]      # (tags ignore this filter)
-  pull_request:
-    paths: ["desktop/**", ".github/workflows/desktop.yml"]
   workflow_dispatch:
 
 permissions:
@@ -29,6 +26,8 @@ jobs:
   tests:
     if: startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/ci.yml
+    with:
+      release: true       # the apps are built below, signed
 
   version:
     runs-on: ubuntu-latest
@@ -50,136 +49,15 @@ jobs:
           name: wheel
           path: dist/*.whl
 
-  mac:
+  # The apps (apps.yml), signed and notarized here when the `release` environment has the certificates.
+  apps:
     needs: version
-    runs-on: macos-latest      # Apple silicon
-    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || '' }}
-    env:
-      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-      - run: pip install -e ".[desktop]"
-      - name: Import the signing certificate
-        if: env.HAS_CERT == 'true'
-        env:
-          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
-          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
-        run: |
-          echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
-          security create-keychain -p ci build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p ci build.keychain
-          security import cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain
-          rm cert.p12
-      - name: Build
-        env:
-          PYTHON: python
-          SIGN_ID: ${{ secrets.MACOS_SIGN_ID }}
-          NOTARY_APPLE_ID: ${{ secrets.APPLE_ID }}
-          NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          NOTARY_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-        run: desktop/build-mac.sh
-      - name: Smoke test
-        run: |
-          "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" version
-          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | SYNTROPY_DATA_DIR="$RUNNER_TEMP/data" "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" mcp | grep -q get_health_summary
-      # The app itself: its server answers and it opens with its window, in the Dock ("0 1": a regular app, a window
-      # on screen). Opened at login (--background) it's in the menu bar only ("1 0": an accessory app, no window).
-      - name: Smoke test the app window
-        run: |
-          app="desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health"
-          state() {     # "<activation policy> <whether a window of the app is on screen>"
-            python - "$1" <<'PY'
-          import sys, AppKit, Quartz
-          pid = int(sys.argv[1])
-          app = AppKit.NSRunningApplication.runningApplicationWithProcessIdentifier_(pid)
-          windows = Quartz.CGWindowListCopyWindowInfo(Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID) or []
-          shown = any(w.get("kCGWindowOwnerPID") == pid and w.get("kCGWindowLayer") == 0 for w in windows)
-          print(app.activationPolicy() if app else -1, int(shown))
-          PY
-          }
-          check() {     # check <expected state> <data folder> [arguments]
-            want=$1 data=$2; shift 2
-            SYNTROPY_DATA_DIR="$data" "$app" "$@" & pid=$!
-            ok=
-            for i in $(seq 90); do
-              sleep 1
-              kill -0 $pid 2>/dev/null || break
-              port=$(python -c 'import json, sys; print(json.load(open(sys.argv[1]))["port"])' "$data/desktop.json" 2>/dev/null || echo 8000)
-              curl -sf "http://127.0.0.1:$port/health" >/dev/null || continue
-              [ "$(state $pid)" = "$want" ] && { ok=1; break; }
-            done
-            if [ -n "$ok" ]; then sleep 5; [ "$(state $pid)" = "$want" ] || ok=; fi
-            got=$(state $pid)
-            cat "$data/desktop.log" 2>/dev/null || true
-            kill $pid 2>/dev/null || true; wait $pid 2>/dev/null || true
-            [ -n "$ok" ] || { echo "::error::Expected '$want', got '$got' (args: $*)"; exit 1; }
-          }
-          check "0 1" "$RUNNER_TEMP/app-window"
-          check "1 0" "$RUNNER_TEMP/app-background" --background
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: mac
-          path: desktop/dist/*.dmg
-
-  windows:
-    needs: version
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-      - run: pip install -e ".[desktop]"
-      - run: python -m PyInstaller --noconfirm --clean --distpath desktop/dist --workpath desktop/build desktop/syntropy-health.spec
-      - name: Smoke test
-        shell: bash
-        run: |
-          "desktop/dist/Syntropy Health/syntropy-health.exe" version
-          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | SYNTROPY_DATA_DIR="$RUNNER_TEMP/data" "desktop/dist/Syntropy Health/syntropy-health.exe" mcp | grep -q get_health_summary
-      # The app itself, as someone opening it would: its server answers and its window opens (and stays open).
-      - name: Smoke test the app window
-        shell: pwsh
-        run: |
-          $env:SYNTROPY_DATA_DIR = "$env:RUNNER_TEMP\app-data"
-          $app = Start-Process "desktop\dist\Syntropy Health\Syntropy Health.exe" -PassThru
-          $ok = $false
-          for ($i = 0; $i -lt 90 -and -not $app.HasExited; $i++) {
-            Start-Sleep -Seconds 1
-            $app.Refresh()
-            $prefs = "$env:SYNTROPY_DATA_DIR\desktop.json"     # the port it chose (8000 unless that was taken)
-            $port = if (Test-Path $prefs) { (Get-Content $prefs | ConvertFrom-Json).port } else { 8000 }
-            try { $up = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/health" -TimeoutSec 2).StatusCode -eq 200 } catch { $up = $false }
-            if ($up -and $app.MainWindowHandle -ne 0) { $ok = $true; break }
-          }
-          if ($ok) { Start-Sleep -Seconds 5; $app.Refresh(); $ok = -not $app.HasExited }
-          Get-Content "$env:SYNTROPY_DATA_DIR\desktop.log" -ErrorAction SilentlyContinue
-          Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
-          if (-not $ok) { throw "The app's window didn't open (exited: $($app.HasExited))" }
-      - name: Installer
-        shell: pwsh
-        run: |
-          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
-          $version = python -c "from app.core.config import APP_VERSION; print(APP_VERSION)"
-          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
-          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
-          & $iscc "/DAppVersion=$version" desktop\installer.iss
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: windows
-          path: desktop/dist/*-setup.exe
+    uses: ./.github/workflows/apps.yml
+    secrets: inherit
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [tests, version, mac, windows]
+    needs: [tests, version, apps]
     runs-on: ubuntu-latest
     permissions:
       contents: write

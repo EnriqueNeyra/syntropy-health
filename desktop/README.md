@@ -77,10 +77,12 @@ Apple's grid (an 824-pixel tile on a 1024 canvas), so it sits at the same size a
 "Developer ID Application" certificate and notarize it: set `SIGN_ID` and `NOTARY_PROFILE` (see the script, and
 [Signing](#signing)).
 
-Windows builds run on GitHub Actions ([.github/workflows/desktop.yml](../.github/workflows/desktop.yml)): PyInstaller,
-then Inno Setup ([installer.iss](installer.iss)) makes a per-user installer that needs no administrator rights. Run the
-workflow by hand, or push a tag like `v1.0.0` (matching `APP_VERSION`) to also draft a GitHub release with both apps,
-the Python wheel and `SHA256SUMS`. Publishing the draft makes it the version everyone's updates install. Without a code-signing
+Windows builds run on GitHub Actions ([.github/workflows/apps.yml](../.github/workflows/apps.yml)): PyInstaller,
+then Inno Setup ([installer.iss](installer.iss)) makes a per-user installer that needs no administrator rights. CI
+builds both apps on every pull request, opens them, and on Windows installs and uninstalls, so each CI run has them as
+artifacts. A tag like `v1.0.0` (matching `APP_VERSION`) runs [desktop.yml](../.github/workflows/desktop.yml), which builds
+them signed and publishes a GitHub release with both apps, the Python wheel and `SHA256SUMS`: the version everyone's
+updates install. Without a code-signing
 certificate, Windows SmartScreen warns on first launch ("More info → Run anyway").
 
 Running from source, for development: `SYNTROPY_DATA_DIR=/tmp/syntropy-dev .venv-desktop/bin/python desktop/syntropy_desktop.py`

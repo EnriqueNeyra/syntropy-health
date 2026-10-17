@@ -86,4 +86,5 @@ Open a pull request that sets `APP_VERSION` in `app/core/config.py` to the new v
 and Windows apps, the Python wheel and the Docker image are built and published, with that changelog section as the
 release notes. Installers, `syntropy-health update`, the apps' update checks and Docker's `:latest` then use it.
 
-To try the apps before releasing: Actions → Release → Run workflow, then download them from the run.
+To try the apps before releasing, download them from a pull request's CI run (its artifacts), or build them with
+Actions → Release → Run workflow.
