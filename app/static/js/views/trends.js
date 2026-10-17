@@ -232,7 +232,7 @@ export async function render({ el, parts, params, state, navigate }) {
     // Results of one test are shown to the same precision (6.0 next to 5.9, not 6), up to what the lab reported.
     const places = body ? undefined : Math.min(3, Math.max(0, ...s.points.map((p) => decimals(p.v))));
     const num = (v) => (places === undefined ? fmtNum(v) : fmtFixed(v, places));
-    const text = (v) => (body ? fmtMeasure(v, s.unit, hint) : `${num(v)} ${s.unit || ""}`);
+    const text = (v) => (body ? fmtMeasure(v, s.unit, hint) : `${num(v)}${/^\//.test(s.unit || "") ? "" : " "}${s.unit || ""}`.trim());
     const pts = s.points.map((p) => ({ ...p, raw: p.v, v: cv(p.v) }));
     s.ref_low = cv(s.ref_low);
     s.ref_high = cv(s.ref_high);

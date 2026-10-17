@@ -254,7 +254,9 @@ def normalize_observation(res: dict[str, Any]) -> Optional[dict[str, Any]]:
     if "valueQuantity" in res:
         value, unit = _quantity(res["valueQuantity"])
         comparator = res["valueQuantity"].get("comparator")
-        rec["value_text"] = f"{comparator or ''}{_fmt(value)} {units.pretty_unit(unit) or ''}".strip()
+        shown = units.pretty_unit(unit) or ""
+        # "15/min", not "15 /min"; "98 %", "5.2 mmol/L" keep their space.
+        rec["value_text"] = f"{comparator or ''}{_fmt(value)}{'' if shown.startswith('/') else ' '}{shown}".strip()
     elif "valueString" in res:
         rec["value_text"] = res["valueString"]
     elif "valueCodeableConcept" in res:
