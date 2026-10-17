@@ -471,7 +471,7 @@ async function renderPeople(body, { redraw }) {
       try {
         if (p) await patch(`/api/profiles/${p.id}`, data);
         else { const created = await post("/api/profiles", data); m.close(); await refreshProfiles(); setProfile(created.id); toast(`Added ${created.name}`); return; }
-        m.close(); await refreshProfiles(); redraw();
+        m.close(); await refreshProfiles(); toast("Saved"); redraw();
       } catch (err) { toast(err.message, "bad"); }
     });
   };
@@ -487,7 +487,7 @@ async function renderPeople(body, { redraw }) {
         ? `${p.name} will be signed out everywhere, and their sources, records, wearable data and devices are permanently deleted from this machine.`
         : "This permanently deletes them with all of their sources, records, wearable data and devices.";
       if (await confirmDialog(`Remove ${p.name}?`, text, { confirmLabel: "Remove and delete their data", danger: true })) {
-        try { await del(`/api/profiles/${id}`); await refreshProfiles(); redraw(); }
+        try { await del(`/api/profiles/${id}`); await refreshProfiles(); toast(`Removed ${p.name}`); redraw(); }
         catch (err) { toast(err.message, "bad"); }
       }
     },
