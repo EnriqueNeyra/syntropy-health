@@ -172,11 +172,13 @@ export async function render({ el, parts, state, navigate }) {
             <button class="btn btn-ghost btn-icon btn-sm" data-action="move" data-group="${group}" data-i="${i}" data-d="1"
               ${i === all.length - 1 ? "disabled" : ""} aria-label="Move ${so.kinds[kind]} down">${icon("arrowDown")}</button></li>`)}</ol>
           <div class="hint">${g.hint}</div></div>`)}</div>`)}
-      ${section("Your own Oura, WHOOP or Google app", "Optional for Oura and WHOOP, whose client secret the Syntropy relay holds by default (it hands tokens straight back to this instance and keeps no copy). Required for Google Health for now: create an OAuth client in Google Cloud with the Google Health API enabled.", html`
-        <details class="set-details" ${anyCreds ? "open" : ""}><summary>Use my own developer credentials</summary>
+      ${section("Your own Oura, WHOOP or Google app", settings.relay.release_build
+        ? "Optional for Oura and WHOOP, whose client secret the Syntropy relay holds by default (it hands tokens straight back to this instance and keeps no copy). Required for Google Health for now: create an OAuth client in Google Cloud with the Google Health API enabled."
+        : "Required in this copy of Syntropy Health: it was built from the source code, so it can't use Syntropy Labs' Oura and WHOOP apps or its sign-in relay. The apps from health.syntropylabs.io include them.", html`
+        <details class="set-details" ${anyCreds || !settings.relay.release_build ? "open" : ""}><summary>Use my own developer credentials</summary>
           <p class="small muted" style="margin:0 0 12px">Register an app with Oura, WHOOP or Google Cloud, enter its client ID and secret, and set the wearable
-            redirect URI (Developer) to the one you registered: <code>${location.origin}/callback</code>, or <code>${settings.relay.default_redirect_uri}</code>
-            if the provider only accepts https. Tokens then never touch the relay.</p>
+            redirect URI (Developer) to the one you registered: <code>${location.origin}/callback</code>${settings.relay.release_build
+              ? html`, or <code>${settings.relay.default_redirect_uri}</code> if the provider only accepts https` : ""}. Tokens then never touch the relay.</p>
           ${Object.entries(settings.wearables).map(([key, w]) => html`<div class="set-subcard">
             <h4>${w.label}</h4>
             <div class="grid grid-2">

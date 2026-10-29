@@ -359,14 +359,15 @@ def update() -> None:
         except updates.CheckFailed as exc:
             sys.exit(f"Couldn't check for updates: {exc}")
         if release is None:
-            print("No release has been published yet: installing the latest code instead.")
-            source = updates.MAIN_SOURCE
-        elif not updates.is_newer(release["version"]):
+            sys.exit("No release of Syntropy Health has been published yet.")
+        if not updates.is_newer(release["version"]):
             print(f"Syntropy Health {config.APP_VERSION} is the latest version.")
             return
-        else:
-            print(f"Updating Syntropy Health {config.APP_VERSION} to {release['version']}.")
+        try:
             source = updates.package_source(release)
+        except updates.InstallFailed as exc:
+            sys.exit(str(exc))
+        print(f"Updating Syntropy Health {config.APP_VERSION} to {release['version']}.")
     uv = shutil.which("uv")
     cmd = ([uv, "pip", "install", "--python", sys.executable, "--upgrade", source] if uv
            else [sys.executable, "-m", "pip", "install", "--upgrade", source])

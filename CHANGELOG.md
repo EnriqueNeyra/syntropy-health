@@ -5,6 +5,11 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 
 ## Unreleased
 
+- **Syntropy Labs' registrations come with its releases only.** The Mac and Windows apps, the installers and the
+  Docker image carry a key that Syntropy's sign-in relay and callback page check; a copy built from the source code,
+  such as a fork, doesn't offer Syntropy's registrations with health systems, Oura and WHOOP, and says how to use its
+  own. The relay and the callback page keep serving releases from before the key for now. Installers and
+  `syntropy-health update` no longer fall back to installing the source code when they can't find a release.
 - **Six more EHR vendors' health systems are in the directory:** TruBridge and MEDHOST hospitals, and Greenway, ModMed,
   NextGen and Practice Fusion practices. Syntropy Health's registration with them is
   under way, so for now they're marked *Not available yet* and suggest importing a record file instead; each one

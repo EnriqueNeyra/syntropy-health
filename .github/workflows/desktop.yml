@@ -10,6 +10,8 @@ name: Release
 #   MACOS_CERT_P12 (base64 of a "Developer ID Application" .p12), MACOS_CERT_PASSWORD, MACOS_SIGN_ID,
 #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD (an app-specific password, for notarization)
 # Every release file gets a signed build provenance attestation: `gh attestation verify <file> -R EnriqueNeyra/syntropy-health`.
+# Release files carry the relay key from the SYNTROPY_RELAY_KEY repository secret (scripts/release_key.py); a tag
+# without it fails rather than release builds that can't use Syntropy's sign-in registrations.
 # The apps are built by apps.yml, which CI also runs (unsigned) on every pull request and push to main, so each run
 # of CI has them as artifacts to try. Running this by hand (Actions → Release → Run workflow) builds them without
 # releasing anything.
@@ -40,10 +42,18 @@ jobs:
         run: |
           version="$(python3 -c 'from app.core.config import APP_VERSION; print(APP_VERSION)')"
           [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "::error::The tag is $GITHUB_REF_NAME but APP_VERSION is $version"; exit 1; }
+      - name: The relay key (scripts/release_key.py)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: python3 scripts/release_key.py
+        env:
+          SYNTROPY_RELAY_KEY: ${{ secrets.SYNTROPY_RELAY_KEY }}
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: false      # the wheel is a release file; build it without a shared cache
       - run: uv build --wheel -o dist .
+      - name: The wheel carries the relay key
+        if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'EnriqueNeyra/syntropy-health'
+        run: python3 -c "import sys, zipfile; sys.exit('app/core/release_key.py' not in zipfile.ZipFile(sys.argv[1]).namelist())" dist/*.whl
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wheel

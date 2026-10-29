@@ -63,6 +63,10 @@ def plan_ehr_connection(institution_id: Optional[str], origin: str, *, fhir_base
     if cfg["developer_only"] and not cfg["developer_mode"] and not mode_override:
         raise SmartError(f"{name} is a test server, offered in developer mode only.")
     cid = client_id or cfg["client_id"]
+    if not cid and cfg["needs_release_build"]:
+        raise SmartError(f"This copy of Syntropy Health was built from the source code, so it can't use Syntropy Labs' "
+                         f"registration with {preset['label']}. Install Syntropy Health from health.syntropylabs.io/setup, "
+                         f"or add your own {preset['label']} client ID in Settings → Developer.")
     if not cid and mode == "production":
         raise SmartError(f"Syntropy Health isn't registered with {preset['label']} yet, so {name} can't be connected. "
                          "You can import a record file downloaded from its patient portal instead.")

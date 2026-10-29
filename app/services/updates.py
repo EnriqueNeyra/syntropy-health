@@ -33,8 +33,6 @@ log = logging.getLogger("syntropy.updates")
 REPO = "EnriqueNeyra/syntropy-health"
 LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{REPO}/releases"
-# Installs follow the latest release; without one yet, the latest code on main.
-MAIN_SOURCE = f"syntropy-health @ https://github.com/{REPO}/archive/refs/heads/main.tar.gz"
 
 CHECK_EVERY = 24 * 3600
 TICK_SECONDS = 3600
@@ -108,10 +106,12 @@ def fetch_latest() -> Optional[dict[str, Any]]:
 
 
 def package_source(release: dict[str, Any]) -> str:
-    """What pip or uv installs for a release: its wheel, else its source archive."""
+    """What pip or uv installs for a release: its wheel. Never its source archive, which lacks the relay key the release
+    workflow builds into the wheel (config.relay_key), so it would lose Syntropy's sign-in registrations."""
     wheel = release.get("assets", {}).get(f"syntropy_health-{release['version']}-py3-none-any.whl")
-    archive = f"https://github.com/{REPO}/archive/refs/tags/{release['tag']}.tar.gz"
-    return f"syntropy-health @ {wheel or archive}"
+    if not wheel:
+        raise InstallFailed(f"Version {release['version']} has no package for this computer yet. Try again later.")
+    return f"syntropy-health @ {wheel}"
 
 
 # ---------------------------------------------------------------------------

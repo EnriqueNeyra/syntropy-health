@@ -63,17 +63,14 @@ done
 say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
-# The latest release's wheel (or, before the first release, the latest code on main). Sets PACKAGE, and RECORD: what
-# `syntropy-health update` installs from later ("latest" follows releases).
+# The latest release's wheel. Sets PACKAGE, and RECORD: what `syntropy-health update` installs from later ("latest"
+# follows releases). Never the source code instead: only a release build carries Syntropy's sign-in registrations.
 resolve_package() {
   if [ -n "$SOURCE" ]; then PACKAGE="$SOURCE"; RECORD="$SOURCE"; return; fi
   RECORD=latest
   TAG="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$REPO/releases/latest" 2>/dev/null | sed -n 's|.*/releases/tag/||p')"
-  if [ -n "$TAG" ]; then
-    PACKAGE="syntropy-health @ $REPO/releases/download/$TAG/syntropy_health-${TAG#v}-py3-none-any.whl"
-  else
-    PACKAGE="syntropy-health @ $REPO/archive/refs/heads/main.tar.gz"
-  fi
+  [ -n "$TAG" ] || die "Couldn't find the latest release on GitHub. Check the internet connection and try again."
+  PACKAGE="syntropy-health @ $REPO/releases/download/$TAG/syntropy_health-${TAG#v}-py3-none-any.whl"
 }
 
 # ================================================================ Mac

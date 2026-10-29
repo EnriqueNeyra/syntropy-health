@@ -32,7 +32,7 @@ ENDPOINTS = {"recovery": "recovery", "cycle": "cycle", "sleep": "activity/sleep"
 def authorization_url(state: str) -> str:
     creds = settings.wearable_credentials("whoop")
     if not creds["client_id"]:
-        raise SmartError("WHOOP is not configured. Add the WHOOP client ID in Settings → Wearables.", "error")
+        raise SmartError(wc.not_configured("WHOOP"), "error")
     return f"{AUTH_URL}?{urlencode({'response_type': 'code', 'client_id': creds['client_id'], 'redirect_uri': wc.redirect_uri(), 'scope': SCOPES, 'state': state})}"
 
 

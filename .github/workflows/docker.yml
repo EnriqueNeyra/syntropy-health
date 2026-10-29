@@ -52,6 +52,12 @@ jobs:
             org.opencontainers.image.url=https://health.syntropylabs.io
             org.opencontainers.image.licenses=AGPL-3.0-only
 
+      # Published images carry the relay key (scripts/release_key.py); a pull request's test image doesn't need it.
+      - name: The relay key (scripts/release_key.py)
+        if: github.event_name != 'pull_request'
+        run: python3 scripts/release_key.py
+        env:
+          SYNTROPY_RELAY_KEY: ${{ secrets.SYNTROPY_RELAY_KEY }}
       - name: Build for the smoke test
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -68,6 +74,9 @@ jobs:
           curl -fs localhost:8000/health || { docker logs smoke; exit 1; }
           # The server runs as the data folder's owner (this runner's user), not root.
           test "$(stat -c %u "$data/syntropy.db")" = "$(id -u)"
+      - name: The published image carries the relay key
+        if: github.event_name != 'pull_request' && github.repository == 'EnriqueNeyra/syntropy-health'
+        run: docker run --rm syntropy-health:test python -c 'from app.core import config; assert config.official_build()'
       - name: The release's tag matches the version in the code
         if: startsWith(github.ref, 'refs/tags/v')
         run: |

@@ -58,6 +58,10 @@ moving further out of range.
 The Mac and Windows apps walk you through setup; otherwise open <http://localhost:8000> and follow it. No accounts handy? Turn on developer mode in **Settings →
 Developer** to connect to the built-in **EHR simulator**, and add simulated Oura or WHOOP data to explore everything with synthetic records.
 
+Syntropy Labs' registrations with health systems, Oura and WHOOP, and its sign-in relay, come with the releases above.
+A copy built from the source code (or a fork) uses its own: a client ID in **Settings → Developer**, or an Oura or
+WHOOP app in **Settings → Wearables**.
+
 > **Status:** Syntropy Health is in beta. Epic (MyChart), Oracle Health, athenahealth and eClinicalWorks (healow)
 > health systems connect for real (eClinicalWorks connections are one-time imports: sign in again to update them); registration with TruBridge, MEDHOST, Greenway, ModMed, NextGen and Practice Fusion
 > is under way, so until it's complete you can import a record file from their patient portals instead. Oura,

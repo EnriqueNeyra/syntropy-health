@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -17,6 +18,7 @@ BASE = "http://localhost:8000"
 CSRF = {"X-Requested-With": "syntropy"}
 PASSPHRASE = "correct horse battery"
 LOCAL_CLIENT = ("127.0.0.1", 50000)      # setup is only accepted from nearby addresses
+RELAY_KEY = "test-relay-key"
 
 
 @pytest.fixture(autouse=True)
@@ -34,6 +36,10 @@ def isolated_data(tmp_path, monkeypatch):
     # Vendor credentials from a developer's .env would change which client each test sees.
     for var in [v for v in os.environ if v.endswith(("_CLIENT_ID", "_CLIENT_SECRET"))]:
         monkeypatch.delenv(var, raising=False)
+    # The tests run as a release build, with Syntropy's registrations (test_relay_key covers a build from the source).
+    # A key written by scripts/release_key.py in this checkout is ignored.
+    monkeypatch.setenv("SYNTROPY_RELAY_KEY", RELAY_KEY)
+    monkeypatch.setitem(sys.modules, "app.core.release_key", None)
     from app.core import auth, db
     from app.store import sample_counts
     db.reset_migration_cache()

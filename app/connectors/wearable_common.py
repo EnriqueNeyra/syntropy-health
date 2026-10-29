@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 import httpx
 
-from app.core import settings
+from app.core import config, settings
 from app.connectors.smart import SmartError, USER_AGENT
 
 
@@ -35,6 +35,14 @@ def uses_local_exchange(provider: str, origin: str) -> bool:
     """True when this instance holds the client secret and is itself the registered redirect."""
     creds = settings.wearable_credentials(provider)
     return bool(creds["client_secret"]) and redirect_uri().startswith(origin)
+
+
+def not_configured(name: str) -> str:
+    """Why Oura or WHOOP has no client ID: a release build always has Syntropy's, so this one is from the source."""
+    if config.official_build():
+        return f"{name} is not configured. Add the {name} client ID in Settings → Wearables."
+    return (f"This copy of Syntropy Health was built from the source code, so it can't use Syntropy Labs' {name} app. "
+            f"Install Syntropy Health from health.syntropylabs.io/setup, or add your own {name} app in Settings → Wearables.")
 
 
 def relay_base() -> str:
@@ -71,9 +79,14 @@ async def refresh_tokens(token_url: str, provider: str, credentials: dict[str, A
                     **({"scope": "offline"} if provider == "whoop" else {}),
                 })
             else:
-                resp = await client.post(f"{relay_base()}/refresh", json={"provider": provider, "refresh_token": refresh_token})
+                key = config.relay_key()
+                resp = await client.post(f"{relay_base()}/refresh", json={"provider": provider, "refresh_token": refresh_token},
+                                         headers={config.RELAY_KEY_HEADER: key} if key else None)
         except httpx.HTTPError as exc:
             raise SmartError(f"Could not refresh {provider.title()} access: {exc}", "network") from exc
+    if resp.status_code == 403 and not creds["client_secret"]:
+        raise SmartError(f"Syntropy Labs' sign-in relay only serves up-to-date Syntropy Health releases. Update to the latest "
+                         f"version, or add your own {provider.title()} app in Settings → Wearables.", "auth")
     if resp.status_code != 200:
         raise SmartError(f"{provider.title()} refused to refresh access ({resp.status_code}). Reconnect to continue.", "auth")
     return token_credentials(resp.json(), credentials)

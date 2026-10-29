@@ -93,16 +93,17 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
   Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
   Remove-Item Env:UV_NO_MODIFY_PATH
 }
-# The latest release's wheel (before the first release, the latest code on main). `syntropy-health update` follows
-# releases ("latest"), or reinstalls from -Source if one was given.
+# The latest release's wheel. `syntropy-health update` follows releases ("latest"), or reinstalls from -Source if one
+# was given. Never the source code instead: only a release build carries Syntropy's sign-in registrations.
 $Record = $Source
 if (-not $Source) {
   $Record = "latest"
-  $Source = "syntropy-health @ $Repo/archive/refs/heads/main.tar.gz"
+  $tag = $null
   try {
     $tag = (Invoke-RestMethod -Headers @{ "User-Agent" = "Syntropy-Health-installer" } "https://api.github.com/repos/EnriqueNeyra/syntropy-health/releases/latest").tag_name
-    if ($tag) { $Source = "syntropy-health @ $Repo/releases/download/$tag/syntropy_health-$($tag.TrimStart('v'))-py3-none-any.whl" }
   } catch { }
+  if (-not $tag) { throw "Couldn't find the latest release on GitHub. Check the internet connection and try again in a few minutes." }
+  $Source = "syntropy-health @ $Repo/releases/download/$tag/syntropy_health-$($tag.TrimStart('v'))-py3-none-any.whl"
 }
 Say "Installing Syntropy Health"
 uv tool install --quiet --force --python 3.12 $Source

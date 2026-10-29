@@ -147,7 +147,7 @@ function institutionButton(inst) {
   return html`<button class="inst ${inst.available ? "" : "unavailable"}" data-action="choose" data-id="${inst.id}">${avatar(inst.name, inst.platform)}
     <div class="grow" style="min-width:0"><div class="inst-name">${inst.name}</div>
       <div class="small muted inst-meta">${institutionMeta(inst)}</div>
-      ${!inst.available ? html`<div class="tiny faint">Not available yet</div>`
+      ${!inst.available ? html`<div class="tiny faint">${inst.needs_release_build ? "Not available in this copy" : "Not available yet"}</div>`
         : inst.sign_in_problem ? html`<div class="tiny faint">Sign-in not working right now</div>` : ""}</div></button>`;
 }
 
@@ -172,6 +172,13 @@ function signInProblem(inst) {
 }
 
 function modeExplainer(inst) {
+  if (!inst.available && inst.needs_release_build) {
+    return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Not available in this copy.</b> It was built from Syntropy Health's
+      source code, so it can't use Syntropy Labs' registration with ${inst.platform_label}. The apps from
+      <a href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">health.syntropylabs.io</a> connect ${esc(inst.name)} directly,
+      or you can add your own ${inst.platform_label} client ID in Settings → Developer.</p>
+      <p>You can also download your records from its ${inst.portal || "patient portal"} and import the file.</p></div></div>`;
+  }
   if (!inst.available) {
     return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Not available yet.</b> Syntropy Health isn't registered with
       ${inst.platform_label} yet, so ${esc(inst.name)} can't be connected directly.</p>

@@ -21,6 +21,8 @@ node_modules/
 *.log
 .env
 .env.*
+# The relay key of a release build (scripts/release_key.py); never in the source code
+/app/core/release_key.py
 
 # Local scratch files, and planning notes and working docs
 /scratch/

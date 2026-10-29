@@ -1,7 +1,8 @@
 // Run with: npm test (from cloudflare-worker/)
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker, { isPrivateHost, resolveTarget } from "../worker.js";
+import { createHash } from "node:crypto";
+import worker, { isPrivateHost, releaseBuild, resolveTarget } from "../worker.js";
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const env = { WHOOP_CLIENT_ID: "wid", WHOOP_CLIENT_SECRET: "wsecret", OURA_CLIENT_ID: "oid", OURA_CLIENT_SECRET: "osecret" };
@@ -72,6 +73,35 @@ test("callback and refresh are rate-limited per client IP", async () => {
   assert.deepEqual(seen, ["203.0.113.9", "203.0.113.9"]);
   const health = await worker.fetch(new Request("https://relay.test/health"), limited);
   assert.equal(health.status, 200);
+});
+
+test("with REQUIRE_KEY on, only release builds' sign-ins and refreshes are served", async () => {
+  const keyHash = createHash("sha256").update("release-key").digest("hex");
+  const strict = { ...env, REQUIRE_KEY: "true", KEY_HASHES: `0000, ${keyHash.toUpperCase()}` };
+  globalThis.fetch = async () => new Response(JSON.stringify({ access_token: "AT", refresh_token: "RT", expires_in: 3600 }), { status: 200 });
+  const callback = (state) => worker.fetch(new Request(`https://relay.test/callback?code=abc&state=${b64(state)}`), strict);
+  const refresh = (headers) => worker.fetch(new Request("https://relay.test/refresh",
+    { method: "POST", headers, body: JSON.stringify({ provider: "oura", refresh_token: "RT" }) }), strict);
+
+  assert.equal((await callback({ p: "whoop", d: "http://localhost:8000", k: "release-key" })).status, 302);
+  assert.equal((await callback({ p: "smart", d: "http://localhost:8000", k: "release-key" })).status, 302);
+  for (const state of [{ p: "whoop", d: "http://localhost:8000" }, { p: "whoop", k: "copied-wrong" }, { p: "smart", k: keyHash }]) {
+    const res = await callback(state);
+    assert.equal(res.status, 403);
+    assert.match(await res.text(), /Update Syntropy Health/);
+  }
+  assert.equal((await refresh({ "X-Syntropy-Key": "release-key" })).status, 200);
+  const turnedAway = await refresh({});
+  assert.equal(turnedAway.status, 403);
+  assert.equal((await turnedAway.json()).error, "release_build_required");
+  assert.equal((await refresh({ "X-Syntropy-Key": "nope" })).status, 403);
+});
+
+test("until REQUIRE_KEY is on, releases without the key are still served", async () => {
+  assert.ok(await releaseBuild(undefined, { ...env, KEY_HASHES: "abc" }));
+  assert.ok(await releaseBuild(undefined, { ...env, REQUIRE_KEY: "false" }));
+  assert.ok(!(await releaseBuild(undefined, { ...env, REQUIRE_KEY: "true", KEY_HASHES: "" })));
+  assert.ok(!(await releaseBuild("x".repeat(300), { ...env, REQUIRE_KEY: "true", KEY_HASHES: "" })));
 });
 
 test("health names the deployed commit", async () => {

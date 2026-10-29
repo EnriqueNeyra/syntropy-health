@@ -21,6 +21,12 @@
  * Callback and refresh requests are rate-limited per client IP (the RATE_LIMITER binding in
  * wrangler.toml), so nobody can flood Oura or WHOOP through the Syntropy client IDs.
  *
+ * Release builds only: Syntropy Labs' release builds carry a relay key (app/core/config.py, relay_key), which they put
+ * in the OAuth state (`k`) and send on /refresh (X-Syntropy-Key). The worker knows only the SHA-256 of each key it
+ * accepts (KEY_HASHES in wrangler.toml). With REQUIRE_KEY "true" it turns away sign-ins and refreshes without one, so a
+ * fork or other build from the source code can't use Syntropy's Oura and WHOOP apps. Until then every request is
+ * served, while releases from before the key update.
+ *
  * Destination safety: the instance address comes from `state.d` and must be a private /
  * loopback / Tailscale / mDNS host, so the relay cannot be used as an open redirect to
  * the public internet.
@@ -62,6 +68,20 @@ async function allowed(request, env) {
   const { success } = await env.RATE_LIMITER.limit({ key });
   return success;
 }
+
+// Whether to serve a request carrying this relay key: one whose SHA-256 is in KEY_HASHES, or any while REQUIRE_KEY isn't
+// "true".
+export async function releaseBuild(key, env) {
+  if (env.REQUIRE_KEY !== "true") return true;
+  if (typeof key !== "string" || !key || key.length > 256) return false;
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)));
+  const hex = Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+  return String(env.KEY_HASHES || "").split(",").map((h) => h.trim().toLowerCase()).includes(hex);
+}
+
+const NOT_RELEASE = "Syntropy Labs' sign-in relay serves the Syntropy Health apps from health.syntropylabs.io. Update to the "
+  + "latest version. A copy built from the source code needs its own Oura or WHOOP app (Settings → Wearables), "
+  + "registered with this instance's own /callback.";
 
 // ---------------------------------------------------------------------------
 // State & destination
@@ -119,6 +139,7 @@ async function handleCallback(url, env) {
   }
   const code = params.get("code");
   if (!code) return page("Missing authorization code", "The provider did not return an authorization code.", target, 400);
+  if (!(await releaseBuild(decodeState(state).k, env))) return page("Update Syntropy Health to connect", NOT_RELEASE, target, 403);
 
   const provider = (decodeState(state).p || "").toLowerCase();
   const cfg = PROVIDERS[provider];
@@ -155,6 +176,9 @@ async function handleRefresh(request, env) {
   const cfg = PROVIDERS[String(body.provider || "").toLowerCase()];
   if (!cfg || !body.refresh_token || typeof body.refresh_token !== "string" || body.refresh_token.length > 4096) {
     return json({ error: "invalid_request" }, 400);
+  }
+  if (!(await releaseBuild(request.headers.get("x-syntropy-key"), env))) {
+    return json({ error: "release_build_required", error_description: NOT_RELEASE }, 403);
   }
   const secret = env[cfg.secretVar];
   if (!secret) return json({ error: "not_configured" }, 500);

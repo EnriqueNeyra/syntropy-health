@@ -25,7 +25,7 @@ from urllib.parse import urlencode, urlparse
 
 import httpx
 
-from app.core import security
+from app.core import config, security
 
 log = logging.getLogger("syntropy.smart")
 
@@ -117,8 +117,11 @@ def fit_scopes(requested: str, scopes_supported: Optional[list[str]]) -> str:
 
 
 def make_state(kind: str, origin: str) -> str:
-    """Opaque-but-routable state: the public relay reads ``d`` to find this instance."""
+    """Opaque-but-routable state: the public relay reads ``d`` to find this instance, and ``k``, a release build's
+    relay key, to know it serves this sign-in."""
     payload = {"p": kind, "n": security.random_token(18), "d": origin}
+    if key := config.relay_key():
+        payload["k"] = key
     return base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
 
 

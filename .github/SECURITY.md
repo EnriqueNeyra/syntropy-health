@@ -51,6 +51,8 @@ the Content-Security-Policy.
 - Someone with access to the computer's account or the data folder: the database, `secret.key` and backups are the
   keys to the record by design. Protect them like the records themselves.
 - Findings from automated scanners with no demonstrated impact, and missing headers that don't lead to one.
+- Reading the relay key out of a release. Every release carries it, so it isn't a secret: it keeps builds from the
+  source code from using Syntropy Labs' registrations and relay without someone choosing to, and protects no data.
 
 ## How Syntropy Health is protected
 

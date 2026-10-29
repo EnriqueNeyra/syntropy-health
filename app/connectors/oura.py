@@ -33,7 +33,7 @@ DAILY_ENDPOINTS = ["daily_sleep", "sleep", "daily_readiness", "daily_activity", 
 def authorization_url(state: str) -> str:
     creds = settings.wearable_credentials("oura")
     if not creds["client_id"]:
-        raise SmartError("Oura is not configured. Add the Oura client ID in Settings → Wearables.", "error")
+        raise SmartError(wc.not_configured("Oura"), "error")
     return f"{AUTH_URL}?{urlencode({'response_type': 'code', 'client_id': creds['client_id'], 'redirect_uri': wc.redirect_uri(), 'scope': SCOPES, 'state': state})}"
 
 

@@ -46,6 +46,7 @@ def _snapshot() -> dict:
         "relay": {"redirect_uri": settings.get("relay.redirect_uri"),
                   "wearable_redirect_uri": settings.get("relay.wearable_redirect_uri"),
                   "default_redirect_uri": config.DEFAULT_RELAY_URL,
+                  "release_build": config.official_build(),
                   "default_wearable_redirect_uri": config.DEFAULT_WEARABLE_RELAY_URL},
         "sync": {"ehr_interval_hours": settings.get("sync.ehr_interval_hours"),
                  "wearable_interval_hours": settings.get("sync.wearable_interval_hours"),

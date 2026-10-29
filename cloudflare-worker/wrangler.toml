@@ -21,6 +21,14 @@ simple = { limit = 30, period = 60 }
 ENVIRONMENT = "production"
 WHOOP_CLIENT_ID = "91dbd202-060d-477e-a9b7-3aedd1def98c"
 OURA_CLIENT_ID = "386fc575-d55b-431e-acbe-5d1bd8da3036"
+# SHA-256 of each relay key the worker accepts (comma-separated): the key release builds carry, from the
+# SYNTROPY_RELAY_KEY Actions secret. Hashes only; the key itself is in no repository. To change keys, add the new
+# hash, release with the new key, and drop the old hash once those releases are out.
+KEY_HASHES = "2fe6f20bc752317acf19a5652f491f654d6bff9b9fa7276b6c8b9cc55bba5a52"
+# "true" turns away sign-ins and refreshes without an accepted key: forks and other builds from the source code, and
+# releases from before the key (1.6.0 and earlier). Turn it on once those have had time to update. The callback page
+# (health.syntropylabs.io/callback) has the same switch.
+REQUIRE_KEY = "false"
 
 # Secrets to set in Cloudflare dashboard or via wrangler secret put:
 # - WHOOP_CLIENT_SECRET

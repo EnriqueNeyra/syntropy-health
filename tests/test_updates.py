@@ -49,11 +49,12 @@ def test_versions():
     assert not updates.is_newer("nightly", "1.0.0")
 
 
-def test_package_source_prefers_the_wheel():
+def test_package_source_is_the_wheel_never_the_source():
     rel = updates._release(RELEASE)
     assert updates.package_source(rel) == "syntropy-health @ https://example.test/w.whl"
-    rel["assets"] = {}
-    assert updates.package_source(rel).endswith("/archive/refs/tags/v9.1.0.tar.gz")
+    rel["assets"] = {}      # the source archive would install a build without the relay key
+    with pytest.raises(updates.InstallFailed):
+        updates.package_source(rel)
 
 
 def test_owner_sees_an_update(client, latest):

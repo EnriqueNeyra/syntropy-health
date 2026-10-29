@@ -29,6 +29,8 @@ git clone https://github.com/EnriqueNeyra/syntropy-health && cd syntropy-health
 ```
 
 Use the built-in EHR simulator and the simulated Oura and WHOOP sources for data; never develop against real records.
+A checkout doesn't have the relay key that release builds carry (`scripts/release_key.py`), so it doesn't offer
+Syntropy's registrations with health systems, Oura and WHOOP; the simulator and simulated sources don't need them.
 
 ## Where things are
 
