@@ -219,22 +219,21 @@ def test_facilities_are_written_apart_from_the_listings(tmp_path):
     entries = refresh.epic_entries({"brands": epic_bundle(), "r4": {"entry": []}})
     [listing] = merge([], entries, "epic-")
     assert "facilities" not in listing      # API responses stay small
-    path = tmp_path / "facilities.json"
+    path = tmp_path / "facilities.tsv"
     refresh.write_facilities(path, entries)
-    assert json.loads(path.read_text())["epic-mass-general-brigham"][0].startswith("Brigham and Women's")
+    lines = path.read_text().splitlines()
+    assert lines[0] == "epic-mass-general-brigham\t\tSalem\tMA"
+    assert lines[1] == "epic-mass-general-brigham\tBrigham and Women's Hospital\tBoston\tMA"
 
 
 def test_a_refresh_of_one_vendor_keeps_the_others_facilities(tmp_path):
-    path = tmp_path / "facilities.json"
-    path.write_text(json.dumps({"epic-other": ["Other Hospital||"], "epic-mass-general-brigham": ["Stale||"]}))
+    path = tmp_path / "facilities.tsv"
+    path.write_text("epic-old\tStale Site\t\t\noracle-x\tOracle Site\t\t\n")
     entries = refresh.epic_entries({"brands": epic_bundle(), "r4": {"entry": []}})
     merge([], entries, "epic-")
     refresh.write_facilities(path, entries, replace_prefix="epic-")
-    saved = json.loads(path.read_text())
-    assert "epic-other" not in saved and saved["epic-mass-general-brigham"][0] != "Stale||"     # the whole vendor is replaced
-    path.write_text(json.dumps({"oracle-x": ["Oracle Site||"]}))
-    refresh.write_facilities(path, entries, replace_prefix="epic-")
-    assert "oracle-x" in json.loads(path.read_text())
+    text = path.read_text()
+    assert "Stale Site" not in text and "Oracle Site" in text and "Brigham and Women" in text
 
 
 # ---------------------------------------------------------------------------
@@ -246,7 +245,7 @@ def scratch_directory(tmp_path, monkeypatch):
     folder = tmp_path / "institutions"
     folder.mkdir()
     monkeypatch.setattr(refresh, "DIRECTORY", folder)
-    monkeypatch.setattr(refresh, "FACILITIES", tmp_path / "facilities.json")
+    monkeypatch.setattr(refresh, "FACILITIES", tmp_path / "facilities.tsv")
     monkeypatch.setattr(refresh, "REPO_ROOT", tmp_path)
     return folder
 
@@ -387,4 +386,4 @@ def test_the_workflow_refreshes_without_a_token_and_says_what_is_missing():
 def test_auto_merge_waits_when_a_person_should_look():
     assert '"$REVIEW" = 0' in WORKFLOW
     assert '"$DROPPED"' not in WORKFLOW
-    assert "app/data/facilities.json" in WORKFLOW
+    assert "app/data/facilities.tsv" in WORKFLOW

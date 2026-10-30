@@ -34,6 +34,9 @@ jobs:
           cache-dependency-path: pyproject.toml
       - run: python -m pip install -U pip && pip install --group dev
       - run: ruff check app tests desktop scripts   # version and settings in pyproject.toml
+      # People see warnings from the weekly sign-in check: a release doesn't go out with old ones, and anything else is told.
+      - name: The sign-in check is recent
+        run: python scripts/refresh_directory.py --check-fresh 21 ${{ !inputs.release && '--warn-only' || '' }}
       # People's databases have run what's on main: a change to the schema is a new migration, never an edit.
       - name: Migrations on main are not changed
         if: github.event_name == 'pull_request'

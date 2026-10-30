@@ -28,7 +28,7 @@ when no other listing shares it: 4,000 NextGen practices sit on one address, so 
 
 Every vendor's list then goes through the same rules (``tidy``): test systems, vendor pods and placeholders are left out,
 addresses must be https with a real host, names and places are written one way, and two rows with one name and address
-become one. Epic's facility names and towns go to ``app/data/facilities.json``, which only search reads, so that someone
+become one. Epic's facility names and towns go to ``app/data/facilities.tsv``, which only search reads, so that someone
 can find Mass General Brigham by typing Brigham and Women's.
 
 A vendor whose download fails, or whose list shrinks by half, keeps its current file: the others carry on, and the run
@@ -54,7 +54,7 @@ from urllib.request import Request, urlopen
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DIRECTORY = REPO_ROOT / "app" / "data" / "institutions"
-FACILITIES = REPO_ROOT / "app" / "data" / "facilities.json"
+FACILITIES = REPO_ROOT / "app" / "data" / "facilities.tsv"
 STATUS_FILE = REPO_ROOT / "app" / "data" / "sign_in_status.json"
 MAX_PLACES = 8
 MIN_KEPT = 0.5          # a list that shrinks more than this is a broken feed, not a wave of closures
@@ -651,9 +651,8 @@ def merge(existing: list[dict[str, Any]], entries: list[dict[str, Any]], prefix:
     return out
 
 
-def write_json(path: Path, value: Any, **dump: Any) -> None:
+def write_text(path: Path, text: str) -> None:
     """Replaces ``path`` whole or not at all: a run stopped halfway can't leave half a file for the app to read."""
-    text = json.dumps(value, ensure_ascii=False, **dump) + "\n"
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name, suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
@@ -665,15 +664,19 @@ def write_json(path: Path, value: Any, **dump: Any) -> None:
         raise
 
 
+def write_json(path: Path, value: Any, **dump: Any) -> None:
+    write_text(path, json.dumps(value, ensure_ascii=False, **dump) + "\n")
+
+
 def write_facilities(path: Path, entries: list[dict[str, Any]], replace_prefix: str = "epic-") -> None:
-    """Search's list of what each listing includes, by id, sorted so a week's diff shows only what changed."""
+    """What each listing includes, for search: id, facility, city and state on a line, sorted, so that a week's diff shows
+    only what changed and the app can read it a line at a time."""
     try:
-        saved = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        saved = {}
-    saved = {k: v for k, v in saved.items() if not k.startswith(replace_prefix)}
-    saved.update({e["id"]: e["facilities"] for e in entries if e.get("facilities")})
-    write_json(path, dict(sorted(saved.items())), indent=0)
+        kept = [line for line in path.read_text(encoding="utf-8").splitlines() if not line.startswith(replace_prefix)]
+    except OSError:
+        kept = []
+    fresh = [f"{e['id']}\t" + "\t".join(line.rsplit("|", 2)) for e in entries for line in e.get("facilities") or ()]
+    write_text(path, "".join(f"{line}\n" for line in sorted([*kept, *fresh])))
 
 
 def _rows(text: str) -> dict[str, dict[str, Any]]:

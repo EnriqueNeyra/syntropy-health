@@ -26,16 +26,18 @@ That needs Playwright (``pip install -e ".[checks]"``) and Google Chrome, or Pla
 | ``portal_error`` | A page on the way to sign-in failed (4xx or 5xx), the way Kaiser's did. A lowercase retry is noted. |
 | ``error_page`` | A page loaded, but it is an error page. |
 | ``unclear`` | A page loaded that is neither a sign-in nor a recognizable error. |
-| ``blocked`` | The sign-in site refused the checker (403, or no connection), and Chrome couldn't confirm it either way. |
-| ``unreachable`` | The FHIR server or its authorize endpoint didn't answer. The app's server makes these same requests, \
-so the app can't connect either. |
+| ``blocked`` | The server or sign-in site refused the checker (401, 403 or 429, or no connection), and Chrome couldn't \
+confirm it either way. A hospital's firewall may only be turning away cloud addresses, as this runs from one. |
+| ``unreachable`` | The FHIR server or its authorize endpoint didn't answer. |
 
 ``--write-status`` records the servers that failed in ``app/data/sign_in_status.json``, which the app reads to warn
-before sending someone to a sign-in that won't work: each entry has the result, the date it was first seen failing
-(``since``), and other listings of the same health system that work (``instead``, by name: UPMC → UPMC Patient
-Portal). ``blocked`` and ``unclear`` servers aren't recorded, since nobody knows they're broken.
+before sending someone to a sign-in that won't work: when the check ran (``checked``), and for each server the result, the
+date it was first seen failing (``since``), and other listings of the same health system that work (``instead``, by name:
+UPMC → UPMC Patient Portal). ``blocked`` and ``unclear`` servers aren't recorded, since nobody knows they're broken. An
+``unreachable`` one waits under ``watching`` until it fails a second week running: one bad night isn't worth a warning.
 
-Exits with status 1 when any health system isn't ``ok``.
+Exits with status 1 when any health system isn't ``ok``. With ``--write-status`` a failing health system is what the file
+is for, so only a crash does.
 """
 
 from __future__ import annotations
@@ -60,11 +62,14 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from app.connectors import smart  # noqa: E402
 from app.core import config, settings  # noqa: E402
+from scripts.refresh_directory import write_json  # noqa: E402
 
 DIRECTORIES = {platform: REPO_ROOT / "app" / "data" / "institutions" / f"{name}.json"
                for platform, name in (("epic", "epic"), ("cerner", "oracle"), ("healow", "ecw"))}
 STATUS_FILE = REPO_ROOT / "app" / "data" / "sign_in_status.json"
 RECORDED = ("portal_error", "error_page", "unreachable", "client_unknown", "rejected")
+SECOND_WEEK = ("unreachable",)
+REFUSALS = (401, 403, 407, 429, 451)     # an answer, and about whoever's asking rather than the server
 MAX_HOPS = 20
 CONCURRENCY = 6
 PER_HOST = 2
@@ -167,6 +172,11 @@ async def check_server(base: str, client_id: str, redirect_uri: str,
     async with httpx.AsyncClient(timeout=20.0, transport=transport, headers={"User-Agent": smart.USER_AGENT}) as client:
         try:
             first = await _authorize_url(client, base, client_id, redirect_uri)
+        except httpx.HTTPStatusError as exc:
+            code = exc.response.status_code
+            result.status = "blocked" if code in REFUSALS else "portal_error"
+            result.detail = f"SMART configuration: HTTP {code}"
+            return result
         except (httpx.HTTPError, ValueError) as exc:
             result.detail = f"SMART configuration: {type(exc).__name__}: {exc}"[:300]
             return result
@@ -348,19 +358,24 @@ def sign_in_status(results: list[Result], entries: list[dict[str, Any]], previou
             by_server[address_key(inst["fhir_base_url"])].append(inst)
     working = {address_key(r.fhir_base_url) for r in results if r.status == "ok"}
     before = previous.get("servers", {})
+    watched_before = previous.get("watching", {})
     servers: dict[str, Any] = {}
+    watching: dict[str, Any] = {}
     for r in results:
         key = address_key(r.fhir_base_url)
         if r.status not in RECORDED:
             continue
-        same = before.get(key, {}).get("status") == r.status
-        entry: dict[str, Any] = {"status": r.status, "since": before[key]["since"] if same else today}
+        known = next((e for e in (before.get(key), watched_before.get(key)) if e and e.get("status") == r.status), None)
+        if r.status in SECOND_WEEK and not known:
+            watching[key] = {"status": r.status, "since": today}
+            continue
+        entry: dict[str, Any] = {"status": r.status, "since": known["since"] if known else today}
         names = {i["name"] for i in by_server[key]}
         instead = sorted({i["id"] for k in working for i in by_server[k] if any(i["name"].startswith(n + " ") for n in names)})
         if instead:
             entry["instead"] = instead[:3]
         servers[key] = entry
-    return {"servers": dict(sorted(servers.items()))}
+    return {"checked": today, "servers": dict(sorted(servers.items())), "watching": dict(sorted(watching.items()))}
 
 
 def health_system_servers(platforms: Iterable[str], only: Optional[str] = None) -> dict[str, tuple[str, list[str]]]:
@@ -423,8 +438,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         args.json.write_text(json.dumps([asdict(r) for r in results], indent=1))
     if args.write_status:
         previous = json.loads(STATUS_FILE.read_text()) if STATUS_FILE.exists() else {}
-        status = sign_in_status(results, _entries(), previous, date.today().isoformat())
-        STATUS_FILE.write_text(json.dumps(status, indent=1) + "\n")
+        write_json(STATUS_FILE, sign_in_status(results, _entries(), previous, date.today().isoformat()), indent=1)
+        return 0
     return 0 if counts["ok"] == len(results) else 1
 
 

@@ -34,18 +34,29 @@ def _decorate(inst: dict, cfgs: dict[str, dict[str, Any]]) -> dict:
 
 
 @router.get("")
-def search(q: Optional[str] = None, platform: Optional[str] = None, limit: int = Query(25, ge=1, le=200)) -> dict:
+def search(q: Optional[str] = Query(None, max_length=200), platform: Optional[str] = None, limit: int = Query(25, ge=1, le=200),
+           state: Optional[str] = Query(None, max_length=2), offset: int = Query(0, ge=0, le=100000)) -> dict:
     cfgs = _platforms()
     hidden = _hidden(cfgs)
-    res = directory.search(q, platform, limit, available={k for k, c in cfgs.items() if c["available"]}, hidden=hidden)
-    return {"total": res["total"], "results": [_decorate(i, cfgs) for i in res["results"]], "platforms": directory.stats(hidden)}
+    res = directory.search(q, platform, limit, available={k for k, c in cfgs.items() if c["available"]}, hidden=hidden,
+                           state=state, offset=offset)
+    out = {"total": res["total"], "results": [_decorate(i, cfgs) for i in res["results"]], "platforms": directory.stats(hidden),
+           "states": res["states"], "problem": directory.problem_for_people()}
+    if res.get("corrected"):
+        out["corrected"] = res["corrected"]
+    return out
 
 
 @router.get("/featured")
 def featured() -> dict:
     cfgs = _platforms()
     picks = directory.featured(available={k for k, c in cfgs.items() if c["available"]})
-    return {"results": [_decorate(i, cfgs) for i in picks], "total": sum(directory.stats(_hidden(cfgs)).values())}
+    directory.warm()        # whoever opened the list is about to type
+    stats = directory.stats(_hidden(cfgs))
+    return {"results": [_decorate(i, cfgs) for i in picks], "total": sum(stats.values()),
+            "connectable": sum(n for p, n in stats.items() if cfgs[p]["available"]) if cfgs else 0,
+            "athena": _decorate(athena, cfgs) if (athena := directory.get_institution("athenahealth")) else None,
+            "problem": directory.problem_for_people()}
 
 
 @router.get("/{inst_id}")

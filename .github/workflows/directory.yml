@@ -1,6 +1,6 @@
 name: Directory refresh
 
-# Every Monday, rebuilds the health-system directory (app/data/institutions/ and app/data/facilities.json) from each
+# Every Monday, rebuilds the health-system directory (app/data/institutions/ and app/data/facilities.tsv) from each
 # vendor's published endpoint list (Epic, Oracle Health, eClinicalWorks, TruBridge, Greenway, ModMed, NextGen, Practice
 # Fusion and MEDHOST; scripts/refresh_directory.py), and opens or updates one pull request, "directory-refresh", when
 # anything changed. It merges by itself once checks pass, unless a person should look first: institutions were dropped, a
@@ -72,7 +72,7 @@ jobs:
           if-no-files-found: warn
           path: |
             app/data/institutions
-            app/data/facilities.json
+            app/data/facilities.tsv
             app/data/sign_in_status.json
             ${{ runner.temp }}/refresh.log
             ${{ runner.temp }}/sign-in.log
@@ -86,7 +86,7 @@ jobs:
           REVIEW: ${{ steps.summary.outputs.review }}
           REFRESH: ${{ steps.refresh.outcome }}
         run: |
-          if git diff --quiet -- app/data/institutions app/data/facilities.json app/data/sign_in_status.json; then
+          if git diff --quiet -- app/data/institutions app/data/facilities.tsv app/data/sign_in_status.json; then
             echo "The directory is already current."
             exit 0
           fi
@@ -94,7 +94,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$branch"
-          git add app/data/institutions app/data/facilities.json app/data/sign_in_status.json
+          git add app/data/institutions app/data/facilities.tsv app/data/sign_in_status.json
           git commit -qm "Refresh the health-system directory" -m "From each vendor's published endpoint list, with the sign-in check ($(date -u +%Y-%m-%d))."
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
           if ! gh pr view "$branch" --json state -q .state 2>/dev/null | grep -q OPEN; then

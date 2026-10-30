@@ -7,17 +7,29 @@ SMART demo). Each platform preset describes how to reach the vendor's developer 
 
 ``app/data/sign_in_status.json`` lists the health systems whose sign-in failed the weekly check
 (``scripts/check_sign_in.py --write-status``), so the app can warn before sending someone there.
+
+Search lives in ``app/directory_search.py``. Two more files only feed it: ``app/data/facilities.tsv`` holds the hospitals
+and clinics within each Epic system (generated too), and ``app/data/directory_aliases.json`` the short list of names no
+vendor's list carries (hand-kept). A damaged or missing file costs what it holds and nothing else: ``problems()`` tells the
+owner, and everything else carries on.
 """
 
 from __future__ import annotations
 
 import json
-import re
-from collections import Counter
+import logging
+import threading
+from collections import Counter, defaultdict
+from datetime import date
 from functools import lru_cache
-from typing import Any, Iterable, Optional
+from pathlib import Path
+from typing import Any, Iterator, Optional
+from urllib.parse import urlsplit
 
 from app.core import config
+from app.directory_search import Index
+
+log = logging.getLogger("syntropy.directory")
 
 USCDI_SCOPES = (
     "openid fhirUser launch/patient offline_access "
@@ -115,94 +127,230 @@ PLATFORMS: dict[str, dict[str, Any]] = {
 }
 
 
+# Which vendor each list is, for telling the owner what's missing. A file that isn't here is noticed, not silently fewer rows.
+EXPECTED_FILES = ("curated", "ecw", "epic", "greenway", "medhost", "modmed", "nextgen", "oracle", "practicefusion", "trubridge")
+_FILE_LABELS = {"curated": "athenahealth", "ecw": "eClinicalWorks", "epic": "Epic", "greenway": "Greenway", "medhost": "MEDHOST",
+                "modmed": "ModMed", "nextgen": "NextGen", "oracle": "Oracle Health", "practicefusion": "Practice Fusion",
+                "trubridge": "TruBridge"}
+# What someone might type for a platform as a whole: its portal or vendor. Generic words ("patient portal") would match everything.
+_SEARCH_WORDS = {
+    "epic": ("epic", "mychart"), "cerner": ("oracle", "cerner"), "athena": ("athenahealth", "athena"),
+    "healow": ("healow", "eclinicalworks", "ecw"), "trubridge": ("trubridge", "mycarecorner", "cpsi", "thrive"),
+    "greenway": ("greenway", "intergy"), "modmed": ("modmed",), "nextgen": ("nextgen",),
+    "practicefusion": ("practicefusion", "patientfusion", "fusion", "followmyhealth"), "medhost": ("medhost", "yourcare"),
+    "smart-health-it": ("smart",),
+}
+# How long a warning stands after the check that made it. "Not set up yet" is the one its own text says passes within days.
+WARNING_DAYS = 30
+CLIENT_UNKNOWN_DAYS = 14
+
+
+def _data_dir() -> Path:
+    return config.APP_DIR / "data"
+
+
+def _valid(inst: Any) -> bool:
+    return (isinstance(inst, dict) and all(isinstance(inst.get(k), str) and inst[k].strip() for k in ("id", "name", "platform"))
+            and inst["platform"] in PLATFORMS and isinstance(inst.get("fhir_base_url", ""), str))
+
+
+def _hints(rows: list[dict[str, Any]]) -> None:
+    """Rows that read the same in a list, on different servers, get something to tell them apart: a network, or the server."""
+    same: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for inst in rows:
+        same[inst["platform"], inst["name"].lower()].append(inst)
+    for group in same.values():
+        if len(group) < 2:
+            continue
+        places = Counter(inst.get("location") for inst in group)
+        for inst in group:
+            if inst.get("location") and places[inst["location"]] == 1:
+                continue
+            url = urlsplit(inst.get("fhir_base_url") or "")
+            shared_host = sum(urlsplit(o.get("fhir_base_url") or "").hostname == url.hostname for o in group) > 1
+            inst["hint"] = f"sign-in server ending {url.path.rstrip('/')[-6:]}" if shared_host else f"sign-in server {url.hostname}"
+
+
 @lru_cache(maxsize=1)
-def _institutions() -> tuple[dict[str, Any], ...]:
+def _loaded() -> tuple[tuple[dict[str, Any], ...], dict[str, Any]]:
+    """Each file on its own: one damaged list loses that vendor, and the owner hears about it, and the rest carries on."""
     out: list[dict[str, Any]] = []
-    for path in sorted((config.APP_DIR / "data" / "institutions").glob("*.json")):
-        with open(path, encoding="utf-8") as fh:
-            out.extend(json.load(fh))
-    vocab = _vocabulary(i["name"] for i in out if i.get("name"))
-    for inst in out:
-        if inst.get("name"):
-            inst["name"] = display_name(inst["name"], vocab)
-    return tuple(out)
+    folder = _data_dir() / "institutions"
+    damaged: list[str] = []
+    skipped = 0
+    for name in EXPECTED_FILES:
+        path = folder / f"{name}.json"
+        try:
+            rows = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(rows, list):
+                raise ValueError("it isn't a list")
+        except (OSError, ValueError) as exc:
+            log.error("Health-system list %s couldn't be read: %s", path.name, exc)
+            damaged.append(name)
+            continue
+        good = [inst for inst in rows if _valid(inst)]
+        if len(good) < len(rows):
+            log.error("Health-system list %s: left out %d entries that aren't valid", path.name, len(rows) - len(good))
+            skipped += len(rows) - len(good)
+        out.extend(good)
+    _hints(out)
+    return tuple(out), {"damaged": damaged, "skipped": skipped}
 
 
-# Some vendors list practices in capitals ("BANNER HEALTH", "ROUSE FAMILY MEDICAL CLINIC, P.A."). They're shown the way
-# the rest of the directory writes names, keeping what reads as letters: business suffixes and credentials (LLC, MD),
-# initials (GI, CTMC) and names with no ordinary word in them (AACI, CHCO NAPA), which are left as they are.
-_WORD = re.compile(r"[A-Za-z]+")
-_KEEP_CAPS = {"LLC", "PLLC", "PLC", "LLP", "PC", "PA", "PSC", "SC", "MD", "DO", "DDS", "DMD", "DPM", "OD", "NP", "FNP", "APRN",
-              "DPT", "MPH", "RN", "CNM", "ENT", "OB", "GYN", "OBGYN", "HIV", "ADHD", "ICU", "USA", "MRI", "DBA", "II", "III", "IV", "IT",
-              # states whose codes aren't also words
-              "AZ", "AR", "CA", "CT", "DC", "FL", "GA", "IA", "IL", "KS", "KY", "MI", "MN", "MO", "MS", "NC", "ND", "NE", "NH",
-              "NJ", "NM", "NV", "NY", "RI", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY"}
-_ABBREVIATIONS = {"LTD": "Ltd", "JR": "Jr", "SR": "Sr", "DR": "Dr", "ST": "St", "MT": "Mt", "FT": "Ft"}
-_SMALL_WORDS = {"of", "and", "the", "at", "for", "in", "on", "by", "to", "de", "la", "del", "y"}
+def _institutions() -> tuple[dict[str, Any], ...]:
+    return _loaded()[0]
 
 
-def _vocabulary(names: Iterable[str]) -> frozenset[str]:
-    """Words the directory writes in ordinary case somewhere ("Medical", "Clinic", "Bay"), in capitals."""
-    seen: Counter[str] = Counter()
-    for name in names:
-        if name != name.upper():
-            seen.update(w.upper() for w in _WORD.findall(name) if w[0].isupper() and w[1:].islower())
-    return frozenset(w for w, n in seen.items() if n >= 2)
+def problems() -> list[dict[str, str]]:
+    """What the server's owner should hear about, for Alerts. Asked on every page load, so it doesn't load the list, which
+    takes tens of MB and may never be wanted: a missing file shows now, a damaged one once something has read it."""
+    if _loaded.cache_info().currsize:
+        state = _loaded()[1]
+    else:
+        state = {"damaged": [n for n in EXPECTED_FILES if not (_data_dir() / "institutions" / f"{n}.json").exists()], "skipped": 0}
+    parts = []
+    if state["damaged"]:
+        labels = ", ".join(_FILE_LABELS.get(n, n) for n in state["damaged"])
+        parts.append(f"The lists for {labels} are damaged or missing, so those health systems can't be found or connected.")
+    if state["skipped"]:
+        parts.append(f"{state['skipped']} entries in the health-system lists aren't valid and were left out.")
+    if "facilities.tsv" in _damaged_extras:
+        parts.append("The list of hospitals and clinics within each health system is damaged, so a search won't find a system by one of them.")
+    if "directory_aliases.json" in _damaged_extras:
+        parts.append("The list of other names for health systems is damaged, so a search won't find a system by one of them.")
+    if not parts:
+        return []
+    return [{"id": "directory-files", "title": "Part of the health-system list couldn't be loaded",
+             "text": " ".join(parts) + " Everything else works. Updating or reinstalling Syntropy Health puts the files back."}]
 
 
-def display_name(name: str, vocab: frozenset[str]) -> str:
-    """``name`` as the directory shows it: one written all in capitals in title case, when it has ordinary words."""
-    if name != name.upper() or not any(len(w) >= 4 and w in vocab for w in _WORD.findall(name)):
-        return name
-    first = True
+def problem_for_people() -> Optional[str]:
+    """For the health-system picker: the list someone's searching may be short."""
+    if _loaded()[1]["damaged"]:
+        return "Some health systems can't be listed right now, because part of the list is damaged. Updating Syntropy Health fixes that."
+    return None
 
-    def word(m: re.Match) -> str:
-        nonlocal first
-        w, at_start = m.group(0), first
-        first = False
-        if m.start() and name[m.start() - 1].isdigit() and w in ("ST", "ND", "RD", "TH"):
-            return w.lower()                                    # 2ND
-        if m.start() and name[m.start() - 1] == "'" and w == "S":
-            return "s"                                          # CHILDREN'S
-        if w in _ABBREVIATIONS:
-            return _ABBREVIATIONS[w]
-        if w.lower() in _SMALL_WORDS and not at_start:
-            return w.lower()
-        if w in _KEEP_CAPS or (len(w) <= 2 and w not in vocab) or not re.search(r"[AEIOUY]", w):
-            return w                                            # initials (GI, CTMC, DPC)
-        return w.capitalize()
 
-    return _WORD.sub(word, name)
+_damaged_extras: set[str] = set()
+_index_lock = threading.Lock()
+
+
+def _aliases() -> dict[str, list[str]]:
+    name = "directory_aliases.json"
+    try:
+        data = json.loads((_data_dir() / name).read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or not all(isinstance(v, list) and all(isinstance(a, str) for a in v) for v in data.values()):
+            raise ValueError("it isn't the expected shape")
+        return data
+    except (OSError, ValueError) as exc:
+        log.error("%s couldn't be read: %s", name, exc)
+        _damaged_extras.add(name)
+        return {}
+
+
+def _facilities() -> Iterator[tuple[str, str, str, str]]:
+    """The hospitals and clinics within each system, one line at a time: 93,000 of them, and only the index wants them."""
+    name = "facilities.tsv"
+    bad = 0
+    try:
+        with open(_data_dir() / name, encoding="utf-8") as fh:
+            for line in fh:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) == 4:
+                    yield parts[0], parts[1], parts[2], parts[3]
+                else:
+                    bad += 1
+    except (OSError, UnicodeError) as exc:
+        log.error("%s couldn't be read: %s", name, exc)
+        _damaged_extras.add(name)
+    if bad:
+        log.error("%s: left out %d lines that aren't valid", name, bad)
+        _damaged_extras.add(name)
 
 
 @lru_cache(maxsize=1)
-def _sign_in_status() -> dict[str, dict[str, Any]]:
+def _status_file() -> dict[str, Any]:
     try:
-        with open(config.APP_DIR / "data" / "sign_in_status.json", encoding="utf-8") as fh:
-            return json.load(fh).get("servers", {})
+        data = json.loads((_data_dir() / "sign_in_status.json").read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or not isinstance(data.get("servers"), dict):
+            raise ValueError("it isn't the expected shape")
+        return data
     except FileNotFoundError:
-        return {}
+        return {"servers": {}}
+    except (OSError, ValueError) as exc:
+        log.error("sign_in_status.json couldn't be read, so no sign-in warnings are shown: %s", exc)
+        return {"servers": {}}
+
+
+def _sign_in_status() -> dict[str, dict[str, Any]]:
+    return _status_file()["servers"]
+
+
+def _today() -> date:
+    return date.today()
 
 
 def _status_key(inst: dict[str, Any]) -> str:
     return (inst.get("fhir_base_url") or "").strip().rstrip("/").lower()
 
 
+def _is_stale(problem: dict[str, Any], checked: Any) -> bool:
+    """A warning from a check long ago may well be out of date. Installed apps can keep this file for months."""
+    try:
+        age = (_today() - date.fromisoformat(checked or problem.get("since"))).days
+    except (TypeError, ValueError):
+        return True
+    return age > (CLIENT_UNKNOWN_DAYS if problem.get("status") == "client_unknown" else WARNING_DAYS)
+
+
 def sign_in_problem(inst: dict[str, Any]) -> Optional[dict[str, Any]]:
     """Why this health system's sign-in failed the last weekly check, with listings that work instead; None if it passed."""
     problem = _sign_in_status().get(_status_key(inst))
-    if not problem:
+    if not isinstance(problem, dict) or not problem.get("status"):
         return None
+    checked = _status_file().get("checked")
     instead = [{"id": alt["id"], "name": alt["name"]} for alt in map(_by_id().get, problem.get("instead", ())) if alt]
-    return {"status": problem["status"], "since": problem.get("since"), "instead": instead}
+    return {"status": problem["status"], "since": problem.get("since"), "checked": checked if isinstance(checked, str) else None,
+            "stale": _is_stale(problem, checked), "instead": instead}
 
 
 @lru_cache(maxsize=1)
-def _haystacks() -> tuple[tuple[str, dict[str, Any]], ...]:
-    """Lower-cased search text per institution, built once (the directory has ~40,000 entries)."""
-    return tuple((" ".join([inst["name"], inst.get("network") or "", inst.get("location") or "", *inst.get("places", ()),
-                            inst.get("portal") or "", PLATFORMS.get(inst["platform"], {}).get("label", "")]).lower(), inst)
-                 for inst in _institutions())
+def _built_index() -> Index:
+    return Index(list(_institutions()), _facilities(), _aliases(), _SEARCH_WORDS)
+
+
+def _index() -> Index:
+    """Built once, the first time someone searches. The picker starts it as it opens (``warm``), so typing doesn't wait."""
+    with _index_lock:
+        return _built_index()
+
+
+def warm() -> None:
+    if not _built_index.cache_info().currsize:
+        threading.Thread(target=_index, name="directory-index", daemon=True).start()
+
+
+@lru_cache(maxsize=1)
+def _troubled_on(today: date) -> frozenset[int]:
+    servers = _sign_in_status()
+    checked = _status_file().get("checked")
+    bad = {key for key, problem in servers.items() if isinstance(problem, dict) and problem.get("status") and not _is_stale(problem, checked)}
+    return frozenset(row for row, inst in enumerate(_index().rows) if _status_key(inst) in bad) if bad else frozenset()
+
+
+def _troubled_rows() -> frozenset[int]:
+    """Rows whose sign-in failed a recent check: they rank after the ones that work, but an old warning no longer counts."""
+    return _troubled_on(_today())
+
+
+_troubled_rows.cache_clear = _troubled_on.cache_clear   # type: ignore[attr-defined]
+
+
+def reload() -> None:
+    """Forgets what was read, so the data files are read again (tests)."""
+    for cached in (_loaded, _status_file, _built_index, _by_id, _troubled_on):
+        cached.cache_clear()
+    _damaged_extras.clear()
 
 
 @lru_cache(maxsize=1)
@@ -219,28 +367,18 @@ def get_institution(inst_id: str) -> Optional[dict[str, Any]]:
 
 
 def search(q: Optional[str] = None, platform: Optional[str] = None, limit: int = 25, *,
-           available: Optional[set[str]] = None, hidden: frozenset[str] = frozenset()) -> dict[str, Any]:
-    """``available`` platforms rank ahead of the rest among equally good matches; ``hidden`` ones are left out."""
-    later = (lambda inst: inst["platform"] not in available) if available is not None else (lambda inst: False)
+           available: Optional[set[str]] = None, hidden: frozenset[str] = frozenset(),
+           state: Optional[str] = None, offset: int = 0) -> dict[str, Any]:
+    """``available`` platforms rank ahead of the rest among equally good matches; ``hidden`` ones are left out. ``states``
+    in the answer counts the matches per state, to narrow a long list with; ``corrected`` is what a typo was taken for."""
+    index = _index()
+    keep = index.rows_on(platform) if platform else None
+    drop = index.rows_on_any(hidden)
+    later = {p for p in index.platform_names if p not in available} if available is not None else None
+    state = state.upper() if state else None
     if q and q.strip():
-        term = q.strip().lower()
-        words = term.split()
-        scored = []
-        for hay, inst in _haystacks():
-            if (platform and inst["platform"] != platform) or inst["platform"] in hidden:
-                continue
-            if not all(w in hay for w in words):
-                continue
-            name = inst["name"].lower()
-            score = 0 if name.startswith(term) else 1 if any(p.startswith(term) for p in name.split()) else 2
-            scored.append((score, later(inst), _status_key(inst) in _sign_in_status(), 0 if inst.get("featured") else 1,
-                           inst["name"], inst))
-        scored.sort(key=lambda s: s[:5])
-        items = [s[5] for s in scored]
-    else:
-        items = sorted((i for i in _institutions() if (not platform or i["platform"] == platform) and i["platform"] not in hidden),
-                       key=lambda i: (later(i), not i.get("featured"), i["name"]))
-    return {"total": len(items), "results": items[:limit]}
+        return index.search(q, keep=keep, drop=drop, later=later, troubled=set(_troubled_rows()), limit=limit, offset=offset, state=state)
+    return index.listing(keep=keep, drop=drop, later=later, limit=limit, offset=offset, state=state)
 
 
 def featured(limit: int = 12, available: Optional[set[str]] = None) -> list[dict[str, Any]]:
