@@ -18,7 +18,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.deps import check_access, resolve_profile
-from app.core import auth, maintenance
+from app.core import auth, maintenance, settings
 from app.core.db import StartupProblem, audit, db, discard_pre_upgrade_copies, new_id, read, snapshot
 from app.services import imports
 from app.store import activity, biometrics, records, sample_counts
@@ -195,6 +195,8 @@ def wipe_profile_data(profile_id: str) -> dict:
         conn.execute("DELETE FROM user_sessions WHERE device_id IN (SELECT id FROM devices WHERE profile_id = ?)", (prof["id"],))
         conn.execute("DELETE FROM devices WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM connections WHERE profile_id = ?", (prof["id"],))
+        for prefix in (f"goals.{prof['id']}", f"insights.hidden.{prof['id']}", f"training.max_hr.{prof['id']}"):
+            settings.delete_prefix_in(conn, prefix)
         audit(conn, "user", "profile.data_deleted", None, prof["id"])
     discard_pre_upgrade_copies()
     sample_counts.forget()

@@ -56,13 +56,14 @@ def met(goal: dict[str, Any], value: Optional[float]) -> Optional[bool]:
 
 
 def progress(profile_id: str, days: int = 7) -> list[dict[str, Any]]:
-    """Each goal with how many of the last ``days`` complete days met it (today counts only once it's met, since a
-    running total like steps can still get there)."""
+    """Each goal with how many of the last ``days`` complete days met it. Today's running total counts only for an "at
+    least" goal it has already met: steps can still get there, but sugar so far says nothing about an "at most"."""
     out = []
     today = datetime.now(biometrics._tz()).date().isoformat()
     for metric, goal in get(profile_id).items():
         pts = biometrics.daily_series(profile_id, metric, days=days)["points"]
-        counted = [p for p in pts if not (p["day"] == today and p.get("partial") and not met(goal, p["value"]))]
+        counted = [p for p in pts if not (p["day"] == today and p.get("partial")
+                                          and (goal["direction"] != "min" or not met(goal, p["value"])))]
         hits = sum(1 for p in counted if met(goal, p["value"]))
         streak = 0
         for p in reversed(counted):

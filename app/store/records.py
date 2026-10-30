@@ -27,6 +27,9 @@ CATEGORY_LABELS = {
 ACTIVE_MED_STATUSES = ("active", "on-hold", "draft", "intended")
 INACTIVE_CONDITION_STATUSES = ("resolved", "inactive", "remission", "entered-in-error")
 ABNORMAL = ("high", "low", "critical_high", "critical_low", "abnormal")
+CRITICAL = ("critical_high", "critical_low")
+# A flagged result this old is shown as older and left out of alerts: longer than the gap between yearly check-ups.
+OLDER_RESULT_DAYS = 548
 
 LIST_COLUMNS = (
     "id, profile_id, connection_id, resource_type, resource_id, category, title, code_system, code, "
@@ -408,7 +411,14 @@ def _latest_labs(labs: list[dict[str, Any]]) -> "OrderedDict[str, dict[str, Any]
 
 
 def _out_of_range(latest_by_code: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    return [l for l in latest_by_code.values() if (l.get("interpretation") or "") in ABNORMAL]
+    """Latest results that are flagged: critical first, then recent ones, then those old enough to be marked ``older``.
+    Each group stays newest first."""
+    cutoff = time.strftime("%Y-%m-%d", time.gmtime(time.time() - OLDER_RESULT_DAYS * 86400))
+    flagged = [l for l in latest_by_code.values() if (l.get("interpretation") or "") in ABNORMAL]
+    for lab in flagged:
+        if (lab.get("effective_at") or "")[:10] < cutoff:
+            lab["older"] = True
+    return sorted(flagged, key=lambda l: 2 if l.get("older") else 0 if l["interpretation"] in CRITICAL else 1)
 
 
 def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
@@ -419,6 +429,24 @@ def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
             f"SELECT {_LAB_FLAG_COLUMNS} FROM clinical_records WHERE profile_id = ? AND category = 'labs' "
             "ORDER BY coalesce(effective_at, '') DESC, updated_at DESC", (profile_id,)).fetchall())
     return _out_of_range(_latest_labs(_dedupe(rows)[:SUMMARY_LABS]))
+
+
+def recently_normal_lab_codes(profile_id: str, since: str, limit: int) -> list[str]:
+    """Tests with an in-range result since a date, newest first."""
+    with read() as conn:
+        return [r[0] for r in conn.execute(
+            "SELECT code FROM clinical_records WHERE profile_id = ? AND category = 'labs' AND code IS NOT NULL "
+            "AND effective_at >= ? AND interpretation = 'normal' GROUP BY code ORDER BY MAX(effective_at) DESC LIMIT ?",
+            (profile_id, since, limit)).fetchall()]
+
+
+def medication_orders(profile_id: str) -> list[dict[str, Any]]:
+    """Every medication row, with no folding: each renewal is a row of its own, which is what a drug's history is made
+    of (see insights.medication_timeline). The list of records keeps only the newest of each."""
+    with read() as conn:
+        return _load(conn.execute(
+            "SELECT id, resource_type, title, effective_at, status, details_json, dedup_key, source_name FROM clinical_records "
+            "WHERE profile_id = ? AND category = 'medications'", (profile_id,)).fetchall())
 
 
 def summary(profile_id: str) -> dict[str, Any]:

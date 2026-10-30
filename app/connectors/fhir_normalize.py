@@ -389,7 +389,8 @@ def normalize_medication_request(res: dict[str, Any], resolve: Callable[[str], O
 
 def normalize_medication_statement(res: dict[str, Any], resolve: Callable[[str], Optional[dict[str, Any]]] = lambda r: None) -> Optional[dict[str, Any]]:
     shim = dict(res)
-    shim["authoredOn"] = res.get("dateAsserted") or _date((res.get("effectivePeriod") or {}).get("start"), res.get("effectiveDateTime"))
+    # When they began taking it, not when someone noted that they do.
+    shim["authoredOn"] = _date((res.get("effectivePeriod") or {}).get("start"), res.get("effectiveDateTime")) or res.get("dateAsserted")
     shim["dosageInstruction"] = res.get("dosage")
     shim["resourceType"] = "MedicationStatement"
     return normalize_medication_request(shim, resolve)
