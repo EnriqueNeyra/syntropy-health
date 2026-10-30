@@ -4,19 +4,21 @@ built from workouts after duplicates are folded (``activity.list_workouts``), so
 counts once.
 
 Load follows Edwards' summated heart-rate zones: minutes in each zone of maximum heart rate weighted 1 (50–60%) to
-5 (90% and up). A workout with minute-by-minute heart rate uses it; one with only an average uses that for its whole
-length; one without heart rate counts as zone 2. Maximum heart rate is the highest recorded in a workout in the last
-year when that's plausible, otherwise 220 minus age.
+5 (90% and up). A workout with a heart-rate series uses it, each reading standing for the time until the next; one with
+only an average uses that for its whole length; one without heart rate counts as zone 2. Maximum heart rate is what the
+person set, or else the second-highest peak of the last year when that's plausible, otherwise 220 minus age.
 """
 
 from __future__ import annotations
 
 import json
 import math
+import statistics
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
+from app.core import settings
 from app.core.db import read
 from app.store import activity, profiles
 from app.store.biometrics import _tz, parse_ts
@@ -27,6 +29,16 @@ NO_HR_WEIGHT = 2
 # Kinds of workout where distance and pace mean something, and the distance a best effort has to cover.
 PACE_KINDS = ("run", "walk", "hik", "cycl", "bik", "swim", "row", "ski", "wheelchair")
 MIN_BEST_DISTANCE_M = 1000
+# How far a recorded peak can sit above 220 minus age and still be believed: two standard deviations of that estimate,
+# which is 10-12 bpm (Robergs & Landwehr, Journal of Exercise Physiology, 2002).
+MAX_HR_ABOVE_ESTIMATE = 20
+MAX_HR_SET_RANGE = (100, 240)
+# A reading stands for the time until the next, up to this: a sensor that dropped out says nothing about the gap.
+HR_POINT_MAX_MINUTES = 5.0
+# What the acute:chronic comparison needs. Below these the ratio is mostly arithmetic on a tiny number (Impellizzeri et
+# al., Sports Medicine, 2021), so there's no "usual" to compare with yet.
+LOAD_HISTORY_DAYS = 28
+MIN_USUAL_WEEK_LOAD = 60
 
 
 def _age(birth: Optional[str]) -> Optional[int]:
@@ -38,16 +50,33 @@ def _age(birth: Optional[str]) -> Optional[int]:
     return t.year - b.year - ((t.month, t.day) < (b.month, b.day))
 
 
+def _max_hr_key(profile_id: str) -> str:
+    return f"training.max_hr.{profile_id}"
+
+
+def set_max_heart_rate(profile_id: str, bpm: Optional[float]) -> dict[str, Any]:
+    """The person's own figure, from a test or their clinician. None goes back to working it out."""
+    if bpm is not None and not MAX_HR_SET_RANGE[0] <= bpm <= MAX_HR_SET_RANGE[1]:
+        raise ValueError(f"Maximum heart rate must be between {MAX_HR_SET_RANGE[0]} and {MAX_HR_SET_RANGE[1]}.")
+    settings.set(_max_hr_key(profile_id), None if bpm is None else round(bpm))
+    return max_heart_rate(profile_id)
+
+
 def max_heart_rate(profile_id: str) -> dict[str, Any]:
+    chosen = settings.get(_max_hr_key(profile_id))
+    if chosen:
+        return {"bpm": chosen, "basis": "set by you", "set_by_person": True}
     since = (datetime.now(timezone.utc) - timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
     with read() as conn:
-        row = conn.execute("SELECT MAX(max_hr) FROM workouts WHERE profile_id = ? AND start_date >= ? AND max_hr < 230",
-                           (profile_id, since)).fetchone()
-    seen = row[0] if row else None
+        rows = conn.execute("SELECT max_hr FROM workouts WHERE profile_id = ? AND start_date >= ? AND max_hr < 230 "
+                            "ORDER BY max_hr DESC LIMIT 50", (profile_id, since)).fetchall()
     age = _age((profiles.get_profile(profile_id) or {}).get("birth_date"))
     estimate = 220 - age if age else None
+    # An optical sensor spike lasts one workout, so the second-highest peak is the highest that happened twice.
+    peaks = [r[0] for r in rows if estimate is None or r[0] <= estimate + MAX_HR_ABOVE_ESTIMATE]
+    seen = peaks[1] if len(peaks) > 1 else None
     if seen and seen >= 150 and (estimate is None or seen >= estimate - 15):
-        return {"bpm": round(seen), "basis": "highest recorded in a workout"}
+        return {"bpm": round(seen), "basis": "from your hardest workouts"}
     if estimate:
         return {"bpm": estimate, "basis": "estimated from age (220 − age)"}
     return {"bpm": round(seen) if seen and seen >= 140 else 185, "basis": "estimated"}
@@ -63,15 +92,34 @@ def _zone(hr: Optional[float], max_hr: float) -> Optional[int]:
     return None      # below 50%: not counted as training
 
 
+def _point_minutes(series: list[dict[str, Any]], duration_s: Optional[float]) -> list[float]:
+    """The minutes each reading of a heart-rate series stands for, adding up to the workout. Sources sample anywhere
+    from every few seconds to every few minutes, so counting points would only be right for one of them."""
+    n = len(series)
+    try:
+        times = [parse_ts(p["t"]).timestamp() for p in series]
+    except (KeyError, TypeError, ValueError, AttributeError):
+        times = []
+    if n > 1 and len(times) == n and times == sorted(times) and times[-1] > times[0]:
+        gaps = [min((b - a) / 60, HR_POINT_MAX_MINUTES) for a, b in zip(times, times[1:])]
+        each = gaps + [statistics.median(gaps)]    # the last reading has no next one
+    else:
+        each = [1.0] * n
+    total = sum(each)
+    if duration_s and total:
+        each = [m * (duration_s / 60) / total for m in each]
+    return each
+
+
 def zone_minutes(w: dict[str, Any], max_hr: float) -> list[float]:
-    """Minutes in each zone. Per-minute heart rate when the workout has it, else its average for the whole time."""
+    """Minutes in each zone. The heart-rate series when the workout has one, else its average for the whole time."""
     mins = [0.0] * len(ZONES)
     series = w.get("heart_rate") or []
     if series:
-        for p in series:
+        for p, minutes in zip(series, _point_minutes(series, w.get("duration_s"))):
             z = _zone(p.get("avg"), max_hr)
             if z is not None:
-                mins[z] += 1
+                mins[z] += minutes
         return mins
     z = _zone(w.get("avg_hr"), max_hr)
     if z is not None:
@@ -144,8 +192,10 @@ def summary(profile_id: str, weeks: int = 12, name: Optional[str] = None) -> dic
 
     acute = sum(v for d, v in daily_load.items() if (today - d).days < 7)
     chronic = sum(v for d, v in daily_load.items() if 7 <= (today - d).days < 35) / 4
-    ratio = acute / chronic if chronic else None
-    status = ("none" if not acute and not chronic else "new" if not chronic
+    history = max(((today - d).days for d in daily_load if (today - d).days < 35), default=0)
+    learning = bool(chronic) and (history < LOAD_HISTORY_DAYS or chronic < MIN_USUAL_WEEK_LOAD)
+    ratio = acute / chronic if chronic and not learning else None
+    status = ("none" if not acute and not chronic else "new" if not chronic else "learning" if learning
               else "spike" if ratio > 1.5 else "building" if ratio > 1.2 else "easing" if ratio < 0.8 else "steady")
 
     out: dict[str, Any] = {
