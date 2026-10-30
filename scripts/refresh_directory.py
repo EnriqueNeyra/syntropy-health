@@ -145,7 +145,7 @@ STATE_CODES = {
     "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI",
     "south carolina": "SC", "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA",
     "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY", "puerto rico": "PR", "guam": "GU",
-    "virgin islands": "VI", "american samoa": "AS", "northern mariana islands": "MP",
+    "virgin islands": "VI", "us virgin islands": "VI", "american samoa": "AS", "northern mariana islands": "MP",
 }
 CODES = frozenset(STATE_CODES.values())
 
@@ -200,10 +200,15 @@ def tidy_location(loc: Optional[str]) -> Optional[str]:
         return state_code(loc) or city_case(loc)
     if all(p.removesuffix(" and more") in CODES for p in loc.split(", ")):
         return loc                                              # states, by size
-    if tail.isdigit() or tail.upper() in ("NA", "N/A", "XX", "UNKNOWN", "US", "USA"):
-        return city_case(head)
+    city = city_case(head.strip(". "))
     code = state_code(tail)
-    return f"{city_case(head)}, {code or tail}"
+    if not code and (doubled := re.match(r"^([A-Za-z]{2})(?:-[A-Za-z]{2}|[A-Z]{2}|[a-z])$", tail)) and doubled[1].upper() in CODES:
+        code = doubled[1].upper()                               # 'NJ-Ne', 'TXTX', 'FLv'
+    if code:
+        return f"{city}, {code}" if city else code
+    if tail.isdigit() or len(tail) == 1 or tail.upper() in ("NA", "N/A", "XX", "UNKNOWN", "US", "USA"):
+        return city or None
+    return f"{city}, {tail}"
 
 
 def first_place(org: dict[str, Any]) -> Counter[tuple[str, str]]:
@@ -323,7 +328,7 @@ def clean_url(url: str) -> Optional[str]:
 
 def is_listing(name: str, url: str) -> bool:
     """False for test databases, vendor pods and placeholders, judged by name and by the address's first label."""
-    if TEST_NAME.search(name) or VENDOR_POD.search(name) or (len(name) < 3) or name.lower() in ("client", "person"):
+    if TEST_NAME.search(name) or VENDOR_POD.search(name) or (len(name) < 3) or name.lower() in ("client", "person", "mmbatchload"):
         return False
     if re.search(r"^model practice\b", name, re.I):
         return False
@@ -653,6 +658,7 @@ def write_json(path: Path, value: Any, **dump: Any) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(text)
+        os.chmod(tmp, 0o644)        # mkstemp's private default would keep the app's own user from reading it
         os.replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)

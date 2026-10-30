@@ -95,6 +95,8 @@ def test_addresses_must_be_https_with_a_real_host():
     ("ST. LOUIS, MO", "St. Louis, MO"), ("WINSTON-SALEM, NC", "Winston-Salem, NC"), ("Nassau, Bahamas", "Nassau, Bahamas"),
     ("Hamilton, Bermuda", "Hamilton, Bermuda"), ("WA, OR, MT and more", "WA, OR, MT and more"), ("OH, FL", "OH, FL"), ("TX", "TX"),
     ("Texas", "TX"), ("McKinney, TX", "McKinney, TX"), (None, None), ("", None), ("San Juan, Puerto Rico", "San Juan, PR"),
+    ("West Orange, NJ-Ne", "West Orange, NJ"), ("Baytown, TXTX", "Baytown, TX"), ("Key West, FLv", "Key West, FL"), ("Largo, v", "Largo"),
+    ("Hartsville, Sc-So", "Hartsville, SC"), ("Aspen, C", "Aspen"), ("., NY", "NY"), ("St. Thomas, US Vi", "St. Thomas, VI"),
 ])
 def test_locations_read_the_same_way_everywhere(given, want):
     assert tidy_location(given) == want
@@ -298,6 +300,12 @@ def test_downloads_accept_a_list_served_as_a_file(monkeypatch):
     assert refresh.fetch("https://example.org/list.json") == []
     assert "*/*" in seen["Accept"]
     assert refresh.ECW_URL.endswith("/ecwopendev/global/practiceList")     # eClinicalWorks moved it from /external/
+
+
+def test_written_files_can_be_read_by_the_app(tmp_path):
+    path = tmp_path / "x.json"
+    refresh.write_json(path, [1], indent=0)
+    assert path.stat().st_mode & 0o777 == 0o644
 
 
 def test_a_file_is_replaced_whole_or_not_at_all(tmp_path, monkeypatch):

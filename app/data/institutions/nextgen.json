@@ -337,7 +337,7 @@
 },
 {
 "id": "nextgen-acdp",
-"name": "Acdp",
+"name": "ACDP",
 "location": "New York, NY",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -414,7 +414,7 @@
 },
 {
 "id": "nextgen-adv-asc",
-"name": "Adv Asc",
+"name": "ADV ASC",
 "location": "San Luis Obispo, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -764,7 +764,7 @@
 },
 {
 "id": "nextgen-ala-e-imam-md",
-"name": "Ala E Imam MD",
+"name": "ALA E IMAM MD",
 "location": "Clarkston, MI",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -2968,7 +2968,7 @@
 },
 {
 "id": "nextgen-barry-l-gellis-od",
-"name": "Barry L. Gellis,Od",
+"name": "Barry L. Gellis,OD",
 "location": "Erie, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -4217,7 +4217,7 @@
 },
 {
 "id": "nextgen-careos",
-"name": "Careos",
+"name": "CAREOS",
 "location": "Austin, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -4518,7 +4518,7 @@
 },
 {
 "id": "nextgen-ccap",
-"name": "Ccap",
+"name": "CCAP",
 "location": "Cranston, RI",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -4581,7 +4581,7 @@
 },
 {
 "id": "nextgen-centa",
-"name": "Centa",
+"name": "CENTA",
 "location": "Winter Park, FL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -5449,7 +5449,7 @@
 },
 {
 "id": "nextgen-cicrs",
-"name": "Cicrs",
+"name": "CICRS",
 "location": "Bakersfield, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -7524,7 +7524,7 @@
 },
 {
 "id": "nextgen-dlv-asc",
-"name": "DLV Asc",
+"name": "DLV ASC",
 "location": "Westlake Village, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -7832,7 +7832,7 @@
 },
 {
 "id": "nextgen-dvn-asc",
-"name": "DVN Asc",
+"name": "DVN ASC",
 "location": "Elkins Park, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -9274,7 +9274,7 @@
 },
 {
 "id": "nextgen-fauquier-ent-consultants",
-"name": "Fauquier Ent Consultants",
+"name": "Fauquier ENT Consultants",
 "location": "Warrenton, VA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -9834,14 +9834,14 @@
 },
 {
 "id": "nextgen-g2-tin-a",
-"name": "G2 - Tin A",
+"name": "G2 - TIN A",
 "location": "Horsham, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
 "id": "nextgen-g2-tin-b",
-"name": "G2 - Tin B",
+"name": "G2 - TIN B",
 "location": "Horsham, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -11059,7 +11059,7 @@
 },
 {
 "id": "nextgen-heidi-mayer-od",
-"name": "Heidi Mayer Od",
+"name": "Heidi Mayer OD",
 "location": "Erie, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -11871,7 +11871,7 @@
 },
 {
 "id": "nextgen-icam",
-"name": "Icam",
+"name": "ICAM",
 "location": "Amarillo, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -13747,7 +13747,7 @@
 },
 {
 "id": "nextgen-lvpg-matlv",
-"name": "LVPG Matlv",
+"name": "LVPG MATLV",
 "location": "Allentown, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -16098,14 +16098,14 @@
 },
 {
 "id": "nextgen-ndta-pa",
-"name": "Ndta PA",
+"name": "NDTA PA",
 "location": "Houston, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
 "id": "nextgen-ne-ohio-eye-surgeons-inc",
-"name": "Ne Ohio Eye Surgeons Inc",
+"name": "NE Ohio Eye Surgeons Inc",
 "location": "Kent, OH",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -17141,7 +17141,7 @@
 },
 {
 "id": "nextgen-npcs-inc",
-"name": "NPCS Inc",
+"name": "NPCS INC",
 "location": "Akron, OH",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -17169,14 +17169,14 @@
 },
 {
 "id": "nextgen-nsh-cips-g",
-"name": "NSH Cips G",
+"name": "NSH CIPS G",
 "location": "Atlanta, GA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
 "id": "nextgen-nsipa",
-"name": "Nsipa",
+"name": "NSIPA",
 "location": "Newport Beach, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -17267,7 +17267,7 @@
 },
 {
 "id": "nextgen-nvision",
-"name": "Nvision",
+"name": "NVISION",
 "location": "Aliso Viejo, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -17316,14 +17316,14 @@
 },
 {
 "id": "nextgen-nynos-pc",
-"name": "Nynos PC",
+"name": "NYNOS PC",
 "location": "Flushing, NY",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
 "id": "nextgen-oa-asc-llc",
-"name": "Oa Asc LLC",
+"name": "OA ASC LLC",
 "location": "Portland, ME",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -17659,7 +17659,7 @@
 },
 {
 "id": "nextgen-oga",
-"name": "Oga",
+"name": "OGA",
 "location": "Meridian, ID",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -17687,7 +17687,7 @@
 },
 {
 "id": "nextgen-oiwk",
-"name": "Oiwk",
+"name": "OIWK",
 "location": "Paducah, KY",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -19157,7 +19157,7 @@
 },
 {
 "id": "nextgen-phm-multisalud-llc",
-"name": "PHM Multisalud LLC",
+"name": "PHM MULTISALUD LLC",
 "location": "San Juan, PR",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -20270,7 +20270,7 @@
 },
 {
 "id": "nextgen-promesa-inc",
-"name": "Promesa Inc",
+"name": "PROMESA INC",
 "location": "Bronx, NY",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -22041,7 +22041,7 @@
 },
 {
 "id": "nextgen-sbesc",
-"name": "Sbesc",
+"name": "SBESC",
 "location": "Colton, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -25576,14 +25576,14 @@
 },
 {
 "id": "nextgen-ud1",
-"name": "Ud1",
+"name": "UD1",
 "location": "New York, NY",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
 "id": "nextgen-ud2",
-"name": "Ud2",
+"name": "UD2",
 "location": "New York, NY",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -26178,7 +26178,7 @@
 },
 {
 "id": "nextgen-vacco-llc",
-"name": "Vacco LLC",
+"name": "VACCO LLC",
 "location": "Columbus, OH",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -26332,7 +26332,7 @@
 },
 {
 "id": "nextgen-vascon",
-"name": "Vascon",
+"name": "VASCON",
 "location": "Huntsville, AL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -26395,7 +26395,7 @@
 },
 {
 "id": "nextgen-vdme-llc",
-"name": "Vdme, LLC",
+"name": "VDME, LLC",
 "location": "Miramar, FL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -26465,7 +26465,7 @@
 },
 {
 "id": "nextgen-vha",
-"name": "Vha",
+"name": "VHA",
 "location": "Turlock, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -26549,7 +26549,7 @@
 },
 {
 "id": "nextgen-vipmd",
-"name": "Vipmd",
+"name": "VIPMD",
 "location": "Bakersfield, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
