@@ -11,14 +11,58 @@ import sys
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-import pytest
-from fastapi.testclient import TestClient
+# What a developer has set must not change what the tests see, so this runs before anything imports the app: their
+# .env isn't loaded (app.core.config), and settings exported in their shell are dropped.
+os.environ["SYNTROPY_NO_DOTENV"] = "1"
+for _var in [v for v in os.environ if v != "SYNTROPY_NO_DOTENV" and (v.startswith("SYNTROPY_") or v in ("PORT", "FORWARDED_ALLOW_IPS"))]:
+    del os.environ[_var]
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 BASE = "http://localhost:8000"
 CSRF = {"X-Requested-With": "syntropy"}
 PASSPHRASE = "correct horse battery"
 LOCAL_CLIENT = ("127.0.0.1", 50000)      # setup is only accepted from nearby addresses
 RELAY_KEY = "test-relay-key"
+
+
+class BlockedNetwork(OSError):
+    """A test tried to reach something other than this computer."""
+
+
+_network_attempts: list[str] = []
+
+
+def _is_this_computer(host: Any) -> bool:
+    name = (host.decode() if isinstance(host, bytes) else str(host or "")).strip("[]").lower()
+    return name in ("", "localhost", "::1", "::", "0.0.0.0") or name.startswith("127.") or name.endswith(".localhost")
+
+
+def _network_guard(event: str, args: tuple) -> None:
+    # An audit hook, so it also sees what C code and other libraries do. It raises, so the code under test behaves as
+    # it would offline, and network_guard below fails the test even if that code catches the error.
+    if event in ("socket.getaddrinfo", "socket.gethostbyname", "socket.gethostbyaddr"):
+        host = args[0]
+    elif event in ("socket.connect", "socket.sendto") and isinstance(args[1], tuple):
+        host = args[1][0]
+    else:
+        return
+    if not _is_this_computer(host):
+        _network_attempts.append(f"{event} {host}")
+        raise BlockedNetwork(f"Tests don't use the network: {event} {host}")
+
+
+sys.addaudithook(_network_guard)
+
+
+@pytest.fixture(autouse=True)
+def network_guard():
+    """Nothing but this computer: a test that reaches for anything else fails, so it stubs that call instead."""
+    _network_attempts.clear()
+    yield
+    attempts, _network_attempts[:] = list(_network_attempts), []
+    assert not attempts, f"This test tried to use the network: {attempts}"
 
 
 @pytest.fixture(autouse=True)

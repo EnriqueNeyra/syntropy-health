@@ -22,6 +22,7 @@ def test_addresses_are_tidied_and_classified():
                     "host.docker.internal", "my-mac.tail1234.ts.net"):
         assert ai_local.is_private_host(private), private
     assert not ai_local.is_private_host("8.8.8.8")
+    assert not ai_local.is_private_host("[2001:4860:4860::8888]") and ai_local.is_private_host("[::1]")
     assert ai_local.describe_address("http://8.8.8.8:11434/v1")["needs_confirmation"]
     assert not ai_local.describe_address("https://8.8.8.8/v1")["needs_confirmation"]
 
@@ -40,7 +41,8 @@ def test_local_model_without_a_key(client, fake_model):
     assert [m["id"] for m in client.post("/api/ai/models", json={"provider": "local"}).json()["models"]] == ["model-a", "model-b"]
 
 
-def test_plain_http_to_the_internet_needs_confirmation(client):
+def test_plain_http_to_the_internet_needs_confirmation(client, monkeypatch):
+    monkeypatch.setattr(ai_local.socket, "getaddrinfo", lambda host, port: [(2, 1, 6, "", ("104.18.2.161", 0))])    # a public name
     body = {"provider": "custom", "base_url": "http://8.8.8.8:8000/v1", "model": "m"}
     r = client.put("/api/ai/config", json=body)
     assert r.status_code == 400 and "unencrypted" in r.json()["detail"]

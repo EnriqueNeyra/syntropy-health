@@ -161,7 +161,12 @@ def _pending_state(client, provider):
     return parse_qs(urlparse(r.json()["auth_url"]).query)["state"][0]
 
 
-def test_live_wearable_relay_fragment_handoff(client):
+def test_live_wearable_relay_fragment_handoff(client, monkeypatch):
+    from app.connectors import whoop
+
+    async def fetched(credentials, since, until):     # the first sync starts as soon as the sign-in completes
+        return {key: [] for key in whoop.ENDPOINTS}
+    monkeypatch.setattr(whoop, "fetch_live", fetched)
     state = _pending_state(client, "whoop")
     page = client.get("/callback")
     assert "location.hash" in page.text              # the page that reads the fragment

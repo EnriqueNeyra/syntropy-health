@@ -25,9 +25,10 @@ RELAY_KEY_HEADER = "X-Syntropy-Key"
 
 
 def _load_env_file() -> None:
-    """Minimal .env loader (no dependency). Never overrides real environment values."""
+    """Minimal .env loader (no dependency). Never overrides real environment values. The tests set SYNTROPY_NO_DOTENV:
+    a developer's own settings shouldn't change what they check."""
     env_file = REPO_ROOT / ".env"
-    if not env_file.exists():
+    if os.environ.get("SYNTROPY_NO_DOTENV") or not env_file.exists():
         return
     try:
         for line in env_file.read_text(encoding="utf-8").splitlines():

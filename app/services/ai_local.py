@@ -77,9 +77,12 @@ def is_private_host(host: str) -> bool:
     host = (host or "").strip("[]").lower()
     if not host:
         return False
+    try:
+        ipaddress.ip_address(host)
+        return _private_ip(host)        # an address, not a name: nothing to look up
+    except ValueError:
+        pass
     if host in ("localhost", "host.docker.internal") or host.endswith(PRIVATE_SUFFIXES) or "." not in host:
-        return True
-    if _private_ip(host):
         return True
     try:
         infos = socket.getaddrinfo(host, None)

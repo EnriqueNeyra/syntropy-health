@@ -85,7 +85,7 @@ asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 130
-target-version = "py311"
+target-version = "py312"
 extend-exclude = ["cloudflare-worker", "data"]
 
 [tool.ruff.lint]
