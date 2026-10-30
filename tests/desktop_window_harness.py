@@ -183,7 +183,7 @@ def click_for_real():
 
 def frame_that_says(attrs):
     say = "".join(f"window.webkit.messageHandlers.syntropyDesktop.postMessage(JSON.stringify({json.dumps(m)}));" for m in attrs["say"])
-    page = f"<script>{say}</scr'+'ipt>".replace('"', '\\"')
+    page = f"<script>{say}</script>".replace('"', '\\"')
     return f"""var f=document.createElement('iframe');{attrs['set'].replace('PAGE', page)};document.body.appendChild(f);"""
 
 
@@ -217,6 +217,7 @@ def scenario():
     js(frame_that_says({"say": says, "set": "f.sandbox='allow-scripts';f.srcdoc=\"PAGE\""}), 0.6)
     results["title_after_messages"] = on_main(lambda: str(mac.ns_window.title()))
     results["requests_from_elsewhere"] = requests[before:]
+    on_main(lambda: mac.ns_window.setFrameOrigin_((200, 200)))
     x = on_main(lambda: mac.ns_window.frame().origin.x)
     js("window.webkit.messageHandlers.jsBridge.postMessage(JSON.stringify({funcName:'pywebviewMoveWindow',params:[3,3],id:'x'}));", 0.6)
     results["moved_by_page"] = on_main(lambda: mac.ns_window.frame().origin.x) != x
