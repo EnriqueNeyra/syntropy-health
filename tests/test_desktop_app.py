@@ -657,6 +657,7 @@ def test_a_start_that_fails_outright_shows_the_page(desktop, monkeypatch):
     monkeypatch.setattr(desktop.server, "start", fail)
     desktop.bring_up_own_server()
     assert "disk is full" in desktop.window.pages[0] and not desktop.starting
+    assert desktop.window.html == desktop.window.pages[0]       # or a slow WebView2 would show the starting page for good
 
 
 def test_a_good_start_opens_the_app(desktop, monkeypatch):
@@ -703,3 +704,11 @@ def test_a_moved_port_shows_in_the_menu():
     import tray
     lines = [t for _a, t, _c in tray._labels({"lan": False, "login": False, "port_note": "Using port 8001: 8000 is busy"})]
     assert any("8000 is busy" in t for t in lines)
+
+
+def test_macs_may_open_a_household_server_by_its_tailscale_name():
+    # Settings lists http://<name>.ts.net:<port>, and App Transport Security refused it: a blank window, after this Mac's
+    # own server had been stopped. Tailscale encrypts the link itself.
+    spec = (Path(__file__).resolve().parent.parent / "desktop" / "syntropy-health.spec").read_text()
+    assert '"ts.net": {"NSIncludesSubdomains": True, "NSExceptionAllowsInsecureHTTPLoads": True}' in spec
+    assert '"NSAllowsLocalNetworking": True' in spec

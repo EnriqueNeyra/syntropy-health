@@ -257,7 +257,7 @@ class MacWindow:
         self.ns_window = None
         self.webview = None
         self.shown = False
-        self.zoom = prefs.number("zoom", 1.0, ZOOM_STEPS[0], ZOOM_STEPS[-1]) if hasattr(prefs, "number") else 1.0
+        self.zoom = prefs.number("zoom", 1.0, ZOOM_STEPS[0], ZOOM_STEPS[-1])
         self.home_url = home_url                            # Syntropy Health's own pages (this Mac's or a joined server)
         self.location = location or sites.Location(home_url or (lambda: None))
         self.away = False                                   # showing another site

@@ -76,6 +76,9 @@ class Prefs:
     def get(self, _key, default=None):
         return default
 
+    def number(self, _key, default, _low, _high):
+        return default
+
     def set(self, _key, _value):
         pass
 

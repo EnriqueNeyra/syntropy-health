@@ -662,6 +662,8 @@ class DesktopApp:
 
     def show_own_page(self, page: str) -> None:
         self.location.showing_own_page()
+        # WebView2 loads this when it's finally ready, which could otherwise put the starting page back over this one.
+        self.window.html = page
         self.window.load_html(page)
 
     def on_load_failed(self, url: str, code: int, reason: str) -> None:
