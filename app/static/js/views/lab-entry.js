@@ -27,7 +27,7 @@ export function parseRange(text) {
 /** The server's form of one typed row, and what's wrong with it. A row with nothing in it isn't a row. */
 export function checkRow(r) {
   const value = String(r.value ?? "").trim();
-  const filled = [r.test, value, r.unit, r.ref_low, r.ref_high].some((x) => String(x ?? "").trim());
+  const filled = [r.test, value, r.ref_low, r.ref_high].some((x) => String(x ?? "").trim());
   if (!filled) return { empty: true };
   const problems = [];
   if (!String(r.test ?? "").trim()) problems.push("Add the test's name.");

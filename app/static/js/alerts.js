@@ -87,7 +87,7 @@ function collect({ summary, connections, status }) {
     if (l.older_result) continue;      // years old: on the Overview and the summary as an older result, not news
     const word = /low/.test(l.interpretation) ? "low" : /high/.test(l.interpretation) ? "high" : "out of range";
     out.push({ id: `lab:${l.id}`, level: "lab", icon: "flask", title: `${l.title} is ${word}`,
-               text: `${l.value_text}${l.ref_text ? ` (range ${l.ref_text})` : ""} · ${fmtDate(l.effective_at)}`,
+               text: `${l.value_text}${l.ref_text ? ` (range ${l.ref_text})` : ""} · ${fmtDate(l.effective_at)}${["preliminary", "registered"].includes(String(l.status).toLowerCase()) ? " · preliminary, may change" : ""}`,
                href: `#/trends/labs?${l.code ? `code=${encodeURIComponent(l.code)}` : `title=${encodeURIComponent(l.title)}`}`, action: "See trend" });
   }
   return out;

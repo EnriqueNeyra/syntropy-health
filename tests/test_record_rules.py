@@ -206,6 +206,32 @@ def test_an_unknown_test_is_an_empty_chart(client):
     assert s["points"] == [] and s["other_units"] == [] and s["text_results"] == []
 
 
+def test_looking_for_results_with_no_standard_code_doesnt_walk_through_all_labs():
+    """Done for every flagged test on every Overview: at 25,000 labs a walk was seconds, which is why this has an index."""
+    from app.core import db
+    db.ensure_migrated()
+    with db.read() as conn:
+        plan = conn.execute(
+            "EXPLAIN QUERY PLAN SELECT DISTINCT title, code, code_system FROM clinical_records WHERE profile_id = ? AND category = ? "
+            f"AND (code IS NULL OR code_system IS NULL OR code_system != '{LOINC}')", ("p", "labs")).fetchall()
+    assert "idx_records_unstandard_code" in plan[0][-1]
+
+
+def test_one_odd_resource_doesnt_mark_a_live_sync_partly_synced(client, monkeypatch):
+    from app.connectors import fhir_normalize
+    real = fhir_normalize.normalize_report
+
+    def with_one_unread(resources):
+        patient, recs, problems = real(resources)
+        problems["skipped"]["Observation"] = 1
+        return patient, recs, problems
+    with monkeypatch.context() as patch:
+        patch.setattr(fhir_normalize, "normalize_report", with_one_unread)
+        cid = connect_institution(client, "epic-stanford-health-care")["connection_id"]
+    conn = client.get(f"/api/connections/{cid}").json()
+    assert conn["last_sync_status"] == "success"
+
+
 # ---- F007: safety beats tidiness
 
 def test_a_newer_inactive_entry_doesnt_hide_an_active_allergy(prof):

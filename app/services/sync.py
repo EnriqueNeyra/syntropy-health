@@ -135,24 +135,29 @@ async def _sync_ehr(conn: dict[str, Any]) -> dict[str, Any]:
     write, pruned = await asyncio.to_thread(store)
 
     warnings = [f"{k}: {v}" for k, v in fetched.status.items() if v not in ("ok", "empty", "not-granted")]
-    warnings += _unread_warnings(problems)
     by_category: dict[str, int] = {}
     for r in recs:
         by_category[r["category"]] = by_category.get(r["category"], 0) + 1
     return {
         "resources": len(fetched.resources) + 1, "records": len(recs), "inserted": write["inserted"],
         "updated": write["updated"], "pruned": pruned, "notes_fetched": notes_fetched,
+        # Counted, not a warning: one odd resource in a chart would otherwise mark every sync "Partly synced" for good.
+        "not_read": _count_unread(problems), "not_read_by_type": _unread_by_type(problems),
         "by_category": by_category, "queries": fetched.status, "warnings": warnings,
     }
 
 
-def _unread_warnings(problems: dict[str, dict[str, int]]) -> list[str]:
-    """Resources that came in and couldn't be kept, by type, so losing them is never silent."""
+def _unread_by_type(problems: dict[str, dict[str, int]]) -> dict[str, int]:
+    """Resources that came in and couldn't be kept, so losing them is never silent."""
     counts: dict[str, int] = {}
     for by_type in problems.values():
         for rtype, n in by_type.items():
             counts[rtype] = counts.get(rtype, 0) + n
-    return [f"{rtype}: {n} couldn't be read" for rtype, n in sorted(counts.items())]
+    return dict(sorted(counts.items()))
+
+
+def _count_unread(problems: dict[str, dict[str, int]]) -> int:
+    return sum(_unread_by_type(problems).values())
 
 
 async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, recs: list[dict[str, Any]], simulated: bool) -> int:
@@ -317,12 +322,12 @@ def import_fhir_resources(profile_id: str, display_name: str, resources: list[di
     if patient:
         records.upsert_identity(conn["id"], profile_id, patient)
     write = records.upsert_records(profile_id, conn["id"], display_name, recs)
-    warnings = _unread_warnings(problems)
+    warnings = [f"{rtype}: {n} couldn't be read" for rtype, n in _unread_by_type(problems).items()]
     if provider == "fhir_file" and _other_subjects(resources) > 0:
         warnings.append("Some records in this file point at another patient ID. Check they all belong to this person.")
     stats = {"resources": len(resources), "records": len(recs), **write, "warnings": warnings,
-             "not_read": sum(n for by_type in problems.values() for n in by_type.values())}
-    connections.finish_run(run_id, conn["id"], "partial" if warnings else "success", stats)
+             "not_read": _count_unread(problems)}
+    connections.finish_run(run_id, conn["id"], "success", stats)
     return {"connection_id": conn["id"], **stats}
 
 

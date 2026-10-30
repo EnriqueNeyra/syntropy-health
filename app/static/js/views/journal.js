@@ -333,7 +333,8 @@ function openDeviceEntry(e) {
 // The person's current medications from their health records, offered as one-tap choices when logging a dose.
 async function medicationChips(profile, form, recentNames) {
   const summary = await get("/api/summary", { profile: profile.id }).catch(() => null);      // cached briefly by api.js
-  const activeMeds = { list: (summary?.active_medications || []).map((m) => ({ name: m.title, dose: doseOf(m.title) })) };
+  // Those that may be out of date too: an order with no recent renewal can still be what someone takes every morning.
+  const activeMeds = { list: [...(summary?.active_medications || []), ...(summary?.medications_to_check || [])].map((m) => ({ name: m.title, dose: doseOf(m.title) })) };
   const box = form.querySelector("#jr-med-chips");
   if (!box) return;
   const seen = new Set(activeMeds.list.map((m) => m.name.toLowerCase()));

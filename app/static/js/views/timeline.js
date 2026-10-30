@@ -19,8 +19,17 @@ const JOURNAL_ICONS = { symptoms: "stethoscope", medication: "pill", notes: "not
 
 // The local day (a check-in at 10:48 PM belongs to that evening, not to the next day in UTC).
 function dayKey(r) {
+  if (/^\d{4}(-\d{2})?$/.test(r.effective_at || "")) return r.effective_at;     // known only to the month or year: no day to invent
   const d = parseDate(r.effective_at);
   return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : "unknown";
+}
+
+/** What a medication row on the timeline actually records: an order that was written, or something short of one. */
+function medicationVerb(r) {
+  const intent = (r.details?.intent || "").toLowerCase();
+  if (["draft", "intended"].includes(String(r.status).toLowerCase()) || ["proposal", "option"].includes(intent)) return "Proposed, not started ·";
+  if (r.details?.reported || r.resource_type === "MedicationStatement") return "Reported taking";
+  return intent === "plan" ? "Planned ·" : "Prescribed";
 }
 
 function describe(r) {
@@ -36,8 +45,9 @@ function describe(r) {
   if (r.kind === "signal") return html`<b>${r.title}</b>${r.value_label && r.value_label !== "Occurred" ? ` · ${r.value_label}` : ""}`;
   switch (r.category) {
     case "labs": return html`<b>${r.title}</b> ${r.value_text || ""} ${resultStatus(r.status)} ${flagBadge(r.interpretation)}`;
-    case "conditions": return html`Diagnosed <b>${r.title}</b>`;
-    case "medications": return html`Prescribed <b>${r.title}</b>`;
+    case "conditions": return ["unconfirmed", "provisional", "differential"].includes(r.details?.verification)
+      ? html`Possible diagnosis, not confirmed · <b>${r.title}</b>` : html`Diagnosed <b>${r.title}</b>`;
+    case "medications": return html`${medicationVerb(r)} <b>${r.title}</b>`;
     case "immunizations": return String(r.status).toLowerCase() === "not-done"
       ? html`Vaccine not given · <b>${r.title}</b>${r.details?.status_reason ? html` <span class="muted">${r.details.status_reason}</span>` : ""}`
       : html`Vaccinated · <b>${r.title}</b>`;
@@ -89,8 +99,9 @@ export async function render({ el, state, navigate }) {
       const other = evs.filter((e) => e.category !== "labs");
       const flagged = labs.filter((l) => l.interpretation && l.interpretation !== "normal");
       return html`<div class="timeline-day">
-        <div class="timeline-date">${d ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "Unknown"}
-          <small>${d ? d.getFullYear() : ""}</small></div>
+        <div class="timeline-date">${!d ? "Unknown" : /^\d{4}$/.test(day) ? day : /^\d{4}-\d{2}$/.test(day) ? d.toLocaleDateString(undefined, { month: "short" })
+          : d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          <small>${d && !/^\d{4}$/.test(day) ? d.getFullYear() : ""}</small></div>
         <div>
           ${other.map((e) => html`<div class="ev ${e.kind ? `ev-${e.kind}` : ""}" data-action="open" data-id="${e.id}" data-kind="${e.kind || "record"}" data-type="${e.event_type || ""}">
             <span class="ev-icon">${icon(e.kind === "workout" ? workoutIcon(e.title) : e.kind === "journal" ? JOURNAL_ICONS[e.category] || "book"

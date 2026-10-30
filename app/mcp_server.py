@@ -315,7 +315,8 @@ TOOLS: dict[str, tuple[Callable[[dict[str, Any]], Any], str, dict[str, Any], lis
     "list_lab_tests": (t_list_lab_tests, "Every lab test (or vital sign) on record with its latest value, number of results and trend.", {
         **PROFILE_ARG, "category": {"type": "string", "enum": ["labs", "vitals"], "default": "labs"}}, []),
     "get_lab_trend": (t_lab_trend, "All results over time for one lab test or vital sign (by LOINC code or name, e.g. 'A1c', "
-                      "'LDL', 'blood pressure'), in one normalized unit with its reference range.", {
+                      "'LDL', 'blood pressure'), in one unit with its reference range. Results in a unit that can't be converted are listed apart, "
+                      "never mixed in. A comparator on a result means it's a limit, not a measurement.", {
         **PROFILE_ARG, "test": {"type": "string", "description": "LOINC code or part of the test name."},
         "category": {"type": "string", "enum": ["labs", "vitals"]}}, ["test"]),
     "list_wearable_metrics": (t_list_metrics, "Wearable/phone metrics available (steps, sleep, HRV, resting heart rate, recovery, ...).",

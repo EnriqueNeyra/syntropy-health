@@ -85,7 +85,7 @@ function buildItems(labs, vitals, metrics, signals) {
       items.push({
         key: it.code ? `c:${it.code}` : `t:${it.title}`, kind: "clinical", category, code: it.code, codes: it.codes || [], codeSystem: it.code_system, topic, title: it.title,
         section: topic === "labs" ? (it.panel || "Other tests") : "From health records",
-        value: category === "vitals" ? recordValue(it.latest) : it.latest.value_text || "", interpretation: it.latest.interpretation, trend: it.trend,
+        value: category === "vitals" ? recordValue(it.latest) : it.latest.value_text || "", interpretation: it.latest.interpretation, status: it.latest.status, trend: it.trend,
         meta: `${fmtDate(it.latest.effective_at)} · ${plural(it.count, "result")}`,
       });
     }
@@ -213,7 +213,7 @@ export async function render({ el, parts, params, state, navigate }) {
         <div class="list-item clickable ${it.key === selected?.key ? "selected" : ""}" data-action="pick" data-key="${it.key}" tabindex="0" role="button"
           aria-current="${it.key === selected?.key}">
           <div class="grow" style="min-width:0"><div class="title truncate">${it.title}</div><div class="meta truncate">${it.meta}</div></div>
-          <div class="value small">${it.value}</div>${trendIcon(it.trend)}
+          <div class="value small">${it.value}</div>${resultStatus(it.status)}${trendIcon(it.trend)}
           ${isFlagged(it.interpretation) ? html`<span class="dot ${it.interpretation.includes("low") ? "info" : "bad"}" title="Out of range"></span>` : ""}
           <span class="split-chevron">${icon("chevronRight")}</span>
         </div>`)}</div>`) : html`<div class="empty small">Nothing matches “${filter}”.</div>`);

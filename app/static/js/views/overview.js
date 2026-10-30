@@ -193,10 +193,11 @@ export const WIDGETS = [
         <div class="grow"><div class="title">${v.title}</div><div class="meta">${fmtDate(v.effective_at)}</div></div>
         <div class="value">${recordValue(v)}</div></div>`, "No vitals yet.", { href: "#/trends/vitals", more: "Vital trends" }) },
   { id: "visits", title: "Recent visits", desc: "Appointments and hospital stays", size: "m", on: true, needs: ["summary"], records: true,
-    render: (d) => listCard("Recent visits", "building", d.summary.recent_encounters, (e) => html`
+    render: (d) => listCard("Recent visits", "building", [...(d.summary.upcoming_encounters || []), ...d.summary.recent_encounters], (e) => html`
       <div class="list-item clickable" data-action="record" data-id="${e.id}">
         <div class="grow"><div class="title truncate">${e.title}</div>
           <div class="meta truncate">${[fmtDate(e.effective_at), (e.details?.clinicians || [])[0], e.source_name].filter(Boolean).join(" · ")}</div></div>
+        ${(d.summary.upcoming_encounters || []).includes(e) ? html`<span class="badge info">Upcoming</span>` : ""}
       </div>`, "No visits on record.", { href: "#/timeline", more: "Full timeline" }) },
   { id: "immunizations", title: "Immunizations", desc: "Vaccines on record, newest first", size: "m", on: false, needs: ["summary"], records: true,
     render: (d) => listCard("Immunizations", "syringe", d.summary.immunizations || [], (i) => html`

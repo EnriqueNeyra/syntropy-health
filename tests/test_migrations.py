@@ -30,6 +30,7 @@ MIGRATION_HASHES = {
     "011_healthkit_export_platform.sql": "019c3c1d7fa357f5c2a148f091a0fcd0be768aeec59adf178b3dc7dd03a4a46f",
     "012_workout_humidity.sql": "35f0dff42fa87d9252f9311efb742eb4c3a0d5f86e1fe512f9597e7c662c2d03",
     "013_daily_revisions.sql": "81aa57eaeaddd9ac7e7504e7e8a811e23936a7bc0274f7988a5414cf90cf7279",
+    "020_records_without_a_standard_code.sql": "43dc59c069ba81fc8e97eb45d67af7cd4449e941078c224d73aabab56b325538",
 }
 
 
@@ -165,6 +166,8 @@ def test_every_old_schema_upgrades_with_its_data(version):
         assert c.execute("SELECT humidity_pct FROM workouts").fetchone()[0] == 65
     c.close()
 
+    if version == db.newest_schema():
+        return      # already up to date: nothing was upgraded, so nothing was copied first
     copies = db.pre_upgrade_copies(path)
     assert len(copies) == 1 and copies[0]["version"] == version
     kept = sqlite3.connect(copies[0]["path"])

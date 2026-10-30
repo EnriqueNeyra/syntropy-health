@@ -6,8 +6,8 @@ import { age, capitalize, fmtDate, fmtDateTime, html, icon, loading, mount, resu
 
 function table(headers, rows, empty = "None on record.") {
   if (!rows.length) return html`<p class="muted small">${empty}</p>`;
-  return html`<table class="table"><thead><tr>${headers.map((h) => html`<th>${h}</th>`)}</tr></thead>
-    <tbody>${rows.map((r) => html`<tr>${r.map((c) => html`<td>${c}</td>`)}</tr>`)}</tbody></table>`;
+  return html`<div class="table-wrap"><table class="table"><thead><tr>${headers.map((h) => html`<th>${h}</th>`)}</tr></thead>
+    <tbody>${rows.map((r) => html`<tr>${r.map((c) => html`<td>${c}</td>`)}</tr>`)}</tbody></table></div>`;
 }
 
 /** A title with what other sources said about it, where they disagree. */
@@ -31,6 +31,7 @@ export async function render({ el, state }) {
   const sources = [...new Set(r.identities.map((i) => i.source_name))];
   const flu = r.immunizations.filter((i) => /influenza/i.test(i.title));
   const vaccines = r.immunizations.filter((i) => !/influenza/i.test(i.title));
+  const currentTeams = r.care_team.filter((t) => !["inactive", "suspended"].includes(String(t.status).toLowerCase()));
   // In the iPhone app, printing (or saving a PDF) is the title bar's button.
   const appPrint = setToolbar([{ id: "print", title: "Print or Save PDF", symbol: "printer", run: () => appBridge({ type: "print" }) }]);
   mount(el, html`
@@ -93,8 +94,8 @@ export async function render({ el, state }) {
         ${r.upcoming_encounters?.length ? html`<h3>Upcoming</h3>${table(["Date", "Visit", "Clinician", "Where"],
           r.upcoming_encounters.map((e) => [fmtDate(e.effective_at), e.title, (e.details?.clinicians || [])[0] || "—", e.details?.provider || e.source_name || "—"]))}` : ""}</section>
 
-      ${r.care_team.length ? html`<section><h2>Care team</h2>${table(["Name", "Role", "Source"],
-        r.care_team.flatMap((t) => (t.details?.members || []).map((m) => [m.name, m.role, t.source_name])))}</section>` : ""}
+      ${currentTeams.length ? html`<section><h2>Care team</h2>${table(["Name", "Role", "Source"],
+        currentTeams.flatMap((t) => (t.details?.members || []).map((m) => [m.name, m.role, t.source_name])))}</section>` : ""}
 
       ${r.coverage.length ? html`<section><h2>Insurance</h2>${table(["Plan", "Member ID", "Status"],
         r.coverage.map((c) => [c.title, c.details?.subscriber_id || "—", capitalize(c.status) || "—"]))}</section>` : ""}
