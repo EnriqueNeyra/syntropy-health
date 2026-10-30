@@ -270,6 +270,9 @@ test("a provider that's down is told apart from one that refuses (F236)", async 
   assert.equal(res.status, 502);
   assert.equal((await res.json()).error, "provider_unavailable");
 
+  providerAnswers(429, { error: "slow down" });
+  assert.equal((await refresh()).status, 502);
+
   globalThis.fetch = async () => { throw new TypeError("network connection lost"); };
   res = await refresh();
   assert.equal(res.status, 502);

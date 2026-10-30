@@ -245,7 +245,7 @@ async function tokenRequest(tokenUrl, form) {
   } catch (_) {
     return { unavailable: true };
   }
-  if (resp.status >= 500) return { unavailable: true };
+  if (resp.status >= 500 || resp.status === 429) return { unavailable: true };
   let data = {};
   try { data = await resp.json(); } catch (_) { /* non-JSON error body */ }
   if (!resp.ok || !data || !data.access_token) {
