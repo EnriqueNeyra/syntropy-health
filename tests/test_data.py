@@ -312,7 +312,7 @@ def test_fhir_export_includes_patient_and_round_trips(client):
     other = client.post("/api/profiles", json={"name": "Copy", "relationship": "other"}).json()
     files = {"file": ("export.json", json.dumps(bundle), "application/json")}
     res = client.post("/api/imports/fhir", files=files, data={"profile_id": other["id"]}).json()
-    assert res["records"] == len(types) - 1
+    assert res["records"] == len([t for t in types if t not in ("Patient", "Medication")])
     assert client.get("/api/summary", params={"profile": other["id"]}).json()["identities"][0]["full_name"] == "Alex Rivera"
 
 

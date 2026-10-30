@@ -63,7 +63,7 @@ def to_observation(r: LabResult, collected: str, lab: Optional[str]) -> dict:
     if r.loinc and re.fullmatch(r"\d{1,7}-\d", r.loinc.strip()):
         code["coding"] = [{"system": fhir_normalize.LOINC, "code": r.loinc.strip(), "display": r.test.strip()}]
     res: dict = {
-        "resourceType": "Observation", "id": new_id("man"), "status": "final",
+        "resourceType": "Observation", "id": f"man-{new_id()}", "status": "final",
         "category": [{"coding": [{"system": OBS_CATEGORY, "code": "laboratory", "display": "Laboratory"}]}],
         "code": code, "effectiveDateTime": when,
     }

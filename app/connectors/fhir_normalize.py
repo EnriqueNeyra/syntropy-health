@@ -364,7 +364,8 @@ def normalize_medication_request(res: dict[str, Any], resolve: Callable[[str], O
     concept = res.get("medicationCodeableConcept")
     if not concept and res.get("medicationReference"):
         ref = res["medicationReference"].get("reference") or ""
-        med = resolve(ref)
+        med = (next((c for c in res.get("contained") or [] if c.get("id") == ref[1:]), None) if ref.startswith("#")
+               else resolve(ref))
         if med:
             concept = med.get("code")
         if not concept:
@@ -645,6 +646,14 @@ NORMALIZERS: dict[str, Callable[..., Optional[dict[str, Any]]]] = {
     "Device": normalize_device,
     "Coverage": normalize_coverage,
 }
+
+
+REFERENCED_TYPES = ("Medication", "Practitioner", "PractitionerRole", "Organization", "Location")
+
+
+def referenced_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """What came along with the records for them to point to. Not records themselves, but an export needs them."""
+    return [r for r in resources if r.get("resourceType") in REFERENCED_TYPES and r.get("id")]
 
 
 def normalize_resources(resources: list[dict[str, Any]]) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:

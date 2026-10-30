@@ -57,6 +57,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.0.0",
+    "fhir.resources>=8.3.0",    # checks that exports are valid FHIR; tests only, never installed with the app
     "ruff==0.16.10",
 ]
 

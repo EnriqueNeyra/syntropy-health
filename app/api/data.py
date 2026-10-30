@@ -1,25 +1,24 @@
-"""Imports (Apple Health, FHIR files) and exports (FHIR bundle, CSV)."""
+"""Imports (Apple Health, FHIR files, archives) and exports (FHIR, CSV, archive)."""
 
 from __future__ import annotations
 
-import csv
-import io
 import json
 import re
+import shutil
 import time
 import unicodedata
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.deps import check_access, resolve_profile
-from app.core import auth
-from app.core.db import audit, db, new_id, read
-from app.services import imports
-from app.store import activity, biometrics, profiles, records
+from app.core import auth, context
+from app.core.db import audit, db, new_id
+from app.services import exports, imports
+from app.store import biometrics, profiles, records
 
 router = APIRouter(prefix="/api", tags=["data"], dependencies=[Depends(auth.require_user)])
 
@@ -50,6 +49,17 @@ async def import_apple_health(file: UploadFile = File(...), profile_id: Optional
     return {"job_id": job_id}
 
 
+@router.post("/imports/archive")
+async def import_archive(file: UploadFile = File(...), profile_id: Optional[str] = Form(None)) -> dict:
+    prof = resolve_profile(profile_id, "manage")
+    principal = context.principal()
+    dest = imports.upload_dir() / f"{new_id('upload')}.zip"
+    with open(dest, "wb") as fh:
+        while chunk := await file.read(1024 * 1024):
+            fh.write(chunk)
+    return {"job_id": imports.start_archive_import(prof["id"], principal.account_id if principal else None, dest, file.filename or "archive.zip")}
+
+
 @router.get("/imports/{job_id}")
 def import_status(job_id: str) -> dict:
     job = imports.get_job(job_id)
@@ -77,85 +87,46 @@ def _person(prof: dict[str, Any]) -> str:
 @router.get("/export/fhir")
 def export_fhir(profile: Optional[str] = None) -> StreamingResponse:
     prof = resolve_profile(profile)
-
-    def stream() -> Iterator[bytes]:
-        yield json.dumps({"resourceType": "Bundle", "type": "collection",
-                          "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                          "meta": {"tag": [{"system": "urn:syntropy-health", "code": "export"}]}})[:-1].encode()
-        yield b',"entry":['
-        first = True
-        for res in records.raw_resources(prof["id"]):
-            yield (b"" if first else b",") + json.dumps({"resource": res}).encode()
-            first = False
-        yield b"]}"
-
     with db() as conn:
         audit(conn, "user", "export.fhir", None, prof["id"])
     filename = f"syntropy-{_person(prof)}-fhir-{_stamp()}.json"
-    return StreamingResponse(stream(), media_type="application/fhir+json",
+    return StreamingResponse(exports.bundle_stream(prof["id"]), media_type="application/fhir+json",
                              headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
-class _SafeWriter:
-    """csv.writer that neutralizes spreadsheet formulas in text cells (CSV injection): a leading
-    = + - @ tab or CR is prefixed with an apostrophe. Numbers are written unchanged."""
-
-    def __init__(self, buf: io.StringIO) -> None:
-        self._w = csv.writer(buf)
-
-    @staticmethod
-    def _cell(v: Any) -> Any:
-        if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
-            return "'" + v
-        return v
-
-    def writerow(self, row: list[Any]) -> None:
-        self._w.writerow([self._cell(v) for v in row])
+@router.get("/export/ips")
+def export_patient_summary(profile: Optional[str] = None) -> Response:
+    """An International Patient Summary, for a clinician anywhere."""
+    prof = resolve_profile(profile)
+    document = exports.patient_summary(prof)
+    with db() as conn:
+        audit(conn, "user", "export.ips", None, prof["id"])
+    return Response(json.dumps(document, ensure_ascii=False), media_type="application/fhir+json",
+                    headers={"Content-Disposition": f'attachment; filename="syntropy-{_person(prof)}-summary-{_stamp()}.json"'})
 
 
 @router.get("/export/csv")
 def export_csv(kind: str = "records", profile: Optional[str] = None) -> StreamingResponse:
     prof = resolve_profile(profile)
-    buf = io.StringIO()
-    writer = _SafeWriter(buf)
-    if kind == "records":
-        writer.writerow(["category", "title", "code_system", "code", "effective_at", "status", "value", "unit",
-                         "value_normalized", "unit_normalized", "reference_low", "reference_high", "interpretation",
-                         "source", "narrative"])
-        for r in records.list_records(prof["id"], dedupe=False, limit=10**7)["items"]:
-            writer.writerow([r["category"], r["title"], r.get("code_system"), r.get("code"), r.get("effective_at"),
-                             r.get("status"), r.get("value_num") if r.get("value_num") is not None else r.get("value_text"),
-                             r.get("unit"), r.get("value_norm"), r.get("unit_norm"), r.get("ref_low"), r.get("ref_high"),
-                             r.get("interpretation"), r.get("source_name"), (r.get("narrative") or "")[:2000]])
-    elif kind == "daily":
-        writer.writerow(["day", "metric", "source", "value", "unit", "min", "max", "samples"])
-        with read() as conn:
-            for row in conn.execute("SELECT * FROM biometric_daily WHERE profile_id = ? ORDER BY day, metric_type",
-                                    (prof["id"],)):
-                writer.writerow([row["day"], row["metric_type"], row["source_name"], row["value"], row["unit"],
-                                 row["min_value"], row["max_value"], row["sample_count"]])
-    elif kind == "workouts":
-        writer.writerow(["start", "end", "name", "duration_min", "distance_km", "active_energy_kcal", "total_energy_kcal",
-                         "avg_hr", "max_hr", "elevation_gain_m", "indoor", "source", "id"])
-        for w in activity.list_workouts(prof["id"], None, 10**7, dedupe=False):   # every recording, as stored
-            writer.writerow([w["start_date"], w["end_date"], w["name"],
-                             round(w["duration_s"] / 60, 2) if w["duration_s"] is not None else None,
-                             round(w["distance_m"] / 1000, 3) if w["distance_m"] is not None else None,
-                             *[round(w[k], 1) if w[k] is not None else None
-                               for k in ("active_energy_kcal", "total_energy_kcal", "avg_hr", "max_hr", "elevation_ascent_m")],
-                             w["indoor"], w["source_name"], w["id"]])
-    elif kind == "events":
-        writer.writerow(["start", "end", "category", "type", "name", "value", "label", "source"])
-        for e in reversed(activity.list_events(prof["id"], None, limit=10**7)):
-            writer.writerow([e["start_date"], e["end_date"], e["category"], e["event_type"], e["name"], e["value"],
-                             e["value_label"], e["source_name"]])
-    else:
+    if kind not in exports.CSV_KINDS:
         raise HTTPException(400, "kind must be 'records', 'daily', 'workouts' or 'events'")
+    data = exports.csv_bytes(kind, prof["id"])
     with db() as conn:
         audit(conn, "user", f"export.csv.{kind}", None, prof["id"])
-    data = buf.getvalue().encode()
     return StreamingResponse(iter([data]), media_type="text/csv",
                              headers={"Content-Disposition": f'attachment; filename="syntropy-{_person(prof)}-{kind}-{_stamp()}.csv"'})
+
+
+@router.get("/export/archive")
+def export_archive(background: BackgroundTasks, profile: Optional[str] = None) -> FileResponse:
+    """Everything kept about one person, for whoever manages them. Their chats are per account: this account's come along."""
+    prof = resolve_profile(profile, "manage")
+    principal = context.principal()
+    path = exports.build_archive(prof, principal.account_id if principal else None)
+    with db() as conn:
+        audit(conn, "user", "export.archive", None, prof["id"])
+    background.add_task(shutil.rmtree, path.parent, ignore_errors=True)
+    return FileResponse(path, media_type="application/zip", filename=f"syntropy-{_person(prof)}-archive-{_stamp()}.zip")
 
 
 @router.delete("/profiles/{profile_id}/data")

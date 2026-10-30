@@ -104,13 +104,13 @@ def insert_events(profile_id: str, connection_id: Optional[str], events: Iterabl
             source = e.get("source_name") or "Unknown"
             insert = lambda event_id: conn.execute(
                 """INSERT OR IGNORE INTO health_events(id, profile_id, connection_id, event_type, category, name,
-                       start_date, end_date, value, value_label, source_name, metadata_json, created_at)
-                   SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                       start_date, end_date, value, value_label, source_name, metadata_json, note, manual, created_at)
+                   SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                    WHERE NOT EXISTS (SELECT 1 FROM health_events WHERE profile_id = ? AND event_type = ?
                                      AND start_date = ? AND end_date = ? AND source_name = ?)""",
                 (event_id, profile_id, connection_id, e["event_type"][:80], (e.get("category") or "other")[:40],
                  (e.get("name") or e["event_type"])[:120], start, end, e.get("value"), e.get("value_label"), source,
-                 dumps(e.get("metadata") or None), now,
+                 dumps(e.get("metadata") or None), e.get("note"), 1 if e.get("manual") else 0, now,
                  profile_id, e["event_type"][:80], start, end, source),
             )
             cur = insert(e["id"])

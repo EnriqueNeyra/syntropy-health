@@ -102,6 +102,29 @@ def start_apple_health_import(profile_id: str, path: Path, filename: str) -> str
     return job_id
 
 
+def start_archive_import(profile_id: str, account_id: Optional[str], path: Path, filename: str) -> str:
+    job_id = _new_job("archive", filename, profile_id)
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, contextvars.copy_context().run, _run_archive, job_id, profile_id, account_id, path)
+    return job_id
+
+
+def _run_archive(job_id: str, profile_id: str, account_id: Optional[str], path: Path) -> None:
+    from app.services import exports
+
+    _update(job_id, status="running")
+    try:
+        result = exports.import_archive(profile_id, account_id, path, lambda n: _update(job_id, processed=n, inserted=n))
+        _update(job_id, status="completed", finished_at=time.time(), result=result)
+    except (ValueError, biometrics.SourceGone) as exc:
+        _update(job_id, status="error", finished_at=time.time(), error=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        log.exception("Archive import failed")
+        _update(job_id, status="error", finished_at=time.time(), error=str(exc))
+    finally:
+        path.unlink(missing_ok=True)
+
+
 def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -> None:
     _update(job_id, status="running")
     try:
