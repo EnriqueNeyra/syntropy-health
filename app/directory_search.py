@@ -37,7 +37,7 @@ _STOP = frozenset({"of", "the", "and", "at", "for", "a", "an"})
 _COMPOUNDS = {"healthcare": ("health", "care"), "healthsystem": ("health", "system"), "obgyn": ("ob", "gyn")}
 _JOINED = {("my", "chart"): "mychart", ("your", "care"): "yourcare", ("mycare", "corner"): "mycarecorner"}
 # Said alongside a name, these narrow nothing: "mayo patient portal", "hospitals in dallas".
-_NOISE = frozenset({"patient", "portal", "login", "log", "sign", "signin", "online", "mypatient"})
+_NOISE = frozenset({"patient", "portal", "login", "log", "sign", "signin", "online"})
 
 STATE_NAMES = {
     "alabama": "al", "alaska": "ak", "arizona": "az", "arkansas": "ar", "california": "ca", "colorado": "co", "connecticut": "ct",
@@ -66,7 +66,7 @@ _SIMILAR = 10           # alternatives kept: within this factor of the commonest
 def fold_text(text: str) -> str:
     if not text.isascii():
         text = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
-    text = text.lower().replace("'", "").replace("’", "")
+    text = text.lower().replace("'", "").replace("\u2019", "")
     return _INITIALS.sub(lambda m: m.group(0).replace(".", ""), text)
 
 
@@ -101,7 +101,7 @@ def _acronym(words: list[str]) -> Optional[str]:
 def _states_of(location: Optional[str], places: Iterable[str]) -> tuple[str, ...]:
     found = dict.fromkeys(p.removesuffix(" and more").strip() for p in (location or "").split(","))
     found.update(dict.fromkeys(p.rsplit(" ", 1)[-1] for p in places))
-    return tuple(sorted(s for s in found if s.lower() in _STATE_CODES))
+    return tuple(sorted(s for s in found if s.isupper() and s.lower() in _STATE_CODES))
 
 
 def _distance(a: str, b: str, limit: int) -> int:
@@ -308,7 +308,7 @@ class Index:
     def _range(self, word: str, prefix: bool) -> tuple[int, int]:
         lo = bisect_left(self.vocabulary, word)
         if prefix:
-            return lo, bisect_left(self.vocabulary, word + "￿", lo)
+            return lo, bisect_left(self.vocabulary, word + "\uffff", lo)
         return (lo, lo + 1) if lo < len(self.vocabulary) and self.vocabulary[lo] == word else (lo, lo)
 
     def _find_term(self, word: str, prefix: bool) -> tuple[set[int], set[int], set[int], set[int]]:
@@ -435,10 +435,7 @@ class Index:
 
     # ------------------------------------------------------------------ results
     def _matches(self, words: list[_Word]) -> set[int]:
-        if not words:
-            return set()
-        smallest_first = sorted((w.rows for w in words), key=len)
-        return set.intersection(*smallest_first)
+        return set.intersection(*sorted((w.rows for w in words), key=len))
 
     def _keys(self, matched: set[int], words: list[_Word], later: Optional[set[str]], troubled: set[int]) -> list[int]:
         """A number per row that sorts it: how well its text matched, then whether it can be connected and works, then rank."""

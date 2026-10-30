@@ -288,11 +288,11 @@ def data_copy(tmp_path, monkeypatch):
         shutil.copy(source / "institutions" / name, folder / "institutions" / name)
     for name in ("sign_in_status.json", "facilities.tsv", "directory_aliases.json"):
         shutil.copy(source / name, folder / name)
-    monkeypatch.setattr(directory, "_data_dir", lambda: folder)
-    monkeypatch.setattr(directory, "EXPECTED_FILES", ("curated", "medhost", "trubridge"))
-    directory.reload()
-    yield folder
-    monkeypatch.undo()
+    with monkeypatch.context() as patch:
+        patch.setattr(directory, "_data_dir", lambda: folder)
+        patch.setattr(directory, "EXPECTED_FILES", ("curated", "medhost", "trubridge"))
+        directory.reload()
+        yield folder
     directory.reload()
 
 
@@ -395,11 +395,11 @@ def warned(monkeypatch):
     def set_status(status, checked, today, since="2026-09-01"):
         monkeypatch.setattr(directory, "_status_file", lambda: {"checked": checked, "servers": {key: {"status": status, "since": since}}})
         monkeypatch.setattr(directory, "_today", lambda: __import__("datetime").date.fromisoformat(today))
-        directory._troubled_rows.cache_clear()
+        directory._troubled_on.cache_clear()
         return directory.sign_in_problem(inst)
 
     yield inst, set_status
-    directory._troubled_rows.cache_clear()
+    directory._troubled_on.cache_clear()
 
 
 def test_a_recent_warning_is_a_warning(warned):
@@ -474,7 +474,7 @@ def test_the_picker_keeps_its_other_ways_in_when_the_list_fails():
     picker = (STATIC / "sources.js").read_text()
     start = picker.index("async function openAddHealthSystem")
     body = picker[start:picker.index("function confirmInstitution")]
-    assert "m.close()" not in body.split("featured = await get")[1].split("\n")[1]
+    assert "catch (err) { m.close()" not in body
     for action in ('data-action="records"', 'data-action="import"', 'data-action="custom"', 'data-id="athenahealth"'):
         assert action in body
     assert "No matches" not in body.split("const showPopular")[1].split("const showResults")[0]

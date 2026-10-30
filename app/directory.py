@@ -343,14 +343,13 @@ def _troubled_rows() -> frozenset[int]:
     return _troubled_on(_today())
 
 
-_troubled_rows.cache_clear = _troubled_on.cache_clear   # type: ignore[attr-defined]
-
-
 def reload() -> None:
-    """Forgets what was read, so the data files are read again (tests)."""
-    for cached in (_loaded, _status_file, _built_index, _by_id, _troubled_on):
-        cached.cache_clear()
-    _damaged_extras.clear()
+    """Forgets what was read, so the data files are read again (tests). A build under way finishes first, so it can't
+    leave behind an index of what was there before."""
+    with _index_lock:
+        for cached in (_loaded, _status_file, _built_index, _by_id, _troubled_on):
+            cached.cache_clear()
+        _damaged_extras.clear()
 
 
 @lru_cache(maxsize=1)
