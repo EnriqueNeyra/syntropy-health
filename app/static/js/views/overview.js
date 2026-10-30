@@ -7,7 +7,7 @@ import { moodLabel } from "./journal.js";
 import { duration, openWorkout } from "./workouts.js";
 import {
   pageScroller, $, $$, age, capitalize, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw,
-  plural, toast,
+  plural, resultStatus, toast,
 } from "../ui.js";
 import { displayUnit, fmtMeasure, recordValue, unitSystem } from "../units.js";
 
@@ -162,31 +162,34 @@ export const WIDGETS = [
       </div>`, "No workouts in the last 30 days.", { href: "#/workouts", more: "All workouts" }) },
   { id: "labs", title: "Out-of-range results", desc: "Your latest lab results that are high or low", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Out of range", "flask", d.summary.flagged_labs, (l) => html`
-      <div class="list-item clickable" data-action="lab" data-code="${l.code || ""}">
-        <div class="grow"><div class="title">${l.title}</div><div class="meta">${fmtDate(l.effective_at)} · range ${l.ref_text || "—"}</div></div>
-        <div class="value">${l.value_text}</div>${flagBadge(l.interpretation)}
+      <div class="list-item clickable" data-action="lab" data-code="${l.code || ""}" data-title="${l.title}">
+        <div class="grow"><div class="title">${l.title}</div><div class="meta">${fmtDate(l.effective_at)}${l.older_result ? " (older result)" : ""} · range ${l.ref_text || "—"}</div></div>
+        <div class="value">${l.value_text}</div>${resultStatus(l.status)}${flagBadge(l.interpretation)}
       </div>`, "All of your most recent lab results are in range.", { href: "#/trends/labs", more: "Lab trends" }) },
-  { id: "medications", title: "Medications", desc: "Medications you're currently taking", size: "m", on: true, needs: ["summary"], records: true,
-    render: (d) => listCard("Medications", "pill", d.summary.active_medications, (m) => html`
+  { id: "medications", title: "Medications", desc: "Medications your records list as current, and any that may be out of date", size: "m", on: true, needs: ["summary"], records: true,
+    render: (d) => listCard("Medications", "pill", [...d.summary.active_medications, ...(d.summary.medications_to_check || [])], (m) => html`
       <div class="list-item clickable" data-action="record" data-id="${m.id}">
-        <div class="grow"><div class="title truncate">${m.title}</div><div class="meta truncate">${m.value_text || ""}</div></div>
+        <div class="grow"><div class="title truncate">${m.title}</div><div class="meta truncate">${[m.med_reason || m.value_text, m.group_note].filter(Boolean).join(" · ")}</div></div>
+        ${m.med_tier === "check" ? html`<span class="badge warn">Check</span>` : ""}
         ${m.details?.as_needed ? html`<span class="badge">As needed</span>` : ""}
       </div>`, "No active medications.", { href: "#/records/medications" }) },
   { id: "conditions", title: "Active conditions", desc: "Diagnoses from your health records", size: "m", on: true, needs: ["summary"], records: true,
-    render: (d) => listCard("Active conditions", "stethoscope", d.summary.active_conditions, (c) => html`
+    render: (d) => listCard("Active conditions", "stethoscope", [...d.summary.active_conditions, ...(d.summary.unconfirmed_conditions || []), ...(d.summary.conditions_status_unknown || [])], (c) => html`
       <div class="list-item clickable" data-action="record" data-id="${c.id}">
-        <div class="grow"><div class="title">${c.title}</div><div class="meta">Since ${fmtDate(c.effective_at)} · ${sourcesLabel(c)}</div></div>
+        <div class="grow"><div class="title">${c.title}</div><div class="meta">${c.status_note || html`Since ${c.details?.onset_text || fmtDate(c.effective_at)} · ${sourcesLabel(c)}`}</div></div>
+        ${(d.summary.unconfirmed_conditions || []).includes(c) ? html`<span class="badge warn">Unconfirmed</span>` : ""}
+        ${(d.summary.conditions_status_unknown || []).includes(c) ? html`<span class="badge">Status not stated</span>` : ""}
         ${c.details?.icd10 ? html`<span class="badge mono">${c.details.icd10}</span>` : ""}
-      </div>`, "No active conditions on record.", { href: "#/records/conditions" }) },
+      </div>`, d.summary.visit_diagnoses?.length ? `No active conditions listed. ${d.summary.visit_diagnoses.length} recorded at visits, under Records.` : "No active conditions on record.", { href: "#/records/conditions" }) },
   { id: "allergies", title: "Allergies", desc: "Allergies and intolerances", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Allergies", "alert", d.summary.allergies, (a) => html`
       <div class="list-item clickable" data-action="record" data-id="${a.id}">
-        <div class="grow"><div class="title">${a.title}</div><div class="meta">${a.narrative || ""}</div></div>
+        <div class="grow"><div class="title">${a.title}</div><div class="meta">${a.status_note || a.narrative || ""}</div></div>
         ${a.details?.criticality === "high" ? html`<span class="badge bad">High risk</span>` : html`<span class="badge">${capitalize(a.details?.category || "allergy")}</span>`}
       </div>`, d.summary.allergy_note || "No allergies on record.", { href: "#/records/allergies" }) },
   { id: "vitals", title: "Latest vitals", desc: "Blood pressure, weight and other measurements from your visits", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Latest vitals", "heart", d.summary.latest_vitals, (v) => html`
-      <div class="list-item clickable" data-action="vital" data-code="${v.code}">
+      <div class="list-item clickable" data-action="vital" data-code="${v.code || ""}" data-title="${v.title}">
         <div class="grow"><div class="title">${v.title}</div><div class="meta">${fmtDate(v.effective_at)}</div></div>
         <div class="value">${recordValue(v)}</div></div>`, "No vitals yet.", { href: "#/trends/vitals", more: "Vital trends" }) },
   { id: "visits", title: "Recent visits", desc: "Appointments and hospital stays", size: "m", on: true, needs: ["summary"], records: true,
@@ -401,8 +404,8 @@ export async function render({ el, state, navigate }) {
 
   const off = onAction(el, {
     record: ({ id }) => openRecord(id),
-    lab: ({ code }) => navigate(`#/trends/labs?code=${encodeURIComponent(code)}`),
-    vital: ({ code }) => navigate(`#/trends/vitals?code=${encodeURIComponent(code)}`),
+    lab: ({ code, title }) => navigate(`#/trends/labs?${code ? `code=${encodeURIComponent(code)}` : `title=${encodeURIComponent(title)}`}`),
+    vital: ({ code, title }) => navigate(`#/trends/vitals?${code ? `code=${encodeURIComponent(code)}` : `title=${encodeURIComponent(title)}`}`),
     metric: ({ metric }) => navigate(`#/trends?metric=${encodeURIComponent(metric)}`),
     workout: ({ id }) => openWorkout(profile, id),
     "hide-insight": ({ id }) => { hideInsight(id); draw(); },

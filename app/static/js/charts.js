@@ -101,7 +101,7 @@ export function lineChart(container, series, opts = {}) {
     const showAll = pts.length <= 40;
     pts.forEach((p, i) => {
       if (showAll || p.flag || i === pts.length - 1) {
-        svg += `<circle class="pt${s.alt ? " alt" : ""}${p.flag ? " flag" : ""}" cx="${x(p.time)}" cy="${y(p.v)}" r="4.5"/>`;
+        svg += `<circle class="pt${s.alt ? " alt" : ""}${p.flag ? " flag" : ""}${p.bound ? " bound" : ""}" cx="${x(p.time)}" cy="${y(p.v)}" r="4.5"/>`;
       }
     });
   });
@@ -127,7 +127,7 @@ export function lineChart(container, series, opts = {}) {
     const nearest = closest(times, t);
     const rows = series.map((s, i) => {
       const p = atTime[i].get(nearest);
-      return p ? `<div>${series.length > 1 ? esc(s.name) + ": " : ""}<b>${esc(fmtNum(p.v, opts.digits))}</b> ${esc(opts.unit || "")}${p.label ? " · " + esc(p.label) : ""}</div>` : "";
+      return p ? `<div>${series.length > 1 ? esc(s.name) + ": " : ""}<b>${esc(p.prefix || "")}${esc(fmtNum(p.v, opts.digits))}</b> ${esc(opts.unit || "")}${p.label ? " · " + esc(p.label) : ""}</div>` : "";
     }).join("");
     if (!rows) return;
     const cx = x(nearest);

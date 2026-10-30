@@ -500,6 +500,9 @@ export async function render({ el, params, state }) {
       const r = await api("/api/imports/fhir", { method: "POST", form });
       toast(`Imported ${plural(r.records, "record")}`, "good");
       await refresh();
+      // After the refresh, which redraws what's around it.
+      if (r.warnings?.length) mount(status, html`<div class="banner warn"><div class="grow"><b>Imported ${plural(r.records, "record")}, with something to check.</b>
+        ${r.warnings.map((w) => html`<p>${w}</p>`)}</div></div>`);
     } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };
   const importApple = async (file, status) => {

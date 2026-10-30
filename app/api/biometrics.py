@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -322,6 +323,10 @@ def _entry(req: JournalEntryIn) -> dict:
     try:
         if entry.get("end") and activity.to_utc_iso(entry["end"]) < activity.to_utc_iso(entry["start"]):
             raise HTTPException(400, "The end is before the start.")
+        # A typo in the year would sit at the top of everything for good. A day's room, for time zones.
+        latest = activity.to_utc_iso((datetime.now(timezone.utc) + timedelta(days=1)).isoformat())
+        if activity.to_utc_iso(entry["start"]) > latest:
+            raise HTTPException(400, "That date is in the future. Check when it happened.")
     except ValueError:
         raise HTTPException(400, "Times must be ISO 8601, e.g. 2026-01-31T08:30:00Z.")
     return entry

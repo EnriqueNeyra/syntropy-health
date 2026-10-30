@@ -7,6 +7,39 @@ import { confirmAiProvider } from "../consent.js";
 const NUMBER = /^-?\d+(\.\d+)?$/;
 const today = () => new Date().toLocaleDateString("en-CA");   // YYYY-MM-DD in local time
 
+/**
+ * What's typed in a range box, the way labs print it: "200", "<200", "<=200", ">40", "3.5-5.0". Returns the bounds it gives, or
+ * null when it can't be read. A one-sided bound fills its own side whichever box it was typed in.
+ */
+export function parseRange(text) {
+  const t = String(text ?? "").trim().replace(/≤/g, "<=").replace(/≥/g, ">=").replace(/[–—]/g, "-");
+  if (!t) return {};
+  if (NUMBER.test(t)) return { value: Number(t) };
+  let m = t.match(/^<=?\s*(\d+(?:\.\d+)?)$/);
+  if (m) return { high: Number(m[1]) };
+  m = t.match(/^>=?\s*(\d+(?:\.\d+)?)$/);
+  if (m) return { low: Number(m[1]) };
+  m = t.match(/^(\d+(?:\.\d+)?)\s*(?:-|to)\s*(\d+(?:\.\d+)?)$/i);
+  if (m) return { low: Number(m[1]), high: Number(m[2]) };
+  return null;
+}
+
+/** The server's form of one typed row, and what's wrong with it. A row with nothing in it isn't a row. */
+export function checkRow(r) {
+  const value = String(r.value ?? "").trim();
+  const filled = [r.test, value, r.unit, r.ref_low, r.ref_high].some((x) => String(x ?? "").trim());
+  if (!filled) return { empty: true };
+  const problems = [];
+  if (!String(r.test ?? "").trim()) problems.push("Add the test's name.");
+  if (!value) problems.push("Add the result.");
+  const low = parseRange(r.ref_low);
+  const high = parseRange(r.ref_high);
+  if (low === null || high === null) problems.push("Range: use a number, or a form like <200 or 3.5-5.0.");
+  const bounds = { ref_low: low?.low ?? low?.value ?? high?.low ?? null, ref_high: high?.high ?? high?.value ?? low?.high ?? null };
+  if (bounds.ref_low != null && bounds.ref_high != null && bounds.ref_low > bounds.ref_high) problems.push("Range: the low end is above the high end.");
+  return { problems, bounds };
+}
+
 export async function openLabEntry(profile, onSaved) {
   // The dialog opens at once; what it needs to know loads inside it.
   const m = modal({ title: "Add lab results", wide: true, body: loading(3),
@@ -35,7 +68,7 @@ export async function openLabEntry(profile, onSaved) {
     rows = $$(".lab-row", m.el).map((tr) => {
       const get = (k) => tr.querySelector(`[data-k="${k}"]`).value.trim();
       return { test: get("test"), value: get("value"), unit: get("unit"), ref_low: get("ref_low"), ref_high: get("ref_high"),
-               loinc: tr.dataset.loinc || "", flag: tr.dataset.flag || "", date: tr.dataset.date || "" };
+               loinc: tr.dataset.loinc || "", flag: tr.dataset.flag || "", date: tr.dataset.date || "", matched: tr.dataset.matched || "" };
     });
   };
 
@@ -65,17 +98,19 @@ export async function openLabEntry(profile, onSaved) {
       <datalist id="lab-tests">${[...known.values()].map((t) => html`<option value="${t.name}">`)}</datalist>
       <div class="table-wrap"><table class="table lab-table">
         <thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Range low</th><th>Range high</th><th></th></tr></thead>
-        <tbody>${rows.map((r, i) => html`<tr class="lab-row" data-loinc="${r.loinc || ""}" data-flag="${r.flag || ""}" data-date="${r.date || ""}">
-          <td><input class="input" data-k="test" list="lab-tests" value="${r.test || ""}" placeholder="e.g. Ferritin" aria-label="Test"></td>
+        <tbody>${rows.map((r, i) => html`<tr class="lab-row" data-loinc="${r.loinc || ""}" data-flag="${r.flag || ""}" data-date="${r.date || ""}" data-matched="${r.matched || ""}">
+          <td><input class="input" data-k="test" list="lab-tests" value="${r.test || ""}" placeholder="e.g. Ferritin" aria-label="Test">
+            ${r.matched ? html`<div class="small muted" data-matched-note>Filed as ${r.matched}</div>` : ""}
+            <div class="small" style="color:var(--bad)" data-row-problem role="alert"></div></td>
           <td><input class="input" data-k="value" value="${r.value ?? ""}" placeholder="48" aria-label="Result" inputmode="decimal"></td>
           <td><input class="input" data-k="unit" value="${r.unit || ""}" placeholder="ng/mL" aria-label="Unit"></td>
-          <td><input class="input" data-k="ref_low" value="${r.ref_low ?? ""}" aria-label="Range low" inputmode="decimal"></td>
-          <td><input class="input" data-k="ref_high" value="${r.ref_high ?? ""}" aria-label="Range high" inputmode="decimal"></td>
+          <td><input class="input" data-k="ref_low" value="${r.ref_low ?? ""}" aria-label="Range low"></td>
+          <td><input class="input" data-k="ref_high" value="${r.ref_high ?? ""}" aria-label="Range high"></td>
           <td><button class="btn btn-ghost btn-icon btn-sm" data-remove="${i}" aria-label="Remove row">${icon("x")}</button></td></tr>`)}</tbody>
       </table></div>
       <div><button class="btn btn-sm" data-add>${icon("plus")} Add another test</button></div>
-      <p class="hint">Results that aren't numbers (for example "Negative" or "&lt;0.5") are saved as text. Ranges are optional; with them,
-        out-of-range results are flagged on your Overview.</p>
+      <p class="hint">A result like "&lt;0.5" is kept as a limit, and one like "Negative" as text. Ranges are optional and can be typed the way
+        labs print them ("&lt;200" or "3.5-5.0"); with them, out-of-range results are flagged on your Overview.</p>
     </div>`);
     const input = $("#lab-file", m.el);
     if (input && file) { const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; }
@@ -104,7 +139,7 @@ export async function openLabEntry(profile, onSaved) {
             : "No results found. Try a sharper photo taken straight on, in good light.", "bad");
         } else {
           rows = out.results.map((r) => ({ test: r.test, value: r.value ?? r.value_text ?? "", unit: r.unit, ref_low: r.ref_low,
-            ref_high: r.ref_high, loinc: r.loinc, flag: r.flag, date: r.date }));
+            ref_high: r.ref_high, loinc: r.loinc, flag: r.flag, date: r.date, matched: r.matched_test || "" }));
           if (out.collected) collected = out.collected;
           if (out.lab) lab = out.lab;
           fromReport = out.read_as === "ocr" ? "ocr" : "report"; mode = "type";
@@ -122,17 +157,30 @@ export async function openLabEntry(profile, onSaved) {
     const hit = known.get(e.target.value.trim().toLowerCase());
     const tr = e.target.closest(".lab-row");
     tr.dataset.loinc = hit?.loinc || "";
+    tr.dataset.matched = "";
+    tr.querySelector("[data-matched-note]")?.remove();
     const unit = tr.querySelector("[data-k=unit]");
     if (hit?.unit && !unit.value) unit.value = hit.unit.replace(/\{[^}]*\}/g, "");
   });
   m.el.querySelector("[data-save]").addEventListener("click", async (e) => {
     readRows();
-    const num = (v) => (v === "" || v == null ? null : NUMBER.test(String(v).trim()) ? Number(v) : null);
-    const results = rows.filter((r) => r.test && String(r.value).trim()).map((r) => {
+    const dateBox = $("#lab-date", m.el);
+    if (dateBox && !dateBox.reportValidity()) return;
+    // A half-filled row or an unreadable range is pointed out where it is. It's never left out with a message that sounds like success.
+    const checks = rows.map(checkRow);
+    let blocked = false;
+    $$(".lab-row", m.el).forEach((tr, i) => {
+      const problems = checks[i].problems || [];
+      tr.querySelector("[data-row-problem]").textContent = problems.join(" ");
+      blocked = blocked || problems.length > 0;
+    });
+    if (blocked) return toast("Some rows need fixing before they can be saved. Fix them, or remove them.", "bad");
+    const results = rows.flatMap((r, i) => {
+      if (checks[i].empty) return [];
       const v = String(r.value).trim();
-      return { test: r.test, loinc: r.loinc || known.get(r.test.toLowerCase())?.loinc || null,
-               ...(NUMBER.test(v) ? { value: Number(v) } : { value_text: v }), unit: r.unit || null,
-               ref_low: num(r.ref_low), ref_high: num(r.ref_high), flag: r.flag || null, date: r.date || null };
+      return [{ test: r.test, loinc: r.loinc || known.get(r.test.toLowerCase())?.loinc || null,
+                ...(NUMBER.test(v) ? { value: Number(v) } : { value_text: v }), unit: r.unit || null,
+                ...checks[i].bounds, flag: r.flag || null, date: r.date || null }];
     });
     if (!results.length) return toast("Enter at least one test and its result.", "bad");
     e.target.disabled = true;

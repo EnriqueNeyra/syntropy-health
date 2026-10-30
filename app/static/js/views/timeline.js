@@ -7,7 +7,7 @@ import { openWorkout, duration, workoutIcon } from "./workouts.js";
 import { moodLabel } from "./journal.js";
 import { fmtMeasure } from "../units.js";
 import {
-  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loading, mount, onAction, parseDate,
+  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loading, mount, onAction, parseDate, resultStatus,
 } from "../ui.js";
 
 const FILTERS = [
@@ -35,10 +35,12 @@ function describe(r) {
   }
   if (r.kind === "signal") return html`<b>${r.title}</b>${r.value_label && r.value_label !== "Occurred" ? ` · ${r.value_label}` : ""}`;
   switch (r.category) {
-    case "labs": return html`<b>${r.title}</b> ${r.value_text || ""} ${flagBadge(r.interpretation)}`;
+    case "labs": return html`<b>${r.title}</b> ${r.value_text || ""} ${resultStatus(r.status)} ${flagBadge(r.interpretation)}`;
     case "conditions": return html`Diagnosed <b>${r.title}</b>`;
     case "medications": return html`Prescribed <b>${r.title}</b>`;
-    case "immunizations": return html`Vaccinated · <b>${r.title}</b>`;
+    case "immunizations": return String(r.status).toLowerCase() === "not-done"
+      ? html`Vaccine not given · <b>${r.title}</b>${r.details?.status_reason ? html` <span class="muted">${r.details.status_reason}</span>` : ""}`
+      : html`Vaccinated · <b>${r.title}</b>`;
     case "allergies": return html`Allergy recorded · <b>${r.title}</b>`;
     case "procedures": return html`Procedure · <b>${r.title}</b>`;
     case "reports": return html`Report · <b>${r.title}</b>`;

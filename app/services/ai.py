@@ -947,7 +947,13 @@ How to work:
 data. Use the reference range and flag the source reported; when the range is "not reported by the lab", say \
 so and don't give a typical range from memory. Never infer a finding (for example anemia or infection) the data \
 doesn't show.
-- For "anything out of range", use out_of_range_recent_labs and the flag on each result.
+- For "anything out of range", use out_of_range_recent_labs and the flag on each result. A result marked older_result is years old: say \
+so rather than presenting it as current. A result_status of preliminary may still change.
+- A result written like "<0.5" is a limit, not a measurement: it says below 0.5, and never exactly 0.5.
+- Medications in current_medications are what the records list as current. Those in medications_to_check may be out of date, for the \
+reason given (med_reason): never state them as being taken. Those planned but not started aren't being taken.
+- Conditions in active_conditions are active problems. Unconfirmed ones are possibilities and never facts; ones with no stated status and \
+visit diagnoses aren't known to be active. A status_note means sources disagree: say so.
 - Cite specifics: values with units, dates, and where they came from (the source name).
 - Reply in the same language the person writes in.
 - Be concise and practical. Use short paragraphs, bullet lists and small markdown tables when comparing numbers.
@@ -990,12 +996,14 @@ def summary_context(profile_id: str, budget_chars: int) -> str:
         sections += [("identity_conflict", s["identity_conflict"]), ("patient_records_name", s["patient"])]
     sections += [
         ("out_of_range_recent_labs", s["out_of_range_recent_labs"]), ("active_conditions", s["active_conditions"]),
-        ("current_medications", s["active_medications"]), ("allergies", s["allergies"]),
+        ("unconfirmed_conditions_not_facts", s["unconfirmed_conditions"]), ("conditions_status_not_stated", s["conditions_status_not_stated"]),
+        ("current_medications", s["active_medications"]), ("medications_to_check_may_be_out_of_date", s["medications_to_check"]),
+        ("medications_planned_not_started", s["medications_planned_not_started"]), ("allergies", s["allergies"]),
         ("wearables_latest_and_7_30_day_averages", s["wearable_headline_30d"]), ("latest_vitals", s["latest_vitals"]),
         ("patterns_across_sources", _safe(lambda: [{k: i[k] for k in ("title", "text")} for i in insights.insights(profile_id, 10)])),
         ("workouts_last_30_days", activity.workout_summary(profile_id, 30)),
         ("health_journal_last_30_days", activity.event_summary(profile_id, 30)),
-        ("recent_labs", s["recent_labs"]), ("recent_visits", s["recent_visits"]),
+        ("recent_labs", s["recent_labs"]), ("recent_visits", s["recent_visits"]), ("visit_diagnoses", s["visit_diagnoses"]),
         ("connected_sources", s["connected_sources"]), ("record_counts", s["record_counts"]),
     ]
     lines: list[str] = []

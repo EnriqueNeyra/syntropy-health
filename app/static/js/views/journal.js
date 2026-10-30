@@ -477,6 +477,7 @@ function openEntry(profile, existing, onSaved, recent, startKind) {
   };
 
   const save = async () => {
+    if (!form.reportValidity()) return;
     let body;
     try { body = entry(); } catch (err) { return toast(err.message, "bad"); }
     const btn = m.el.querySelector("[data-save]");

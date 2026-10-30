@@ -612,6 +612,8 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .chart .pt { fill: var(--series-1); stroke: var(--surface); stroke-width: 2; }
 .chart .pt.alt { fill: var(--series-2); }
 .chart .pt.flag { fill: var(--bad); }
+.chart .pt.bound { fill: var(--surface); stroke: var(--series-1); }
+.chart .pt.flag.bound { stroke: var(--bad); }
 .chart .bar { fill: var(--series-1); opacity: .85; }
 @media (hover: hover) { .chart .bar:hover { opacity: 1; } }
 .chart .avg { stroke: var(--text-3); stroke-dasharray: 4 4; }
@@ -898,6 +900,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .report { max-width: 860px; }
 .report section { margin-bottom: 20px; break-inside: avoid; }
 .report h2 { font-size: 15px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid var(--text); }
+.report h3 { font-size: 13px; margin: 12px 0 6px; }
 .report .table td, .report .table th { padding: 6px 10px; }
 .report-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
 .disclaimer { font-size: 11.5px; color: var(--text-3); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 20px; }

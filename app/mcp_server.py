@@ -41,6 +41,9 @@ def _slim(rec: dict[str, Any], narrative_chars: int = 600) -> dict[str, Any]:
         out["details"] = details
     if len(rec.get("sources") or []) > 1:
         out["reported_by"] = [s.get("source_name") for s in rec["sources"]]
+    for key in ("status_note", "med_reason", "group_note"):
+        if rec.get(key):
+            out[key] = rec[key]
     return out
 
 
@@ -103,7 +106,14 @@ def t_health_summary(args: dict[str, Any]) -> Any:
         # Non-empty when connected records describe different people: don't treat them as one person's history.
         "identity_conflict": s["identity_conflict"],
         "active_conditions": [_slim(c) for c in s["active_conditions"]],
+        # Not active problems, and not to be stated as facts: possible diagnoses, ones with no status, and what a visit recorded.
+        "unconfirmed_conditions": [_slim(c) for c in s["unconfirmed_conditions"]],
+        "conditions_status_not_stated": [_slim(c) for c in s["conditions_status_unknown"]],
+        "visit_diagnoses": [_slim(c) for c in s["visit_diagnoses"][:15]],
         "active_medications": [_slim(m) for m in s["active_medications"]],
+        # Still on the record but maybe not being taken; med_reason says why. Not to be stated as current.
+        "medications_to_check": [_slim(m) for m in s["medications_to_check"]],
+        "medications_planned_not_started": [_slim(m) for m in s["medications_planned"]],
         "allergies": [_slim(a) for a in s["allergies"]],
         "out_of_range_recent_labs": [_lab_line(l) for l in s["flagged_labs"]],
         "recent_labs": [_lab_line(l) for l in s["recent_labs"]],
@@ -153,6 +163,8 @@ def _lab_line(rec: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in {
         "test": rec.get("title"), "date": (rec.get("effective_at") or "")[:10], "result": rec.get("value_text"),
         "flag": rec.get("interpretation"), "reference_range": _range(rec), "source": rec.get("source_name"),
+        "result_status": rec.get("status") if (rec.get("status") or "").lower() not in ("final", "") else None,
+        "older_result": rec.get("older_result"),
     }.items() if v not in (None, "")}
 
 
@@ -173,10 +185,10 @@ def t_list_lab_tests(args: dict[str, Any]) -> Any:
 def _resolve_code(prof_id: str, code_or_name: str, category: Optional[str]) -> str:
     catalog = records.observation_catalog(prof_id, category or "labs") + ([] if category else records.observation_catalog(prof_id, "vitals"))
     for item in catalog:
-        if item["code"] == code_or_name:
-            return item["code"]
+        if code_or_name in (item.get("codes") or [item["code"]]):
+            return code_or_name
     # Common names and abbreviations ("HbA1c", "LDL", "TSH") that the source lab may have titled differently.
-    on_record = {item["code"] for item in catalog}
+    on_record = {code for item in catalog for code in item.get("codes") or [item["code"]]}
     for code in lab_catalog.loinc_codes(code_or_name):
         if code in on_record:
             return code
@@ -185,8 +197,15 @@ def _resolve_code(prof_id: str, code_or_name: str, category: Optional[str]) -> s
     if matches:
         # "cholesterol" should mean Total Cholesterol, not the first panel member that mentions it:
         # prefer the title that is closest to the query (fewest extra characters).
-        return min(matches, key=lambda item: len(item["title"]))["code"]
+        closest = min(matches, key=lambda item: len(item["title"]))
+        return closest["code"] or closest["title"]     # a test sent with no code goes by its name
     raise ValueError(f"No lab or vital matching '{code_or_name}'. Use list_lab_tests to see what is available.")
+
+
+def _trend_point(p: dict[str, Any]) -> dict[str, Any]:
+    # A comparator makes the value a limit, not a measurement: "<" 0.5 means below 0.5.
+    return {k: v for k, v in {"date": p["t"], "value": p["v"], "comparator": p.get("comparator"), "as_reported": p.get("text") if p.get("converted") else None,
+                              "flag": p.get("interpretation"), "source": p.get("source_name")}.items() if v is not None}
 
 
 def t_lab_trend(args: dict[str, Any]) -> Any:
@@ -195,7 +214,9 @@ def t_lab_trend(args: dict[str, Any]) -> Any:
     series = records.observation_series(prof["id"], code)
     return {"code": code, "title": series["title"], "unit": series["unit"],
             "reference_range": _range({"ref_low": series["ref_low"], "ref_high": series["ref_high"], "unit": series["unit"]}),
-            "results": [{"date": p["t"], "value": p["v"], "flag": p.get("interpretation"), "source": p.get("source_name")} for p in series["points"]],
+            "results": [_trend_point(p) for p in series["points"]],
+            "results_in_other_units": [{"unit": o["unit"], "results": [_trend_point(p) for p in o["points"]]} for o in series["other_units"]],
+            "results_not_numbers": [{"date": t["t"], "result": t["text"], "source": t.get("source_name")} for t in series["text_results"]],
             "components": [{"name": c["name"], "unit": c["unit"], "results": [{"date": p["t"], "value": p["v"]} for p in c["points"]]}
                            for c in series["components"]]}
 

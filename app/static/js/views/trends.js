@@ -15,7 +15,7 @@ import { convert, displayUnit, fmtMeasure, recordValue } from "../units.js";
 import { openRecord } from "./record-detail.js";
 import {
   scrollToTop,
-  $, emptyState, flagBadge, fmtDate, fmtNum, html, icon, loading, mount, onAction, plural,
+  $, emptyState, flagBadge, fmtDate, fmtNum, html, icon, loading, mount, onAction, plural, resultStatus,
 } from "../ui.js";
 
 /** Decimal places a value was given with (6 → 0, 5.9 → 1). */
@@ -83,7 +83,7 @@ function buildItems(labs, vitals, metrics, signals) {
     for (const it of list) {
       const topic = clinicalTopic(it, category);
       items.push({
-        key: `c:${it.code}`, kind: "clinical", category, code: it.code, topic, title: it.title,
+        key: it.code ? `c:${it.code}` : `t:${it.title}`, kind: "clinical", category, code: it.code, codes: it.codes || [], codeSystem: it.code_system, topic, title: it.title,
         section: topic === "labs" ? (it.panel || "Other tests") : "From health records",
         value: category === "vitals" ? recordValue(it.latest) : it.latest.value_text || "", interpretation: it.latest.interpretation, trend: it.trend,
         meta: `${fmtDate(it.latest.effective_at)} · ${plural(it.count, "result")}`,
@@ -140,18 +140,22 @@ export async function render({ el, parts, params, state, navigate }) {
   // What to show: an explicit test or metric wins (and picks its topic), then the topic in the address, then the
   // first out-of-range lab, then the first topic with data.
   const wanted = params.get("metric") ? `m:${params.get("metric")}` : params.get("code") ? `c:${params.get("code")}`
-    : params.get("event") ? `e:${params.get("event")}` : null;
-  let selected = items.find((i) => i.key === wanted) || null;
+    : params.get("title") ? `t:${params.get("title")}` : params.get("event") ? `e:${params.get("event")}` : null;
+  // A link can name any code of a test, or a test by its name; the list has one entry for all of them.
+  let selected = items.find((i) => i.key === wanted)
+    || (params.get("code") ? items.find((i) => i.codes?.includes(params.get("code"))) : null)
+    || (params.get("title") ? items.find((i) => i.kind === "clinical" && i.title === params.get("title")) : null) || null;
   let topic = selected?.topic || (topics.some(([k]) => k === parts[0]) ? parts[0] : topics[0][0]);
   if (!selected) {
     const inTopic = items.filter((i) => i.topic === topic);
     selected = inTopic.find((i) => isFlagged(i.interpretation)) || inTopic[0];
   }
   // On a phone the list and the chart take turns; opening a link to one test goes straight to its chart.
-  let showDetail = Boolean(wanted && selected?.key === wanted);
+  let showDetail = Boolean(wanted && selected);
   let filter = "";
   let days = savedDays();
   let source = "";
+  let unitChoice = 0;
   let showMarkers = markersOn();
   // Comparing the chosen measure with another (kept in the address, so a link from an insight opens it).
   const cmp = { b: params.get("compare") || null, lag: Number(params.get("lag")) || 0 };
@@ -172,7 +176,8 @@ export async function render({ el, parts, params, state, navigate }) {
   const hashFor = (it) => {
     const q = !it ? "" : it.kind === "wearable" ? `?metric=${encodeURIComponent(it.metric)}`
       + (it === selected && cmp.b ? `&compare=${encodeURIComponent(cmp.b)}${cmp.lag ? `&lag=${cmp.lag}` : ""}` : "")
-      : it.kind === "signal" ? `?event=${encodeURIComponent(it.eventType)}` : `?code=${encodeURIComponent(it.code)}`;
+      : it.kind === "signal" ? `?event=${encodeURIComponent(it.eventType)}`
+      : it.code ? `?code=${encodeURIComponent(it.code)}` : `?title=${encodeURIComponent(it.title)}`;
     return `#/trends/${it?.topic || topic}${q}`;
   };
   // In the iPhone app a chart is a screen of its own, with the app's back button: the page shows only that chart.
@@ -220,9 +225,20 @@ export async function render({ el, parts, params, state, navigate }) {
   let drawSeq = 0;
   const backBar = () => html`<button class="btn btn-ghost btn-sm split-back" data-action="back">${icon("chevronLeft")} ${TOPICS.find(([k]) => k === topic)[1]}</button>`;
 
+  // What identifies a test, by what its code really is: an institution's own code isn't a LOINC.
+  const codeLabel = (it, codes) => {
+    if (!it.code) return null;
+    if (it.codeSystem !== "http://loinc.org") return `Code ${it.code}`;
+    return (codes?.length || 0) > 1 ? `LOINC ${codes.join(", ")}` : `LOINC ${it.code}`;
+  };
+
   const drawClinical = async (detail, it, seq) => {
-    const s = await get("/api/observations/series", { profile: profile.id, code: it.code, category: it.category });
+    const all = await get("/api/observations/series", { profile: profile.id, code: it.code || undefined, title: it.code ? undefined : it.title, category: it.category });
     if (seq !== drawSeq) return;
+    // One chart is one unit. Results in another unit, with no known conversion, have a chart of their own to switch to.
+    const unitSets = [{ unit: all.unit, ref_low: all.ref_low, ref_high: all.ref_high, points: all.points }, ...(all.other_units || [])].filter((u) => u.points.length);
+    const shownSet = unitSets[Math.min(unitChoice, Math.max(0, unitSets.length - 1))] || unitSets[0] || { unit: all.unit, ref_low: null, ref_high: null, points: [] };
+    const s = { ...all, ...shownSet };
     const hasComponents = s.components.length > 0 && !s.points.length;
     // Weight, height and temperature in the chosen units; everything else as recorded.
     const body = it.category === "vitals" && BODY_UNITS.has(s.unit);
@@ -239,13 +255,20 @@ export async function render({ el, parts, params, state, navigate }) {
     const latest = pts[pts.length - 1];
     const first = pts[0];
     const clinicalMarks = () => (pts.length > 1 ? markers.filter((m) => m.t >= String(first.t).slice(0, 10) && m.t <= String(latest.t).slice(0, 10)) : []);
-    const change = latest && first && pts.length > 1 ? latest.v - first.v : null;
+    // A limit like "<5" isn't a level, so the change is between actual measurements.
+    const measured = pts.filter((p) => !p.comparator);
+    const change = measured.length > 1 ? measured[measured.length - 1].v - measured[0].v : null;
+    const bound = (p) => (p.comparator ? p.comparator.replace("<=", "≤").replace(">=", "≥") : "");
     const rows = hasComponents
       ? s.components[0].points.map((p, i) => ({ t: p.t, record_id: p.record_id, source: p.source_name,
           text: s.components.map((c) => fmtNum(c.points[i]?.v)).join(" / ") + " " + (s.components[0].unit || "") }))
-      : pts.map((p) => ({ t: p.t, record_id: p.record_id, text: text(p.raw), interpretation: p.interpretation, source: p.source_name }));
+      : [...pts.map((p) => ({ t: p.t, record_id: p.record_id, text: body ? `${bound(p)}${text(p.raw)}` : p.text || `${bound(p)}${text(p.raw)}`,
+            standard: p.converted ? `${bound(p)}${text(p.raw)}` : null, status: p.status, interpretation: p.interpretation, source: p.source_name })),
+         ...(all.text_results || []).map((p) => ({ t: p.t, record_id: p.record_id, text: p.text, status: p.status, interpretation: p.interpretation, source: p.source_name }))]
+        .sort((a, b) => String(a.t).localeCompare(String(b.t)));
+    const lastRow = latest && rows.find((r) => r.record_id === latest.record_id);
     const latestText = hasComponents ? rows[rows.length - 1]?.text
-      : latest ? (body && hint && unit === "in" ? text(latest.raw) : html`${body ? fmtNum(latest.v, 1) : num(latest.v)}<small>${unit}</small>`) : "";
+      : latest ? (body && hint && unit === "in" ? `${bound(latest)}${text(latest.raw)}` : html`${bound(latest)}${body ? fmtNum(latest.v, 1) : num(latest.v)}<small>${unit}</small>`) : "";
     const refNum = (v) => (body ? fmtNum(v) : fmtFixed(v, Math.max(places, decimals(v))));
     const ref = s.ref_low != null || s.ref_high != null
       ? `Range ${s.ref_low != null ? refNum(s.ref_low) : ""}${s.ref_low != null && s.ref_high != null ? "–" : s.ref_high != null ? "≤ " : "+"}${s.ref_high != null ? refNum(s.ref_high) : ""} ${unit}` : null;
@@ -254,29 +277,35 @@ export async function render({ el, parts, params, state, navigate }) {
       <div class="card card-pad">
         <div class="detail-head">
           <div class="grow"><div class="eyebrow">${it.category === "labs" ? "Lab result" : "Measured at visits"}</div><h2>${s.title}</h2>
-            <div class="small muted">${[ref, `LOINC ${it.code}`].filter(Boolean).join(" · ")}</div></div>
+            <div class="small muted">${[ref, codeLabel(it, all.codes)].filter(Boolean).join(" · ")}</div></div>
           ${latestText ? html`<div class="detail-value"><div class="v">${latestText}</div>
-            <div class="small muted">${fmtDate(rows[rows.length - 1]?.t)} ${flagBadge(latest?.interpretation)}</div></div>` : ""}
+            <div class="small muted">${fmtDate(hasComponents ? rows[rows.length - 1]?.t : lastRow?.t)} ${resultStatus(latest?.status)} ${flagBadge(latest?.interpretation)}</div></div>` : ""}
         </div>
+        ${unitSets.length > 1 ? html`<div class="chips" style="margin-bottom:8px">${unitSets.map((u, i) => html`<button class="chip ${u === shownSet ? "active" : ""}" data-action="unit" data-index="${i}">
+          ${u.unit || "No unit"} <span class="n">${u.points.length}</span></button>`)}</div>
+          <p class="small muted" style="margin:0 0 8px">Some results are in a unit that can't be converted to the others, so they have their own chart rather than sharing an axis.</p>` : ""}
         ${hasComponents ? html`<div class="legend" style="margin-bottom:6px">${s.components.map((c, i) => html`<span class="${i ? "alt" : ""}">${c.name}</span>`)}</div>`
           : ref ? html`<div class="legend" style="margin-bottom:6px"><span class="band">Reference range</span></div>` : ""}
         ${pts.length > 1 ? html`<div class="row wrap" style="justify-content:flex-end;margin-bottom:4px">${markerToggle(clinicalMarks().length, showMarkers)}</div>` : ""}
         <div id="tr-chart"></div>
         ${markerList(showMarkers ? clinicalMarks() : [])}
         ${change !== null ? html`<p class="small muted" style="margin-top:8px">${Math.abs(change) < 1e-9 ? "Unchanged" : `${change > 0 ? "Up" : "Down"} ${body ? fmtNum(Math.abs(change), 1) : num(Math.abs(change))} ${unit}`}
-          since ${fmtDate(first.t)} (${plural(pts.length, "result")}).</p>` : ""}
+          since ${fmtDate(measured[0].t)} (${plural(measured.length, "measured result")}).</p>` : ""}
+        ${pts.some((p) => p.comparator) ? html`<p class="small muted" style="margin-top:4px">Hollow points are limits, like "below 5": the true value is somewhere past them.</p>` : ""}
+        ${pts.some((p) => p.converted) ? html`<p class="small muted" style="margin-top:4px">Some results were reported in another unit and are converted here to ${unit}.</p>` : ""}
       </div>
       <div class="card"><div class="card-head"><h3>All results</h3><span class="badge">${rows.length}</span></div>
         <div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th style="text-align:right">Value</th><th>Flag</th><th>Source</th></tr></thead>
         <tbody>${rows.slice().reverse().map((r) => html`<tr class="clickable" data-action="open" data-id="${r.record_id}">
-          <td>${fmtDate(r.t)}</td><td class="num">${r.text}</td><td>${flagBadge(r.interpretation)}</td><td class="small muted">${r.source || ""}</td></tr>`)}</tbody></table></div></div>`);
+          <td>${fmtDate(r.t)}</td><td class="num">${r.text}${r.standard ? html`<div class="small muted">${r.standard}</div>` : ""}</td><td>${resultStatus(r.status)}${flagBadge(r.interpretation)}</td><td class="small muted">${r.source || ""}</td></tr>`)}</tbody></table></div></div>`);
     wireDetail(detail);
     const chartEl = $("#tr-chart", detail);
     const draw = () => {
       if (hasComponents) {
         lineChart(chartEl, s.components.slice(0, 2).map((c, i) => ({ name: c.name, alt: i === 1, points: c.points })), { unit: s.components[0].unit, label: s.title });
       } else {
-        lineChart(chartEl, [{ name: s.title, points: pts.map((p) => ({ t: p.t, v: p.v, flag: isFlagged(p.interpretation), label: p.source_name })) }],
+        lineChart(chartEl, [{ name: s.title, points: pts.map((p) => ({ t: p.t, v: p.v, flag: isFlagged(p.interpretation), bound: Boolean(p.comparator),
+            prefix: bound(p), label: p.source_name })) }],
           { unit, band: { low: s.ref_low, high: s.ref_high }, label: s.title, markers: showMarkers ? clinicalMarks() : [],
             onPointClick: (p) => openRecord(pts.find((q) => q.t === p.t)?.record_id) });
       }
@@ -404,7 +433,13 @@ export async function render({ el, parts, params, state, navigate }) {
     mount(detail, html`${backBar()}${loading(2)}`);
     if (selected.kind === "wearable") await drawWearable(detail, selected, seq);
     else if (selected.kind === "signal") await drawSignal(detail, selected, seq);
-    else await drawClinical(detail, selected, seq);
+    else {
+      // One test that can't be read costs its own pane, not the whole page.
+      try { await drawClinical(detail, selected, seq); }
+      catch (err) {
+        if (seq === drawSeq) mount(detail, html`${backBar()}<div class="card card-pad"><p class="muted">${selected.title} couldn't be shown: ${err.message}</p></div>`);
+      }
+    }
   };
 
   const narrow = () => window.matchMedia(NARROW).matches;
@@ -420,7 +455,7 @@ export async function render({ el, parts, params, state, navigate }) {
   const off = onAction(el, {
     topic: ({ topic: t }) => {
       if (t === topic) { showDetail = false; layout(); return; }
-      topic = t; filter = ""; $("#tr-filter", el).value = ""; source = ""; cmp.b = null; cmp.lag = 0;
+      topic = t; filter = ""; $("#tr-filter", el).value = ""; source = ""; unitChoice = 0; cmp.b = null; cmp.lag = 0;
       const inTopic = items.filter((i) => i.topic === topic);
       selected = inTopic.find((i) => isFlagged(i.interpretation)) || inTopic[0];
       showDetail = false;
@@ -432,7 +467,7 @@ export async function render({ el, parts, params, state, navigate }) {
       if (!next) return;
       // The iPhone app opens the chart as a new screen.
       if (nativeNav && narrow() && !showDetail && appBridge({ type: "visit", hash: hashFor(next) })) return;
-      if (next.key !== selected?.key) { source = ""; cmp.b = null; cmp.lag = 0; }
+      if (next.key !== selected?.key) { source = ""; unitChoice = 0; cmp.b = null; cmp.lag = 0; }
       selected = next;
       showDetail = true;
       address(); drawList(); layout();
@@ -441,6 +476,7 @@ export async function render({ el, parts, params, state, navigate }) {
     },
     back: () => { showDetail = false; layout(); scrollToTop(); },
     range: ({ days: d }) => { days = Number(d); saveDays(days); return drawDetail(); },
+    unit: ({ index }) => { unitChoice = Number(index) || 0; return drawDetail(); },
     goal: () => {
       if (selected?.kind !== "wearable") return;
       const g = goalsNow?.goals?.[selected.metric];

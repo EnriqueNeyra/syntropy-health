@@ -4,7 +4,7 @@ import { del, get } from "../api.js";
 import { appBridge, nativeNav } from "../app.js";
 import { recordValue } from "../units.js";
 import {
-  capitalize, CATEGORY_ICON, confirmDialog, flagBadge, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, statusBadge, toast,
+  capitalize, CATEGORY_ICON, confirmDialog, flagBadge, fmtDate, fmtDateTime, html, icon, loading, modal, mount, resultStatus, statusBadge, toast,
 } from "../ui.js";
 
 function kv(rows) {
@@ -19,33 +19,37 @@ function detailRows(r) {
   switch (r.category) {
     case "labs": case "vitals": case "observations":
       return [
-        ["Result", r.category === "vitals" ? recordValue(r) : r.value_text], ["Interpretation", flagBadge(r.interpretation) || (r.interpretation ? capitalize(r.interpretation) : null)],
-        ["Reference range", r.ref_text], ["As reported", d.original_value],
+        ["Result", r.category === "vitals" ? recordValue(r) : r.value_text], ["Status", resultStatus(r.status) || null],
+        ["Interpretation", flagBadge(r.interpretation) || (r.interpretation ? capitalize(r.interpretation) : null)],
+        ["Reference range", r.ref_text], ["All ranges reported", (d.ranges || []).map((x) => `${x.text || "—"}${x.for ? ` (${x.for})` : ""}`)],
+        ["In standard units", r.category === "vitals" ? null : d.converted_value], ["As reported", d.original_value],
         ["Panel", d.panel], ["Measured", fmtDateTime(r.effective_at)],
-        ["Components", (d.components || []).map((c) => `${c.name}: ${c.value ?? c.text} ${c.unit || ""}`)],
+        ["Components", (d.components || []).map((c) => `${c.name}: ${c.text ?? c.value ?? "No value"}${c.text ? "" : ` ${c.unit || ""}`}`)],
       ];
     case "medications":
-      return [...common, ["Instructions", d.dosage], ["As needed", d.as_needed ? "Yes" : null], ["Prescriber", d.prescriber],
-              ["Refills", d.refills], ["Reason", d.reason]];
+      return [...common, ["Reported, not prescribed", d.reported ? "Yes" : null], ["Instructions", d.dosage], ["As needed", d.as_needed ? "Yes" : null],
+              ["Prescriber", d.prescriber], ["Refills", d.refills], ["Valid until", d.valid_until ? fmtDate(d.valid_until) : null], ["Reason", d.reason]];
     case "conditions":
-      return [...common, ["Onset", fmtDate(r.effective_at)], ["Resolved", r.effective_end ? fmtDate(r.effective_end) : null],
-              ["ICD-10", d.icd10], ["SNOMED CT", d.snomed], ["Verification", d.verification], ["Severity", d.severity]];
+      return [...common, ["Onset", d.onset_text || fmtDate(r.effective_at)], ["Resolved", r.effective_end ? fmtDate(r.effective_end) : d.abatement_text],
+              ["Type", (d.categories || []).filter(Boolean)], ["ICD-10", d.icd10], ["SNOMED CT", d.snomed], ["Verification", d.verification], ["Severity", d.severity]];
     case "allergies":
       return [...common, ["Category", d.category ? capitalize(d.category) : null], ["Criticality", d.criticality ? capitalize(d.criticality) : null],
-              ["Reactions", (d.reactions || []).map((x) => `${x.manifestation || "Reaction"}${x.severity ? ` (${x.severity})` : ""}`)]];
+              ["Reactions", (d.reactions || []).map((x) => `${x.manifestation || "Reaction"}${x.severity ? ` (${x.severity})` : ""}`)], ["Note", d.note]];
     case "immunizations":
-      return [...common, ["Dose", d.dose], ["Lot", d.lot], ["Manufacturer", d.manufacturer], ["Site", d.site], ["Route", d.route]];
+      return [...common, ["Date given", d.date_text], ["Reason not given", d.status_reason], ["Dose", d.dose], ["Lot", d.lot], ["Manufacturer", d.manufacturer],
+              ["Site", d.site], ["Route", d.route]];
     case "encounters":
       return [...common, ["Ended", r.effective_end ? fmtDateTime(r.effective_end) : null], ["Type", d.class],
-              ["Reason", d.reasons], ["Clinicians", d.clinicians], ["Location", d.locations], ["Organization", d.provider]];
+              ["Reason", d.reasons], ["Diagnoses", d.diagnoses], ["Clinicians", d.clinicians], ["Location", d.locations], ["Organization", d.provider]];
     case "procedures":
-      return [...common, ["Performed by", d.performers], ["Reason", d.reasons], ["Outcome", d.outcome], ["Body site", d.body_site]];
+      return [...common, ["When", d.date_text], ["Performed by", d.performers], ["Reason", d.reasons], ["Outcome", d.outcome], ["Body site", d.body_site]];
     case "reports":
       return [...common, ["Type", d.categories], ["Performed by", d.performer]];
     case "notes":
       return [...common, ["Type", d.type], ["Authors", d.authors]];
     case "care_team":
-      return [["Members", (d.members || []).map((m) => `${m.name} — ${m.role}`)]];
+      return [["Members", (d.members || []).map((m) => `${m.name} — ${m.role}`)],
+              ["Others", d.unnamed_members ? `${d.unnamed_members} whose names this source didn't send` : null]];
     case "care_plans":
       return [...common, ["Addresses", d.addresses], ["Activities", (d.activities || []).map((a) => a.description)]];
     case "goals":
@@ -66,18 +70,22 @@ function recordBody(r, text) {
       <div class="row"><span class="src-avatar">${icon(CATEGORY_ICON[r.category] || "records")}</span>
         <div class="grow"><div class="muted small">${capitalize(r.category.replace("_", " "))}${r.code ? html` · <span class="mono">${r.code}</span>` : ""}</div>
           <div><b>${r.source_name || ""}</b></div></div></div>
+      ${r.status_note ? html`<div class="banner warn small"><div class="grow">${r.status_note}</div></div>` : ""}
+      ${r.details?.body_stale ? html`<div class="banner warn small"><div class="grow">This changed at the source, and the new text couldn't be fetched yet.
+        This is the earlier version. The next sync tries again.</div></div>` : ""}
       ${kv(detailRows(r))}
       ${r.results?.length ? html`<div><div class="label">Results</div>
         <div class="list card">${r.results.map((x) => html`<button class="list-item small" data-open-result="${x.id}"
           style="text-align:left;width:100%;background:none;border:0;cursor:pointer">
           <span class="grow">${x.title}</span>
-          <b>${x.category === "vitals" ? recordValue(x) : x.value_num != null ? `${fmtNum(x.value_num)}${x.unit ? ` ${x.unit}` : ""}` : x.value_text || "—"}</b>
-          ${flagBadge(x.interpretation)}</button>`)}</div></div>` : ""}
+          <b>${x.category === "vitals" ? recordValue(x) : x.value_text || "—"}</b>
+          ${resultStatus(x.status)}${flagBadge(x.interpretation)}</button>`)}</div></div>` : ""}
       ${r.narrative && !text && !shownAbove(r) ? html`<div><div class="label">Notes</div><p>${r.narrative}</p></div>` : ""}
       ${text ? html`<div><div class="row between" style="margin-bottom:6px"><div class="label" style="margin:0">Full text</div>
         <button class="btn btn-sm" data-copy>Copy</button></div><div class="note-text">${text}</div></div>` : ""}
       ${r.duplicates?.length ? html`<div><div class="label">Also reported by</div>
         <div class="list card">${r.duplicates.map((dup) => html`<div class="list-item small"><span class="grow">${dup.source_name}</span>
+          ${["conditions", "allergies", "medications"].includes(r.category) ? statusBadge(dup.status) : ""}
           <span class="muted">${fmtDate(dup.effective_at)}</span></div>`)}</div>
         <p class="hint">Syntropy merges the same fact reported by several institutions into one entry.</p></div>` : ""}
       ${r.editable ? html`<div class="row"><span class="small muted grow">You entered this result.</span>

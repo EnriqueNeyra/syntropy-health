@@ -4,14 +4,14 @@ import { openLabEntry } from "./lab-entry.js";
 import { openRecord } from "./record-detail.js";
 import { recordValue } from "../units.js";
 import {
-  $, CATEGORY_ICON, debounce, emptyState, flagBadge, fmtDate, html, icon, loading, mount, onAction, statusBadge,
+  $, CATEGORY_ICON, debounce, emptyState, flagBadge, fmtDate, html, icon, loading, mount, onAction, resultStatus, statusBadge,
 } from "../ui.js";
 
 const PAGE = 100;
 
 function rowMeta(r) {
   const d = r.details || {};
-  const bits = [fmtDate(r.effective_at)];
+  const bits = [r.effective_at || !d.date_text ? fmtDate(r.effective_at) : d.date_text];
   if (r.category === "medications" && r.value_text) bits.push(r.value_text);
   else if (r.category === "encounters") bits.push(...(d.clinicians || []).slice(0, 1), ...(d.reasons || []).slice(0, 1));
   else if (r.category === "allergies" && r.narrative) bits.push(r.narrative);
@@ -25,9 +25,9 @@ function rowMeta(r) {
 
 function rowRight(r) {
   if (["labs", "vitals", "observations"].includes(r.category)) {
-    return html`<div class="value">${r.category === "vitals" ? recordValue(r) : r.value_text || ""}</div>${flagBadge(r.interpretation)}`;
+    return html`<div class="value">${r.category === "vitals" ? recordValue(r) : r.value_text || ""}</div>${resultStatus(r.status)}${flagBadge(r.interpretation)}`;
   }
-  if (r.category === "goals" && r.value_text) return html`<span class="small muted">${r.value_text}</span>`;
+  if (r.category === "goals" && r.value_text) return html`<span class="small muted">${r.value_text}</span>${statusBadge(r.status)}`;
   return statusBadge(r.status);
 }
 

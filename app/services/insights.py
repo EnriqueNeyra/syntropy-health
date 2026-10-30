@@ -460,6 +460,8 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
         if len(pts) < 2:
             continue
         last, prev = pts[-1], pts[-2]
+        if last.get("comparator") or prev.get("comparator"):
+            continue        # a limit like "<5" isn't a level to have moved from
         high = "high" in (lab.get("interpretation") or "")
         worse = last["v"] > prev["v"] if high else last["v"] < prev["v"]
         if not worse or last["v"] == prev["v"]:
