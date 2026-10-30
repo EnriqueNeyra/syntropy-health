@@ -63,6 +63,10 @@ See [How it works](https://health.syntropylabs.io/docs/) for how it fits togethe
 cd cloudflare-worker && npm test   # if you changed the relay worker
 ```
 
+Changing what's stored? A schema change is a new file in `app/core/migrations` (never an edit to one on main), with its
+case added to `tests/test_migrations.py`. Rows that need correcting go through `app/core/data_fixes.py`, and any other long
+rewrite through `db.write_in_batches`: both keep the server answering.
+
 The web app has no build step: check your change in the browser in light and dark appearance, and at phone width.
 Add an entry under **Unreleased** in [CHANGELOG.md](../CHANGELOG.md).
 

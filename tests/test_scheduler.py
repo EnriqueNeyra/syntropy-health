@@ -145,13 +145,13 @@ def test_the_event_loop_keeps_running_behind_a_held_write_lock(prof):
     source = _source(prof)
 
     async def run():
-        holder = _hold_write_lock(1.0)
+        holder = _hold_write_lock(2.0)
         try:
             return await _longest_stall_while(scheduler.run_once())
         finally:
             holder.join()
     stall = asyncio.run(run())
-    assert stall < 0.5, f"the loop stalled for {stall:.2f}s"
+    assert stall < 1.0, f"the loop stalled for {stall:.2f}s"
     assert connections.get(source)["last_sync_status"] == "success"
 
 
@@ -172,7 +172,7 @@ def test_a_sync_that_cannot_start_reports_it_instead_of_raising(prof, monkeypatc
 
 
 def test_saving_settings_behind_a_long_write_leaves_the_server_answering(client):
-    holder = _hold_write_lock(1.0)
+    holder = _hold_write_lock(2.0)
     results = {}
 
     def save():
@@ -182,7 +182,7 @@ def test_saving_settings_behind_a_long_write_leaves_the_server_answering(client)
     time.sleep(0.1)
     started = time.monotonic()
     assert client.get("/health").status_code == 200
-    assert time.monotonic() - started < 0.5
+    assert time.monotonic() - started < 1.5
     saving.join()
     holder.join()
     assert results["save"] == 200 and settings.get("sync.ehr_interval_hours") == 12

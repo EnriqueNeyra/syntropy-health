@@ -21,7 +21,7 @@ from contextvars import ContextVar
 from typing import Any, Callable, Optional
 
 from app.core import config
-from app.core.db import audit, db
+from app.core.db import audit, db, ensure_migrated
 from app.services import insights
 from app.store import activity, biometrics, connections, goals, lab_catalog, profiles, records, sleep, training
 
@@ -426,6 +426,7 @@ def stdio_command(profile_id: Optional[str] = None, actor: Optional[str] = None)
 
 
 def main() -> None:
+    ensure_migrated()     # here, so an unusable database is explained rather than failing every call
     # Set by stdio_command for agents started by the built-in assistant: one person's records, named in the log.
     if config.env("SYNTROPY_MCP_PROFILE"):
         SCOPED_PROFILE.set(config.env("SYNTROPY_MCP_PROFILE"))

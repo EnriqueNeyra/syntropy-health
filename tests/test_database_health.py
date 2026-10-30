@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core import config, db, maintenance
+from app.core import config, db, maintenance, settings
 from tests.conftest import BASE, LOCAL_CLIENT
 
 
@@ -352,6 +352,17 @@ def test_a_backup_of_a_damaged_database_is_refused(client):
     assert maintenance.integrity(path)["ok"] is False
 
 
+def test_a_data_folder_that_cannot_be_used_is_explained(monkeypatch):
+    import app.main as main
+
+    def no_folder():
+        raise PermissionError(13, "Permission denied", "/data")
+    monkeypatch.setattr(main, "_start_up", no_folder)
+    with TestClient(main.create_app(), base_url=BASE, client=LOCAL_CLIENT) as c:
+        r = c.get("/health")
+        assert r.status_code == 503 and "data folder" in r.json()["detail"]
+
+
 def test_a_good_backup_is_served(client):
     r = client.get("/api/export/backup")
     assert r.status_code == 200 and r.content[:15] == b"SQLite format 3"
@@ -377,6 +388,18 @@ def test_a_healthy_database_is_only_checked_daily(monkeypatch):
     real = time.time
     monkeypatch.setattr(maintenance.time, "time", lambda: real() + maintenance.INTEGRITY_EVERY + 1)
     assert maintenance.integrity_due(path) is True
+
+
+def test_damage_found_earlier_counts_until_a_large_file_is_checked_again(monkeypatch):
+    db.ensure_migrated()
+    path = config.db_path()
+    settings.set(maintenance._INTEGRITY_KEY, {"ok": False, "checked_at": time.time(), "detail": "Tree 28 page 277"})
+    monkeypatch.setattr(maintenance, "SMALL_FILE", 0)
+    assert maintenance.integrity_due(path) is True
+    maintenance.check_at_start_up(path)
+    assert "Tree 28" in maintenance.health(path)["detail"]
+    assert maintenance.check_integrity(path)["ok"] is True      # the file was repaired or restored
+    assert maintenance.health(path)["detail"] is None
 
 
 def test_a_large_file_is_checked_in_the_background_not_at_start_up(monkeypatch):

@@ -56,6 +56,7 @@ desktop = [
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.0.0",
     "ruff==0.16.10",
 ]
 
@@ -82,6 +83,10 @@ app = ["static/**/*", "core/migrations/*.sql", "data/*.json", "data/institutions
 pythonpath = ["."]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["app", "desktop", "scripts"]
+branch = true
 
 [tool.ruff]
 line-length = 130

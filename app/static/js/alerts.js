@@ -75,7 +75,8 @@ function collect({ summary, connections, status }) {
     }
   }
   for (const p of status?.problems || []) {
-    out.push({ id: `problem:${p.id}`, level: "bad", icon: "alert", title: p.title, text: p.text, href: "#/settings/general", action: "Open Settings" });
+    // Dismissing one lasts the day: it's still true tomorrow, and matters more than anything else here.
+    out.push({ id: `problem:${p.id}:${new Date().toISOString().slice(0, 10)}`, level: "bad", icon: "alert", title: p.title, text: p.text, href: "#/settings/general", action: "Open Settings" });
   }
   if (status?.update) {
     out.push({ id: `update:${status.update.version}`, level: "info", icon: "download", title: `Syntropy Health ${status.update.version} is available`,

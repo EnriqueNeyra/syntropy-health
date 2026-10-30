@@ -169,7 +169,7 @@ def export_backup(background: BackgroundTasks) -> FileResponse:
         snapshot(tmp)
     except StartupProblem as exc:
         shutil.rmtree(tmp.parent, ignore_errors=True)
-        maintenance.note_damage(str(exc))
+        maintenance.note_damage(str(exc.__cause__ or exc))
         raise
     with db() as conn:
         audit(conn, "user", "export.backup")

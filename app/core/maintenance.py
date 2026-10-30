@@ -104,14 +104,20 @@ def integrity(path: Optional[Path] = None) -> Optional[dict[str, Any]]:
 
 def integrity_due(path: Optional[Path] = None) -> bool:
     last = integrity(path)
-    return not last or not last.get("checked_at") or time.time() - last["checked_at"] >= INTEGRITY_EVERY
+    return (not last or not last.get("ok") or not last.get("checked_at")
+            or time.time() - last["checked_at"] >= INTEGRITY_EVERY)
 
 
 def check_at_start_up(path: Optional[Path] = None) -> None:
-    """Only a small file, where it takes no time; the background thread gets to a large one."""
+    """Only a small file, where it takes no time; the background thread gets to a large one. Until it does, damage it
+    found before is still damage."""
     path = path or config.db_path()
     if _size(path) <= SMALL_FILE:
         check_integrity(path)
+        return
+    last = integrity(path)
+    if last and last.get("ok") is False:
+        note_damage(last.get("detail") or "found earlier", path)
 
 
 # ---------------------------------------------------------------------------

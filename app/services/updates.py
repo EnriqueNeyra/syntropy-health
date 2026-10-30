@@ -154,8 +154,8 @@ def clear_failed_update() -> None:
 
 def problems() -> list[dict[str, str]]:
     failed = failed_update()
-    if not failed or (failed.get("version") and not is_newer(failed["version"])):
-        return []      # since then, that version or a newer one has been installed
+    if not failed or (failed.get("version") and not is_newer(failed["version"])) or time.time() - failed.get("at", 0) > 30 * 86400:
+        return []      # since then, that version or a newer one has been installed, or it's old news
     return [{"id": f"update-failed-{failed.get('version')}", "title": f"The update to {failed.get('version') or 'a new version'} didn't start",
              "text": f"Syntropy Health went back to the version that worked, so nothing is lost. What happened: {failed.get('detail')}"}]
 

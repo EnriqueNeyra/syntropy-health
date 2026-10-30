@@ -100,12 +100,16 @@ def _database_trouble(exc: Exception) -> Optional[tuple[int, str]]:
 
 
 def _problem_page(problem: str) -> str:
+    try:
+        folder = f"<p>Your data folder is {html.escape(str(config.data_dir()))}.</p>"
+    except OSError:
+        folder = ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{config.APP_NAME} can't start</title><style>:root{{color-scheme:light dark}}
 body{{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:36rem;margin:0 auto;padding:12vh 16px;overflow-wrap:anywhere}}
 h1{{font-size:1.3rem;margin:0 0 .75rem}}</style></head>
 <body><h1>{config.APP_NAME} can't start</h1><p>{html.escape(problem)}</p>
-<p>Your data folder is {html.escape(str(config.data_dir()))}.</p></body></html>"""
+{folder}</body></html>"""
 
 
 def _problem_response(request: Request, problem: str) -> Response:
@@ -127,6 +131,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.problem = str(exc)
     except sqlite3.DatabaseError as exc:        # damage that only shows once the data is read
         app.state.problem = str(db.unusable(exc, config.db_path()))
+    except OSError as exc:
+        log.exception("Couldn't start")
+        app.state.problem = (f"Syntropy Health can't use its data folder: {exc}. Check that the disk has room and that this "
+                             "account may write to that folder, then start it again.")
     if app.state.problem:
         # Up, but touching nothing: the desktop window and browsers can say why, a container's health check fails, and
         # a restart policy doesn't turn it into a crash loop with no explanation.
