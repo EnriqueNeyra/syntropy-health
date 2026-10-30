@@ -395,6 +395,26 @@ def test_stdio_limited_to_no_one_reads_nothing_rather_than_everyone(client, isol
     assert json.loads(out.stdout)["result"]["isError"] is True
 
 
+def test_the_offered_setup_reads_the_owners_own_records_unless_told_otherwise(client):
+    from app.store import profiles
+    alex = profiles.default_profile()["id"]
+    sam = client.post("/api/profiles", json={"name": "Sam", "relationship": "child"}).json()["id"]
+    assert client.get("/api/agents/local-command").json()["env"]["SYNTROPY_MCP_PROFILE"] == alex
+    assert client.get("/api/agents/local-command", params={"profile_id": sam}).json()["env"]["SYNTROPY_MCP_PROFILE"] == sam
+    assert "SYNTROPY_MCP_PROFILE" not in client.get("/api/agents/local-command", params={"everyone": True}).json()["env"]
+    assert client.get("/api/agents/local-command", params={"profile_id": "prf_nobody"}).status_code == 404
+
+
+def test_the_offered_setup_in_docker_says_who_too(client, monkeypatch):
+    from pathlib import Path
+    real = Path.exists
+    monkeypatch.setattr(Path, "exists", lambda self: str(self) == "/.dockerenv" or real(self))
+    local = client.get("/api/agents/local-command").json()
+    assert local["command"] == "docker" and local["args"][-3:] == ["python", "-m", "app.mcp_server"]
+    assert any(a.startswith("SYNTROPY_MCP_PROFILE=") for a in local["args"])
+    assert not any(a.startswith("SYNTROPY_MCP_PROFILE=") for a in client.get("/api/agents/local-command", params={"everyone": True}).json()["args"])
+
+
 def test_the_cli_takes_a_person(client, isolated_data):
     client.post("/api/profiles", json={"name": "Sam", "relationship": "child"})
     line = json.dumps(_msg("tools/call", name="list_profiles", arguments={})).encode() + b"\n"

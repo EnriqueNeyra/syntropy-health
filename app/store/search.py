@@ -90,18 +90,15 @@ def _build(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
     if cursor is None:
         _create_index(conn)
     rows = conn.execute("SELECT id FROM clinical_records WHERE id > ? ORDER BY id LIMIT ?", (cursor or "", size)).fetchall()
-    if rows:
-        ids = [r["id"] for r in rows]
-        marks = ",".join("?" * len(ids))
-        missing = (f"FROM clinical_records r WHERE r.id IN ({marks}) "
-                   "AND NOT EXISTS (SELECT 1 FROM record_search_ids i WHERE i.record_id = r.id)")
-        fresh = [r[0] for r in conn.execute(f"SELECT r.id {missing}", ids)]
-        if fresh:
-            marks = ",".join("?" * len(fresh))
-            conn.execute(f"INSERT INTO record_search_ids(record_id) SELECT id FROM clinical_records WHERE id IN ({marks})", fresh)
-            conn.execute(f"INSERT INTO {_TABLE}(rowid, title, body) SELECT i.n, r.title, {_text_of('r')} FROM clinical_records r "
-                         f"JOIN record_search_ids i ON i.record_id = r.id WHERE r.id IN ({marks})", fresh)
-    return rows[-1]["id"] if rows else None
+    if not rows:
+        return None
+    last = rows[-1]["id"]
+    before = conn.execute("SELECT coalesce(max(n), 0) FROM record_search_ids").fetchone()[0]
+    conn.execute("INSERT INTO record_search_ids(record_id) SELECT r.id FROM clinical_records r WHERE r.id > ? AND r.id <= ? "
+                 "AND NOT EXISTS (SELECT 1 FROM record_search_ids i WHERE i.record_id = r.id) ORDER BY r.id", (cursor or "", last))
+    conn.execute(f"INSERT INTO {_TABLE}(rowid, title, body) SELECT i.n, r.title, {_text_of('r')} FROM record_search_ids i "
+                 "JOIN clinical_records r ON r.id = i.record_id WHERE i.n > ?", (before,))
+    return last
 
 
 data_fixes.register(FIX, _build)
@@ -138,7 +135,7 @@ def _fts_query(found: list[str]) -> str:
     return " ".join('"' + w.replace('"', '""') + '"*' for w in found)
 
 
-def where(query: str, profile_id: str, column: str = "id") -> tuple[str, list[Any]]:
+def where(query: str, profile_id: str) -> tuple[str, list[Any]]:
     """A WHERE condition on clinical_records for "holds every word of this query". The caller still filters by person;
     the index covers everyone, and only says which records match."""
     found = words(query)
@@ -148,10 +145,10 @@ def where(query: str, profile_id: str, column: str = "id") -> tuple[str, list[An
     codes = lab_catalog.loinc_codes(query)
     also, also_params = (f" OR code IN ({','.join('?' * len(codes))})", codes) if codes else ("", [])
     if ready():
-        return (f"({column} IN (SELECT i.record_id FROM record_search_ids i WHERE i.n IN "
+        return (f"(id IN (SELECT i.record_id FROM record_search_ids i WHERE i.n IN "
                 f"(SELECT rowid FROM {_TABLE} WHERE {_TABLE} MATCH ?)){also})", [_fts_query(found), *also_params])
     matches = " AND ".join("t LIKE ? ESCAPE '\\'" for _ in found)
-    return (f"({column} IN (SELECT id FROM (SELECT r.id, lower(r.title || ' ' || {_text_of('r')}) AS t FROM clinical_records r "
+    return (f"(id IN (SELECT id FROM (SELECT r.id, lower(r.title || ' ' || {_text_of('r')}) AS t FROM clinical_records r "
             f"WHERE r.profile_id = ?) WHERE {matches}){also})", [profile_id, *[_like(w) for w in found], *also_params])
 
 
@@ -163,6 +160,6 @@ def snippets(query: str, record_ids: list[str]) -> dict[str, str]:
     marks = ",".join("?" * len(record_ids))
     with read() as conn:
         rows = conn.execute(
-            f"SELECT i.record_id, snippet({_TABLE}, 1, '', '', '…', 24) AS text FROM {_TABLE} JOIN record_search_ids i ON i.n = {_TABLE}.rowid "
+            f"SELECT i.record_id, snippet({_TABLE}, -1, '', '', '…', 24) AS text FROM {_TABLE} JOIN record_search_ids i ON i.n = {_TABLE}.rowid "
             f"WHERE {_TABLE} MATCH ? AND i.record_id IN ({marks})", (_fts_query(found), *record_ids)).fetchall()
     return {r["record_id"]: r["text"] for r in rows if r["text"]}

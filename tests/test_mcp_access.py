@@ -108,6 +108,54 @@ def test_the_assistant_stays_on_its_person():
         mcp_server.SCOPED_PROFILE.reset(token)
 
 
+def _every_tool(record):
+    return {"list_profiles": {}, "get_health_summary": {}, "search_records": {"query": "hypertension"}, "get_record": {"record_id": record},
+            "list_lab_tests": {}, "get_lab_trend": {"test": "LDL"}, "list_wearable_metrics": {}, "get_daily_metric": {"metric": "step_count"},
+            "list_workouts": {}, "get_health_journal": {}, "get_insights": {}, "compare_measures": {"a": "step_count", "b": "sleep_duration"},
+            "get_sleep_nights": {}, "get_training_summary": {}, "get_goals": {}}
+
+
+def test_the_matrix_covers_every_tool():
+    assert set(_every_tool("x")) == set(mcp_server.TOOLS)
+
+
+@pytest.mark.parametrize("kind", ["member's own token", "token limited to the member", "token made while shared, limited to the owner, sharing ended"])
+def test_no_tool_reaches_the_owners_chart_without_access(household, kind):
+    client = household["maria_client"]
+    if kind.startswith("token made"):
+        _share_alex_with_maria(household)
+        token = _token(client, "Was shared", household["alex"])["token"]
+        _share_alex_with_maria(household, None)
+    else:
+        token = _token(client, "Maria's", household["maria"] if "limited" in kind else None)["token"]
+    for tool, args in _every_tool(household["record"]).items():
+        for extra in ({}, {"profile": "Alex"}, {"profile": household["alex"]}):
+            if tool == "get_record" and extra:
+                extra = {}
+            result = _rpc(client, token, tool, {**args, **extra})
+            text = result["content"][0]["text"]
+            assert "Essential hypertension" not in text and '"person": "Alex"' not in text, (kind, tool, extra)
+            if extra and tool != "list_profiles":
+                assert result["isError"], (kind, tool, extra)
+            if tool == "list_profiles":
+                assert "Alex" not in text
+
+
+def test_with_access_every_tool_reads_the_chart_it_was_asked_for(household):
+    _share_alex_with_maria(household)
+    client = household["maria_client"]
+    token = _token(client)["token"]
+    for tool, args in _every_tool(household["record"]).items():
+        if tool in ("list_profiles", "get_record"):
+            continue
+        for person in ("Alex", "Maria"):
+            result = _rpc(client, token, tool, {**args, "profile": person})
+            if result["isError"]:      # nothing by that name on this person's chart, which it says
+                assert json.loads(result["content"][0]["text"])["code"] == "unknown_test", (tool, person)
+                continue
+            assert json.loads(result["content"][0]["text"])["person"] == person, (tool, person)
+
+
 # ---------------------------------------------------------------------------
 # Whose chart
 # ---------------------------------------------------------------------------

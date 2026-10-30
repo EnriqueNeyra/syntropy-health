@@ -112,6 +112,12 @@ def test_bad_arguments_get_an_error_the_model_can_act_on(chart, tool, args, code
     assert fails(tool, **args)["code"] == code
 
 
+def test_a_cursor_only_works_on_the_tool_that_gave_it(chart):
+    cursor = ok("search_records", limit=1)["next_cursor"]
+    assert ok("search_records", limit=1, cursor=cursor)["records"]
+    assert fails("list_lab_tests", cursor=cursor)["code"] == "bad_cursor"
+
+
 def test_errors_say_what_is_allowed(chart):
     assert "labs" in fails("search_records", category="bogus")["valid"]
     assert "since" in fails("search_records", start_date="2026-01-01")["valid"]

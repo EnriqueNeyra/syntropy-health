@@ -248,7 +248,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(404)
     async def not_found(request: Request, exc) -> Response:
-        if request.url.path.startswith(("/api/", "/sim/", "/static/", "/.well-known/")):
+        if request.url.path.startswith(("/api/", "/sim/", "/static/")) or "/.well-known/" in request.url.path:
             detail = getattr(exc, "detail", "Not found")
             return JSONResponse({"detail": detail}, status_code=404)
         return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})

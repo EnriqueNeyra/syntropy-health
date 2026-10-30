@@ -249,7 +249,7 @@ def list_records(
     if status:
         where.append("lower(status) = ?")
         params.append(status.lower())
-    if q:
+    if q and q.strip():
         clause, values = search.where(q, profile_id)
         where.append(clause)
         params.extend(values)
@@ -349,7 +349,7 @@ def timeline(profile_id: str, *, categories: Optional[list[str]] = None, limit: 
     if before:
         where.append("effective_at <= ?" if inclusive else "effective_at < ?")
         params.append(before)
-    if q:
+    if q and q.strip():
         clause, values = search.where(q, profile_id)
         where.append(clause)
         params.extend(values)

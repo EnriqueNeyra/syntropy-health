@@ -195,7 +195,7 @@ def t_search_records(args: dict[str, Any]) -> Any:
     if query:
         found = search.snippets(query, [r["id"] for r in rows])
         for row in rows:
-            if row["id"] in found:
+            if found.get(row["id"], row["title"]) != row["title"]:
                 row["match"] = found[row["id"]]
         looked_for = search.words(query)
         if not res["total"] and len(looked_for) > 1:
@@ -212,6 +212,7 @@ def t_get_record(args: dict[str, Any]) -> Any:
         raise ToolError("not_found", "Record not found.", hint="Record ids come from search_records. They belong to one person.")
     _READ_PERSON.set(next((p for p in _people() if p["id"] == rec["profile_id"]), {"id": rec["profile_id"], "name": None}))
     out = _slim(rec, narrative_chars=None)
+    out["truncated"] = False
     if rec["results"]:
         out["results"] = [{"id": r["id"], **_lab_line(r)} for r in rec["results"]]
     others = sorted({d["source_name"] for d in rec["duplicates"] if d.get("source_name")})
