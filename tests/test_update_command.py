@@ -3,6 +3,7 @@ and goes back to what worked if it didn't. GitHub, pip and systemd are stood in 
 
 from __future__ import annotations
 
+import errno
 import http.server
 import json
 import socket
@@ -90,6 +91,121 @@ def test_a_release_that_will_not_start_is_rolled_back(machine, monkeypatch, caps
     kept = list((path.parent / "pre-upgrade").glob("replaced-*/syntropy.db"))
     assert len(kept) == 1      # what it replaced is never thrown away
     assert updates.failed_update()["version"] == "99.0.0"
+
+
+def _going_back_after_an_upgrade(machine, monkeypatch) -> float:
+    started = time.time() - 2
+    _upgrade_went_wrong()
+    machine.clear()
+    monkeypatch.setattr(cli, "_wait_for_server", lambda port, version, seconds: machine.append(f"wait {version}"))
+    return started
+
+
+def _version() -> int:
+    conn = sqlite3.connect(str(config.db_path()))
+    try:
+        return conn.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_a_full_disk_does_not_stop_the_database_going_back(machine, monkeypatch):
+    """No room for a second copy, as when the new version stopped because the disk is full: the one copy moves instead."""
+    started = _going_back_after_an_upgrade(machine, monkeypatch)
+    path = config.db_path()
+
+    def full(*_a, **_k):
+        Path(f"{path}.restoring").write_bytes(b"as far as it got")
+        raise OSError(errno.ENOSPC, "No space left on device")
+    monkeypatch.setattr(db.shutil, "copyfile", full)
+    with pytest.raises(SystemExit) as caught:
+        cli._update_failed("The disk is full.", "99.0.0", config.APP_VERSION, started, 8000)
+    assert [a.split(" @")[0] for a in machine][:3] == ["service stop", "install syntropy-health", "service start"]
+    assert f"Version {config.APP_VERSION} is running again" in str(caught.value.code)
+    assert _version() == 13
+    assert not Path(f"{path}.restoring").exists()
+    assert len(list((path.parent / "pre-upgrade").glob("replaced-*/syntropy.db"))) == 1
+
+
+def test_a_rollback_that_cannot_restore_still_starts_the_service_and_says_so(machine, monkeypatch):
+    started = _going_back_after_an_upgrade(machine, monkeypatch)
+    path = config.db_path()
+    newest = _version()
+
+    def broken(*_a, **_k):
+        raise OSError(errno.EIO, "Input/output error")
+    monkeypatch.setattr(db.shutil, "copyfile", broken)
+    with pytest.raises(SystemExit) as caught:
+        cli._update_failed("It crashed.", "99.0.0", config.APP_VERSION, started, 8000)
+    assert "service start" in machine and machine.index("service start") > machine.index("service stop")
+    message = str(caught.value.code)
+    assert "couldn't be put back" in message and "Input/output error" in message and "pre-upgrade" in message
+    assert _version() == newest and path.exists()
+    assert not list(path.parent.glob("*.restoring"))
+
+
+def test_a_restore_that_fails_halfway_leaves_the_database_in_place(machine, monkeypatch):
+    started = _going_back_after_an_upgrade(machine, monkeypatch)
+    path = config.db_path()
+    newest = _version()
+    real = db.os.replace
+
+    def refuse_the_last_step(src, dst):
+        if Path(dst) == path and Path(src).name.endswith(".restoring"):
+            raise OSError(errno.EACCES, "Permission denied")
+        real(src, dst)
+    monkeypatch.setattr(db.os, "replace", refuse_the_last_step)
+    with pytest.raises(SystemExit):
+        cli._update_failed("It crashed.", "99.0.0", config.APP_VERSION, started, 8000)
+    assert "service start" in machine
+    assert path.exists() and _version() == newest
+
+
+def test_a_rollback_goes_on_when_the_failure_cannot_be_noted(machine, monkeypatch, capsys):
+    started = _going_back_after_an_upgrade(machine, monkeypatch)
+
+    def full(*_a, **_k):
+        raise OSError(errno.ENOSPC, "No space left on device")
+    monkeypatch.setattr(updates, "note_failed_update", full)
+    with pytest.raises(SystemExit):
+        cli._update_failed("The disk is full.", "99.0.0", config.APP_VERSION, started, 8000)
+    assert "service start" in machine and _version() == 13
+    assert "may try it again" in capsys.readouterr().out
+
+
+def test_a_reinstall_that_cannot_even_run_still_starts_the_service(machine, monkeypatch):
+    def no_room(_source):
+        raise OSError(errno.ENOSPC, "No space left on device")
+    monkeypatch.setattr(cli, "_pip_install", no_room)
+    with pytest.raises(SystemExit) as caught:
+        cli._update_failed("The disk is full.", "99.0.0", config.APP_VERSION, time.time(), 8000)
+    assert machine == ["service stop", "service start"] and "Couldn't reinstall" in str(caught.value.code)
+
+
+def test_files_the_updater_puts_back_as_root_keep_their_owner(machine, monkeypatch):
+    started = _going_back_after_an_upgrade(machine, monkeypatch)
+    path = config.db_path()
+    owner = path.stat()
+    given = []
+    monkeypatch.setattr(db.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(db.os, "chown", lambda p, uid, gid: given.append((Path(p).name, uid, gid)), raising=False)
+    assert db.restore_pre_upgrade(started) is not None
+    assert ("syntropy.db.restoring", owner.st_uid, owner.st_gid) in given
+
+
+def test_a_copy_made_as_root_stays_usable_by_the_service(monkeypatch):
+    """An older install's `sudo syntropy-health accounts` can be what upgrades the database."""
+    path = config.db_path()
+    conn = _build(path, 13)
+    conn.close()
+    db.reset_migration_cache()
+    owner = path.stat()
+    given = []
+    monkeypatch.setattr(db.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(db.os, "chown", lambda p, uid, gid: given.append((Path(p).name, uid, gid)), raising=False)
+    db.ensure_migrated(path)
+    names = {name for name, uid, gid in given if (uid, gid) == (owner.st_uid, owner.st_gid)}
+    assert "pre-upgrade" in names and any(n.endswith(".db.tmp") for n in names)
 
 
 def test_the_nightly_timer_does_not_retry_a_release_that_failed(machine, monkeypatch, capsys):

@@ -37,6 +37,10 @@ _thread: Optional[threading.Thread] = None
 _stop = threading.Event()
 _checking: Optional[sqlite3.Connection] = None
 _damage: dict[str, str] = {}     # by file, for when the result can't be saved in the damaged file itself
+_last_reported: Optional[str] = None
+# For whoever asks from another device, before signing in: what's wrong can name folders and an account on this computer.
+FROM_ELSEWHERE = ("Syntropy Health can't do its job right now because of a problem on the computer it runs on. To see what's "
+                  "wrong, open it on that computer or look at its log.")
 
 
 def _size(path: Path) -> int:
@@ -57,15 +61,14 @@ def check_integrity(path: Optional[Path] = None) -> dict[str, Any]:
     started = time.monotonic()
     conn = None
     try:
-        conn = sqlite3.connect(str(path), timeout=5.0, check_same_thread=False)
+        conn = db.open_connection(path, timeout=5.0, check_same_thread=False)
         _checking = conn
         rows = [r[0] for r in conn.execute("PRAGMA quick_check(5)").fetchall()]
         detail = None if rows == ["ok"] else "; ".join(rows)
-    except sqlite3.OperationalError as exc:
-        if db.is_busy(exc) or "interrupted" in str(exc):
-            return integrity(path) or {"ok": None, "checked_at": None, "detail": None}
-        detail = str(exc)
     except sqlite3.DatabaseError as exc:
+        if not db.is_damage(exc):       # busy, stopped, or the disk's fault: the check didn't get to say anything
+            log.info("Couldn't check the database for damage right now: %s", exc)
+            return integrity(path) or {"ok": None, "checked_at": None, "detail": None}
         detail = str(exc)
     finally:
         _checking = None
@@ -127,16 +130,22 @@ def check_at_start_up(path: Optional[Path] = None) -> None:
 def health(path: Optional[Path] = None) -> dict[str, Any]:
     """For /health: fast, and honest about whether this database can be read and written. ``detail`` says what's wrong;
     a long write in progress isn't wrong."""
-    path = path or config.db_path()
     out: dict[str, Any] = {"journal_mode": None, "database": "ok", "schema_version": None, "detail": None}
     try:
+        path = path or config.db_path()
         db.ensure_migrated(path)
         state = db.probe(path)
         out.update(journal_mode=state["journal_mode"], schema_version=state["schema_version"], database=state["database"])
     except db.StartupProblem as exc:
         return {**out, "database": exc.kind, "detail": str(exc)}
     except sqlite3.DatabaseError as exc:
-        return {**out, "database": "damaged", "detail": _damage_text(path, str(exc))}
+        if db.is_damage(exc):
+            return {**out, "database": "damaged", "detail": _damage_text(path, str(exc))}
+        return {**out, "database": "unavailable", "detail": db.unavailable_text(exc, path)}
+    except OSError as exc:
+        return {**out, "database": "unavailable", "detail": f"Syntropy Health can't use its data folder: {exc}. Check that "
+                                                            "the disk is connected and has room, and that this account may "
+                                                            "write to that folder."}
     newest = db.newest_schema()
     if out["schema_version"] is not None and out["schema_version"] != newest:
         try:
@@ -154,6 +163,14 @@ def health(path: Optional[Path] = None) -> dict[str, Any]:
     if str(path) in _damage:
         return {**out, "database": "damaged", "detail": _damage_text(path, _damage[str(path)])}
     return out
+
+
+def report(detail: Optional[str]) -> None:
+    """A health check repeats every 30 seconds. Each new kind of trouble goes in the log once."""
+    global _last_reported
+    if detail and detail != _last_reported:
+        log.error("Health check failed: %s", detail)
+    _last_reported = detail
 
 
 def _damage_text(path: Path, detail: str) -> str:
@@ -197,7 +214,11 @@ def details() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def _optimize(path: Path) -> None:
-    conn = sqlite3.connect(str(path), timeout=2.0, isolation_level=None)
+    try:
+        conn = db.open_connection(path, timeout=2.0)
+    except sqlite3.Error as exc:
+        log.info("Skipped updating the database's statistics: %s", exc)
+        return
     try:
         conn.execute("PRAGMA analysis_limit = 400")      # a sample, so it takes milliseconds on any size of table
         conn.execute("PRAGMA optimize = 0x10002")        # every table, not only those this connection has read

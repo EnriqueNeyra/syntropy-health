@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import os
 import stat
 
@@ -174,6 +175,56 @@ def test_the_right_key_back_makes_everything_work_again(client):
     assert security.key_problem() is None
     conn = connections.get(source, include_credentials=True)
     assert conn["credentials"]["access_token"] == "a" and conn["status"] == "active"
+
+
+def _key_new_then_old_one_back():
+    moved = security.start_new_key()
+    os.replace(moved, _key_path())
+    _forget_key()
+
+
+def test_putting_the_old_key_back_after_a_new_one_clears_the_alert(client):
+    source = connections.create(profiles.default_profile()["id"], "wearable", "oura", "Oura", credentials={"access_token": "a"})["id"]
+    _key_new_then_old_one_back()
+    security.check_key()
+    assert security.key_problem() is None
+    assert client.get("/api/status").json()["problems"] == []
+    conn = connections.get(source, include_credentials=True)
+    assert conn["credentials"]["access_token"] == "a" and conn["status"] == "active"
+    with db.read() as c:      # the marker now belongs to the key in use, so the next start needs no second look
+        marker = json.loads(c.execute("SELECT value FROM app_settings WHERE key = ?", (security._KEY_CHECK_SETTING,)).fetchone()[0])
+    assert security._readable(marker)
+
+
+def test_an_old_key_that_opens_only_some_secrets_is_still_reported(client):
+    connections.create(profiles.default_profile()["id"], "wearable", "oura", "Oura", credentials={"access_token": "a"})
+    moved = security.start_new_key()
+    connections.create(profiles.default_profile()["id"], "wearable", "whoop", "WHOOP", credentials={"access_token": "saved with the new key"})
+    os.replace(moved, _key_path())
+    _forget_key()
+    security.check_key()
+    assert security.key_problem()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="file ownership")
+def test_a_key_made_as_root_belongs_to_whoever_owns_the_data_folder(client, monkeypatch):
+    """`sudo syntropy-health key new` on an install whose wrapper doesn't switch accounts: the service must still read it."""
+    owner = _key_path().parent.stat()
+    given = []
+    monkeypatch.setattr(security.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(security.os, "chown", lambda p, uid, gid: given.append((str(p), uid, gid)))
+    security.start_new_key()
+    assert [(uid, gid) for p, uid, gid in given if "secret.key" in p] == [(owner.st_uid, owner.st_gid)]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="file ownership")
+def test_a_key_is_still_written_where_ownership_cannot_be_changed(client, monkeypatch):
+    def refused(*_a):
+        raise PermissionError(1, "Operation not permitted")
+    monkeypatch.setattr(security.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(security.os, "chown", refused)
+    security.start_new_key()
+    assert len(base64.urlsafe_b64decode(_key_path().read_bytes())) == 32
 
 
 def test_starting_over_with_a_new_key_is_the_owners_choice(client, monkeypatch, capsys):

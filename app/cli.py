@@ -436,7 +436,10 @@ def _update_failed(problem: str, target: Optional[str], previous: str, started: 
     from app.services import updates
 
     print(f"The new version didn't start: {problem}")
-    updates.note_failed_update(target, problem)
+    try:
+        updates.note_failed_update(target, problem)
+    except OSError as exc:      # a full disk, perhaps the very reason it didn't start: going back matters more
+        print(f"Couldn't note that this release failed, so the nightly check may try it again: {exc}")
     if not target or not sys.platform.startswith("linux"):     # without a release to go back to, or a service to stop for certain
         copies = db.pre_upgrade_copies()
         where = f" A copy of the database from before the upgrade is at {copies[0]['path']}." if copies else ""
@@ -445,12 +448,23 @@ def _update_failed(problem: str, target: Optional[str], previous: str, started: 
     service_control("stop")
     try:
         _pip_install(updates.package_source_for(previous))
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, OSError):
         service_control("start")
         sys.exit(f"Couldn't reinstall version {previous}. Install it from {updates.RELEASES_URL}.")
-    restored = db.restore_pre_upgrade(started)
-    service_control("start")
+    restored, stuck = None, None
+    try:
+        restored = db.restore_pre_upgrade(started)
+    except OSError as exc:
+        stuck = exc
+    service_control("start")        # whatever happened: a server explaining the problem beats none at all
     again = _wait_for_server(port, previous, UPDATE_WAIT_SECONDS)
+    if stuck:
+        copies = db.pre_upgrade_copies()
+        where = f" A copy from before the upgrade is at {copies[0]['path']}." if copies else ""
+        said = f" The server says: {again}" if again else ""
+        sys.exit(f"Version {previous} is back in place, but the database couldn't be put back as it was before the upgrade "
+                 f"({stuck}), so that version may refuse to use it.{where} Free up some disk space and run "
+                 f"`syntropy-health update` to go forward again.{said}")
     if again:
         sys.exit(f"Version {previous} is back in place, but the server didn't start either: {again}")
     note = f" The database was put back as it was before the upgrade, from {restored}." if restored else ""
@@ -548,12 +562,16 @@ def accounts_command(action: Optional[str], name: Optional[str]) -> None:
 # ---------------------------------------------------------------------------
 
 def main(argv: Optional[list[str]] = None) -> None:
+    import sqlite3
+
     from app.core.db import StartupProblem
 
     try:
         _command(argv)
     except StartupProblem as exc:
         sys.exit(str(exc))
+    except sqlite3.Error as exc:
+        sys.exit(f"Syntropy Health couldn't use its database in {config.data_dir()}: {exc}")
 
 
 def _command(argv: Optional[list[str]] = None) -> None:

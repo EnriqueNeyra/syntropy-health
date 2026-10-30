@@ -85,23 +85,27 @@ def _database_trouble(exc: Exception) -> Optional[tuple[int, str]]:
     """When a request failed because of the database rather than a bug: the status, and what to say."""
     if not isinstance(exc, sqlite3.DatabaseError):
         return None
-    if isinstance(exc, sqlite3.OperationalError):
-        code = getattr(exc, "sqlite_errorcode", 0) & 0xff
-        if db.is_busy(exc) or "locked" in str(exc):
-            return 503, "The database is busy with a long task. Try again in a minute."
-        if code == sqlite3.SQLITE_FULL:
-            return 503, "The disk is full, so this couldn't be saved. Free up some space and try again."
-        if code == sqlite3.SQLITE_READONLY:
-            return 503, "Syntropy Health can't write to its database. Check the data folder's permissions."
+    if db.is_damage(exc):
+        maintenance.note_damage(str(exc))
+        return 500, ("Syntropy Health found damage in its database file, so this couldn't be read. Keep your older backups: "
+                     "they may be the last good copies.")
+    if not isinstance(exc, sqlite3.OperationalError):
         return None
-    maintenance.note_damage(str(exc))
-    return 500, ("Syntropy Health found damage in its database file, so this couldn't be read. Keep your older backups: "
-                 "they may be the last good copies.")
+    code = db.error_code(exc)
+    if db.is_busy(exc) or "locked" in str(exc):
+        return 503, "The database is busy with a long task. Try again in a minute."
+    if code == sqlite3.SQLITE_FULL:
+        return 503, "The disk is full, so this couldn't be saved. Free up some space and try again."
+    if code == sqlite3.SQLITE_READONLY:
+        return 503, "Syntropy Health can't write to its database. Check the data folder's permissions."
+    if code in (sqlite3.SQLITE_CANTOPEN, sqlite3.SQLITE_IOERR):
+        return 503, "Syntropy Health can't get to its database. Check that the data folder is there and its disk is connected."
+    return None
 
 
-def _problem_page(problem: str) -> str:
+def _problem_page(problem: str, here: bool) -> str:
     try:
-        folder = f"<p>Your data folder is {html.escape(str(config.data_dir()))}.</p>"
+        folder = f"<p>Your data folder is {html.escape(str(config.data_dir()))}.</p>" if here else ""
     except OSError:
         folder = ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -114,12 +118,14 @@ h1{{font-size:1.3rem;margin:0 0 .75rem}}</style></head>
 
 def _problem_response(request: Request, problem: str) -> Response:
     path = request.url.path
+    here = network.from_this_computer(request)
+    problem = problem if here else maintenance.FROM_ELSEWHERE
     if path == "/health":
         return JSONResponse({"status": "error", "service": "syntropy-health", "version": config.APP_VERSION,
                              "journal_mode": None, "detail": problem}, status_code=503)
     if path.startswith("/api/") or path == "/mcp":
         return JSONResponse({"detail": problem}, status_code=503, headers={"Cache-Control": "no-store"})
-    return HTMLResponse(_problem_page(problem), status_code=503, headers={"Cache-Control": "no-store"})
+    return HTMLResponse(_problem_page(problem, here), status_code=503, headers={"Cache-Control": "no-store"})
 
 
 @asynccontextmanager
@@ -129,7 +135,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await asyncio.to_thread(_start_up)
     except db.StartupProblem as exc:
         app.state.problem = str(exc)
-    except sqlite3.DatabaseError as exc:        # damage that only shows once the data is read
+    except sqlite3.DatabaseError as exc:        # such as damage that only shows once the data is read
         app.state.problem = str(db.unusable(exc, config.db_path()))
     except OSError as exc:
         log.exception("Couldn't start")

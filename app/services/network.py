@@ -180,6 +180,14 @@ def phone_address(port: Optional[int]) -> Optional[str]:
 LOCAL_SUFFIXES = (".local", ".lan", ".home", ".home.arpa", ".internal", ".localhost", ".ts.net")
 
 
+def from_this_computer(request: Any) -> bool:
+    """Whether a request came from this computer (behind a proxy on it, the address the proxy says it's for)."""
+    try:
+        return ipaddress.ip_address((request.client.host if request.client else "").split("%")[0]).is_loopback
+    except ValueError:
+        return False
+
+
 def is_local_name(host: str) -> bool:
     """Whether a Host header names this computer, the home network or Tailscale, judged from the name alone.
 

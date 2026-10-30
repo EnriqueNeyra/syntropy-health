@@ -224,7 +224,9 @@ def test_health_fails_on_a_read_only_mount(raw_client, monkeypatch):
     real = sqlite3.connect
 
     def read_only(target, *a, **k):      # SQLite treats BEGIN IMMEDIATE on such a file as a plain read
-        return real(f"file:{path}?mode=ro", *a, uri=True, **k) if str(target) == str(path) else real(target, *a, **k)
+        if path.name in str(target):
+            return real(f"file:{path}?mode=ro", *a, **{**k, "uri": True})
+        return real(target, *a, **k)
     monkeypatch.setattr(db.sqlite3, "connect", read_only)
     r = raw_client.get("/health")
     assert r.status_code == 503 and r.json()["database"] == "read-only"
@@ -310,18 +312,194 @@ def test_a_damaged_database_at_start_up_is_reported_in_words(tmp_path):
         assert r.status_code == 503 and "damage" in r.json()["detail"]
 
 
-def test_a_read_that_hits_damage_says_so(client, monkeypatch):
-    from app.api import system
+def _sqlite_error(kind: type, code: int, text: str) -> sqlite3.Error:
+    exc = kind(text)
+    exc.sqlite_errorcode = code
+    return exc
 
-    def malformed(*_a, **_k):
-        raise sqlite3.DatabaseError("database disk image is malformed")
+
+def _not_raising(client) -> TestClient:
     c = TestClient(client.app, base_url=BASE, client=LOCAL_CLIENT, raise_server_exceptions=False)
     c.headers.update(client.headers)
     c.cookies.update(client.cookies)
+    return c
+
+
+@pytest.mark.parametrize("code, text", [(sqlite3.SQLITE_CORRUPT, "database disk image is malformed"),
+                                        (sqlite3.SQLITE_NOTADB, "file is not a database")])
+def test_a_read_that_hits_damage_says_so(client, monkeypatch, code, text):
+    from app.api import system
+
+    def malformed(*_a, **_k):
+        raise _sqlite_error(sqlite3.DatabaseError, code, text)
+    c = _not_raising(client)
     monkeypatch.setattr(system.accounts, "set_flags", malformed)
     r = c.post("/api/onboarding/done")
     assert r.status_code == 500 and "damage" in r.json()["detail"]
     assert c.get("/health").status_code == 503
+
+
+def _broken_constraint(*_a, **_k):
+    from app.store import connections
+    connections.create("nobody-has-this-id", "wearable", "oura", "Oura")
+
+
+def _mistaken_query(*_a, **_k):
+    with db.read() as conn:
+        conn.execute("SELECT ?")
+
+
+def _too_big(*_a, **_k):
+    raise _sqlite_error(sqlite3.DataError, sqlite3.SQLITE_TOOBIG, "string or blob too big")
+
+
+def _internal(*_a, **_k):
+    raise sqlite3.InternalError("something inside SQLite")
+
+
+@pytest.mark.parametrize("bug", [_broken_constraint, _mistaken_query, _too_big, _internal])
+def test_a_bug_is_not_called_damage(client, monkeypatch, bug):
+    from app.api import system
+
+    c = _not_raising(client)
+    monkeypatch.setattr(system.accounts, "set_flags", bug)
+    r = c.post("/api/onboarding/done")
+    assert r.status_code == 500 and "damage" not in r.json()["detail"]
+    assert c.get("/health").status_code == 200
+    assert c.get("/api/status").json()["problems"] == []
+
+
+def test_a_sign_in_finishing_for_someone_just_deleted_is_not_called_damage(client):
+    from tests.conftest import simulated_login
+    other = client.post("/api/profiles", json={"name": "Sam"}).json()["id"]
+    r = client.post("/api/connections/ehr", json={"institution_id": "epic-duke-health", "profile_id": other})
+    callback = simulated_login(client, r.json()["auth_url"], "alex.rivera")
+    assert client.delete(f"/api/profiles/{other}").status_code == 200
+    c = _not_raising(client)
+    r = c.get(callback[len(BASE):], follow_redirects=False)
+    assert "damage" not in r.text
+    assert c.get("/health").status_code == 200
+    assert c.get("/api/status").json()["problems"] == []
+
+
+def test_only_damage_is_reported_as_damage_at_start_up():
+    path = config.db_path()
+    assert db.unusable(_sqlite_error(sqlite3.DatabaseError, sqlite3.SQLITE_NOTADB, "file is not a database"), path).kind == "damaged"
+    for exc in (_sqlite_error(sqlite3.IntegrityError, sqlite3.SQLITE_CONSTRAINT, "FOREIGN KEY constraint failed"),
+                _sqlite_error(sqlite3.OperationalError, sqlite3.SQLITE_CANTOPEN, "unable to open database file"),
+                sqlite3.ProgrammingError("a mistake")):
+        problem = db.unusable(exc, path)
+        assert problem.kind == "unavailable" and "is damaged" not in str(problem)
+
+
+@pytest.mark.parametrize("code, text", [(sqlite3.SQLITE_FULL, "database or disk is full"),
+                                        (sqlite3.SQLITE_IOERR, "disk I/O error"),
+                                        (sqlite3.SQLITE_CANTOPEN, "unable to open database file")])
+def test_a_check_that_could_not_run_finds_no_damage(monkeypatch, code, text):
+    db.ensure_migrated()
+    path = config.db_path()
+    real = sqlite3.connect
+
+    class Stopped(sqlite3.Connection):
+        def execute(self, sql, *a):
+            if "quick_check" in sql:
+                raise _sqlite_error(sqlite3.OperationalError, code, text)
+            return super().execute(sql, *a)
+    monkeypatch.setattr(sqlite3, "connect", lambda *a, **k: real(*a, factory=Stopped, **k))
+    assert maintenance.check_integrity(path)["ok"] is not False
+    assert maintenance.health(path)["detail"] is None and maintenance.problems() == []
+
+
+def test_a_probe_failure_that_is_not_damage_is_reported_as_what_it_is(monkeypatch):
+    db.ensure_migrated()
+    path = config.db_path()
+
+    def stuck(_path):
+        raise _sqlite_error(sqlite3.OperationalError, sqlite3.SQLITE_IOERR, "disk I/O error")
+    monkeypatch.setattr(db, "probe", stuck)
+    state = maintenance.health(path)
+    assert state["database"] == "unavailable" and "disk I/O error" in state["detail"] and "damage" not in state["detail"]
+
+
+def test_a_data_folder_moved_away_is_not_called_damage_and_no_empty_database_appears(raw_client):
+    path = config.db_path()
+    folder = path.parent
+    moved = folder.with_name(folder.name + "-moved")
+    with db.db() as conn:
+        conn.execute("INSERT OR REPLACE INTO app_settings(key, value, updated_at) VALUES ('mine', '1', 0)")
+    folder.rename(moved)
+    try:
+        r = raw_client.get("/health")
+        assert r.status_code == 503 and r.json()["database"] == "unavailable" and "damage" not in r.json()["detail"]
+        assert not path.exists()
+        with pytest.raises(sqlite3.OperationalError):
+            with db.db():
+                pass
+        with pytest.raises(sqlite3.OperationalError):
+            db.snapshot(moved / "copy.db", path)
+        assert maintenance.check_integrity(path)["ok"] is not False
+        assert db.checkpoint(path) is False
+        assert not path.exists() and maintenance.problems() == []
+    finally:
+        for leftover in (folder.glob("*") if folder.exists() else []):
+            leftover.unlink()
+        if folder.exists():
+            folder.rmdir()
+        moved.rename(folder)
+    assert raw_client.get("/health").status_code == 200       # and it recovers once the folder is back
+
+
+def test_a_folder_that_cannot_be_made_is_explained(monkeypatch):
+    def refused():
+        raise PermissionError(13, "Permission denied", "/data")
+    monkeypatch.setattr(config, "db_path", refused)
+    state = maintenance.health()
+    assert state["database"] == "unavailable" and "data folder" in state["detail"]
+
+
+def test_requests_explain_a_database_that_cannot_be_reached(client, monkeypatch):
+    from app.api import system
+
+    def gone(*_a, **_k):
+        raise _sqlite_error(sqlite3.OperationalError, sqlite3.SQLITE_CANTOPEN, "unable to open database file")
+    c = _not_raising(client)
+    monkeypatch.setattr(system.accounts, "set_flags", gone)
+    r = c.post("/api/onboarding/done")
+    assert r.status_code == 503 and "folder" in r.json()["detail"] and "damage" not in r.json()["detail"]
+    assert c.get("/health").status_code == 200
+
+
+def test_every_way_of_emptying_the_log_reaches_the_disk(monkeypatch):
+    """Without fullfsync a Mac's plain sync stops at the drive's cache, and truncating drops the log that held the only
+    durable copy of an acknowledged upload."""
+    db.ensure_migrated()
+    path = config.db_path()
+    seen = []
+    real = sqlite3.connect
+
+    class Spy(sqlite3.Connection):
+        def execute(self, sql, *a):
+            if "wal_checkpoint(TRUNCATE)" in sql:
+                seen.append(super().execute("PRAGMA fullfsync").fetchone()[0])
+            if "fullfsync = OFF" in sql:      # only conftest does this, for speed
+                sql = "SELECT 1"
+            return super().execute(sql, *a)
+
+        def close(self):
+            seen.append(super().execute("PRAGMA fullfsync").fetchone()[0])     # the last connection to close checkpoints too
+            super().close()
+    monkeypatch.setattr(sqlite3, "connect", lambda *a, **k: real(*a, factory=Spy, **k))
+    db.close_readers()
+    assert db.checkpoint(path) is True
+    db.probe(path)
+    maintenance._optimize(path)
+    maintenance.check_integrity(path)
+    with db.read():
+        pass
+    db.close_readers()
+    with db.db():
+        pass
+    assert seen and all(v == 1 for v in seen)
 
 
 def test_a_busy_database_is_not_called_a_bug(client):
@@ -379,6 +557,15 @@ def test_the_command_line_backup_refuses_a_damaged_database(tmp_path):
     assert not list(out.glob("*.zip")) if out.exists() else True
 
 
+def test_the_command_line_backup_does_not_make_an_empty_database_to_back_up(tmp_path):
+    from app import cli
+    out = tmp_path / "backups"
+    with pytest.raises(SystemExit) as caught:
+        cli.main(["backup", str(out)])
+    assert "couldn't use its database" in str(caught.value.code)
+    assert not config.db_path().exists() and not list(out.glob("*.zip"))
+
+
 def test_a_healthy_database_is_only_checked_daily(monkeypatch):
     db.ensure_migrated()
     path = config.db_path()
@@ -410,6 +597,66 @@ def test_a_large_file_is_checked_in_the_background_not_at_start_up(monkeypatch):
     maintenance.check_at_start_up()
     assert not checked
 
+
+
+# ---------------------------------------------------------------------------
+# What a stranger on the network can learn
+# ---------------------------------------------------------------------------
+
+ELSEWHERE = ("192.168.1.20", 50000)
+
+
+def _visit_all(app, client_address) -> dict:
+    c = TestClient(app, base_url=BASE, client=client_address, raise_server_exceptions=False)
+    return {url: c.get(url) for url in ("/health", "/api/status", "/mcp", "/")}
+
+
+def test_a_garbage_database_shows_paths_only_on_this_computer():
+    from app.main import create_app
+    folder = str(config.data_dir())
+    config.db_path().write_bytes(b"this is not a database, " * 400)
+    with TestClient(create_app(), base_url=BASE, client=LOCAL_CLIENT) as c:
+        here = _visit_all(c.app, LOCAL_CLIENT)
+        away = _visit_all(c.app, ELSEWHERE)
+    assert folder in here["/health"].json()["detail"] and folder in here["/"].text
+    for url, r in away.items():
+        assert r.status_code == 503, url
+        assert folder not in r.text and "syntropy.db" not in r.text, url
+    assert away["/health"].json()["status"] == "error" and away["/health"].json()["detail"]
+    assert "that computer" in away["/"].text and "that computer" in away["/api/status"].json()["detail"]
+
+
+def test_a_key_problem_shows_its_path_only_on_this_computer():
+    from app.core import security
+    from app.main import create_app
+    from app.store import connections, profiles
+    connections.create(profiles.default_profile()["id"], "wearable", "oura", "Oura", credentials={"access_token": "a"})
+    security._key_cache.clear()
+    (config.data_dir() / "secret.key").write_bytes(b"")
+    folder = str(config.data_dir())
+    with TestClient(create_app(), base_url=BASE, client=LOCAL_CLIENT) as c:
+        assert folder in _visit_all(c.app, LOCAL_CLIENT)["/health"].json()["detail"]
+        for url, r in _visit_all(c.app, ELSEWHERE).items():
+            assert r.status_code == 503 and folder not in r.text and "secret.key" not in r.text, url
+
+
+def test_trouble_while_running_shows_paths_only_on_this_computer(raw_client, monkeypatch, caplog):
+    folder = str(config.data_dir())
+    monkeypatch.setattr(maintenance.shutil, "disk_usage", lambda p: type("U", (), {"free": 1000})())
+    away = TestClient(raw_client.app, base_url=BASE, client=ELSEWHERE)
+    with caplog.at_level("ERROR", logger="syntropy.maintenance"):
+        r = away.get("/health")
+        away.get("/health")
+    assert r.status_code == 503 and r.json()["database"] == "disk-full" and folder not in r.text
+    assert len([m for m in caplog.messages if folder in m]) == 1      # the log has it, once, for whoever can read the log
+    assert folder in raw_client.get("/health").json()["detail"]
+
+
+def test_an_owner_elsewhere_still_gets_the_details(client):
+    owner_elsewhere = TestClient(client.app, base_url=BASE, client=ELSEWHERE)
+    owner_elsewhere.headers.update(client.headers)
+    owner_elsewhere.cookies.update(client.cookies)
+    assert str(config.data_dir()) in owner_elsewhere.get("/api/health").json()["database"]["path"]
 
 
 # ---------------------------------------------------------------------------

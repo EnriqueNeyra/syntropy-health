@@ -89,6 +89,7 @@ def _write_new_key(path: Path, replace: bool = False) -> bytes:
         fh.write(base64.urlsafe_b64encode(key))
         fh.flush()
         os.fsync(fh.fileno())
+    db.same_owner(tmp, path.parent)
     try:
         if replace:
             os.replace(tmp, path)
@@ -134,7 +135,9 @@ def _readable(token: str) -> bool:
 
 def check_key() -> None:
     """At start-up: does this key open what's saved? A marker saved with the key answers that, once it's there; before
-    that (an upgrade), whatever is already encrypted does. Wrong, the server still runs, and owners are told."""
+    that (an upgrade), whatever is already encrypted does. A marker this key can't open isn't the last word: after
+    `key new` it belongs to the new key, and the old key put back still opens everything else, which is what counts.
+    Wrong, the server still runs, and owners are told."""
     master_key()
     path = str(config.db_path())
     with db.read() as conn:
@@ -142,7 +145,7 @@ def check_key() -> None:
     marker = json.loads(row[0]) if row else None
     marked = bool(marker) and _readable(marker)
     stored = _stored_secrets()
-    fine = marked or (not marker and any(_readable(t) for t in stored)) or not stored
+    fine = marked or not stored or (all if marker else any)(_readable(t) for t in stored)
     if fine and not marked:
         _save_key_check()
     if fine:

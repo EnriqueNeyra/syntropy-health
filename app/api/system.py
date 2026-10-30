@@ -23,15 +23,17 @@ router = APIRouter(tags=["system"])
 
 
 @router.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
-def health(response: Response) -> dict:
+def health(request: Request, response: Response) -> dict:
     """Whether this server can do its job: Docker's health check, the installers and scripts read it. 503 when the
-    database can't be read or written; a long write in progress isn't a failure."""
+    database can't be read or written; a long write in progress isn't a failure. Anyone can ask, so what's wrong in
+    detail, which can name files on this computer, is only said on this computer."""
     state = maintenance.health()
+    maintenance.report(state["detail"])
     out = {"status": "error" if state["detail"] else "ok", "service": "syntropy-health", "version": config.APP_VERSION,
            "journal_mode": state["journal_mode"], "database": state["database"], "schema_version": state["schema_version"]}
     if state["detail"]:
         response.status_code = 503
-        out["detail"] = state["detail"]
+        out["detail"] = state["detail"] if network.from_this_computer(request) else maintenance.FROM_ELSEWHERE
     return out
 
 
