@@ -50,8 +50,12 @@ def _soft(label: str) -> str:
     return label[0].lower() + label[1:] if re.match(r"[A-Z][a-z]+(\s|$)", label) else label
 
 
+def _today() -> date:
+    return datetime.now(_tz()).date()
+
+
 def _window(days: int, end: Optional[date] = None) -> tuple[date, date]:
-    end = end or datetime.now(_tz()).date()
+    end = end or _today()
     return end - timedelta(days=days - 1), end
 
 
@@ -302,7 +306,7 @@ def personal_range(profile_id: str, metric: str, days: int = 90, source: Optiona
     if metric not in METRICS:
         raise ValueError("Unknown measure.")
     label, unit, _, _ = METRICS[metric]
-    today = datetime.now(_tz()).date()
+    today = _today()
     span = days + BASELINE_DAYS
     points = _complete(biometrics.daily_series(profile_id, metric, days=span, source=source)["points"])
     chosen = source or _main_source(points[-RECENT_DAYS:])
@@ -391,7 +395,7 @@ def _matters(delta: float, usual: float, min_abs: Optional[float], min_rel: Opti
 
 
 def _changes(profile_id: str) -> list[dict[str, Any]]:
-    today = datetime.now(_tz()).date()
+    today = _today()
     have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
     found: list[tuple[Optional[dict[str, Any]], float]] = []
     moved: dict[tuple[str, str], dict[str, Any]] = {}
@@ -664,7 +668,7 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
     """What differed in wearable measurements around the first order on record for a medication in the last year, from
     one device, with at least two weeks of data on each side. A renewal isn't a beginning, and the first order here may
     not be the true start either, since portals don't always keep old history; the wording says which it is."""
-    today = datetime.now(_tz()).date()
+    today = _today()
     have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
     found: list[tuple[dict[str, Any], float]] = []
     gates = {metric: (min_abs, min_rel) for metric, _, min_abs, min_rel in WATCH}
@@ -777,7 +781,7 @@ def _lab_note(lab: dict[str, Any], s: dict[str, Any]) -> Optional[dict[str, Any]
     sentence = (f"{s['title']} was {num(last['v'])} {unit} on {_day(last['t'])}, {'up' if moved > 0 else 'down'} from "
                 f"{num(prev['v'])} {unit} on {_day(prev['t'])}").replace("  ", " ")
     if big and not outward:
-        return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "good", "title": f"{s['title']} is closer to the range",
+        return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "good", "title": f"{s['title']} closer to the range",
                 "text": f"{sentence}, and still {out_word} the reference range{ref}."}
     dated = [p for p in pts if _iso_day(p["t"])]
     if len(dated) >= DRIFT_MIN_RESULTS and _ordinal(last["t"]) - _ordinal(dated[0]["t"]) >= DRIFT_MIN_DAYS:
@@ -814,7 +818,7 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
             note = _lab_note(lab, records.observation_series(profile_id, lab["code"], "labs"))
             if note:
                 found.append(note)
-    since = (datetime.now(_tz()).date() - timedelta(days=BACK_IN_RANGE_DAYS)).isoformat()
+    since = (_today() - timedelta(days=BACK_IN_RANGE_DAYS)).isoformat()
     for code in records.recently_normal_lab_codes(profile_id, since, MAX_RECENT_NORMAL_CODES):
         s = records.observation_series(profile_id, code, "labs")
         pts, low, high = s["points"], s["ref_low"], s["ref_high"]
@@ -824,7 +828,7 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
         if _flag_side(last.get("interpretation"), last["v"], low, high) or not _flag_side(prev.get("interpretation"), prev["v"], low, high):
             continue
         unit = s.get("unit") or ""
-        found.append({"id": f"lab:{code}:{last['t'][:10]}", "kind": "lab", "tone": "good", "title": f"{s['title']} is back in range",
+        found.append({"id": f"lab:{code}:{last['t'][:10]}", "kind": "lab", "tone": "good", "title": f"{s['title']} back in range",
                       "text": (f"{s['title']} was {last['v']:g} {unit} on {_day(last['t'])}, back within the reference range"
                                f"{_ref_words(None, s)} from {prev['v']:g} {unit} on {_day(prev['t'])}.").replace("  ", " "),
                       "data": {"code": code, "latest": last["v"], "previous": prev["v"], "unit": unit},
@@ -898,7 +902,7 @@ def _reading_breach(profile_id: str, metric: str, today: date) -> dict[str, Any]
 
 
 def _urgent_readings(profile_id: str) -> list[dict[str, Any]]:
-    today = datetime.now(_tz()).date()
+    today = _today()
     have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
     out = []
 
@@ -937,7 +941,7 @@ def _urgent_readings(profile_id: str) -> list[dict[str, Any]]:
 
 
 def _urgent_labs(profile_id: str) -> list[dict[str, Any]]:
-    today = datetime.now(_tz()).date()
+    today = _today()
     since = (today - timedelta(days=LAB_FRESH_DAYS)).isoformat()
     out = []
     for lab in records.flagged_labs(profile_id):
@@ -957,7 +961,7 @@ def _urgent_labs(profile_id: str) -> list[dict[str, Any]]:
 
 
 def _urgent_notifications(profile_id: str) -> list[dict[str, Any]]:
-    today = datetime.now(_tz()).date()
+    today = _today()
     tz = _tz()
     latest: dict[str, tuple[str, int]] = {}
     for e in activity.list_events(profile_id, NOTIFICATION_FRESH_DAYS, category="events", limit=500):

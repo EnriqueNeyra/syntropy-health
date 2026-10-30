@@ -96,7 +96,7 @@ def test_abnormal_above_range_and_falling_is_not_called_below_or_further(client)
     _lab(pid, src, 1, _ago(100), 6.0, "abnormal", low=0.4, high=4, ref_text="0.4–4")
     _lab(pid, src, 2, _ago(10), 5.0, "abnormal", low=0.4, high=4, ref_text="0.4–4")
     titles, text = _lab_titles_and_text(pid)
-    assert titles == ["TSH is closer to the range"]
+    assert titles == ["TSH closer to the range"]
     assert "above the reference range (0.4–4)" in text and "below" not in text
 
 
@@ -178,7 +178,7 @@ def test_moving_toward_the_range_is_mentioned_in_a_good_tone(client):
     _lab(pid, src, 1, _ago(100), 8.0, "high", code="4548-4", title="A1c", unit="%", high=5.6)
     _lab(pid, src, 2, _ago(10), 7.0, "high", code="4548-4", title="A1c", unit="%", high=5.6)
     notes = insights._lab_notes(pid)
-    assert [(n["title"], n["tone"]) for n in notes] == [("A1c is closer to the range", "good")]
+    assert [(n["title"], n["tone"]) for n in notes] == [("A1c closer to the range", "good")]
     assert "still above" in notes[0]["text"]
 
 
@@ -188,7 +188,7 @@ def test_back_in_range_is_mentioned(client):
     _lab(pid, src, 1, _ago(100), 6.4, "high", code="4548-4", title="A1c", unit="%", high=5.6)
     _lab(pid, src, 2, _ago(10), 5.4, "normal", code="4548-4", title="A1c", unit="%", high=5.6)
     notes = insights._lab_notes(pid)
-    assert [(n["title"], n["tone"]) for n in notes] == [("A1c is back in range", "good")]
+    assert [(n["title"], n["tone"]) for n in notes] == [("A1c back in range", "good")]
 
 
 # ---------------------------------------------------------------------------
