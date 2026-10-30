@@ -126,7 +126,8 @@ def delete_result(record_id: str) -> dict:
 @router.get("/reader")
 def reader() -> dict:
     """Whether photos and scans can be read on this machine (PDFs with a text layer always can)."""
-    return {"ocr": lab_report.ocr_available()}
+    found = lab_report.ocr_available()
+    return {"ocr": found, "install": None if found else lab_report.install_advice()}
 
 
 @router.post("/extract")

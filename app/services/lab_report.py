@@ -5,13 +5,16 @@ from __future__ import annotations
 
 import difflib
 import io
+import os
 import re
 import shutil
 import subprocess
+import sys
 from datetime import date
 from functools import lru_cache
 from typing import Any, Optional
 
+from app.core import config
 from app.store import lab_catalog
 
 MAX_BYTES = 15 * 1024 * 1024
@@ -23,8 +26,33 @@ class ReportError(Exception):
     pass
 
 
+def tesseract_path() -> Optional[str]:
+    """Also in the usual install folders: apps started from the Dock or Start menu get a short PATH, which would miss a
+    Tesseract just installed by following install_advice."""
+    from app.services.ai_agents import _search_dirs
+
+    folders = _search_dirs()
+    if sys.platform == "win32":
+        folders += [os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "Tesseract-OCR"),
+                    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Tesseract-OCR")]
+    return shutil.which("tesseract", path=os.pathsep.join(folders))
+
+
 def ocr_available() -> bool:
-    return shutil.which("tesseract") is not None
+    return tesseract_path() is not None
+
+
+def install_advice() -> str:
+    """What the Mac and Windows apps need: they don't include Tesseract, which is a program of its own."""
+    if config.env("SYNTROPY_INSTALL") == "docker":
+        return "The Docker image normally includes it: pull the latest image."
+    if sys.platform == "darwin":
+        return ("On a Mac, install Homebrew from brew.sh, then run brew install tesseract in Terminal. There's no need to "
+                "restart Syntropy Health.")
+    if sys.platform == "win32":
+        return ("On Windows, open PowerShell and run winget install UB-Mannheim.TesseractOCR. There's no need to restart "
+                "Syntropy Health.")
+    return "On Linux, run sudo apt install tesseract-ocr, or your system's equivalent."
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +97,7 @@ def _ocr(image: Any) -> str:
     buf = io.BytesIO()
     img.save(buf, "PNG")
     try:
-        proc = subprocess.run(["tesseract", "stdin", "stdout", "--psm", "6", "-l", "eng", "-c", "preserve_interword_spaces=1"],
+        proc = subprocess.run([tesseract_path() or "tesseract", "stdin", "stdout", "--psm", "6", "-l", "eng", "-c", "preserve_interword_spaces=1"],
                               input=buf.getvalue(), capture_output=True, timeout=OCR_TIMEOUT, check=False,
                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))     # no console flash on Windows
     except subprocess.TimeoutExpired as exc:
@@ -81,8 +109,8 @@ def _ocr(image: Any) -> str:
 
 def _require_ocr() -> None:
     if not ocr_available():
-        raise ReportError("Reading photos and scans needs Tesseract on the computer running Syntropy Health "
-                          "(the Docker image includes it; on a Mac run: brew install tesseract).")
+        raise ReportError("Reading photos and scans needs a free program called Tesseract on the computer running Syntropy "
+                          f"Health. {install_advice()} PDFs from a lab's website work without it.")
 
 
 def _open_image(data: bytes) -> Any:

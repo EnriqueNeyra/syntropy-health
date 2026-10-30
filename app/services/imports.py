@@ -1,14 +1,13 @@
 """
 File imports (Apple Health export, FHIR bundles) with background job tracking.
 
-Uploads are written to ``<data_dir>/uploads`` and processed off the event loop; the
+Uploads are written to ``<data_dir>/uploads`` and processed on a thread of their own; the
 UI polls ``/api/imports/{job_id}`` for progress. Uploaded files are deleted once
-processed.
+processed. A server that's stopping asks them to stop between batches (stop_running).
 """
 
 from __future__ import annotations
 
-import asyncio
 import contextvars
 import json
 import logging
@@ -28,6 +27,13 @@ log = logging.getLogger("syntropy.imports")
 BATCH = 5000
 _jobs: dict[str, dict[str, Any]] = {}
 _jobs_lock = threading.Lock()
+_running: dict[threading.Thread, threading.Event] = {}
+STOPPED = ("Syntropy Health was closed during this import, so it stopped part way. Import the file again: what was already "
+           "added won't be added twice.")
+
+
+class _Stopped(Exception):
+    pass
 
 
 def upload_dir() -> Path:
@@ -96,14 +102,34 @@ def import_fhir_file(profile_id: str, filename: str, raw: bytes) -> dict[str, An
 
 def start_apple_health_import(profile_id: str, path: Path, filename: str) -> str:
     job_id = _new_job("apple_health", filename, profile_id)
-    loop = asyncio.get_running_loop()
-    # With the request's context, so what the import records is attributed to whoever started it.
-    loop.run_in_executor(None, contextvars.copy_context().run, _run_apple_health, job_id, profile_id, path, filename)
+    stop = threading.Event()
+    # With the request's context, so what the import records is attributed to whoever started it. Not on the event loop's
+    # executor: shutting that down waits for whatever runs on it, so a long import kept a closed app running with no window.
+    thread = threading.Thread(target=contextvars.copy_context().run, args=(_run_apple_health, job_id, profile_id, path, filename, stop),
+                              daemon=True, name="import")
+    with _jobs_lock:
+        _running[thread] = stop
+    thread.start()
     return job_id
 
 
-def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -> None:
+def stop_running(wait: float = 15.0) -> None:
+    """The server is stopping: each import finishes its batch and stops, rather than dying in the middle of one."""
+    with _jobs_lock:
+        running = dict(_running)
+    for stop in running.values():
+        stop.set()
+    deadline = time.monotonic() + wait
+    for thread in running:
+        thread.join(max(0.0, deadline - time.monotonic()))
+        if thread.is_alive():
+            log.warning("An import is still finishing as the server stops")
+
+
+def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str, stop: Optional[threading.Event] = None) -> None:
+    stop = stop or threading.Event()
     _update(job_id, status="running")
+    run: Optional[tuple[int, str]] = None
     try:
         opener, fhir_resources = apple_health.open_export(path)
         result: dict[str, Any] = {}
@@ -112,6 +138,7 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
                          if c["provider"] == "apple_health_export"), None) or connections.create(
                 profile_id, "import", "apple_health_export", "Apple Health export", mode="live")
             run_id = connections.start_run(conn["id"], "import")
+            run = (run_id, conn["id"])
             processed = inserted = workouts = events = 0
             batch: list[dict[str, Any]] = []
             others: dict[str, list[dict[str, Any]]] = {"workout": [], "event": []}
@@ -124,6 +151,8 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
 
             with opener() as stream:
                 for kind, item in apple_health.iter_items(stream, apple_health.zip_reader(path)):
+                    if stop.is_set():
+                        raise _Stopped
                     if kind != "sample":
                         others[kind].append(item)
                         if len(others[kind]) >= 200:
@@ -151,10 +180,17 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
         if opener is None and not fhir_resources:
             raise ValueError("No export.xml or clinical records were found in the upload.")
         _update(job_id, status="completed", finished_at=time.time(), result=result)
+    except _Stopped:
+        log.warning("Stopped an Apple Health import because the server is stopping")
+        if run:
+            connections.finish_run(run[0], run[1], "error", {}, STOPPED)
+        _update(job_id, status="error", finished_at=time.time(), error=STOPPED)
     except Exception as exc:  # noqa: BLE001
         log.exception("Apple Health import failed")
         _update(job_id, status="error", finished_at=time.time(), error=str(exc))
     finally:
+        with _jobs_lock:
+            _running.pop(threading.current_thread(), None)
         try:
             path.unlink()
         except OSError:

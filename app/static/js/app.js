@@ -125,6 +125,7 @@ if (shell) {
   document.addEventListener("contextmenu", (e) => {
     if (!e.target.closest("input, textarea, [contenteditable], a[href], pre, code") && !String(getSelection())) e.preventDefault();
   });
+  window.addEventListener("syntropy-download", (e) => toast(`Saved ${e.detail}`));     // from mac_window.py, once the file is in place
 }
 if (shell === "mac") {
   const TITLEBAR = 52;

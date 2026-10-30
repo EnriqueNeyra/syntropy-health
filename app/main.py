@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import agents, assistant, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
 from app.core import auth, config, data_fixes, db, maintenance, security, settings as instance_settings
 from app.core.uploads import DecompressUploads
-from app.services import network, scheduler, updates
+from app.services import imports, network, scheduler, updates
 from app.store import biometrics as biometric_store, sample_counts
 from app.simulator import server as simulator
 
@@ -157,6 +157,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     network.start_announcing()
     yield
     network.stop_announcing()
+    await asyncio.to_thread(imports.stop_running)
     await scheduler.stop()
     await updates.stop()
     await asyncio.to_thread(data_fixes.stop)
