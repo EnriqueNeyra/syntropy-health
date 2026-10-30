@@ -12,6 +12,8 @@ from app.services import sync
 from app.store import connections
 from tests.conftest import RELAY_KEY
 
+RealClient = httpx.AsyncClient
+
 
 class Provider:
     def __init__(self, status=200, body=None, text=None, headers=None, raises=None):
@@ -29,10 +31,8 @@ class Provider:
 
 @pytest.fixture
 def respond(monkeypatch):
-    real = httpx.AsyncClient
-
     def install(provider):
-        monkeypatch.setattr(wc.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(provider), **kw))
+        monkeypatch.setattr(wc.httpx, "AsyncClient", lambda **kw: RealClient(transport=httpx.MockTransport(provider), **kw))
         return provider
     return install
 
@@ -107,10 +107,7 @@ def test_a_new_token_is_returned_and_the_relay_gets_the_key(respond):
 
 
 def test_with_the_persons_own_secret_it_goes_straight_to_the_provider(client, respond):
-    settings.set("wearable.oura.client_id", "mine")
-    settings.set("wearable.oura.client_secret", "secret")
-    if not settings.wearable_credentials("oura")["client_secret"]:
-        pytest.skip("this build keeps wearable secrets elsewhere")
+    settings.set_wearable_credentials("oura", "mine", "secret")
     provider = respond(Provider(503, {}))
     with pytest.raises(SmartError) as caught:
         _refresh()
@@ -160,8 +157,7 @@ def test_oura_paging_and_failures_reach_the_person_as_words(client, monkeypatch)
         if "next_token" in str(request.url):
             return httpx.Response(429, headers={"Retry-After": "600"}, json={})
         return httpx.Response(200, json={"data": [{"day": "2026-01-01"}], "next_token": "x"})
-    real = httpx.AsyncClient
-    monkeypatch.setattr(oura.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(oura.httpx, "AsyncClient", lambda **kw: RealClient(transport=httpx.MockTransport(handler), **kw))
     res = client.post(f"/api/connections/{cid}/sync").json()
     conn = connections.get(cid)
     assert res["kind"] == "network" and "try again" in conn["last_error"] and conn["next_retry_at"]

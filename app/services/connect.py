@@ -117,6 +117,19 @@ async def check_custom_server(url: str) -> None:
         raise SmartError("FHIR servers on the internet must use https. Plain http is only for a server on your own network.")
 
 
+async def _owner_trusts(url: str) -> bool:
+    """The owner's own network, or anything while they're developing. A public server the owner added is held to the same
+    rules as anyone's: it could still redirect a sync to something on this network."""
+    if not acting_as_owner():
+        return False
+    if settings.developer_mode():
+        return True
+    try:
+        return not await smart.is_public_host(urlsplit(url).hostname or "")
+    except httpx.HTTPError:
+        return False
+
+
 def _allows_private(connection: dict[str, Any]) -> bool:
     return bool((connection.get("metadata") or {}).get("allow_private"))
 
@@ -143,12 +156,13 @@ async def start_ehr(profile_id: str, origin: str, *, institution_id: Optional[st
             client_id = client_id or ((connections.get(reconnect_id, include_credentials=True) or {}).get("credentials") or {}).get("client_id")
         plan = plan_ehr_connection(institution_id, origin, fhir_base_url=fhir_base_url, platform=platform,
                                    client_id=client_id, mode_override=existing["mode"] if existing["mode"] != "live" else None)
-        plan["allow_private"] = plan["platform"] == "custom" and (acting_as_owner() or _allows_private(existing))
+        plan["allow_private"] = plan["platform"] == "custom" and (_allows_private(existing) or await _owner_trusts(plan["fhir_base_url"]))
     else:
         plan = plan_ehr_connection(institution_id, origin, fhir_base_url=fhir_base_url, platform=platform, client_id=client_id)
-        plan["allow_private"] = plan["platform"] == "custom" and acting_as_owner()
+        plan["allow_private"] = False
         if plan["platform"] == "custom":
             await check_custom_server(plan["fhir_base_url"])
+            plan["allow_private"] = await _owner_trusts(plan["fhir_base_url"])
     if redirect_uri and not plan["simulated"]:
         plan["redirect_uri"] = redirect_uri
 

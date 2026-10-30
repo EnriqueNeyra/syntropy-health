@@ -25,6 +25,7 @@ from __future__ import annotations
 import html
 import json
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Optional
@@ -69,9 +70,10 @@ class Faults:
     hidden: set[str] = field(default_factory=set)       # "Observation/id" the source no longer returns
     retracted: set[str] = field(default_factory=set)    # returned, but marked entered-in-error
     extra_labs: int = 0                 # this many more lab results, for a long history
+    extra_resources: list[dict[str, Any]] = field(default_factory=list)     # any other shape a server might send
     oldest_first: bool = False          # paged oldest first, unless asked otherwise
     reject_sort: bool = False           # a 400 for a search with _sort
-    requests: list[str] = field(default_factory=list)   # what was asked, in order
+    requests: deque[str] = field(default_factory=lambda: deque(maxlen=20_000))     # what was asked, in order
     _used_refresh: set[str] = field(default_factory=set)
     _token_uses: dict[str, int] = field(default_factory=dict)
 
@@ -432,6 +434,7 @@ def _chart(claims: dict[str, Any]) -> list[dict[str, Any]]:
     chart = generator.build_chart(claims["persona"], claims["tenant"], tenant_name(claims["tenant"]), claims["platform"])
     if faults.extra_labs:
         chart += _extra_labs(generator.patient_id_for(claims["persona"], claims["tenant"]), faults.extra_labs)
+    chart += faults.extra_resources
     if faults.hidden:
         chart = [r for r in chart if f"{r['resourceType']}/{r['id']}" not in faults.hidden]
     if faults.retracted:

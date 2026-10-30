@@ -202,6 +202,30 @@ async def _sync_ehr(conn: dict[str, Any]) -> dict[str, Any]:
     return stats
 
 
+QUERY_WORDS = {
+    "empty": "Nothing here", "not-granted": "Not shared when you signed in", "unsupported": "This source doesn't offer them",
+    "forbidden": "This source didn't allow them to be read", "paused": "Still downloading. The rest comes in at the next sync.",
+    "truncated": "The source sent the rest from another address, so it wasn't downloaded",
+}
+
+
+def describe_queries(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """How each kind of record fared in the latest sync that got that far, in words. An extra kind of result a source
+    never offered isn't worth a line."""
+    stats = next((r.get("stats") or {} for r in runs if (r.get("stats") or {}).get("queries")), {})
+    lines = []
+    for query, status in (stats.get("queries") or {}).items():
+        count = (stats.get("counts") or {}).get(query) or 0
+        if query in smart.OPTIONAL_QUERIES and not count:
+            continue
+        words = ("Received" if query == "Patient" and status == "ok"
+                 else f"{count:,} {'record' if count == 1 else 'records'}" if status == "ok"
+                 else QUERY_WORDS.get(status, "Couldn't be downloaded this time. Syntropy will try again."))
+        lines.append({"query": query, "name": smart.QUERY_NAMES.get(query, query), "status": status, "count": count, "words": words,
+                      "ok": status in ("ok", "empty", "not-granted", "unsupported")})
+    return lines
+
+
 def _says_taken_back(res: dict[str, Any]) -> bool:
     """The source still returns this resource, but to say it was wrong or never happened."""
     if (res.get("status") or "").lower() in _TAKEN_BACK or (res.get("docStatus") or "").lower() == "entered-in-error":

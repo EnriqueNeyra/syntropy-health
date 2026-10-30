@@ -32,14 +32,22 @@ function statusLine(c, paired) {
   if (c.kind === "device" && paired && c.metadata?.history && !c.metadata.history.complete) return historyStatus(c);
   if (c.kind === "device") return paired ? html`<span class="src-status good"><span class="dot good"></span> Paired</span>`
     : html`<span class="src-status"><span class="dot"></span> Not paired</span>`;
-  // A one-time import (healow keeps no connection): nothing's wrong, signing in again brings in what's new.
+  // A one-time import (healow keeps no connection): nothing's wrong, signing in again brings in what's new. Unless its
+  // access ran out partway through: then signing in again finishes the job.
+  if (c.access_ended && c.last_sync_status === "partial") return html`<span class="src-status warn" title="Access ran out before everything came in. Sign in again to finish."><span class="dot warn"></span> Partly imported</span>`;
   if (c.access_ended) return html`<span class="src-status"><span class="dot"></span> Imported</span>`;
   // A file, or results typed in: nothing to be connected to. The row says what came in and when.
   if (c.kind === "import") return "";
   if (c.status === "needs_reauth") return html`<span class="src-status warn" title="${c.credentials_unreadable ? "Its saved sign-in can't be read, because the encryption key changed. Put the original key back, or sign in again." : ""}"><span class="dot warn"></span> Reconnect needed</span>`;
   if (c.status === "error") return html`<span class="src-status bad" title="${c.last_error || ""}"><span class="dot bad"></span> Sync failed</span>`;
   if (c.status === "disconnected") return html`<span class="src-status"><span class="dot"></span> Disconnected</span>`;
-  if (c.last_sync_status === "partial") return html`<span class="src-status warn" title="Some record types could not be fetched"><span class="dot warn"></span> Partly synced</span>`;
+  // A blip: it's trying again by itself, so this isn't "failed" yet.
+  if (c.last_sync_status === "error" && c.next_retry_at) return html`<span class="src-status warn" title="${c.last_error || ""}"><span class="dot warn"></span> Trying again ${fmtDateTime(c.next_retry_at)}</span>`;
+  if (c.last_sync_status === "partial") {
+    const notes = c.last_run?.stats?.warnings || [];
+    const going = notes.length && notes.every((n) => n.includes("still downloading"));
+    return html`<span class="src-status warn" title="${notes.join(" ") || "Some record types could not be fetched"}"><span class="dot warn"></span> ${going ? "Still downloading" : "Partly synced"}</span>`;
+  }
   return html`<span class="src-status good"><span class="dot good"></span> Connected</span>`;
 }
 
@@ -91,6 +99,7 @@ function sourceRow(c, devices = []) {
   const access = ended ? "sign in again to update" : isEhr && c.token_expires_at && live && !c.has_refresh_token
     ? `access until ${(c.token_expires_at * 1000 - Date.now() < 86400000 ? fmtDateTime : fmtDate)(c.token_expires_at)}` : null;
   const where = origin(c);
+  const kept = Object.values(c.last_run?.stats?.held || {}).reduce((a, b) => a + b, 0);
   return html`<div class="src-row ${live || paired ? "" : "is-off"}" id="conn-${c.id}">
     ${ava}
     <div class="src-main">
@@ -98,6 +107,8 @@ function sourceRow(c, devices = []) {
         ${c.mode === "simulated" || c.mode === "sandbox" ? modeBadge(c.mode) : ""}</div>
       <div class="src-line">${statusLine(c, paired)}<span>${count}</span>${synced ? html`<span>${synced}</span>` : ""}
         ${where ? html`<span class="src-extra">${where}</span>` : ""}${access ? html`<span class="src-extra">${access}</span>` : ""}
+        ${kept ? html`<span title="The last sync didn't return these. They stay until it's clear the source really removed them.">${plural(kept, "record")} it didn't send, kept</span>` : ""}
+        ${c.removed_count ? html`<span><button class="link-btn" data-action="removed" data-id="${c.id}">${c.removed_count} removed by the source</button></span>` : ""}
         ${devices.length > 1 ? html`<span class="src-extra">${devices.length} devices</span>` : ""}</div>
     </div>
     <div class="src-actions">
@@ -117,7 +128,11 @@ function sourceRow(c, devices = []) {
 function sourceMenu(c, devices, act) {
   const paired = devices.length > 0;
   const items = [];
-  if (c.kind === "ehr") items.push({ label: "View records", icon: "records", href: `#/records?connection=${c.id}` });
+  if (c.kind === "ehr") {
+    items.push({ label: "View records", icon: "records", href: `#/records?connection=${c.id}` });
+    items.push({ label: "What came in", icon: "sources", run: () => act("details", { id: c.id }) });
+    if (c.removed_count) items.push({ label: "Removed by the source", icon: "history", run: () => act("removed", { id: c.id }) });
+  }
   if (c.kind === "wearable" && c.mode === "simulated") {
     items.push({ label: `Connect my ${WEARABLE_SHORT[c.provider] || c.provider}`, icon: "watch", run: () => act("wearable", { provider: c.provider, mode: "live" }) });
   }
@@ -498,7 +513,9 @@ export async function render({ el, params, state }) {
     mount(status, html`<div class="small"><span class="spinner"></span> Importing ${file.name}…</div>`);
     try {
       const r = await api("/api/imports/fhir", { method: "POST", form });
-      toast(`Imported ${plural(r.records, "record")}`, "good");
+      if (r.unchanged) toast("This file has already been imported, so nothing changed.");
+      else if (r.matched_earlier) toast(`Updated the earlier import from this source: ${plural(r.inserted, "new record")}, ${plural(r.updated, "change")}${r.removed ? `, ${r.removed} taken back` : ""}`, "good");
+      else toast(`Imported ${plural(r.records, "record")}`, "good");
       await refresh();
     } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };
@@ -556,14 +573,58 @@ export async function render({ el, params, state }) {
       try {
         const res = await post(`/api/connections/${id}/sync`);
         if (res.status === "error") toast(res.error, "bad");
-        else if (res.status === "skipped") toast(res.reason);
-        else toast(`Synced · ${plural(res.inserted || 0, "new item")}`, "good");
+        else if (res.status === "skipped" || res.status === "running") toast(res.reason);
+        else {
+          const removed = res.removed ? ` · ${res.removed} removed by the source` : "";
+          if (res.error) toast(res.error, "bad");
+          else if (res.status === "partial") toast(`Synced in part · ${plural(res.inserted || 0, "new item")}${removed}`);
+          else toast(`Synced · ${plural(res.inserted || 0, "new item")}${removed}`, "good");
+        }
       } catch (err) { toast(err.message, "bad"); }
       if (!gone) await refresh(true);     // the row shows how it went (and the button comes back)
     },
     reconnect: async ({ id }) => {
       const res = await post(`/api/connections/${id}/reconnect`);
       window.location.assign(res.auth_url);
+    },
+    details: async ({ id }) => {
+      const c = await get(`/api/connections/${id}`, undefined, { fresh: true });
+      const notes = c.last_run?.stats?.warnings || [];
+      modal({
+        title: `What came in from ${c.display_name}`,
+        body: html`<div class="stack">
+          ${c.queries.length ? html`<table class="src-queries"><tbody>${c.queries.map((q) => html`<tr><th scope="row">${q.name}</th>
+            <td class="${q.ok ? "muted" : "warn"}">${q.words}</td></tr>`)}</tbody></table>`
+            : html`<p class="muted">It hasn't finished a sync yet.</p>`}
+          ${notes.length ? html`<ul class="small" style="margin:0;padding-left:18px">${notes.map((n) => html`<li>${n}</li>`)}</ul>` : ""}
+        </div>`,
+      });
+    },
+    removed: async ({ id }) => {
+      const c = shown.all.find((x) => x.id === id);
+      const { items, keep_days } = await get(`/api/connections/${id}/removed`, undefined, { fresh: true });
+      const row = (r) => html`<div class="src-removed-row" data-row="${r.id}">
+        <div class="grow"><div>${r.title}</div>
+          <div class="small muted">${r.effective_at ? `${fmtDate(r.effective_at)} · ` : ""}${r.reason === "retracted" ? "Marked as wrong by the source" : "No longer sent by the source"}, ${fmtDate(r.removed_at)}</div></div>
+        <button class="btn btn-sm" data-put-back="${r.id}">Put back</button></div>`;
+      const m = modal({
+        title: `Removed by ${c?.display_name || "this source"}`,
+        wide: true,
+        body: html`<div class="stack"><p class="muted">These are out of your record, so summaries, charts and AI no longer see them. They're kept here
+          for ${Math.round(keep_days / 30)} months in case you want one back. A record you put back stays, whatever the source says later.</p>
+          ${items.length ? items.map(row) : html`<p class="muted">Nothing here.</p>`}</div>`,
+      });
+      m.el.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-put-back]");
+        if (!btn) return;
+        btn.disabled = true;
+        try {
+          await post(`/api/connections/${id}/removed/${btn.dataset.putBack}/restore`);
+          btn.closest("[data-row]").remove();
+          toast("Put back in your record", "good");
+          if (!gone) refresh(true);
+        } catch (err) { btn.disabled = false; toast(err.message, "bad"); }
+      });
     },
     remove: async ({ id, name, kind, off }) => {
       const phone = kind === "device";

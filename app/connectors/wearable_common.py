@@ -62,7 +62,11 @@ async def exchange_code_local(token_url: str, provider: str, code: str, redirect
         })
     if resp.status_code != 200:
         raise SmartError(f"{provider.title()} token exchange failed ({resp.status_code}).", "auth")
-    return token_credentials(resp.json())
+    try:
+        tokens = resp.json()
+    except ValueError:
+        tokens = None
+    return token_credentials(tokens if isinstance(tokens, dict) else {})
 
 
 async def refresh_tokens(token_url: str, provider: str, credentials: dict[str, Any]) -> dict[str, Any]:

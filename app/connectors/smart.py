@@ -585,7 +585,7 @@ class FetchResult:
     @property
     def more_to_fetch(self) -> bool:
         """The next sync has work to carry on with, so it shouldn't wait for the usual interval."""
-        return any(q.status == "paused" or q.next_url or q.status.startswith("error:") for q in self.queries)
+        return self.patient_failed or any(q.status == "paused" or q.next_url or q.status.startswith("error:") for q in self.queries)
 
     def state(self) -> dict[str, dict[str, Any]]:
         """What the next sync needs to know about each query."""

@@ -163,7 +163,8 @@ def reconcile(connection_id: str, seen_ids: set[str], verdict: Any, retracted: I
     with read() as conn:
         rows = conn.execute("SELECT id, resource_type, resource_id, category, missing_since, kept_at "
                             "FROM clinical_records WHERE connection_id = ?", (connection_id,)).fetchall()
-    key = lambda r: f"{r['resource_type']}/{r['resource_id']}"  # noqa: E731
+    def key(r: Any) -> str:
+        return f"{r['resource_type']}/{r['resource_id']}"
     gone = set(retracted)
     took_back = [r["id"] for r in rows if key(r) in gone and r["kept_at"] is None]
     in_answer = [r["id"] for r in rows if key(r) in seen_ids and r["missing_since"] is not None]

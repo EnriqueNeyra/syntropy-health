@@ -17,6 +17,7 @@ from app.store import connections
 from tests.conftest import BASE, CSRF, LOCAL_CLIENT, connect_institution, simulated_login
 
 BANNER = "banner-health"
+RealClient = httpx.AsyncClient
 
 
 @pytest.fixture(autouse=True)
@@ -338,6 +339,20 @@ def test_the_owner_can_use_their_own_network(client, monkeypatch):
     assert client.post("/api/connections/discover", json={"fhir_base_url": "https://hapi.home/fhir"}).status_code == 200
 
 
+def test_a_public_server_the_owner_added_is_still_held_to_the_public_internet(client, monkeypatch):
+    monkeypatch.setattr(smart, "_lookup", _addresses("93.184.216.34"))
+
+    async def found(base, simulated=False):
+        assert smart.GUARDED.get()
+        return {"authorization_endpoint": f"{base}/auth", "token_endpoint": f"{base}/token", "scopes_supported": []}
+    monkeypatch.setattr(smart, "discover", found)
+    client.put("/api/settings/developer", json={"enabled": False})
+    r = client.post("/api/connections/ehr", json={"fhir_base_url": "https://fhir.example.org/r4", "client_id": "x"})
+    assert r.status_code == 200, r.text
+    state = parse_qs(urlparse(r.json()["auth_url"]).query)["state"][0]
+    assert connections.peek_pending(state)[1]["allow_private"] is False
+
+
 def test_plain_http_to_the_internet_is_refused_even_for_the_owner_outside_developer_mode(client, monkeypatch):
     monkeypatch.setattr(smart, "_lookup", _addresses("93.184.216.34"))
     client.put("/api/settings/developer", json={"enabled": False})
@@ -542,3 +557,117 @@ def test_scheduled_syncs_run_side_by_side_without_losing_track(client, monkeypat
         c.execute("UPDATE connections SET last_sync_at = 0")
     synced = asyncio.run(scheduler.run_once())
     assert set(synced) == set(ids)
+
+
+def test_a_person_can_see_how_each_kind_of_record_fared(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    sim.faults.answers.append({"type": "Goal", "status": 403})
+    sim.faults.answers.append({"type": "Immunization", "status": 500})
+    client.post(f"/api/connections/{cid}/sync")
+    lines = {q["name"]: q for q in client.get(f"/api/connections/{cid}").json()["queries"]}
+    assert lines["Name and birth date"]["words"] == "Received"
+    assert lines["Goals"]["words"] == "This source didn't allow them to be read" and not lines["Goals"]["ok"]
+    assert "try again" in lines["Immunizations"]["words"]
+    assert lines["Lab results"]["words"].endswith("records") and lines["Lab results"]["ok"]
+    assert "Imaging results" not in lines      # an extra kind this source never offered isn't worth a line
+
+
+def test_any_shape_can_be_sent_through_the_simulator(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    patient = connections.get(cid)["patient_ref"]
+    sim.faults.extra_resources.append({
+        "resourceType": "Observation", "id": "comparator", "status": "final", "subject": {"reference": f"Patient/{patient}"},
+        "category": [{"coding": [{"code": "laboratory"}]}], "code": {"text": "Creatinine"}, "effectiveDateTime": "2026-02-02",
+        "valueQuantity": {"value": 0.2, "comparator": "<", "unit": "mg/dL"}})
+    assert client.post(f"/api/connections/{cid}/sync").json()["inserted"] == 1
+
+
+# ---------------------------------------------------------------------------
+# The other real-world paths nothing else runs (F247)
+# ---------------------------------------------------------------------------
+
+def _whoop_client(monkeypatch, handler):
+    from app.connectors import whoop
+    monkeypatch.setattr(whoop.httpx, "AsyncClient", lambda **kw: RealClient(transport=httpx.MockTransport(handler), **kw))
+    return whoop
+
+
+def _whoop_fetch(whoop):
+    from datetime import date
+
+    async def go():
+        async with httpx.AsyncClient(timeout=5) as client:
+            return await whoop._fetch(client, "t", "v2/recovery", date(2026, 1, 1), date(2026, 1, 2))
+    return asyncio.run(go())
+
+
+def test_whoop_pages_through_everything(monkeypatch):
+    def handler(request):
+        if request.url.params.get("nextToken") == "two":
+            return httpx.Response(200, json={"records": [{"id": 2}]})
+        return httpx.Response(200, json={"records": [{"id": 1}], "next_token": "two"})
+    assert [r["id"] for r in _whoop_fetch(_whoop_client(monkeypatch, handler))] == [1, 2]
+
+
+def test_whoop_401_is_a_sign_in_problem_and_403_is_a_quiet_gap(monkeypatch):
+    with pytest.raises(smart.SmartError) as caught:
+        _whoop_fetch(_whoop_client(monkeypatch, lambda r: httpx.Response(401)))
+    assert caught.value.kind == "auth"
+    assert _whoop_fetch(_whoop_client(monkeypatch, lambda r: httpx.Response(403))) == []
+
+
+@pytest.mark.parametrize("status", [429, 500, 503])
+def test_whoop_trouble_comes_out_as_something_sync_can_classify(monkeypatch, status):
+    with pytest.raises(httpx.HTTPStatusError):
+        _whoop_fetch(_whoop_client(monkeypatch, lambda r: httpx.Response(status)))
+    plain = sync_svc._plain_failure(httpx.HTTPStatusError("x", request=httpx.Request("GET", "https://x"), response=httpx.Response(status)), "WHOOP")
+    assert plain.kind == "network" and "WHOOP" in str(plain)
+
+
+def test_a_client_error_from_a_vendor_isnt_called_temporary():
+    plain = sync_svc._plain_failure(httpx.HTTPStatusError("x", request=httpx.Request("GET", "https://x"), response=httpx.Response(400)), "WHOOP")
+    assert plain.kind == "error"
+    assert sync_svc._plain_failure(httpx.ConnectTimeout("t"), "WHOOP").kind == "network"
+
+
+def _local_exchange(monkeypatch, handler):
+    from app.connectors import wearable_common as wc
+    from app.core import settings
+    monkeypatch.setattr(wc.httpx, "AsyncClient", lambda **kw: RealClient(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(settings, "wearable_credentials", lambda provider: {"client_id": "id", "client_secret": "secret"})
+    return asyncio.run(wc.exchange_code_local("https://vendor.example/token", "whoop", "code", "https://me/callback"))
+
+
+def test_a_wearable_code_exchange_with_ones_own_secret(monkeypatch):
+    assert _local_exchange(monkeypatch, lambda r: httpx.Response(200, json={"access_token": "A", "refresh_token": "R", "expires_in": 60}))["access_token"] == "A"
+    for answer in (httpx.Response(400, json={"error": "invalid_grant"}), httpx.Response(200, text="<html>"), httpx.Response(200, json=[1])):
+        with pytest.raises(smart.SmartError):
+            _local_exchange(monkeypatch, lambda r, a=answer: a)
+
+
+def _verify(client, monkeypatch, handler, platform="cerner", mode="sandbox"):
+    from app.api import settings as api
+    monkeypatch.setattr(api.httpx, "AsyncClient", lambda **kw: RealClient(transport=httpx.MockTransport(handler), **kw))
+    client.put(f"/api/settings/platforms/{platform}", json={"mode": "sandbox", "sandbox_client_id": "my-client"})
+    return client.post(f"/api/settings/platforms/{platform}/verify", params={"mode": mode}).json()
+
+
+def test_checking_a_client_id_reads_the_vendors_answer(client, monkeypatch):
+    from app.api import settings as api
+    if "cerner" not in api.PROBES:
+        pytest.skip("no sandbox probe for this platform")
+    ok = _verify(client, monkeypatch, lambda r: httpx.Response(302, headers={"Location": "https://login/x"}))
+    assert ok["ok"] is True
+    bad = _verify(client, monkeypatch, lambda r: httpx.Response(400, text="invalid_client"))
+    assert bad["ok"] is False
+
+
+def test_checking_a_client_id_when_the_vendor_is_unreachable(client, monkeypatch):
+    from app.api import settings as api
+    if "cerner" not in api.PROBES:
+        pytest.skip("no sandbox probe for this platform")
+
+    def down(request):
+        raise httpx.ConnectError("no route")
+    res = _verify(client, monkeypatch, down)
+    assert res["ok"] is False
