@@ -24,7 +24,7 @@ from app.api import agents, assistant, biometrics, connections, data, desktop, d
 from app.core import auth, config, data_fixes, db, maintenance, security, settings as instance_settings
 from app.core.uploads import DecompressUploads
 from app.services import network, scheduler, updates
-from app.store import biometrics as biometric_store, sample_counts
+from app.store import biometrics as biometric_store, sample_counts, search
 from app.simulator import server as simulator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -79,6 +79,7 @@ def _start_up() -> None:
     biometric_store.upgrade_daily_if_needed()
     sample_counts.warm()
     maintenance.check_at_start_up()
+    search.at_start_up()
 
 
 def _database_trouble(exc: Exception) -> Optional[tuple[int, str]]:
@@ -175,7 +176,7 @@ def create_app() -> FastAPI:
         # Without a password, the API answers only to local names (localhost, home network, Tailscale): otherwise a web
         # page could use DNS rebinding to read records from a browser on this network. With a password, its session
         # cookie belongs to the real address, so the password itself stops that.
-        if (request.url.path.startswith("/api/") and not network.is_local_name(request.headers.get("host", ""))
+        if ((request.url.path.startswith("/api/") or request.url.path == "/mcp") and not network.is_local_name(request.headers.get("host", ""))
                 and not auth.auth_required()):
             return JSONResponse({"detail": "This address isn't allowed without a password. Set a password, or add it "
                                            "to SYNTROPY_ALLOWED_HOSTS."}, status_code=421)
@@ -247,7 +248,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(404)
     async def not_found(request: Request, exc) -> Response:
-        if request.url.path.startswith(("/api/", "/sim/", "/static/")):
+        if request.url.path.startswith(("/api/", "/sim/", "/static/", "/.well-known/")):
             detail = getattr(exc, "detail", "Not found")
             return JSONResponse({"detail": detail}, status_code=404)
         return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})

@@ -56,8 +56,8 @@ def _text_of(row: str) -> str:
     return (f"coalesce({row}.code_display, '') || ' ' || coalesce({row}.code, '') || ' ' || coalesce({row}.value_text, '') || ' ' || "
             f"coalesce({row}.narrative, '') || ' ' || coalesce({row}.source_name, '') || ' ' || coalesce("
             f"(SELECT group_concat(atom, ' ') FROM json_tree(CASE WHEN json_valid({row}.details_json) THEN {row}.details_json ELSE '{{}}' END) "
-            "WHERE type = 'text' AND fullkey NOT LIKE '$.attachments%' AND fullkey NOT LIKE '$.result_refs%' "
-            "AND fullkey NOT LIKE '$.encounter%'), '')")
+            "WHERE type = 'text' AND replace(fullkey, '\"', '') NOT LIKE '$.attachments%' "       # some keys are quoted there
+            "AND replace(fullkey, '\"', '') NOT LIKE '$.result_refs%' AND replace(fullkey, '\"', '') NOT LIKE '$.encounter%'), '')")
 
 
 def _write_document(row: str) -> str:
@@ -118,16 +118,16 @@ def ready() -> bool:
 
 def at_start_up() -> None:
     """A database moved to a build without FTS5: a trigger naming the index would make every write to a record fail, so
-    they go, and the index is built again if this database is ever back on a build that has it."""
-    if fts5_available():
-        return
+    they go. Back on a build that has it, the index is built again."""
     with read() as conn:
-        present = conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'trigger' AND name = ?", (_TRIGGERS[0],)).fetchone()
-    if present:
-        with db() as conn:
-            for trigger in _TRIGGERS:
-                conn.execute(f"DROP TRIGGER IF EXISTS {trigger}")
-            conn.execute("DELETE FROM data_fixes WHERE name = ?", (FIX,))
+        triggers = conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'trigger' AND name = ?", (_TRIGGERS[0],)).fetchone()
+        state = conn.execute("SELECT state FROM data_fixes WHERE name = ?", (FIX,)).fetchone()
+    if bool(triggers) == fts5_available() or (fts5_available() and not state):
+        return
+    with db() as conn:
+        for trigger in _TRIGGERS:
+            conn.execute(f"DROP TRIGGER IF EXISTS {trigger}")
+        conn.execute("DELETE FROM data_fixes WHERE name = ?", (FIX,))
 
 
 def _like(word: str) -> str:

@@ -49,8 +49,8 @@ function snippets(url, token, local) {
   const json = (v) => JSON.stringify(v, null, 2);
   const httpServer = { url, headers: { Authorization: `Bearer ${t}` } };
   return [
-    ...(local ? [["Claude Desktop", `${desktopHow} This runs on the computer with Syntropy Health: no token needed, and it can read `
-      + "everyone's records.", json({ mcpServers: { "syntropy-health": local } }), false]] : []),
+    ...(local ? [["Claude Desktop", `${desktopHow} This runs on the computer with Syntropy Health and needs no token, so it can't be `
+      + "revoked from here: to stop it, take it back out of that file.", json({ mcpServers: { "syntropy-health": local } }), false]] : []),
     ["Claude Code", "Run in a terminal. It's then available in every project; remove it with: claude mcp remove syntropy-health",
       `claude mcp add --scope user --transport http syntropy-health ${url} --header "Authorization: Bearer ${t}"`, true],
     ["Codex CLI", "Run in a terminal, then start codex. Keep the token in SYNTROPY_TOKEN (for example in your shell profile).",
@@ -206,7 +206,8 @@ export async function renderAiTab(body, { state, redraw }) {
         <span class="ai-token-icon">${icon("key")}</span>
         <div class="grow" style="min-width:0"><b>${t.name}</b><div class="meta">${t.profile_name ? `Only ${t.profile_name}` : "Everyone you can see"} ·
           ${t.last_call ? html`last looked up ${t.last_call.replaceAll("_", " ")} ${fmtAgo(t.last_call_at)}`
-            : t.last_used_at ? `connected ${fmtAgo(t.last_used_at)}` : `created ${fmtDate(t.created_at)}, not connected yet`}</div></div>
+            : t.last_used_at ? `connected ${fmtAgo(t.last_used_at)}` : `created ${fmtDate(t.created_at)}, not connected yet`}
+          ${t.expires_at ? (t.expires_at * 1000 < Date.now() ? ` · expired ${fmtDate(t.expires_at)}` : ` · works until ${fmtDate(t.expires_at)}`) : ""}</div></div>
         <button class="btn btn-sm btn-ghost" data-action="check-tokens" title="See the latest lookup" aria-label="See ${t.name}'s latest lookup">${icon("sync")}</button>
         <button class="btn btn-sm btn-ghost btn-danger" data-action="revoke" data-id="${t.id}" data-name="${t.name}">Revoke</button></div>`)}</div>`
       : html`<p class="small muted" style="padding:0 18px 16px">No apps connected yet.</p>`}
@@ -557,16 +558,18 @@ const APP_LOGO = { "Claude Desktop": "claude", "Claude Code": "claudecode", "Cod
 function connectApp({ url, local, profiles, state, onToken }) {
   let app = null;        // index into snippets()
   let token = null;
+  let localNow = local;  // the setup for whoever the connection on this computer is limited to
+  let localWho = profiles.find((p) => p.is_self)?.id || profiles[0]?.id || "";
   const m = modal({ title: "Connect an app", wide: true, body: "" });
   const copy = async (text) => {
     try { await navigator.clipboard.writeText(text); toast("Copied"); }
     catch { toast("Copy isn't available here; select the text instead.", "bad"); }
   };
   const draw = () => {
-    const list = snippets(url, token?.token, local);
+    const list = snippets(url, token?.token, localNow);
     if (app == null) {
       m.setBody(html`<p class="muted" style="margin-bottom:14px">Which app should read your records? It gets read-only access, and
-          you can revoke it at any time.</p>
+          access through a token can be revoked at any time.</p>
         <div class="ai-app-grid">${list.map(([name], i) => html`<button class="ai-app" data-i="${i}">${logo(APP_LOGO[name] || "", name)}<span>${name}</span></button>`)}</div>`);
       return;
     }
@@ -577,12 +580,18 @@ function connectApp({ url, local, profiles, state, onToken }) {
             <input class="input" id="tok-name" value="${name}" maxlength="80"></div>
           <div class="field"><label class="label" for="tok-profile">Can read</label>
             <select class="input" id="tok-profile"><option value="">${profiles.length > 1 ? "Everyone you can see" : "Your records"}</option>
-              ${profiles.map((p) => html`<option value="${p.id}" ${p.id === state.profile?.id && profiles.length > 1 ? "selected" : ""}>Only ${p.name}'s records</option>`)}</select></div></div>
+              ${profiles.map((p) => html`<option value="${p.id}" ${p.id === state.profile?.id && profiles.length > 1 ? "selected" : ""}>Only ${p.name}'s records</option>`)}</select></div>
+          <div class="field"><label class="label" for="tok-expires">Works for</label>
+            <select class="input" id="tok-expires"><option value="">Until you revoke it</option><option value="30">30 days</option>
+              <option value="90">90 days</option><option value="365">A year</option></select></div></div>
         <div class="row"><button class="btn btn-primary" data-step="create">${icon("key")} Create access</button>
           <span class="small muted">Creates a token for ${name}, shown once.</span></div>`
       : html`${token ? html`<div class="banner good"><div class="grow"><b>Access created.</b> The token is filled in below and won't be shown
           again; copy the setup now.</div></div>` : ""}
         <p class="small" style="margin-bottom:8px">${how}</p>
+        ${code && !needsToken ? html`<div class="field"><label class="label" for="local-who">Can read</label>
+          <select class="input" id="local-who">${profiles.map((p) => html`<option value="${p.id}" ${p.id === localWho ? "selected" : ""}>Only ${p.name}'s records</option>`)}
+            <option value="everyone" ${localWho === "everyone" ? "selected" : ""}>Everyone on this computer, including people who have their own sign-in</option></select></div>` : ""}
         ${code ? html`<div class="snippet"><pre>${code}</pre><button class="btn btn-sm" data-copy>${icon("copy")} Copy</button></div>
           <p class="hint">Then ask it something like "Summarize my latest lab results". Its lookups appear under Other AI apps.</p>` : ""}
         <div class="field" style="margin-top:14px"><div class="label">Server address</div>
@@ -590,15 +599,26 @@ function connectApp({ url, local, profiles, state, onToken }) {
     m.setBody(html`<button class="link-btn small" data-back>${icon("chevronLeft")} All apps</button>
       <h3 style="margin:10px 0 12px">${name}</h3>${step}`);
   };
+  m.body.addEventListener("change", async (e) => {
+    if (e.target.id !== "local-who") return;
+    const who = e.target.value;
+    try {
+      localNow = await get("/api/agents/local-command", who === "everyone" ? { everyone: true } : { profile_id: who }, { fresh: true });
+      localWho = who;
+    } catch (err) { toast(err.message, "bad"); }
+    draw();
+  });
   m.body.addEventListener("click", async (e) => {
     const pick = e.target.closest("[data-i]");
     if (pick) { app = Number(pick.dataset.i); draw(); return; }
     if (e.target.closest("[data-back]")) { app = null; token = null; draw(); return; }
-    if (e.target.closest("[data-copy]")) { copy(snippets(url, token?.token, local)[app][2]); return; }
+    if (e.target.closest("[data-copy]")) { copy(snippets(url, token?.token, localNow)[app][2]); return; }
     if (e.target.closest("[data-copy-url]")) { copy(url); return; }
     if (e.target.closest("[data-step=create]")) {
       try {
-        token = await post("/api/agents/tokens", { name: $("#tok-name", m.el).value.trim() || "AI app", profile_id: $("#tok-profile", m.el).value || null });
+        const days = Number($("#tok-expires", m.el).value);
+        token = await post("/api/agents/tokens", { name: $("#tok-name", m.el).value.trim() || "AI app", profile_id: $("#tok-profile", m.el).value || null,
+          ...(days ? { expires_days: days } : {}) });
         onToken({ ...token, profile_name: profiles.find((p) => p.id === token.profile_id)?.name });
         draw();
       } catch (err) { toast(err.message, "bad"); }

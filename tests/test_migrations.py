@@ -30,6 +30,8 @@ MIGRATION_HASHES = {
     "011_healthkit_export_platform.sql": "019c3c1d7fa357f5c2a148f091a0fcd0be768aeec59adf178b3dc7dd03a4a46f",
     "012_workout_humidity.sql": "35f0dff42fa87d9252f9311efb742eb4c3a0d5f86e1fe512f9597e7c662c2d03",
     "013_daily_revisions.sql": "81aa57eaeaddd9ac7e7504e7e8a811e23936a7bc0274f7988a5414cf90cf7279",
+    "037_record_search.sql": "a777ac07ffb9d2eb0312c6d0c2ddb8f338875c0c7eaa4e53114f4cd955d51734",
+    "038_agent_token_expiry.sql": "b0d3469439632f45c9c4d34b4e86794bb04fb1e18fc2f2bfa083dee54f2e1d94",
 }
 
 
@@ -166,15 +168,23 @@ def test_every_old_schema_upgrades_with_its_data(version):
     c.close()
 
     copies = db.pre_upgrade_copies(path)
-    assert len(copies) == 1 and copies[0]["version"] == version
-    kept = sqlite3.connect(copies[0]["path"])
-    assert kept.execute("SELECT COUNT(*) FROM biometric_samples").fetchone()[0] == 3
-    kept.close()
+    if version < db.newest_schema():      # already the newest: nothing to upgrade, so no copy from before
+        assert len(copies) == 1 and copies[0]["version"] == version
+        kept = sqlite3.connect(copies[0]["path"])
+        assert kept.execute("SELECT COUNT(*) FROM biometric_samples").fetchone()[0] == 3
+        kept.close()
 
     db.reset_migration_cache()
     from app.main import create_app
     with TestClient(create_app(), base_url=BASE, client=LOCAL_CLIENT) as client:
         assert client.get("/health").json()["status"] == "ok"
+        # The search index is built from what was already there, and old tokens carry on without an end.
+        from app.core import data_fixes
+        from app.store import agents, records, search
+        data_fixes.run_pending()
+        assert search.ready() and records.list_records("prf_a", q="a1c")["total"] == 1
+        if version >= 3:
+            assert [t["expires_at"] for t in agents.list_tokens()] == [None]
         if version >= 9:      # from here the seed has no account: the password came from the settings above
             return
         client.headers.update(CSRF)

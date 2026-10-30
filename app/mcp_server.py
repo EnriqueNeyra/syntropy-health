@@ -80,6 +80,8 @@ ALLOWED_PROFILES: ContextVar[Optional[frozenset[str]]] = ContextVar("allowed_pro
 HOME_PROFILE: ContextVar[Optional[str]] = ContextVar("home_profile", default=None)
 # Who is calling, for the activity log ("mcp", "mcp:<token id>", or "agent:<id>" for one the assistant started).
 ACTOR: ContextVar[str] = ContextVar("actor", default="mcp")
+# Set for agent tokens: asked before each tool call, says (seconds to wait, whether that's the first refusal in a row).
+CALL_GATE: ContextVar[Optional[Callable[[], tuple[int, bool]]]] = ContextVar("call_gate", default=None)
 # For the call being run: whose records it read, and how much room its result has.
 _READ_PERSON: ContextVar[Optional[dict[str, Any]]] = ContextVar("read_person", default=None)
 _BUDGET: ContextVar[int] = ContextVar("result_budget", default=RESULT_BUDGET)
@@ -1025,6 +1027,15 @@ def _answer(method: str, params: dict[str, Any], msg_id: Any) -> dict[str, Any]:
         name = params.get("name")
         if not isinstance(name, str) or name not in TOOLS:
             return _error(msg_id, -32602, f"Unknown tool: {name}")
+        gate = CALL_GATE.get()
+        wait, first_refusal = gate() if gate else (0, False)
+        if wait:
+            # A result rather than an HTTP error, so the model can see what to do. One row in the log, not one per refusal.
+            if first_refusal:
+                _record(name, _Outcome("", True, code="too_many_calls"))
+            body = {"code": "too_many_calls", "message": f"Too many lookups in a short time. Wait {wait} seconds, then try again.",
+                    "retry_after_seconds": wait}
+            return {"content": [{"type": "text", "text": json.dumps(body)}], "isError": True}
         out = _run(name, params.get("arguments"))
         _record(name, out)
         result: dict[str, Any] = {"content": [{"type": "text", "text": out.text}], "isError": out.is_error}
@@ -1032,13 +1043,6 @@ def _answer(method: str, params: dict[str, Any], msg_id: Any) -> dict[str, Any]:
             result["structuredContent"] = out.payload
         return result
     return _error(msg_id, -32601, f"Method not found: {method}")
-
-
-def refused_call(msg_id: Any, tool: Any, wait_seconds: int) -> dict[str, Any]:
-    """A tool call turned away for coming too fast: a result rather than an HTTP error, so the model can see what to do."""
-    body = {"code": "too_many_calls", "message": f"Too many lookups in a short time. Wait {wait_seconds} seconds, then try again.",
-            "retry_after_seconds": wait_seconds}
-    return {"jsonrpc": "2.0", "id": msg_id, "result": {"content": [{"type": "text", "text": json.dumps(body)}], "isError": True}}
 
 
 def handle(message: dict[str, Any]) -> Optional[dict[str, Any]]:

@@ -6,7 +6,7 @@ import base64
 import binascii
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -19,7 +19,7 @@ from app import mcp_server
 from app.api.deps import resolve_profile
 from app.core import auth, context
 from app.services import network
-from app.store import accounts, agents
+from app.store import accounts, agents, profiles
 
 router = APIRouter(tags=["agents"], dependencies=[Depends(auth.require_user)])
 mcp_router = APIRouter(tags=["mcp"])
@@ -41,6 +41,7 @@ def list_tokens() -> dict:
 class TokenRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=80)
     profile_id: Optional[str] = None      # None: every profile
+    expires_days: Optional[Literal[30, 90, 365]] = None      # None: until it's revoked
 
 
 @router.post("/api/agents/tokens")
@@ -48,15 +49,20 @@ def create_token(req: TokenRequest) -> dict:
     if req.profile_id:
         resolve_profile(req.profile_id, "view")
     principal = context.principal()
-    return agents.create(req.name, req.profile_id, principal.account_id if principal else None)
+    return agents.create(req.name, req.profile_id, principal.account_id if principal else None, req.expires_days)
 
 
 @router.get("/api/agents/local-command", dependencies=[Depends(auth.require_owner)])
-def local_command() -> dict:
-    """How an MCP client on the computer holding the data starts the stdio server (no token; everyone's records)."""
+def local_command(profile_id: Optional[str] = None, everyone: bool = False) -> dict:
+    """How an MCP client on the computer holding the data starts the stdio server, with no token. It reads one person's
+    records: the owner's own unless told otherwise, and everyone's only if that's what is asked for."""
+    principal = context.principal()
+    person = None if everyone else resolve_profile(profile_id, "view")["id"] if profile_id else (
+        (principal.home if principal else None) or profiles.default_profile()["id"])
     if Path("/.dockerenv").exists():
-        return {"command": "docker", "args": ["exec", "-i", "syntropy-health", "python", "-m", "app.mcp_server"]}
-    return mcp_server.stdio_command()
+        limit = ["-e", f"SYNTROPY_MCP_PROFILE={person}"] if person else []
+        return {"command": "docker", "args": ["exec", "-i", *limit, "syntropy-health", "python", "-m", "app.mcp_server"]}
+    return mcp_server.stdio_command(person)
 
 
 @router.delete("/api/agents/tokens/{token_id}")
@@ -94,6 +100,7 @@ def _handle_batch(batch: list[Any], agent: dict[str, Any]) -> list[dict[str, Any
     who = mcp_server.ALLOWED_PROFILES.set(allowed)
     own = mcp_server.HOME_PROFILE.set(home)
     actor = mcp_server.ACTOR.set(f"mcp:{agent['id']}")
+    gate = mcp_server.CALL_GATE.set(lambda: agents.wait_before_call(agent["id"]))
     try:
         return [r for r in (mcp_server.handle(m) if isinstance(m, dict) else mcp_server._error(None, -32600, "Invalid request")
                             for m in batch) if r is not None]
@@ -102,6 +109,7 @@ def _handle_batch(batch: list[Any], agent: dict[str, Any]) -> list[dict[str, Any
         mcp_server.ALLOWED_PROFILES.reset(who)
         mcp_server.HOME_PROFILE.reset(own)
         mcp_server.ACTOR.reset(actor)
+        mcp_server.CALL_GATE.reset(gate)
 
 
 def _last_tool(batch: list[Any]) -> Optional[str]:
@@ -197,10 +205,12 @@ async def mcp(request: Request) -> Response:
         return _rpc_failure(400, -32600, "Invalid request: the body has to be a JSON-RPC message.")
     batch = body if isinstance(body, list) else [body]
     modern = isinstance(body, dict) and mcp_server.is_modern(body)
-    if modern and body.get("method"):
+    if modern:
         wrong = _header_mismatch(request, body)
         if wrong:
             return _rpc_failure(400, -32020, wrong, body.get("id"))
+    elif version in mcp_server.MODERN_VERSIONS and isinstance(body, dict) and "id" in body and "method" in body:
+        return _rpc_failure(400, -32602, f"Invalid params: _meta needs {mcp_server.META_VERSION} and {mcp_server.META_CAPABILITIES}.", body["id"])
     replies = await run_in_threadpool(_handle_batch, batch, agent)
     note = BackgroundTask(agents.note_use, agent, _last_tool(batch))
     if not replies:
