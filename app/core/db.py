@@ -43,6 +43,7 @@ _UPGRADE_WAIT_SECONDS = 1800
 RELEASES_URL = "https://github.com/EnriqueNeyra/syntropy-health/releases"
 # Past this the log is truncated (app.core.maintenance), and it's what SQLite cuts it back to after any reset.
 WAL_LIMIT = 64 * 1024 * 1024
+_BIG_WRITE = 1000       # rows changed by one transaction
 
 
 class StartupProblem(Exception):
@@ -69,9 +70,11 @@ def _writer(path: Path) -> sqlite3.Connection:
     request (tests/conftest.py fails any test that does).
 
     FULL because in WAL mode NORMAL doesn't sync at each commit, so a power cut can undo what was already acknowledged:
-    a phone moves on after its upload's 200 and never sends those samples again. It costs one sync per commit."""
+    a phone moves on after its upload's 200 and never sends those samples again. It costs one sync per commit: about 5 ms
+    on a Mac, where fullfsync is what actually reaches the disk (elsewhere that setting does nothing)."""
     conn = _connect(path)
     conn.execute("PRAGMA synchronous = FULL")
+    conn.execute("PRAGMA fullfsync = ON")
     return conn
 
 
@@ -139,6 +142,7 @@ def db() -> Iterator[sqlite3.Connection]:
         conn.execute("BEGIN IMMEDIATE")
         yield conn
         conn.execute("COMMIT")
+        big = conn.total_changes >= _BIG_WRITE
     except BaseException:
         try:
             conn.execute("ROLLBACK")
@@ -147,6 +151,11 @@ def db() -> Iterator[sqlite3.Connection]:
         raise
     finally:
         conn.close()
+    if big:
+        # Right after letting go of the lock it has the best chance of a checkpoint: from another thread it kept losing
+        # to the next batch and the log reached gigabytes. And what fills the log waits for it to empty; a small
+        # write never waits for this.
+        checkpoint_if_large(path, wait_seconds=1.0)
 
 
 @contextmanager
@@ -465,14 +474,15 @@ def checkpoint(path: Optional[Path] = None, wait_seconds: float = 2.0) -> bool:
         conn.close()
 
 
-def checkpoint_if_large(path: Optional[Path] = None) -> bool:
+def checkpoint_if_large(path: Optional[Path] = None, wait_seconds: float = 2.0) -> bool:
     path = path or config.db_path()
     try:
         if Path(f"{path}-wal").stat().st_size <= WAL_LIMIT:
             return False
     except OSError:
         return False
-    return checkpoint(path)
+    return checkpoint(path, wait_seconds)
+
 
 
 def probe(path: Path) -> dict[str, Any]:

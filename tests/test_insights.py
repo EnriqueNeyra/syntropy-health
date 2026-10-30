@@ -3,6 +3,8 @@ timeline and saved Ask conversations."""
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from app.services import insights
 from app.store import activity, biometrics, goals, profiles, sleep, training
 
@@ -203,3 +205,22 @@ def test_labels_inside_sentences_keep_their_capitals():
     from app.services.insights import _soft
     assert [_soft(x) for x in ("Resting heart rate", "Steps", "HRV (RMSSD)", "VO₂ max", "SpO2")] == \
         ["resting heart rate", "steps", "HRV (RMSSD)", "VO₂ max", "SpO2"]
+
+
+def test_insights_read_only_what_they_need_from_labs(client, monkeypatch):
+    """Worked out on every Overview: the full summary and whole records took most of its second."""
+    from app.store import connections, records
+
+    prof = client.get("/api/profiles").json()["profiles"][0]["id"]
+    source = connections.create(prof, "import", "manual", "Lab")["id"]
+    for i, (day, value) in enumerate((("2026-01-01", 6.0), ("2026-02-01", 6.4))):
+        records.upsert_records(prof, source, "Lab", [{"resource_type": "Observation", "resource_id": f"o{i}", "category": "labs",
+                                                     "title": "A1c", "code": "4548-4", "code_system": "http://loinc.org",
+                                                     "effective_at": f"{day}T00:00:00Z", "value_num": value, "value_norm": value,
+                                                     "unit": "%", "ref_high": 5.6, "interpretation": "high",
+                                                     "dedup_key": f"a1c-{day}", "narrative": "x" * 1000}])
+    with monkeypatch.context() as patch:
+        patch.setattr(records, "summary", lambda *_: pytest.fail("the whole summary isn't needed"))
+        found = client.get("/api/insights").json()["insights"]
+    assert [i["title"] for i in found if i["kind"] == "lab"] == ["A1c moving further out of range"]
+    assert [l["title"] for l in records.summary(prof)["flagged_labs"]] == [l["title"] for l in records.flagged_labs(prof)] == ["A1c"]

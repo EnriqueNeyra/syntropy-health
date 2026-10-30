@@ -34,6 +34,11 @@ LIST_COLUMNS = (
     "ref_low, ref_high, ref_text, interpretation, details_json, narrative, dedup_key, source_name, "
     "first_seen_at, updated_at"
 )
+_LAB_FLAG_COLUMNS = ("id, connection_id, title, code, code_display, unit, value_num, value_text, effective_at, interpretation, "
+                     "ref_text, dedup_key, source_name")
+SUMMARY_LABS = 2000
+SERIES_COLUMNS = ("id, connection_id, title, effective_at, value_num, unit, value_norm, unit_norm, ref_low, ref_high, "
+                  "interpretation, details_json, dedup_key, source_name")
 
 
 def record_id(connection_id: str, resource_type: str, resource_id: str) -> str:
@@ -353,7 +358,7 @@ def observation_series(profile_id: str, code: str, category: Optional[str] = Non
         params.append(category)
     with read() as conn:
         rows = _load(conn.execute(
-            f"SELECT {LIST_COLUMNS} FROM clinical_records WHERE {' AND '.join(where)} ORDER BY effective_at",
+            f"SELECT {SERIES_COLUMNS} FROM clinical_records WHERE {' AND '.join(where)} ORDER BY effective_at",
             params,
         ).fetchall())
     rows = _dedupe(rows)
@@ -394,6 +399,28 @@ def _first(rows: list[dict[str, Any]], n: int) -> list[dict[str, Any]]:
     return rows[:n]
 
 
+def _latest_labs(labs: list[dict[str, Any]]) -> "OrderedDict[str, dict[str, Any]]":
+    latest_by_code: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
+    for lab in labs:
+        if not _unnamed(lab):
+            latest_by_code.setdefault(lab.get("code") or lab["title"], lab)
+    return latest_by_code
+
+
+def _out_of_range(latest_by_code: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    return [l for l in latest_by_code.values() if (l.get("interpretation") or "") in ABNORMAL]
+
+
+def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
+    """Tests whose latest result is out of range, as in the summary, but for Insights on every Overview: without reading
+    the rest of the summary, or the full text of every result. These rows have no details or narrative."""
+    with read() as conn:
+        rows = rows_to_dicts(conn.execute(
+            f"SELECT {_LAB_FLAG_COLUMNS} FROM clinical_records WHERE profile_id = ? AND category = 'labs' "
+            "ORDER BY coalesce(effective_at, '') DESC, updated_at DESC", (profile_id,)).fetchall())
+    return _out_of_range(_latest_labs(_dedupe(rows)[:SUMMARY_LABS]))
+
+
 def summary(profile_id: str) -> dict[str, Any]:
     conds = list_records(profile_id, "conditions", limit=500)["items"]
     active_conditions = [c for c in conds if (c.get("status") or "active").lower() not in INACTIVE_CONDITION_STATUSES]
@@ -405,12 +432,8 @@ def summary(profile_id: str) -> dict[str, Any]:
                  not in ("resolved", "inactive", "entered-in-error", "no-known-allergies", "not-asked")]
     allergy_note = ("No known allergies." if "no-known-allergies" in statements
                     else "Allergies haven't been recorded by your care team." if "not-asked" in statements else None)
-    labs = list_records(profile_id, "labs", limit=2000)["items"]
-    latest_by_code: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
-    for lab in labs:
-        if not _unnamed(lab):
-            latest_by_code.setdefault(lab.get("code") or lab["title"], lab)
-    flagged = [l for l in latest_by_code.values() if (l.get("interpretation") or "") in ABNORMAL]
+    latest_by_code = _latest_labs(list_records(profile_id, "labs", limit=SUMMARY_LABS)["items"])
+    flagged = _out_of_range(latest_by_code)
     vitals_latest: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
     for v in list_records(profile_id, "vitals", limit=2000)["items"]:
         if _unnamed(v):

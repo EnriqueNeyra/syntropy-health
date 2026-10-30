@@ -448,7 +448,7 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
 def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
     """Out-of-range lab results that moved further from the range since the previous result."""
     out = []
-    for lab in records.summary(profile_id)["flagged_labs"]:
+    for lab in records.flagged_labs(profile_id):
         code = lab.get("code")
         if not code:
             continue

@@ -146,10 +146,32 @@ def test_the_server_stops_cleanly_with_no_log_left(raw_client):
 
 def test_writes_are_durable_and_reads_stay_light():
     db.ensure_migrated()
+    conn = db._connect(config.db_path())
+    assert conn.execute("PRAGMA synchronous").fetchone()[0] == 1
+    conn.close()
     with db.db() as conn:
         assert conn.execute("PRAGMA synchronous").fetchone()[0] == 2      # FULL: an acknowledged upload survives a power cut
     with db.read() as conn:
         assert conn.execute("PRAGMA synchronous").fetchone()[0] == 1
+
+
+def test_a_big_write_empties_the_log_itself(monkeypatch):
+    monkeypatch.setattr(db, "WAL_LIMIT", 1024 * 1024)
+    db.ensure_migrated()
+    path = config.db_path()
+    with db.read() as kept:
+        kept.execute("SELECT 1").fetchone()
+    with db.db() as conn:
+        conn.executemany("INSERT OR REPLACE INTO app_settings(key, value, updated_at) VALUES (?, ?, 0)",
+                         ((f"filler.{i}", '"' + "x" * 2000 + '"') for i in range(2000)))
+    assert _wal_bytes(path) == 0
+
+
+def test_a_small_write_never_waits_for_a_checkpoint(monkeypatch):
+    db.ensure_migrated()
+    monkeypatch.setattr(db, "checkpoint_if_large", lambda *a, **k: pytest.fail("not for a small write"))
+    with db.db() as conn:
+        conn.execute("INSERT OR REPLACE INTO app_settings(key, value, updated_at) VALUES ('a', '1', 0)")
 
 
 # ---------------------------------------------------------------------------
@@ -404,3 +426,11 @@ def test_a_few_metrics_over_years_still_read_only_those_metrics(stats):
     plan = _plan("SELECT value FROM biometric_samples WHERE profile_id = ? AND metric_type IN (?, ?) AND start_date >= ? AND start_date < ?",
                  (prof, "a", "b", "2020-01-01", "2026-01-01"))
     assert "idx_samples_profile_metric" in plan, plan
+
+
+def test_one_tests_results_read_from_an_index_in_date_order():
+    from app.store import profiles
+    prof = profiles.default_profile()["id"]
+    plan = _plan("SELECT id FROM clinical_records WHERE profile_id = ? AND code = ? AND category = ? ORDER BY effective_at",
+                 (prof, "4548-4", "labs"))
+    assert "idx_records_code_date" in plan and "TEMP B-TREE" not in plan

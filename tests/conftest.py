@@ -77,10 +77,12 @@ def writes_stay_off_the_event_loop(monkeypatch):
     def writer(path):
         try:
             asyncio.get_running_loop()
+            on_the_loop.append("".join(traceback.format_stack(limit=8)))
         except RuntimeError:
-            return real(path)
-        on_the_loop.append("".join(traceback.format_stack(limit=8)))
-        return real(path)
+            pass
+        conn = real(path)
+        conn.execute("PRAGMA fullfsync = OFF")      # 5 ms per commit on a Mac, and these databases don't need to last
+        return conn
     monkeypatch.setattr(db, "_writer", writer)
     yield
     assert not on_the_loop, f"A database write ran on the event loop:\n{on_the_loop[0]}"
