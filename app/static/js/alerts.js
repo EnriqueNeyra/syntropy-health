@@ -36,10 +36,30 @@ function saveState(change) {
 
 const STALE_PHONE_DAYS = 3;
 const UPDATE_REMINDER_DAYS = 30;
+const ADULT_REMINDER_MONTHS = 6;
+
+/** Someone looked after who is nearly an adult (or is one): their record could be theirs. A reminder for whoever manages
+ *  them; nothing changes until they invite them. */
+function growingUp(profile, status) {
+  const age = status?.adult_age;
+  if (!age || !profile?.birth_date || profile.signs_in || profile.access !== "manage" || profile.relationship !== "child") return null;
+  const born = new Date(`${profile.birth_date}T00:00:00`);
+  const turns = new Date(born.getFullYear() + age, born.getMonth(), born.getDate());
+  const soon = new Date(turns);
+  soon.setMonth(soon.getMonth() - ADULT_REMINDER_MONTHS);
+  if (Number.isNaN(turns.getTime()) || Date.now() < soon.getTime()) return null;
+  const when = fmtDate(turns.getTime() / 1000);
+  return { id: `adult:${profile.id}:${age}`, level: "info", icon: "users",
+           title: Date.now() < turns.getTime() ? `${profile.name} turns ${age} on ${when}` : `${profile.name} turned ${age} on ${when}`,
+           text: "An adult usually keeps their own health record. You can invite them to sign in themselves, and it becomes theirs alone.",
+           href: "#/settings/people", action: "Open People" };
+}
 
 /** Builds the alert list from the profile's summary and connections. */
-function collect({ summary, connections, status }) {
+function collect({ profile, summary, connections, status }) {
   const out = [];
+  const grown = growingUp(profile, status);
+  if (grown) out.push(grown);
   const conflict = summary?.identity_conflict || [];
   if (conflict.length) {
     out.push({
@@ -104,7 +124,7 @@ export async function refreshAlerts(profile, status, data = null) {
     ]);
     if (profileId !== profile.id) return;   // switched profile while loading
     ({ seen, dismissed } = marks);
-    alerts = collect({ summary, connections, status }).filter((a) => !dismissed.has(a.id));
+    alerts = collect({ profile, summary, connections, status }).filter((a) => !dismissed.has(a.id));
   } catch { return; }
   listeners.forEach((fn) => fn());
 }

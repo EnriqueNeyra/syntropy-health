@@ -124,8 +124,10 @@ def complete_setup(password: Optional[str], profile_id: str) -> dict:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose a password to protect your health records.")
     if password:
         validate_password(password)
-    owner = accounts.for_profile(profile_id) or accounts.create(profile_id, password, role="owner")
-    if password:
+    owner = accounts.for_profile(profile_id)
+    if not owner:
+        owner = accounts.create(profile_id, password, role="owner")
+    elif password:
         accounts.set_password(owner["id"], password)
     settings.set("auth.required", bool(password))
     settings.set("setup.completed", True)

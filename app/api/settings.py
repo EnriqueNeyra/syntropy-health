@@ -53,6 +53,7 @@ def _snapshot() -> dict:
         "source_order": _source_order(),
         "timezone": settings.timezone_name(),
         "units": _my_units(),
+        "adult_age": settings.get("people.adult_age"),
         "auth_required": auth.auth_required(),
         # Usually names the owner's account on this computer: for them only.
         **({"data_dir": str(config.data_dir())} if _is_owner() else {}),
@@ -124,6 +125,7 @@ class GeneralPatch(BaseModel):
     wearable_interval_hours: Optional[float] = Field(None, ge=0.5, le=24 * 7)
     timezone: Optional[str] = None
     units: Optional[str] = None     # "metric", "us", or "" to follow the browser
+    adult_age: Optional[int] = Field(None, ge=14, le=25)
 
 
 @router.put("/source-order", dependencies=[owner])
@@ -154,6 +156,8 @@ def update_general(req: GeneralPatch) -> dict:
         settings.set("relay.redirect_uri", req.redirect_uri or None)
     if req.wearable_redirect_uri is not None:
         settings.set("relay.wearable_redirect_uri", req.wearable_redirect_uri or None)
+    if req.adult_age is not None:
+        settings.set("people.adult_age", req.adult_age)
     if req.ehr_interval_hours is not None:
         settings.set("sync.ehr_interval_hours", req.ehr_interval_hours)
     if req.wearable_interval_hours is not None:

@@ -3,7 +3,7 @@
 import { api, clearCache, get, onDataChanged, onUnauthorized, post, put, unreachableMessage } from "./api.js";
 import { markAllSeen, onAlertsChange, refreshAlerts, renderPanel, dismiss, unreadCount } from "./alerts.js";
 import {
-  $, appMenuChosen, closeAnimated, closeDialogs, html, icon, initials, mount, onAction, scrollToTop, toast, esc, wordmark,
+  $, appMenuChosen, closeAnimated, closeDialogs, html, icon, initials, loading, modal, mount, onAction, scrollToTop, toast, esc, wordmark,
 } from "./ui.js";
 import { renderOnboarding, renderPasswordGate, renderSetup, renderTermsGate } from "./onboarding.js";
 import { termsCheckbox } from "./consent.js";
@@ -696,7 +696,9 @@ function renderLogin() {
         <p class="muted" style="margin-bottom:18px">Each person has their own password and sees their own health data.</p>
         <div class="who-list">${people.map((a) => html`<button class="who" type="button" data-who="${a.id}">
           <span class="avatar" style="--c:${a.color || "var(--accent)"}">${initials(a.name)}</span><span class="grow truncate">${a.name}</span>${icon("chevronRight")}</button>`)}</div>
-        <p class="small muted auth-alt"><button class="link-btn" type="button" data-join>I have an invitation</button></p>`);
+        <p class="small muted auth-alt"><button class="link-btn" type="button" data-join>I have an invitation</button></p>
+        <p class="small muted auth-alt"><button class="link-btn" type="button" data-forgot>Forgot your password?</button></p>`);
+      document.querySelector("[data-forgot]").addEventListener("click", () => openPasswordHelp(null));
       document.querySelector(".who-list").addEventListener("click", (e) => {
         const b = e.target.closest("[data-who]");
         if (b) { who = people.find((a) => a.id === b.dataset.who); draw(); }
@@ -716,8 +718,10 @@ function renderLogin() {
         <div class="field"><input class="input" id="l-pass" type="password" autocomplete="current-password" placeholder="Password" required aria-label="Password"></div>
         <button class="btn btn-primary" style="width:100%" type="submit">Unlock</button>
       </form>
-      <p class="small muted auth-alt"><button class="link-btn" type="button" data-join>I have an invitation</button></p>`);
+      <p class="small muted auth-alt"><button class="link-btn" type="button" data-join>I have an invitation</button></p>
+      <p class="small muted auth-alt"><button class="link-btn" type="button" data-forgot>Forgot your password?</button></p>`);
     (typed ? $("#l-name") : $("#l-pass")).focus();
+    document.querySelector("[data-forgot]").addEventListener("click", () => openPasswordHelp(who?.name || $("#l-name")?.value.trim()));
     document.querySelector("[data-switch]")?.addEventListener("click", () => { who = null; draw(); });
     document.querySelector("[data-join]").addEventListener("click", () => renderJoin());
     $("#login-form").addEventListener("submit", async (e) => {
@@ -731,6 +735,45 @@ function renderLogin() {
     });
   };
   draw();
+}
+
+/** A forgotten password: nobody outside this household can reset it, and someone at the server's computer can. */
+async function openPasswordHelp(name) {
+  const m = modal({ title: "Forgot your password?", body: loading(2), footer: html`<button class="btn btn-primary" data-ok>OK</button>` });
+  m.el.querySelector("[data-ok]").addEventListener("click", m.close);
+  let command = 'syntropy-health accounts reset-password "NAME"';
+  try { ({ command } = await get("/api/auth/recovery", undefined, { fresh: true })); } catch {}
+  command = command.replace('"NAME"', `"${(name || "Your name").replaceAll('"', "")}"`);
+  m.setBody(html`
+    <p style="margin-bottom:10px">Your records aren't lost, and nothing needs reinstalling. Syntropy Labs can't reset it, because your
+      records stay on your own server and never reach us. Whoever runs this server can set a new password, on the computer it runs on.
+      If that's you, open Terminal (Command Prompt on Windows) there and run:</p>
+    <div class="row" style="margin-bottom:10px"><code class="grow" style="overflow-wrap:anywhere">${command}</code>
+      <button class="btn btn-sm" data-copy>${icon("copy")} Copy</button></div>
+    <p class="small muted">It asks for the new password twice, then signs that person's browsers out. Everyone else, and all the records, stay as they are.
+      If someone else runs this server, ask them to do this for you.</p>`);
+  m.body.addEventListener("click", async (e) => {
+    if (!e.target.closest("[data-copy]")) return;
+    try { await navigator.clipboard.writeText(command); toast("Copied", "good"); } catch { toast(command); }
+  });
+}
+
+/** What someone who just joined should look over: it was set up by whoever looked after them. */
+function showJoinReview(review) {
+  const list = (items) => html`<p style="margin-bottom:4px">${items.join(", ")}</p>`;
+  const m = modal({ title: "Now that your record is yours", body: html`
+    ${review.carers?.length ? html`<p style="margin-bottom:6px"><b>Who looked after it until now</b></p>
+      <p class="small muted" style="margin-bottom:12px">${review.carers.join(", ")} can't see it any more, and any conversations they had with an AI about you were deleted.</p>` : ""}
+    ${review.phones?.length ? html`<p style="margin-bottom:6px"><b>Phones that stopped</b></p>${list(review.phones)}
+      <p class="small muted" style="margin-bottom:12px">Someone else paired these, so they no longer send anything or open your record. If one is yours, pair it again in Sources.</p>` : ""}
+    ${review.sources?.length ? html`<p style="margin-bottom:6px"><b>Sources still connected</b></p>${list(review.sources)}
+      <p class="small muted">These keep bringing in data, using the sign-ins someone set up for you. Check them in Sources, and remove any you don't want.</p>` : ""}`,
+    footer: html`<a class="btn" href="#/sources" data-seen>Open Sources</a><button class="btn btn-primary" data-seen>OK</button>` });
+  m.el.querySelectorAll("[data-seen]").forEach((b) => b.addEventListener("click", () => {
+    post("/api/accounts/me/join-review/seen").catch(() => {});
+    delete state.status.join_review;
+    m.close();
+  }));
 }
 
 /** Joining with an invitation: whom it's for, then a password of their own. */
@@ -758,9 +801,13 @@ function renderJoin(code = "") {
     authScreen(html`
       <div class="who-current"><span class="avatar" style="--c:${who.color || "var(--accent)"}">${initials(who.name)}</span>
         <div class="grow"><h1>Welcome, ${who.name}</h1></div></div>
-      <p class="muted" style="margin-bottom:18px">Choose your own password. From now on your health data is yours: only you see it,
-        unless you choose to share it with someone else here.</p>
+      <p class="muted" style="margin-bottom:18px">Choose your own password. From now on your health data is yours: nobody here sees it in
+        the app unless you share it with them. Whoever runs this server can still reach the file it's kept in, and its backups, and your
+        access log shows each backup.</p>
       <form id="join-form">
+        ${who.name_taken ? html`<div class="field"><label class="label" for="j-name">Your name</label>
+          <input class="input" id="j-name" maxlength="80" autocomplete="name" required value="">
+          <div class="hint">Someone here already signs in as ${who.name}. Choose the name you'll sign in with.</div></div>` : ""}
         <div class="field"><label class="label" for="j-pass">Password</label>
           <input class="input" id="j-pass" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" required>
           <div class="hint">Keep it in your password manager.</div></div>
@@ -769,14 +816,14 @@ function renderJoin(code = "") {
         <div class="field">${termsCheckbox("j-terms")}</div>
         <button class="btn btn-primary" style="width:100%" type="submit">Join</button>
       </form>`);
-    $("#j-pass").focus();
+    ($("#j-name") || $("#j-pass")).focus();
     $("#join-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const pass = $("#j-pass").value;
       if (pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
       if (pass !== $("#j-pass2").value) return toast("The passwords don't match.", "bad");
       try {
-        const res = await post("/api/invites/accept", { code, password: pass, accept_terms: true });
+        const res = await post("/api/invites/accept", { code, password: pass, accept_terms: true, name: $("#j-name")?.value.trim() || undefined });
         try { localStorage.setItem("syntropy-account", res.account.id); localStorage.removeItem("syntropy-profile"); } catch {}
         history.replaceState(null, "", "#/");
         boot();
@@ -850,6 +897,8 @@ async function boot() {
     sendSections();
     sendPreferences();
     appBridge({ type: "booted" });
+  } else if (state.status.join_review) {
+    showJoinReview(state.status.join_review);
   }
   // Overview reports its own alerts once loaded; every other page asks for them here.
   if (parseHash().route !== "overview") refreshAlerts(state.profile, state.status);

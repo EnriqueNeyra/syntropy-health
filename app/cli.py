@@ -535,13 +535,13 @@ def accounts_command(action: Optional[str], name: Optional[str]) -> None:
     the database anyway, so this adds no way in that wasn't already there."""
     import getpass
 
-    from app.core import auth, db
+    from app.core import auth, context, db
     from app.store import accounts
     db.ensure_migrated()
     if action not in ("reset-password", "make-owner"):
         for a in accounts.list_accounts():
-            print(f"{a['name']:<24} {a['role']:<7} {'password set':<13}{a['id']}" if a["has_password"]
-                  else f"{a['name']:<24} {a['role']:<7} {'no password':<13}{a['id']}")
+            state = "password set" if a["has_password"] else "no password"
+            print(f"{a['name']:<24} {a['role']:<7} {state:<13}{a['id']}")
         if not accounts.any_accounts():
             print("No one signs in yet: open Syntropy Health to set it up.")
         return
@@ -552,6 +552,7 @@ def accounts_command(action: Optional[str], name: Optional[str]) -> None:
         sys.exit(f"No one named {name!r} signs in here. `syntropy-health accounts` lists who does.")
     account = found[0]
     if action == "make-owner":
+        context.ACTING_FOR.set("cli")       # how the log names who did it
         accounts.set_role(account["id"], "owner")
         print(f"{account['name']} is now an owner of this server. Anyone else who was one still is: they can step down in "
               "Settings → People.")

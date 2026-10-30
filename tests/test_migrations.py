@@ -30,6 +30,8 @@ MIGRATION_HASHES = {
     "011_healthkit_export_platform.sql": "019c3c1d7fa357f5c2a148f091a0fcd0be768aeec59adf178b3dc7dd03a4a46f",
     "012_workout_humidity.sql": "35f0dff42fa87d9252f9311efb742eb4c3a0d5f86e1fe512f9597e7c662c2d03",
     "013_daily_revisions.sql": "81aa57eaeaddd9ac7e7504e7e8a811e23936a7bc0274f7988a5414cf90cf7279",
+    "040_phones_paired_by_others.sql": "c2f08699dd8d015be4aea8ed37e529ddcce5a42bae76111ef356029b4b7b3bd5",
+    "041_cleared_what_no_one_can_reach.sql": "7165e2d472680397ea6d05e91ddca84c3163ddabdcb3a430c318c81afcd517bb",
 }
 
 
@@ -131,6 +133,8 @@ def _shipped_versions() -> list[int]:
 @pytest.mark.parametrize("version", _shipped_versions())
 def test_every_old_schema_upgrades_with_its_data(version):
     from app.core import config, db, security
+    if version == db.newest_schema():
+        pytest.skip('the newest schema has nothing to upgrade to')
     path = config.db_path()
     stored_hash = security.encrypt_json(security.hash_password(PASSPHRASE))
     conn = _build(path, version)

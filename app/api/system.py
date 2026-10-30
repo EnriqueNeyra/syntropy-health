@@ -5,8 +5,10 @@ from __future__ import annotations
 import ipaddress
 import json
 import shutil
+import sys
 import time
 from datetime import date
+from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -90,6 +92,7 @@ def status(request: Request) -> dict:
         out["preferences"] = preferences(account)
         out["onboarding"] = bool(account and account["onboarding"])
         out["terms_accepted"] = terms_accepted(account)
+        out["adult_age"] = settings.get("people.adult_age")
         if account and account["prefs"].get("join_review"):
             out["join_review"] = account["prefs"]["join_review"]
         if principal.owner and updates.checks_on():
@@ -106,7 +109,7 @@ def _account_summary(account: Optional[dict], principal: auth.Principal) -> Opti
         return None
     everyone = accounts.list_accounts()
     return {"id": account["id"], "name": account["name"], "profile_id": account["profile_id"], "owner": principal.owner,
-            "has_password": account["has_password"], "members": len(everyone),
+            "has_password": account["has_password"], "members": len(everyone), "limited": principal.limited,
             "owner_name": next((a["name"] for a in everyone if a["role"] == "owner"), None)}
 
 
@@ -251,6 +254,7 @@ def setup(req: SetupRequest, request: Request, response: Response) -> dict:
     if req.accept_terms:
         _accept_terms(owner["id"])
     if password:
+        accounts.touch_login(owner["id"])
         auth.set_session_cookie(response, auth.create_session(request, owner["id"]), request)
     return {"ok": True}
 
@@ -410,8 +414,32 @@ def accept_invite(req: JoinRequest, request: Request, response: Response) -> dic
         auth.note_failure(request, "invite")
         raise HTTPException(404, "That invitation code isn't valid. Codes last a week and work once; ask for a new one.")
     _accept_terms(account["id"])
+    accounts.touch_login(account["id"])
     auth.set_session_cookie(response, auth.create_session(request, account["id"]), request)
     return {"ok": True, "account": {"id": account["id"], "name": account["name"]}}
+
+
+@router.get("/api/auth/recovery")
+def recovery(request: Request) -> dict:
+    """How a forgotten password gets reset: on the computer this runs on, by someone who could read the file anyway. NAME
+    is for the page to fill in. The exact path to the program is only for someone nearby: it can name who owns the computer."""
+    return {"command": _reset_command(_nearby(request))}
+
+
+def _reset_command(nearby: bool) -> str:
+    kind = updates.method()["kind"]
+    args = 'accounts reset-password "NAME"'
+    if kind == "docker":     # the entry point runs it as whoever owns the data, as it does the server
+        return f"docker exec -it syntropy-health docker-entrypoint.sh python -m app.cli {args}"
+    if kind == "source":
+        return f"python -m app.cli {args}"
+    if kind == "linux":
+        return f"sudo syntropy-health {args}"
+    if kind == "app" and nearby and getattr(sys, "frozen", False):
+        exe = Path(sys.executable)
+        console = exe.with_name("syntropy-health.exe")      # Windows: the console build next to the app
+        return f'"{console if console.exists() else exe}" {args}'
+    return f"syntropy-health {args}"
 
 
 @router.post("/api/auth/logout")
@@ -446,8 +474,10 @@ def change_password(req: PasswordRequest, request: Request, response: Response,
 
 
 @router.get("/api/auth/sessions")
-def list_sessions(request: Request, principal: auth.Principal = Depends(auth.require_whole_account)) -> dict:
+def list_sessions(request: Request, principal: auth.Principal = Depends(auth.require_user)) -> dict:
     """Where this account is signed in (its browsers and the screens of phones it paired)."""
+    if principal.limited:
+        return {"sessions": []}
     with read() as conn:
         rows = conn.execute("SELECT s.token_hash, s.created_at, s.last_seen_at, s.expires_at, s.user_agent, s.ip, s.device_id, "
                             "d.name AS device_name, d.platform AS device_platform FROM user_sessions s "

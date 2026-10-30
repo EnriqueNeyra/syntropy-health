@@ -32,5 +32,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"
 
 # --proxy-headers lets the app build correct OAuth redirect URLs behind Tailscale Serve,
-# Caddy, nginx or Cloudflare Tunnel. FORWARDED_ALLOW_IPS limits which proxies are trusted.
+# Caddy, nginx or Cloudflare Tunnel. FORWARDED_ALLOW_IPS limits which proxies are trusted: a proxy in another container
+# has to be listed there, or every visitor looks like that container's address (the server then treats them as far away).
 CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=\"${FORWARDED_ALLOW_IPS:-127.0.0.1}\""]

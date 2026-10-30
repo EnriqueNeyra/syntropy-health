@@ -15,7 +15,7 @@ from app.api.deps import resolve_profile
 from app.core import auth, context
 from app.store import accounts, agents
 
-router = APIRouter(tags=["agents"], dependencies=[Depends(auth.require_whole_account)])
+router = APIRouter(tags=["agents"], dependencies=[Depends(auth.require_user)])
 mcp_router = APIRouter(tags=["mcp"])
 
 
@@ -27,6 +27,8 @@ mcp_router = APIRouter(tags=["mcp"])
 def list_tokens() -> dict:
     """This account's tokens: each reads what the account can see (or only one of those people)."""
     principal = context.principal()
+    if principal and principal.limited:     # the screens of a phone paired for someone else aren't the account's
+        return {"tokens": []}
     return {"tokens": [t for t in agents.list_tokens() if not principal or t.get("account_id") == principal.account_id]}
 
 
@@ -35,7 +37,7 @@ class TokenRequest(BaseModel):
     profile_id: Optional[str] = None      # None: every profile
 
 
-@router.post("/api/agents/tokens")
+@router.post("/api/agents/tokens", dependencies=[Depends(auth.require_whole_account)])
 def create_token(req: TokenRequest) -> dict:
     if req.profile_id:
         resolve_profile(req.profile_id, "view")
@@ -51,7 +53,7 @@ def local_command() -> dict:
     return mcp_server.stdio_command()
 
 
-@router.delete("/api/agents/tokens/{token_id}")
+@router.delete("/api/agents/tokens/{token_id}", dependencies=[Depends(auth.require_whole_account)])
 def revoke_token(token_id: str) -> dict:
     principal = context.principal()
     if not agents.revoke(token_id, principal.account_id if principal else None):

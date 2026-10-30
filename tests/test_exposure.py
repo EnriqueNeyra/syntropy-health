@@ -87,6 +87,33 @@ def test_the_network_is_told_only_whats_needed_to_find_the_server():
     assert network.ANNOUNCED == {"path": "/", "service": "syntropy-health"}
 
 
+def test_the_sign_in_screen_can_say_how_to_reset_a_password(raw_client, monkeypatch):
+    from app.services import updates
+    r = raw_client.get("/api/auth/recovery")
+    assert r.status_code == 200 and 'accounts reset-password "NAME"' in r.json()["command"]
+    monkeypatch.setattr(updates, "method", lambda: {"kind": "docker"})
+    assert raw_client.get("/api/auth/recovery").json()["command"].startswith("docker exec -it syntropy-health")
+    monkeypatch.setattr(updates, "method", lambda: {"kind": "linux"})
+    assert raw_client.get("/api/auth/recovery").json()["command"].startswith("sudo syntropy-health")
+    monkeypatch.setattr(updates, "method", lambda: {"kind": "app"})
+    monkeypatch.setattr("sys.frozen", True, raising=False)
+    monkeypatch.setattr("sys.executable", "/Users/alex/Syntropy Health")
+    assert "/Users/alex" in raw_client.get("/api/auth/recovery").json()["command"]
+    far = TestClient(raw_client.app, base_url=BASE, client=("8.8.8.8", 5000))
+    assert "/Users/alex" not in far.get("/api/auth/recovery").json()["command"]
+
+
+def test_the_age_for_suggesting_a_sign_in_is_the_owners_to_set(raw_client):
+    client = _signed_in_owner(raw_client)
+    maria_client, _ = _join(client, _person(client, "Maria"))
+    assert client.get("/api/status").json()["adult_age"] == 18
+    assert client.put("/api/settings/general", json={"adult_age": 16}).status_code == 200
+    assert client.get("/api/settings").json()["adult_age"] == 16
+    assert maria_client.get("/api/status").json()["adult_age"] == 16
+    assert maria_client.put("/api/settings/general", json={"adult_age": 21}).status_code == 403
+    assert client.put("/api/settings/general", json={"adult_age": 3}).status_code == 422
+
+
 def test_the_api_route_map_is_only_for_developers(raw_client):
     assert raw_client.get("/api/docs").status_code == 404
     assert raw_client.get("/api/openapi.json").status_code == 404

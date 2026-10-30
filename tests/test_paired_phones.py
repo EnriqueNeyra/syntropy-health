@@ -83,10 +83,10 @@ def test_a_phone_paired_for_someone_else_is_not_the_whole_account(raw_client):
     assert screens.get("/api/export/backup").status_code == 403
     assert screens.get("/api/health").status_code == 403
     assert screens.get("/api/agents/local-command").status_code == 403
-    assert screens.get("/api/agents/tokens").status_code == 403
+    assert screens.get("/api/agents/tokens").json()["tokens"] == []
     assert screens.post("/api/agents/tokens", json={"name": "x"}).status_code == 403
     assert screens.post("/api/auth/password", json={"current": "x", "new": "a long new password"}).status_code == 403
-    assert screens.get("/api/auth/sessions").status_code == 403
+    assert screens.get("/api/auth/sessions").json()["sessions"] == []
     assert screens.post("/api/profiles", json={"name": "New"}).status_code == 403
     assert screens.put(f"/api/profiles/{kid}/access", json={"account_id": _account(client), "level": "view"}).status_code == 403
     assert screens.post(f"/api/profiles/{kid}/invite").status_code == 403
