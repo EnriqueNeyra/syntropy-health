@@ -70,7 +70,12 @@ def parse_fhir_payload(raw: bytes) -> list[dict[str, Any]]:
         elif isinstance(obj, dict):
             if obj.get("resourceType") == "Bundle":
                 for entry in obj.get("entry") or []:
-                    collect(entry.get("resource"))
+                    res, full_url = entry.get("resource"), entry.get("fullUrl")
+                    if isinstance(res, dict) and isinstance(full_url, str) and not res.get("resourceType") == "Bundle":
+                        res["_full_url"] = full_url      # normalization takes this back out, for references by fullUrl
+                        if not res.get("id"):            # generated bundles may identify a resource only by its fullUrl
+                            res["id"] = full_url.rstrip("/").split("/")[-1].removeprefix("urn:uuid:").removeprefix("urn:oid:")
+                    collect(res)
             elif obj.get("resourceType"):
                 resources.append(obj)
 

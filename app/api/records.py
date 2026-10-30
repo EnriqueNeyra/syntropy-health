@@ -128,6 +128,10 @@ def observation_catalog(profile: Optional[str] = None, category: str = "labs") -
 
 
 @router.get("/observations/series")
-def observation_series(code: str, profile: Optional[str] = None, category: Optional[str] = None) -> dict:
+def observation_series(code: Optional[str] = None, title: Optional[str] = None, profile: Optional[str] = None,
+                       category: Optional[str] = None) -> dict:
+    """One test's history, by its code, or by its name for a test the source sent with no code."""
+    if not code and not title:
+        raise HTTPException(422, "Say which test: its code or its name.")
     prof = resolve_profile(profile)
-    return records.observation_series(prof["id"], code, category)
+    return records.observation_series(prof["id"], code, category, title=title)
