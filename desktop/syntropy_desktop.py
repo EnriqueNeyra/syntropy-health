@@ -19,6 +19,8 @@ instead, without a window; that's how AI apps start its MCP server and how ``ser
 
 from __future__ import annotations
 
+import errno
+import io
 import json
 import logging
 import os
@@ -38,9 +40,14 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+import own_pages
+import sites
+
 CLI_COMMANDS = {"serve", "service", "backup", "update", "info", "mcp", "version", "accounts", "dev", "-h", "--help"}
 APP_NAME = "Syntropy Health"
 FIRST_PORT = 8000
+HOME_PORT_WAIT = 4.0        # seconds the saved port may stay busy (the last run closing, say) before using another
+STOP_WAIT = 25              # seconds to wait for the server: its 5 for open requests, then its shutdown steps
 log = logging.getLogger("syntropy.desktop")
 
 
@@ -54,20 +61,42 @@ def resource(name: str) -> Path:
 # Preferences and single instance
 # ---------------------------------------------------------------------------
 
+def write_whole(path: Path, text: str) -> None:
+    """A crash or a full disk leaves the old file, not half a new one."""
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    try:
+        temporary.write_text(text)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 class Prefs:
     def __init__(self, data: Path):
         self.path = data / "desktop.json"
         try:
-            self.values: dict[str, Any] = json.loads(self.path.read_text())
+            values = json.loads(self.path.read_text())
         except (OSError, ValueError):
-            self.values = {}
+            values = {}
+        self.values: dict[str, Any] = values if isinstance(values, dict) else {}
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.values.get(key, default)
 
+    def number(self, key: str, default: float, low: float, high: float) -> float:
+        value = self.values.get(key)
+        return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and low <= value <= high else default
+
+    def port(self) -> Optional[int]:
+        value = self.values.get("port")
+        return value if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 65535 else None
+
     def set(self, key: str, value: Any) -> None:
         self.values[key] = value
-        self.path.write_text(json.dumps(self.values, indent=2))
+        try:
+            write_whole(self.path, json.dumps(self.values, indent=2))
+        except OSError:
+            log.exception("Couldn't save the app's preferences")
 
 
 class SingleInstance:
@@ -83,7 +112,7 @@ class SingleInstance:
             with socket.create_connection(("127.0.0.1", info["port"]), timeout=2) as s:
                 s.sendall(f"{info['token']} show\n".encode())
                 return s.recv(16).startswith(b"ok")
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError, KeyError, TypeError, OverflowError):
             return False
 
     def listen(self) -> None:
@@ -99,7 +128,7 @@ class SingleInstance:
 
         server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), Handler)
         server.daemon_threads = True
-        self.file.write_text(json.dumps({"port": server.server_address[1], "token": token, "pid": os.getpid()}))
+        write_whole(self.file, json.dumps({"port": server.server_address[1], "token": token, "pid": os.getpid()}))
         if os.name != "nt":
             self.file.chmod(0o600)
         threading.Thread(target=server.serve_forever, daemon=True, name="instance").start()
@@ -109,12 +138,20 @@ class SingleInstance:
 # The server
 # ---------------------------------------------------------------------------
 
+def _answering(family: int, address: str, port: int) -> bool:
+    try:
+        with socket.socket(family, socket.SOCK_STREAM) as probe:
+            probe.settimeout(0.5)
+            return probe.connect_ex((address, port)) == 0
+    except OSError:         # this computer has no IPv6
+        return False
+
+
 def port_free(host: str, port: int) -> bool:
-    # Something already answering on this computer (a Docker install, another copy with other data) means taken...
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-        probe.settimeout(0.5)
-        if probe.connect_ex(("127.0.0.1", port)) == 0:
-            return False
+    # Something already answering on this computer (a Docker install, another copy with other data) means taken. On
+    # either loopback address: the window opens "localhost", which tries ::1 first...
+    if _answering(socket.AF_INET, "127.0.0.1", port) or _answering(socket.AF_INET6, "::1", port):
+        return False
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         # ...but connections left in TIME_WAIT by this app's last run don't: moving to a new port would break the
         # phone's pairing. (Like uvicorn's own bind. Windows needs no flag, and there it would allow sharing a port.)
@@ -125,6 +162,32 @@ def port_free(host: str, port: int) -> bool:
             return True
         except OSError:
             return False
+
+
+def _listening_socket(family: int, host: str, port: int) -> socket.socket:
+    s = socket.socket(family, socket.SOCK_STREAM)
+    try:
+        if sys.platform != "win32":
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if family == socket.AF_INET6:
+            s.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        s.bind((host, port))
+        s.setblocking(False)
+    except OSError:
+        s.close()
+        raise
+    return s
+
+
+def listening_sockets(host: str, port: int) -> list[socket.socket]:
+    """The server's own address and ::1: the window opens "localhost", so nothing else may take that one afterwards and
+    answer in the app's place."""
+    sockets = [_listening_socket(socket.AF_INET, host, port)]
+    try:
+        sockets.append(_listening_socket(socket.AF_INET6, "::1", port))
+    except OSError as exc:      # no IPv6 here, which leaves nothing to take over either
+        log.info("Not listening on ::1: %s", exc)
+    return sockets
 
 
 class Server:
@@ -152,9 +215,10 @@ class Server:
         # Pairing then gives the iPhone this computer's address, and syntropyhealth.local is announced.
         os.environ["SYNTROPY_LISTEN_HOST"], os.environ["SYNTROPY_LISTEN_PORT"] = host, str(port)
         cfg = uvicorn.Config(app, host=host, port=port, loop="asyncio", http="h11", ws="none", lifespan="on",
-                             proxy_headers=True, access_log=False, log_config=None)
+                             proxy_headers=True, access_log=False, log_config=None, timeout_graceful_shutdown=5)
+        sockets = listening_sockets(host, port)
         self.server = uvicorn.Server(cfg)
-        self.thread = threading.Thread(target=self.server.run, daemon=True, name="server")
+        self.thread = threading.Thread(target=self.server.run, kwargs={"sockets": sockets}, daemon=True, name="server")
         self.thread.start()
         # Wait for this server to be listening (uvicorn sets `started` once bound), not just for something to answer
         # on the port: another program there would otherwise pass for it.
@@ -164,17 +228,33 @@ class Server:
             if self.server.started:
                 return
             time.sleep(0.1)
-        raise RuntimeError(f"The server didn't start on port {port}. See {log_path()}.")
+        if self.thread.is_alive():
+            raise RuntimeError("It's still getting ready after 15 minutes, which is longer than even a large upgrade takes.")
+        raise RuntimeError("The server stopped while it was starting.")
 
-    def stop(self) -> None:
+    @property
+    def running(self) -> bool:
+        return bool(self.thread and self.thread.is_alive())
+
+    def stop(self) -> bool:
+        """Whether the server has really finished: until then its scheduler and announcements are still its own, and a
+        new server started beside it would share them and leave none when this one ended."""
         if self.server:
             self.server.should_exit = True
         if self.thread:
-            self.thread.join(15)
+            self.thread.join(STOP_WAIT)
+        return not self.running
 
     def restart(self, host: str) -> None:
-        self.stop()
+        if not self.stop():
+            raise RuntimeError("The server is still finishing what it was doing.")
         self.start(host, self.port)
+
+    def problem(self) -> Optional[tuple[str, str]]:
+        """(kind, text): up, but the data can't be used, as app.main's start-up found."""
+        from app.main import app
+        text = getattr(app.state, "problem", None)
+        return (getattr(app.state, "problem_kind", None) or "unavailable", text) if text else None
 
     def status(self) -> dict[str, Any]:
         try:
@@ -185,11 +265,36 @@ class Server:
 
 
 def choose_port(saved: Optional[int]) -> int:
-    """The last port used, else 8000, else the next free one (a Docker install may already have 8000)."""
-    for port in ([saved] if saved else []) + list(range(FIRST_PORT, FIRST_PORT + 100)):
-        if port and port_free("0.0.0.0", port):
+    """The saved port, given a moment if it's busy, else 8000, else the next free one (a Docker install may already have
+    8000). Only start_own_server saves one: that port is what the phone was paired with."""
+    if saved:
+        deadline = time.monotonic() + HOME_PORT_WAIT
+        while True:
+            if port_free("0.0.0.0", saved):
+                return saved
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.5)
+    for port in range(FIRST_PORT, FIRST_PORT + 100):
+        if port != saved and port_free("0.0.0.0", port):
             return port
-    raise RuntimeError("No free port between 8000 and 8099.")
+    raise OSError(errno.EADDRINUSE, "No free port between 8000 and 8099")
+
+
+def program_on_port(port: int) -> Optional[str]:
+    """The name of what's listening there, if the system will say."""
+    try:
+        if sys.platform == "win32":
+            ps = (f"$c = Get-NetTCPConnection -State Listen -LocalPort {port} -ErrorAction SilentlyContinue | Select-Object -First 1; "
+                  "if ($c) { (Get-Process -Id $c.OwningProcess).ProcessName }")
+            out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], capture_output=True, text=True,
+                                 timeout=10, check=False, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
+            return out.strip() or None
+        out = subprocess.run(["/usr/sbin/lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-Fc"], capture_output=True, text=True,
+                             timeout=10, check=False).stdout
+        return next((line[1:] for line in out.splitlines() if line.startswith("c")), None)
+    except (OSError, subprocess.SubprocessError):
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -262,7 +367,15 @@ def runs_from_temporary_place() -> bool:
     temporary copy): a login item pointing there would stop working."""
     exe = sys.executable
     return sys.platform == "darwin" and getattr(sys, "frozen", False) and (
-        "/AppTranslocation/" in exe or exe.startswith("/Volumes/"))
+        "/AppTranslocation/" in exe or (exe.startswith("/Volumes/") and _read_only_disk(exe)))
+
+
+def _read_only_disk(path: str) -> bool:
+    """A disk image is mounted read-only. An external drive someone keeps their apps on isn't, and is no temporary place."""
+    try:
+        return bool(os.statvfs(path).f_flag & os.ST_RDONLY)
+    except (OSError, AttributeError):
+        return True
 
 
 def heal_open_at_login() -> None:
@@ -351,14 +464,81 @@ def log_path() -> Path:
     return config.data_dir() / "desktop.log"
 
 
+def where_details_are() -> str:
+    try:
+        return f"Details are in {log_path()}."
+    except OSError:
+        return "The data folder itself can't be used, so no details could be saved."
+
+
+class _LogWriter(io.TextIOBase):
+    """sys.stdout and sys.stderr of a windowed app, which has no console. They go through logging rather than holding the
+    log file, which is closed each time it rolls over: anything printed after that would raise an error."""
+
+    def __init__(self, level: int):
+        super().__init__()
+        self.level = level
+        self.pending = ""
+
+    def writable(self) -> bool:
+        return True
+
+    def write(self, text: str) -> int:
+        self.pending += text
+        while "\n" in self.pending:
+            line, self.pending = self.pending.split("\n", 1)
+            if line.strip():
+                logging.getLogger("syntropy.desktop.output").log(self.level, "%s", line)
+        return len(text)
+
+    def flush(self) -> None:
+        if self.pending.strip():
+            logging.getLogger("syntropy.desktop.output").log(self.level, "%s", self.pending)
+        self.pending = ""
+
+
 def setup_logging() -> None:
-    handler = RotatingFileHandler(log_path(), maxBytes=5_000_000, backupCount=2, encoding="utf-8")
+    """To desktop.log. Without a usable data folder, to standard error, and start-up then says what's wrong."""
+    try:
+        handler: logging.Handler = RotatingFileHandler(log_path(), maxBytes=5_000_000, backupCount=2, encoding="utf-8")
+    except OSError as exc:
+        handler = logging.StreamHandler(sys.stderr or io.StringIO())
+        print(f"Couldn't open the log file: {exc}", file=sys.stderr or io.StringIO())
+    else:
+        sys.stdout, sys.stderr = _LogWriter(logging.INFO), _LogWriter(logging.ERROR)
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(logging.INFO)
-    stream = handler.stream
-    sys.stdout = sys.stderr = stream        # a windowed app has no console
+
+
+def describe_failure(exc: BaseException) -> tuple[str, str]:
+    """(kind, text) for whatever stopped the app starting: what's wrong and what to do, in words."""
+    import sqlite3
+
+    from app.core import config, db
+
+    if isinstance(exc, db.StartupProblem):
+        return exc.kind, str(exc)
+    if isinstance(exc, sqlite3.Error):
+        problem = db.unusable(exc, config.db_path())
+        return problem.kind, str(problem)
+    if isinstance(exc, (FileExistsError, NotADirectoryError)):
+        return "unavailable", (f"{APP_NAME} keeps its data in a folder, but {exc.filename} isn't one. Move that file somewhere "
+                               "else, then open the app again.")
+    if isinstance(exc, OSError):
+        where = exc.filename or "its data folder"
+        if exc.errno in (errno.ENOSPC, errno.EDQUOT):
+            return "unavailable", f"The disk is full, so {APP_NAME} can't save anything to {where}. Free up some space, then try again."
+        if exc.errno == errno.EADDRINUSE:
+            return "unavailable", (f"Every port {APP_NAME} can use is taken by other programs. Close some of them, then try again.")
+        if exc.errno in (errno.EACCES, errno.EPERM, errno.EROFS):
+            return "unavailable", (f"{APP_NAME} isn't allowed to write to {where}. Check that folder's permissions, and that its "
+                                   "disk isn't read-only, then try again.")
+        if exc.errno in (errno.ENOENT, errno.EIO, errno.ENOTCONN):
+            return "unavailable", (f"{APP_NAME} can't get to {where}. If it's on an external drive, connect the drive, then try again.")
+        return "unavailable", f"{APP_NAME} can't use its data folder: {exc}."
+    return "other", f"{exc} If it keeps happening, reinstall the app: your data is kept."
 
 
 class DesktopApp:
@@ -373,7 +553,12 @@ class DesktopApp:
         self.quitting = False
         self.background = background
         self.switching = threading.Lock()
+        self.recovering = threading.Lock()
+        self.starting = False      # the window shows the starting page until the server answers
+        self.location = sites.Location(lambda: self.home_url, own_page=True)
+        self.moved_from: Optional[int] = None    # the saved port, while another program holds it
         self.mac = None            # mac_window.MacWindow on a Mac
+        self.win = None            # windows_window.WindowsWindow on Windows
         self.hidden = background   # the window is closed (the app runs on in the menu bar or tray)
         self.browser_mode = False  # Windows without WebView2: pages open in the default browser instead
 
@@ -395,9 +580,14 @@ class DesktopApp:
         return self.prefs.get("server") if self.prefs.get("role") == "join" else None
 
     def menu_state(self) -> dict[str, Any]:
+        away = bool((self.mac or self.win) and (self.mac or self.win).away)
         if self.joined:
-            return {"joined": self.prefs.get("server_name") or urllib.parse.urlsplit(self.joined).hostname}
-        return {"lan": self.lan, "login": open_at_login(), "address": self.lan_address() if self.lan else None}
+            return {"joined": self.prefs.get("server_name") or urllib.parse.urlsplit(self.joined).hostname, "away": away}
+        return {"lan": self.lan, "login": open_at_login(), "address": self.lan_address() if self.lan else None,
+                "away": away, "port_note": self.port_note()}
+
+    def port_note(self) -> Optional[str]:
+        return f"Using port {self.server.port}: {self.moved_from} is busy" if self.moved_from else None
 
     @property
     def home_url(self) -> str:
@@ -418,10 +608,14 @@ class DesktopApp:
                 self.tray.activate()
 
     def open_browser(self) -> None:
+        if self.starting:
+            return self.show()
         webbrowser.open(self.home_url)
 
     def open_page(self, path: str) -> None:
         """Show one of the app's own pages (e.g. "/#/settings/security"): in the window, else in the browser."""
+        if self.starting:
+            return self.show()
         if self.browser_mode or not self.window:
             webbrowser.open(self.server.url + path)
             return
@@ -430,8 +624,12 @@ class DesktopApp:
 
     # ----------------------------------------------------------- joining another computer's server
     def on_request(self, msg: dict[str, Any]) -> None:
-        """What the page asks the app to do. Joining is only taken from this Mac's own server (its setup screen)."""
+        """What the page asks the app to do. Joining is only taken from this Mac's own server (its setup screen), and what
+        recovers from a start-up problem only from the page saying so, which the app wrote itself."""
         kind = msg.get("type")
+        if msg.get("_own_page") and kind in ("problem-retry", "problem-restore", "problem-fresh", "problem-folder",
+                                             "problem-latest", "problem-quit", "go-home"):
+            return self.on_own_page_request(kind)
         own = msg.get("_origin", "").rstrip("/") in (f"http://localhost:{self.server.port}", f"http://127.0.0.1:{self.server.port}")
         if kind == "join" and own and not self.joined and isinstance(msg.get("url"), str):
             self.join(msg["url"], str(msg.get("name") or "")[:80] or None)
@@ -459,8 +657,26 @@ class DesktopApp:
         if reachable(self.joined):
             self.window.load_url(self.joined)
         else:
-            self.window.load_html(unreachable_page(self.menu_state()["joined"], self.joined))
+            self.show_own_page(own_pages.unreachable_page(self.menu_state()["joined"], self.joined))
             self.show()
+
+    def show_own_page(self, page: str) -> None:
+        self.location.showing_own_page()
+        self.window.load_html(page)
+
+    def on_load_failed(self, url: str, code: int, reason: str) -> None:
+        """The window couldn't open a page (Mac: WebKit otherwise leaves it blank, or on the page it was on)."""
+        if self.quitting or not url:
+            return
+        if sites.origin(url) in sites.home_origins(self.home_url):
+            if self.joined:
+                if code == ATS_REFUSED:
+                    reason = (f"This Mac only opens {self.joined} over a secure connection. Use its Tailscale name, or its "
+                              "address on your home network, or an https:// address.")
+                self.show_own_page(own_pages.unreachable_page(self.menu_state()["joined"], self.joined, reason))
+                self.show()
+            return
+        self.show_own_page(own_pages.load_failed_page(sites.site_name(url), reason))
 
     def switch_server(self) -> None:
         """Back to the first-launch choice: set up here, or join another server."""
@@ -468,25 +684,146 @@ class DesktopApp:
         self.prefs.set("role", None)
         self.prefs.set("server", None)
         self.prefs.set("server_name", None)
-        self.start_own_server()
-        if self.window:
-            self.window.load_url(self.server.url)
-            self.show()
-        self.refresh_menu()
+        self.show()
+        self.bring_up_own_server()
 
     def start_own_server(self) -> None:
         network_controller(self.request_lan)
         update_installer(self.updater())
         host = "0.0.0.0" if self.prefs.get("lan") else "127.0.0.1"
-        port = choose_port(self.prefs.get("port"))
-        self.prefs.set("port", port)
+        saved = self.prefs.port()
+        port = choose_port(saved)
+        if saved is None:
+            self.prefs.set("port", port)
+        self.moved_from = saved if saved not in (None, port) else None
         self.server.start(host, port)
         log.info("Serving %s on %s:%s (data in %s)", APP_NAME, host, port, self.data)
+        self.note_moved_port()
+
+    def note_moved_port(self) -> None:
+        from app.services import network
+        if self.moved_from:
+            holder = program_on_port(self.moved_from)
+            log.warning("Port %s is busy%s, so using %s until the next start", self.moved_from,
+                        f" ({holder})" if holder else "", self.server.port)
+            network.set_moved_port(self.moved_from, self.server.port, holder)
+        else:
+            network.set_moved_port(None, None, None)
+
+    def bring_up_own_server(self) -> None:
+        """Runs beside the window, which shows the starting page: the first start after an update can take minutes."""
+        self.starting = True
+        try:
+            self.start_own_server()
+            problem = self.server.problem()
+        except Exception as exc:  # noqa: BLE001 - whatever it was, the window says so
+            log.exception("The server didn't start")
+            problem = describe_failure(exc)
+        self.starting = False
+        if problem:
+            log.error("Can't start: %s", problem[1])
+            self.show_problem(*problem)
+        elif self.window:
+            self.window.load_url(self.server.url)
+        self.refresh_menu()
+
+    def show_problem(self, kind: str, text: str) -> None:
+        """Even when opened at login, with no window: nothing else will tell them, and the phone has stopped syncing."""
+        if self.window:
+            self.show_own_page(own_pages.problem_page(text, kind, str(self.data), str(log_path())))
+            self.show()
+
+    # ----------------------------------------------------------- getting past a start-up problem
+    def on_own_page_request(self, kind: str) -> None:
+        if kind == "problem-folder":
+            return reveal_folder(self.data)
+        if kind == "problem-latest":
+            from app.services import updates
+            webbrowser.open(updates.RELEASES_URL)
+            return None
+        if kind == "problem-quit":
+            return self.quit()
+        if kind == "go-home":
+            return self.go_home()
+        if not self.recovering.acquire(blocking=False):     # a second click while the first is still going
+            return None
+        try:
+            if kind == "problem-retry":
+                self.start_again()
+            elif kind == "problem-restore":
+                self.restore_backup()
+            elif kind == "problem-fresh":
+                self.start_fresh()
+        finally:
+            self.recovering.release()
+
+    def start_again(self) -> None:
+        from app.core import db
+        self.starting = True
+        self.show_own_page(own_pages.starting_page())
+        self.server.stop()
+        db.reset_migration_cache()
+        self.bring_up_own_server()
+
+    def restore_backup(self) -> None:
+        import webview
+        import recovery
+        from app.core import config, db
+
+        start_in = config.db_path().parent / db.PRE_UPGRADE_DIR
+        chosen = self.window.create_file_dialog(
+            webview.FileDialog.OPEN, directory=str(start_in if start_in.is_dir() else self.data),
+            file_types=("Syntropy Health backups (*.zip;*.db)", "All files (*.*)"))
+        if not chosen:
+            return
+        backup = Path(chosen[0] if isinstance(chosen, (list, tuple)) else chosen)
+        if not self.window.create_confirmation_dialog(
+                "Restore this backup?", f"{APP_NAME} will start from {backup.name}, and anything added since it was made won't be "
+                                        "there. The current database is kept, in a folder beside it."):
+            return
+        self.server.stop()
+        db.reset_migration_cache()
+        try:
+            aside = recovery.restore(backup, config.db_path())
+        except recovery.RestoreRefused as exc:
+            self.message("That backup wasn't restored", str(exc))
+            self.start_again()
+            return
+        log.info("Restored %s; the old database is in %s", backup, aside)
+        self.start_again()
+
+    def start_fresh(self) -> None:
+        import recovery
+        from app.core import config, db
+
+        if not self.window.create_confirmation_dialog(
+                "Set the damaged database aside?", f"{APP_NAME} will start with no records, as if newly installed. The damaged "
+                                                   f"file isn't deleted: it moves to a folder in {self.data}, and repair tools or "
+                                                   "a backup may still recover it."):
+            return
+        self.server.stop()
+        db.reset_migration_cache()
+        try:
+            recovery.set_aside(config.db_path())
+        except OSError as exc:
+            log.exception("Couldn't set the database aside")
+            self.message("The database couldn't be moved", f"{exc}. Nothing has been changed.")
+        self.start_again()
+
+    def go_home(self) -> None:
+        """Back to the app from another site (the tray or menu bar, and pages the app writes itself)."""
+        self.show()
+        if self.mac:
+            self.mac.go_home_soon()
+        elif self.win:
+            self.win.go_home()
 
     def toggle_lan(self) -> None:
         """From the menu. Without a password, Settings → Security explains the choice instead of just opening up."""
         if self.joined:
             return
+        if self.starting:
+            return self.show()
         if not self.lan and not self.server.status().get("auth_required"):
             self.open_page("/#/settings/security")      # the page's CSP blocks evaluate_js
             return
@@ -503,9 +840,10 @@ class DesktopApp:
             if on != self.lan:
                 try:
                     self.server.restart("0.0.0.0" if on else "127.0.0.1")
-                except RuntimeError:
+                except (RuntimeError, OSError):
                     log.exception("Couldn't switch network access %s; staying as it was", "on" if on else "off")
-                    self.server.start("127.0.0.1" if on else "0.0.0.0", self.server.port)
+                    if not self.server.running:
+                        self.server.start("127.0.0.1" if on else "0.0.0.0", self.server.port)
                     return self.refresh_menu()
                 self.prefs.set("lan", on)
                 log.info("Network access %s", "on" if on else "off")
@@ -528,6 +866,8 @@ class DesktopApp:
         computer's server asks here."""
         from app.core.config import APP_VERSION
         from app.services import updates
+        if self.starting:
+            return self.show()
         if not self.joined:
             try:
                 updates.check()
@@ -622,6 +962,7 @@ class DesktopApp:
         # and on a Mac the window navigated to the file instead (a CSV filled the window, with no way back).
         # With it, each asks where to save, as a browser would.
         webview.settings["ALLOW_DOWNLOADS"] = True
+        sites.guard_external_links()
 
         instance = SingleInstance(self.data, self.show)
         if instance.signal_existing():
@@ -631,21 +972,21 @@ class DesktopApp:
         mac = sys.platform == "darwin"
         if not mac and self.joined:          # joining is offered on a Mac; elsewhere this computer is the server
             self.prefs.set("role", None)
-        if not self.joined:
-            self.start_own_server()
-        first_url = self.server.url
+        # The window first, showing that it's starting: the server may take minutes (see own_pages.starting_page).
+        first_url, first_page = None, None
         if self.joined:
             first_url = self.joined if reachable(self.joined) else "about:blank"
+        else:
+            self.starting = True
+            first_page = own_pages.starting_page()
 
         # On a Mac the window stays hidden until the page has drawn (mac_window shows it), so it never flashes blank.
-        self.window = webview.create_window(APP_NAME, first_url, width=1280, height=860, min_size=(900, 600),
+        self.window = webview.create_window(APP_NAME, first_url, html=first_page, width=1280, height=860, min_size=(900, 600),
                                             hidden=self.background or mac, text_select=True,
                                             background_color="#0b0b0e" if dark_mode() else "#f6f7f9")
         self.window.events.closing += self.on_closing
 
-        actions = {"show": self.show, "browser": self.open_browser, "lan": self.toggle_lan,
-                   "login": self.toggle_login, "quit": self.quit, "switch": self.switch_server,
-                   "updates": self.check_for_updates}
+        actions = self.menu_actions()
         from tray import make_tray
         self.tray = make_tray(actions, self.menu_state, self.on_app_quit)
         if mac:
@@ -653,18 +994,35 @@ class DesktopApp:
             heal_open_at_login()
             self.mac = MacWindow(self.window, background=self.background, prefs=self.prefs, tray_actions=actions,
                                  dock_menu_state=self.menu_state, on_request=self.on_request,
-                                 home_url=lambda: self.home_url, on_uninstall=self.uninstall)
+                                 home_url=lambda: self.home_url, on_uninstall=self.uninstall, location=self.location,
+                                 on_load_failed=self.on_load_failed)
+        elif sys.platform == "win32":
+            self.guard_windows_window()
 
         def started() -> None:
             self.tray.start()
             if self.mac:
                 self.mac.install()
-            if self.joined and first_url == "about:blank":      # the server's computer is off or away
+            if not self.joined:
+                self.bring_up_own_server()
+            elif first_url == "about:blank":      # the server's computer is off or away
                 self.open_joined()
 
         webview.start(started, private_mode=False, storage_path=str(self.data / "webview"), user_agent=user_agent(),
                       **window_icon())
         self.server.stop()
+
+    def menu_actions(self) -> dict[str, Callable[[], None]]:
+        return {"show": self.show, "browser": self.open_browser, "lan": self.toggle_lan, "login": self.toggle_login,
+                "quit": self.quit, "switch": self.switch_server, "updates": self.check_for_updates, "home": self.go_home}
+
+    def guard_windows_window(self) -> None:
+        from windows_window import WindowsWindow
+        self.win = WindowsWindow(self.window, self.location, lambda: self.home_url, self.on_request, self.refresh_menu)
+        try:
+            self.win.guard()
+        except Exception:  # noqa: BLE001 - sites.guard_external_links still keeps links to the web and mail
+            log.exception("Couldn't set up the window's rules for other sites")
 
     def run_in_browser(self) -> None:
         """Windows without the WebView2 runtime: the server and tray icon run as usual, and the app opens in the
@@ -675,11 +1033,11 @@ class DesktopApp:
         instance.listen()
         self.prefs.set("role", None)
         self.start_own_server()
-        actions = {"show": self.show, "browser": self.open_browser, "lan": self.toggle_lan,
-                   "login": self.toggle_login, "quit": self.quit, "switch": self.switch_server,
-                   "updates": self.check_for_updates}
+        problem = self.server.problem()
+        if problem:     # the browser shows the same explanation, from the server
+            threading.Thread(target=alert, daemon=True, args=(f"{APP_NAME} can't start", problem[1])).start()
         from tray import make_tray
-        self.tray = make_tray(actions, self.menu_state, self.on_app_quit)
+        self.tray = make_tray(self.menu_actions(), self.menu_state, self.on_app_quit)
         self.browser_mode = True
         self.hidden = True          # no window to interrupt: automatic updates install when they're ready
         if not self.background:
@@ -739,12 +1097,57 @@ def webview2_installed() -> bool:
     return False
 
 
-def alert(title: str, text: str) -> None:
-    """A message box with no window of the app's own (Windows), for when the window itself can't open."""
+def alert(title: str, text: str, offer: Optional[str] = None) -> bool:
+    """A message box with no window of the app's own, for when the window itself can't open. ``offer`` adds a choice
+    alongside OK; the answer is whether it was taken."""
     log.info("%s: %s", title, text)
     if sys.platform == "win32":
         import ctypes
+        if offer:
+            answer = ctypes.windll.user32.MessageBoxW(None, f"{text}\n\n{offer}?", title, 0x04 | 0x30 | 0x10000)   # MB_YESNO | MB_ICONWARNING
+            return answer == 6      # IDYES
         ctypes.windll.user32.MessageBoxW(None, text, title, 0x40 | 0x10000)      # MB_ICONINFORMATION | MB_SETFOREGROUND
+        return False
+    if sys.platform == "darwin":
+        return _mac_alert(title, text, offer)
+    return False
+
+
+def _mac_alert(title: str, text: str, offer: Optional[str]) -> bool:
+    if threading.current_thread() is threading.main_thread():
+        try:
+            import AppKit
+            app = AppKit.NSApplication.sharedApplication()
+            app.setActivationPolicy_(AppKit.NSApplicationActivationPolicyRegular)
+            app.activateIgnoringOtherApps_(True)
+            box = AppKit.NSAlert.alloc().init()
+            box.setAlertStyle_(AppKit.NSAlertStyleCritical)
+            box.setMessageText_(title)
+            box.setInformativeText_(text)
+            box.addButtonWithTitle_("OK")
+            if offer:
+                box.addButtonWithTitle_(offer)
+            return box.runModal() == AppKit.NSAlertSecondButtonReturn
+        except ImportError:
+            pass
+    # AppKit only draws on the main thread, or isn't there: the system's own message box asks for nothing of this process.
+    script = 'on run argv\ndisplay alert (item 1 of argv) message (item 2 of argv) as critical buttons (rest of rest of argv) default button 1\nreturn button returned of result\nend run'
+    buttons = ["OK"] + ([offer] if offer else [])
+    try:
+        out = subprocess.run(["/usr/bin/osascript", "-e", script, title, text, *buttons], capture_output=True, text=True, check=False)
+    except OSError:
+        return False
+    return bool(offer) and out.stdout.strip() == offer
+
+
+def reveal_folder(folder: Path) -> None:
+    if sys.platform == "win32":
+        os.startfile(str(folder))       # type: ignore[attr-defined]  # a local folder this app chose, never a page's address
+    elif sys.platform == "darwin":
+        subprocess.run(["/usr/bin/open", str(folder)], check=False)
+
+
+ATS_REFUSED = -1022     # App Transport Security: macOS refuses plain http to this name
 
 
 def reachable(url: str) -> bool:
@@ -755,25 +1158,6 @@ def reachable(url: str) -> bool:
         return r.json().get("service") == "syntropy-health"
     except (httpx.HTTPError, ValueError, AttributeError):
         return False
-
-
-def unreachable_page(name: str, url: str) -> str:
-    """Shown in the window when the household's server doesn't answer (its computer is asleep, or this Mac is away)."""
-    import html
-    return f"""<!doctype html><meta charset="utf-8"><title>{APP_NAME}</title>
-<style>
-  :root {{ color-scheme: light dark; font: 14px -apple-system, system-ui, sans-serif; }}
-  body {{ margin: 0; height: 100vh; display: grid; place-items: center; background: Canvas; color: CanvasText; }}
-  main {{ max-width: 420px; padding: 24px; text-align: center; }}
-  h1 {{ font-size: 20px; margin: 0 0 8px; }} p {{ opacity: .7; line-height: 1.45; }}
-  button {{ font: inherit; padding: 7px 14px; margin: 6px 4px 0; border-radius: 7px; border: 1px solid #8884; background: none; color: inherit; }}
-  button.primary {{ background: #d6204a; border-color: #d6204a; color: white; }}
-</style>
-<main><h1>Can't reach {html.escape(name)}</h1>
-<p>Syntropy Health runs on {html.escape(name)} ({html.escape(url)}). Make sure that computer is on and awake, and that this
-Mac is on the same network (or on Tailscale).</p>
-<button class="primary" onclick="send('retry')">Try Again</button><button onclick="send('switch')">Use a Different Server…</button></main>
-<script>function send(t) {{ window.webkit.messageHandlers.syntropyDesktop.postMessage(JSON.stringify({{type: t}})); }}</script>"""
 
 
 def main() -> None:
@@ -800,8 +1184,22 @@ def main() -> None:
         desktop.run_in_browser()
     except Exception as exc:  # noqa: BLE001 - leave a trace for support; a windowed app can't print
         log.exception("Syntropy Health stopped")
-        alert(f"{APP_NAME} couldn't start", f"{exc}\n\nDetails are in {log_path()}.")
+        startup_failed(exc)
         raise
+
+
+def startup_failed(exc: Exception) -> None:
+    """Before there's a window: the data folder can't be used, or the window itself couldn't open."""
+    from app.core import config
+
+    _kind, text = describe_failure(exc)
+    folder = None
+    try:
+        folder = config.data_dir()
+    except OSError:
+        pass
+    if alert(f"{APP_NAME} couldn't start", f"{text}\n\n{where_details_are()}", "Show Data Folder" if folder else None) and folder:
+        reveal_folder(folder)
 
 
 if __name__ == "__main__":

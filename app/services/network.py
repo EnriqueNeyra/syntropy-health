@@ -44,6 +44,24 @@ def set_controller(fn: Optional[Callable[[bool], None]]) -> None:
     _controller = fn
 
 
+_moved_port: Optional[dict[str, Any]] = None
+
+
+def set_moved_port(home: Optional[int], now: Optional[int], holder: Optional[str]) -> None:
+    """The desktop app's saved port is busy, so it's on another one until the next start."""
+    global _moved_port
+    _moved_port = {"home": home, "now": now, "holder": holder} if home else None
+
+
+def problems() -> list[dict[str, str]]:
+    if not _moved_port:
+        return []
+    by = f"another program ({_moved_port['holder']})" if _moved_port["holder"] else "another program"
+    return [{"id": f"port-moved-{_moved_port['home']}", "title": "Your phone can't reach Syntropy Health right now",
+             "text": f"The port it normally uses, {_moved_port['home']}, is taken by {by}, so it's on {_moved_port['now']} for now. "
+                     "Close that program and open Syntropy Health again: it goes back by itself, and your phone starts syncing again."}]
+
+
 def managed() -> bool:
     """True in the Mac and Windows apps, which can switch network access on and off themselves."""
     return _controller is not None

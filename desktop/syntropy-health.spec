@@ -17,9 +17,9 @@ datas = [
     (str(ROOT / "app" / "data"), "app/data"),
     (str(DESKTOP / "icons"), "icons"),
 ]
-hidden = [*collect_submodules("app"), *collect_submodules("uvicorn"), *collect_submodules("zeroconf"), "ifaddr", "tray", "updater"]
+hidden = [*collect_submodules("app"), *collect_submodules("uvicorn"), *collect_submodules("zeroconf"), "ifaddr", "tray", "updater", "sites", "own_pages", "recovery"]
 if sys.platform == "win32":
-    hidden += ["pystray._win32", "webview.platforms.edgechromium", "webview.platforms.winforms"]
+    hidden += ["pystray._win32", "webview.platforms.edgechromium", "webview.platforms.winforms", "windows_window"]
 elif sys.platform == "darwin":
     hidden += ["webview.platforms.cocoa", "mac_window"]
 
@@ -47,7 +47,9 @@ if sys.platform == "darwin":
                "LSApplicationCategoryType": "public.app-category.healthcare-fitness",
                "NSHumanReadableCopyright": "© 2026 Syntropy Labs",
                # The window loads the app from its own server on this computer.
-               "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True},
+               # A household server joined by its Tailscale name is plain http; Tailscale encrypts the link itself.
+               "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True, "NSExceptionDomains": {
+                   "ts.net": {"NSIncludesSubdomains": True, "NSExceptionAllowsInsecureHTTPLoads": True}}},
                "NSLocalNetworkUsageDescription": "Syntropy Health lets your phone and other devices on your network "
                                                  "reach it when you turn that on.",
                # Announced as syntropyhealth.local when other devices may connect.
