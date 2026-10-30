@@ -21,6 +21,7 @@ log = logging.getLogger("syntropy.scheduler")
 
 TICK_SECONDS = 300
 _task: Optional[asyncio.Task] = None
+last_tick_at: Optional[float] = None    # for the owner's /api/health
 
 
 def _due() -> list[dict]:
@@ -46,6 +47,8 @@ async def run_once() -> list[str]:
         except Exception:  # noqa: BLE001
             log.exception("Scheduled sync failed for %s", conn["id"])
     await asyncio.to_thread(_prune)
+    global last_tick_at
+    last_tick_at = time.time()
     return synced
 
 

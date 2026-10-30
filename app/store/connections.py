@@ -21,13 +21,18 @@ def _present(row: Optional[dict[str, Any]], include_credentials: bool = False) -
         return None
     creds = row.pop("credentials_enc", None)
     c = security.decrypt_json(creds) or {}
+    if creds and not c and row.get("status") in ("active", "error", "needs_reauth"):
+        # Saved, but this encryption key can't read it. It stays saved: with the right key back, it works again. Until
+        # then it asks to be signed in again, and isn't mistaken for a finished one-time import.
+        row["credentials_unreadable"] = True
+        row["status"] = "needs_reauth"
     if include_credentials:
         row["credentials"] = c
     else:
         row["token_expires_at"] = c.get("expires_at")
         row["has_refresh_token"] = bool(c.get("refresh_token") or c.get("dynamic_client"))  # either renews access
     if row.get("kind") == "ehr":
-        row["access_ended"] = _access_ended(row, c)
+        row["access_ended"] = not row.get("credentials_unreadable") and _access_ended(row, c)
     if "record_count" in row:   # listings: how much each source brought in
         row["sample_count"] = sample_counts.for_connection(row["id"])
     return row

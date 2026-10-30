@@ -60,7 +60,8 @@ function collect({ summary, connections, status }) {
       }
     } else if (c.status === "needs_reauth") {
       out.push({ id: `conn:${c.id}:reauth`, level: "warn", icon: "sources", title: `Reconnect ${c.display_name}`,
-                 text: "Access expired, so new records aren't coming in.", href: "#/sources", action: "Reconnect" });
+                 text: c.credentials_unreadable ? "Its saved sign-in can't be read, because the encryption key changed. Put the original key back, or sign in again."
+                   : "Access expired, so new records aren't coming in.", href: "#/sources", action: "Reconnect" });
     } else if (c.status === "error") {
       out.push({ id: `conn:${c.id}:error:${c.last_sync_at || ""}`, level: "bad", icon: "sync", title: `${c.display_name} couldn't sync`,
                  text: c.last_error || "The last sync failed.", href: "#/sources", action: "Open Sources" });
@@ -72,6 +73,9 @@ function collect({ summary, connections, status }) {
                  text: `${c.display_name} hasn't sent anything in ${Math.floor((Date.now() / 1000 - c.last_sync_at) / 86400)} days. Open the Syntropy Health app on it to catch up.`,
                  href: "#/sources", action: "Open Sources" });
     }
+  }
+  for (const p of status?.problems || []) {
+    out.push({ id: `problem:${p.id}`, level: "bad", icon: "alert", title: p.title, text: p.text, href: "#/settings/general", action: "Open Settings" });
   }
   if (status?.update) {
     out.push({ id: `update:${status.update.version}`, level: "info", icon: "download", title: `Syntropy Health ${status.update.version} is available`,

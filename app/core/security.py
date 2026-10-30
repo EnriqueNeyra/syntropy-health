@@ -24,10 +24,13 @@ from typing import Any, Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from app.core import config
+from app.core import config, db
 
 _key_lock = threading.Lock()
 _key_cache: dict[str, bytes] = {}
+_KEY_CHECK_SETTING = "security.key_check"
+_KEY_CHECK_VALUE = "syntropy-key-check"
+_key_mismatch: dict[str, str] = {}      # by database
 
 
 def _key_file() -> Path:
@@ -35,7 +38,8 @@ def _key_file() -> Path:
 
 
 def master_key() -> bytes:
-    """Returns the 32-byte master key (raw)."""
+    """Returns the 32-byte master key (raw). Created on first use, but never in place of one that saved secrets need:
+    that would make them look like they were never there."""
     env_key = config.env("SYNTROPY_SECRET_KEY")
     if env_key:
         return hashlib.sha256(env_key.encode()).digest()
@@ -48,14 +52,132 @@ def master_key() -> bytes:
         if cache_key in _key_cache:
             return _key_cache[cache_key]
         if path.exists():
-            key = base64.urlsafe_b64decode(path.read_bytes().strip())
+            key = _read_key(path)
+        elif _stored_secrets():
+            raise db.StartupProblem("key", f"The encryption key file is missing ({path}). Saved passwords, sign-ins and AI keys "
+                                           f"can't be read without it, so a new one hasn't been made. {_KEY_ADVICE}")
         else:
-            key = secrets.token_bytes(32)
-            fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(fd, "wb") as fh:
-                fh.write(base64.urlsafe_b64encode(key))
+            key = _write_new_key(path)
         _key_cache[cache_key] = key
         return key
+
+
+_KEY_ADVICE = ("Put the file back from a backup and start Syntropy Health again. If there's no backup, run "
+               "`syntropy-health key new`: your records are safe, everyone then sets a new password with "
+               "`syntropy-health accounts reset-password NAME`, and health systems and AI services need signing in to again.")
+
+
+def _read_key(path: Path) -> bytes:
+    raw = path.read_bytes().strip()
+    if not raw and not _stored_secrets():      # a crash on the very first run, before anything was encrypted
+        return _write_new_key(path, replace=True)
+    try:
+        key = base64.urlsafe_b64decode(raw)
+    except ValueError:
+        key = b""
+    if len(key) != 32:
+        raise db.StartupProblem("key", f"The encryption key file {path} is damaged: it should hold a 32-byte key. {_KEY_ADVICE}")
+    return key
+
+
+def _write_new_key(path: Path, replace: bool = False) -> bytes:
+    """Whole or not at all: a crash can't leave an empty file, and if another process got there first, its key is the key."""
+    key = secrets.token_bytes(32)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(base64.urlsafe_b64encode(key))
+        fh.flush()
+        os.fsync(fh.fileno())
+    try:
+        if replace:
+            os.replace(tmp, path)
+            return key
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            return _read_key(path)
+        except OSError:     # a file system without hard links
+            if path.exists():
+                return _read_key(path)
+            os.replace(tmp, path)
+        return key
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def _stored_secrets() -> list[str]:
+    """A few of what's encrypted in the database, whichever kinds there are."""
+    if not config.db_path().exists():
+        return []
+    with db.read() as conn:
+        rows = [r[0] for r in conn.execute(
+            "SELECT value FROM app_settings WHERE key LIKE 'ai.key.%' OR key LIKE '%.client_secret' LIMIT 20")]
+        rows += [r[0] for r in conn.execute("SELECT password_hash FROM accounts WHERE password_hash IS NOT NULL LIMIT 20")]
+        out = []
+        for value in rows:
+            try:
+                out.append(json.loads(value))
+            except ValueError:
+                pass
+        out += [r[0] for r in conn.execute("SELECT credentials_enc FROM connections WHERE credentials_enc IS NOT NULL LIMIT 20")]
+    return [t for t in out if isinstance(t, str) and t]
+
+
+def _readable(token: str) -> bool:
+    try:
+        _fernet().decrypt(token.encode())
+        return True
+    except (InvalidToken, ValueError):
+        return False
+
+
+def check_key() -> None:
+    """At start-up: does this key open what's saved? A marker saved with the key answers that, once it's there; before
+    that (an upgrade), whatever is already encrypted does. Wrong, the server still runs, and owners are told."""
+    master_key()
+    path = str(config.db_path())
+    with db.read() as conn:
+        row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (_KEY_CHECK_SETTING,)).fetchone()
+    marker = json.loads(row[0]) if row else None
+    marked = bool(marker) and _readable(marker)
+    stored = _stored_secrets()
+    fine = marked or (not marker and any(_readable(t) for t in stored)) or not stored
+    if fine and not marked:
+        _save_key_check()
+    if fine:
+        _key_mismatch.pop(path, None)
+    else:
+        where = "the SYNTROPY_SECRET_KEY setting" if config.env("SYNTROPY_SECRET_KEY") else str(_key_file())
+        _key_mismatch[path] = (f"Saved passwords, sign-ins to health systems and AI keys can't be read, because the encryption key "
+                               f"({where}) isn't the one they were saved with. Records are safe, but sources have stopped "
+                               f"syncing. {_KEY_ADVICE}")
+
+
+def _save_key_check() -> None:
+    with db.db() as conn:
+        conn.execute("INSERT INTO app_settings(key, value, updated_at) VALUES (?, ?, ?) "
+                     "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+                     (_KEY_CHECK_SETTING, json.dumps(encrypt_json(_KEY_CHECK_VALUE)), time.time()))
+
+
+def key_problem() -> Optional[str]:
+    return _key_mismatch.get(str(config.db_path()))
+
+
+def start_new_key() -> Optional[Path]:
+    """The owner's decision (`syntropy-health key new`) that the old key is gone for good. The old file is kept beside
+    the new one, in case it's the right one after all. Returns where it went."""
+    path = _key_file()
+    moved = None
+    with _key_lock:
+        if path.exists():
+            moved = path.with_name(f"{path.name}.replaced-{time.strftime('%Y%m%d-%H%M%S')}")
+            os.replace(path, moved)
+        _key_cache[str(path)] = _write_new_key(path)
+    _save_key_check()
+    _key_mismatch.pop(str(config.db_path()), None)
+    return moved
 
 
 def _derive(purpose: str) -> bytes:

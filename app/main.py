@@ -12,7 +12,7 @@ import logging
 import re
 import sqlite3
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.api import agents, assistant, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
-from app.core import auth, config, db, settings as instance_settings
+from app.core import auth, config, data_fixes, db, maintenance, security, settings as instance_settings
 from app.core.uploads import DecompressUploads
 from app.services import network, scheduler, updates
 from app.store import biometrics as biometric_store, sample_counts
@@ -64,9 +64,29 @@ log = logging.getLogger("syntropy")
 
 def _start_up() -> None:
     db.ensure_migrated()
+    security.check_key()
     instance_settings.migrate_client_ids()
     biometric_store.upgrade_daily_if_needed()
     sample_counts.warm()
+    maintenance.check_at_start_up()
+
+
+def _database_trouble(exc: Exception) -> Optional[tuple[int, str]]:
+    """When a request failed because of the database rather than a bug: the status, and what to say."""
+    if not isinstance(exc, sqlite3.DatabaseError):
+        return None
+    if isinstance(exc, sqlite3.OperationalError):
+        code = getattr(exc, "sqlite_errorcode", 0) & 0xff
+        if db.is_busy(exc) or "locked" in str(exc):
+            return 503, "The database is busy with a long task. Try again in a minute."
+        if code == sqlite3.SQLITE_FULL:
+            return 503, "The disk is full, so this couldn't be saved. Free up some space and try again."
+        if code == sqlite3.SQLITE_READONLY:
+            return 503, "Syntropy Health can't write to its database. Check the data folder's permissions."
+        return None
+    maintenance.note_damage(str(exc))
+    return 500, ("Syntropy Health found damage in its database file, so this couldn't be read. Keep your older backups: "
+                 "they may be the last good copies.")
 
 
 def _problem_page(problem: str) -> str:
@@ -103,6 +123,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         log.error("Not starting: %s", app.state.problem)
         yield
         return
+    maintenance.start()
+    data_fixes.start()
     if config.scheduler_enabled():
         scheduler.start()
         updates.start()
@@ -111,6 +133,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     network.stop_announcing()
     await scheduler.stop()
     await updates.stop()
+    await asyncio.to_thread(data_fixes.stop)
+    await asyncio.to_thread(maintenance.stop)
 
 
 def create_app() -> FastAPI:
@@ -191,6 +215,9 @@ def create_app() -> FastAPI:
         # A bug, not something the person did: keep the details in the server log, and give the page a sentence it can
         # show rather than a bare "Internal Server Error".
         log.exception("Unhandled error on %s %s", request.method, request.url.path)
+        known = _database_trouble(exc)
+        if known:
+            return JSONResponse({"detail": known[1]}, status_code=known[0], headers={"Cache-Control": "no-store"})
         return JSONResponse({"detail": "Something went wrong on the server. Try again; if it keeps happening, the server "
                                        "log has the details."}, status_code=500, headers={"Cache-Control": "no-store"})
 

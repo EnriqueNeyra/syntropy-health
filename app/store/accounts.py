@@ -104,8 +104,15 @@ def _password_hash(account_id: str) -> Optional[str]:
     return security.decrypt_json(json.loads(row["password_hash"]))
 
 
+def password_unreadable(account_id: str) -> bool:
+    """A password was saved, but this encryption key can't open it."""
+    return has_password(account_id) and _password_hash(account_id) is None
+
+
 def has_password(account_id: str) -> bool:
-    return _password_hash(account_id) is not None
+    with read() as conn:
+        row = conn.execute("SELECT password_hash FROM accounts WHERE id = ?", (account_id,)).fetchone()
+    return bool(row and row["password_hash"])
 
 
 def verify_password(account_id: str, password: str) -> bool:

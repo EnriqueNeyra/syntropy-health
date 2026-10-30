@@ -9,6 +9,7 @@ The ``syntropy-health`` command: run the server, keep it running in the backgrou
     syntropy-health info                  where the data is and the addresses to open
     syntropy-health mcp                   the MCP server on stdio, for AI apps on this computer
     syntropy-health accounts              who signs in; `accounts reset-password NAME` for someone locked out
+    syntropy-health key new               replace a lost encryption key
 
 The same code runs from a clone (``./run.sh``), a pip or uv install, the Linux installer and the Mac and Windows apps.
 """
@@ -19,7 +20,6 @@ import argparse
 import os
 import shlex
 import shutil
-import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -98,18 +98,15 @@ def _answers(host: str, port: int) -> bool:
 
 def backup(dest: Optional[str]) -> Path:
     """A consistent copy of the database (taken while the server runs), the encryption key and uploads, zipped."""
+    from app.core import db
+
     data = config.data_dir()
     folder = Path(dest).expanduser() if dest else Path.cwd()
     folder.mkdir(parents=True, exist_ok=True)
     out = folder / f"syntropy-backup-{time.strftime('%Y%m%d-%H%M%S')}.zip"
     with tempfile.TemporaryDirectory() as tmp:
         snapshot = Path(tmp) / "syntropy.db"
-        src, dst = sqlite3.connect(str(config.db_path())), sqlite3.connect(str(snapshot))
-        try:
-            src.backup(dst)
-        finally:
-            dst.close()
-            src.close()
+        db.snapshot(snapshot)
         with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
             z.write(snapshot, "syntropy.db")
             if (data / "secret.key").exists():
@@ -411,6 +408,25 @@ def dev_no_password(state: Optional[str]) -> None:
               "syntropy-health dev no-password off")
 
 
+def new_key() -> None:
+    """When the encryption key is lost for good. Only from this computer, and only by someone who says so: a new key
+    can't open anything saved with the old one."""
+    from app.core import db, security
+
+    db.ensure_migrated()
+    if config.env("SYNTROPY_SECRET_KEY"):
+        sys.exit("The key comes from the SYNTROPY_SECRET_KEY setting: change it there.")
+    print("This starts a new encryption key. Your records are safe, but passwords, sign-ins to health systems and AI keys "
+          "saved with the old key stay unreadable: everyone sets a new password with `syntropy-health accounts "
+          "reset-password NAME`, and sources and AI services need signing in to again.")
+    print("Don't do this if you can still find the old secret.key: putting it back fixes everything.")
+    if input("Type NEW to go ahead: ").strip() != "NEW":
+        sys.exit("Nothing was changed.")
+    moved = security.start_new_key()
+    print(f"Done. The old key file was kept as {moved}." if moved else "Done.")
+    print("Restart Syntropy Health if it's running.")
+
+
 def accounts_command(action: Optional[str], name: Optional[str]) -> None:
     """Who signs in, and a new password for someone who forgot theirs. Only from this computer: someone here can read
     the database anyway, so this adds no way in that wasn't already there."""
@@ -477,6 +493,8 @@ def _command(argv: Optional[list[str]] = None) -> None:
     a = sub.add_parser("accounts", help="who signs in; reset-password NAME for someone locked out")
     a.add_argument("action", nargs="?", choices=["list", "reset-password"], default="list")
     a.add_argument("name", nargs="?")
+    k = sub.add_parser("key", help="key new: replace a lost encryption key (saved passwords and sign-ins stay unreadable)")
+    k.add_argument("action", choices=["new"])
     d = sub.add_parser("dev", help="development only: dev no-password on|off lets this instance run without a password")
     d.add_argument("setting", choices=["no-password"])
     d.add_argument("state", nargs="?", choices=["on", "off"])
@@ -508,6 +526,8 @@ def _command(argv: Optional[list[str]] = None) -> None:
         print(config.APP_VERSION)
     elif args.command == "accounts":
         accounts_command(args.action, args.name)
+    elif args.command == "key":
+        new_key()
     elif args.command == "dev":
         dev_no_password(args.state)
     else:

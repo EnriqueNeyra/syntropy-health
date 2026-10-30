@@ -52,6 +52,10 @@ async def sync_connection(connection_id: str, trigger: str = "manual") -> dict[s
     if conn.get("access_ended"):
         return {"status": "skipped", "sign_in": True,
                 "reason": f"Sign in to {conn['display_name']} again to bring in new records."}
+    if conn.get("credentials_unreadable"):
+        return {"status": "skipped", "sign_in": True,
+                "reason": f"The saved sign-in for {conn['display_name']} can't be read, because the encryption key has changed. "
+                          "Put the original key back, or sign in again."}
 
     lock = _lock(connection_id)
     if lock.locked():

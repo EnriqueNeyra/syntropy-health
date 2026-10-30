@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import shutil
 import time
 from datetime import date
 from typing import Optional
@@ -13,19 +14,45 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
-from app.core import auth, config, context, settings
+from app.core import auth, config, context, data_fixes, maintenance, settings
 from app.core.db import audit, db, read, rows_to_dicts
-from app.services import network, updates
+from app.services import network, scheduler, updates
 from app.store import accounts, profiles
 
 router = APIRouter(tags=["system"])
 
 
 @router.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
-def health() -> dict:
+def health(response: Response) -> dict:
+    """Whether this server can do its job: Docker's health check, the installers and scripts read it. 503 when the
+    database can't be read or written; a long write in progress isn't a failure."""
+    state = maintenance.health()
+    out = {"status": "error" if state["detail"] else "ok", "service": "syntropy-health", "version": config.APP_VERSION,
+           "journal_mode": state["journal_mode"], "database": state["database"], "schema_version": state["schema_version"]}
+    if state["detail"]:
+        response.status_code = 503
+        out["detail"] = state["detail"]
+    return out
+
+
+@router.get("/api/health", dependencies=[Depends(auth.require_owner)])
+def health_details() -> dict:
+    """For the server's owner: the state of the database and what runs in the background."""
+    now = time.time()
     with read() as conn:
-        mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
-    return {"status": "ok", "service": "syntropy-health", "version": config.APP_VERSION, "journal_mode": mode}
+        syncs = {r["kind"]: r["at"] for r in conn.execute("SELECT kind, MAX(last_sync_at) AS at FROM connections "
+                                                          "WHERE status != 'disconnected' GROUP BY kind")}
+    tick = scheduler.last_tick_at
+    return {
+        "status": "error" if maintenance.health()["detail"] else "ok",
+        "version": config.APP_VERSION,
+        "database": maintenance.details(),
+        "disk": {"free_bytes": shutil.disk_usage(config.data_dir()).free},
+        "scheduler": {"enabled": config.scheduler_enabled(), "last_tick_at": tick, "age_seconds": round(now - tick) if tick else None},
+        "last_sync": {kind: {"at": at, "age_seconds": round(now - at) if at else None} for kind, at in syncs.items()},
+        "data_fixes": data_fixes.status(),
+        "problems": maintenance.problems(),
+    }
 
 
 @router.get("/api/status")
@@ -58,6 +85,8 @@ def status(request: Request) -> dict:
             update = updates.status()
             if update["available"]:
                 out["update"] = {"version": update["latest"]["version"], "installs": update["method"]["installs"]}
+        if principal.owner:
+            out["problems"] = maintenance.problems()
     return out
 
 

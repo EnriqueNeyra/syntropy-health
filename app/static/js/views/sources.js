@@ -36,7 +36,7 @@ function statusLine(c, paired) {
   if (c.access_ended) return html`<span class="src-status"><span class="dot"></span> Imported</span>`;
   // A file, or results typed in: nothing to be connected to. The row says what came in and when.
   if (c.kind === "import") return "";
-  if (c.status === "needs_reauth") return html`<span class="src-status warn"><span class="dot warn"></span> Reconnect needed</span>`;
+  if (c.status === "needs_reauth") return html`<span class="src-status warn" title="${c.credentials_unreadable ? "Its saved sign-in can't be read, because the encryption key changed. Put the original key back, or sign in again." : ""}"><span class="dot warn"></span> Reconnect needed</span>`;
   if (c.status === "error") return html`<span class="src-status bad" title="${c.last_error || ""}"><span class="dot bad"></span> Sync failed</span>`;
   if (c.status === "disconnected") return html`<span class="src-status"><span class="dot"></span> Disconnected</span>`;
   if (c.last_sync_status === "partial") return html`<span class="src-status warn" title="Some record types could not be fetched"><span class="dot warn"></span> Partly synced</span>`;

@@ -7,7 +7,6 @@ import io
 import json
 import re
 import shutil
-import sqlite3
 import tempfile
 import time
 import unicodedata
@@ -19,8 +18,8 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.deps import check_access, resolve_profile
-from app.core import auth, config
-from app.core.db import audit, db, new_id, read
+from app.core import auth, maintenance
+from app.core.db import StartupProblem, audit, db, new_id, read, snapshot
 from app.services import imports
 from app.store import activity, biometrics, records, sample_counts
 
@@ -166,13 +165,12 @@ def export_backup(background: BackgroundTasks) -> FileResponse:
     """Consistent online snapshot of the whole database (includes encrypted tokens; keep it safe). It holds everyone's
     data, so it's for owners (who can copy the database file anyway)."""
     tmp = Path(tempfile.mkdtemp()) / f"syntropy-backup-{_stamp()}.db"
-    src = sqlite3.connect(str(config.db_path()))
-    dst = sqlite3.connect(str(tmp))
     try:
-        src.backup(dst)
-    finally:
-        dst.close()
-        src.close()
+        snapshot(tmp)
+    except StartupProblem as exc:
+        shutil.rmtree(tmp.parent, ignore_errors=True)
+        maintenance.note_damage(str(exc))
+        raise
     with db() as conn:
         audit(conn, "user", "export.backup")
     background.add_task(shutil.rmtree, tmp.parent, ignore_errors=True)     # the snapshot and its folder

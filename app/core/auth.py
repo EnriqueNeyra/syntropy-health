@@ -161,6 +161,12 @@ def login(request: Request, password: str, who: Optional[str] = None) -> str:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose who's signing in.")
         account = with_password[0] if with_password else None
     check_attempts(request)
+    if account and accounts.password_unreadable(account["id"]):
+        # Not a wrong password, and saying so would send them guessing for one that can't work.
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "Syntropy Health can't check this password, because its encryption key has changed. Whoever runs "
+                            "this server needs to put the original secret.key file back, or set a new password with "
+                            f"`syntropy-health accounts reset-password {account['name']}`.")
     if not account or not accounts.verify_password(account["id"], password):
         note_failure(request)
         with db() as conn:

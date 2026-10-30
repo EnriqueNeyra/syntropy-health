@@ -238,6 +238,7 @@ def test_an_instance_from_before_accounts_keeps_its_password(tmp_path, monkeypat
     from app.core import config, db, security
 
     path = config.db_path()
+    stored_hash = security.encrypt_json(security.hash_password(PASSPHRASE))
     conn = sqlite3.connect(str(path))
     for f in sorted(db.MIGRATIONS_DIR.glob("*.sql")):
         if int(f.name.split("_", 1)[0]) > 8:
@@ -246,7 +247,7 @@ def test_an_instance_from_before_accounts_keeps_its_password(tmp_path, monkeypat
             conn.execute(statement)
     conn.execute("PRAGMA user_version = 8")
     rows = [("setup.completed", True), ("auth.required", True), ("terms.accepted", {"version": 1, "at": 1}),
-            ("auth.password_hash", security.encrypt_json(security.hash_password(PASSPHRASE))),
+            ("auth.password_hash", stored_hash),
             ("overview.layout.prf_a", [{"id": "sleep", "visible": True, "options": {}}]), ("ai.cloud_ack", 1.0),
             ("display.accent", "teal")]
     conn.executemany("INSERT INTO app_settings(key, value, updated_at) VALUES (?, ?, 0)", [(k, json.dumps(v)) for k, v in rows])
