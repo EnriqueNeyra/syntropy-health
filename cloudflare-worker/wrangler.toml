@@ -33,4 +33,3 @@ REQUIRE_KEY = "false"
 # Secrets to set in Cloudflare dashboard or via wrangler secret put:
 # - WHOOP_CLIENT_SECRET
 # - OURA_CLIENT_SECRET
-# - GOOGLE_HEALTH_CLIENT_SECRET, plus GOOGLE_HEALTH_CLIENT_ID under [vars], once the Google app passes review
