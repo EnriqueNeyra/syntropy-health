@@ -7,6 +7,8 @@ Looking after the database file while the server runs, on one background thread:
   a cold cache is many times that), so it runs before serving only on small files, otherwise a little after start-up,
   and then daily. It reads pages, not the indexes against their tables: ``integrity_check`` took 30 times longer.
 * Statistics, for the query planner: ``PRAGMA optimize`` every few hours.
+* Deleted data. Connections overwrite what they delete (``secure_delete``), but the log still holds the old pages until
+  it's emptied and the file stays its old size, so soon after a permanent delete ``reclaim`` does both, a little at a time.
 
 ``health()`` is what /health reports, and ``problems()`` what owners are told about in Alerts.
 """
@@ -29,6 +31,8 @@ TICK_SECONDS = 5.0
 INTEGRITY_EVERY = 24 * 3600
 OPTIMIZE_EVERY = 6 * 3600
 SMALL_FILE = 256 * 1024 * 1024
+RECLAIM_STEP_PAGES = 2048       # 8 MB at a time: a few milliseconds of holding the write lock
+QUIET_HOURS = range(1, 5)       # when a large file written by an older version gets its one rewrite, unprompted
 LARGE_FILE_DELAY = 120          # not while the first pages are loading
 MIN_FREE_DISK = 1024 * 1024     # SQLite can't commit without room
 _INTEGRITY_KEY = "db.integrity"
@@ -121,6 +125,78 @@ def check_at_start_up(path: Optional[Path] = None) -> None:
     last = integrity(path)
     if last and last.get("ok") is False:
         note_damage(last.get("detail") or "found earlier", path)
+
+
+# ---------------------------------------------------------------------------
+# Deleted data
+# ---------------------------------------------------------------------------
+
+def _rewrite(path: Path, conn: sqlite3.Connection) -> bool:
+    """The one long job: a file from before this version may hold deleted text in space freed then, which only a rewrite
+    clears, and can't give space back a little at a time until it has had one. It holds the write lock throughout, so it
+    happens once per database. It needs room for the new file and for the log."""
+    global _checking
+    size = _size(path)
+    free = shutil.disk_usage(path.parent).free
+    if free < 2 * size + 64 * 1024 * 1024:
+        log.warning("Not enough disk space to compact the database at %s (%d MB free): trying again later", path, free // 1048576)
+        return False
+    log.info("Compacting the database at %s (%d MB); this happens once", path, size // 1048576)
+    _checking = conn
+    try:
+        conn.execute("PRAGMA busy_timeout = 15000")
+        conn.execute("PRAGMA auto_vacuum = INCREMENTAL")
+        conn.execute("VACUUM")
+    finally:
+        _checking = None
+    return True
+
+
+def reclaim(path: Optional[Path] = None, *, step_pages: int = RECLAIM_STEP_PAGES) -> dict[str, Any]:
+    """Empties the log and gives free space back to the disk, in short transactions between other writes. Nothing here
+    raises: if the file is busy, the next delete or start tries again."""
+    path = path or config.db_path()
+    out: dict[str, Any] = {"checkpointed": False, "vacuumed": False, "freed_pages": 0}
+    conn = None
+    try:
+        out["checkpointed"] = db.checkpoint(path)
+        conn = db.open_connection(path, timeout=2.0, check_same_thread=False)
+        conn.execute("PRAGMA secure_delete = ON")
+        if conn.execute("PRAGMA auto_vacuum").fetchone()[0] != 2:
+            if _rewrite(path, conn):
+                out["vacuumed"] = True
+                out["checkpointed"] = db.checkpoint(path, wait_seconds=10.0)
+            return out
+        conn.execute("PRAGMA busy_timeout = 2000")
+        while not _stop.is_set() and (free := conn.execute("PRAGMA freelist_count").fetchone()[0]):
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                conn.execute(f"PRAGMA incremental_vacuum({int(step_pages)})").fetchall()
+            finally:
+                conn.execute("COMMIT")
+            out["freed_pages"] += min(free, step_pages)
+            db.checkpoint_if_large(path)
+            time.sleep(0.02)      # a writer waiting on SQLite's busy handler needs to find the lock free
+        out["checkpointed"] = db.checkpoint(path)
+    except sqlite3.Error as exc:
+        log.info("Couldn't reclaim space in the database right now: %s", exc)
+        db.note_deleted()
+    finally:
+        if conn:
+            conn.close()
+    return out
+
+
+def _rewrite_due(path: Path) -> bool:
+    """A file an older version made: straight away when small, and at night when large, unless someone deletes something
+    first (they've just asked for it, so reclaim doesn't wait)."""
+    if _size(path) > SMALL_FILE and time.localtime().tm_hour not in QUIET_HOURS:
+        return False
+    conn = db.open_connection(path, timeout=1.0)
+    try:
+        return conn.execute("PRAGMA auto_vacuum").fetchone()[0] != 2
+    finally:
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
@@ -231,10 +307,17 @@ def _optimize(path: Path) -> None:
 def _run(path: Path) -> None:
     next_check = time.monotonic() + (0 if _size(path) <= SMALL_FILE else LARGE_FILE_DELAY)
     next_optimize = time.monotonic() + 300
+    next_rewrite = time.monotonic() + 300
     while not _stop.wait(TICK_SECONDS):
         try:
             db.checkpoint_if_large(path)
+            if db.take_deleted():
+                reclaim(path)
             now = time.monotonic()
+            if now >= next_rewrite:
+                next_rewrite = now + 3600
+                if _rewrite_due(path):
+                    reclaim(path)
             if now >= next_check:
                 next_check = now + 3600
                 if integrity_due(path):

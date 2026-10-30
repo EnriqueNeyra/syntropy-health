@@ -9,7 +9,7 @@ import time
 from collections import OrderedDict
 from typing import Any, Iterable, Optional
 
-from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
+from app.core.db import db, note_deleted, read, dumps, row_to_dict, rows_to_dicts
 
 CATEGORIES = [
     "conditions", "medications", "allergies", "labs", "vitals", "immunizations", "encounters",
@@ -132,6 +132,7 @@ def prune_missing(connection_id: str, resource_types: Iterable[str], seen_ids: s
 def delete_record(record_id_: str) -> None:
     with db() as conn:
         conn.execute("DELETE FROM clinical_records WHERE id = ?", (record_id_,))
+    note_deleted()
 
 
 def delete_for_connection(connection_id: str) -> None:

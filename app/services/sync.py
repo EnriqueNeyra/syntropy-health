@@ -85,6 +85,8 @@ async def sync_connection(connection_id: str, trigger: str = "manual") -> dict[s
             stats = {"failure_kind": exc.kind, "duration_s": round(time.time() - started, 2)}
             await _record_failure(run_id, connection_id, stats, str(exc))
             return {"status": "error", "error": str(exc), "kind": exc.kind}
+        except biometrics.SourceGone as exc:     # removed while this sync was fetching: there's nothing to report it on
+            return {"status": "skipped", "reason": str(exc)}
         except Exception as exc:  # noqa: BLE001 - surface any failure on the connection card
             log.exception("Sync failed for %s", connection_id)
             stats = {"failure_kind": "error", "duration_s": round(time.time() - started, 2)}

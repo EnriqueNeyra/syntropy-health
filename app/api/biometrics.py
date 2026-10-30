@@ -190,6 +190,8 @@ def _store(profile_id: str, connection_id: Optional[str], samples: list[dict], w
         result["workouts_inserted"] = activity.insert_workouts(profile_id, connection_id, workouts)
         result["events_received"] = len(events)
         result["events_inserted"] = activity.insert_events(profile_id, connection_id, events)
+    except biometrics.SourceGone as exc:
+        raise HTTPException(410, str(exc)) from exc
     except (ValueError, KeyError) as exc:
         raise HTTPException(422, f"Invalid item: {exc}")
     if connection_id:

@@ -7,8 +7,8 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 
-from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
-from app.store.biometrics import _tz as local_tz, id_held_elsewhere, parse_ts, source_kind, to_utc_iso
+from app.core.db import db, note_deleted, read, dumps, row_to_dict, rows_to_dicts
+from app.store.biometrics import _tz as local_tz, check_source, id_held_elsewhere, parse_ts, source_kind, to_utc_iso
 
 WORKOUT_FIELDS = (
     "activity_type", "name", "duration_s", "active_energy_kcal", "total_energy_kcal", "distance_m", "step_count",
@@ -61,6 +61,7 @@ def insert_workouts(profile_id: str, connection_id: Optional[str], workouts: Ite
     now = time.time()
     inserted = 0
     with db() as conn:
+        check_source(conn, profile_id, connection_id)
         for w in workouts:
             try:
                 start, end = to_utc_iso(w["start"]), to_utc_iso(w.get("end") or w["start"])
@@ -94,6 +95,7 @@ def insert_events(profile_id: str, connection_id: Optional[str], events: Iterabl
     now = time.time()
     inserted = 0
     with db() as conn:
+        check_source(conn, profile_id, connection_id)
         for e in events:
             try:
                 start, end = to_utc_iso(e["start"]), to_utc_iso(e.get("end") or e["start"])
@@ -366,8 +368,10 @@ def update_entry(profile_id: str, event_id: str, entry: dict[str, Any]) -> Optio
 
 def delete_entry(profile_id: str, event_id: str) -> bool:
     with db() as conn:
-        return conn.execute("DELETE FROM health_events WHERE profile_id = ? AND id = ? AND manual = 1",
-                            (profile_id, event_id)).rowcount > 0
+        deleted = conn.execute("DELETE FROM health_events WHERE profile_id = ? AND id = ? AND manual = 1",
+                               (profile_id, event_id)).rowcount > 0
+    note_deleted()
+    return deleted
 
 
 def counts(profile_id: str) -> dict[str, int]:

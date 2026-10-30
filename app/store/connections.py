@@ -6,8 +6,8 @@ import time
 from typing import Any, Optional
 
 from app.core import security
-from app.core.db import audit, db, discard_pre_upgrade_copies, read, dumps, new_id, row_to_dict, rows_to_dicts
-from app.store import sample_counts
+from app.core.db import audit, db, read, dumps, new_id, row_to_dict, rows_to_dicts
+from app.store import profiles, sample_counts
 
 PUBLIC_FIELDS = (
     "id", "profile_id", "kind", "provider", "institution_id", "display_name", "mode",
@@ -157,7 +157,8 @@ def disconnect(connection_id: str, delete_data: bool = False) -> None:
         if not row:
             return
         if delete_data:
-            conn.execute("DELETE FROM biometric_samples WHERE connection_id = ?", (connection_id,))
+            # Samples next, in short steps (biometrics.delete_for_connection): with the source gone, no more can arrive.
+            profiles.note_unfinished(conn, f"connection:{connection_id}")
             conn.execute("DELETE FROM workouts WHERE connection_id = ?", (connection_id,))
             conn.execute("DELETE FROM health_events WHERE connection_id = ?", (connection_id,))
             conn.execute("DELETE FROM connections WHERE id = ?", (connection_id,))
@@ -170,7 +171,6 @@ def disconnect(connection_id: str, delete_data: bool = False) -> None:
               {"id": connection_id, "name": row["display_name"]}, row["profile_id"])
     if delete_data:
         sample_counts.forget()
-        discard_pre_upgrade_copies()
 
 
 # ---------------------------------------------------------------------------

@@ -24,8 +24,8 @@ from typing import Any, Iterable, Optional
 from zoneinfo import ZoneInfo
 
 from app.core import settings
-from app.core.db import db, read, dumps, new_id, rows_to_dicts
-from app.store import sample_counts
+from app.core.db import db, discard_pre_upgrade_copies, read, dumps, new_id, rows_to_dicts
+from app.store import profiles, sample_counts
 
 # metric -> (label, display unit, aggregation, group)
 METRICS: dict[str, tuple[str, str, str, str]] = {
@@ -211,6 +211,22 @@ def normalize_sample(s: dict[str, Any]) -> dict[str, Any]:
             "end_date": to_utc_iso(s.get("end_date") or s["start_date"])}
 
 
+class SourceGone(Exception):
+    """The person or source this data belongs to was deleted while it was on its way, so it goes nowhere."""
+
+    def __str__(self) -> str:
+        return "Stopped, because this person or source was deleted."
+
+
+def check_source(conn: Any, profile_id: str, connection_id: Optional[str]) -> None:
+    """Under the write lock of the transaction that stores the data. Wearable tables have no foreign keys, so without this
+    an import or sync that outlives its person or source brings back what was just deleted, with no source left to remove."""
+    row = (conn.execute("SELECT 1 FROM connections WHERE id = ? AND profile_id = ?", (connection_id, profile_id)).fetchone()
+           if connection_id else conn.execute("SELECT 1 FROM profiles WHERE id = ?", (profile_id,)).fetchone())
+    if not row:
+        raise SourceGone()
+
+
 def insert_samples(
     profile_id: str,
     connection_id: Optional[str],
@@ -224,6 +240,7 @@ def insert_samples(
     affected: set[str] = set()
     changed_metrics: set[str] = set()
     with db() as conn:
+        check_source(conn, profile_id, connection_id)
         for raw in samples:
             received += 1
             try:
@@ -321,6 +338,8 @@ def rebuild_daily(profile_id: str, days: Optional[list[str]] = None, metrics: Op
         if not targets:
             return 0
     with db() as conn:
+        if not conn.execute("SELECT 1 FROM profiles WHERE id = ?", (profile_id,)).fetchone():
+            return 0
         if days:
             where = "profile_id = ? AND start_date >= ? AND start_date < ?"
             extra: tuple[str, ...] = ()
@@ -821,11 +840,11 @@ def recent_samples(profile_id: str, metric: Optional[str] = None, limit: int = 1
         return rows_to_dicts(conn.execute(q, params).fetchall())
 
 
-def delete_for_connection(connection_id: str) -> None:
+def delete_for_connection(connection_id: str, profile_id: str) -> None:
+    """In short steps: a source can have millions of samples. The source itself has already gone (connections.disconnect)."""
+    profiles.delete_rows("biometric_samples", "connection_id", connection_id)
     with db() as conn:
-        rows = conn.execute("SELECT DISTINCT profile_id FROM biometric_samples WHERE connection_id = ?", (connection_id,)).fetchall()
-        conn.execute("DELETE FROM biometric_samples WHERE connection_id = ?", (connection_id,))
+        profiles.note_unfinished(conn, f"connection:{connection_id}", done=True)
     sample_counts.forget()
-    for r in rows:
-        if r["profile_id"]:
-            rebuild_daily(r["profile_id"])
+    discard_pre_upgrade_copies()
+    rebuild_daily(profile_id)

@@ -9,7 +9,7 @@ import json
 import time
 from typing import Any, Optional
 
-from app.core.db import db, read
+from app.core.db import db, note_deleted, read
 
 MAX_CHATS = 200           # per person and account; the oldest go first
 MAX_MESSAGES = 120
@@ -66,5 +66,7 @@ def save_chat(profile_id: str, account_id: Optional[str], chat_id: str, title: s
 
 def delete_chat(profile_id: str, account_id: Optional[str], chat_id: str) -> bool:
     with db() as conn:
-        return conn.execute("DELETE FROM chats WHERE id = ? AND profile_id = ? AND account_id = ?",
-                            (chat_id, profile_id, _owner(account_id))).rowcount > 0
+        deleted = conn.execute("DELETE FROM chats WHERE id = ? AND profile_id = ? AND account_id = ?",
+                               (chat_id, profile_id, _owner(account_id))).rowcount > 0
+    note_deleted()
+    return deleted

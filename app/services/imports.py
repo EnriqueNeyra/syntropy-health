@@ -151,6 +151,8 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
         if opener is None and not fhir_resources:
             raise ValueError("No export.xml or clinical records were found in the upload.")
         _update(job_id, status="completed", finished_at=time.time(), result=result)
+    except biometrics.SourceGone as exc:
+        _update(job_id, status="error", finished_at=time.time(), error=str(exc))
     except Exception as exc:  # noqa: BLE001
         log.exception("Apple Health import failed")
         _update(job_id, status="error", finished_at=time.time(), error=str(exc))

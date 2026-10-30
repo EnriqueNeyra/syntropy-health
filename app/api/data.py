@@ -19,9 +19,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.deps import check_access, resolve_profile
 from app.core import auth, maintenance
-from app.core.db import StartupProblem, audit, db, discard_pre_upgrade_copies, new_id, read, snapshot
+from app.core.db import StartupProblem, audit, db, new_id, read, snapshot
 from app.services import imports
-from app.store import activity, biometrics, records, sample_counts
+from app.store import activity, biometrics, profiles, records
 
 router = APIRouter(prefix="/api", tags=["data"], dependencies=[Depends(auth.require_user)])
 
@@ -179,25 +179,10 @@ def export_backup(background: BackgroundTasks) -> FileResponse:
 
 @router.delete("/profiles/{profile_id}/data")
 def wipe_profile_data(profile_id: str) -> dict:
-    """Deletes all records, samples and connections for a profile but keeps the profile itself."""
+    """Deletes everything kept about a person but keeps the person. Takes a while with millions of samples, a little at
+    a time, while other requests carry on."""
     prof = resolve_profile(profile_id)
-    with db() as conn:
-        conn.execute("DELETE FROM clinical_records WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM patient_identities WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM biometric_samples WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM biometric_daily WHERE profile_id = ?", (prof["id"],))
-        biometrics.mark_daily_changed(conn, prof["id"])
-        conn.execute("DELETE FROM sync_batches WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM workouts WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM health_events WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM chats WHERE profile_id = ?", (prof["id"],))
-        # The paired phones' Syntropy tabs are signed out along with their tokens.
-        conn.execute("DELETE FROM user_sessions WHERE device_id IN (SELECT id FROM devices WHERE profile_id = ?)", (prof["id"],))
-        conn.execute("DELETE FROM devices WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM connections WHERE profile_id = ?", (prof["id"],))
-        audit(conn, "user", "profile.data_deleted", None, prof["id"])
-    discard_pre_upgrade_copies()
-    sample_counts.forget()
+    profiles.delete_all_data(prof["id"])
     return {"ok": True}
 
 

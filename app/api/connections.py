@@ -137,8 +137,9 @@ def remove(connection_id: str, delete_data: bool = False) -> dict:
         devices.revoke_for_connection(connection_id)   # the phone stops sending to a source that's gone
     if delete_data:
         records.delete_for_connection(connection_id)
-        biometrics.delete_for_connection(connection_id)
     connections.disconnect(connection_id, delete_data=delete_data)
+    if delete_data:
+        biometrics.delete_for_connection(connection_id, conn["profile_id"])
     return {"ok": True}
 
 

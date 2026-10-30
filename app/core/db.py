@@ -36,6 +36,7 @@ _migrated_paths: set[str] = set()
 _migrate_lock = threading.Lock()
 
 PRE_UPGRADE_DIR = "pre-upgrade"
+PRE_RESTORE_DIR = "pre-restore"
 PRE_UPGRADE_KEPT = 3            # versions; the newest copy of each
 _COPY_NAME = re.compile(r"^syntropy-v(\d+)-(\d{8}-\d{6})\.db$")
 _COPY_MARGIN = 16 * 1024 * 1024
@@ -74,6 +75,7 @@ def _connect(path: Path, *, check_same_thread: bool = True, create: bool = False
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute(f"PRAGMA journal_size_limit = {WAL_LIMIT}")
+    conn.execute("PRAGMA secure_delete = ON")       # what's deleted is overwritten, not just marked free
     return conn
 
 
@@ -228,8 +230,11 @@ def ensure_migrated(path: Optional[Path] = None) -> None:
             return
         conn = None
         try:
+            new = not path.exists() or path.stat().st_size == 0
             conn = _connect(path, create=True)
             _make_private(path)
+            if new:     # has to be chosen before the first table; an existing file gets it from maintenance.reclaim
+                conn.execute("PRAGMA auto_vacuum = INCREMENTAL")
             _use_wal(conn)
             _run_migrations(conn, path)
         except sqlite3.Error as exc:
@@ -476,10 +481,12 @@ def restore_pre_upgrade(since: float, path: Optional[Path] = None) -> Optional[P
 
 
 def discard_pre_upgrade_copies(path: Optional[Path] = None) -> None:
-    """When someone's data is deleted, it has to go from these copies too."""
-    folder = (path or config.db_path()).parent / PRE_UPGRADE_DIR
-    if folder.is_dir():
-        shutil.rmtree(folder, ignore_errors=True)
+    """When someone's data is deleted, it has to go from the copies kept here too, and soon from the log and free space."""
+    for name in (PRE_UPGRADE_DIR, PRE_RESTORE_DIR):
+        folder = (path or config.db_path()).parent / name
+        if folder.is_dir():
+            shutil.rmtree(folder, ignore_errors=True)
+    note_deleted()
 
 
 def pre_upgrade_copies(path: Optional[Path] = None) -> list[dict[str, Any]]:
@@ -546,6 +553,21 @@ def write_in_batches(step: Callable[[sqlite3.Connection, Any, int], Any], *, cur
 # ---------------------------------------------------------------------------
 # Keeping the file healthy (the thread that uses these is in app.core.maintenance)
 # ---------------------------------------------------------------------------
+
+_deleted = threading.Event()
+
+
+def note_deleted() -> None:
+    """Something was permanently deleted: until the log is emptied (maintenance.reclaim, within seconds) it's still in there."""
+    _deleted.set()
+
+
+def take_deleted() -> bool:
+    if _deleted.is_set():
+        _deleted.clear()
+        return True
+    return False
+
 
 def checkpoint(path: Optional[Path] = None, wait_seconds: float = 2.0) -> bool:
     """Moves the write-ahead log into the database and empties it. True if it did; if writers or readers are busy

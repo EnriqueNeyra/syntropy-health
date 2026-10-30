@@ -11,6 +11,7 @@ import html
 import logging
 import re
 import sqlite3
+import threading
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
@@ -24,7 +25,7 @@ from app.api import agents, assistant, biometrics, connections, data, desktop, d
 from app.core import auth, config, data_fixes, db, maintenance, security, settings as instance_settings
 from app.core.uploads import DecompressUploads
 from app.services import network, scheduler, updates
-from app.store import biometrics as biometric_store, sample_counts
+from app.store import biometrics as biometric_store, profiles as profile_store, sample_counts
 from app.simulator import server as simulator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -79,6 +80,13 @@ def _start_up() -> None:
     biometric_store.upgrade_daily_if_needed()
     sample_counts.warm()
     maintenance.check_at_start_up()
+
+
+def _finish_deletes() -> None:
+    try:
+        profile_store.finish_deletes()
+    except Exception:  # noqa: BLE001 - it runs again at the next start
+        log.exception("Couldn't finish removing deleted data")
 
 
 def _database_trouble(exc: Exception) -> Optional[tuple[int, str]]:
@@ -149,6 +157,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         return
     maintenance.start()
     data_fixes.start()
+    threading.Thread(target=_finish_deletes, name="finish-deletes", daemon=True).start()
     if config.scheduler_enabled():
         scheduler.start()
         updates.start()
