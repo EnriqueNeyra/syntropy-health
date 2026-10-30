@@ -71,7 +71,7 @@ EMPTY = {"resourceType": "Bundle", "type": "searchset", "total": 0, "entry": []}
 def test_an_empty_answer_never_removes_anything(client):
     cid = connect_institution(client, BANNER)["connection_id"]
     before = _stored(cid)
-    sim.faults.answers.append({"type": "Observation", "category": "laboratory", "status": 200, "body": EMPTY, "times": 3})
+    sim.faults.answers.append({"type": "Observation", "category": "laboratory", "status": 200, "body": EMPTY})
     for _ in range(3):
         res = _sync(client, cid)
         assert res["removed"] == 0 and res["status"] == "success", res
@@ -744,6 +744,27 @@ def test_a_server_refusing_the_sort_is_asked_plainly_and_that_is_remembered(clie
     sim.faults.requests.clear()
     _sync(client, cid)
     assert not [r for r in sim.faults.requests if "_sort" in r and "category=laboratory" in r]
+
+
+def test_a_server_answering_nothing_to_the_sort_still_gets_its_records_read(client):
+    sim.faults.empty_when_sorted = True
+    cid = connect_institution(client, BANNER)["connection_id"]
+    run = client.get(f"/api/connections/{cid}").json()["last_run"]
+    assert run["stats"]["queries"]["Observation?category=laboratory"] == "ok" and _labs(client)
+    assert connections.query_state(cid)["Observation?category=laboratory"]["no_sort"] == 1
+    assert connections.query_state(cid)["Procedure"]["no_sort"] == 0        # empty both ways: it just has none
+
+
+def test_running_out_of_time_stops_asking_and_removes_nothing(client, monkeypatch):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    before = _stored(cid)
+    monkeypatch.setattr(smart, "SYNC_TIME_BUDGET", 0)
+    sim.faults.requests.clear()
+    res = _sync(client, cid)
+    assert res["status"] == "partial" and res["removed"] == 0 and res["more_to_fetch"], res
+    assert _stored(cid) == before
+    assert len(sim.faults.requests) <= 1
+    assert all(status == "paused" or query == "Patient" for query, status in res["queries"].items())
 
 
 def test_a_failure_with_a_sort_doesnt_get_blamed_on_the_sort(client):

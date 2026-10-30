@@ -802,11 +802,13 @@ class FhirClient:
             if start and found.status in ("forbidden", "unsupported"):
                 run.next_url, run.resumed = None, False      # the saved place has expired: start this query over
                 continue
-            if sorting and not start and found.status not in ("ok", "empty", "paused") and not found.resources:
-                # It may be the sort it refused. Whatever the plain question gets is the answer, and says which it was.
+            if sorting and not start and found.status not in ("ok", "paused") and not found.resources:
+                # It may be the sort it refused, or quietly answered nothing to. Whatever the plain question gets is the
+                # answer, and says which it was.
+                with_sort = found.status
                 found = await self._search(client, run.rtype, params, max_pages=ROUND_PAGES)
                 self._keep(found.resources, run, out, seen)
-                run.no_sort = found.status in ("ok", "empty", "paused")
+                run.no_sort = found.status in ("ok", "paused") or (found.status == "empty" and with_sort != "empty")
             run.next_url = found.next_url
             run.suppressed = run.suppressed or found.suppressed
             if found.status == "paused":

@@ -73,6 +73,7 @@ class Faults:
     extra_resources: list[dict[str, Any]] = field(default_factory=list)     # any other shape a server might send
     oldest_first: bool = False          # paged oldest first, unless asked otherwise
     reject_sort: bool = False           # a 400 for a search with _sort
+    empty_when_sorted: bool = False     # an empty answer for a search with _sort
     requests: deque[str] = field(default_factory=lambda: deque(maxlen=20_000))     # what was asked, in order
     _used_refresh: set[str] = field(default_factory=set)
     _token_uses: dict[str, int] = field(default_factory=dict)
@@ -499,6 +500,8 @@ async def fhir_search(platform: str, tenant: str, rtype: str, request: Request) 
         return _faulty_answer(fault)
     if faults.reject_sort and qp.get("_sort"):
         return _outcome(400, "not-supported", "_sort is not supported.")
+    if faults.empty_when_sorted and qp.get("_sort"):
+        return JSONResponse({"resourceType": "Bundle", "type": "searchset", "total": 0, "entry": []}, media_type="application/fhir+json")
     patient = generator.patient_id_for(claims["persona"], tenant)  # type: ignore[index]
     requested = next((qp.get(k) for k in SEARCH_PARAMS_PATIENT if qp.get(k)), None)
     if rtype != "Patient" and not requested:
