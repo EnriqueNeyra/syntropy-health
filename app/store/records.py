@@ -7,9 +7,13 @@ import json
 import re
 import time
 from collections import OrderedDict
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
+from zoneinfo import ZoneInfo
 
+from app.core import settings
 from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
+from app.store import search
 
 CATEGORIES = [
     "conditions", "medications", "allergies", "labs", "vitals", "immunizations", "encounters",
@@ -164,6 +168,55 @@ def _dedupe(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(groups.values())
 
 
+def _local_midnight_utc(day: date) -> str:
+    try:
+        tz = ZoneInfo(settings.timezone_name())
+    except Exception:  # noqa: BLE001
+        tz = ZoneInfo("UTC")
+    return datetime(day.year, day.month, day.day, tzinfo=tz).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_bound(value: Optional[str]) -> tuple[Optional[date], bool]:
+    """The bound's date, and whether that's all it is."""
+    try:
+        return date.fromisoformat(value), True      # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        pass
+    try:
+        return datetime.fromisoformat((value or "").replace("Z", "+00:00")).date(), False
+    except ValueError:
+        return None, False
+
+
+# A record's time as stored, which can carry any offset, or be just a date (a whole day, and not in any time zone).
+_WHEN = "coalesce(datetime(effective_at), effective_at)"
+_DATE_ONLY = "length(effective_at) <= 10"
+
+
+def _since_clause(since: Optional[str]) -> tuple[str, list[Any]]:
+    """A plain date is a whole day where the person is."""
+    day, plain = _parse_bound(since)
+    if since and not day:
+        return "effective_at >= ?", [since]
+    if not day:
+        return "", []
+    return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at >= ? ELSE {_WHEN} >= datetime(?) END)",
+            [day.isoformat(), _local_midnight_utc(day) if plain else since])
+
+
+def _until_clause(until: Optional[str]) -> tuple[str, list[Any]]:
+    """Inclusive, so a plain date runs to the end of that day: '2026-08-05T08:05:00Z' <= '2026-08-05' isn't true as text."""
+    day, plain = _parse_bound(until)
+    if until and not day:
+        return "effective_at <= ?", [until]
+    if not day:
+        return "", []
+    if plain:
+        return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? ELSE {_WHEN} < datetime(?) END)",
+                [day.isoformat(), _local_midnight_utc(day + timedelta(days=1))])
+    return f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? ELSE {_WHEN} <= datetime(?) END)", [day.isoformat(), until]
+
+
 def list_records(
     profile_id: str,
     category: Optional[str] = None,
@@ -189,20 +242,17 @@ def list_records(
     if code:
         where.append("code = ?")
         params.append(code)
-    if since:
-        where.append("effective_at >= ?")
-        params.append(since)
-    if until:
-        where.append("effective_at <= ?")
-        params.append(until)
+    for clause, values in (_since_clause(since), _until_clause(until)):
+        if clause:
+            where.append(clause)
+            params.extend(values)
     if status:
         where.append("lower(status) = ?")
         params.append(status.lower())
     if q:
-        like = f"%{q.strip().lower()}%"
-        where.append("(lower(title) LIKE ? OR lower(coalesce(narrative,'')) LIKE ? OR lower(coalesce(code_display,'')) "
-                     "LIKE ? OR coalesce(code,'') = ? OR lower(coalesce(value_text,'')) LIKE ?)")
-        params.extend([like, like, like, q.strip(), like])
+        clause, values = search.where(q, profile_id)
+        where.append(clause)
+        params.extend(values)
     sql = (f"SELECT {LIST_COLUMNS} FROM clinical_records WHERE {' AND '.join(where)} "
            "ORDER BY coalesce(effective_at, '') DESC, updated_at DESC")
     with read() as conn:
@@ -300,8 +350,9 @@ def timeline(profile_id: str, *, categories: Optional[list[str]] = None, limit: 
         where.append("effective_at <= ?" if inclusive else "effective_at < ?")
         params.append(before)
     if q:
-        where.append("(lower(title) LIKE ? OR lower(coalesce(narrative,'')) LIKE ?)")
-        params.extend([f"%{q.lower()}%"] * 2)
+        clause, values = search.where(q, profile_id)
+        where.append(clause)
+        params.extend(values)
     with read() as conn:
         rows = _load(conn.execute(
             f"SELECT {LIST_COLUMNS} FROM clinical_records WHERE {' AND '.join(where)} "

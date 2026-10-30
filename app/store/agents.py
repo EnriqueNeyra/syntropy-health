@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 import time
 from typing import Any, Optional
 
 from app.core import security
 from app.core.db import audit, db, new_id, read, rows_to_dicts
+
+log = logging.getLogger("syntropy.agents")
 
 TOKEN_PREFIX = "sh_agent_"
 
@@ -42,20 +46,38 @@ def revoke(token_id: str, account_id: Optional[str] = None) -> bool:
     return bool(cur.rowcount)
 
 
-def record_call(token_id: str, tool: str) -> None:
+def note_use(agent: dict[str, Any], tool: Optional[str]) -> None:
+    """For Settings: when the token was last used and for what. Runs after the reply has gone and may fail: it must never
+    hold up or fail a request. A client that only lists tools notes it at most once a minute."""
     now = time.time()
-    with db() as conn:
-        conn.execute("UPDATE agent_tokens SET last_call = ?, last_call_at = ?, last_used_at = ? WHERE id = ?",
-                     (tool, now, now, token_id))
+    if not tool and (agent.get("last_used_at") or 0) >= now - 60:
+        return
+    try:
+        with db() as conn:
+            if tool:
+                conn.execute("UPDATE agent_tokens SET last_call = ?, last_call_at = ?, last_used_at = ? WHERE id = ?",
+                             (tool, now, now, agent["id"]))
+            else:
+                conn.execute("UPDATE agent_tokens SET last_used_at = ? WHERE id = ?", (now, agent["id"]))
+    except sqlite3.Error:
+        log.warning("Couldn't note when an AI app's token was last used", exc_info=True)
 
 
 def authenticate(token: Optional[str]) -> Optional[dict[str, Any]]:
+    """Only reads: anyone on the network can send a made-up token, and that mustn't wait for the write lock."""
     if not token or not token.startswith(TOKEN_PREFIX):
         return None
-    now = time.time()
-    with db() as conn:
+    with read() as conn:
         row = conn.execute("SELECT * FROM agent_tokens WHERE token_hash = ? AND revoked_at IS NULL",
                            (security.hash_token(token),)).fetchone()
-        if row and (row["last_used_at"] or 0) < now - 60:   # throttled writes
-            conn.execute("UPDATE agent_tokens SET last_used_at = ? WHERE id = ?", (now, row["id"]))
     return dict(row) if row else None
+
+
+def log_actors(account_id: Optional[str], owner: bool) -> set[str]:
+    """How the access log names this account's AI apps. Rows from before it used ids say "mcp:<token name>", and those
+    count only when no other account has a token by that name."""
+    with read() as conn:
+        tokens = conn.execute("SELECT id, name, account_id FROM agent_tokens").fetchall()
+    mine = [t for t in tokens if (t["account_id"] == account_id if t["account_id"] else owner)]
+    others = {t["name"] for t in tokens if t not in mine}
+    return {f"mcp:{t['id']}" for t in mine} | {f"mcp:{t['name']}" for t in mine if t["name"] not in others}
