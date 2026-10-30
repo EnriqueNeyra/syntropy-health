@@ -356,6 +356,15 @@ def test_an_old_reading_does_not_stay_urgent(client):
     assert insights.urgent(pid) == []
 
 
+def test_a_reading_with_nothing_after_it_stops_being_urgent_after_a_few_days(client):
+    pid = _prof()
+    _daily(pid, "oxygen_saturation", [84, None, None], unit="%")
+    assert len(insights.urgent(pid)) == 1
+    pid2 = profiles.create_profile("Sam")["id"]
+    _daily(pid2, "oxygen_saturation", [84, None, None, None], unit="%")
+    assert insights.urgent(pid2) == []
+
+
 def test_a_low_number_that_is_this_persons_usual_is_not_urgent(client):
     pid = _prof()
     _daily(pid, "resting_heart_rate", _noisy(39, 1, 40), unit="bpm")
@@ -673,6 +682,11 @@ def test_personal_range_says_when_there_is_too_little_to_go_on(client):
     _daily(pid, "resting_heart_rate", _noisy(58, 1, 8), unit="bpm")
     res = client.get("/api/insights/baseline", params={"metric": "resting_heart_rate"}).json()
     assert res["enough"] is False and res["low"] is None and res["high"] is None
+
+
+def test_personal_range_with_nothing_recorded(client):
+    res = client.get("/api/insights/baseline", params={"metric": "resting_heart_rate"}).json()
+    assert res["enough"] is False and res["source"] is None and res["rolling"] == [] and res["device_changes"] == []
 
 
 def test_personal_range_comes_from_the_current_device_and_lists_the_switch(client):

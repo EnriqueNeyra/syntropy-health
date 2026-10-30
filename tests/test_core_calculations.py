@@ -148,7 +148,8 @@ def test_theil_sen_ignores_one_odd_result():
 def test_association_removes_a_shared_trend():
     rng = random.Random(3)
     ts = list(range(60))
-    assert insight_stats.association(ts, [t + rng.gauss(0, 2) for t in ts], [t + rng.gauss(0, 2) for t in ts])["clear"] is False
+    together = insight_stats.association(ts, [t + rng.gauss(0, 2) for t in ts], [t + rng.gauss(0, 2) for t in ts])
+    assert together["clear"] is False and abs(together["r"]) < 0.4
     xs = [rng.gauss(0, 1) for _ in ts]
     linked = insight_stats.association(ts, xs, [x + rng.gauss(0, 0.3) for x in xs])
     assert linked["clear"] is True and linked["r"] > 0.8 and linked["low"] < linked["r"] < linked["high"]
@@ -225,6 +226,41 @@ def test_a_change_needs_most_of_the_week_and_to_hold_a_second_day(client):
     pid2 = profiles.create_profile("Sam")["id"]
     _daily(pid2, "resting_heart_rate", _noisy(55, 0.3, 60) + [55, 55, 55, 70, 70, 70, 70], unit="bpm")
     assert insights._changes(pid2) == []
+
+
+def test_a_change_has_to_hold_on_the_day_before_too(client):
+    # Every day is above usual, and today's middle value is far above it, but as of yesterday the middle was ordinary.
+    base = [54, 55, 56] * 20
+    pid = _prof()
+    _daily(pid, "resting_heart_rate", base + [55.6, 55.6, 55.6, 70, 70, 70, 70], unit="bpm")
+    assert insights._changes(pid) == []
+    pid2 = profiles.create_profile("Sam")["id"]
+    _daily(pid2, "resting_heart_rate", base + [55.6, 55.6, 70, 70, 70, 70, 70], unit="bpm")
+    assert len(insights._changes(pid2)) == 1
+
+
+def test_one_striking_link_among_many_candidates_does_not_count(client, monkeypatch):
+    def item(name):
+        return {"id": f"link:{name}", "kind": "link", "tone": "info", "title": name, "text": name, "data": {}}
+    with monkeypatch.context() as patch:
+        patch.setattr(insights, "_feeling_links", lambda _p: [(item("a"), 0.008)] + [(None, 1.0)] * 11)
+        patch.setattr(insights, "_symptom_links", lambda _p: [])
+        patch.setattr(insights, "_hard_day_links", lambda _p: [])
+        assert insights._links("p") == []
+        patch.setattr(insights, "_feeling_links", lambda _p: [(item("a"), 0.008), (None, 1.0)])
+        assert [i["id"] for i in insights._links("p")] == ["link:a"]
+        patch.setattr(insights, "_feeling_links", lambda _p: [(item("a"), 0.02), (None, 1.0)])
+        assert insights._links("p") == []   # past the bar on its own, even with few candidates
+
+
+def test_at_most_two_symptom_links_appear(client, monkeypatch):
+    def item(name):
+        return {"id": f"link:symptom-{name}", "kind": "link", "tone": "info", "title": name, "text": name, "data": {}}
+    with monkeypatch.context() as patch:
+        patch.setattr(insights, "_feeling_links", lambda _p: [])
+        patch.setattr(insights, "_hard_day_links", lambda _p: [])
+        patch.setattr(insights, "_symptom_links", lambda _p: [(item(n), p) for n, p in (("a", 0.004), ("b", 0.002), ("c", 0.006))])
+        assert [i["id"] for i in insights._links("p")] == ["link:symptom-b", "link:symptom-a"]
 
 
 def test_too_few_days_on_either_side_say_nothing(client):

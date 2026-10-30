@@ -156,6 +156,16 @@ def test_sleep_and_mood_noise_rarely_becomes_a_link(world, monkeypatch, days):
     assert alarms / runs < 0.08, f"{alarms} of {runs} at {days} days"
 
 
+def test_strongly_correlated_days_do_not_become_links_either(world, monkeypatch):
+    # Long good and bad stretches in both sleep and mood: shuffling single days would make these look significant.
+    rng = random.Random(909)
+    runs, alarms = 150, 0
+    for _ in range(runs):
+        _independent_links(monkeypatch, world, rng, 90, rho=0.85)
+        alarms += bool(insights._links("p"))
+    assert alarms / runs < 0.08, f"{alarms} of {runs}"
+
+
 @pytest.mark.parametrize("symptom_days", [8, 10, 20])
 def test_symptom_noise_rarely_becomes_a_link(world, monkeypatch, symptom_days):
     rng = random.Random(symptom_days + 40)

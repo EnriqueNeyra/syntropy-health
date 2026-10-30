@@ -1008,5 +1008,4 @@ def insights(profile_id: str, limit: int = 12) -> list[dict[str, Any]]:
     critical = {i["data"]["code"] for i in found if i["kind"] == "urgent" and i["data"].get("code")}
     found = [i for i in found if not (i["kind"] == "lab" and i["data"].get("code") in critical)]
     found.sort(key=lambda i: (TONE_ORDER[i["tone"]], KIND_ORDER.get(i["kind"], 9)))
-    found.sort(key=lambda i: not i.get("urgent"))
     return found[:limit]

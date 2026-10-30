@@ -111,7 +111,7 @@ def group_gap_p(values: Sequence[float], in_group: Sequence[bool], key: str, per
     members = [i for i, flag in enumerate(in_group) if flag]
     real = gap(members)
     rho = max(lag1(values), lag1([1.0 if f else 0.0 for f in in_group]))
-    size = max(1, min(7, round((1 + rho) / (1 - rho))))
+    size = max(1, min(n // 5, round((1 + rho) / (1 - rho))))
     rng = random.Random(zlib.crc32(f"{key}|{n}|{k}".encode()))
     hits = 0
     for _ in range(permutations):

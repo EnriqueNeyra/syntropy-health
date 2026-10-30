@@ -95,6 +95,14 @@ def test_a_glitch_within_the_age_limit_does_not_set_it_either(client):
     assert training.max_heart_rate(pid)["bpm"] == 175
 
 
+def test_peaks_far_above_the_age_estimate_do_not_count_even_twice(client):
+    pid = _prof()
+    profiles.update_profile(pid, birth_date=f"{date.today().year - 60}-01-01")
+    activity.insert_workouts(pid, None, [_w(i, 2 + i, minutes=30, max_hr=152) for i in range(5)]
+                             + [_w(50, 1, minutes=1, max_hr=215), _w(51, 8, minutes=1, max_hr=214)])
+    assert training.max_heart_rate(pid)["bpm"] == 152
+
+
 def test_someone_can_set_their_own_maximum(client):
     pid = _prof()
     activity.insert_workouts(pid, None, [_w(i, 2 + i, minutes=30, avg_hr=120, max_hr=175) for i in range(5)])
