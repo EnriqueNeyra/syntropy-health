@@ -95,7 +95,7 @@ export function plural(n, word, pluralWord) { return `${fmtNum(n, 0)} ${n === 1 
 export function flagBadge(interp) {
   if (!interp || interp === "normal") return "";
   const map = { high: ["High", "bad"], critical_high: ["Critical high", "bad"], low: ["Low", "info"],
-                critical_low: ["Critical low", "info"], abnormal: ["Abnormal", "warn"] };
+                critical_low: ["Critical low", "bad"], abnormal: ["Abnormal", "warn"] };
   const [label, cls] = map[interp] || [capitalize(interp), "warn"];
   return html`<span class="badge ${cls}">${label}</span>`;
 }

@@ -1406,6 +1406,8 @@ svg.spark.intro { animation: wipe .8s cubic-bezier(.4, 0, .2, 1) both; }
 .insight-icon svg { width: 16px; height: 16px; }
 .insight.attention .insight-icon { background: var(--warn-bg); color: var(--warn); }
 .insight.good .insight-icon { background: var(--good-bg); color: var(--good); }
+.insight.urgent { grid-column: 1 / -1; border-right: 0; background: var(--bad-bg); }
+.insight.urgent .insight-icon { background: var(--surface); color: var(--bad); }
 .insight-title { font-weight: 650; margin-bottom: 2px; }
 .insight .small.muted { line-height: 1.45; margin-bottom: 4px; }
 .insight a.small { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }

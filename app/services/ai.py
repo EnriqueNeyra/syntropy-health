@@ -989,7 +989,8 @@ def summary_context(profile_id: str, budget_chars: int) -> str:
     if s["identity_conflict"]:
         sections += [("identity_conflict", s["identity_conflict"]), ("patient_records_name", s["patient"])]
     sections += [
-        ("out_of_range_recent_labs", s["out_of_range_recent_labs"]), ("active_conditions", s["active_conditions"]),
+        ("out_of_range_recent_labs", s["out_of_range_recent_labs"]), ("older_out_of_range_labs", s["older_out_of_range_labs"]),
+        ("active_conditions", s["active_conditions"]),
         ("current_medications", s["active_medications"]), ("allergies", s["allergies"]),
         ("wearables_latest_and_7_30_day_averages", s["wearable_headline_30d"]), ("latest_vitals", s["latest_vitals"]),
         ("patterns_across_sources", _safe(lambda: [{k: i[k] for k in ("title", "text")} for i in insights.insights(profile_id, 10)])),

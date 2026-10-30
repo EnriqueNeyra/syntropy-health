@@ -4,10 +4,13 @@ import { metricUnit, metricValue } from "./overview.js";
 import { recordValue } from "../units.js";
 import { age, capitalize, fmtDate, fmtDateTime, html, icon, loading, mount } from "../ui.js";
 
+const flagWord = (interp) => (interp && interp !== "normal" ? capitalize(interp.replace("_", " ")) : "");
+const flaggedRow = (l) => [l.title, l.value_text, flagWord(l.interpretation), l.ref_text || "—", fmtDate(l.effective_at)];
+
 function table(headers, rows, empty = "None on record.") {
   if (!rows.length) return html`<p class="muted small">${empty}</p>`;
-  return html`<table class="table"><thead><tr>${headers.map((h) => html`<th>${h}</th>`)}</tr></thead>
-    <tbody>${rows.map((r) => html`<tr>${r.map((c) => html`<td>${c}</td>`)}</tr>`)}</tbody></table>`;
+  return html`<div class="table-wrap"><table class="table"><thead><tr>${headers.map((h) => html`<th>${h}</th>`)}</tr></thead>
+    <tbody>${rows.map((r) => html`<tr>${r.map((c) => html`<td>${c}</td>`)}</tr>`)}</tbody></table></div>`;
 }
 
 export async function render({ el, state }) {
@@ -50,11 +53,13 @@ export async function render({ el, state }) {
       <section><h2>Latest vital signs</h2>${table(["Measure", "Value", "Date"],
         r.latest_vitals.map((v) => [v.title, recordValue(v), fmtDate(v.effective_at)]))}</section>
 
-      <section><h2>Out-of-range results (most recent)</h2>${table(["Test", "Result", "Reference", "Date"],
-        r.flagged_labs.map((l) => [l.title, l.value_text, l.ref_text || "—", fmtDate(l.effective_at)]), "All most-recent lab results are within reference ranges.")}</section>
+      <section><h2>Out-of-range results (most recent)</h2>${table(["Test", "Result", "Flag", "Reference", "Date"],
+        r.flagged_labs.filter((l) => !l.older).map(flaggedRow), "All recent lab results are within reference ranges.")}
+        ${r.flagged_labs.some((l) => l.older) ? html`<h3 class="small muted" style="margin-top:10px">Older results, not repeated since</h3>${table(["Test", "Result", "Flag", "Reference", "Date"],
+          r.flagged_labs.filter((l) => l.older).map(flaggedRow))}` : ""}</section>
 
       <section><h2>Recent lab results</h2>${table(["Test", "Result", "Flag", "Date"],
-        r.recent_labs.map((l) => [l.title, l.value_text, l.interpretation && l.interpretation !== "normal" ? capitalize(l.interpretation.replace("_", " ")) : "", fmtDate(l.effective_at)]))}</section>
+        r.recent_labs.map((l) => [l.title, l.value_text, flagWord(l.interpretation), fmtDate(l.effective_at)]))}</section>
 
       ${r.biometrics.length ? html`<section><h2>Wearable trends (30 days)</h2>${table(["Metric", "Latest", "7-day avg", "30-day avg"],
         r.biometrics.map((m) => [m.label, `${metricValue(m, m.latest.value)} ${metricUnit(m)}`,

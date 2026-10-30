@@ -9,6 +9,8 @@ import time
 from collections import OrderedDict
 from typing import Any, Iterable, Optional
 
+from app.core import data_fixes
+from app.connectors.fhir_normalize import partial_pressure
 from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
 
 CATEGORIES = [
@@ -42,6 +44,9 @@ _LAB_FLAG_COLUMNS = ("id, connection_id, title, code, code_display, unit, value_
 SUMMARY_LABS = 2000
 SERIES_COLUMNS = ("id, connection_id, title, effective_at, value_num, unit, value_norm, unit_norm, ref_low, ref_high, "
                   "interpretation, details_json, dedup_key, source_name")
+
+
+_DOUBLED_PRESSURE = re.compile(r"^([\d.]+)/\1 mmHg$")
 
 
 def record_id(connection_id: str, resource_type: str, resource_id: str) -> str:
@@ -130,6 +135,26 @@ def prune_missing(connection_id: str, resource_types: Iterable[str], seen_ids: s
             chunk = stale[i:i + 500]
             conn.execute(f"DELETE FROM clinical_records WHERE id IN ({','.join('?' * len(chunk))})", chunk)
     return len(stale)
+
+
+def _fix_partial_blood_pressure(conn: Any, cursor: Any, size: int) -> Any:
+    """A panel with one reading was stored as "95/95 mmHg", an invented pressure. Sync only rewrites what it fetches
+    again, and one-time imports never do. Filtered here rather than in SQL, so a step is ``size`` rows at most."""
+    rows = conn.execute("SELECT rowid, value_text, CASE WHEN category = 'vitals' THEN details_json END FROM clinical_records "
+                        "WHERE rowid > ? ORDER BY rowid LIMIT ?", (cursor or 0, size)).fetchall()
+    for rowid, text, details in rows:
+        match = _DOUBLED_PRESSURE.match(text or "") if details else None
+        if not match:
+            continue
+        readings = [c for c in (json.loads(details).get("components") or []) if c.get("value") is not None]
+        if len(readings) == 1 and float(match[1]) == float(readings[0]["value"]):
+            value = readings[0]["value"]
+            fixed = partial_pressure(value, None) if readings[0].get("code") == "8480-6" else partial_pressure(None, value)
+            conn.execute("UPDATE clinical_records SET value_text = ? WHERE rowid = ?", (fixed, rowid))
+    return rows[-1][0] if rows else None
+
+
+data_fixes.register("partial-blood-pressure-text", _fix_partial_blood_pressure)
 
 
 def delete_record(record_id_: str) -> None:

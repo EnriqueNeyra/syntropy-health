@@ -67,6 +67,23 @@ function wearableSection(m, topic) {
 
 function isFlagged(interp) { return interp && interp !== "normal"; }
 
+/** A row per result of a panel (blood pressure), by the record each number came from, so a result with one number
+ *  can't shift the rest of the history. Systolic first, and a dash where a number is missing. */
+export function componentRows(components) {
+  const ordered = [...components].sort((a, b) => /systolic/i.test(b.name) - /systolic/i.test(a.name));
+  const byResult = new Map();
+  ordered.forEach((c, i) => c.points.forEach((p) => {
+    const key = p.record_id || p.t;
+    if (!byResult.has(key)) byResult.set(key, { t: p.t, record_id: p.record_id, source: p.source_name, values: [] });
+    byResult.get(key).values[i] = p.v;
+  }));
+  const unit = ordered[0]?.unit || "";
+  return [...byResult.values()].sort((a, b) => String(a.t).localeCompare(String(b.t))).map((r) => ({
+    t: r.t, record_id: r.record_id, source: r.source,
+    text: `${ordered.map((_, i) => (r.values[i] != null ? fmtNum(r.values[i]) : "—")).join(" / ")} ${unit}`.trim(),
+  }));
+}
+
 // Body measurements from health records (weight, height, temperature) follow the chosen units; lab results don't.
 const BODY_UNITS = new Set(["kg", "lb", "[lb_av]", "cm", "in", "[in_i]", "°C", "Cel", "°F", "[degF]"]);
 
@@ -209,7 +226,7 @@ export async function render({ el, parts, params, state, navigate }) {
           aria-current="${it.key === selected?.key}">
           <div class="grow" style="min-width:0"><div class="title truncate">${it.title}</div><div class="meta truncate">${it.meta}</div></div>
           <div class="value small">${it.value}</div>${trendIcon(it.trend)}
-          ${isFlagged(it.interpretation) ? html`<span class="dot ${it.interpretation.includes("low") ? "info" : "bad"}" title="Out of range"></span>` : ""}
+          ${isFlagged(it.interpretation) ? html`<span class="dot ${it.interpretation === "low" ? "info" : "bad"}" title="Out of range"></span>` : ""}
           <span class="split-chevron">${icon("chevronRight")}</span>
         </div>`)}</div>`) : html`<div class="empty small">Nothing matches “${filter}”.</div>`);
   };
@@ -240,9 +257,7 @@ export async function render({ el, parts, params, state, navigate }) {
     const first = pts[0];
     const clinicalMarks = () => (pts.length > 1 ? markers.filter((m) => m.t >= String(first.t).slice(0, 10) && m.t <= String(latest.t).slice(0, 10)) : []);
     const change = latest && first && pts.length > 1 ? latest.v - first.v : null;
-    const rows = hasComponents
-      ? s.components[0].points.map((p, i) => ({ t: p.t, record_id: p.record_id, source: p.source_name,
-          text: s.components.map((c) => fmtNum(c.points[i]?.v)).join(" / ") + " " + (s.components[0].unit || "") }))
+    const rows = hasComponents ? componentRows(s.components)
       : pts.map((p) => ({ t: p.t, record_id: p.record_id, text: text(p.raw), interpretation: p.interpretation, source: p.source_name }));
     const latestText = hasComponents ? rows[rows.length - 1]?.text
       : latest ? (body && hint && unit === "in" ? text(latest.raw) : html`${body ? fmtNum(latest.v, 1) : num(latest.v)}<small>${unit}</small>`) : "";
@@ -320,7 +335,10 @@ export async function render({ el, parts, params, state, navigate }) {
       await drawCompare(detail, it, seq);
       return;
     }
-    const s = await get("/api/biometrics/daily", { profile: profile.id, metric: it.metric, days, source: source || undefined });
+    const [s, usual] = await Promise.all([
+      get("/api/biometrics/daily", { profile: profile.id, metric: it.metric, days, source: source || undefined }),
+      get("/api/insights/baseline", { profile: profile.id, metric: it.metric, days: Math.max(7, Math.min(days, 3650)), source: source || undefined }).catch(() => null),
+    ]);
     if (seq !== drawSeq) return;
     const m = { metric: it.metric, unit: s.unit };
     const unit = metricUnit(m);
@@ -335,7 +353,13 @@ export async function render({ el, parts, params, state, navigate }) {
     const inRange = markers.filter((mk) => mk.t >= firstDay && mk.t <= s.end).length;
     const complete = s.points.filter((p) => !p.partial);
     const met = goal ? complete.filter((p) => meets(goal, p.value)).length : null;
-    const eyebrow = bucketWord(size) || (s.aggregation === "sum" ? "Daily total" : s.aggregation === "last" ? "Daily value" : "Daily average");
+    // The big number is one day's, whatever the chart's bars or points are averaged over.
+    const word = bucketWord(size);
+    const eyebrow = word ? "Latest day" : s.aggregation === "sum" ? "Daily total" : s.aggregation === "last" ? "Daily value" : "Daily average";
+    const usualBand = usual?.enough ? { low: cv(usual.low), high: cv(usual.high) } : null;
+    const outside = usual?.enough && last && !last.partial && (last.value < usual.low || last.value > usual.high);
+    const switches = (usual?.device_changes || []).filter((c) => c.day >= firstDay && c.day <= s.end)
+      .map((c) => ({ t: c.day, label: `Device changed from ${c.from} to ${c.to}: earlier numbers aren't comparable` }));
     mount(detail, html`
       ${backBar()}
       <div class="card card-pad">
@@ -347,6 +371,9 @@ export async function render({ el, parts, params, state, navigate }) {
         ${controls(it, s.sources, goal)}
         ${inRange ? html`<div class="row wrap" style="justify-content:flex-end;margin:-4px 0 6px">${markerToggle(inRange, showMarkers)}</div>` : ""}
         <div id="tr-chart"></div>
+        ${word ? html`<p class="tiny faint" style="margin:4px 0 0">The chart shows each period's ${word.toLowerCase().replace(/^\w+ /, "")}.</p>` : ""}
+        ${usualBand ? html`<p class="small muted" style="margin:8px 0 0">Your usual range${usual.source ? ` from ${usual.source}` : ""} is ${metricValue(m, usual.low)}–${metricValue(m, usual.high)} ${unit}, from the ${usual.window_days} days before the last week.${outside ? " The latest day is outside it." : ""}</p>`
+          : usual && !usual.enough && s.points.length ? html`<p class="tiny faint" style="margin:8px 0 0">Your usual range appears after two weeks of readings from one device.</p>` : ""}
         <div class="stat-row">
           <div><span>Average</span><b>${metricValue(m, s.stats.mean)}</b></div>
           <div><span>Low</span><b>${metricValue(m, s.stats.min)}</b></div>
@@ -354,7 +381,7 @@ export async function render({ el, parts, params, state, navigate }) {
           ${goal ? html`<div><span>Goal met</span><b>${met} of ${complete.length} days</b></div>` : html`<div><span>Days</span><b>${s.stats.count}</b></div>`}
         </div>
         ${goal ? html`<p class="small muted" style="margin:10px 0 0">Goal: ${goalText(goal, { key: it.metric, unit: s.unit })} a day.</p>` : ""}
-        ${markerList(marks)}
+        ${markerList([...switches, ...marks])}
       </div>
       ${source ? "" : html`<p class="hint">When several devices measure this on the same day, one is chosen per day by your
         <a href="#/settings/wearables">device priority</a>. Pick a source above to see only its data.</p>`}`);
@@ -363,10 +390,10 @@ export async function render({ el, parts, params, state, navigate }) {
     const goalLine = goal ? cv(goal.target) : null;
     const draw = () => {
       const digits = s.unit === "h" ? 1 : convert(1, s.unit, it.metric).digits ?? 0;
-      if (s.aggregation === "sum") barChart(chartEl, points, { unit: chartUnit, avg: cv(s.stats.mean), label: s.label, digits, goal: goalLine, markers: marks,
+      if (s.aggregation === "sum") barChart(chartEl, points, { unit: chartUnit, avg: cv(s.stats.mean), label: s.label, digits, goal: goalLine, markers: [...switches, ...marks],
         format: s.unit === "h" ? (v) => metricValue(m, v) : undefined });
       else lineChart(chartEl, [{ name: s.label, points: points.map((p) => ({ t: p.day, v: p.value, label: p.tipLabel || p.source })) }],
-        { unit: chartUnit, label: s.label, goal: goalLine, markers: marks, digits });
+        { unit: chartUnit, label: s.label, goal: goalLine, markers: [...switches, ...marks], digits, band: usualBand || undefined });
     };
     stopResize = responsive(chartEl, draw);
     await drawCompare(detail, it, seq);

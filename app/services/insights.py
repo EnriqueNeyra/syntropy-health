@@ -913,8 +913,8 @@ def _urgent_readings(profile_id: str) -> list[dict[str, Any]]:
             "link": f"#/trends?metric={metric}",
         })
 
-    for metric in {limit.metric for limit in health_limits.URGENT} & have:
-        if metric.startswith("blood_pressure_"):
+    for metric in dict.fromkeys(limit.metric for limit in health_limits.URGENT):
+        if metric not in have or metric.startswith("blood_pressure_"):
             continue
         for side, hit in _reading_breach(profile_id, metric, today).items():
             note(metric, METRICS[metric][0], side, _fmt(metric, hit["value"]), hit, metric)

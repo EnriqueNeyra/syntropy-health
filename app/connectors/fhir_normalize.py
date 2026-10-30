@@ -230,6 +230,11 @@ def _quantity(q: dict[str, Any]) -> tuple[Optional[float], Optional[str]]:
     return _num(q.get("value")), q.get("unit") or q.get("code")
 
 
+def partial_pressure(systolic: Optional[float], diastolic: Optional[float]) -> str:
+    """"120/80 mmHg", or "—/95 mmHg" when a panel only has one of them."""
+    return f"{_fmt(systolic) if systolic is not None else '—'}/{_fmt(diastolic) if diastolic is not None else '—'} mmHg"
+
+
 def normalize_observation(res: dict[str, Any]) -> Optional[dict[str, Any]]:
     if (res.get("status") or "").lower() in ("entered-in-error", "cancelled"):
         return None
@@ -269,10 +274,15 @@ def normalize_observation(res: dict[str, Any]) -> Optional[dict[str, Any]]:
     elif comps:
         vals = [c for c in comps if c["value"] is not None]
         if code == "85354-6" or len(vals) == 2 and all(c["unit"] in ("mmHg", "mm[Hg]") for c in vals):
-            sys_ = next((c for c in vals if c["code"] == "8480-6"), vals[0] if vals else None)
-            dia = next((c for c in vals if c["code"] == "8462-4"), vals[1] if len(vals) > 1 else None)
-            if sys_ and dia:
-                rec["value_text"] = f"{_fmt(sys_['value'])}/{_fmt(dia['value'])} mmHg"
+            sys_ = next((c for c in vals if c["code"] == "8480-6"), None)
+            dia = next((c for c in vals if c["code"] == "8462-4"), None)
+            rest = [c for c in vals if c is not sys_ and c is not dia]
+            # By position only when there are two to tell apart: a lone reading isn't both numbers.
+            if len(vals) > 1:
+                sys_ = sys_ or rest.pop(0)
+                dia = dia or (rest.pop(0) if rest else None)
+            if sys_ or dia:
+                rec["value_text"] = partial_pressure(sys_["value"] if sys_ else None, dia["value"] if dia else None)
                 unit = "mmHg"
         else:
             rec["value_text"] = " · ".join(f"{c['name']}: {_fmt(c['value']) if c['value'] is not None else c['text']} {c['unit'] or ''}".strip() for c in comps)
