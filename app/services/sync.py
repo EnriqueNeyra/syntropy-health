@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Optional
 
 from app.connectors import fhir_normalize, google_health, oura, smart, whoop
 from app.connectors import wearable_common as wc
@@ -56,9 +57,10 @@ async def sync_connection(connection_id: str, trigger: str = "manual") -> dict[s
     if lock.locked():
         return {"status": "skipped", "reason": "A sync for this source is already running."}
     async with lock:
-        run_id = connections.start_run(connection_id, trigger)
         started = time.time()
+        run_id = None
         try:
+            run_id = await asyncio.to_thread(connections.start_run, connection_id, trigger)
             if conn["kind"] == "ehr":
                 stats = await _sync_ehr(conn)
             elif conn["kind"] == "wearable":
@@ -67,20 +69,33 @@ async def sync_connection(connection_id: str, trigger: str = "manual") -> dict[s
                 raise SmartError(f"Unsupported connection kind '{conn['kind']}'")
             stats["duration_s"] = round(time.time() - started, 2)
             status = "partial" if stats.get("warnings") else "success"
-            connections.finish_run(run_id, connection_id, status, stats)
-            with db() as c:
-                audit(c, "scheduler" if trigger == "scheduled" else "user", "sync.completed",
-                      {"connection": connection_id, "status": status, "trigger": trigger}, conn["profile_id"])
+
+            def finish() -> None:
+                connections.finish_run(run_id, connection_id, status, stats)
+                with db() as c:
+                    audit(c, "scheduler" if trigger == "scheduled" else "user", "sync.completed",
+                          {"connection": connection_id, "status": status, "trigger": trigger}, conn["profile_id"])
+            await asyncio.to_thread(finish)
             return {"status": status, **stats}
         except SmartError as exc:
             stats = {"failure_kind": exc.kind, "duration_s": round(time.time() - started, 2)}
-            connections.finish_run(run_id, connection_id, "error", stats, str(exc))
+            await _record_failure(run_id, connection_id, stats, str(exc))
             return {"status": "error", "error": str(exc), "kind": exc.kind}
         except Exception as exc:  # noqa: BLE001 - surface any failure on the connection card
             log.exception("Sync failed for %s", connection_id)
             stats = {"failure_kind": "error", "duration_s": round(time.time() - started, 2)}
-            connections.finish_run(run_id, connection_id, "error", stats, f"Unexpected error: {exc}")
+            await _record_failure(run_id, connection_id, stats, f"Unexpected error: {exc}")
             return {"status": "error", "error": str(exc), "kind": "error"}
+
+
+async def _record_failure(run_id: Optional[int], connection_id: str, stats: dict[str, Any], error: str) -> None:
+    """A database too busy to start or finish the run may be too busy to note that as well. The next sync tries again."""
+    try:
+        if run_id is None:
+            run_id = await asyncio.to_thread(connections.start_run, connection_id, "failed")
+        await asyncio.to_thread(connections.finish_run, run_id, connection_id, "error", stats, error)
+    except sqlite3.Error:
+        log.exception("Couldn't record a failed sync for %s", connection_id)
 
 
 # ---------------------------------------------------------------------------
@@ -94,12 +109,12 @@ async def _sync_ehr(conn: dict[str, Any]) -> dict[str, Any]:
     simulated = conn["mode"] == "simulated"
     if wc.needs_refresh(creds):
         creds = await smart.refresh(creds, simulated)
-        connections.update(conn["id"], credentials=creds)
+        await asyncio.to_thread(connections.update, conn["id"], credentials=creds)
 
     client = smart.FhirClient(conn["fhir_base_url"], creds, conn["patient_ref"], simulated)
     fetched = await client.fetch_all()
     if client.refreshed:
-        connections.update(conn["id"], credentials=client.credentials)
+        await asyncio.to_thread(connections.update, conn["id"], credentials=client.credentials)
 
     # Normalizing and storing thousands of records is plain CPU and SQLite work: it runs in a thread so the server
     # keeps answering (the page, the phone) meanwhile.
@@ -197,14 +212,14 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
             raise SmartError("This connection has no access token. Reconnect to continue.", "auth")
         if wc.needs_refresh(creds):
             creds = await module.refresh(creds)
-            connections.update(conn["id"], credentials=creds)
+            await asyncio.to_thread(connections.update, conn["id"], credentials=creds)
         try:
             data = await module.fetch_live(creds, since, today)
         except SmartError as exc:
             if exc.kind != "auth" or not creds.get("refresh_token"):
                 raise
             creds = await module.refresh(creds)
-            connections.update(conn["id"], credentials=creds)
+            await asyncio.to_thread(connections.update, conn["id"], credentials=creds)
             data = await module.fetch_live(creds, since, today)
 
     def store() -> tuple[dict[str, Any], int]:      # in a thread, like the EHR's records

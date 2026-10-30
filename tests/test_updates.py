@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 import pytest
@@ -154,7 +155,7 @@ def test_unexpected_install_error_stays_in_the_log(client, latest):
 async def test_daily_tick_checks_once_and_installs_automatically(client, latest):
     got = []
     updates.set_installer(lambda release, automatic: got.append(automatic))
-    settings.set("updates.auto", True)
+    await asyncio.to_thread(settings.set, "updates.auto", True)
     await updates.tick()
     await updates.tick()
     assert latest["calls"] == 1

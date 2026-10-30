@@ -23,21 +23,29 @@ TICK_SECONDS = 300
 _task: Optional[asyncio.Task] = None
 
 
-async def run_once() -> list[str]:
-    synced = []
-    for conn in sync.due_connections(float(settings.get("sync.ehr_interval_hours")),
-                                     float(settings.get("sync.wearable_interval_hours"))):
-        try:
-            await sync.sync_connection(conn["id"], "scheduled")
-            synced.append(conn["id"])
-        except Exception:  # noqa: BLE001
-            log.exception("Scheduled sync failed for %s", conn["id"])
+def _due() -> list[dict]:
+    return sync.due_connections(float(settings.get("sync.ehr_interval_hours")),
+                                float(settings.get("sync.wearable_interval_hours")))
+
+
+def _prune() -> None:
     now = time.time()
     with db() as c:
         c.execute("DELETE FROM user_sessions WHERE expires_at < ?", (now,))
         c.execute("DELETE FROM oauth_pending WHERE expires_at < ?", (now,))
         c.execute("DELETE FROM pairing_codes WHERE expires_at < ?", (now,))
         c.execute("DELETE FROM audit_log WHERE at < ?", (now - 365 * 86400,))
+
+
+async def run_once() -> list[str]:
+    synced = []
+    for conn in await asyncio.to_thread(_due):
+        try:
+            await sync.sync_connection(conn["id"], "scheduled")
+            synced.append(conn["id"])
+        except Exception:  # noqa: BLE001
+            log.exception("Scheduled sync failed for %s", conn["id"])
+    await asyncio.to_thread(_prune)
     return synced
 
 

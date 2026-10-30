@@ -61,6 +61,12 @@ def _connect(path: Path, *, check_same_thread: bool = True) -> sqlite3.Connectio
     return conn
 
 
+def _writer(path: Path) -> sqlite3.Connection:
+    """For db(). A write can wait up to the busy timeout for the lock, so never on the event loop: that would stop every
+    request (tests/conftest.py fails any test that does)."""
+    return _connect(path)
+
+
 def _is_busy(exc: sqlite3.Error) -> bool:
     return getattr(exc, "sqlite_errorcode", 0) & 0xff in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
 
@@ -120,7 +126,7 @@ def db() -> Iterator[sqlite3.Connection]:
     """
     path = config.db_path()
     ensure_migrated(path)
-    conn = _connect(path)
+    conn = _writer(path)
     try:
         conn.execute("BEGIN IMMEDIATE")
         yield conn

@@ -149,6 +149,9 @@ async def extract(file: UploadFile = File(...), method: str = Form("local")) -> 
         codes = lab_catalog.loinc_codes(r["test"]) if not r.get("loinc") and isinstance(r.get("test"), str) else []
         if codes:
             r["loinc"] = codes[0]
-    with db() as c:
-        audit(c, "user", "labs.report_read", {"method": method, "read_as": out.get("read_as"), "results": len(out["results"])})
+
+    def record() -> None:
+        with db() as c:
+            audit(c, "user", "labs.report_read", {"method": method, "read_as": out.get("read_as"), "results": len(out["results"])})
+    await run_in_threadpool(record)
     return out

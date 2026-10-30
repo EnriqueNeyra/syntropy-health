@@ -50,7 +50,7 @@ async def put_config(req: AIConfig, principal: auth.Principal = Depends(auth.req
                                 or not ai.is_set_up(req.provider, req.agent)):
         raise HTTPException(403, "Only the server's owner can set up an AI. You can choose between the ones set up.")
     if req.acknowledged:
-        ai.acknowledge_cloud()
+        await run_in_threadpool(ai.acknowledge_cloud)
     try:
         # Checking whether an address is private may look up its name.
         return await run_in_threadpool(ai.save_config, req.provider, req.model, req.api_key, req.base_url, req.label,

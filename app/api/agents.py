@@ -101,7 +101,7 @@ def _handle_batch(body: Any, agent: dict[str, Any]) -> list[dict[str, Any]]:
 async def mcp(request: Request) -> Response:
     """Read-only MCP tools for the person's own agents (Claude, Cursor, local agents...). Each token can be limited to
     one person; every call is recorded in the activity log with the token's name."""
-    agent = _agent(request)
+    agent = await run_in_threadpool(_agent, request)
     try:
         body = await request.json()
     except ValueError:

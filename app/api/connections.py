@@ -9,6 +9,7 @@ from typing import Any, Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
@@ -84,7 +85,7 @@ async def reconnect(connection_id: str, request: Request) -> dict:
         if conn["kind"] == "ehr":
             return await connect.start_ehr(conn["profile_id"], request_origin(request), reconnect_id=connection_id)
         if conn["kind"] == "wearable" and conn["mode"] == "live":
-            return connect.start_wearable(conn["profile_id"], conn["provider"], request_origin(request))
+            return await run_in_threadpool(connect.start_wearable, conn["profile_id"], conn["provider"], request_origin(request))
     except SmartError as exc:
         raise HTTPException(400, str(exc))
     raise HTTPException(400, "This source cannot be re-authorized.")
@@ -207,7 +208,7 @@ async def oauth_callback(request: Request, background: BackgroundTasks, code: Op
                          error_description: Optional[str] = None, desc: Optional[str] = None):
     if error:
         if state:
-            connections.pop_pending(state)
+            await run_in_threadpool(connections.pop_pending, state)
         message = error_description or desc or error
         if error == "access_denied":
             message = "Access was not granted. No records were shared."
@@ -216,7 +217,7 @@ async def oauth_callback(request: Request, background: BackgroundTasks, code: Op
         # Token hand-off from the relay arrives in the URL fragment, which only the browser can read.
         return HTMLResponse(RELAY_PAGE, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
                                                   "Content-Security-Policy": RELAY_CSP})
-    popped = connections.pop_pending(state)
+    popped = await run_in_threadpool(connections.pop_pending, state)
     if not popped:
         return _done(error="This sign-in link has expired or was already used. Please start the connection again.")
     kind, pending = popped
@@ -242,7 +243,7 @@ class RelayTokens(BaseModel):
 async def relay_complete(req: RelayTokens, request: Request, background: BackgroundTasks) -> dict:
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
-    popped = connections.pop_pending(req.state)
+    popped = await run_in_threadpool(connections.pop_pending, req.state)
     if not popped or popped[0] not in connect.WEARABLE_MODULES:
         raise HTTPException(400, "This sign-in link has expired or was already used. Please start the connection again.")
     kind, pending = popped

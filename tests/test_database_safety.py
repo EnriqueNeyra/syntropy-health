@@ -220,7 +220,7 @@ def test_the_command_line_says_it_in_words(too_new_database):
 
 def test_processes_upgrading_at_once_all_succeed(tmp_path):
     """The server and an AI app's MCP server can start together right after an update."""
-    from app.core import config, db
+    from app.core import config
     path = config.db_path()
     conn = _build(path, 3)
     conn.execute("BEGIN")

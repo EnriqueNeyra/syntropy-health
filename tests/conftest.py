@@ -5,9 +5,11 @@ and nothing touches the network: EHR connections run against the in-process simu
 
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 import sys
+import traceback
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -63,6 +65,25 @@ def network_guard():
     yield
     attempts, _network_attempts[:] = list(_network_attempts), []
     assert not attempts, f"This test tried to use the network: {attempts}"
+
+
+@pytest.fixture(autouse=True)
+def writes_stay_off_the_event_loop(monkeypatch):
+    """Waiting for the write lock on the event loop stops every request, so no test may reach db() from there."""
+    from app.core import db
+    on_the_loop: list[str] = []
+    real = db._writer
+
+    def writer(path):
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return real(path)
+        on_the_loop.append("".join(traceback.format_stack(limit=8)))
+        return real(path)
+    monkeypatch.setattr(db, "_writer", writer)
+    yield
+    assert not on_the_loop, f"A database write ran on the event loop:\n{on_the_loop[0]}"
 
 
 @pytest.fixture(autouse=True)

@@ -821,7 +821,7 @@ async def list_models(provider: Optional[str] = None, api_key: Optional[str] = N
     items = data.get("data") if isinstance(data, dict) else data
     models = _chat_models(provider, items or [])
     if not base_url or base_url == _resolve(provider)["base_url"]:
-        settings.set(f"ai.models.{provider}", {"at": time.time(), "models": models[:500]})
+        await asyncio.to_thread(settings.set, f"ai.models.{provider}", {"at": time.time(), "models": models[:500]})
     return {"models": models, "suggested": suggest_model(provider, models)}
 
 
@@ -837,7 +837,7 @@ async def check_tools(client: httpx.AsyncClient, cfg: dict[str, Any]) -> bool:
         supported = bool(reply.calls)
     except ToolsUnsupported:
         supported = False
-    _remember_tools(cfg["provider"], cfg["model"], supported)
+    await asyncio.to_thread(_remember_tools, cfg["provider"], cfg["model"], supported)
     return supported
 
 
@@ -1127,7 +1127,7 @@ async def chat(profile_id: str, history: list[dict[str, Any]]) -> AsyncIterator[
                     except ToolsUnsupported:
                         if used:
                             raise
-                        _remember_tools(cfg["provider"], cfg["model"], False)
+                        await asyncio.to_thread(_remember_tools, cfg["provider"], cfg["model"], False)
                         mode = "snapshot"
                         yield {"type": "note", "text": f"{cfg['model']} can't look things up, so it's answering from a "
                                                        "summary of your data."}
@@ -1135,14 +1135,16 @@ async def chat(profile_id: str, history: list[dict[str, Any]]) -> AsyncIterator[
                     async for event in _answer_from_snapshot(client, cfg, profile, turns):
                         yield event
                 elif cfg.get("tools") is None and used:
-                    _remember_tools(cfg["provider"], cfg["model"], True)
+                    await asyncio.to_thread(_remember_tools, cfg["provider"], cfg["model"], True)
     except (AIError, ai_agents.AgentError) as exc:
         yield {"type": "error", "message": str(exc)}
     finally:
-        with db() as conn:
-            audit(conn, "ai", "ai.chat", {"provider": f"agent:{cfg['agent_id']}" if mode == "agent" else cfg.get("provider"),
-                                          "model": cfg.get("model"), "mode": mode, "tools": used,
-                                          "seconds": round(time.time() - started, 1)}, profile_id)
+        def record() -> None:
+            with db() as conn:
+                audit(conn, "ai", "ai.chat", {"provider": f"agent:{cfg['agent_id']}" if mode == "agent" else cfg.get("provider"),
+                                              "model": cfg.get("model"), "mode": mode, "tools": used,
+                                              "seconds": round(time.time() - started, 1)}, profile_id)
+        await asyncio.to_thread(record)
     yield {"type": "done", "model": cfg["model"], "provider": cfg["label"], "mode": mode}
 
 

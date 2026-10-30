@@ -7,7 +7,6 @@ from zoneinfo import available_timezones
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app import directory
@@ -132,7 +131,7 @@ def update_source_order(orders: dict[str, list[str]]) -> dict:
 
 
 @router.put("/general")
-async def update_general(req: GeneralPatch) -> dict:
+def update_general(req: GeneralPatch) -> dict:
     principal = context.principal()
     if req.units is not None:
         if req.units not in ("", "metric", "us"):
@@ -159,10 +158,10 @@ async def update_general(req: GeneralPatch) -> dict:
         before = settings.timezone_name()
         settings.set("display.timezone", req.timezone or None)
         if settings.timezone_name() != before:
-            # Days are grouped in the new zone: every rollup is recomputed, which can take a while with years of data,
-            # so in a thread (the server keeps answering meanwhile).
+            # Days are grouped in the new zone: every rollup is recomputed, which can take a while with years of data.
             from app.store import profiles
-            await run_in_threadpool(lambda: [biometrics.rebuild_daily(p["id"]) for p in profiles.list_profiles()])
+            for p in profiles.list_profiles():
+                biometrics.rebuild_daily(p["id"])
     return _snapshot()
 
 

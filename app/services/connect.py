@@ -12,6 +12,7 @@ platform's configured mode:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Optional
 
@@ -113,7 +114,7 @@ async def start_ehr(profile_id: str, origin: str, *, institution_id: Optional[st
     config = await smart.discover(plan["fhir_base_url"], plan["simulated"])
     verifier, challenge = security.generate_pkce_pair()
     state = smart.make_state("smart", origin)
-    connections.save_pending(state, "smart", {
+    await asyncio.to_thread(connections.save_pending, state, "smart", {
         **plan, "profile_id": profile_id, "code_verifier": verifier, "origin": origin,
         "token_endpoint": config["token_endpoint"], "reconnect_id": reconnect_id,
         "registration_endpoint": (smart.registration_endpoint(config, config["token_endpoint"])
@@ -153,10 +154,11 @@ async def complete_ehr(pending: dict[str, Any], code: str) -> dict[str, Any]:
         existing = connections.find_existing(pending["profile_id"], provider, fhir_base_url=pending["fhir_base_url"],
                                              patient_ref=patient)
     if existing:
-        connections.update(existing["id"], credentials=creds, status="active", patient_ref=patient,
-                           scopes=creds.get("scope"), last_error=None, fhir_base_url=pending["fhir_base_url"])
+        await asyncio.to_thread(connections.update, existing["id"], credentials=creds, status="active", patient_ref=patient,
+                                scopes=creds.get("scope"), last_error=None, fhir_base_url=pending["fhir_base_url"])
         return {"connection_id": existing["id"], "created": False}
-    conn = connections.create(
+    conn = await asyncio.to_thread(
+        connections.create,
         pending["profile_id"], "ehr", provider, pending["display_name"], mode=pending["mode"],
         institution_id=pending.get("institution_id"), fhir_base_url=pending["fhir_base_url"], patient_ref=patient,
         scopes=creds.get("scope"), credentials=creds,
@@ -201,9 +203,10 @@ async def complete_wearable(pending: dict[str, Any], *, code: Optional[str] = No
     existing = next((c for c in connections.list_for_profile(pending["profile_id"], "wearable", include_disconnected=True)
                      if c["provider"] == provider and c["mode"] == "live"), None)
     if existing:
-        connections.update(existing["id"], credentials=creds, status="active", last_error=None, scopes=creds.get("scope"))
+        await asyncio.to_thread(connections.update, existing["id"], credentials=creds, status="active", last_error=None,
+                                scopes=creds.get("scope"))
         return {"connection_id": existing["id"], "created": False}
-    conn = connections.create(pending["profile_id"], "wearable", provider, WEARABLE_NAMES[provider], mode="live",
-                              credentials=creds, scopes=creds.get("scope"))
+    conn = await asyncio.to_thread(connections.create, pending["profile_id"], "wearable", provider, WEARABLE_NAMES[provider],
+                                   mode="live", credentials=creds, scopes=creds.get("scope"))
     return {"connection_id": conn["id"], "created": True}
 
