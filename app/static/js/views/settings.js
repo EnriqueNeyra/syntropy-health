@@ -176,9 +176,8 @@ export async function render({ el, parts, state, navigate }) {
         ? "Optional for Oura and WHOOP, whose client secret the Syntropy relay holds by default (it hands tokens straight back to this instance and keeps no copy). Required for Google Health for now: create an OAuth client in Google Cloud with the Google Health API enabled."
         : "Required in this copy of Syntropy Health: it was built from the source code, so it can't use Syntropy Labs' Oura and WHOOP apps or its sign-in relay. The apps from health.syntropylabs.io include them.", html`
         <details class="set-details" ${anyCreds || !settings.relay.release_build ? "open" : ""}><summary>Use my own developer credentials</summary>
-          <p class="small muted" style="margin:0 0 12px">Register an app with Oura, WHOOP or Google Cloud, enter its client ID and secret, and set the wearable
-            redirect URI (Developer) to the one you registered: <code>${location.origin}/callback</code>${settings.relay.release_build
-              ? html`, or <code>${settings.relay.default_redirect_uri}</code> if the provider only accepts https` : ""}. Tokens then never touch the relay.</p>
+          <p class="small muted" style="margin:0 0 12px">Register an app with Oura, WHOOP or Google Cloud, with <code>${location.origin}/callback</code> as its redirect URI${settings.relay.release_build
+              ? html`, or <code>${settings.relay.default_redirect_uri}</code> if the provider only accepts https` : ""}. Enter its client ID and secret below, and the redirect URI if it isn't this server's own. Tokens for that app then never touch the relay, and the others stay as they are.</p>
           ${Object.entries(settings.wearables).map(([key, w]) => html`<div class="set-subcard">
             <h4>${w.label}</h4>
             <div class="grid grid-2">
@@ -186,6 +185,8 @@ export async function render({ el, parts, state, navigate }) {
               <div><label class="label" for="w-secret-${key}">Client secret ${w.client_secret_set ? html`<span class="badge good">Saved</span>` : ""}</label>
                 <input class="input" id="w-secret-${key}" type="password" autocomplete="off" placeholder="${w.client_secret_set ? "•••••••• (unchanged)" : "Only for your own app"}"></div>
             </div>
+            <div style="margin-top:10px"><label class="label" for="w-redirect-${key}">Redirect URI</label>
+              <input class="input" id="w-redirect-${key}" value="${w.redirect_uri}" inputmode="url" placeholder="${location.origin}/callback"></div>
             <div style="margin-top:10px"><button class="btn btn-sm" data-action="save-wearable" data-key="${key}">Save ${w.label}</button></div></div>`)}
         </details>`)}
     </div>`);
@@ -199,7 +200,7 @@ export async function render({ el, parts, state, navigate }) {
       },
       "save-wearable": async ({ key }) => {
         const secret = $(`#w-secret-${key}`, body).value;
-        await put(`/api/settings/wearables/${key}`, { client_id: $(`#w-id-${key}`, body).value.trim(), ...(secret ? { client_secret: secret } : {}) });
+        await put(`/api/settings/wearables/${key}`, { client_id: $(`#w-id-${key}`, body).value.trim(), redirect_uri: $(`#w-redirect-${key}`, body).value.trim(), ...(secret ? { client_secret: secret } : {}) });
         toast("Saved"); redraw();
       },
     });
@@ -329,12 +330,10 @@ export async function render({ el, parts, state, navigate }) {
             : html`${cidField(p, "production")}${dev ? cidField(p, "sandbox") : ""}
               ${dev ? html`<div class="hint">${p.sandbox_base ? html`Sandbox: <code>${p.sandbox_base}</code>` : `${p.sandbox_hint}.`}</div>` : ""}`}</div>
       </div>`)}`, "flush")}
-      ${section("Redirect URIs", "Where health systems and wearables send you back after sign-in.", html`
+      ${section("Redirect URI", "Where health systems send you back after sign-in. Your own wearable apps each have theirs under Wearables.", html`
         ${row("Health records", html`Registered with EHR vendors. Default <code>${settings.relay.default_redirect_uri}</code> forwards the one-time code to this instance; use <code>${location.origin}/callback</code> if you registered it directly.`,
           html`<input class="input" id="g-redirect" value="${settings.relay.redirect_uri}" aria-label="Health record redirect URI">`)}
-        ${row("Wearables", html`Default <code>${settings.relay.default_wearable_redirect_uri}</code>.`,
-          html`<input class="input" id="g-wredirect" value="${settings.relay.wearable_redirect_uri}" aria-label="Wearable redirect URI">`)}
-        <div class="set-foot"><button class="btn btn-sm btn-primary" data-action="save-relay">Save redirect URIs</button></div>`)}
+        <div class="set-foot"><button class="btn btn-sm btn-primary" data-action="save-relay">Save redirect URI</button></div>`)}
     </div>`);
     $("#dev-mode", body).addEventListener("change", async (ev) => {
       try { await put("/api/settings/developer", { enabled: ev.target.checked }); }
@@ -354,7 +353,7 @@ export async function render({ el, parts, state, navigate }) {
         mount(out, html`<span class="badge ${r.ok ? "good" : r.ok === false ? "bad" : ""}">${r.status.replace("_", " ")}</span> <span class="muted">${r.detail}</span>`);
       },
       "save-relay": async () => {
-        await put("/api/settings/general", { redirect_uri: $("#g-redirect", body).value.trim(), wearable_redirect_uri: $("#g-wredirect", body).value.trim() });
+        await put("/api/settings/general", { redirect_uri: $("#g-redirect", body).value.trim() });
         toast("Saved"); redraw();
       },
     });

@@ -11,7 +11,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.deps import check_access, request_origin, resolve_profile
 from app.connectors import smart
@@ -191,7 +191,7 @@ justify-content:center;min-height:100vh;margin:0}p{opacity:.8}
     body: JSON.stringify(body), credentials: "same-origin"})
    .then(function(r){ return r.json().then(function(j){ return [r.ok, j]; }); })
    .then(function(res){ location.replace(res[0] ? "/#/sources?connected=" + encodeURIComponent(res[1].connection_id)
-                                                 : "/#/sources?error=" + encodeURIComponent(res[1].detail || "Connection failed")); })
+                                                 : "/#/sources?error=" + encodeURIComponent(typeof res[1].detail === "string" ? res[1].detail : "Connection failed. Start it again from Sources.")); })
    .catch(function(e){ location.replace("/#/sources?error=" + encodeURIComponent(String(e))); });
 })();
 </script></body></html>"""
@@ -237,6 +237,12 @@ class RelayTokens(BaseModel):
     expires_in: Optional[float] = None
     scope: Optional[str] = Field(None, max_length=2000)
     relay_provider: Optional[str] = None
+
+    # The relay sent an empty value when a provider left the lifetime out; relays that are still deployed may.
+    @field_validator("expires_in", mode="before")
+    @classmethod
+    def _empty_means_unknown(cls, value: Any) -> Any:
+        return None if value == "" else value
 
 
 @router.post("/api/connections/oauth/relay", include_in_schema=False)

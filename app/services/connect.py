@@ -185,9 +185,10 @@ def start_wearable(profile_id: str, provider: str, origin: str, mode: str = "liv
         conn = connections.create(profile_id, "wearable", provider, f"{WEARABLE_NAMES[provider]} (simulated)", mode="simulated")
         return {"connection_id": conn["id"], "created": True}
     state = smart.make_state(provider, origin)
+    redirect = wc.redirect_uri(provider, origin)
     connections.save_pending(state, provider, {"profile_id": profile_id, "provider": provider, "origin": origin,
-                                               "local_exchange": wc.uses_local_exchange(provider, origin)})
-    return {"auth_url": WEARABLE_MODULES[provider].authorization_url(state)}
+                                               "redirect_uri": redirect})
+    return {"auth_url": WEARABLE_MODULES[provider].authorization_url(state, redirect)}
 
 
 async def complete_wearable(pending: dict[str, Any], *, code: Optional[str] = None,
@@ -197,7 +198,8 @@ async def complete_wearable(pending: dict[str, Any], *, code: Optional[str] = No
     if tokens:
         creds = wc.token_credentials(tokens)
     elif code:
-        creds = await module.exchange_code(code)
+        # The provider checks this is the address the sign-in used, whatever has been saved since.
+        creds = await module.exchange_code(code, pending.get("redirect_uri") or wc.redirect_uri(provider, pending.get("origin", "")))
     else:
         raise SmartError("Missing authorization code.", "auth")
     existing = next((c for c in connections.list_for_profile(pending["profile_id"], "wearable", include_disconnected=True)
