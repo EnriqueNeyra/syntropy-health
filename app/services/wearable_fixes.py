@@ -134,7 +134,8 @@ def _fix_fetch_again(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
             meta = {}
         first = conn.execute("SELECT MIN(start_date) FROM biometric_samples WHERE connection_id = ?", (r["id"],)).fetchone()[0]
         floor = (datetime.now(timezone.utc).date() - timedelta(days=WEARABLE_INITIAL_DAYS)).isoformat()
-        meta["refetch_from"] = min(first[:10], floor) if first else floor
+        start = min(first[:10], floor) if first else floor
+        meta["refetch_from"] = min(start, meta["refetch_from"]) if isinstance(meta.get("refetch_from"), str) else start
         conn.execute("UPDATE connections SET metadata_json = ? WHERE id = ?", (json.dumps(meta), r["id"]))
     return rows[-1]["id"] if rows else None
 

@@ -144,7 +144,7 @@ def deleted_prefixes(data: dict[str, list[dict[str, Any]]]) -> list[str]:
         if r["id"] not in nights:
             out.append(f"oura-{r['id']}-")
         if r["id"] in nights or r.get("type") not in ("sleep", "late_nap"):
-            out.append(f"oura-nap-{r['id']}")
+            out.append(f"oura--nap-{r['id']}")
     return out
 
 
@@ -165,7 +165,7 @@ def normalize(data: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
         if r.get("id") not in nights:
             # Apart from the night, and its heart rate and breathing aren't the overnight figures.
             if r.get("type") in ("sleep", "late_nap") and r.get("total_sleep_duration") is not None:
-                out.append(_sample(f"oura-nap-{r['id']}", "sleep_nap", r["total_sleep_duration"], "s", start, end, day=day, offset=offset))
+                out.append(_sample(f"oura--nap-{r['id']}", "sleep_nap", r["total_sleep_duration"], "s", start, end, day=day, offset=offset))
             continue
         for field, metric in (("total_sleep_duration", "sleep_total_duration"), ("deep_sleep_duration", "sleep_deep"),
                               ("rem_sleep_duration", "sleep_rem"), ("light_sleep_duration", "sleep_light"),

@@ -39,7 +39,7 @@ function statusLine(c, paired) {
   if (c.status === "needs_reauth") return html`<span class="src-status warn" title="${c.credentials_unreadable ? "Its saved sign-in can't be read, because the encryption key changed. Put the original key back, or sign in again." : ""}"><span class="dot warn"></span> Reconnect needed</span>`;
   if (c.status === "error") return html`<span class="src-status bad" title="${c.last_error || ""}"><span class="dot bad"></span> Sync failed</span>`;
   if (c.status === "disconnected") return html`<span class="src-status"><span class="dot"></span> Disconnected</span>`;
-  if (c.last_sync_status === "partial") return html`<span class="src-status warn" title="Some record types could not be fetched"><span class="dot warn"></span> Partly synced</span>`;
+  if (c.last_sync_status === "partial") return html`<span class="src-status warn" title="${c.kind === "wearable" ? "Some kinds of data were refused. They're fetched again until they're allowed." : "Some record types could not be fetched"}"><span class="dot warn"></span> Partly synced</span>`;
   return html`<span class="src-status good"><span class="dot good"></span> Connected</span>`;
 }
 
@@ -120,6 +120,9 @@ function sourceMenu(c, devices, act) {
   if (c.kind === "ehr") items.push({ label: "View records", icon: "records", href: `#/records?connection=${c.id}` });
   if (c.kind === "wearable" && c.mode === "simulated") {
     items.push({ label: `Connect my ${WEARABLE_SHORT[c.provider] || c.provider}`, icon: "watch", run: () => act("wearable", { provider: c.provider, mode: "live" }) });
+  }
+  if (c.kind === "wearable" && c.mode === "live" && c.status !== "disconnected") {
+    items.push({ label: "Bring in older history", icon: "sync", run: () => act("history", { id: c.id }) });
   }
   if (c.kind === "device" && paired) items.push({ label: "Unpair", icon: "phone", run: () => act("unpair", { id: c.id, name: c.display_name }) });
   if (items.length) items.push("-");
@@ -357,6 +360,15 @@ async function uploadApple(file, profile, statusEl, refresh, left) {
   form.append("profile_id", profile.id);
   mount(statusEl, html`<div class="small">Uploading ${file.name}…</div><div class="progress"><div style="width:15%"></div></div>`);
   const { job_id } = await api("/api/imports/apple-health", { method: "POST", form });
+  await watchImport(job_id, statusEl, refresh, left);
+}
+
+// How the last import went. The page is drawn again once it's done, and this stays on it.
+let importNote = null;
+
+/** What became of an import: progress while it runs, then how it went. Also picks one up again after leaving the page. */
+async function watchImport(job_id, statusEl, refresh, left) {
+  importNote = null;
   let misses = 0;
   for (;;) {
     await new Promise((r) => setTimeout(r, 800));
@@ -369,11 +381,16 @@ async function uploadApple(file, profile, statusEl, refresh, left) {
       if (err.status || ++misses > 10) throw err;
       continue;
     }
-    if (job.status === "error") { mount(statusEl, html`<div class="banner bad">${job.error}</div>`); return; }
+    if (job.status === "error" || job.status === "interrupted") { mount(statusEl, html`<div class="banner bad">${job.error}</div>`); return; }
     if (job.status === "completed") {
       const r = job.result || {};
-      mount(statusEl, html`<div class="banner info">${icon("check")}<div class="grow">Imported ${plural(r.inserted || 0, "new sample")} (${plural(r.samples || 0, "sample")} read)
-        ${r.clinical ? `and ${plural(r.clinical.records, "clinical record")}` : ""}.</div></div>`);
+      const leftAside = Object.values(r.types?.skipped || {}).reduce((a, b) => a + b, 0);
+      const notes = [r.flagged ? `Kept but out of your charts, because they can't be right: ${plural(r.flagged, "reading")}.` : "",
+        r.rejected ? `Couldn't be read: ${plural(r.rejected, "row")}.` : "",
+        leftAside ? `Skipped, as Syntropy Health doesn't use these kinds of record: ${plural(leftAside, "record")}.` : ""].filter(Boolean).join(" ");
+      importNote = html`<div class="banner ${r.warning ? "warn" : "info"}">${icon(r.warning ? "alert" : "check")}<div class="grow">Imported ${plural(r.inserted || 0, "new sample")} (${plural(r.samples || 0, "sample")} read)${r.clinical ? ` and ${plural(r.clinical.records, "clinical record")}` : ""}.
+        ${r.warning ? html`<div>${r.warning}</div>` : ""}${notes ? html`<div class="small muted">${notes}</div>` : ""}</div></div>`;
+      mount(statusEl, importNote);
       refresh();
       return;
     }
@@ -466,10 +483,25 @@ export async function render({ el, params, state }) {
         html`${importZones()}${files.length ? html`<div class="src-rows">${files.map((c) => sourceRow(c))}</div>` : ""}`)}
     `);
     wireUploads();
+    resumeImport();
     renderBanner();
     clearTimeout(pollTimer);
     // While a source syncs, look again shortly (a failed look tries again rather than stopping).
     if (all.some((c) => c.syncing)) pollTimer = setTimeout(() => refresh(true).catch(() => { if (!gone) pollTimer = setTimeout(() => refresh(true), 5000); }), 1500);
+  };
+
+  // An import in progress, or one a restart cut off in the last day, is found again rather than forgotten with the page.
+  let importLookedFor = false;
+  importNote = null;
+  const resumeImport = async () => {
+    if (importLookedFor) return;
+    importLookedFor = true;
+    const { imports = [] } = await get("/api/imports", { profile: profile.id }, { fresh: true }).catch(() => ({}));
+    const job = imports[0];
+    const box = $("#imp-status", el);
+    if (!job || !box || gone) return;
+    if (["queued", "running"].includes(job.status)) watchImport(job.id, box, () => refresh(true), () => gone).catch(() => {});
+    else if (job.status === "interrupted" && job.finished_at > Date.now() / 1000 - 86400) mount(box, html`<div class="banner warn">${icon("alert")}<div class="grow">${job.filename}: ${job.error}</div></div>`);
   };
 
   let bannerShown = false;
@@ -508,6 +540,7 @@ export async function render({ el, params, state }) {
 
   const wireUploads = () => {
     const status = $("#imp-status", el);
+    if (importNote && status) mount(status, importNote);
     $("#imp-apple", el)?.addEventListener("change", (e) => { if (e.target.files[0]) importApple(e.target.files[0], status); });
     $("#imp-fhir", el)?.addEventListener("change", (e) => { if (e.target.files[0]) importFhir(e.target.files[0], status); });
     // Drag a file onto either box.
@@ -549,6 +582,13 @@ export async function render({ el, params, state }) {
     menu: ({ id }, btn) => {
       const c = shown.all.find((x) => x.id === id);
       if (c) dropdown(btn, sourceMenu(c, shown.devices.filter((d) => d.connection_id === id), (name, data) => handlers[name](data, btn)));
+    },
+    history: async ({ id }) => {
+      try {
+        await post(`/api/connections/${id}/fetch-history`);
+        toast("Bringing in older history. It goes a stretch at a time, and this page shows when it's done.");
+        await refresh(true);
+      } catch (err) { toast(err.message, "bad"); }
     },
     sync: async ({ id }, btn) => {
       btn.disabled = true;

@@ -8,6 +8,7 @@ import json
 import sqlite3
 import zipfile
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import httpx
 import pytest
@@ -458,6 +459,13 @@ def test_one_odd_item_doesnt_fail_a_batch_or_lose_its_rollups(client):
     assert client.post("/api/ingest/wearables", json={"device_id": "d"}).status_code == 422     # the envelope still has to make sense
 
 
+def test_a_workout_or_event_with_no_real_date_is_counted_not_a_500(client):
+    far = "0001-01-01T00:00:00+14:00"
+    r = client.post("/api/ingest/wearables", json={"device_id": "d", "device_name": "P", "workouts": [{"id": "w", "start": far, "end": far}, {"id": "w2", "start": "0001-01-01T00:00:00Z"}],
+                                                   "events": [{"id": "e", "event_type": "x", "start": far}]})
+    assert r.status_code == 200 and r.json()["workouts_rejected"] == 2 and r.json()["events_rejected"] == 1
+
+
 def test_a_junk_day_already_stored_doesnt_break_the_trends_list(client):
     profile = _profile(client)
     with db() as conn:
@@ -801,8 +809,14 @@ def test_google_test_mode_sign_in_ending_is_explained(monkeypatch):
     assert e.value.kind == "auth"
 
 
+def _fixes_finished():
+    from app.core import data_fixes
+    data_fixes.stop()       # the background run for this test's database, so it can't step in partway
+
+
 def test_history_is_fetched_again_a_stretch_at_a_time(client, monkeypatch):
     from app.services import wearable_fixes
+    _fixes_finished()
     profile, day = _profile(client), TODAY - timedelta(days=500)
     conn = connections.create(profile, "wearable", "oura", "Oura", mode="live", credentials={"access_token": "AT"})
     biometrics.insert_samples(profile, conn["id"], [_s("oura-d1-step_count", value=2000, start=_iso(day), metadata={"day": day.isoformat()}, source="Oura Ring")])
@@ -820,6 +834,42 @@ def test_history_is_fetched_again_a_stretch_at_a_time(client, monkeypatch):
     assert biometrics.daily_series(profile, "step_count", days=600, source="Oura Ring")["points"][0]["value"] == 11000
     assert all((u - s).days <= sync.REFETCH_STRETCH_DAYS for s, u in windows[1:2])
     assert "refetch_from" not in connections.get(conn["id"])["metadata"]
+
+
+def test_older_history_can_be_asked_for_and_comes_a_stretch_at_a_time(client, monkeypatch):
+    _fixes_finished()
+    profile = _profile(client)
+    conn = connections.create(profile, "wearable", "oura", "Oura", mode="live", credentials={"access_token": "AT"})
+    sim = connections.create(profile, "wearable", "whoop", "WHOOP", mode="simulated")
+    assert client.post(f"/api/connections/{sim['id']}/fetch-history").status_code == 400
+    asked = []
+
+    async def fetch(creds, since, until):
+        asked.append((since, until))
+        return {}
+    with monkeypatch.context() as m:
+        m.setattr(oura, "fetch_live", fetch)
+        m.setattr(sync, "HISTORY_PAUSE_S", 0)
+        assert client.post(f"/api/connections/{conn['id']}/fetch-history").status_code == 200
+    assert "refetch_from" not in connections.get(conn["id"])["metadata"]
+    older = [a for a in asked if a[1] < TODAY - timedelta(days=4)]
+    assert len(older) >= 15 and all((u - s).days <= sync.REFETCH_STRETCH_DAYS for s, u in older)
+    assert min(s for s, _ in asked) <= TODAY - timedelta(days=sync.HISTORY_DAYS - 1)
+
+
+def test_older_history_asked_for_during_a_sync_survives_it(client, monkeypatch):
+    _fixes_finished()
+    profile = _profile(client)
+    conn = connections.create(profile, "wearable", "oura", "Oura", mode="live", credentials={"access_token": "AT"})
+
+    async def fetch(creds, since, until):
+        await asyncio.to_thread(connections.update, conn["id"], metadata={"refetch_from": "2020-01-01"})
+        return {}
+    with monkeypatch.context() as m:
+        m.setattr(oura, "fetch_live", fetch)
+        asyncio.run(sync.sync_connection(conn["id"]))
+    meta = connections.get(conn["id"])["metadata"]
+    assert meta["refetch_from"] == "2020-01-01" and meta["fetched_through"]
 
 
 def test_a_source_removed_during_its_sync_leaves_nothing_behind(client, monkeypatch):
@@ -1256,3 +1306,100 @@ def test_an_upload_that_wont_fit_is_refused_in_words_and_leaves_nothing(client, 
         r = client.post("/api/imports/apple-health", files={"file": ("export.zip", b"PK")})
     assert r.status_code == 507 and "disk space" in r.json()["detail"]
     assert list((config.data_dir() / "uploads").iterdir()) == []
+
+
+# ---------------------------------------------------------------------------
+# Vendors' documented shapes (F150), and what the phones send (F147, F011)
+# ---------------------------------------------------------------------------
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _fixture(name):
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def test_every_metric_in_the_phone_catalogs_is_known_and_its_unit_passes_untouched():
+    from app.store.metric_registry import QUANTITY_TYPES, REGISTRY, to_canonical
+    catalogs = _fixture("phone_metric_catalogs.json")
+    assert len(catalogs["ios"]) == 114 and len(catalogs["android"]) == 30
+    for entry in catalogs["ios"] + catalogs["android"]:
+        assert entry["metric"] in REGISTRY, entry["metric"]
+        assert to_canonical(entry["metric"], 1.5, entry["unit"])[0::2] == (1.5, True), entry
+    for entry in catalogs["ios"]:
+        assert QUANTITY_TYPES[f"HKQuantityTypeIdentifier{entry['hk']}"] == entry["metric"]
+        assert (REGISTRY[entry["metric"]].aggregation == "sum") == entry["cumulative"], entry["metric"]
+
+
+def _sync_fixture(client, monkeypatch, provider, data):
+    conn = connections.create(_profile(client), "wearable", provider, provider.title(), mode="live", credentials={"access_token": "AT"})
+    module = sync.WEARABLE_MODULES[provider]
+
+    async def fetch(creds, since, until):
+        return json.loads(json.dumps(data))
+    with monkeypatch.context() as m:
+        m.setattr(module, "fetch_live", fetch)
+        first = asyncio.run(sync.sync_connection(conn["id"]))
+        second = asyncio.run(sync.sync_connection(conn["id"]))
+    assert first["status"] == "success" and first["inserted"] > 0 and first["rejected"] == 0
+    assert second["inserted"] == 0 and second["updated"] == 0 and second["workouts"] == 0 and second["workouts_updated"] == 0     # nothing moves on a repeat
+    return conn
+
+
+def _days(profile, metric):
+    with read() as conn:
+        return {r[0]: r[1] for r in conn.execute("SELECT day, value FROM biometric_daily WHERE profile_id = ? AND metric_type = ?", (profile, metric))}
+
+
+def test_whoops_documented_records_end_up_on_the_right_day(client, monkeypatch):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    _sync_fixture(client, monkeypatch, "whoop", _fixture("whoop_v2_docs.json"))
+    # The doc's sleep runs 21:25 to 05:25 by its own -05:00 offset, so the night and everything scored from it is the morning of the 24th.
+    for metric in ("sleep_duration", "recovery_score", "hrv_rmssd", "strain_score", "total_energy", "step_count", "heart_rate"):
+        assert list(_days(profile, metric)) == ["2022-04-24"], metric
+    assert _days(profile, "total_energy")["2022-04-24"] == pytest.approx(1980.9, abs=0.1)
+    w = client.get("/api/biometrics/workouts", params={"days": 0}).json()["workouts"][0]
+    assert w["name"] == "Running" and w["tz_offset_min"] == -300
+
+
+def test_ouras_documented_records_keep_the_nap_apart(client, monkeypatch):
+    profile = _profile(client)
+    _set_zone(client, "Asia/Tokyo")     # the provider's day and the night's own offset win, wherever home is
+    _sync_fixture(client, monkeypatch, "oura", _fixture("oura_v2_docs.json"))
+    assert _days(profile, "sleep_duration") == {"2026-10-05": pytest.approx(7.33, abs=0.01)}
+    assert _days(profile, "sleep_nap") == {"2026-10-05": 0.75}
+    assert _days(profile, "resting_heart_rate") == {"2026-10-05": 50}
+    assert _days(profile, "step_count") == {"2026-10-05": 9321} and _days(profile, "sleep_score") == {"2026-10-05": 77}
+    night = sleep.nights(profile, days=30, end=date(2026, 10, 6))["nights"][0]
+    assert "T22:40" in night["bed"] and "T06:50" in night["wake"]
+
+
+def test_googles_documented_records_keep_the_nap_apart(client, monkeypatch):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    _sync_fixture(client, monkeypatch, "google", _fixture("google_health_v4_docs.json"))
+    assert _days(profile, "sleep_duration") == {"2026-10-05": pytest.approx(7.33, abs=0.01)}
+    assert _days(profile, "sleep_nap") == {"2026-10-05": 0.75}
+    assert _days(profile, "step_count") == {"2026-10-05": 9321} and _days(profile, "distance_walking_running") == {"2026-10-05": 7084}
+    assert _days(profile, "body_mass") == {"2026-10-05": 78.2}
+    assert biometrics.source_kinds(profile)["Google Health"] == "ring"
+    night = sleep.nights(profile, days=30, end=date(2026, 10, 6))["nights"][0]
+    assert "T22:40" in night["bed"]
+
+
+def test_a_long_route_is_thinned_when_an_import_stores_it_too(client):
+    profile = _profile(client)
+    route = [{"t": _iso(YESTERDAY), "lat": 1.0, "lon": 1.0} for _ in range(activity.SERIES_KEPT + 500)]
+    activity.store_workouts(profile, None, [{"id": "long", "name": "Hike", "start": _iso(YESTERDAY), "end": _iso(YESTERDAY, "13:00:00"), "route": route}])
+    assert len(activity.get_workout(profile, "long")["route"]) == activity.SERIES_KEPT
+
+
+def test_a_disk_nearly_full_is_said_before_it_stops_anything(client, monkeypatch):
+    from collections import namedtuple
+    from app.core import maintenance
+    usage = namedtuple("usage", "total used free")
+    with monkeypatch.context() as m:
+        m.setattr(maintenance.shutil, "disk_usage", lambda path: usage(10, 9, 500 * 1024 * 1024))
+        assert any(p["id"] == "disk-low" for p in maintenance.problems())
+    assert not any(p["id"] == "disk-low" for p in maintenance.problems())

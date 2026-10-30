@@ -80,19 +80,6 @@ def _clip(limit: int) -> BeforeValidator:
 
 
 Text40, Text80, Text100, Text120, Text200 = (Annotated[str, _clip(n)] for n in (40, 80, 100, 120, 200))
-# A workout's route and heart rate are kept at up to this many points: plenty for a map, splits and zones. Longer ones
-# (a day-long hike recorded every second) are thinned evenly rather than refused.
-SERIES_KEPT = 20_000
-
-
-def thin(points: list, keep: int = SERIES_KEPT) -> list:
-    """Every n-th point, always keeping the first and the last."""
-    if len(points) <= keep:
-        return points
-    step = (len(points) - 1) / (keep - 1)
-    return [points[round(i * step)] for i in range(keep)]
-
-
 class IngestSample(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
 
@@ -241,8 +228,6 @@ def _store(profile_id: str, connection_id: Optional[str], samples: list[dict], w
     try:
         result = biometrics.insert_samples(profile_id, connection_id, samples, batch_meta=batch_meta, deleted_ids=deleted_ids)
         result["workouts_received"] = len(workouts)
-        for w in workouts:
-            w["route"], w["heart_rate"] = thin(w.get("route") or []), thin(w.get("heart_rate") or [])
         stored = activity.store_workouts(profile_id, connection_id, workouts)
         result.update(workouts_inserted=stored["inserted"], workouts_updated=stored["updated"], workouts_rejected=stored["rejected"])
         result["events_received"] = len(events)

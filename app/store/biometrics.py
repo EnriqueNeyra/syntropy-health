@@ -1352,3 +1352,4 @@ def delete_all_for_profile(profile_id: str) -> None:
         conn.execute("DELETE FROM daily_rebuilds WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM data_sources WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM sample_tombstones WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM import_jobs WHERE profile_id = ?", (profile_id,))

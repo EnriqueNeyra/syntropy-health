@@ -2,7 +2,7 @@
 // from wearables and the iPhone — organized by topic, so weight from a clinic visit and weight from a smart scale sit
 // side by side instead of on two different pages.
 
-import { get } from "../api.js";
+import { del, get } from "../api.js";
 import { appBridge, nativeNav } from "../app.js";
 import { barChart, lineChart, responsive } from "../charts.js";
 import { metricUnit, metricValue } from "./overview.js";
@@ -15,8 +15,31 @@ import { convert, displayUnit, fmtMeasure, recordValue } from "../units.js";
 import { openRecord } from "./record-detail.js";
 import {
   scrollToTop,
-  $, emptyState, flagBadge, fmtDate, fmtNum, html, icon, loading, mount, onAction, plural,
+  $, emptyState, flagBadge, fmtDate, fmtNum, html, icon, loading, modal, mount, onAction, plural, toast,
 } from "../ui.js";
+
+const LEFT_OUT_REASON = { range: "Outside what's possible", unit: "In a unit Syntropy Health doesn't know", date: "The date can't be right" };
+
+/** The readings kept but not counted in a metric's numbers, each with why, and a way to remove one for good. */
+async function openLeftOut(profile, metric, label, onChange) {
+  const { samples } = await get("/api/biometrics/samples", { profile: profile.id, metric, left_out: true, limit: 500 }, { fresh: true });
+  const m = modal({
+    title: `${label}: readings left out`,
+    body: html`<p class="small muted">These came from your devices but can't be right, so they aren't in your charts, averages or insights. They're kept
+      in case you want to check them against the source.</p>
+      <div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Value</th><th>Why</th><th></th></tr></thead>
+      <tbody>${samples.map((s) => html`<tr><td>${new Date(s.start_date).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</td><td>${fmtNum(s.value, 2)} ${s.unit || ""}</td>
+        <td class="small">${LEFT_OUT_REASON[s.flag] || ""}<div class="muted">${s.source_name || ""}</div></td>
+        <td><button class="btn btn-sm btn-ghost btn-danger" data-remove="${encodeURIComponent(s.id)}">Remove</button></td></tr>`)}</tbody></table></div>`,
+  });
+  m.el.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", async () => {
+    try {
+      await del(`/api/biometrics/samples/${b.dataset.remove}?profile=${encodeURIComponent(profile.id)}`);
+      b.closest("tr").remove();
+      onChange();
+    } catch (err) { toast(err.message, "bad"); }
+  }));
+}
 
 /** Decimal places a value was given with (6 → 0, 5.9 → 1). */
 function decimals(v) {
@@ -355,6 +378,8 @@ export async function render({ el, parts, params, state, navigate }) {
         </div>
         ${goal ? html`<p class="small muted" style="margin:10px 0 0">Goal: ${goalText(goal, { key: it.metric, unit: s.unit })} a day.</p>` : ""}
         ${markerList(marks)}
+        ${s.left_out ? html`<p class="small muted" style="margin:10px 0 0">${plural(s.left_out, "reading")} left out because ${s.left_out === 1 ? "it can't" : "they can't"} be right.
+          <button class="link-btn" data-action="left-out">See ${s.left_out === 1 ? "it" : "them"}</button></p>` : ""}
       </div>
       ${source ? "" : html`<p class="hint">When several devices measure this on the same day, one is chosen per day by your
         <a href="#/settings/wearables">device priority</a>. Pick a source above to see only its data.</p>`}`);
@@ -418,6 +443,7 @@ export async function render({ el, parts, params, state, navigate }) {
   $("#tr-filter", el).addEventListener("input", (e) => { filter = e.target.value.trim().toLowerCase(); drawList(); });
 
   const off = onAction(el, {
+    "left-out": () => openLeftOut(profile, selected.metric, selected.title || selected.metric, () => drawDetail()),
     topic: ({ topic: t }) => {
       if (t === topic) { showDetail = false; layout(); return; }
       topic = t; filter = ""; $("#tr-filter", el).value = ""; source = ""; cmp.b = null; cmp.lag = 0;

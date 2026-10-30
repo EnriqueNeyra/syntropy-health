@@ -31,6 +31,7 @@ OPTIMIZE_EVERY = 6 * 3600
 SMALL_FILE = 256 * 1024 * 1024
 LARGE_FILE_DELAY = 120          # not while the first pages are loading
 MIN_FREE_DISK = 1024 * 1024     # SQLite can't commit without room
+LOW_DISK = 1024 ** 3            # worth saying something while there's still room to act
 _INTEGRITY_KEY = "db.integrity"
 
 _thread: Optional[threading.Thread] = None
@@ -189,6 +190,13 @@ def problems() -> list[dict[str, str]]:
     key = security.key_problem()
     if key:
         out.append({"id": "encryption-key", "title": "Saved sign-ins can't be read", "text": key})
+    try:
+        if shutil.disk_usage(path.parent).free < LOW_DISK:
+            out.append({"id": "disk-low", "title": "The disk is nearly full",
+                        "text": "Less than 1 GB is free on the disk that holds your data. When it runs out, phones can't sync and nothing new "
+                                "can be saved, though what's stored stays safe. Free up some space."})
+    except OSError:
+        pass
     return out
 
 

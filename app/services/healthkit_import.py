@@ -287,7 +287,7 @@ def _settle_groups(samples: list[dict[str, Any]], grain: str) -> list[dict[str, 
     settled: dict[str, dict[str, Any]] = {}
     out: list[dict[str, Any]] = []
     for s in samples:
-        if not s.get("replaces") or s["id"].startswith("hx_day"):
+        if not s.get("replaces") or (s.get("metadata") or {}).get("day"):     # a night is one row; there's nothing to add up
             out.append(s)
         elif s["id"] in settled:
             if METRICS.get(s["metric_type"], ("", "", ""))[2] == "sum":

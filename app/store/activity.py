@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 
 from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
-from app.store.biometrics import _tz as local_tz, id_held_elsewhere, offset_of, parse_ts, source_kind, source_kinds, to_utc_iso
+from app.store.biometrics import EARLIEST_YEAR, _tz as local_tz, id_held_elsewhere, offset_of, parse_ts, source_kind, source_kinds, to_utc_iso
 
 WORKOUT_FIELDS = (
     "activity_type", "name", "duration_s", "active_energy_kcal", "total_energy_kcal", "distance_m", "step_count",
@@ -61,6 +61,27 @@ def humidity_pct(value: Any) -> Optional[float]:
 _ITEM_ERRORS = (ValueError, KeyError, TypeError, AttributeError, OverflowError, sqlite3.InterfaceError, sqlite3.ProgrammingError)
 
 
+# A workout's route and heart rate are kept at up to this many points: plenty for a map, splits and zones. Longer ones
+# (a day-long hike recorded every second) are thinned evenly rather than refused.
+SERIES_KEPT = 20_000
+
+
+def thin(points: list, keep: int = SERIES_KEPT) -> list:
+    """Every n-th point, always keeping the first and the last."""
+    if len(points) <= keep:
+        return points
+    step = (len(points) - 1) / (keep - 1)
+    return [points[round(i * step)] for i in range(keep)]
+
+
+def _when(item: dict[str, Any]) -> tuple[str, str]:
+    """A workout's or event's start and end. A phone's "no date" (year 1) can't be shown or placed on any day."""
+    start, end = to_utc_iso(item["start"]), to_utc_iso(item.get("end") or item["start"])
+    if start[:4] < str(EARLIEST_YEAR):
+        raise ValueError("no real date")
+    return start, end
+
+
 def _own_row(conn: Any, table: str, item_id: str, profile_id: str) -> tuple[str, Any]:
     """The id this person's copy goes under (see ``id_held_elsewhere``), and the row already stored there, if any."""
     own = id_held_elsewhere(conn, table, item_id, profile_id) or item_id
@@ -86,7 +107,7 @@ def store_workouts(profile_id: str, connection_id: Optional[str], workouts: Iter
         imports = _imports_of(conn, profile_id)
         for w in workouts:
             try:
-                start, end = to_utc_iso(w["start"]), to_utc_iso(w.get("end") or w["start"])
+                start, end = _when(w)
                 source = w.get("source_name") or "Unknown"
                 indoor = w.get("indoor")
                 values = {k: w.get(k) for k in WORKOUT_FIELDS}
@@ -95,8 +116,8 @@ def store_workouts(profile_id: str, connection_id: Optional[str], workouts: Iter
                 values["source_name"] = source
                 values["name"] = str(w.get("name") or "Workout")[:120]
                 workout_id, row = _own_row(conn, "workouts", w["id"], profile_id)
-                extras = {"metadata_json": dumps(w.get("metadata") or None), "heart_rate_json": dumps(w.get("heart_rate") or None),
-                          "route_json": dumps(w.get("route") or None)}
+                extras = {"metadata_json": dumps(w.get("metadata") or None), "heart_rate_json": dumps(thin(w.get("heart_rate") or []) or None),
+                          "route_json": dumps(thin(w.get("route") or []) or None)}
                 offset = w.get("tz_offset_min") if isinstance(w.get("tz_offset_min"), int) else offset_of(w["start"])
                 if row:
                     fresh = {**values, "start_date": start, "end_date": end, **extras}
@@ -137,7 +158,7 @@ def store_events(profile_id: str, connection_id: Optional[str], events: Iterable
         imports = _imports_of(conn, profile_id)
         for e in events:
             try:
-                start, end = to_utc_iso(e["start"]), to_utc_iso(e.get("end") or e["start"])
+                start, end = _when(e)
                 source = e.get("source_name") or "Unknown"
                 event_type = str(e["event_type"])[:80]
                 category = str(e.get("category") or "other")[:40]
