@@ -15,7 +15,7 @@ from app.api.deps import resolve_profile
 from app.core import auth, context
 from app.store import accounts, agents
 
-router = APIRouter(tags=["agents"], dependencies=[Depends(auth.require_user)])
+router = APIRouter(tags=["agents"], dependencies=[Depends(auth.require_whole_account)])
 mcp_router = APIRouter(tags=["mcp"])
 
 

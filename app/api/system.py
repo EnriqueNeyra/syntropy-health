@@ -63,14 +63,21 @@ def status(request: Request) -> dict:
     required = auth.auth_required()
     principal = auth.current_user(request) if setup else None
     authenticated = principal is not None
+    missing = auth.password_missing()
     out = {"version": config.APP_VERSION, "setup_complete": setup, "auth_required": required,
            "authenticated": authenticated, "password_optional": auth.password_optional(),
-           "password_missing": auth.password_missing()}
-    if setup and not authenticated and _nearby(request):
-        # Who can sign in, to choose from on this computer and the home network (from farther away, type the name).
+           "password_missing": missing}
+    if setup and not authenticated and _nearby(request) and network.is_local_name(request.headers.get("host", "")):
+        # Who can sign in, to choose from on this computer and the home network (from farther away, type the name). Only
+        # to a name of this server's: a web page could otherwise point its own address here and read who lives here.
         out["accounts"] = [{"id": a["id"], "name": a["name"], "color": a["color"]}
                            for a in accounts.list_accounts() if a["has_password"]]
-    if authenticated:
+    if (not setup or missing) and not _nearby(request):
+        out["setup_code_needed"] = True
+    if missing:
+        # Everyone counts as signed in until a password exists, so what they're told stops at what it takes to choose one.
+        out["terms_accepted"] = terms_accepted(accounts.get(principal.account_id) if principal else None)
+    elif authenticated:
         from app.api.profiles import visible_profiles
 
         token = context.PRINCIPAL.set(principal)
@@ -83,6 +90,8 @@ def status(request: Request) -> dict:
         out["preferences"] = preferences(account)
         out["onboarding"] = bool(account and account["onboarding"])
         out["terms_accepted"] = terms_accepted(account)
+        if account and account["prefs"].get("join_review"):
+            out["join_review"] = account["prefs"]["join_review"]
         if principal.owner and updates.checks_on():
             update = updates.status()
             if update["available"]:
@@ -128,11 +137,30 @@ def accept_terms(principal: auth.Principal = Depends(auth.require_user_to_set_pa
 
 def _nearby(request: Request) -> bool:
     """A request from this computer, the home network or Tailscale (not the internet)."""
+    host = request.client.host if request.client else ""
+    # A proxy this server wasn't told to trust (FORWARDED_ALLOW_IPS): the address is the proxy's, and says nothing about
+    # who's behind it. One it trusts has already put the visitor's own address in ``client``.
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded and host not in [part.strip() for part in forwarded.split(",")]:
+        return False
     try:
-        ip = ipaddress.ip_address((request.client.host if request.client else "").split("%")[0])
+        ip = ipaddress.ip_address(host.split("%")[0])
     except ValueError:
         return False
     return ip.is_loopback or ip.is_private or ip.is_link_local or ip in network.TAILSCALE_NET
+
+
+def _may_claim(request: Request, code: Optional[str]) -> None:
+    """Until a password exists, choosing it claims the server, and everyone in it: only from nearby, or with the one-time
+    code this server printed to its log when it started (for setting up a server somewhere else, or behind a proxy)."""
+    if _nearby(request):
+        return
+    auth.check_attempts(request, "setup-code")
+    auth.note_failure(request, "setup-code")
+    if not auth.setup_code_matches(code):
+        raise HTTPException(403, "Finish setting up from this computer or your home network, or enter the setup code "
+                                 "from the server's log.")
+    auth.forget_failure(request, "setup-code")
 
 
 # The accent color, chosen once for the web app, the desktop apps and the iPhone app. "heart" matches the logo.
@@ -180,9 +208,10 @@ class SetupRequest(BaseModel):
     password: Optional[str] = Field(None, max_length=256)
     passphrase: Optional[str] = Field(None, max_length=256)     # earlier name, still accepted
     profile_name: str = Field("Me", max_length=80)
-    birth_date: Optional[str] = None
-    timezone: Optional[str] = None
+    birth_date: Optional[str] = Field(None, max_length=40)
+    timezone: Optional[str] = Field(None, max_length=80)
     accept_terms: bool = False
+    setup_code: Optional[str] = Field(None, max_length=40)
 
 
 def _date_or_none(value: Optional[str]) -> Optional[str]:
@@ -207,9 +236,7 @@ def setup(req: SetupRequest, request: Request, response: Response) -> dict:
         raise HTTPException(409, "Setup has already been completed.")
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
-    # Until setup, whoever reaches the server could claim it by choosing the password: only from nearby.
-    if not _nearby(request):
-        raise HTTPException(403, "Finish setting up from this computer or your home network.")
+    _may_claim(request, req.setup_code)
     password = req.password or req.passphrase or None
     if not password and not auth.password_optional():
         raise HTTPException(400, "Choose a password to protect your health records.")
@@ -350,18 +377,19 @@ def check_invite(req: InviteCode, request: Request) -> dict:
     """Whom an invitation is for, before choosing a password. Counts toward the guessing limits like a sign-in."""
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
-    auth.check_attempts(request)
+    auth.check_attempts(request, "invite")
     invite = accounts.peek_invite(req.code)
     if not invite:
-        auth.note_failure(request)
+        auth.note_failure(request, "invite")
         raise HTTPException(404, "That invitation code isn't valid. Codes last a week and work once; ask for a new one.")
-    return invite
+    return {**invite, "name_taken": accounts.name_taken(invite["name"])}
 
 
 class JoinRequest(BaseModel):
     code: str = Field(..., max_length=40)
     password: str = Field(..., max_length=256)
     accept_terms: bool = False
+    name: Optional[str] = Field(None, max_length=80)        # when someone else here already signs in with theirs
 
 
 @router.post("/api/invites/accept")
@@ -373,10 +401,13 @@ def accept_invite(req: JoinRequest, request: Request, response: Response) -> dic
     auth.validate_password(req.password)
     if not req.accept_terms:
         raise HTTPException(400, "Agree to the terms to continue.")
-    auth.check_attempts(request)
-    account = accounts.accept_invite(req.code, req.password)
+    auth.check_attempts(request, "invite")
+    name = (req.name or "").strip() or None
+    if name and accounts.name_taken(name):
+        raise HTTPException(409, f"Someone here already signs in as {name}. Choose a different name.")
+    account = accounts.accept_invite(req.code, req.password, name)
     if not account:
-        auth.note_failure(request)
+        auth.note_failure(request, "invite")
         raise HTTPException(404, "That invitation code isn't valid. Codes last a week and work once; ask for a new one.")
     _accept_terms(account["id"])
     auth.set_session_cookie(response, auth.create_session(request, account["id"]), request)
@@ -391,18 +422,22 @@ def logout(request: Request, response: Response) -> dict:
 
 
 class PasswordRequest(BaseModel):
-    current: Optional[str] = None
+    current: Optional[str] = Field(None, max_length=256)
     new: Optional[str] = Field(None, max_length=256)
     accept_terms: bool = False          # choosing the password an older setup didn't have
+    setup_code: Optional[str] = Field(None, max_length=40)
 
 
 @router.post("/api/auth/password")
 @router.post("/api/auth/passphrase", include_in_schema=False)     # earlier address
 def change_password(req: PasswordRequest, request: Request, response: Response,
                           principal: auth.Principal = Depends(auth.require_user_to_set_password)) -> dict:
+    auth.refuse_if_limited(principal)
     if not principal.account_id:
         raise HTTPException(400, "No account to change the password of.")
-    auth.change_password(principal.account_id, req.current, req.new)
+    if auth.password_missing():
+        _may_claim(request, req.setup_code)
+    auth.change_password(request, principal.account_id, req.current, req.new)
     if req.accept_terms:
         _accept_terms(principal.account_id)
     if req.new:
@@ -411,7 +446,7 @@ def change_password(req: PasswordRequest, request: Request, response: Response,
 
 
 @router.get("/api/auth/sessions")
-def list_sessions(principal: auth.Principal = Depends(auth.require_user)) -> dict:
+def list_sessions(principal: auth.Principal = Depends(auth.require_whole_account)) -> dict:
     """Where this account is signed in (its browsers and the screens of phones it paired)."""
     with read() as conn:
         rows = conn.execute("SELECT s.created_at, s.last_seen_at, s.expires_at, s.user_agent, s.ip, d.name AS device_name, "
@@ -427,8 +462,11 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
     the server (sign-ins, settings)."""
     visible = list(principal.access)
     marks = ",".join("?" * len(visible)) or "NULL"
-    where = f"(a.profile_id IN ({marks}) OR a.actor = ?"
-    params: list = [*visible, principal.actor]
+    where = f"(a.profile_id IN ({marks})"
+    params: list = [*visible]
+    if not principal.limited:
+        where += " OR a.actor = ?"
+        params.append(principal.actor)
     if principal.owner:
         where += " OR a.profile_id IS NULL"
     where += ")"

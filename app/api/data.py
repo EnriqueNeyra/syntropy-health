@@ -18,10 +18,10 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.deps import check_access, resolve_profile
-from app.core import auth, maintenance
+from app.core import auth, context, maintenance
 from app.core.db import StartupProblem, audit, db, discard_pre_upgrade_copies, new_id, read, snapshot
 from app.services import imports
-from app.store import activity, biometrics, records, sample_counts
+from app.store import accounts, activity, biometrics, records, sample_counts
 
 router = APIRouter(prefix="/api", tags=["data"], dependencies=[Depends(auth.require_user)])
 
@@ -181,6 +181,11 @@ def export_backup(background: BackgroundTasks) -> FileResponse:
 def wipe_profile_data(profile_id: str) -> dict:
     """Deletes all records, samples and connections for a profile but keeps the profile itself."""
     prof = resolve_profile(profile_id)
+    principal = context.principal()
+    auth.refuse_if_limited(principal)
+    account = accounts.for_profile(prof["id"])
+    if principal and account and account["id"] != principal.account_id:
+        raise HTTPException(403, f"Only {prof['name']} can delete all of their own data.")
     with db() as conn:
         conn.execute("DELETE FROM clinical_records WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM patient_identities WHERE profile_id = ?", (prof["id"],))

@@ -107,8 +107,10 @@ def isolated_data(tmp_path, monkeypatch):
     # A key written by scripts/release_key.py in this checkout is ignored.
     monkeypatch.setenv("SYNTROPY_RELAY_KEY", RELAY_KEY)
     monkeypatch.setitem(sys.modules, "app.core.release_key", None)
-    from app.core import auth, db
+    from app.core import auth, db, security
     from app.store import sample_counts
+    # A real password check takes a quarter of a second, on purpose. test_passwords covers the real settings.
+    monkeypatch.setattr(security, "_SCRYPT_N", 2**10)
     db.reset_migration_cache()
     sample_counts.forget()   # counts are kept in memory; each test has its own database
     # Failed sign-ins are counted in memory too: another test's wrong passwords mustn't lock this one out.

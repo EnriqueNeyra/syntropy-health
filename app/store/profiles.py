@@ -6,7 +6,7 @@ import time
 from typing import Any, Optional
 
 from app.core import settings
-from app.core.db import db, discard_pre_upgrade_copies, read, new_id, row_to_dict, rows_to_dicts
+from app.core.db import audit, db, discard_pre_upgrade_copies, read, new_id, row_to_dict, rows_to_dicts
 from app.store import sample_counts
 
 RELATIONSHIPS = ("self", "partner", "child", "parent", "sibling", "other")
@@ -84,6 +84,8 @@ def update_profile(profile_id: str, **fields: Any) -> Optional[dict[str, Any]]:
 
 def delete_profile(profile_id: str) -> None:
     """Deletes a profile and all of its data (records, samples, connections, devices)."""
+    from app.store import devices
+
     with db() as conn:
         conn.execute("DELETE FROM biometric_samples WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM biometric_daily WHERE profile_id = ?", (profile_id,))
@@ -93,13 +95,23 @@ def delete_profile(profile_id: str) -> None:
         conn.execute("DELETE FROM health_events WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM user_sessions WHERE device_id IN (SELECT id FROM devices WHERE profile_id = ?)", (profile_id,))
         # Their sign-in, if they had one: its sessions and agent tokens end with it (the account row goes with the
-        # profile, as do the access it was given and any invitation).
-        conn.execute("DELETE FROM user_sessions WHERE account_id IN (SELECT id FROM accounts WHERE profile_id = ?)", (profile_id,))
-        conn.execute("UPDATE agent_tokens SET revoked_at = ? WHERE revoked_at IS NULL AND (profile_id = ? OR account_id IN "
-                     "(SELECT id FROM accounts WHERE profile_id = ?))", (time.time(), profile_id, profile_id))
-        conn.execute("DELETE FROM devices WHERE account_id IN (SELECT id FROM accounts WHERE profile_id = ?)", (profile_id,))
+        # profile, as do the access it was given and any invitation), and so do phones it paired for other people,
+        # codes still waiting, and the conversations it had with an AI about anyone: nobody else could open them.
+        account = conn.execute("SELECT id FROM accounts WHERE profile_id = ?", (profile_id,)).fetchone()
+        conn.execute("UPDATE agent_tokens SET revoked_at = ? WHERE revoked_at IS NULL AND profile_id = ?", (time.time(), profile_id))
+        if account:
+            conn.execute("DELETE FROM user_sessions WHERE account_id = ?", (account["id"],))
+            conn.execute("UPDATE agent_tokens SET revoked_at = ? WHERE revoked_at IS NULL AND account_id = ?", (time.time(), account["id"]))
+            for row in conn.execute("SELECT DISTINCT profile_id FROM devices WHERE account_id = ?", (account["id"],)).fetchall():
+                devices.revoke_paired_in(conn, row["profile_id"], account["id"])
+            conn.execute("DELETE FROM pairing_codes WHERE account_id = ?", (account["id"],))
+            conn.execute("DELETE FROM chats WHERE account_id = ?", (account["id"],))
         for prefix in (f"overview.layout.{profile_id}", f"alerts.seen.{profile_id}", f"alerts.dismissed.{profile_id}", f"goals.{profile_id}"):
             settings.delete_prefix_in(conn, prefix)
+        # What the log said about them can name their doctors and what an AI was asked. That it happened, and when, stays.
+        conn.execute("UPDATE audit_log SET detail = NULL WHERE profile_id = ?", (profile_id,))
+        name = conn.execute("SELECT name FROM profiles WHERE id = ?", (profile_id,)).fetchone()
+        audit(conn, "user", "profile.removed", {"name": name["name"]} if name else None)
         conn.execute("DELETE FROM profiles WHERE id = ?", (profile_id,))
         remaining = conn.execute("SELECT id FROM profiles ORDER BY created_at LIMIT 1").fetchone()
         if remaining and not conn.execute("SELECT 1 FROM profiles WHERE is_default = 1").fetchone():

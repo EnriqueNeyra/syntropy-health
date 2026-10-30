@@ -79,6 +79,10 @@ def _start_up() -> None:
     biometric_store.upgrade_daily_if_needed()
     sample_counts.warm()
     maintenance.check_at_start_up()
+    if not instance_settings.get("setup.completed") or auth.password_missing():
+        code = auth.setup_code()
+        log.warning("Setting up from another network? Your one-time setup code is %s-%s. On this computer or your home "
+                    "network, you don't need it.", code[:4], code[4:])
 
 
 def _database_trouble(exc: Exception) -> Optional[tuple[int, str]]:
@@ -213,6 +217,7 @@ def create_app() -> FastAPI:
     for module in (system, profiles, directory, settings, connections, records, biometrics, insights, data, labs, assistant, agents, desktop):
         app.include_router(module.router)
     app.include_router(agents.mcp_router)
+    app.include_router(profiles.accounts_router)
     app.include_router(simulator.router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -233,6 +238,10 @@ def create_app() -> FastAPI:
     @app.exception_handler(db.StartupProblem)
     async def startup_problem(request: Request, exc: db.StartupProblem) -> Response:
         return _problem_response(request, str(exc))
+
+    @app.exception_handler(security.ServerBusy)
+    async def too_many_password_checks(request: Request, exc: security.ServerBusy) -> Response:
+        return JSONResponse({"detail": str(exc)}, status_code=503, headers={"Cache-Control": "no-store"})
 
     @app.exception_handler(Exception)
     async def server_error(request: Request, exc: Exception) -> Response:

@@ -136,7 +136,8 @@ def test_removing_people(raw_client):
     maria = _person(client, "Maria")
     maria_client, _ = _join(client, maria)
     alex = _ids(client)["Alex"]["id"]
-    assert client.delete(f"/api/profiles/{alex}").status_code == 400          # the only owner
+    assert client.delete(f"/api/profiles/{alex}").status_code == 403          # their own: with their password
+    assert client.post("/api/accounts/me/delete", json={"password": PASSPHRASE}).status_code == 400    # the only owner
     leo = _person(maria_client, "Leo", "child")                               # Maria looks after Leo
     assert client.delete(f"/api/profiles/{leo}").status_code == 404           # Alex can't see him
     assert maria_client.delete(f"/api/profiles/{leo}").status_code == 200
@@ -152,7 +153,7 @@ def test_people_nobody_looks_after_go_to_the_owner(raw_client):
     leo = _person(maria_client, "Leo", "child")
     assert "Leo" not in _ids(client)
     # Maria leaves (removing herself would take Leo's only guardian with her): Alex, the owner, looks after him.
-    assert maria_client.delete(f"/api/profiles/{maria}").status_code == 200
+    assert maria_client.post("/api/accounts/me/delete", json={"password": MARIA_PASSWORD}).status_code == 200
     assert _ids(client)["Leo"]["access"] == "manage"
     assert client.get("/api/summary", params={"profile": leo}).status_code == 200
 

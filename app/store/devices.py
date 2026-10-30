@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from app.core import security
 from app.core.db import audit, db, read, new_id, rows_to_dicts
-from app.store import connections as conn_store
+from app.store import accounts, connections as conn_store
 
 PAIRING_TTL = 10 * 60
 
@@ -37,6 +37,8 @@ def claim(code: str, device_name: str, platform: Optional[str] = None) -> Option
             return None
         conn.execute("DELETE FROM pairing_codes WHERE code_hash = ?", (security.hash_token(normalized),))
     profile_id, account_id = row["profile_id"], row["account_id"]
+    if not _may_pair(account_id, profile_id):
+        return None
     name = (device_name or ("Android phone" if platform == "android" else "iPhone")).strip()[:80]
     # The phone apps: Apple Health from the iPhone app, Health Connect from the Android app.
     store, provider = ("Health Connect", "health_connect") if platform == "android" else ("Apple Health", "apple_health")
@@ -61,6 +63,14 @@ def claim(code: str, device_name: str, platform: Optional[str] = None) -> Option
         person = conn.execute("SELECT name FROM profiles WHERE id = ?", (profile_id,)).fetchone()
     return {"device_id": device_id, "device_token": token, "profile_id": profile_id, "connection_id": connection["id"],
             "profile_name": person["name"] if person else None}
+
+
+def _may_pair(account_id: Optional[str], profile_id: str) -> bool:
+    """Whoever made a code may have lost the right to since (a code lasts a few minutes, and sharing can change)."""
+    if not account_id:      # only while developing without a password: no one can be said to have lost anything
+        return accounts.for_profile(profile_id) is None
+    account = accounts.get(account_id)
+    return bool(account) and accounts.access_for(account).get(profile_id) == "manage"
 
 
 def _existing_source(profile_id: str, display_name: str) -> Optional[dict[str, Any]]:
@@ -101,6 +111,23 @@ def revoke(device_id: str) -> None:
             "SELECT 1 FROM devices WHERE connection_id = ?", (row["connection_id"],)).fetchone()
     if row["connection_id"] and not still_paired:
         conn_store.update(row["connection_id"], status="disconnected")
+
+
+def revoke_paired_in(conn: Any, profile_id: str, account_id: Optional[str] = None) -> list[str]:
+    """Inside the caller's transaction, so nothing can slip in between: unpairs the phones sending for this person (only
+    the ones ``account_id`` paired, when given), and any code still waiting. Returns the phones' names."""
+    only = " AND account_id = ?" if account_id else ""
+    params = (profile_id, *([account_id] if account_id else []))
+    rows = conn.execute(f"SELECT id, connection_id, name FROM devices WHERE profile_id = ?{only}", params).fetchall()
+    conn.execute(f"DELETE FROM pairing_codes WHERE profile_id = ?{only}", params)
+    for row in rows:
+        conn.execute("DELETE FROM user_sessions WHERE device_id = ?", (row["id"],))
+        conn.execute("DELETE FROM devices WHERE id = ?", (row["id"],))
+        audit(conn, "user", "device.revoked", {"id": row["id"], "name": row["name"]}, profile_id)
+        if row["connection_id"]:
+            conn.execute("UPDATE connections SET status = 'disconnected', updated_at = ? WHERE id = ? AND NOT EXISTS "
+                         "(SELECT 1 FROM devices d WHERE d.connection_id = connections.id)", (time.time(), row["connection_id"]))
+    return [r["name"] for r in rows]
 
 
 def revoke_for_connection(connection_id: str) -> None:
