@@ -5725,10 +5725,7 @@
 "name": "CML 2 Practice",
 "location": "Mays Landing, NJ",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
-"former_ids": [
-"nextgen-default-practice-2-2"
-]
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
 "id": "nextgen-coal-creek-family-medicine",
@@ -17963,7 +17960,10 @@
 "name": "Optical Practice 2",
 "location": "Irvine, CA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-default-practice-2-2"
+]
 },
 {
 "id": "nextgen-optometry",

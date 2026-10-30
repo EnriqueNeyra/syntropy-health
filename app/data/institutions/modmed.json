@@ -31486,6 +31486,13 @@
 "fhir_base_url": "https://drjohnschofield.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-john-k-wildemore-md-llc",
+"name": "John K. Wildemore, MD, LLC",
+"location": "Wayne, PA",
+"platform": "modmed",
+"fhir_base_url": "https://drwildemore.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-john-kleinhoffer-pc",
 "name": "John Kleinhoffer PC",
 "location": "Highland, IL",

@@ -473,13 +473,13 @@ class Index:
         span = self.site_range.get(row)
         if not span or all(row in w.name for w in words):
             return None
-        best, best_hits = None, 0
+        best, best_key = None, (0, 0)
         for site in range(*span):
             hits = sum(site in w.facilities for w in words)
-            if hits > best_hits:
-                best, best_hits = site, hits
-                if hits == len(words):
-                    break
+            # The shortest of those matching most: Brigham and Women's Hospital before its Faulkner campus.
+            key = (hits, self.site_start[site] - self.site_start[site + 1])
+            if hits and (best is None or key > best_key):
+                best, best_key = site, key
         if best is None:
             return None
         return self.site_names[self.site_start[best]:self.site_start[best + 1] - 1].decode()

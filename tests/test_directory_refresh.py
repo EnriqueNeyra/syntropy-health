@@ -3,6 +3,7 @@
 import json
 import re
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -56,6 +57,7 @@ NEXTGEN = "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
     ("Veradigm_Test_Practice", "https://api.patientfusion.com/fhir/r4/v1/2"),
     ("MyEyeDr Encompass Staging", "https://myeyedrencstg.ef.prod.fhir.ema-api.com/fhir/r4/"),
     ("My Eye Dr QA2", "https://myeyedr-qa2.ef.prod.fhir.ema-api.com/fhir/r4/"),
+    ("AdvancedMD SFTP", "https://adpdemo-sftp.mmi.prod.fhir.ema-api.com/fhir/r4/"),
 ])
 def test_test_systems_and_placeholders_are_not_listed(name, url):
     assert not is_listing(name, url)
@@ -75,9 +77,22 @@ def test_test_systems_and_placeholders_are_not_listed(name, url):
     ("Train Family Clinic", "https://fhir4.healow.com/fhir/r4/AAAAAA"),
     ("Greatest Care Clinic", "https://greatest.mmi.prod.fhir.ema-api.com/fhir/r4/"),
     ("Mass General Brigham", "https://ws-interconnect-fhir.partners.org/Interconnect-FHIR-MU-PRD/api/FHIR/R4"),
+    ("EF Podiatry", "https://efpodiatry.mmi.prod.fhir.ema-api.com/fhir/r4/"),
+    ("Ad Podiatry Associates", "https://adpodiatry.mmi.prod.fhir.ema-api.com/fhir/r4/"),
+    ("Pod Family Medicine", "https://fhir4.healow.com/fhir/r4/AAAAAB"),
+    ("Academic Dermatology", "https://academodermatology.mmi.prod.fhir.ema-api.com/fhir/r4/"),
+    ("John K. Wildemore, MD, LLC", "https://drwildemore.mmi.prod.fhir.ema-api.com/fhir/r4/"),
 ])
 def test_real_practices_stay_listed(name, url):
     assert is_listing(name, url)
+
+
+def test_every_data_file_ships_with_a_pip_install():
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["setuptools"]["package-data"]["app"]
+    for path in (ROOT / "app" / "data").rglob("*"):
+        if path.is_file():
+            relative = path.relative_to(ROOT / "app")
+            assert any(relative.match(pattern) for pattern in project), relative
 
 
 def test_addresses_must_be_https_with_a_real_host():
@@ -144,6 +159,13 @@ def test_same_name_and_address_is_one_listing_and_saved_ids_still_resolve():
 def test_a_practice_at_different_places_on_one_address_stays_separate():
     rows = [row("St Lukes", NEXTGEN, location="Tampa, FL"), row("St Lukes", NEXTGEN, location="Boise, ID"), row("St Lukes", NEXTGEN)]
     assert sorted(r.get("location", "") for r in collapse_duplicates(rows)) == ["Boise, ID", "Tampa, FL"]
+
+
+def test_a_practice_with_two_sites_on_one_address_keeps_each_id_with_its_site():
+    existing = [{"id": "nextgen-a", **row("St Lukes", NEXTGEN, location="Tampa, FL")}, {"id": "nextgen-b", **row("St Lukes", NEXTGEN, location="Boise, ID")}]
+    for new in ([row("St Lukes", NEXTGEN, location="Boise, ID"), row("St Lukes", NEXTGEN, location="Tampa, FL")],
+                [row("St Lukes", NEXTGEN, location="Tampa, FL"), row("St Lukes", NEXTGEN, location="Boise, ID")]):
+        assert {e["id"]: e["location"] for e in merge(existing, new, "nextgen-")} == {"nextgen-a": "Tampa, FL", "nextgen-b": "Boise, ID"}
 
 
 def test_two_systems_with_one_name_on_different_addresses_stay_separate():

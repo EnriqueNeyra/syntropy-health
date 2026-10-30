@@ -88,11 +88,12 @@ TEST_NAME = re.compile(
 # The pods vendors run their own software on: "ASP41 POD3", "ECWINDQAPOD1 RTREDE", ModMed's "pod 10 admin" and "ophthpod1".
 VENDOR_POD = re.compile(
     r"\bASP\d{2}|QAPOD\d"
-    r"|^(?:(?:ef|ea|ad|me|vw|ophth) ?)?pod ?\d*(?: ?(?:admin|firm|test|qa|ophth|int)\b.*| ?(?:ophth|qa)\d*)?$"
-    r"|^(?:ophth|ef|ea|ad|me|vw) ?pod ?\d*.*$"
-    r"|^(?:application )?administrator$|^admin(?: firm)?$", re.I)
+    r"|^(?:(?:ef|ea|ad|me|vw|ophth) ?)?pod ?\d+\b.*$|^(?:(?:ef|ea|ad|me|vw|ophth) ?)?pod ?\d+(?:admin|test|qa|ophth)\w*$"
+    r"|^pod ?\d*(?:ophth|qa)\w*$|^(?:ef|ea|ad|me|vw|ophth)?pod$|^(?:ef|ea|ad|me|vw|ophth)pod\d*\w*$"
+    r"|^(?:application )?administrator$|^admin(?: firm)?$|\bSFTP\b", re.I)
 # In an address's first label, where a name can't be judged: bellinghamentsandbox, efpod03test04, lagastro-test, testapi-sdg.
-TEST_HOST = re.compile(r"sandbox|(?<!la)(?<!grea)(?<!fas)(?<!con)(?<!at)(?<!pro)(?<!de)test\d*$|^test|-test|test-|testpod|\d+admin$|^appadmin$|demo|-qa\d*$")
+TEST_HOST = re.compile(r"sandbox|(?<!la)(?<!grea)(?<!fas)(?<!con)(?<!at)(?<!pro)(?<!de)(?<!brigh)(?<!smar)test\d*$|^test|-test|test-|testpod"
+                       r"|\d+admin$|^appadmin$|demo\d*$|^demo|-demo|-qa\d*$")
 
 
 # ---------------------------------------------------------------------------
@@ -614,7 +615,9 @@ def merge(existing: list[dict[str, Any]], entries: list[dict[str, Any]], prefix:
     for lookup in (same_entry, same_name, addr_matches):
         rest = []
         for old in pending:
-            match = max((c for c in lookup(old) if "id" not in c), key=lambda c: similarity(old["name"], c), default=None)
+            # Twins on one address (a practice with two sites on NextGen's) each keep their own id, by where they are.
+            match = max((c for c in lookup(old) if "id" not in c), default=None,
+                        key=lambda c: (similarity(old["name"], c), c.get("location") == tidy_location(old.get("location"))))
             if match:
                 match["id"], match["featured"] = old["id"], bool(old.get("featured"))
                 match["former_ids"] = list(old.get("former_ids") or [])

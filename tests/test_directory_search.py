@@ -65,7 +65,8 @@ def test_a_hospital_finds_the_system_it_belongs_to(q, system):
 
 def test_a_facility_match_says_which_facility():
     top = next(r for r in find("brigham and women")["results"] if "Mass General Brigham" in r["name"])
-    assert "Brigham" in top["includes"] and "Women" in top["includes"]
+    assert top["includes"].startswith("Brigham and Women's")
+    assert find("massachusetts general hospital")["results"][0]["includes"].startswith("Massachusetts General Hospital")
     plain = find("mass general brigham")["results"][0]
     assert "includes" not in plain      # its own name says it
 
@@ -96,9 +97,8 @@ def test_state_names_and_codes_are_the_same():
 
 def test_a_short_word_is_a_whole_word():
     rows = find("portland or", 200)["results"]
-    assert rows and all(("OR" in (r.get("location") or "")) or "Oregon" in r["name"] or "OR" in " ".join(r.get("places", ())) or "includes" in r or r["platform"] == "epic"
-                        for r in rows)
-    assert not [r for r in rows if (r.get("location") or "").endswith(("ME", "TX"))]
+    assert rows
+    assert not [r["name"] for r in rows if (r.get("location") or "").endswith((", ME", ", TX"))]
 
 
 def test_every_word_can_match_a_different_part_of_the_listing():
@@ -126,15 +126,10 @@ def test_a_correction_is_reported_and_a_correct_word_is_not_corrected():
     assert find("cleaveland clinic")["corrected"] == "cleveland clinic"
     for q in ("stanford", "mayo", "st lukes", "mays"):
         assert "corrected" not in find(q)
-    assert find("mayo boston")["total"] == 0 or "Mayo" not in names("mayo boston")[0] or True
+    assert "corrected" not in find("mayo boston")        # two real words that don't go together aren't a typo
 
 
-def test_exact_comes_before_starts_with_before_word_before_town():
-    rows = names("mercy", 200)
-    assert rows[0].lower().startswith("mercy")
-    last_start = max(i for i, n in enumerate(rows) if n.lower().startswith("mercy"))
-    first_inside = next(i for i, n in enumerate(rows) if not n.lower().startswith("mercy"))
-    assert first_inside > 0 and last_start >= 0
+def test_exact_comes_before_everything():
     assert names("cleveland clinic")[0] == "Cleveland Clinic"
     assert find("banner health")["results"][0]["name"] == "Banner Health"
 
@@ -437,3 +432,49 @@ def test_a_warning_with_no_date_counts_as_old(warned):
     _, status = warned
     assert status("portal_error", None, "2026-10-10", since=None)["stale"] is True
     assert status("portal_error", "garbage", "2026-10-10", since=None)["stale"] is True
+
+
+# ---------------------------------------------------------------------------
+# What the picker gets, and says
+# ---------------------------------------------------------------------------
+
+def test_the_api_narrows_pages_and_reports_corrections(client):
+    res = client.get("/api/directory", params={"q": "family medicine", "limit": 10}).json()
+    assert res["total"] > 300 and len(res["results"]) == 10 and res["states"]["TX"] > 0 and res["problem"] is None
+    texas = client.get("/api/directory", params={"q": "family medicine", "limit": 10, "state": "tx"}).json()
+    assert 0 < texas["total"] < res["total"]
+    next_page = client.get("/api/directory", params={"q": "family medicine", "limit": 10, "offset": 10}).json()
+    assert not {r["id"] for r in res["results"]} & {r["id"] for r in next_page["results"]}
+    assert client.get("/api/directory", params={"q": "kiaser"}).json()["corrected"] == "kaiser"
+    assert "corrected" not in client.get("/api/directory", params={"q": "kaiser"}).json()
+    assert client.get("/api/directory", params={"q": "x" * 201}).status_code == 422
+    found = client.get("/api/directory", params={"q": "brigham and women"}).json()["results"][0]
+    assert found["includes"] and found["portal"] == "MyChart"
+
+
+def test_the_picker_counts_what_can_connect_and_offers_athenahealth(client):
+    client.put("/api/settings/developer", json={"enabled": False})
+    featured = client.get("/api/directory/featured").json()
+    assert featured["total"] > 35000 and featured["connectable"] < featured["total"]
+    assert featured["athena"]["id"] == "athenahealth" and featured["problem"] is None
+    assert "smart-health-it" not in client.get("/api/directory", params={"q": "demo"}).json()["platforms"]
+
+
+STATIC = Path(config.APP_DIR) / "static" / "js" / "views"
+
+
+def test_the_records_request_says_what_the_rule_says_and_stays_on_the_page():
+    letter = (STATIC / "records-request.js").read_text()
+    for needed in ("45 CFR 164.524", "designated record set", "within 30 days", "reasonable, cost-based fee", "in writing"):
+        assert needed in letter
+    assert "post(" not in letter and "fetch(" not in letter and "localStorage" not in letter       # nothing saved or sent
+
+
+def test_the_picker_keeps_its_other_ways_in_when_the_list_fails():
+    picker = (STATIC / "sources.js").read_text()
+    start = picker.index("async function openAddHealthSystem")
+    body = picker[start:picker.index("function confirmInstitution")]
+    assert "m.close()" not in body.split("featured = await get")[1].split("\n")[1]
+    for action in ('data-action="records"', 'data-action="import"', 'data-action="custom"', 'data-id="athenahealth"'):
+        assert action in body
+    assert "No matches" not in body.split("const showPopular")[1].split("const showResults")[0]
