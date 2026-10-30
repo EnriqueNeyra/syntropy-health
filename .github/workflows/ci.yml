@@ -118,7 +118,20 @@ jobs:
       - run: for i in $(seq 1 30); do curl -fs localhost:8000/health && exit 0; sleep 1; done; sudo journalctl -u syntropy-health --no-pager; exit 1
       # The data folder is private to the service account, so looking inside takes root.
       - run: systemctl is-active syntropy-health && sudo stat -c '%U' /var/lib/syntropy-health/syntropy.db | grep -x syntropy
-      - run: sudo syntropy-health backup /tmp && ls /tmp/syntropy-backup-*.zip
+      - name: Back up as the printed instructions say, into a folder only root can write to, and restore it
+        run: |
+          # A backup of a server nobody has set up is refused, so finish setup first.
+          curl -fs -X POST localhost:8000/api/setup -H 'X-Requested-With: syntropy' -H 'Content-Type: application/json' \
+            -d '{"password":"a password for ci","profile_name":"CI","accept_terms":true}'
+          sudo mkdir -p /root-backups && sudo chmod 700 /root-backups
+          printf 'a passphrase for ci' | sudo tee /root-pass > /dev/null
+          sudo syntropy-health backup /root-backups --passphrase-file /root-pass
+          sudo sh -c 'ls /root-backups/syntropy-backup-*.syntropy'
+          sudo syntropy-health backup /tmp --no-encrypt && ls /tmp/syntropy-backup-*.zip
+          sudo systemctl stop syntropy-health
+          sudo sh -c 'syntropy-health restore /root-backups/syntropy-backup-*.syntropy --passphrase-file /root-pass --yes'
+          sudo systemctl start syntropy-health
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8000/health && break; sleep 2; done
       # The daily update timer: with automatic updates off (the default) its run checks and does nothing.
       - run: |
           systemctl is-enabled syntropy-health-update.timer
@@ -142,7 +155,10 @@ jobs:
       - run: |
           ~/.local/bin/syntropy-health serve --port 8010 &
           for i in $(seq 1 30); do curl -fs localhost:8010/health && exit 0; sleep 1; done; exit 1
-      - run: ~/.local/bin/syntropy-health backup "$RUNNER_TEMP" && ls "$RUNNER_TEMP"/syntropy-backup-*.zip
+      - run: |
+          curl -fs -X POST localhost:8010/api/setup -H 'X-Requested-With: syntropy' -H 'Content-Type: application/json' \
+            -d '{"password":"a password for ci","profile_name":"CI","accept_terms":true}'
+          ~/.local/bin/syntropy-health backup "$RUNNER_TEMP" --no-encrypt && ls "$RUNNER_TEMP"/syntropy-backup-*.zip
       - run: sh scripts/install.sh --uninstall && test ! -e ~/.local/bin/syntropy-health
 
   windows-install:

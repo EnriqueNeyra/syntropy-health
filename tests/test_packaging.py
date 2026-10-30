@@ -30,9 +30,10 @@ def test_backup_holds_the_database_key_and_uploads(client, isolated_data, tmp_pa
     (isolated_data / "uploads" / "report.pdf").write_bytes(b"%PDF-1.4")
     from app.core import security
     security.encrypt_json("make sure the key exists")
-    out = cli.backup(str(tmp_path / "backups"))
+    (isolated_data / "uploads" / "upload_abc.zip").write_bytes(b"on its way into an import")
+    out = cli.backup(str(tmp_path / "backups"), no_encrypt=True)
     with zipfile.ZipFile(out) as z:
-        assert {"syntropy.db", "secret.key", "uploads/report.pdf"} <= set(z.namelist())
+        assert {"manifest.json", "syntropy.db", "secret.key", "uploads/report.pdf"} == set(z.namelist())
 
 
 def test_service_files(isolated_data):

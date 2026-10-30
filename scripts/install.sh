@@ -150,7 +150,7 @@ mac_main() {
     echo
     say "Syntropy Health $("$APP/Contents/MacOS/Syntropy Health" version) is installed and open."
     echo "    It lives in the menu bar; choose Let Your iPhone and Other Devices Connect there, or in Settings."
-    echo "    Data:     $DATA   (back up with: syntropy-health backup ~/Desktop)"
+    echo "    Data:     $DATA   (back up with: syntropy-health backup /a/folder/on/another/drive)"
     echo "    Update:   run this installer again"
     exit 0
   fi
@@ -185,7 +185,7 @@ mac_main() {
   echo
   say "Syntropy Health $(syntropy-health version) is installed."
   echo "    Open http://localhost:$PORT to finish setup. From your other devices: http://syntropyhealth.local:$PORT"
-  echo "    Data:     $DATA   (back up with: syntropy-health backup ~/Desktop)"
+  echo "    Data:     $DATA   (back up with: syntropy-health backup /a/folder/on/another/drive)"
   echo "    Update:   syntropy-health update   (or run this installer again)"
   echo "    Logs:     $DATA/server.log"
   exit 0
@@ -288,9 +288,14 @@ cat > /usr/local/bin/syntropy-health <<EOF
 export SYNTROPY_DATA_DIR="$DATA"
 [ -r "$ETC/env" ] && set -a && . "$ETC/env" && set +a
 case "\${1:-}" in
-  serve|mcp|backup|info|accounts|key|dev)
+  serve|mcp|info|accounts|key|dev)
     if [ "\$(id -u)" = 0 ]; then
       exec runuser -u "$RUN_AS" -- "$PREFIX/venv/bin/syntropy-health" "\$@"
+    fi;;
+  backup|restore)
+    # Root reads and writes the folder named here; the service's account reads and writes the data.
+    if [ "\$(id -u)" = 0 ]; then
+      exec "$PREFIX/venv/bin/syntropy-health" --service-account "$RUN_AS" "\$@"
     fi;;
 esac
 exec "$PREFIX/venv/bin/syntropy-health" "\$@"
@@ -339,6 +344,6 @@ IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo
 say "Syntropy Health $VERSION is installed."
 echo "    Open http://${IP:-this-computer}:$PORT from any device on your network to finish setup."
-echo "    Data:    $DATA (back up with: sudo syntropy-health backup /some/folder)"
+echo "    Data:    $DATA (back up with: sudo syntropy-health backup /a/folder/on/another/drive)"
 echo "    Update:  sudo syntropy-health update   (or run this installer again)"
 echo "    Logs:    journalctl -u syntropy-health -f"

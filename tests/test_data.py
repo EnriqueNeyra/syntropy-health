@@ -80,8 +80,8 @@ def test_csv_and_backup_exports(client):
     csv_text = client.get("/api/export/csv", params={"kind": "records"}).text
     assert csv_text.splitlines()[0].startswith("category,title")
     assert len(csv_text.splitlines()) > 100
-    backup = client.get("/api/export/backup")
-    assert backup.content[:15] == b"SQLite format 3"
+    backup = client.get(client.post("/api/backups", json={"unencrypted": True}).json()["download"])
+    assert backup.content[:2] == b"PK"
 
 
 def test_profiles_scope_data(client):

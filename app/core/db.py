@@ -148,6 +148,51 @@ def close_readers() -> None:
                 pass
 
 
+# Restoring a backup swaps the database file under a running server, so everything that touches it passes through here:
+# while paused, new work is refused in words, and work already going on is waited for.
+_gate = threading.Condition()
+_in_use = 0
+_paused: Optional[str] = None
+
+
+def _enter() -> None:
+    global _in_use
+    with _gate:
+        if _paused:
+            raise StartupProblem("restoring", _paused)
+        _in_use += 1
+
+
+def _leave() -> None:
+    global _in_use
+    with _gate:
+        _in_use -= 1
+        _gate.notify_all()
+
+
+def pause(reason: str) -> None:
+    global _paused
+    with _gate:
+        _paused = reason
+
+
+def resume() -> None:
+    global _paused
+    with _gate:
+        _paused = None
+
+
+def wait_until_idle(seconds: float) -> bool:
+    deadline = time.monotonic() + seconds
+    with _gate:
+        while _in_use:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                return False
+            _gate.wait(left)
+    return True
+
+
 @contextmanager
 def db() -> Iterator[sqlite3.Connection]:
     """Yields a connection wrapped in a transaction (committed on success).
@@ -159,8 +204,13 @@ def db() -> Iterator[sqlite3.Connection]:
     mode readers outside a transaction are never blocked.
     """
     path = config.db_path()
-    ensure_migrated(path)
-    conn = _writer(path)
+    _enter()
+    try:
+        ensure_migrated(path)
+        conn = _writer(path)
+    except BaseException:
+        _leave()
+        raise
     try:
         conn.execute("BEGIN IMMEDIATE")
         yield conn
@@ -174,6 +224,7 @@ def db() -> Iterator[sqlite3.Connection]:
         raise
     finally:
         conn.close()
+        _leave()
     if big:
         # Right after letting go of the lock it has the best chance of a checkpoint: from another thread it kept losing
         # to the next batch and the log reached gigabytes. And what fills the log waits for it to empty; a small
@@ -186,8 +237,13 @@ def read() -> Iterator[sqlite3.Connection]:
     """A connection for queries that only read. It takes a consistent snapshot without the write lock, so in WAL mode
     it never waits for the writer or other readers, and page requests run side by side. Writes are refused."""
     path = config.db_path()
-    ensure_migrated(path)
-    conn = _take_reader(path)
+    _enter()
+    try:
+        ensure_migrated(path)
+        conn = _take_reader(path)
+    except BaseException:
+        _leave()
+        raise
     done = False
     try:
         conn.execute("BEGIN")
@@ -202,6 +258,7 @@ def read() -> Iterator[sqlite3.Connection]:
                 conn.close()          # closing ends any transaction left open
             except sqlite3.Error:
                 pass
+        _leave()
 
 
 def _make_private(path: Path) -> None:
@@ -254,7 +311,7 @@ def unusable(exc: sqlite3.Error, path: Path) -> StartupProblem:
     if is_damage(exc):
         log.error("%s can't be read: %s", path, exc)
         return StartupProblem("damaged", f"The database file at {path} is damaged and can't be opened. It hasn't been changed "
-                                         f"or moved. Restore it from a backup{_copy_hint(path)}, then start Syntropy Health again.")
+                                         f"or moved. Restore it with `syntropy-health restore BACKUP-FILE`{_copy_hint(path)}, then start Syntropy Health again.")
     log.error("%s can't be used: %s", path, exc)
     return StartupProblem("unavailable", unavailable_text(exc, path))
 
@@ -626,26 +683,34 @@ def probe(path: Path) -> dict[str, Any]:
 
 
 def snapshot(dest: Path, path: Optional[Path] = None) -> None:
-    """A consistent copy of the database made while it's in use, read back before anyone relies on it. A damaged file
-    raises StartupProblem: a backup that looks fine and isn't is worse than none."""
+    """A consistent copy of the database made while it's in use, read back before anyone relies on it. VACUUM INTO, like
+    SQLite's backup API, takes no write lock; unlike it, it leaves free space behind, so what was deleted isn't carried
+    into the copy. A damaged file raises StartupProblem: a backup that looks fine and isn't is worse than none."""
     path = path or config.db_path()
-    src = open_connection(path)
-    dst = sqlite3.connect(str(dest))
+    _enter()
     try:
+        src = open_connection(path)
+        os.close(os.open(dest, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600))     # the empty file it may write into, and private
+        dst = None
         try:
-            src.backup(dst)
-            found = "; ".join(r[0] for r in dst.execute("PRAGMA quick_check(5)").fetchall())
-        except sqlite3.DatabaseError as exc:
-            if not is_damage(exc):
-                raise
-            found = str(exc)
-        if found != "ok":
-            raise StartupProblem("damaged", f"The backup was stopped because the database file at {path} has damage ({found[:200]}), "
-                                            "so the copy couldn't be relied on. Keep your older backups: they may be the "
-                                            "last good copies.") from sqlite3.DatabaseError(found)
+            try:
+                src.execute("VACUUM INTO ?", (str(dest),))
+                dst = sqlite3.connect(str(dest))
+                found = "; ".join(r[0] for r in dst.execute("PRAGMA quick_check(5)").fetchall())
+            except sqlite3.DatabaseError as exc:
+                if not is_damage(exc):
+                    raise
+                found = str(exc)
+            if found != "ok":
+                raise StartupProblem("damaged", f"The backup was stopped because the database file at {path} has damage ({found[:200]}), "
+                                                "so the copy couldn't be relied on. Keep your older backups: they may be the "
+                                                "last good copies.") from sqlite3.DatabaseError(found)
+        finally:
+            if dst:
+                dst.close()
+            src.close()
     finally:
-        dst.close()
-        src.close()
+        _leave()
 
 
 # ---------------------------------------------------------------------------

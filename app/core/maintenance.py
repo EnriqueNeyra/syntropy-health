@@ -98,6 +98,11 @@ def note_damage(detail: str, path: Optional[Path] = None) -> None:
     _damage[str(path)] = detail
 
 
+def forget_damage(path: Optional[Path] = None) -> None:
+    """The file it was noticed in has been replaced."""
+    _damage.pop(str(path or config.db_path()), None)
+
+
 def integrity(path: Optional[Path] = None) -> Optional[dict[str, Any]]:
     """The last result: damage noticed since then, else what was saved."""
     path = path or config.db_path()

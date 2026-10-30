@@ -462,6 +462,12 @@ _derived: dict[tuple[str, str], tuple[Any, Any]] = {}
 _DERIVED_MAX = 256
 
 
+def forget_derived() -> None:
+    """The database has been replaced: its revision numbers say nothing about what's kept here."""
+    _derived.clear()
+    _source_totals.clear()
+
+
 def _cached(what: str, profile_id: str, key: Any, compute: Any) -> Any:
     full = (daily_revision(profile_id), datetime.now(_tz()).date().isoformat(), settings.timezone_name(),
             dumps(source_orders()), key)

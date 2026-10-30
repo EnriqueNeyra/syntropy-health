@@ -17,6 +17,7 @@ import hmac
 import json
 import os
 import secrets
+import sqlite3
 import threading
 import time
 from pathlib import Path
@@ -42,7 +43,7 @@ def master_key() -> bytes:
     that would make them look like they were never there."""
     env_key = config.env("SYNTROPY_SECRET_KEY")
     if env_key:
-        return hashlib.sha256(env_key.encode()).digest()
+        return key_from_setting(env_key)
 
     path = _key_file()
     cache_key = str(path)
@@ -62,7 +63,8 @@ def master_key() -> bytes:
         return key
 
 
-_KEY_ADVICE = ("Put the file back from a backup and start Syntropy Health again. If there's no backup, run "
+_KEY_ADVICE = ("Put the file back, or take it from a backup with `syntropy-health restore BACKUP-FILE --key-only`, and start "
+               "Syntropy Health again. If there's no backup, run "
                "`syntropy-health key new`: your records are safe, everyone then sets a new password with "
                "`syntropy-health accounts reset-password NAME`, and health systems and AI services need signing in to again.")
 
@@ -107,22 +109,84 @@ def _write_new_key(path: Path, replace: bool = False) -> bytes:
         tmp.unlink(missing_ok=True)
 
 
+def _secrets_in(conn: Any) -> list[str]:
+    rows = [r[0] for r in conn.execute(
+        "SELECT value FROM app_settings WHERE key LIKE 'ai.key.%' OR key LIKE '%.client_secret' OR key = 'auth.password_hash' LIMIT 20")]
+    try:
+        rows += [r[0] for r in conn.execute("SELECT password_hash FROM accounts WHERE password_hash IS NOT NULL LIMIT 20")]
+    except sqlite3.OperationalError:     # a backup from before accounts existed
+        pass
+    out = []
+    for value in rows:
+        try:
+            out.append(json.loads(value))
+        except ValueError:
+            pass
+    out += [r[0] for r in conn.execute("SELECT credentials_enc FROM connections WHERE credentials_enc IS NOT NULL LIMIT 20")]
+    return [t for t in out if isinstance(t, str) and t]
+
+
 def _stored_secrets() -> list[str]:
     """A few of what's encrypted in the database, whichever kinds there are."""
     if not config.db_path().exists():
         return []
     with db.read() as conn:
-        rows = [r[0] for r in conn.execute(
-            "SELECT value FROM app_settings WHERE key LIKE 'ai.key.%' OR key LIKE '%.client_secret' LIMIT 20")]
-        rows += [r[0] for r in conn.execute("SELECT password_hash FROM accounts WHERE password_hash IS NOT NULL LIMIT 20")]
-        out = []
-        for value in rows:
-            try:
-                out.append(json.loads(value))
-            except ValueError:
-                pass
-        out += [r[0] for r in conn.execute("SELECT credentials_enc FROM connections WHERE credentials_enc IS NOT NULL LIMIT 20")]
-    return [t for t in out if isinstance(t, str) and t]
+        return _secrets_in(conn)
+
+
+def key_from_file(raw: bytes) -> Optional[bytes]:
+    """The key in a secret.key file's bytes, or None if they aren't one."""
+    try:
+        key = base64.urlsafe_b64decode(raw.strip())
+    except ValueError:
+        return None
+    return key if len(key) == 32 else None
+
+
+def key_from_setting(value: str) -> bytes:
+    return hashlib.sha256(value.encode()).digest()
+
+
+def _fernet_for(key: bytes) -> Fernet:
+    return Fernet(base64.urlsafe_b64encode(hmac.new(key, b"field-encryption", hashlib.sha256).digest()))
+
+
+def has_secrets(database: Path) -> bool:
+    """For a backup being restored: is anything encrypted in that file?"""
+    conn = sqlite3.connect(database)
+    try:
+        return bool(_secrets_in(conn))
+    finally:
+        conn.close()
+
+
+def opens(database: Path, key: bytes) -> bool:
+    """For a backup being restored: does this key open what's saved in that file? Decided as check_key decides it."""
+    conn = sqlite3.connect(database)
+    try:
+        row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (_KEY_CHECK_SETTING,)).fetchone()
+        stored = _secrets_in(conn)
+    finally:
+        conn.close()
+    fernet = _fernet_for(key)
+
+    def readable(token: str) -> bool:
+        try:
+            fernet.decrypt(token.encode())
+            return True
+        except (InvalidToken, ValueError):
+            return False
+    marker = json.loads(row[0]) if row else None
+    if marker and readable(marker):
+        return True
+    return bool(stored) and (all if marker else any)(readable(t) for t in stored)
+
+
+def forget_key() -> None:
+    """The database and key file have just been replaced."""
+    with _key_lock:
+        _key_cache.clear()
+    _key_mismatch.clear()
 
 
 def _readable(token: str) -> bool:

@@ -1,4 +1,4 @@
-"""Imports (Apple Health, FHIR files) and exports (FHIR bundle, CSV, full backup)."""
+"""Imports (Apple Health, FHIR files) and exports (FHIR bundle, CSV)."""
 
 from __future__ import annotations
 
@@ -6,20 +6,18 @@ import csv
 import io
 import json
 import re
-import shutil
-import tempfile
 import time
 import unicodedata
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 
 from app.api.deps import check_access, resolve_profile
-from app.core import auth, maintenance
-from app.core.db import StartupProblem, audit, db, new_id, read, snapshot
+from app.core import auth
+from app.core.db import audit, db, new_id, read
 from app.services import imports
 from app.store import activity, biometrics, profiles, records
 
@@ -158,23 +156,6 @@ def export_csv(kind: str = "records", profile: Optional[str] = None) -> Streamin
     data = buf.getvalue().encode()
     return StreamingResponse(iter([data]), media_type="text/csv",
                              headers={"Content-Disposition": f'attachment; filename="syntropy-{_person(prof)}-{kind}-{_stamp()}.csv"'})
-
-
-@router.get("/export/backup", dependencies=[Depends(auth.require_owner)])
-def export_backup(background: BackgroundTasks) -> FileResponse:
-    """Consistent online snapshot of the whole database (includes encrypted tokens; keep it safe). It holds everyone's
-    data, so it's for owners (who can copy the database file anyway)."""
-    tmp = Path(tempfile.mkdtemp()) / f"syntropy-backup-{_stamp()}.db"
-    try:
-        snapshot(tmp)
-    except StartupProblem as exc:
-        shutil.rmtree(tmp.parent, ignore_errors=True)
-        maintenance.note_damage(str(exc.__cause__ or exc))
-        raise
-    with db() as conn:
-        audit(conn, "user", "export.backup")
-    background.add_task(shutil.rmtree, tmp.parent, ignore_errors=True)     # the snapshot and its folder
-    return FileResponse(tmp, media_type="application/vnd.sqlite3", filename=tmp.name)
 
 
 @router.delete("/profiles/{profile_id}/data")

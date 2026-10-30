@@ -21,10 +21,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.api import agents, assistant, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
+from app.api import agents, assistant, backups, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
 from app.core import auth, config, data_fixes, db, maintenance, security, settings as instance_settings
 from app.core.uploads import DecompressUploads
-from app.services import network, scheduler, updates
+from app.services import backups as backups_service, network, scheduler, updates
 from app.store import biometrics as biometric_store, profiles as profile_store, sample_counts
 from app.simulator import server as simulator
 
@@ -74,6 +74,7 @@ log = logging.getLogger("syntropy")
 
 
 def _start_up() -> None:
+    backups_service.clean_leftovers()
     db.ensure_migrated()
     security.check_key()
     instance_settings.migrate_client_ids()
@@ -219,7 +220,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(DecompressUploads)
 
-    for module in (system, profiles, directory, settings, connections, records, biometrics, insights, data, labs, assistant, agents, desktop):
+    for module in (system, profiles, directory, settings, connections, records, biometrics, insights, data, backups, labs, assistant, agents, desktop):
         app.include_router(module.router)
     app.include_router(agents.mcp_router)
     app.include_router(simulator.router)
