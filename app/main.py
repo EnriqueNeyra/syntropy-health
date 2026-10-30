@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import agents, assistant, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
 from app.core import auth, config, data_fixes, db, maintenance, security, settings as instance_settings
 from app.core.uploads import DecompressUploads
-from app.services import network, scheduler, updates
+from app.services import network, renormalize, scheduler, updates  # noqa: F401 - renormalize registers a data fix
 from app.store import biometrics as biometric_store, sample_counts
 from app.simulator import server as simulator
 

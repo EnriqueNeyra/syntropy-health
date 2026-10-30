@@ -415,7 +415,10 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
     for m in markers(profile_id, start=(today - timedelta(days=365)).isoformat()):
         if m["kind"] != "medications":
             continue
-        started = date.fromisoformat(m["t"])
+        try:
+            started = date.fromisoformat(m["t"])
+        except ValueError:      # known only to the year or month: too rough to compare the weeks around it
+            continue
         if (today - started).days < 21:
             continue
         name = m["label"].removeprefix("Started ")

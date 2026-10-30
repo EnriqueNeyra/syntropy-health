@@ -324,6 +324,8 @@ def _error_text(resp: httpx.Response) -> str:
 # FHIR data access
 # ---------------------------------------------------------------------------
 
+MAX_MEDICATION_READS = 100
+_FHIR_ID = re.compile(r"[A-Za-z0-9.\-]{1,64}")
 MEDICATION_INTENTS = "proposal,plan,order,original-order,reflex-order,filler-order,instance-order,option"
 
 # (resource type, list of alternative query parameter sets tried in order)
@@ -492,4 +494,32 @@ class FhirClient:
                         break
                 out.status[label] = status
                 out.counts[label] = sum(1 for r in out.resources if r["resourceType"] == rtype)
+            await self._read_missing_medications(client, out)
         return out
+
+    async def _read_missing_medications(self, client: httpx.AsyncClient, out: FetchResult) -> None:
+        """A server may ignore _include and send a medication as a bare reference, leaving nothing to name it by. Read those few
+        directly. A failure only leaves that medication unnamed; it's never part of whether a query completed."""
+        if self.granted is not None and "Medication" not in self.granted:
+            return
+        have = {str(r.get("id")) for r in out.resources if r.get("resourceType") == "Medication"}
+        wanted: list[str] = []
+        for res in out.resources:
+            reference = res.get("medicationReference")
+            if res.get("resourceType") not in ("MedicationRequest", "MedicationStatement") or not isinstance(reference, dict) or reference.get("display"):
+                continue
+            ref = reference.get("reference") or ""
+            # This request carries the access token, so only ever a Medication id on this server, never a URL the data supplied.
+            if ref.startswith("http") and not _same_server(ref, self.base):
+                continue
+            kind, _, mid = ref.rpartition("/")
+            if kind.rsplit("/", 1)[-1] == "Medication" and _FHIR_ID.fullmatch(mid) and mid not in have and mid not in wanted:
+                wanted.append(mid)
+        for mid in wanted[:MAX_MEDICATION_READS]:
+            try:
+                med = await self.read(client, f"Medication/{mid}")
+            except (httpx.HTTPError, SmartError) as exc:
+                log.warning("Couldn't read a referenced Medication: %s", type(exc).__name__)
+                return
+            if med and med.get("resourceType") == "Medication":
+                out.resources.append(med)
