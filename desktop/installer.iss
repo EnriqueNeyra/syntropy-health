@@ -27,12 +27,17 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+MinVersion=10.0
 CloseApplications=yes
 LicenseFile=..\LICENSE
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
 Name: "startup"; Description: "Open Syntropy Health when I sign in (keeps it reachable for the iPhone app)"; GroupDescription: "Background:"; Flags: unchecked
+
+[InstallDelete]
+; What the last version had and this one doesn't would stay and still load: a renamed migration, an old native module.
+Type: filesandordirs; Name: "{app}\_internal"
 
 [Files]
 Source: "dist\Syntropy Health\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
@@ -42,13 +47,15 @@ Name: "{autoprograms}\Syntropy Health"; Filename: "{app}\Syntropy Health.exe"
 Name: "{autodesktop}\Syntropy Health"; Filename: "{app}\Syntropy Health.exe"; Tasks: desktopicon
 
 [Registry]
-; The app manages this value itself (tray icon → Open at Login); remove it when uninstalling.
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Syntropy Health"; ValueData: """{app}\Syntropy Health.exe"" --background"; Flags: uninsdeletevalue; Tasks: startup
+; The app manages this value itself (tray icon → Open at Login); remove it when uninstalling. Written only when someone is
+; going through the installer: a silent update reselects the task chosen at first install, and would turn it back on.
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Syntropy Health"; ValueData: """{app}\Syntropy Health.exe"" --background"; Flags: uninsdeletevalue; Tasks: startup; Check: not WizardSilent
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Syntropy Health"; Flags: uninsdeletevalue dontcreatekey
 
 [Run]
 Filename: "{app}\Syntropy Health.exe"; Description: "Open Syntropy Health"; Flags: nowait postinstall skipifsilent
-; An update the app installed itself (silently, see desktop/updater.py): open it again the way it was.
+; An update installed by an earlier version of the app: open it again the way it was. (The app now does this itself, see
+; desktop/updater.py, but the versions already out there leave it to this setup program.)
 Filename: "{app}\Syntropy Health.exe"; Parameters: "--background"; Flags: nowait; Check: Relaunch('background')
 Filename: "{app}\Syntropy Health.exe"; Flags: nowait; Check: Relaunch('window')
 
@@ -59,10 +66,29 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM ""Syntropy Health.exe"""; Fl
 const
   RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
 
+var
+  Installed: Boolean;
+
 function Relaunch(Mode: String): Boolean;
 begin
   Result := WizardSilent and (ExpandConstant('{param:relaunch|}') = Mode);
 end;
+
+procedure RunPowerShell(Script: String);
+var
+  App: String;
+  Code: Integer;
+begin
+  App := ExpandConstant('{app}') + '\';
+  StringChangeEx(App, '''', '''''', True);
+  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+       '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$app = ''' + App + '''; ' + Script + '"', '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
+const
+  StopProcesses = 'Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($app, ''OrdinalIgnoreCase'') } | Stop-Process -Force -ErrorAction SilentlyContinue; ';
+  FindServerTask = '$task = Get-ScheduledTask -TaskName ''Syntropy Health'' -ErrorAction SilentlyContinue; ' +
+    'if ($task -and ($task.Actions | Where-Object { $_.Execute -and $_.Execute.Trim([char]34).StartsWith($app, ''OrdinalIgnoreCase'') })) ';
 
 // Anything still running from the app's folder (the console syntropy-health.exe an AI app started for its MCP server,
 // say) would keep its files from being removed. And `syntropy-health service install`, run from this app, starts the
@@ -70,21 +96,52 @@ end;
 // installed with install.ps1 -Server) are left alone.
 procedure StopWhatRunsFromApp;
 var
-  App, Command, Script: String;
-  Code: Integer;
+  App, Command: String;
 begin
   App := ExpandConstant('{app}') + '\';
   if RegQueryStringValue(HKCU, RunKey, 'Syntropy Health Server', Command) and (Pos(Lowercase(App), Lowercase(Command)) > 0) then
     RegDeleteValue(HKCU, RunKey, 'Syntropy Health Server');
-  StringChangeEx(App, '''', '''''', True);
-  Script :=
-    '$app = ''' + App + '''; ' +
-    'Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($app, ''OrdinalIgnoreCase'') } | Stop-Process -Force -ErrorAction SilentlyContinue; ' +
-    '$task = Get-ScheduledTask -TaskName ''Syntropy Health'' -ErrorAction SilentlyContinue; ' +
-    'if ($task -and ($task.Actions | Where-Object { $_.Execute -and $_.Execute.Trim([char]34).StartsWith($app, ''OrdinalIgnoreCase'') })) ' +
-    '{ Unregister-ScheduledTask -TaskName ''Syntropy Health'' -Confirm:$false }';
-  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-       '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' + Script + '"', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  RunPowerShell(StopProcesses + FindServerTask + '{ Unregister-ScheduledTask -TaskName ''Syntropy Health'' -Confirm:$false }');
+end;
+
+// An update with nobody watching: whatever runs from the app's folder stops now, rather than leaving locked files to
+// abort setup, with no message. Someone going through the installer is asked by Windows instead (CloseApplications).
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if WizardSilent and DirExists(ExpandConstant('{app}')) then
+    RunPowerShell(StopProcesses);
+end;
+
+// The server from `syntropy-health service install` was just stopped, and its task only runs at sign-in.
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+  begin
+    Installed := True;
+    if WizardSilent then
+      RunPowerShell(FindServerTask + '{ Start-ScheduledTask -TaskName ''Syntropy Health'' }');
+  end;
+end;
+
+// An earlier version of the app quit for this update and left the reopening to [Run], which only runs when setup works.
+procedure DeinitializeSetup;
+var
+  Exe: String;
+  Code: Integer;
+begin
+  if Installed or (ExpandConstant('{param:relaunch|}') = '') then
+    Exit;
+  try
+    Exe := ExpandConstant('{app}\Syntropy Health.exe');
+  except
+    Exit;
+  end;
+  if FileExists(Exe) then
+    if ExpandConstant('{param:relaunch|}') = 'background' then
+      Exec(Exe, '--background', '', SW_SHOWNORMAL, ewNoWait, Code)
+    else
+      Exec(Exe, '', '', SW_SHOWNORMAL, ewNoWait, Code);
 end;
 
 // Your profiles, accounts and records are kept unless you say otherwise, so installing again picks up where you left

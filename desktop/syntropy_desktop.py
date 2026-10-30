@@ -712,8 +712,12 @@ class DesktopApp:
 
     def bring_up_own_server(self) -> None:
         """Runs beside the window, which shows the starting page: the first start after an update can take minutes."""
+        import updater
+
         self.starting = True
+        problem = None
         try:
+            updater.review_last_attempt(self.data / "updates")     # before the server: it may put the database back
             self.start_own_server()
             problem = self.server.problem()
         except Exception as exc:  # noqa: BLE001 - whatever it was, the window says so
@@ -722,9 +726,14 @@ class DesktopApp:
         self.starting = False
         if problem:
             log.error("Can't start: %s", problem[1])
+            # A new version that can't work with this data: its update script goes back to the one that can.
+            if problem[0] in updater.GO_BACK_KINDS and updater.started_badly(self.data / "updates", problem[1]):
+                return self.quit()
             self.show_problem(*problem)
-        elif self.window:
-            self.window.load_url(self.server.url)
+        else:
+            updater.started_fine(self.data / "updates")
+            if self.window:
+                self.window.load_url(self.server.url)
         self.refresh_menu()
 
     def show_problem(self, kind: str, text: str) -> None:
@@ -1005,8 +1014,12 @@ class DesktopApp:
                 self.mac.install()
             if not self.joined:
                 self.bring_up_own_server()
-            elif first_url == "about:blank":      # the server's computer is off or away
-                self.open_joined()
+            else:
+                import updater
+                updater.review_last_attempt(self.data / "updates")
+                updater.started_fine(self.data / "updates")
+                if first_url == "about:blank":      # the server's computer is off or away
+                    self.open_joined()
 
         webview.start(started, private_mode=False, storage_path=str(self.data / "webview"), user_agent=user_agent(),
                       **window_icon())
@@ -1032,8 +1045,12 @@ class DesktopApp:
             return
         instance.listen()
         self.prefs.set("role", None)
+        import updater
+        updater.review_last_attempt(self.data / "updates")
         self.start_own_server()
         problem = self.server.problem()
+        if not problem:
+            updater.started_fine(self.data / "updates")
         if problem:     # the browser shows the same explanation, from the server
             threading.Thread(target=alert, daemon=True, args=(f"{APP_NAME} can't start", problem[1])).start()
         from tray import make_tray
