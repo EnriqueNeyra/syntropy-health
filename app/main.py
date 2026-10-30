@@ -6,15 +6,18 @@ Syntropy Health — application entry point.
 
 from __future__ import annotations
 
+import asyncio
+import html
 import logging
 import re
+import sqlite3
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.api import agents, assistant, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
@@ -59,12 +62,47 @@ _OWN_CSP = ("/sim/", "/callback")
 log = logging.getLogger("syntropy")
 
 
-@asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+def _start_up() -> None:
     db.ensure_migrated()
     instance_settings.migrate_client_ids()
     biometric_store.upgrade_daily_if_needed()
     sample_counts.warm()
+
+
+def _problem_page(problem: str) -> str:
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{config.APP_NAME} can't start</title><style>:root{{color-scheme:light dark}}
+body{{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:36rem;margin:0 auto;padding:12vh 16px;overflow-wrap:anywhere}}
+h1{{font-size:1.3rem;margin:0 0 .75rem}}</style></head>
+<body><h1>{config.APP_NAME} can't start</h1><p>{html.escape(problem)}</p>
+<p>Your data folder is {html.escape(str(config.data_dir()))}.</p></body></html>"""
+
+
+def _problem_response(request: Request, problem: str) -> Response:
+    path = request.url.path
+    if path == "/health":
+        return JSONResponse({"status": "error", "service": "syntropy-health", "version": config.APP_VERSION,
+                             "journal_mode": None, "detail": problem}, status_code=503)
+    if path.startswith("/api/") or path == "/mcp":
+        return JSONResponse({"detail": problem}, status_code=503, headers={"Cache-Control": "no-store"})
+    return HTMLResponse(_problem_page(problem), status_code=503, headers={"Cache-Control": "no-store"})
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    app.state.problem = None
+    try:
+        await asyncio.to_thread(_start_up)
+    except db.StartupProblem as exc:
+        app.state.problem = str(exc)
+    except sqlite3.DatabaseError as exc:        # damage that only shows once the data is read
+        app.state.problem = str(db.unusable(exc, config.db_path()))
+    if app.state.problem:
+        # Up, but touching nothing: the desktop window and browsers can say why, a container's health check fails, and
+        # a restart policy doesn't turn it into a crash loop with no explanation.
+        log.error("Not starting: %s", app.state.problem)
+        yield
+        return
     if config.scheduler_enabled():
         scheduler.start()
         updates.start()
@@ -94,6 +132,11 @@ def create_app() -> FastAPI:
             return JSONResponse({"detail": "This address isn't allowed without a password. Set a password, or add it "
                                            "to SYNTROPY_ALLOWED_HOSTS."}, status_code=421)
         return await call_next(request)
+
+    @app.middleware("http")
+    async def explain_a_startup_problem(request: Request, call_next):
+        problem = getattr(request.app.state, "problem", None)
+        return _problem_response(request, problem) if problem else await call_next(request)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -138,6 +181,10 @@ def create_app() -> FastAPI:
         # Same body as FastAPI's default, but echoed inputs such as NaN/Infinity (which are not valid
         # JSON) become null instead of turning the 422 into a 500.
         return JSONResponse({"detail": db.finite(jsonable_encoder(exc.errors()))}, status_code=422)
+
+    @app.exception_handler(db.StartupProblem)
+    async def startup_problem(request: Request, exc: db.StartupProblem) -> Response:
+        return _problem_response(request, str(exc))
 
     @app.exception_handler(Exception)
     async def server_error(request: Request, exc: Exception) -> Response:

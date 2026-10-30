@@ -444,6 +444,15 @@ def accounts_command(action: Optional[str], name: Optional[str]) -> None:
 # ---------------------------------------------------------------------------
 
 def main(argv: Optional[list[str]] = None) -> None:
+    from app.core.db import StartupProblem
+
+    try:
+        _command(argv)
+    except StartupProblem as exc:
+        sys.exit(str(exc))
+
+
+def _command(argv: Optional[list[str]] = None) -> None:
     parser = argparse.ArgumentParser(prog="syntropy-health", description="Syntropy Health: your health records, on your own computer.")
     parser.add_argument("--data-dir", help="where the data lives (default: the usual place on this computer, which "
                                            "`syntropy-health info` shows)", default=None)
