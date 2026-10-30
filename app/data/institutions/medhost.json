@@ -378,18 +378,6 @@
 "fhir_base_url": "https://fhir.yourcareuniverse.net/tenant/dc99805d-917b-428a-a290-e8848d07e01c"
 },
 {
-"id": "medhost-medhost-community-hospital-demo02",
-"name": "Medhost Community Hospital - Demo02",
-"platform": "medhost",
-"fhir_base_url": "https://fhir.yourcareuniverse.net/tenant/c91e7cb8-16f6-43af-aa73-f42df176474c"
-},
-{
-"id": "medhost-medhost-general-hospital-demo01",
-"name": "Medhost General Hospital - Demo01",
-"platform": "medhost",
-"fhir_base_url": "https://fhir.yourcareuniverse.net/tenant/47b7af45-a0f3-4509-b194-d0e646d655f9"
-},
-{
 "id": "medhost-medhost-medical-center",
 "name": "MEDHOST Medical Center",
 "platform": "medhost",
@@ -553,7 +541,7 @@
 },
 {
 "id": "medhost-northwest-health-physicians-39-specialty-hospital",
-"name": "Northwest Health- Physicians&#39; Specialty Hospital",
+"name": "Northwest Health- Physicians' Specialty Hospital",
 "platform": "medhost",
 "fhir_base_url": "https://fhir.yourcareuniverse.net/tenant/e108d9e2-8802-451c-b874-d1f2187c552f"
 },

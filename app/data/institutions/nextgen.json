@@ -203,20 +203,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-central-office",
-"name": "_Central Office",
-"location": "Seattle, WA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-master-practice-3",
-"name": "_Master Practice",
-"location": "Fort Lauderdale, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-a-new-leaf-inc",
 "name": "A New Leaf Inc",
 "location": "Mesa, AZ",
@@ -477,7 +463,7 @@
 },
 {
 "id": "nextgen-advanced-care-podiatry-llc",
-"name": "Advanced Care Podiatry  LLC",
+"name": "Advanced Care Podiatry LLC",
 "location": "Bensalem, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -1040,14 +1026,10 @@
 "name": "Alpha Environment Practice 2",
 "location": "Horsham, PA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-alpha-environment-practice-2-2",
-"name": "Alpha Environment Practice 2_2",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-alpha-environment-practice-2-2"
+]
 },
 {
 "id": "nextgen-alpine-pediatrics",
@@ -1263,13 +1245,6 @@
 "id": "nextgen-amm-healthcare",
 "name": "AMM Healthcare",
 "location": "Cary, NC",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-ams-default-practice",
-"name": "AMS Default Practice",
-"location": "Atlanta, OH",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -1506,7 +1481,7 @@
 },
 {
 "id": "nextgen-amsurg-westminster-anesthesia-llc",
-"name": "AmSurg Westminster  Anesthesia LLC",
+"name": "AmSurg Westminster Anesthesia LLC",
 "location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -2107,16 +2082,16 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-arthritis-and-osteoporosis-center-llc-2",
-"name": "Arthritis And Osteoporosis Center,  LLC",
-"location": "Seaford, DE",
+"id": "nextgen-arthritis-and-osteoporosis-center-llc",
+"name": "Arthritis and Osteoporosis Center, LLC",
+"location": "Ocala, FL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-arthritis-and-osteoporosis-center-llc",
-"name": "Arthritis and Osteoporosis Center, LLC",
-"location": "Ocala, FL",
+"id": "nextgen-arthritis-and-osteoporosis-center-llc-2",
+"name": "Arthritis And Osteoporosis Center, LLC",
+"location": "Seaford, DE",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -2237,7 +2212,10 @@
 "name": "Arthritis Autoimmune And Allergy LLC",
 "location": "Daytona Beach, FL",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-arthritis-autoimmune-and-allergy-llc-2"
+]
 },
 {
 "id": "nextgen-arthritis-care-and-research-center",
@@ -2338,13 +2316,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-arthritis-autoimmune-and-allergy-llc-2",
-"name": "Arthritis, Autoimmune, And Allergy, LLC",
-"location": "Daytona Beach, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-arthur-center-community-health",
 "name": "Arthur Center Community Health",
 "location": "Mexico, MO",
@@ -2397,13 +2368,6 @@
 "id": "nextgen-asc-center-for-specialty-surgery-cssc",
 "name": "ASC Center For Specialty Surgery (CSSC)",
 "location": "New Albany, OH",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-asc-payer-default-practice",
-"name": "ASC Payer Default Practice",
-"location": "Providence, RI",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -3525,7 +3489,10 @@
 "name": "Boulder InSight Retina Consultants",
 "location": "Boulder, CO",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-insight-retina-consultants-boulder"
+]
 },
 {
 "id": "nextgen-boulder-medical-center",
@@ -4886,6 +4853,13 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-central-office",
+"name": "Central Office",
+"location": "Seattle, WA",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-central-ohio-urology-group-inc",
 "name": "Central Ohio Urology Group Inc",
 "location": "Cincinnati, OH",
@@ -4950,7 +4924,7 @@
 },
 {
 "id": "nextgen-ch-mssp-services-tn-pllc-il",
-"name": "CH MSSP Services TN PLLC  (IL)",
+"name": "CH MSSP Services TN PLLC (IL)",
 "location": "Lafayette, LA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -5751,7 +5725,10 @@
 "name": "CML 2 Practice",
 "location": "Mays Landing, NJ",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-default-practice-2-2"
+]
 },
 {
 "id": "nextgen-coal-creek-family-medicine",
@@ -5790,7 +5767,7 @@
 },
 {
 "id": "nextgen-coastal-health-wellness",
-"name": "Coastal Health &  Wellness",
+"name": "Coastal Health & Wellness",
 "location": "La Marque, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -6839,13 +6816,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-cva-usa-default-practice",
-"name": "CVA USA Default Practice",
-"location": "Kissimmee, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-cva-the-heart-group",
 "name": "CVA, The Heart Group",
 "location": "Fresno, CA",
@@ -7052,62 +7022,6 @@
 "id": "nextgen-deen-gross-eye-centers",
 "name": "Deen Gross Eye Centers",
 "location": "Merrillville, IN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-default-enterprise",
-"name": "Default Enterprise",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-default-practice",
-"name": "Default Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-default-practice-2",
-"name": "Default Practice",
-"location": "Canton, OH",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-default-practice-3",
-"name": "Default Practice",
-"location": "Chapel Hill, NC",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-default-practice-4",
-"name": "Default Practice",
-"location": "Flemington, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-default-practice-0002",
-"name": "Default Practice 0002",
-"location": "Newark, DE",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-default-practice-0003",
-"name": "Default Practice 0003",
-"location": "Deerfield, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-default-practice-2-2",
-"name": "Default Practice 2",
-"location": "Horsham, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -7421,7 +7335,7 @@
 },
 {
 "id": "nextgen-dfwpma-physicians-medical-associa",
-"name": "DFWPMA  Physicians Medical Associa",
+"name": "DFWPMA Physicians Medical Associa",
 "location": "Sherman, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -7756,16 +7670,16 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-dr-bruce-becker-group",
-"name": "Dr  Bruce Becker Group",
-"location": "Encino, CA",
+"id": "nextgen-dr-bremer-dr-gass",
+"name": "Dr Bremer Dr Gass",
+"location": "Elizabethton, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-dr-bremer-dr-gass",
-"name": "Dr Bremer  Dr Gass",
-"location": "Elizabethton, TN",
+"id": "nextgen-dr-bruce-becker-group",
+"name": "Dr Bruce Becker Group",
+"location": "Encino, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -7792,7 +7706,7 @@
 },
 {
 "id": "nextgen-dr-myers-dr-bell",
-"name": "Dr Myers  Dr Bell",
+"name": "Dr Myers Dr Bell",
 "location": "Warrenton, VA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -10074,7 +9988,7 @@
 },
 {
 "id": "nextgen-geetha-m-reddy-md-f-a-c-c",
-"name": "Geetha M Reddy  MD  F A C C",
+"name": "Geetha M Reddy MD F A C C",
 "location": "Libertyville, IL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -12166,13 +12080,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-insight-retina-consultants-boulder",
-"name": "InSight Retina Consultants Boulder",
-"location": "Boulder, CO",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-insight-retina-consultants-p-c-boulder",
 "name": "InSight Retina Consultants, P.C. Boulder",
 "location": "Boulder, CO",
@@ -12713,7 +12620,7 @@
 },
 {
 "id": "nextgen-judy-huynh-do",
-"name": "Judy Huynh  DO",
+"name": "Judy Huynh DO",
 "location": "Laguna Hills, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -13063,7 +12970,7 @@
 },
 {
 "id": "nextgen-kunesh-eye-surgery-center",
-"name": "Kunesh Eye Surgery  Center",
+"name": "Kunesh Eye Surgery Center",
 "location": "Dayton, OH",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -14123,7 +14030,10 @@
 "name": "Martin Simmons",
 "location": "Erie, PA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-simmons-martin"
+]
 },
 {
 "id": "nextgen-marwan-edris-md",
@@ -14220,6 +14130,13 @@
 "id": "nextgen-master-practice-2",
 "name": "Master Practice",
 "location": "Nashville, TN",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-master-practice-3",
+"name": "Master Practice",
+"location": "Fort Lauderdale, FL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -14578,14 +14495,10 @@
 "name": "Medcor Corporate Clinic",
 "location": "Mchenry, IL",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-medcor-default-clinic",
-"name": "Medcor Default Clinic",
-"location": "City, WY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-medcor-default-clinic"
+]
 },
 {
 "id": "nextgen-medeye-associates",
@@ -15219,7 +15132,7 @@
 },
 {
 "id": "nextgen-michigan-lung-and-sleep-specialists-plc",
-"name": "Michigan Lung And Sleep Specialists  PLC",
+"name": "Michigan Lung And Sleep Specialists PLC",
 "location": "Livonia, MI",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -15680,15 +15593,15 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-mngi-endoscopy-llc",
-"name": "MNGI Endoscopy  LLC",
+"id": "nextgen-mngi-endoscopy-asc-inc",
+"name": "MNGI Endoscopy ASC Inc",
 "location": "Minneapolis, MN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-mngi-endoscopy-asc-inc",
-"name": "MNGI Endoscopy ASC Inc",
+"id": "nextgen-mngi-endoscopy-llc",
+"name": "MNGI Endoscopy LLC",
 "location": "Minneapolis, MN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -15697,34 +15610,6 @@
 "id": "nextgen-mobile-vascular",
 "name": "Mobile Vascular",
 "location": "Mobile, AL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-model-practice",
-"name": "Model Practice",
-"location": "Coeur D Alene, ID",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-model-practice-2",
-"name": "Model Practice",
-"location": "Seattle, WA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-model-practice-3",
-"name": "Model Practice",
-"location": "Irvine, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-model-practice-4",
-"name": "Model Practice",
-"location": "Las Vegas, NV",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -15856,7 +15741,7 @@
 },
 {
 "id": "nextgen-morris-eye-group-comprehensive-eyecare",
-"name": "Morris Eye Group  Comprehensive Eyecare",
+"name": "Morris Eye Group Comprehensive Eyecare",
 "location": "Encinitas, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -16983,7 +16868,7 @@
 },
 {
 "id": "nextgen-northeast-ob-gyn-associates",
-"name": "Northeast OB/GYN  Associates",
+"name": "Northeast OB/GYN Associates",
 "location": "San Antonio, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -17437,13 +17322,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-nysapp-gold-standard-default",
-"name": "NYSAPP Gold Standard Default",
-"location": "Ithaca, NY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-oa-asc-llc",
 "name": "Oa Asc LLC",
 "location": "Portland, ME",
@@ -17531,13 +17409,6 @@
 "id": "nextgen-ob-gyn-associates-of-corpus-christi",
 "name": "OB GYN Associates Of Corpus Christi",
 "location": "Corpus Christi, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-obs-payer-default-practice",
-"name": "OBS Payer Default Practice",
-"location": "Malvern, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -18746,16 +18617,16 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-paul-shipkin-md-pc",
-"name": "Paul  Shipkin MD PC",
-"location": "Bala Cynwyd, PA",
+"id": "nextgen-paul-phillips-eye-and-surgery-center",
+"name": "Paul Phillips Eye And Surgery Center",
+"location": "Flemington, NJ",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-paul-phillips-eye-and-surgery-center",
-"name": "Paul Phillips Eye And Surgery Center",
-"location": "Flemington, NJ",
+"id": "nextgen-paul-shipkin-md-pc",
+"name": "Paul Shipkin MD PC",
+"location": "Bala Cynwyd, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -19419,7 +19290,7 @@
 },
 {
 "id": "nextgen-piedmont-pediatrics-p-l-c",
-"name": "Piedmont Pediatrics  P L C",
+"name": "Piedmont Pediatrics P L C",
 "location": "Warrenton, VA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -19817,76 +19688,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-pptesting10",
-"name": "PPTesting10",
-"location": "Barrington, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pptesting-1",
-"name": "PPTesting_1",
-"location": "Alaska, AL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pptesting-2",
-"name": "PPTesting_2",
-"location": "Schenectady, NY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pptesting-3",
-"name": "PPTesting_3",
-"location": "Schenectady, NY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pptesting-4",
-"name": "PPTesting_4",
-"location": "Schenectady, NY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pptesting-5",
-"name": "PPTesting_5",
-"location": "Elk Grove Village, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pptesting-6",
-"name": "PPTesting_6",
-"location": "Rolling Meadows, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pptesting-7",
-"name": "PPTesting_7",
-"location": "Rolling Meadows, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pptesting-8",
-"name": "PPTesting_8",
-"location": "Elk Grove Village, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pptesting-9",
-"name": "PPTesting_9",
-"location": "Rolling Meadows, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-practice-4",
 "name": "Practice 4",
 "location": "Horsham, PA",
@@ -20184,13 +19985,6 @@
 "id": "nextgen-proactive-heart-and-vascular-pllc",
 "name": "ProActive Heart And Vascular PLLC",
 "location": "Germantown, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-prodtest",
-"name": "Prodtest",
-"location": "Glen Rock, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -20821,13 +20615,6 @@
 "id": "nextgen-rcm-automation",
 "name": "RCM Automation",
 "location": "Chapel Hill, NC",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-rd59ud1-testpractice",
-"name": "RD59UD1_TestPractice",
-"location": "Horsham, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -23044,13 +22831,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-simmons-martin",
-"name": "Simmons,Martin",
-"location": "Erie, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-sinai-behavioral-health",
 "name": "Sinai Behavioral Health",
 "location": "Chicago, IL",
@@ -24780,27 +24560,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-testpracticeele01",
-"name": "TestPracticeELE01",
-"location": "East Moriches, NY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-testpracticeele03",
-"name": "TestPracticeELE03",
-"location": "East Moriches, NY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-testtest",
-"name": "Testtest",
-"location": "Midland, MI",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-teton-orthopaedics",
 "name": "Teton Orthopaedics",
 "location": "Jackson, WY",
@@ -25257,7 +25016,7 @@
 },
 {
 "id": "nextgen-the-project-of-the-quad-cities-inc",
-"name": "The Project Of  the Quad Cities Inc",
+"name": "The Project Of the Quad Cities Inc",
 "location": "Moline, IL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -25362,7 +25121,7 @@
 },
 {
 "id": "nextgen-thomas-l-watkins-d-o",
-"name": "Thomas L  Watkins, D O",
+"name": "Thomas L Watkins, D O",
 "location": "Muskegon, MI",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -27951,13 +27710,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-z",
-"name": "Z",
-"location": "Clariton, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-z-advanced-gastroenterology-nutrition",
 "name": "Z Advanced Gastroenterology & Nutrition",
 "location": "Flemington, NJ",
@@ -28003,13 +27755,6 @@
 "id": "nextgen-z-county-line-family-practice",
 "name": "Z County Line Family Practice",
 "location": "Branchburg, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-default-nonunified",
-"name": "Z Default NonUnified",
-"location": "Flemington, NJ",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -28399,27 +28144,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-zdefault-new-practice-new-enterprise",
-"name": "ZDefault New Practice New Enterprise",
-"location": "Cedar Falls, IA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-zdefault-practice",
-"name": "ZDefault Practice",
-"location": "Salem, OR",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-zdefault-practice-setup",
-"name": "ZDefault Practice Setup",
-"location": "Youngstown, OH",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-zepick-cardiology",
 "name": "Zepick Cardiology",
 "location": "Wichita, KS",
@@ -28458,13 +28182,6 @@
 "id": "nextgen-zosima-b-carino-gateb-md-inc",
 "name": "Zosima B Carino Gateb MD Inc",
 "location": "Indio, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-zpgseo-default-practice",
-"name": "ZPGSEO Default Practice",
-"location": "Zanesville, OH",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 }

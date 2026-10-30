@@ -25,10 +25,9 @@
 "fhir_base_url": "https://eprescribing.accesscommunityhealth.net/FHIR/ACCESS/api/FHIR/R4",
 "places": [
 "Chicago IL",
-"CHICAGO IL",
-"BLOOMINGDALE IL",
-"MELROSE PARK IL",
-"ARLINGTON HEIGHTS IL",
+"Bloomingdale IL",
+"Melrose Park IL",
+"Arlington Heights IL",
 "Cicero IL",
 "Blue Island IL",
 "Chicago Heights IL"
@@ -48,14 +47,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1041.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"CHICAGO IL",
-"FORT WORTH TX",
-"DALLAS TX",
-"BAY CITY TX",
-"INDIANAPOLIS IN",
-"SAN DIEGO CA",
-"TAMPA FL",
-"COLUMBUS OH"
+"Chicago IL",
+"Fort Worth TX",
+"Dallas TX",
+"Bay City TX",
+"Indianapolis IN",
+"San Diego CA",
+"Tampa FL",
+"Columbus OH"
 ]
 },
 {
@@ -70,10 +69,8 @@
 "Berne IN",
 "Monroeville IN",
 "Fort Wayne IN",
-"DECATUR IN",
-"WARREN IN",
-"Geneva IN",
-"GENEVA IN"
+"Warren IN",
+"Geneva IN"
 ]
 },
 {
@@ -84,7 +81,7 @@
 "fhir_base_url": "https://epicfe.unch.unc.edu/FHIR/UNCADAMSDENTISTRY/api/FHIR/R4",
 "network": "UNC Health Care System",
 "places": [
-"CHAPEL HILL NC"
+"Chapel Hill NC"
 ]
 },
 {
@@ -149,14 +146,14 @@
 "fhir_base_url": "https://mobile.adventhealth.com/oauth2-PRD/api/FHIR/R4",
 "featured": true,
 "places": [
-"ORLANDO FL",
-"TAMPA FL",
-"SEBRING FL",
-"KISSIMMEE FL",
-"OCALA FL",
-"WINTER PARK FL",
-"TAVARES FL",
-"ALTAMONTE SPRINGS FL"
+"Orlando FL",
+"Tampa FL",
+"Sebring FL",
+"Kissimmee FL",
+"Ocala FL",
+"Winter Park FL",
+"Tavares FL",
+"Altamonte Springs FL"
 ]
 },
 {
@@ -186,14 +183,12 @@
 "fhir_base_url": "https://epicproxy.et0301.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "network": "Advocate-Aurora",
 "places": [
-"CHICAGO IL",
-"MILWAUKEE WI",
-"OAK LAWN IL",
-"Milwaukee WI",
-"GREEN BAY WI",
 "Chicago IL",
-"DOWNERS GROVE IL",
-"ELGIN IL"
+"Milwaukee WI",
+"Oak Lawn IL",
+"Green Bay WI",
+"Downers Grove IL",
+"Elgin IL"
 ]
 },
 {
@@ -215,7 +210,7 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "network": "Parkview Health",
 "places": [
-"FORT WAYNE IN"
+"Fort Wayne IN"
 ]
 },
 {
@@ -227,8 +222,7 @@
 "network": "Akron Children's Hospital",
 "places": [
 "Akron OH",
-"CANTON OH",
-"AKRON OH",
+"Canton OH",
 "Warren OH",
 "Amherst OH",
 "Wooster OH",
@@ -243,14 +237,11 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1075.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"ALAMEDA CA",
+"Alameda CA",
 "Oakland CA",
 "San Leandro CA",
-"SAN LEANDRO CA",
-"HAYWARD CA",
-"NEWARK CA",
-"Alameda CA",
-"OAKLAND CA"
+"Hayward CA",
+"Newark CA"
 ]
 },
 {
@@ -279,7 +270,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTACH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"ALBANY NY"
+"Albany NY"
 ]
 },
 {
@@ -307,7 +298,7 @@
 "fhir_base_url": "https://epicproxy.et0502.epichosted.com/FhirProxy/RAW/api/FHIR/R4",
 "network": "UC San Diego Health",
 "places": [
-"LA JOLLA CA"
+"La Jolla CA"
 ]
 },
 {
@@ -364,11 +355,10 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "network": "Parkview Health",
 "places": [
-"FORT WAYNE IN",
 "Fort Wayne IN",
-"AUBURN IN",
-"LOGANSPORT IN",
-"MARION IN"
+"Auburn IN",
+"Logansport IN",
+"Marion IN"
 ]
 },
 {
@@ -415,14 +405,14 @@
 "fhir_base_url": "https://epicproxy.et1138.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Altais",
 "places": [
-"SAN FRANCISCO CA",
-"OAKLAND CA",
-"BERKELEY CA",
-"DALY CITY CA",
-"ALAMEDA CA",
-"BURLINGAME CA",
-"WALNUT CREEK CA",
-"LAFAYETTE CA"
+"San Francisco CA",
+"Oakland CA",
+"Berkeley CA",
+"Daly City CA",
+"Alameda CA",
+"Burlingame CA",
+"Walnut Creek CA",
+"Lafayette CA"
 ]
 },
 {
@@ -437,7 +427,7 @@
 "Santa Ana CA",
 "El Monte CA",
 "Orange CA",
-"PASADENA CA",
+"Pasadena CA",
 "Huntington Park CA",
 "West Covina CA"
 ]
@@ -451,10 +441,9 @@
 "network": "Altru Health System",
 "places": [
 "Grand Forks ND",
-"GRAND FORKS ND",
-"NORTHWOOD ND",
-"LAKOTA ND",
-"CANDO ND",
+"Northwood ND",
+"Lakota ND",
+"Cando ND",
 "McVille ND",
 "Devils Lake ND",
 "Rugby ND"
@@ -507,14 +496,11 @@
 "fhir_base_url": "https://epicproxy.et0971.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "AnMed",
 "places": [
-"ANDERSON SC",
 "Anderson SC",
 "Piedmont SC",
 "Clemson SC",
-"CLEMSON SC",
 "Pickens SC",
-"PIEDMONT SC",
-"PENDLETON SC"
+"Pendleton SC"
 ]
 },
 {
@@ -526,9 +512,8 @@
 "places": [
 "Chicago IL",
 "Schaumburg IL",
-"NAPERVILLE IL",
+"Naperville IL",
 "Libertyville IL",
-"CHICAGO IL",
 "Arlington Heights IL",
 "Rockford IL",
 "Wheaton IL"
@@ -554,10 +539,9 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1186.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
-"TUCSON AZ",
 "Tucson AZ",
-"GREEN VALLEY AZ",
-"ORO VALLEY AZ"
+"Green Valley AZ",
+"Oro Valley AZ"
 ]
 },
 {
@@ -607,7 +591,7 @@
 "Colton CA",
 "Needles CA",
 "Apple Valley CA",
-"FONTANA CA"
+"Fontana CA"
 ]
 },
 {
@@ -618,13 +602,12 @@
 "fhir_base_url": "https://epicproxy.et4006.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "network": "Garden Plot Orthopedics",
 "places": [
-"SUMMERVILLE SC",
+"Summerville SC",
 "Columbia SC",
-"GREENWOOD SC",
+"Greenwood SC",
 "Simpsonville SC",
 "Mt Pleasant SC",
-"BLUFFTON SC",
-"Summerville SC",
+"Bluffton SC",
 "Charleston SC"
 ]
 },
@@ -638,11 +621,8 @@
 "Klamath Falls OR",
 "Medford OR",
 "Grants Pass OR",
-"MEDFORD OR",
 "Ashland OR",
-"Lakeview OR",
-"GRANTS PASS OR",
-"ASHLAND OR"
+"Lakeview OR"
 ]
 },
 {
@@ -659,8 +639,7 @@
 "fhir_base_url": "https://stofo.providence-waco.org/FHIRProxy/api/FHIR/R4",
 "network": "Ascension Providence",
 "places": [
-"Waco TX",
-"WACO TX"
+"Waco TX"
 ]
 },
 {
@@ -671,11 +650,9 @@
 "fhir_base_url": "https://epicmobile.presencehealth.org/fhirPRD/api/FHIR/R4",
 "places": [
 "Chicago IL",
-"CHICAGO IL",
-"EVANSTON IL",
-"DES PLAINES IL",
-"Palos Heights IL",
-"Des Plaines IL"
+"Evanston IL",
+"Des Plaines IL",
+"Palos Heights IL"
 ]
 },
 {
@@ -690,9 +667,8 @@
 "Racine WI",
 "Mequon WI",
 "Brookfield WI",
-"OSHKOSH WI",
-"APPLETON WI",
-"RACINE WI",
+"Oshkosh WI",
+"Appleton WI",
 "Franklin WI"
 ]
 },
@@ -704,7 +680,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTACRS/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SEATTLE WA"
+"Seattle WA"
 ]
 },
 {
@@ -725,11 +701,10 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1254.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"ASPEN CO",
-"BASALT CO",
-"SNOWMASS VILLAGE CO",
-"GLENWOOD SPGS CO",
-"Aspen CO"
+"Aspen CO",
+"Basalt CO",
+"Snowmass Village CO",
+"Glenwood Spgs CO"
 ]
 },
 {
@@ -740,14 +715,13 @@
 "fhir_base_url": "https://epichaiku.chs-mi.com/FHIRPROXY/api/FHIR/R4",
 "network": "Covenant HealthCare",
 "places": [
-"CASS CITY MI",
-"MARLETTE MI",
-"DECKERVILLE MI",
-"CARO MI",
-"BAD AXE MI",
-"UBLY MI",
-"SANDUSKY MI",
-"Cass City MI"
+"Cass City MI",
+"Marlette MI",
+"Deckerville MI",
+"Caro MI",
+"Bad Axe MI",
+"Ubly MI",
+"Sandusky MI"
 ]
 },
 {
@@ -758,13 +732,10 @@
 "fhir_base_url": "https://erx.aspirus.org/FHIR/api/FHIR/R4",
 "places": [
 "Wausau WI",
-"DULUTH MN",
-"STEVENS POINT WI",
-"WAUSAU WI",
-"Ironwood MI",
-"Wisconsin Rapids WI",
+"Duluth MN",
 "Stevens Point WI",
-"WISCONSIN RAPIDS WI"
+"Ironwood MI",
+"Wisconsin Rapids WI"
 ]
 },
 {
@@ -782,14 +753,12 @@
 "fhir_base_url": "https://epicproxy.et0907.epichosted.com/FHIRProxyPRD/MYCHARTATLANTICHEALTH/api/FHIR/R4",
 "network": "Atlantic Health System",
 "places": [
-"MORRISTOWN NJ",
 "Morristown NJ",
-"SUMMIT NJ",
+"Summit NJ",
 "Denville NJ",
-"FREEHOLD NJ",
-"MOUNTAIN LAKES NJ",
-"Wayne NJ",
-"Summit NJ"
+"Freehold NJ",
+"Mountain Lakes NJ",
+"Wayne NJ"
 ]
 },
 {
@@ -799,13 +768,11 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0905.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"CHARLOTTE NC",
 "Charlotte NC",
 "Winston Salem NC",
 "High Point NC",
-"WINSTON SALEM NC",
 "Rome GA",
-"CONCORD NC",
+"Concord NC",
 "Greensboro NC"
 ]
 },
@@ -846,7 +813,7 @@
 "fhir_base_url": "https://myepicapps.uihealthcare.org/FHIRProxy/api/FHIR/R4",
 "network": "University of Iowa Health Care",
 "places": [
-"AUDUBON IA"
+"Audubon IA"
 ]
 },
 {
@@ -863,14 +830,12 @@
 "fhir_base_url": "https://mobileprod.arcmd.com/FHIR/api/FHIR/R4",
 "featured": true,
 "places": [
-"AUSTIN TX",
 "Austin TX",
-"PFLUGERVILLE TX",
-"ROUND ROCK TX",
+"Pflugerville TX",
 "Round Rock TX",
-"CEDAR PARK TX",
-"KYLE TX",
-"GEORGETOWN TX"
+"Cedar Park TX",
+"Kyle TX",
+"Georgetown TX"
 ]
 },
 {
@@ -886,7 +851,6 @@
 "Chapel Hill NC",
 "Durham NC",
 "Charlotte NC",
-"DURHAM NC",
 "Wake Forest NC",
 "Waxhaw NC"
 ]
@@ -909,14 +873,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1439.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
-"SIOUX FALLS SD",
 "Sioux Falls SD",
-"MITCHELL SD",
-"ABERDEEN SD",
-"YANKTON SD",
+"Mitchell SD",
+"Aberdeen SD",
+"Yankton SD",
 "Pierre SD",
-"Marshall MN",
-"MARSHALL MN"
+"Marshall MN"
 ]
 },
 {
@@ -940,8 +902,7 @@
 "Mansfield OH",
 "Marion OH",
 "Shelby OH",
-"Crestline OH",
-"GALION OH"
+"Crestline OH"
 ]
 },
 {
@@ -963,8 +924,8 @@
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/BMC/api/FHIR/R4",
 "network": "Ardent",
 "places": [
-"TULSA OK",
-"OWASSO OK"
+"Tulsa OK",
+"Owasso OK"
 ]
 },
 {
@@ -974,14 +935,14 @@
 "platform": "epic",
 "fhir_base_url": "https://soap.wellmont.org/FHIRPRD/api/FHIR/R4",
 "places": [
-"KINGSPORT TN",
-"JOHNSON CITY TN",
-"NORTON VA",
-"GREENEVILLE TN",
-"BRISTOL TN",
+"Kingsport TN",
+"Johnson City TN",
+"Norton VA",
+"Greeneville TN",
+"Bristol TN",
 "Abingdon VA",
-"ROGERSVILLE TN",
-"BIG STONE GAP VA"
+"Rogersville TN",
+"Big Stone Gap VA"
 ]
 },
 {
@@ -1021,14 +982,14 @@
 "fhir_base_url": "https://epicproxy.et1206.epichosted.com/FHIRProxy/BHJ/api/FHIR/R4",
 "network": "Baptist Health (Jacksonville",
 "places": [
-"JACKSONVILLE FL",
-"JACKSONVILLE BEACH FL",
-"PONTE VEDRA FL",
-"YULEE FL",
-"ORANGE PARK FL",
-"FLEMING ISLAND FL",
-"FERNANDINA BEACH FL",
-"PONTE VEDRA BEACH FL"
+"Jacksonville FL",
+"Jacksonville Beach FL",
+"Ponte Vedra FL",
+"Yulee FL",
+"Orange Park FL",
+"Fleming Island FL",
+"Fernandina Beach FL",
+"Ponte Vedra Beach FL"
 ]
 },
 {
@@ -1045,14 +1006,12 @@
 "fhir_base_url": "https://epicproxy.bhsi.com/PRD-FHIR/BHSI/api/FHIR/R4",
 "network": "Baptist Healthcare System",
 "places": [
-"LOUISVILLE KY",
-"LEXINGTON KY",
-"Elizabethtown KY",
-"CORBIN KY",
-"RICHMOND KY",
-"Paducah KY",
 "Louisville KY",
-"Lexington KY"
+"Lexington KY",
+"Elizabethtown KY",
+"Corbin KY",
+"Richmond KY",
+"Paducah KY"
 ]
 },
 {
@@ -1093,10 +1052,9 @@
 "places": [
 "South Lake Tahoe CA",
 "Stateline NV",
-"SO LAKE TAHOE CA",
+"So Lake Tahoe CA",
 "Minden NV",
-"Kirkwood CA",
-"SOUTH LAKE TAHOE CA"
+"Kirkwood CA"
 ]
 },
 {
@@ -1107,7 +1065,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTBACHC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"LANCASTER CA"
+"Lancaster CA"
 ]
 },
 {
@@ -1135,14 +1093,11 @@
 "platform": "epic",
 "fhir_base_url": "https://interconnect.brgeneral.org/oauth/BRG/api/FHIR/R4",
 "places": [
-"BATON ROUGE LA",
 "Baton Rouge LA",
 "Prairieville LA",
 "Port Allen LA",
-"ZACHARY LA",
-"Walker LA",
 "Zachary LA",
-"PORT ALLEN LA"
+"Walker LA"
 ]
 },
 {
@@ -1201,14 +1156,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epproxy.bayhealth.org/FHIR/HOME/api/FHIR/R4",
 "places": [
-"DOVER DE",
-"MILFORD DE",
-"MILTON DE",
-"SMYRNA DE",
 "Dover DE",
-"FREDERICA DE",
+"Milford DE",
+"Milton DE",
 "Smyrna DE",
-"MIDDLETOWN DE"
+"Frederica DE",
+"Middletown DE"
 ]
 },
 {
@@ -1219,12 +1172,11 @@
 "fhir_base_url": "https://fhir.clinical.bcm.edu/Stage1Fhir/BCMMYC/api/FHIR/R4",
 "network": "Baylor College of Medicine",
 "places": [
-"HOUSTON TX",
 "Houston TX",
-"SUGARLAND TX",
-"THE WOODLANDS TX",
-"SUGAR LAND TX",
-"VICTORIA TX"
+"Sugarland TX",
+"The Woodlands TX",
+"Sugar Land TX",
+"Victoria TX"
 ]
 },
 {
@@ -1246,14 +1198,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.bswhealth.org/FHIR-PRD/api/FHIR/R4",
 "places": [
-"DALLAS TX",
-"PLANO TX",
-"FRISCO TX",
-"IRVING TX",
-"WACO TX",
-"MCKINNEY TX",
-"WAXAHACHIE TX",
-"FORT WORTH TX"
+"Dallas TX",
+"Plano TX",
+"Frisco TX",
+"Irving TX",
+"Waco TX",
+"McKinney TX",
+"Waxahachie TX",
+"Fort Worth TX"
 ]
 },
 {
@@ -1298,14 +1250,13 @@
 "platform": "epic",
 "fhir_base_url": "https://icfg-p.beebehealthcare.org/oauth2prdproxy/api/FHIR/R4",
 "places": [
-"LEWES DE",
-"REHOBOTH BEACH DE",
-"MILLSBORO DE",
-"GEORGETOWN DE",
 "Lewes DE",
-"MILFORD DE",
-"MILLVILLE DE",
-"SELBYVILLE DE"
+"Rehoboth Beach DE",
+"Millsboro DE",
+"Georgetown DE",
+"Milford DE",
+"Millville DE",
+"Selbyville DE"
 ]
 },
 {
@@ -1340,7 +1291,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"CHICAGO IL"
+"Chicago IL"
 ]
 },
 {
@@ -1351,7 +1302,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"HATCH NM"
+"Hatch NM"
 ]
 },
 {
@@ -1364,7 +1315,6 @@
 "Great Falls MT",
 "Helena MT",
 "Fort Benton MT",
-"GREAT FALLS MT",
 "Lewistown MT",
 "Choteau MT",
 "Fairfield MT"
@@ -1391,13 +1341,13 @@
 "platform": "epic",
 "fhir_base_url": "https://fhir.laheyhealth.org/proxy-prd-fhir/api/FHIR/R4",
 "places": [
-"CAMBRIDGE MA",
-"BEVERLY MA",
+"Cambridge MA",
+"Beverly MA",
 "Boston MA",
 "Plymouth MA",
 "Gloucester MA",
-"WINCHESTER MA",
-"WOBURN MA",
+"Winchester MA",
+"Woburn MA",
 "Newburyport MA"
 ]
 },
@@ -1409,7 +1359,7 @@
 "fhir_base_url": "https://proxy.lvh.com/FHIR/api/FHIR/R4",
 "network": "Lehigh Valley Hospital",
 "places": [
-"BETHLEHEM PA"
+"Bethlehem PA"
 ]
 },
 {
@@ -1446,7 +1396,6 @@
 "network": "BJC HealthCare & Washington University",
 "places": [
 "Saint Louis MO",
-"SAINT LOUIS MO",
 "Columbia MO",
 "Farmington MO",
 "Alton IL",
@@ -1476,7 +1425,6 @@
 "fhir_base_url": "https://epicproxy.et1351.epichosted.com/APIProxyPRD/HOME/api/FHIR/R4",
 "places": [
 "Boston MA",
-"boston MA",
 "Weymouth MA",
 "Dartmouth MA",
 "Roxbury Crossing MA",
@@ -1492,14 +1440,14 @@
 "platform": "epic",
 "fhir_base_url": "https://emerge-soap1.bmc.org/FHIR-PRD/HOME/api/FHIR/R4",
 "places": [
-"BOSTON MA",
-"BROCKTON MA",
-"DORCHESTER MA",
-"NORWOOD MA",
-"BRIGHTON MA",
-"ROXBURY MA",
-"SOUTH WEYMOUTH MA",
-"HYDE PARK MA"
+"Boston MA",
+"Brockton MA",
+"Dorchester MA",
+"Norwood MA",
+"Brighton MA",
+"Roxbury MA",
+"South Weymouth MA",
+"Hyde Park MA"
 ]
 },
 {
@@ -1590,7 +1538,6 @@
 "Battle Creek MI",
 "Portage MI",
 "South Haven MI",
-"KALAMAZOO MI",
 "Paw Paw MI",
 "Allegan MI",
 "Three Rivers MI"
@@ -1611,10 +1558,9 @@
 "fhir_base_url": "https://epicproxy.et1043.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "The Brooklyn Hospital Center",
 "places": [
-"BROOKLYN NY",
 "Brooklyn NY",
-"ASTORIA NY",
-"NEW YORK NY"
+"Astoria NY",
+"New York NY"
 ]
 },
 {
@@ -1626,13 +1572,9 @@
 "network": "Baptist Health (AL)",
 "places": [
 "Birmingham AL",
-"BIRMINGHAM AL",
 "Jasper AL",
 "Alabaster AL",
-"JASPER AL",
-"ALABASTER AL",
-"Talladega AL",
-"TALLADEGA AL"
+"Talladega AL"
 ]
 },
 {
@@ -1656,14 +1598,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1369.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "places": [
-"FORT LAUDERDALE FL",
-"POMPANO BEACH FL",
 "Fort Lauderdale FL",
-"CORAL SPRINGS FL",
+"Pompano Beach FL",
 "Coral Springs FL",
-"PLANTATION FL",
-"LIGHTHOUSE POINT FL",
-"DEERFIELD BEACH FL"
+"Plantation FL",
+"Lighthouse Point FL",
+"Deerfield Beach FL"
 ]
 },
 {
@@ -1674,8 +1614,7 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/BWM/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"West Palm Beach FL",
-"WEST PALM BEACH FL"
+"West Palm Beach FL"
 ]
 },
 {
@@ -1687,12 +1626,9 @@
 "places": [
 "Lincoln NE",
 "Kearney NE",
-"LINCOLN NE",
 "Grand Island NE",
-"GRAND ISLAND NE",
-"KEARNEY NE",
-"AURORA NE",
-"HASTINGS NE"
+"Aurora NE",
+"Hastings NE"
 ]
 },
 {
@@ -1703,7 +1639,6 @@
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/BSA/api/FHIR/R4",
 "network": "Ardent",
 "places": [
-"AMARILLO TX",
 "Amarillo TX"
 ]
 },
@@ -1714,14 +1649,11 @@
 "platform": "epic",
 "fhir_base_url": "https://fhir.buffalomedicalgroup.com/fhir-arr/api/FHIR/R4",
 "places": [
-"WILLIAMSVILLE NY",
-"BUFFALO NY",
-"ORCHARD PARK NY",
-"NIAGARA FALLS NY",
-"Niagara Falls NY",
+"Williamsville NY",
 "Buffalo NY",
-"Lockport NY",
-"LOCKPORT NY"
+"Orchard Park NY",
+"Niagara Falls NY",
+"Lockport NY"
 ]
 },
 {
@@ -1739,7 +1671,7 @@
 "fhir_base_url": "https://sfd.fairview.org/FHIR/BFP/api/FHIR/R4",
 "network": "Fairview",
 "places": [
-"BURNSVILLE MN"
+"Burnsville MN"
 ]
 },
 {
@@ -1796,8 +1728,7 @@
 "places": [
 "Angola IN",
 "Fremont IN",
-"ANGOLA IN",
-"SAINT JOE IN",
+"Saint Joe IN",
 "Fort Wayne IN"
 ]
 },
@@ -1809,8 +1740,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"Miami FL",
-"MIAMI FL"
+"Miami FL"
 ]
 },
 {
@@ -1841,9 +1771,8 @@
 "network": "OSF HealthCare",
 "places": [
 "Decatur IL",
-"DECATUR IL",
-"WILSON MI",
-"SPRINGFIELD IL"
+"Wilson MI",
+"Springfield IL"
 ]
 },
 {
@@ -1854,14 +1783,13 @@
 "fhir_base_url": "https://epicproxy.et1149.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Cape Cod HealthCare",
 "places": [
-"HYANNIS MA",
-"FALMOUTH MA",
-"MASHPEE MA",
-"SANDWICH MA",
-"SOUTH DENNIS MA",
-"ORLEANS MA",
 "Hyannis MA",
-"BOURNE MA"
+"Falmouth MA",
+"Mashpee MA",
+"Sandwich MA",
+"South Dennis MA",
+"Orleans MA",
+"Bourne MA"
 ]
 },
 {
@@ -1872,13 +1800,11 @@
 "fhir_base_url": "https://epicproxy.et1094.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Cape Fear Valley Health",
 "places": [
-"FAYETTEVILLE NC",
 "Fayetteville NC",
 "Dunn NC",
 "Elizabethtown NC",
-"ELIZABETHTOWN NC",
 "Lillington NC",
-"CLARKTON NC",
+"Clarkton NC",
 "Raeford NC"
 ]
 },
@@ -1890,12 +1816,10 @@
 "fhir_base_url": "https://epicproxy.et1222.epichosted.com/FHIRProxy/api/FHIR/R4/",
 "places": [
 "Washington DC",
-"WASHINGTON DC",
 "Arlington VA",
 "Reston VA",
-"GERMANTOWN MD",
-"ARLINGTON VA",
-"ALEXANDRIA VA",
+"Germantown MD",
+"Alexandria VA",
 "Bethesda MD"
 ]
 },
@@ -1919,11 +1843,9 @@
 "places": [
 "Providence RI",
 "Warwick RI",
-"PAWTUCKET RI",
-"East Greenwich RI",
-"PROVIDENCE RI",
-"Cranston RI",
 "Pawtucket RI",
+"East Greenwich RI",
+"Cranston RI",
 "Lincoln RI"
 ]
 },
@@ -1946,14 +1868,14 @@
 "platform": "epic",
 "fhir_base_url": "https://interconnect.carelon.com/Interconnect-PRD-OAuth2/api/FHIR/R4",
 "places": [
-"NEW YORK NY",
-"PASADENA CA",
-"COLUMBUS OH",
-"HOUSTON TX",
-"INDIANAPOLIS IN",
-"NEPTUNE NJ",
-"TAMPA FL",
-"WINSTON SALEM NC"
+"New York NY",
+"Pasadena CA",
+"Columbus OH",
+"Houston TX",
+"Indianapolis IN",
+"Neptune NJ",
+"Tampa FL",
+"Winston Salem NC"
 ]
 },
 {
@@ -2031,13 +1953,12 @@
 "fhir_base_url": "https://epicproxy.et1385.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
 "New Bern NC",
-"MOREHEAD CITY NC",
+"Morehead City NC",
 "Jacksonville NC",
 "Havelock NC",
 "Midway Park NC",
 "Vanceboro NC",
-"Pollocksville NC",
-"NEW BERN NC"
+"Pollocksville NC"
 ]
 },
 {
@@ -2049,8 +1970,6 @@
 "places": [
 "Gastonia NC",
 "Belmont NC",
-"BELMONT NC",
-"GASTONIA NC",
 "Lake Wylie SC",
 "Clover SC",
 "Cherryville NC",
@@ -2083,9 +2002,8 @@
 "fhir_base_url": "https://fhir.renown.org/FHIRProxy/CVH/api/FHIR/R4",
 "network": "Renown Health",
 "places": [
-"GARDNERVILLE NV",
 "Gardnerville NV",
-"MINDEN NV"
+"Minden NV"
 ]
 },
 {
@@ -2109,7 +2027,7 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/CIM/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"BEND OR"
+"Bend OR"
 ]
 },
 {
@@ -2144,14 +2062,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1144.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"BUFFALO NY",
-"WEST SENECA NY",
-"WILLIAMSVILLE NY",
-"NIAGARA FALLS NY",
-"ORCHARD PARK NY",
-"LEWISTON NY",
-"KENMORE NY",
-"LOCKPORT NY"
+"Buffalo NY",
+"West Seneca NY",
+"Williamsville NY",
+"Niagara Falls NY",
+"Orchard Park NY",
+"Lewiston NY",
+"Kenmore NY",
+"Lockport NY"
 ]
 },
 {
@@ -2168,8 +2086,7 @@
 "Smithtown NY",
 "Commack NY",
 "Lake Success NY",
-"Centereach NY",
-"SMITHTOWN NY"
+"Centereach NY"
 ]
 },
 {
@@ -2189,8 +2106,6 @@
 "places": [
 "Los Angeles CA",
 "Beverly Hills CA",
-"BEVERLY HILLS CA",
-"LOS ANGELES CA",
 "Pasadena CA",
 "Tarzana CA",
 "Santa Monica CA",
@@ -2213,12 +2128,12 @@
 "places": [
 "Charlotte NC",
 "Concord NC",
-"KERNERSVILLE NC",
+"Kernersville NC",
 "Rock Hill SC",
 "Salisbury NC",
-"ELKIN NC",
+"Elkin NC",
 "Lancaster SC",
-"WINSTON SALEM NC"
+"Winston Salem NC"
 ]
 },
 {
@@ -2229,7 +2144,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTCEMPA/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"CHATTANOOGA TN"
+"Chattanooga TN"
 ]
 },
 {
@@ -2247,14 +2162,13 @@
 "fhir_base_url": "https://epicproxy.et0515.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "CentraCare Health System",
 "places": [
-"ST. CLOUD MN",
-"SAINT CLOUD MN",
-"WILLMAR MN",
 "St. Cloud MN",
-"MONTICELLO MN",
-"ALEXANDRIA MN",
-"SARTELL MN",
-"LITTLE FALLS MN"
+"Saint Cloud MN",
+"Willmar MN",
+"Monticello MN",
+"Alexandria MN",
+"Sartell MN",
+"Little Falls MN"
 ]
 },
 {
@@ -2279,14 +2193,12 @@
 "fhir_base_url": "https://epichaiku.chs-mi.com/FHIRPROXY/api/FHIR/R4",
 "network": "Covenant HealthCare",
 "places": [
-"SAGINAW MI",
-"Mt Pleasant MI",
-"UNIVERSITY CENTER MI",
-"CASS CITY MI",
-"Mount Pleasant MI",
-"BAY CITY MI",
 "Saginaw MI",
-"MOUNT PLEASANT MI"
+"Mt Pleasant MI",
+"University Center MI",
+"Cass City MI",
+"Mount Pleasant MI",
+"Bay City MI"
 ]
 },
 {
@@ -2321,7 +2233,7 @@
 "fhir_base_url": "https://haikuak.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Alaska",
 "places": [
-"SOLDOTNA AK"
+"Soldotna AK"
 ]
 },
 {
@@ -2333,11 +2245,11 @@
 "network": "Baptist Memorial Health Care",
 "places": [
 "Kosciusko MS",
-"JACKSON MS",
-"FOREST MS",
-"BRANDON MS",
-"HAZLEHURST MS",
-"MADISON MS",
+"Jackson MS",
+"Forest MS",
+"Brandon MS",
+"Hazlehurst MS",
+"Madison MS",
 "Magee MS"
 ]
 },
@@ -2352,11 +2264,9 @@
 "Ithaca NY",
 "Elmira NY",
 "Cortland NY",
-"CORNING NY",
+"Corning NY",
 "Syracuse NY",
-"ELMIRA NY",
-"MONTOUR FALLS NY",
-"ITHACA NY"
+"Montour Falls NY"
 ]
 },
 {
@@ -2383,14 +2293,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1437.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "places": [
-"STERLING IL",
-"POLO IL",
-"WALNUT IL",
 "Sterling IL",
-"MOUNT CARROLL IL",
-"MORRISON IL",
-"ROCK FALLS IL",
-"PROPHETSTOWN IL"
+"Polo IL",
+"Walnut IL",
+"Mount Carroll IL",
+"Morrison IL",
+"Rock Falls IL",
+"Prophetstown IL"
 ]
 },
 {
@@ -2415,14 +2324,14 @@
 "fhir_base_url": "https://epicproxy.et1290.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Community Care Cooperative",
 "places": [
-"WORCESTER MA",
+"Worcester MA",
 "Boone NC",
-"BOSTON MA",
-"SALEM MA",
-"BROCKTON MA",
-"HOLYOKE MA",
-"HUNTINGTON MA",
-"LOWELL MA"
+"Boston MA",
+"Salem MA",
+"Brockton MA",
+"Holyoke MA",
+"Huntington MA",
+"Lowell MA"
 ]
 },
 {
@@ -2457,7 +2366,7 @@
 "fhir_base_url": "https://carepath.health-partners.org/Proxy-FHIR/CRH/api/FHIR/R4",
 "network": "Bon Secours Mercy Health",
 "places": [
-"CHESAPEAKE VA"
+"Chesapeake VA"
 ]
 },
 {
@@ -2486,14 +2395,12 @@
 "fhir_base_url": "https://rp.catholichealth.net/fhir/api/FHIR/R4",
 "network": "CommonSpirit Health Pacific Northwest",
 "places": [
-"FEDERAL WAY WA",
-"TACOMA WA",
-"Bremerton WA",
+"Federal Way WA",
 "Tacoma WA",
+"Bremerton WA",
 "Burien WA",
 "Silverdale WA",
-"Seattle WA",
-"Federal Way WA"
+"Seattle WA"
 ]
 },
 {
@@ -2506,10 +2413,8 @@
 "places": [
 "Omaha NE",
 "Bismarck ND",
-"LINCOLN NE",
-"OMAHA NE",
-"Council Bluffs IA",
 "Lincoln NE",
+"Council Bluffs IA",
 "Grand Island NE",
 "Kearney NE"
 ]
@@ -2524,7 +2429,7 @@
 "places": [
 "Ringgold GA",
 "Hixson TN",
-"CHATTANOOGA TN",
+"Chattanooga TN",
 "Fort Oglethorpe GA"
 ]
 },
@@ -2549,14 +2454,11 @@
 "fhir_base_url": "https://rpsouth.catholichealth.net/fhir/api/FHIR/R4",
 "network": "CommonSpirit Health South",
 "places": [
-"LEXINGTON KY",
-"London KY",
 "Lexington KY",
+"London KY",
 "Bardstown KY",
 "Corbin KY",
-"Mt Sterling KY",
-"LONDON KY",
-"BARDSTOWN KY"
+"Mt Sterling KY"
 ]
 },
 {
@@ -2574,7 +2476,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"CHICAGO IL"
+"Chicago IL"
 ]
 },
 {
@@ -2586,10 +2488,9 @@
 "network": "Chickasaw Nation",
 "places": [
 "Ada OK",
-"PURCELL OK",
-"ARDMORE OK",
-"TISHOMINGO OK",
-"ADA OK"
+"Purcell OK",
+"Ardmore OK",
+"Tishomingo OK"
 ]
 },
 {
@@ -2610,14 +2511,12 @@
 "platform": "epic",
 "fhir_base_url": "https://fhir.childrens.com/Interconnect-OAuth2PRD/api/FHIR/R4",
 "places": [
-"DALLAS TX",
 "Dallas TX",
-"PLANO TX",
-"RICHARDSON TX",
-"IRVING TX",
 "Plano TX",
-"GARLAND TX",
-"MCKINNEY TX"
+"Richardson TX",
+"Irving TX",
+"Garland TX",
+"McKinney TX"
 ]
 },
 {
@@ -2635,7 +2534,6 @@
 "places": [
 "Atlanta GA",
 "Alpharetta GA",
-"ATLANTA GA",
 "Duluth GA",
 "Stockbridge GA",
 "Athens GA",
@@ -2661,7 +2559,6 @@
 "Aurora CO",
 "Colorado Springs CO",
 "Parker CO",
-"DENVER CO",
 "Highlands Ranch CO",
 "Centennial CO",
 "Castle Rock CO"
@@ -2674,14 +2571,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1422.epichosted.com/fhirproxyPRD/api/FHIR/R4",
 "places": [
-"KANSAS CITY MO",
-"OVERLAND PARK KS",
-"SPRINGFIELD MO",
-"RIVERSIDE MO",
-"BOLIVAR MO",
-"WICHITA KS",
-"BRANSON MO",
-"GREAT BEND KS"
+"Kansas City MO",
+"Overland Park KS",
+"Springfield MO",
+"Riverside MO",
+"Bolivar MO",
+"Wichita KS",
+"Branson MO",
+"Great Bend KS"
 ]
 },
 {
@@ -2693,7 +2590,6 @@
 "places": [
 "Omaha NE",
 "Lincoln NE",
-"OMAHA NE",
 "Kearney NE",
 "Sioux City IA",
 "Elkhorn NE",
@@ -2708,14 +2604,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1246.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"BIRMINGHAM AL",
-"BESSEMER AL",
-"ALABASTER AL",
-"HOMEWOOD AL",
-"HUNTSVILLE AL",
-"PELL CITY AL",
+"Birmingham AL",
+"Bessemer AL",
+"Alabaster AL",
+"Homewood AL",
+"Huntsville AL",
+"Pell City AL",
 "Hoover AL",
-"HUEYTOWN AL"
+"Hueytown AL"
 ]
 },
 {
@@ -2728,7 +2624,6 @@
 "Milwaukee WI",
 "Kenosha WI",
 "Wauwatosa WI",
-"MILWAUKEE WI",
 "New Berlin WI",
 "Neenah WI",
 "Mequon WI",
@@ -2784,7 +2679,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"CHICAGO IL"
+"Chicago IL"
 ]
 },
 {
@@ -2823,14 +2718,13 @@
 "fhir_base_url": "https://proxy.christushealth.org/FHIRPRD/api/FHIR/R4",
 "network": "CHRISTUS Health",
 "places": [
-"TYLER TX",
-"SANTA FE NM",
-"SAN ANTONIO TX",
-"CORPUS CHRISTI TX",
+"Tyler TX",
+"Santa Fe NM",
 "San Antonio TX",
-"TEXARKANA TX",
-"SHREVEPORT LA",
-"LONGVIEW TX"
+"Corpus Christi TX",
+"Texarkana TX",
+"Shreveport LA",
+"Longview TX"
 ]
 },
 {
@@ -2842,12 +2736,11 @@
 "network": "Cincinnati Children's Hospital Medical Center",
 "places": [
 "Cincinnati OH",
-"CINCINNATI OH",
-"BATAVIA OH",
+"Batavia OH",
 "Mason OH",
 "Greensburg IN",
 "Liberty Township OH",
-"NEW ALBANY IN",
+"New Albany IN",
 "Shelbyville KY"
 ]
 },
@@ -2890,7 +2783,7 @@
 "fhir_base_url": "https://proxy.lvh.com/FHIR/api/FHIR/R4",
 "network": "Lehigh Valley Hospital",
 "places": [
-"ALLENTOWN PA"
+"Allentown PA"
 ]
 },
 {
@@ -2942,25 +2835,22 @@
 {
 "id": "epic-cleveland-clinic",
 "name": "Cleveland Clinic",
-"platform": "epic",
-"fhir_base_url": "https://api.ccf.org/mu/api/FHIR/R4",
-"featured": true
-},
-{
-"id": "epic-cleveland-clinic-2",
-"name": "Cleveland Clinic",
 "location": "OH, FL, PA, NV and more",
 "platform": "epic",
 "fhir_base_url": "https://api.ccf.org/mu/api/FHIR/R4",
+"featured": true,
 "places": [
-"CLEVELAND OH",
-"AKRON OH",
-"STUART FL",
-"WESTLAKE OH",
-"BEACHWOOD OH",
-"LAKEWOOD OH",
-"VERO BEACH FL",
-"ASHTABULA OH"
+"Cleveland OH",
+"Akron OH",
+"Stuart FL",
+"Westlake OH",
+"Beachwood OH",
+"Lakewood OH",
+"Vero Beach FL",
+"Ashtabula OH"
+],
+"former_ids": [
+"epic-cleveland-clinic-2"
 ]
 },
 {
@@ -2981,14 +2871,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1430.epichosted.com/APIPROXYPRD/CSV/api/FHIR/R4",
 "places": [
-"FRESNO CA",
-"BAKERSFIELD CA",
+"Fresno CA",
 "Bakersfield CA",
 "Delano CA",
-"DELANO CA",
-"LEBEC CA",
-"ARVIN CA",
-"LAKE ISABELLA CA"
+"Lebec CA",
+"Arvin CA",
+"Lake Isabella CA"
 ]
 },
 {
@@ -3006,8 +2894,7 @@
 "fhir_base_url": "https://epproxy.bayhealth.org/FHIR/HOME/api/FHIR/R4",
 "network": "Bayhealth Medical Center",
 "places": [
-"DOVER DE",
-"MILFORD DE",
+"Dover DE",
 "Milford DE"
 ]
 },
@@ -3031,7 +2918,6 @@
 "network": "Garden Plot",
 "places": [
 "New Bern NC",
-"NEW BERN NC",
 "Havelock NC",
 "Bayboro NC",
 "Morehead City NC"
@@ -3063,7 +2949,7 @@
 "fhir_base_url": "https://soapprod.multicare.org/FHIRProxy/api/FHIR/R4",
 "network": "MultiCare Health System",
 "places": [
-"COEUR D ALENE ID"
+"Coeur D Alene ID"
 ]
 },
 {
@@ -3080,8 +2966,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"Ephrata WA",
-"EPHRATA WA"
+"Ephrata WA"
 ]
 },
 {
@@ -3110,7 +2995,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTCRH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"BOARDMAN OR"
+"Boardman OR"
 ]
 },
 {
@@ -3121,14 +3006,12 @@
 "fhir_base_url": "https://epicproxy-pub.et1089.epichosted.com/FHIRProxy/api/FHIR/R4/",
 "network": "New York Consortium",
 "places": [
-"NEW YORK NY",
 "New York NY",
-"BRONX NY",
 "Bronx NY",
-"BRONXVILLE NY",
-"YONKERS NY",
-"WHITE PLAINS NY",
-"SCARSDALE NY"
+"Bronxville NY",
+"Yonkers NY",
+"White Plains NY",
+"Scarsdale NY"
 ]
 },
 {
@@ -3139,7 +3022,7 @@
 "fhir_base_url": "https://ihismufhir.osumc.edu/fhir-prd/api/FHIR/R4",
 "network": "The Ohio State University Wexner Medical Center",
 "places": [
-"COLUMBUS OH"
+"Columbus OH"
 ]
 },
 {
@@ -3150,7 +3033,6 @@
 "fhir_base_url": "https://epicprdproxy.crh.org/FHIRPRD/HOME/api/FHIR/R4",
 "places": [
 "Columbus IN",
-"COLUMBUS IN",
 "Seymour IN",
 "North Vernon IN",
 "Greensburg IN",
@@ -3167,14 +3049,13 @@
 "fhir_base_url": "https://rpsouth.catholichealth.net/fhir/api/FHIR/R4",
 "network": "CommonSpirit Health South",
 "places": [
-"HOT SPRINGS AR",
-"LITTLE ROCK AR",
+"Hot Springs AR",
+"Little Rock AR",
 "Chattanooga TN",
-"BRYAN TX",
+"Bryan TX",
 "Houston TX",
-"CHATTANOOGA TN",
-"COLLEGE STATION TX",
-"LAKE JACKSON TX"
+"College Station TX",
+"Lake Jackson TX"
 ]
 },
 {
@@ -3185,7 +3066,7 @@
 "fhir_base_url": "https://epicproxy.et1482.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "CommonSpirit Health National",
 "places": [
-"SEATTLE WA"
+"Seattle WA"
 ]
 },
 {
@@ -3272,14 +3153,11 @@
 "platform": "epic",
 "fhir_base_url": "https://esp.ecommunity.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"INDIANAPOLIS IN",
 "Indianapolis IN",
-"KOKOMO IN",
-"GREENWOOD IN",
-"Anderson IN",
 "Kokomo IN",
-"Fishers IN",
-"ANDERSON IN"
+"Greenwood IN",
+"Anderson IN",
+"Fishers IN"
 ]
 },
 {
@@ -3304,7 +3182,7 @@
 "Miami FL",
 "Houston TX",
 "Missoula MT",
-"TAMPA FL",
+"Tampa FL",
 "Providence RI",
 "Homestead FL",
 "Chicago IL",
@@ -3348,7 +3226,6 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"ANACONDA MT",
 "Anaconda MT"
 ]
 },
@@ -3377,13 +3254,10 @@
 "platform": "epic",
 "fhir_base_url": "https://epicsoapprd.communitymedical.org/arr_fhir/api/FHIR/R4",
 "places": [
-"FRESNO CA",
-"CLOVIS CA",
 "Fresno CA",
 "Clovis CA",
-"REEDLEY CA",
-"VISALIA CA",
-"MADERA CA",
+"Reedley CA",
+"Visalia CA",
 "Madera CA"
 ]
 },
@@ -3395,14 +3269,14 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"VENTURA CA",
-"OXNARD CA",
-"OJAI CA",
-"SANTA PAULA CA",
-"CAMARILLO CA",
-"FILLMORE CA",
-"PORT HUENEME CA",
-"OAK VIEW CA"
+"Ventura CA",
+"Oxnard CA",
+"Ojai CA",
+"Santa Paula CA",
+"Camarillo CA",
+"Fillmore CA",
+"Port Hueneme CA",
+"Oak View CA"
 ]
 },
 {
@@ -3413,7 +3287,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"BURKE SD"
+"Burke SD"
 ]
 },
 {
@@ -3438,13 +3312,12 @@
 "fhir_base_url": "https://epicproxy.et1164.epichosted.com/fhirproxy/CUC/api/FHIR/R4",
 "network": "CommUnityCare Health Centers",
 "places": [
-"AUSTIN TX",
 "Austin TX",
-"PFLUGERVILLE TX",
-"DEL VALLE TX",
-"BASTROP TX",
-"MANOR TX",
-"ROUND ROCK TX"
+"Pflugerville TX",
+"Del Valle TX",
+"Bastrop TX",
+"Manor TX",
+"Round Rock TX"
 ]
 },
 {
@@ -3469,14 +3342,14 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"DUNN NC",
-"SHALLOTTE NC",
-"HARRELLS NC",
-"SALEMBURG NC",
-"TAR HEEL NC",
-"BENSON NC",
-"BOLIVIA NC",
-"OCEAN ISLE BEACH NC"
+"Dunn NC",
+"Shallotte NC",
+"Harrells NC",
+"Salemburg NC",
+"Tar Heel NC",
+"Benson NC",
+"Bolivia NC",
+"Ocean Isle Beach NC"
 ]
 },
 {
@@ -3487,7 +3360,7 @@
 "fhir_base_url": "https://epicproxy.et0502.epichosted.com/FhirProxy/CCMC/api/FHIR/R4",
 "network": "UC San Diego Health",
 "places": [
-"SAN DIEGO CA"
+"San Diego CA"
 ]
 },
 {
@@ -3499,12 +3372,11 @@
 "network": "FMOL Health",
 "places": [
 "Baton Rouge LA",
-"BATON ROUGE LA",
-"MONROE LA",
-"LAFAYETTE LA",
-"GONZALES LA",
+"Monroe LA",
+"Lafayette LA",
+"Gonzales LA",
 "West Monroe LA",
-"JACKSON MS",
+"Jackson MS",
 "McComb MS"
 ]
 },
@@ -3516,7 +3388,7 @@
 "fhir_base_url": "https://EpicProxy.hhchealth.org/FHIR/api/FHIR/R4",
 "network": "Hartford HealthCare",
 "places": [
-"WALLINGFORD CT"
+"Wallingford CT"
 ]
 },
 {
@@ -3543,9 +3415,7 @@
 "Greensboro NC",
 "Burlington NC",
 "Reidsville NC",
-"GREENSBORO NC",
 "High Point NC",
-"BURLINGTON NC",
 "Kernersville NC",
 "Asheboro NC"
 ]
@@ -3557,14 +3427,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0962.epichosted.com/APIPROXYPRD/api/FHIR/R4",
 "places": [
-"JOHNSTOWN PA",
 "Johnstown PA",
-"EBENSBURG PA",
-"MEYERSDALE PA",
-"SOMERSET PA",
-"CRESSON PA",
+"Ebensburg PA",
+"Meyersdale PA",
+"Somerset PA",
+"Cresson PA",
 "Roaring Springs PA",
-"JENNERSTOWN PA"
+"Jennerstown PA"
 ]
 },
 {
@@ -3599,13 +3468,12 @@
 "fhir_base_url": "https://epicproxy.connecticutchildrens.org/FHIR/api/FHIR/R4",
 "places": [
 "Hartford CT",
-"FARMINGTON CT",
-"GLASTONBURY CT",
-"DANBURY CT",
+"Farmington CT",
+"Glastonbury CT",
+"Danbury CT",
 "Fairfield CT",
 "Torrington CT",
-"Norwalk CT",
-"Danbury CT"
+"Norwalk CT"
 ]
 },
 {
@@ -3663,7 +3531,6 @@
 "places": [
 "Martinez CA",
 "Concord CA",
-"MARTINEZ CA",
 "San Pablo CA",
 "Clayton CA",
 "Brentwood CA",
@@ -3679,14 +3546,14 @@
 "fhir_base_url": "https://cookicfg.cookchildrens.org/CookFHIR/api/FHIR/R4",
 "network": "Cook Children's Health Care System",
 "places": [
-"FORT WORTH TX",
-"PROSPER TX",
-"FRISCO TX",
-"SOUTHLAKE TX",
-"PLANO TX",
-"ALEDO TX",
-"MANSFIELD TX",
-"HURST TX"
+"Fort Worth TX",
+"Prosper TX",
+"Frisco TX",
+"Southlake TX",
+"Plano TX",
+"Aledo TX",
+"Mansfield TX",
+"Hurst TX"
 ]
 },
 {
@@ -3697,14 +3564,12 @@
 "fhir_base_url": "https://epicproxy.et0578.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Cooper University Health Care",
 "places": [
-"CHERRY HILL NJ",
-"CAPE MAY COURT HOUSE NJ",
-"CAMDEN NJ",
-"MOORESTOWN NJ",
+"Cherry Hill NJ",
+"Cape May Court House NJ",
+"Camden NJ",
+"Moorestown NJ",
 "Voorhees NJ",
-"VOORHEES NJ",
-"RIO GRANDE NJ",
-"Cherry Hill NJ"
+"Rio Grande NJ"
 ]
 },
 {
@@ -3720,8 +3585,7 @@
 "Troy MI",
 "Rochester Hills MI",
 "Sterling Heights MI",
-"Southfield MI",
-"GRAND RAPIDS MI"
+"Southfield MI"
 ]
 },
 {
@@ -3735,7 +3599,7 @@
 "Browns Valley MN",
 "Rosholt SD",
 "Herman MN",
-"SISSETON SD"
+"Sisseton SD"
 ]
 },
 {
@@ -3752,13 +3616,11 @@
 "fhir_base_url": "https://eparp.sbch.org/FHIR/SBCH/api/FHIR/R4",
 "network": "Cottage Health",
 "places": [
-"SANTA BARBARA CA",
 "Santa Barbara CA",
 "Goleta CA",
-"SOLVANG CA",
-"SANTA MARIA CA",
-"Ventura CA",
 "Solvang CA",
+"Santa Maria CA",
+"Ventura CA",
 "San Luis Obispo CA"
 ]
 },
@@ -3769,14 +3631,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1356.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
-"SAN MATEO CA",
-"REDWOOD CITY CA",
-"DALY CITY CA",
-"SOUTH SAN FRANCISCO CA",
-"EAST PALO ALTO CA",
-"HALF MOON BAY CA",
-"SAN BRUNO CA",
-"MENLO PARK CA"
+"San Mateo CA",
+"Redwood City CA",
+"Daly City CA",
+"South San Francisco CA",
+"East Palo Alto CA",
+"Half Moon Bay CA",
+"San Bruno CA",
+"Menlo Park CA"
 ]
 },
 {
@@ -3787,14 +3649,12 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"LUBBOCK TX",
 "Lubbock TX",
-"PLAINVIEW TX",
 "Plainview TX",
 "Hobbs NM",
 "Levelland TX",
 "Abernathy TX",
-"WOLFFORTH TX"
+"Wolfforth TX"
 ]
 },
 {
@@ -3805,7 +3665,7 @@
 "fhir_base_url": "https://carepath.health-partners.org/Proxy-FHIR/COV/api/FHIR/R4",
 "network": "Bon Secours Mercy Health",
 "places": [
-"ANDOVER MA"
+"Andover MA"
 ]
 },
 {
@@ -3816,10 +3676,8 @@
 "fhir_base_url": "https://epichaiku.chs-mi.com/FHIRPROXY/api/FHIR/R4",
 "places": [
 "Saginaw MI",
-"SAGINAW MI",
 "Caro MI",
 "Bay City MI",
-"BAY CITY MI",
 "Frankenmuth MI",
 "Midland MI",
 "Marlette MI"
@@ -3833,13 +3691,13 @@
 "fhir_base_url": "https://epicproxy.et1453.epichosted.com/FHIRProxyPRD/COVINGTON/api/FHIR/R4",
 "network": "South Central Regional Medical Center",
 "places": [
-"COLLINS MS",
-"RALEIGH MS",
-"TAYLORSVILLE MS",
-"MAGEE MS",
-"MOUNT OLIVE MS",
-"SUMRALL MS",
-"SEMINARY MS"
+"Collins MS",
+"Raleigh MS",
+"Taylorsville MS",
+"Magee MS",
+"Mount Olive MS",
+"Sumrall MS",
+"Seminary MS"
 ]
 },
 {
@@ -3849,10 +3707,10 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1402.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
-"SPRINGFIELD MO",
-"OZARK MO",
-"ROLLA MO",
-"BOLIVAR MO"
+"Springfield MO",
+"Ozark MO",
+"Rolla MO",
+"Bolivar MO"
 ]
 },
 {
@@ -3877,13 +3735,12 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"PORTLAND OR",
 "Portland OR",
-"HILLSBORO OR",
-"BURBANK CA",
-"ORANGE CA",
-"FULLERTON CA",
-"TARZANA CA"
+"Hillsboro OR",
+"Burbank CA",
+"Orange CA",
+"Fullerton CA",
+"Tarzana CA"
 ]
 },
 {
@@ -3901,10 +3758,10 @@
 "fhir_base_url": "https://scproxy.gundersenhealth.org/FHIRARR/GHS/api/FHIR/R4",
 "network": "Emplify Health",
 "places": [
-"PRAIRIE DU CHIEN WI",
-"FENNIMORE WI",
+"Prairie Du Chien WI",
+"Fennimore WI",
 "Prairie du Chien WI",
-"MONONA IA"
+"Monona IA"
 ]
 },
 {
@@ -3934,7 +3791,6 @@
 "network": "Providence Oregon/California",
 "places": [
 "Gold Beach OR",
-"GOLD BEACH OR",
 "Brookings OR",
 "Port Orford OR"
 ]
@@ -3965,13 +3821,11 @@
 "fhir_base_url": "https://edhwebportal.hitchcock.org/FHIRProxy/api/FHIR/R4",
 "network": "Dartmouth Health",
 "places": [
-"KEENE NH",
-"LEBANON NH",
-"BEDFORD NH",
-"MANCHESTER NH",
-"Manchester NH",
 "Keene NH",
-"CONCORD NH",
+"Lebanon NH",
+"Bedford NH",
+"Manchester NH",
+"Concord NH",
 "Claremont NH"
 ]
 },
@@ -3983,14 +3837,14 @@
 "fhir_base_url": "https://epicproxy.et1087.epichosted.com/FHIRProxy/DAVITA/api/FHIR/R4",
 "network": "DaVita",
 "places": [
-"VICTORIA TX",
-"HOUSTON TX",
-"MEMPHIS TN",
-"ORLANDO FL",
-"EL PASO TX",
-"LAS VEGAS NV",
-"BRONX NY",
-"MIDLAND MI"
+"Victoria TX",
+"Houston TX",
+"Memphis TN",
+"Orlando FL",
+"El Paso TX",
+"Las Vegas NV",
+"Bronx NY",
+"Midland MI"
 ]
 },
 {
@@ -4002,12 +3856,11 @@
 "places": [
 "Dayton OH",
 "Miamisburg OH",
-"DAYTON OH",
 "Beavercreek OH",
 "Springfield OH",
 "Englewood OH",
-"CENTERVILLE OH",
-"SPRINGBORO OH"
+"Centerville OH",
+"Springboro OH"
 ]
 },
 {
@@ -4018,7 +3871,7 @@
 "fhir_base_url": "https://epicfe.unch.unc.edu/FHIR/DCOPUBLICHEALTH/api/FHIR/R4",
 "network": "UNC Health Care System",
 "places": [
-"DURHAM NC"
+"Durham NC"
 ]
 },
 {
@@ -4029,14 +3882,12 @@
 "fhir_base_url": "https://eprp.deaconess.com/FHIR/api/FHIR/R4",
 "network": "Deaconess Health System",
 "places": [
-"EVANSVILLE IN",
 "Evansville IN",
 "Newburgh IN",
-"HENDERSON KY",
-"NEWBURGH IN",
-"HOPKINSVILLE KY",
-"PRINCETON IN",
-"MOUNT VERNON IN"
+"Henderson KY",
+"Hopkinsville KY",
+"Princeton IN",
+"Mount Vernon IN"
 ]
 },
 {
@@ -4047,10 +3898,10 @@
 "fhir_base_url": "https://epproxy.bayhealth.org/FHIR/HOME/api/FHIR/R4",
 "network": "Bayhealth Medical Center",
 "places": [
-"MIDDLETOWN DE",
-"DOVER DE",
-"REHOBOTH DE",
-"MILFORD DE"
+"Middletown DE",
+"Dover DE",
+"Rehoboth DE",
+"Milford DE"
 ]
 },
 {
@@ -4060,9 +3911,8 @@
 "platform": "epic",
 "fhir_base_url": "https://webservices.dhha.org/PRD-FHIR/DH/api/FHIR/R4",
 "places": [
-"DENVER CO",
 "Denver CO",
-"FRASER CO",
+"Fraser CO",
 "Winter Park CO"
 ]
 },
@@ -4074,7 +3924,7 @@
 "fhir_base_url": "https://epicproxy.et1031.epichosted.com/FHIRProxy/DCL/api/FHIR/R4",
 "network": "Bryan Health",
 "places": [
-"LINCOLN NE"
+"Lincoln NE"
 ]
 },
 {
@@ -4086,7 +3936,6 @@
 "network": "Garden Plot",
 "places": [
 "Dickson TN",
-"DICKSON TN",
 "Waverly TN",
 "Ashland City TN",
 "White Bluff TN",
@@ -4114,7 +3963,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"WASHINGTON DC"
+"Washington DC"
 ]
 },
 {
@@ -4132,14 +3981,12 @@
 "fhir_base_url": "https://epicproxy.et1146.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Salinas Valley Health",
 "places": [
-"SALINAS CA",
 "Salinas CA",
-"SEASIDE CA",
-"APTOS CA",
+"Seaside CA",
+"Aptos CA",
 "Monterey CA",
-"SANTA CRUZ CA",
-"MONTEREY CA",
-"WATSONVILLE CA"
+"Santa Cruz CA",
+"Watsonville CA"
 ]
 },
 {
@@ -4157,7 +4004,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"ARMOUR SD",
+"Armour SD",
 "Stickney SD",
 "Corsica SD"
 ]
@@ -4182,10 +4029,9 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"PHILADELPHIA PA",
 "Philadelphia PA",
 "Verona WI",
-"PHILA PA"
+"Phila PA"
 ]
 },
 {
@@ -4228,8 +4074,7 @@
 "places": [
 "Durham NC",
 "Raleigh NC",
-"DURHAM NC",
-"MOORESVILLE NC",
+"Mooresville NC",
 "Cary NC",
 "Chapel Hill NC",
 "Greensboro NC",
@@ -4243,14 +4088,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1296.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "places": [
-"NAPERVILLE IL",
-"DOWNERS GROVE IL",
-"LOMBARD IL",
-"SOUTH BEND IN",
-"ELMHURST IL",
-"JOLIET IL",
-"WESTMONT IL",
-"LISLE IL"
+"Naperville IL",
+"Downers Grove IL",
+"Lombard IL",
+"South Bend IN",
+"Elmhurst IL",
+"Joliet IL",
+"Westmont IL",
+"Lisle IL"
 ]
 },
 {
@@ -4290,8 +4135,8 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/ECWG/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"BEND OR",
-"REDMOND OR"
+"Bend OR",
+"Redmond OR"
 ]
 },
 {
@@ -4308,11 +4153,11 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "network": "Parkview Health",
 "places": [
-"STERLING HEIGHTS MI",
-"MACOMB MI",
-"EATON RAPIDS MI",
-"JACKSON MI",
-"CLINTON TOWNSHIP MI",
+"Sterling Heights MI",
+"Macomb MI",
+"Eaton Rapids MI",
+"Jackson MI",
+"Clinton Township MI",
 "Lenox MI"
 ]
 },
@@ -4324,13 +4169,13 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"EAU CLAIRE WI",
-"RICE LAKE WI",
-"DURAND WI",
-"CHIPPEWA FALLS WI",
-"STANLEY WI",
-"BALDWIN WI",
-"CUMBERLAND WI"
+"Eau Claire WI",
+"Rice Lake WI",
+"Durand WI",
+"Chippewa Falls WI",
+"Stanley WI",
+"Baldwin WI",
+"Cumberland WI"
 ]
 },
 {
@@ -4341,13 +4186,13 @@
 "fhir_base_url": "https://prd-proxy.vidanthealth.com/FHIR/api/FHIR/R4",
 "places": [
 "Greenville NC",
-"WASHINGTON NC",
+"Washington NC",
 "Ahoskie NC",
 "Roanoke Rapids NC",
 "Edenton NC",
-"NAGS HEAD NC",
-"TARBORO NC",
-"KENANSVILLE NC"
+"Nags Head NC",
+"Tarboro NC",
+"Kenansville NC"
 ]
 },
 {
@@ -4369,7 +4214,6 @@
 "Cathedral City CA",
 "Indio CA",
 "La Quinta CA",
-"RANCHO MIRAGE CA",
 "Yucca Valley CA"
 ]
 },
@@ -4398,7 +4242,6 @@
 "San Jose CA",
 "Sunnyvale CA",
 "Campbell CA",
-"MOUNTAIN VIEW CA",
 "Salinas CA",
 "Oakland CA"
 ]
@@ -4425,13 +4268,12 @@
 "network": "El Rio Santa Cruz Neighborhood Health Center",
 "places": [
 "Tucson AZ",
-"FLAGSTAFF AZ",
-"PAYSON AZ",
-"WILLIAMS AZ",
-"LAKE HAVASU CITY AZ",
-"SPRINGERVILLE AZ",
-"HOLBROOK AZ",
-"TUCSON AZ"
+"Flagstaff AZ",
+"Payson AZ",
+"Williams AZ",
+"Lake Havasu City AZ",
+"Springerville AZ",
+"Holbrook AZ"
 ]
 },
 {
@@ -4442,7 +4284,7 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"MONROE LA"
+"Monroe LA"
 ]
 },
 {
@@ -4478,13 +4320,11 @@
 "fhir_base_url": "https://epicrp-prd.eushc.org/OAUTH2-PRD/api/FHIR/R4",
 "places": [
 "Atlanta GA",
-"ATLANTA GA",
 "Decatur GA",
-"DECATUR GA",
 "Lithonia GA",
-"STOCKBRIDGE GA",
-"SNELLVILLE GA",
-"LAGRANGE GA"
+"Stockbridge GA",
+"Snellville GA",
+"Lagrange GA"
 ]
 },
 {
@@ -4494,14 +4334,14 @@
 "platform": "epic",
 "fhir_base_url": "https://scproxy.gundersenhealth.org/FHIRARR/GHS/api/FHIR/R4",
 "places": [
-"GREEN BAY WI",
-"LA CROSSE WI",
-"ONALASKA WI",
-"WHITEHALL WI",
-"OCONTO WI",
-"IRON MOUNTAIN MI",
-"HILLSBORO WI",
-"FRIENDSHIP WI"
+"Green Bay WI",
+"La Crosse WI",
+"Onalaska WI",
+"Whitehall WI",
+"Oconto WI",
+"Iron Mountain MI",
+"Hillsboro WI",
+"Friendship WI"
 ]
 },
 {
@@ -4512,7 +4352,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"MIAMI FL"
+"Miami FL"
 ]
 },
 {
@@ -4578,13 +4418,11 @@
 "network": "Englewood Hospital and Medical Center",
 "places": [
 "Englewood NJ",
-"ENGLEWOOD NJ",
 "Jersey City NJ",
 "Fair Lawn NJ",
-"JERSEY CITY NJ",
 "Cliffside Park NJ",
 "Teaneck NJ",
-"CLIFTON NJ"
+"Clifton NJ"
 ]
 },
 {
@@ -4601,9 +4439,8 @@
 "fhir_base_url": "https://epicproxy.et1034.epichosted.com/FHIRProxy/STANDARD/api/FHIR/R4",
 "network": "Enloe Health",
 "places": [
-"CHICO CA",
 "Chico CA",
-"OROVILLE CA"
+"Oroville CA"
 ]
 },
 {
@@ -4626,7 +4463,7 @@
 "network": "Bayhealth Medical Center",
 "places": [
 "Dover DE",
-"MILFORD DE"
+"Milford DE"
 ]
 },
 {
@@ -4637,14 +4474,11 @@
 "fhir_base_url": "https://epicproxy.et0967.epichosted.com/FHIRProxy/EHS/api/FHIR/R4",
 "network": "Erlanger Health",
 "places": [
-"CHATTANOOGA TN",
 "Chattanooga TN",
 "Murphy NC",
 "Cleveland TN",
-"COLLEGE DALE TN",
-"RINGGOLD GA",
-"CLEVELAND TN",
-"MURPHY NC"
+"College Dale TN",
+"Ringgold GA"
 ]
 },
 {
@@ -4672,14 +4506,13 @@
 "platform": "epic",
 "fhir_base_url": "https://m.essentiahealth.org/FHIR/api/FHIR/R4",
 "places": [
-"DULUTH MN",
-"FARGO ND",
-"BRAINERD MN",
-"SUPERIOR WI",
-"PARK RAPIDS MN",
 "Duluth MN",
-"BISMARCK ND",
-"DETROIT LAKES MN"
+"Fargo ND",
+"Brainerd MN",
+"Superior WI",
+"Park Rapids MN",
+"Bismarck ND",
+"Detroit Lakes MN"
 ]
 },
 {
@@ -4715,14 +4548,13 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"CLEARWATER FL",
-"ST PETERSBURG FL",
-"SAINT PETERSBURG FL",
-"TARPON SPRINGS FL",
-"OLDSMAR FL",
 "Clearwater FL",
-"DUNEDIN FL",
-"PINELLAS PARK FL"
+"St Petersburg FL",
+"Saint Petersburg FL",
+"Tarpon Springs FL",
+"Oldsmar FL",
+"Dunedin FL",
+"Pinellas Park FL"
 ]
 },
 {
@@ -4733,7 +4565,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"EVERETT WA"
+"Everett WA"
 ]
 },
 {
@@ -4744,13 +4576,13 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"LADYSMITH WI",
-"CHIPPEWA FALLS WI",
-"EAU CLAIRE WI",
-"STANLEY WI",
-"CUMBERLAND WI",
-"RICE LAKE WI",
-"DURAND WI"
+"Ladysmith WI",
+"Chippewa Falls WI",
+"Eau Claire WI",
+"Stanley WI",
+"Cumberland WI",
+"Rice Lake WI",
+"Durand WI"
 ]
 },
 {
@@ -4778,14 +4610,14 @@
 "fhir_base_url": "https://epicarr.healthcare.cigna.com/FHIR-PRD/api/FHIR/R4",
 "network": "Evernorth",
 "places": [
-"PHOENIX AZ",
-"PEORIA AZ",
-"MESA AZ",
-"GOODYEAR AZ",
-"SCOTTSDALE AZ",
-"GREENSBORO NC",
-"DALLAS TX",
-"SAN DIEGO CA"
+"Phoenix AZ",
+"Peoria AZ",
+"Mesa AZ",
+"Goodyear AZ",
+"Scottsdale AZ",
+"Greensboro NC",
+"Dallas TX",
+"San Diego CA"
 ]
 },
 {
@@ -4796,14 +4628,14 @@
 "fhir_base_url": "https://epicarr.healthcare.cigna.com/FHIR-PRD/api/FHIR/R4",
 "network": "Evernorth",
 "places": [
-"CHICAGO IL",
-"BALTIMORE MD",
-"NASHVILLE TN",
-"BIRMINGHAM AL",
-"IRVING TX",
-"KING OF PRUSSIA PA",
-"GLENDALE AZ",
-"PHILADELPHIA PA"
+"Chicago IL",
+"Baltimore MD",
+"Nashville TN",
+"Birmingham AL",
+"Irving TX",
+"King of Prussia PA",
+"Glendale AZ",
+"Philadelphia PA"
 ]
 },
 {
@@ -4814,14 +4646,14 @@
 "fhir_base_url": "https://epicarr.healthcare.cigna.com/FHIR-PRD/api/FHIR/R4",
 "network": "Evernorth",
 "places": [
-"ORLANDO FL",
-"ASHBURN VA",
-"HOUSTON TX",
-"BALTIMORE MD",
-"SCOTTSDALE AZ",
-"AUSTIN TX",
-"FRANKLIN TN",
-"NASHVILLE TN"
+"Orlando FL",
+"Ashburn VA",
+"Houston TX",
+"Baltimore MD",
+"Scottsdale AZ",
+"Austin TX",
+"Franklin TN",
+"Nashville TN"
 ]
 },
 {
@@ -4850,7 +4682,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"SPOKANE WA"
+"Spokane WA"
 ]
 },
 {
@@ -4862,7 +4694,6 @@
 "network": "Providence Oregon/California",
 "places": [
 "Yreka CA",
-"YREKA CA",
 "Etna CA"
 ]
 },
@@ -4874,10 +4705,9 @@
 "fhir_base_url": "https://sfd.fairview.org/FHIR/Range/api/FHIR/R4",
 "network": "Fairview",
 "places": [
-"HIBBING MN",
-"MOUNTAIN IRON MN",
 "Hibbing MN",
-"NASHWAUK MN"
+"Mountain Iron MN",
+"Nashwauk MN"
 ]
 },
 {
@@ -4916,12 +4746,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.fcn.net/fhir/api/FHIR/R4",
 "places": [
-"BELLINGHAM WA",
-"MOUNT VERNON WA",
-"BLAINE WA",
-"LYNDEN WA",
-"ANACORTES WA",
-"FERNDALE WA"
+"Bellingham WA",
+"Mount Vernon WA",
+"Blaine WA",
+"Lynden WA",
+"Anacortes WA",
+"Ferndale WA"
 ]
 },
 {
@@ -4932,7 +4762,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"HARVEY IL"
+"Harvey IL"
 ]
 },
 {
@@ -4987,7 +4817,6 @@
 "network": "Sanford Health",
 "places": [
 "LaMoure ND",
-"FARGO ND",
 "Fargo ND"
 ]
 },
@@ -5009,14 +4838,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1190.epichosted.com/FHIRProxyPRD/FastMed/api/FHIR/R4",
 "places": [
-"PHOENIX AZ",
-"TUCSON AZ",
-"TEMPE AZ",
-"MESA AZ",
-"RALEIGH NC",
-"FAYETTEVILLE NC",
-"CARY NC",
-"GREENSBORO NC"
+"Phoenix AZ",
+"Tucson AZ",
+"Tempe AZ",
+"Mesa AZ",
+"Raleigh NC",
+"Fayetteville NC",
+"Cary NC",
+"Greensboro NC"
 ]
 },
 {
@@ -5027,7 +4856,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTSVDP/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SAN DIEGO CA"
+"San Diego CA"
 ]
 },
 {
@@ -5045,7 +4874,7 @@
 "fhir_base_url": "https://epproxy.bayhealth.org/FHIR/HOME/api/FHIR/R4",
 "network": "Bayhealth Medical Center",
 "places": [
-"DOVER DE"
+"Dover DE"
 ]
 },
 {
@@ -5086,12 +4915,9 @@
 "places": [
 "Fort Pierce FL",
 "Clewiston FL",
-"PORT ST LUCIE FL",
-"OKEECHOBEE FL",
-"Okeechobee FL",
 "Port St Lucie FL",
-"West Palm Beach FL",
-"FORT PIERCE FL"
+"Okeechobee FL",
+"West Palm Beach FL"
 ]
 },
 {
@@ -5101,14 +4927,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1359.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
-"DAYTONA BEACH FL",
-"ORMOND BEACH FL",
-"PORT ORANGE FL",
-"PALM COAST FL",
-"LAKE MARY FL",
-"DELAND FL",
-"ORANGE CITY FL",
-"Daytona Beach FL"
+"Daytona Beach FL",
+"Ormond Beach FL",
+"Port Orange FL",
+"Palm Coast FL",
+"Lake Mary FL",
+"Deland FL",
+"Orange City FL"
 ]
 },
 {
@@ -5172,13 +4997,13 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/FAC/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"RICE LAKE WI",
-"STANLEY WI",
-"EAU CLAIRE WI",
-"CHIPPEWA FALLS WI",
-"MENOMONIE WI",
-"CUMBERLAND WI",
-"SHELL LAKE WI"
+"Rice Lake WI",
+"Stanley WI",
+"Eau Claire WI",
+"Chippewa Falls WI",
+"Menomonie WI",
+"Cumberland WI",
+"Shell Lake WI"
 ]
 },
 {
@@ -5190,8 +5015,7 @@
 "network": "Garden Plot",
 "places": [
 "Salt Lake City UT",
-"SALT LAKE CITY UT",
-"DRAPER UT"
+"Draper UT"
 ]
 },
 {
@@ -5213,13 +5037,11 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"WEST PALM BEACH FL",
 "West Palm Beach FL",
-"NORTH PALM BEACH FL",
-"BELLE GLADE FL",
-"PALM SPRINGS FL",
+"North Palm Beach FL",
+"Belle Glade FL",
 "Palm Springs FL",
-"BOYNTON BEACH FL"
+"Boynton Beach FL"
 ]
 },
 {
@@ -5229,14 +5051,13 @@
 "platform": "epic",
 "fhir_base_url": "https://ema.franciscanalliance.org/FHIR_PROXY/api/FHIR/R4/",
 "places": [
-"INDIANAPOLIS IN",
-"CROWN POINT IN",
-"CRAWFORDSVILLE IN",
-"MUNSTER IN",
-"LAFAYETTE IN",
-"GREENWOOD IN",
 "Indianapolis IN",
-"MICHIGAN CITY IN"
+"Crown Point IN",
+"Crawfordsville IN",
+"Munster IN",
+"Lafayette IN",
+"Greenwood IN",
+"Michigan City IN"
 ]
 },
 {
@@ -5290,7 +5111,6 @@
 "fhir_base_url": "https://epicservicegw.froedtert.com/FHIRproxyPRD/api/FHIR/R4",
 "network": "Froedtert & The Medical College of Wisconsin",
 "places": [
-"MILWAUKEE WI",
 "Milwaukee WI",
 "Manitowoc WI",
 "West Bend WI",
@@ -5308,7 +5128,7 @@
 "fhir_base_url": "https://epicservicegw.froedtert.com/FHIRproxyPRD/api/FHIR/R4",
 "network": "Froedtert & The Medical College of Wisconsin",
 "places": [
-"KENOSHA WI"
+"Kenosha WI"
 ]
 },
 {
@@ -5319,7 +5139,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTFCH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"BOISE ID"
+"Boise ID"
 ]
 },
 {
@@ -5337,7 +5157,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTGHS/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SAN JOSE CA"
+"San Jose CA"
 ]
 },
 {
@@ -5347,13 +5167,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epic.garnethealth.org/FHIR/api/FHIR/R4",
 "places": [
-"MIDDLETOWN NY",
-"GOSHEN NY",
-"CALLICOON NY",
-"MONTICELLO NY",
+"Middletown NY",
 "Goshen NY",
-"LIVINGSTON MANOR NY",
-"MONROE NY",
+"Callicoon NY",
+"Monticello NY",
+"Livingston Manor NY",
+"Monroe NY",
 "Ferndale NY"
 ]
 },
@@ -5383,13 +5202,9 @@
 "fhir_base_url": "https://fhir.genesishcs.org/api/FHIR/R4",
 "network": "Genesis Healthcare System",
 "places": [
-"ZANESVILLE OH",
 "Zanesville OH",
 "Coshocton OH",
-"COSHOCTON OH",
 "Cambridge OH",
-"CAMBRIDGE OH",
-"SOMERSET OH",
 "Somerset OH"
 ]
 },
@@ -5403,7 +5218,6 @@
 "places": [
 "Boynton Beach FL",
 "Boca Raton FL",
-"BOYNTON BEACH FL",
 "Delray Beach FL"
 ]
 },
@@ -5433,9 +5247,8 @@
 "fhir_base_url": "https://linkpoint.ghcscw.com/Interconnect-PRD-FHIR/api/FHIR/R4",
 "network": "Group Health Cooperative - South Central Wisconsin",
 "places": [
-"MADISON WI",
 "Madison WI",
-"FITCHBURG WI"
+"Fitchburg WI"
 ]
 },
 {
@@ -5453,7 +5266,7 @@
 "fhir_base_url": "https://epicproxy.et1332.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "North East Medical Services",
 "places": [
-"LAS VEGAS NV"
+"Las Vegas NV"
 ]
 },
 {
@@ -5482,13 +5295,11 @@
 "fhir_base_url": "https://ep-rps.gvhc.org/FHIR-PRD/api/FHIR/R4",
 "places": [
 "Modesto CA",
-"TURLOCK CA",
-"MODESTO CA",
+"Turlock CA",
 "Merced CA",
-"CERES CA",
-"MANTECA CA",
-"NEWMAN CA",
-"MERCED CA"
+"Ceres CA",
+"Manteca CA",
+"Newman CA"
 ]
 },
 {
@@ -5499,7 +5310,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTGSM/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SOUTH PASADENA CA"
+"South Pasadena CA"
 ]
 },
 {
@@ -5535,7 +5346,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTGCH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"LOS ANGELES CA"
+"Los Angeles CA"
 ]
 },
 {
@@ -5545,11 +5356,8 @@
 "platform": "epic",
 "fhir_base_url": "https://surescripts.gmh.edu/OAuth2PRD/GHSMYC/api/FHIR/R4",
 "places": [
-"ATLANTA GA",
 "Atlanta GA",
 "Sandy Springs GA",
-"SANDY SPRINGS GA",
-"atlanta GA",
 "College Park GA",
 "East Point GA"
 ]
@@ -5579,7 +5387,7 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1475.epichosted.com/APIPROXYPRD/api/FHIR/R4",
 "places": [
-"NEW LONDON IA"
+"New London IA"
 ]
 },
 {
@@ -5592,11 +5400,9 @@
 "Towson MD",
 "Baltimore MD",
 "Hunt Valley MD",
-"TOWSON MD",
 "Timonium MD",
 "Owings Mills MD",
-"HAGERSTOWN MD",
-"BALTIMORE MD"
+"Hagerstown MD"
 ]
 },
 {
@@ -5607,7 +5413,7 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"FULLERTON CA"
+"Fullerton CA"
 ]
 },
 {
@@ -5652,7 +5458,7 @@
 "Edison NJ",
 "Brick NJ",
 "Manahawkin NJ",
-"HACKENSACK NJ",
+"Hackensack NJ",
 "Clifton NJ",
 "Old Bridge NJ",
 "Neptune NJ",
@@ -5679,7 +5485,7 @@
 "fhir_base_url": "https://ssproxy.osfhealthcare.org/fhir-proxy/api/FHIR/R4",
 "network": "OSF HealthCare",
 "places": [
-"WILSON MI"
+"Wilson MI"
 ]
 },
 {
@@ -5690,14 +5496,14 @@
 "fhir_base_url": "https://ssproxy.osfhealthcare.org/fhir-proxy/api/FHIR/R4",
 "network": "OSF HealthCare",
 "places": [
-"KIRKSVILLE MO",
-"MOBERLY MO",
-"HANNIBAL MO",
-"PARIS MO",
-"SHELBINA MO",
-"MACON MO",
-"CANTON MO",
-"MONROE CITY MO"
+"Kirksville MO",
+"Moberly MO",
+"Hannibal MO",
+"Paris MO",
+"Shelbina MO",
+"Macon MO",
+"Canton MO",
+"Monroe City MO"
 ]
 },
 {
@@ -5708,7 +5514,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTHH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"MATTAPAN MA"
+"Mattapan MA"
 ]
 },
 {
@@ -5721,7 +5527,7 @@
 "places": [
 "Osceola AR",
 "Lonoke AR",
-"WYNNE AR"
+"Wynne AR"
 ]
 },
 {
@@ -5732,7 +5538,7 @@
 "fhir_base_url": "https://epicproxy.et1434.epichosted.com/APIPROXYPRD/api/FHIR/R4",
 "network": "Delta Dental of California",
 "places": [
-"OAKLAND CA",
+"Oakland CA",
 "Kissimmee FL",
 "Celebration FL"
 ]
@@ -5756,14 +5562,13 @@
 "fhir_base_url": "https://carepath.health-partners.org/Proxy-FHIR/api/FHIR/R4",
 "network": "Bon Secours Mercy Health",
 "places": [
-"GREENVILLE SC",
-"CINCINNATI OH",
-"RICHMOND VA",
-"YOUNGSTOWN OH",
+"Greenville SC",
 "Cincinnati OH",
-"CHARLESTON SC",
-"SPRINGFIELD OH",
-"TOLEDO OH"
+"Richmond VA",
+"Youngstown OH",
+"Charleston SC",
+"Springfield OH",
+"Toledo OH"
 ]
 },
 {
@@ -5793,8 +5598,7 @@
 "Baytown TX",
 "Bellaire TX",
 "El Lago TX",
-"houston TX",
-"OLLA LA"
+"Olla LA"
 ]
 },
 {
@@ -5823,14 +5627,13 @@
 "fhir_base_url": "https://soapprod.hattiesburgclinic.com/OAuth2/api/FHIR/R4",
 "network": "Hattiesburg Clinic and Forrest County General Hospital",
 "places": [
-"HATTIESBURG MS",
 "Hattiesburg MS",
-"PICAYUNE MS",
-"PETAL MS",
-"PURVIS MS",
-"COLLINS MS",
-"COLUMBIA MS",
-"SUMRALL MS"
+"Picayune MS",
+"Petal MS",
+"Purvis MS",
+"Collins MS",
+"Columbia MS",
+"Sumrall MS"
 ]
 },
 {
@@ -5841,11 +5644,11 @@
 "fhir_base_url": "https://epicproxy.et1454.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "Hawaii Health Systems Corporation",
 "places": [
-"HILO HI",
-"PAHOA HI",
-"KEAAU HI",
-"PAHALA HI",
-"HONOKAA HI"
+"Hilo HI",
+"Pahoa HI",
+"Keaau HI",
+"Pahala HI",
+"Honokaa HI"
 ]
 },
 {
@@ -5866,14 +5669,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0471.epichosted.com/APIPROXYPRD/api/FHIR/R4",
 "places": [
-"HONOLULU HI",
 "Honolulu HI",
-"AIEA HI",
-"LIHUE HI",
+"Aiea HI",
 "Lihue HI",
-"KAILUA HI",
-"KAILUA-KONA HI",
-"KAPAA HI"
+"Kailua HI",
+"Kailua-Kona HI",
+"Kapaa HI"
 ]
 },
 {
@@ -5886,11 +5687,9 @@
 "places": [
 "Salt Lake City UT",
 "Draper UT",
-"ANCHORAGE AK",
+"Anchorage AK",
 "West Jordan UT",
 "Ogden UT",
-"WEST JORDAN UT",
-"Anchorage AK",
 "Saltl Lake City UT"
 ]
 },
@@ -5903,7 +5702,7 @@
 "network": "Providence Oregon/California",
 "places": [
 "Laguna Hills CA",
-"MISSION VIEJO CA",
+"Mission Viejo CA",
 "San Clemente CA",
 "Costa Mesa CA",
 "Irvine CA"
@@ -5917,7 +5716,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"WEST PALM BEACH FL"
+"West Palm Beach FL"
 ]
 },
 {
@@ -5934,14 +5733,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1426.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
-"MELBOURNE FL",
-"PALM BAY FL",
-"VIERA FL",
-"MERRITT ISLAND FL",
-"COCOA BEACH FL",
-"TITUSVILLE FL",
-"INDIAN HARBOUR BEACH FL",
-"INDIALANTIC FL"
+"Melbourne FL",
+"Palm Bay FL",
+"Viera FL",
+"Merritt Island FL",
+"Cocoa Beach FL",
+"Titusville FL",
+"Indian Harbour Beach FL",
+"Indialantic FL"
 ]
 },
 {
@@ -5960,13 +5759,12 @@
 "network": "Health Ventures of Central Iowa",
 "places": [
 "Ames IA",
-"AMES IA",
-"FORT DODGE IA",
-"CARROLL IA",
+"Fort Dodge IA",
+"Carroll IA",
 "Marshalltown IA",
-"ROLAND IA",
-"BOONE IA",
-"ANKENY IA"
+"Roland IA",
+"Boone IA",
+"Ankeny IA"
 ],
 "former_ids": [
 "epic-mcfarland-clinic-iowa"
@@ -5987,7 +5785,7 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "network": "Parkview Health",
 "places": [
-"FORT WAYNE IN"
+"Fort Wayne IN"
 ]
 },
 {
@@ -5997,14 +5795,14 @@
 "platform": "epic",
 "fhir_base_url": "https://proxy.healthpartners.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"SAINT PAUL MN",
-"ST LOUIS PARK MN",
-"ST PAUL MN",
-"STILLWATER MN",
-"BURNSVILLE MN",
-"BLOOMINGTON MN",
-"SHAKOPEE MN",
-"MINNEAPOLIS MN"
+"Saint Paul MN",
+"St Louis Park MN",
+"St Paul MN",
+"Stillwater MN",
+"Burnsville MN",
+"Bloomington MN",
+"Shakopee MN",
+"Minneapolis MN"
 ]
 },
 {
@@ -6015,13 +5813,10 @@
 "fhir_base_url": "https://epicproxy.et1395.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "places": [
 "Renton WA",
-"RENTON WA",
-"KENT WA",
-"AUBURN WA",
-"Auburn WA",
-"FEDERAL WAY WA",
 "Kent WA",
-"SEATAC WA"
+"Auburn WA",
+"Federal Way WA",
+"Seatac WA"
 ]
 },
 {
@@ -6071,8 +5866,8 @@
 "fhir_base_url": "https://ssproxy.osfhealthcare.org/fhir-proxy/api/FHIR/R4",
 "network": "OSF HealthCare",
 "places": [
-"PEORIA IL",
-"PEKIN IL"
+"Peoria IL",
+"Pekin IL"
 ]
 },
 {
@@ -6141,14 +5936,14 @@
 "platform": "epic",
 "fhir_base_url": "https://fhir.hfhs.org/fhirproxy/api/FHIR/R4",
 "places": [
-"JACKSON MI",
-"DETROIT MI",
-"CLINTON TOWNSHIP MI",
-"WARREN MI",
-"SOUTHFIELD MI",
-"SOUTHGATE MI",
-"GRAND BLANC MI",
-"WYANDOTTE MI"
+"Jackson MI",
+"Detroit MI",
+"Clinton Township MI",
+"Warren MI",
+"Southfield MI",
+"Southgate MI",
+"Grand Blanc MI",
+"Wyandotte MI"
 ]
 },
 {
@@ -6159,7 +5954,7 @@
 "fhir_base_url": "https://arr01.service.vumc.org/FHIR-PRD/api/FHIR/R4",
 "network": "Vanderbilt University Medical Center",
 "places": [
-"NASHVILLE TN"
+"Nashville TN"
 ]
 },
 {
@@ -6225,11 +6020,11 @@
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/HMC/api/FHIR/R4",
 "network": "Ardent",
 "places": [
-"TULSA OK",
-"CLAREMORE OK",
-"PRYOR OK",
+"Tulsa OK",
+"Claremore OK",
+"Pryor OK",
 "Henryetta OK",
-"CUSHING OK"
+"Cushing OK"
 ]
 },
 {
@@ -6241,8 +6036,7 @@
 "network": "Parkview Health",
 "places": [
 "Hillsdale MI",
-"HILLSDALE MI",
-"JACKSON MI",
+"Jackson MI",
 "Litchfield MI",
 "Reading MI"
 ]
@@ -6262,14 +6056,12 @@
 "fhir_base_url": "https://epicproxy.et1197.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Hoag",
 "places": [
-"NEWPORT BEACH CA",
 "Newport Beach CA",
 "Irvine CA",
-"IRVINE CA",
-"COSTA MESA CA",
-"SAN CLEMENTE CA",
-"HUNTINGTON BEACH CA",
-"SANTA ANA CA"
+"Costa Mesa CA",
+"San Clemente CA",
+"Huntington Beach CA",
+"Santa Ana CA"
 ]
 },
 {
@@ -6280,8 +6072,7 @@
 "fhir_base_url": "https://ihismufhir.osumc.edu/fhir-prd/api/FHIR/R4",
 "network": "The Ohio State University Wexner Medical Center",
 "places": [
-"Logan OH",
-"LOGAN OH"
+"Logan OH"
 ]
 },
 {
@@ -6331,9 +6122,7 @@
 "Mesa AZ",
 "Peoria AZ",
 "Tempe AZ",
-"SCOTTSDALE AZ",
-"Gilbert AZ",
-"PHOENIX AZ"
+"Gilbert AZ"
 ]
 },
 {
@@ -6350,14 +6139,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0927.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"NEW YORK NY",
-"PARAMUS NJ",
-"STAMFORD CT",
-"MAHWAH NJ",
-"SADDLE RIVER NJ",
+"New York NY",
+"Paramus NJ",
 "Stamford CT",
-"JUPITER FL",
-"WEST PALM BEACH FL"
+"Mahwah NJ",
+"Saddle River NJ",
+"Jupiter FL",
+"West Palm Beach FL"
 ]
 },
 {
@@ -6370,12 +6158,10 @@
 "places": [
 "Green Bay WI",
 "Sheboygan WI",
-"SPRINGFIELD IL",
-"SHEBOYGAN WI",
-"EAU Claire WI",
-"EAU CLAIRE WI",
 "Springfield IL",
-"DECATUR IL"
+"EAU Claire WI",
+"Eau Claire WI",
+"Decatur IL"
 ]
 },
 {
@@ -6467,11 +6253,9 @@
 "Flint MI",
 "Grand Blanc MI",
 "Lapeer MI",
-"FLINT MI",
 "Flint Township MI",
-"LAPEER MI",
 "Flushing MI",
-"BRIGHTON MI"
+"Brighton MI"
 ]
 },
 {
@@ -6520,7 +6304,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTIHCSCV/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SAN JOSE CA"
+"San Jose CA"
 ]
 },
 {
@@ -6567,14 +6351,11 @@
 "fhir_base_url": "https://ssproxyprod.infirmaryhealth.org/epicFHIR/MYCPRD/api/FHIR/R4",
 "network": "Infirmary Health System",
 "places": [
-"MOBILE AL",
 "Mobile AL",
-"BAY MINETTE AL",
-"DAPHNE AL",
-"FAIRHOPE AL",
+"Bay Minette AL",
+"Daphne AL",
 "Fairhope AL",
-"SARALAND AL",
-"Bay Minette AL"
+"Saraland AL"
 ]
 },
 {
@@ -6595,7 +6376,7 @@
 "Albuquerque NM",
 "Aurora CO",
 "Richmond VA",
-"TAMPA FL",
+"Tampa FL",
 "Salem VA",
 "Charlottesville VA"
 ]
@@ -6612,7 +6393,7 @@
 "Irving TX",
 "Spring TX",
 "Katy TX",
-"DALLAS TX",
+"Dallas TX",
 "Mesquite TX",
 "Richardson TX"
 ]
@@ -6624,14 +6405,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0816.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
-"FAIRFAX VA",
-"ALEXANDRIA VA",
-"FALLS CHURCH VA",
-"VIENNA VA",
-"ARLINGTON VA",
-"LEESBURG VA",
 "Fairfax VA",
-"RESTON VA"
+"Alexandria VA",
+"Falls Church VA",
+"Vienna VA",
+"Arlington VA",
+"Leesburg VA",
+"Reston VA"
 ]
 },
 {
@@ -6648,14 +6428,11 @@
 "platform": "epic",
 "fhir_base_url": "https://FHIR.Integrisok.com/Interconnect-FHIR/api/FHIR/R4/",
 "places": [
-"OKLAHOMA CITY OK",
 "Oklahoma City OK",
-"ENID OK",
-"EDMOND OK",
-"YUKON OK",
-"Grove OK",
+"Enid OK",
 "Edmond OK",
-"Enid OK"
+"Yukon OK",
+"Grove OK"
 ]
 },
 {
@@ -6683,12 +6460,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0645.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
-"SALT LAKE CITY UT",
+"Salt Lake City UT",
 "Grand Junction CO",
 "Billings MT",
-"LAS VEGAS NV",
-"MURRAY UT",
-"ST GEORGE UT",
+"Las Vegas NV",
+"Murray UT",
+"St George UT",
 "Denver CO",
 "Butte MT"
 ]
@@ -6703,8 +6480,7 @@
 "places": [
 "Seattle WA",
 "Bellevue WA",
-"Shoreline WA",
-"SEATTLE WA"
+"Shoreline WA"
 ]
 },
 {
@@ -6726,7 +6502,7 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "network": "Parkview Health",
 "places": [
-"KALAMAZOO MI"
+"Kalamazoo MI"
 ]
 },
 {
@@ -6758,8 +6534,7 @@
 "fhir_base_url": "https://epicproxy.et1206.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Baptist Health (Jacksonville",
 "places": [
-"Jacksonville FL",
-"JACKSONVILLE FL"
+"Jacksonville FL"
 ]
 },
 {
@@ -6772,8 +6547,7 @@
 "places": [
 "Richardton ND",
 "Glen Ullin ND",
-"Elgin ND",
-"ELGIN ND"
+"Elgin ND"
 ]
 },
 {
@@ -6795,7 +6569,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"JAMESTOWN ND",
+"Jamestown ND",
 "Carrington ND"
 ]
 },
@@ -6814,7 +6588,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTJPCHC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"INDIANAPOLIS IN"
+"Indianapolis IN"
 ]
 },
 {
@@ -6855,10 +6629,10 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"MIAMI FL",
-"MIAMI GARDENS FL",
-"HIALEAH FL",
-"OPA LOCKA FL"
+"Miami FL",
+"Miami Gardens FL",
+"Hialeah FL",
+"Opa Locka FL"
 ]
 },
 {
@@ -6870,7 +6644,7 @@
 },
 {
 "id": "epic-memorial-hermann",
-"name": "JOHN IKE, MD, MPH, PA",
+"name": "John Ike, MD, MPH, PA",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1326.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Memorial Hermann"
@@ -6882,14 +6656,14 @@
 "platform": "epic",
 "fhir_base_url": "https://fhir.johnmuirhealth.com/fhir-prd/JMH/api/FHIR/R4",
 "places": [
-"WALNUT CREEK CA",
-"SAN RAMON CA",
-"BRENTWOOD CA",
-"CONCORD CA",
-"PLEASANTON CA",
-"SAN JOSE CA",
-"OAKLAND CA",
-"DANVILLE CA"
+"Walnut Creek CA",
+"San Ramon CA",
+"Brentwood CA",
+"Concord CA",
+"Pleasanton CA",
+"San Jose CA",
+"Oakland CA",
+"Danville CA"
 ]
 },
 {
@@ -6900,12 +6674,11 @@
 "fhir_base_url": "https://epicproxy.et1146.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Salinas Valley Health",
 "places": [
-"MARINA CA",
-"SALINAS CA",
+"Marina CA",
 "Salinas CA",
-"MONTEREY CA",
-"KING CITY CA",
-"GILROY CA"
+"Monterey CA",
+"King City CA",
+"Gilroy CA"
 ]
 },
 {
@@ -6916,14 +6689,11 @@
 "fhir_base_url": "https://epicproxy.et0842.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "featured": true,
 "places": [
-"BALTIMORE MD",
 "Baltimore MD",
-"COLUMBIA MD",
-"Washington DC",
 "Columbia MD",
+"Washington DC",
 "Tampa FL",
-"WASHINGTON DC",
-"FREDERICK MD"
+"Frederick MD"
 ]
 },
 {
@@ -6965,13 +6735,11 @@
 "fhir_base_url": "https://epicrp.jupitermed.com/oauth2-prd/api/FHIR/R4",
 "places": [
 "Jupiter FL",
-"JUPITER FL",
-"PALM BEACH GARDENS FL",
 "Palm Beach Gardens FL",
-"HOBE SOUND FL",
+"Hobe Sound FL",
 "Stuart FL",
 "Boynton Beach FL",
-"NORTH PALM BEACH FL"
+"North Palm Beach FL"
 ]
 },
 {
@@ -6989,14 +6757,13 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"RICHLAND WA",
+"Richland WA",
 "Kennewick WA",
-"KENNEWICK WA",
-"PASCO WA",
-"PENDLETON OR",
-"HERMISTON OR",
-"PROSSER WA",
-"WEST RICHLAND WA"
+"Pasco WA",
+"Pendleton OR",
+"Hermiston OR",
+"Prosser WA",
+"West Richland WA"
 ]
 },
 {
@@ -7114,8 +6881,7 @@
 "Hillsboro OR",
 "Salem OR",
 "Beaverton OR",
-"Eugene OR",
-"PORTLAND OR"
+"Eugene OR"
 ]
 },
 {
@@ -7174,7 +6940,7 @@
 "fhir_base_url": "https://hygieia.bronsonhg.org/FHIRProxy/api/FHIR/R4",
 "network": "Bronson Healthcare Group",
 "places": [
-"KALAMAZOO MI"
+"Kalamazoo MI"
 ]
 },
 {
@@ -7185,14 +6951,14 @@
 "fhir_base_url": "https://epicproxy.et1455.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "Kaleida Health",
 "places": [
-"BUFFALO NY",
-"WILLIAMSVILLE NY",
-"OLEAN NY",
-"ORCHARD PARK NY",
-"NIAGARA FALLS NY",
-"BRADFORD PA",
-"DEPEW NY",
-"DUNKIRK NY"
+"Buffalo NY",
+"Williamsville NY",
+"Olean NY",
+"Orchard Park NY",
+"Niagara Falls NY",
+"Bradford PA",
+"Depew NY",
+"Dunkirk NY"
 ]
 },
 {
@@ -7210,14 +6976,13 @@
 "fhir_base_url": "https://ssrx.ksnet.com/FHIRproxy/MKO/api/FHIR/R4",
 "network": "Kelsey-Seybold Clinic",
 "places": [
-"HOUSTON TX",
 "Houston TX",
-"RICHMOND TX",
-"HUMBLE TX",
-"WEBSTER TX",
-"LAKE JACKSON TX",
-"CYPRESS TX",
-"PEARLAND TX"
+"Richmond TX",
+"Humble TX",
+"Webster TX",
+"Lake Jackson TX",
+"Cypress TX",
+"Pearland TX"
 ]
 },
 {
@@ -7234,13 +6999,11 @@
 "fhir_base_url": "https://epicproxy.et1095.epichosted.com/FHIRProxy/KKI/api/FHIR/R4",
 "places": [
 "Baltimore MD",
-"BALTIMORE MD",
 "Odenton MD",
 "Columbia MD",
 "Windsor Mill MD",
-"MIDDLE RIVER MD",
-"FULTON MD",
-"COLUMBIA MD"
+"Middle River MD",
+"Fulton MD"
 ]
 },
 {
@@ -7268,8 +7031,7 @@
 "Centerville OH",
 "Miamisburg OH",
 "Beavercreek OH",
-"Xenia OH",
-"BEAVERCREEK OH"
+"Xenia OH"
 ]
 },
 {
@@ -7284,7 +7046,7 @@
 "Minneapolis MN",
 "Rolla MO",
 "Hollywood FL",
-"CEDAR RAPIDS IA",
+"Cedar Rapids IA",
 "Saint Cloud MN",
 "Madison WI"
 ]
@@ -7305,7 +7067,7 @@
 "network": "Baptist Memorial Health Care",
 "places": [
 "Union City TN",
-"PARIS TN"
+"Paris TN"
 ]
 },
 {
@@ -7323,7 +7085,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTKINGCOUNTY/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SEATTLE WA"
+"Seattle WA"
 ]
 },
 {
@@ -7340,7 +7102,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTKINTEGRA/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"GASTONIA NC"
+"Gastonia NC"
 ]
 },
 {
@@ -7369,7 +7131,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"HALLOCK MN",
+"Hallock MN",
 "Karlstad MN"
 ]
 },
@@ -7450,7 +7212,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTLPCHC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"LA PINE OR"
+"La Pine OR"
 ]
 },
 {
@@ -7474,7 +7236,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTLBCC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"LAGUNA BEACH CA"
+"Laguna Beach CA"
 ]
 },
 {
@@ -7485,7 +7247,7 @@
 "fhir_base_url": "https://epicproxy.et0830.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "FMOL Health",
 "places": [
-"LAKE CHARLES LA"
+"Lake Charles LA"
 ]
 },
 {
@@ -7500,9 +7262,8 @@
 "Herman MN",
 "Battle Lake MN",
 "Evansville MN",
-"FERGUS FALLS MN",
-"Elbow Lake MN",
 "Fergus Falls MN",
+"Elbow Lake MN",
 "Barnesville MN"
 ]
 },
@@ -7520,14 +7281,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicapp.mylrh.org/OAuth2/LRH/api/FHIR/R4",
 "places": [
-"LAKELAND FL",
 "Lakeland FL",
 "Lake Wales FL",
-"WINTER HAVEN FL",
-"PLANT CITY FL",
-"VENICE FL",
-"LAKE WALES FL",
-"AUBURNDALE FL"
+"Winter Haven FL",
+"Plant City FL",
+"Venice FL",
+"Auburndale FL"
 ]
 },
 {
@@ -7562,7 +7321,6 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTLHS/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"STAPLES MN",
 "Staples MN"
 ]
 },
@@ -7583,11 +7341,10 @@
 "places": [
 "New Orleans LA",
 "Metairie LA",
-"NEW ORLEANS LA",
-"PRAIRIEVILLE LA",
-"ALEXANDRIA LA",
+"Prairieville LA",
+"Alexandria LA",
 "Destrehan LA",
-"BAY ST LOUIS MS",
+"Bay St Louis MS",
 "River Ridge LA"
 ]
 },
@@ -7599,12 +7356,10 @@
 "fhir_base_url": "https://epicproxy.lghealth.org/fhirproxy/api/FHIR/R4",
 "network": "Lancaster General Hospital",
 "places": [
-"LANCASTER PA",
 "Lancaster PA",
-"ELIZABETHTOWN PA",
-"LEBANON PA",
-"EPHRATA PA",
-"LITITZ PA",
+"Elizabethtown PA",
+"Lebanon PA",
+"Ephrata PA",
 "Lititz PA",
 "East Petersburg PA"
 ]
@@ -7643,9 +7398,7 @@
 "places": [
 "New Orleans LA",
 "Metairie LA",
-"NEW ORLEANS LA",
 "Marrero LA",
-"METAIRIE LA",
 "Covington LA",
 "Slidell LA",
 "LaPlace LA"
@@ -7659,14 +7412,14 @@
 "fhir_base_url": "https://epicedi.leememorial.org/FHIR-prd/api/FHIR/R4/",
 "network": "Lee Health",
 "places": [
-"FORT MYERS FL",
-"CAPE CORAL FL",
-"ESTERO FL",
-"LEHIGH ACRES FL",
-"NAPLES FL",
-"PT CHARLOTTE FL",
-"BONITA SPRINGS FL",
-"SANIBEL FL"
+"Fort Myers FL",
+"Cape Coral FL",
+"Estero FL",
+"Lehigh Acres FL",
+"Naples FL",
+"Pt Charlotte FL",
+"Bonita Springs FL",
+"Sanibel FL"
 ]
 },
 {
@@ -7677,7 +7430,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"HOUSTON TX"
+"Houston TX"
 ]
 },
 {
@@ -7688,14 +7441,11 @@
 "fhir_base_url": "https://LHSPDXFHIRPRD.LHS.ORG/FHIR/api/FHIR/R4",
 "network": "Legacy Health",
 "places": [
-"PORTLAND OR",
 "Portland OR",
 "Vancouver WA",
-"TUALATIN OR",
-"HAPPY VALLEY OR",
-"Gresham OR",
-"GRESHAM OR",
-"Tualatin OR"
+"Tualatin OR",
+"Happy Valley OR",
+"Gresham OR"
 ]
 },
 {
@@ -7706,14 +7456,14 @@
 "fhir_base_url": "https://proxy.lvh.com/FHIR/api/FHIR/R4",
 "network": "Lehigh Valley Hospital",
 "places": [
-"ALLENTOWN PA",
-"BETHLEHEM PA",
-"EAST STROUDSBURG PA",
-"EASTON PA",
-"POTTSVILLE PA",
-"HAZLETON PA",
-"WHITEHALL PA",
-"MACUNGIE PA"
+"Allentown PA",
+"Bethlehem PA",
+"East Stroudsburg PA",
+"Easton PA",
+"Pottsville PA",
+"Hazleton PA",
+"Whitehall PA",
+"Macungie PA"
 ]
 },
 {
@@ -7738,14 +7488,12 @@
 "fhir_base_url": "https://lmcrcs.lexmed.com/FHIR/api/FHIR/R4",
 "network": "Lexington Health",
 "places": [
-"WEST COLUMBIA SC",
-"COLUMBIA SC",
-"LEXINGTON SC",
-"CHAPIN SC",
-"CAYCE SC",
+"West Columbia SC",
 "Columbia SC",
-"IRMO SC",
-"West Columbia SC"
+"Lexington SC",
+"Chapin SC",
+"Cayce SC",
+"Irmo SC"
 ]
 },
 {
@@ -7761,7 +7509,6 @@
 "Granville OH",
 "Heath OH",
 "Johnstown OH",
-"NEWARK OH",
 "Utica OH",
 "Hanover OH"
 ]
@@ -7806,7 +7553,6 @@
 "network": "Sanford Health",
 "places": [
 "Sioux Falls SD",
-"SIOUX FALLS SD",
 "Rapid City SD"
 ]
 },
@@ -7860,8 +7606,8 @@
 "fhir_base_url": "https://epic-soap.uchealth.com/FHIRProxy/api/FHIR/R4",
 "network": "UC Health",
 "places": [
-"CINCINNATI OH",
-"MASON OH"
+"Cincinnati OH",
+"Mason OH"
 ]
 },
 {
@@ -7872,8 +7618,8 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "network": "Parkview Health",
 "places": [
-"ANDERSON IN",
-"FISHERS IN",
+"Anderson IN",
+"Fishers IN",
 "Fort Wayne IN"
 ]
 },
@@ -7896,7 +7642,6 @@
 "Redlands CA",
 "San Bernardino CA",
 "Riverside CA",
-"LOMA LINDA CA",
 "Apple Valley CA",
 "Upland CA",
 "Moreno Valley CA"
@@ -7924,14 +7669,12 @@
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/LHS/api/FHIR/R4",
 "network": "Ardent",
 "places": [
-"ALBUQUERQUE NM",
+"Albuquerque NM",
 "Tyler TX",
 "Tulsa OK",
-"Albuquerque NM",
-"TYLER TX",
 "Henderson TX",
-"AMARILLO TX",
-"ROSWELL NM"
+"Amarillo TX",
+"Roswell NM"
 ]
 },
 {
@@ -7985,12 +7728,9 @@
 "places": [
 "Lanham MD",
 "Annapolis MD",
-"ANNAPOLIS MD",
 "Easton MD",
 "Bowie MD",
-"Odenton MD",
-"BOWIE MD",
-"LANHAM MD"
+"Odenton MD"
 ]
 },
 {
@@ -8019,7 +7759,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTLMHS/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SAN FRANCISCO CA"
+"San Francisco CA"
 ]
 },
 {
@@ -8030,14 +7770,12 @@
 "fhir_base_url": "https://sfd.fairview.org/FHIR/api/FHIR/R4/",
 "network": "Fairview",
 "places": [
-"MINNEAPOLIS MN",
 "Minneapolis MN",
-"BURNSVILLE MN",
+"Burnsville MN",
 "Maplewood MN",
-"EDINA MN",
+"Edina MN",
 "Saint Paul MN",
-"Woodbury MN",
-"SAINT PAUL MN"
+"Woodbury MN"
 ]
 },
 {
@@ -8055,7 +7793,7 @@
 "fhir_base_url": "https://arrprod.midmichigan.net/ProdFHIR/api/FHIR/R4",
 "network": "MyMichigan Health",
 "places": [
-"SAINT IGNACE MI"
+"Saint Ignace MI"
 ]
 },
 {
@@ -8068,7 +7806,6 @@
 "places": [
 "London OH",
 "West Jefferson OH",
-"LONDON OH",
 "Mechanicsburg OH",
 "Springfield OH",
 "Mount Sterling OH"
@@ -8103,7 +7840,7 @@
 "fhir_base_url": "https://epicproxy.et1453.epichosted.com/FHIRProxyPRD/MAGEE/api/FHIR/R4",
 "network": "South Central Regional Medical Center",
 "places": [
-"MAGEE MS"
+"Magee MS"
 ]
 },
 {
@@ -8125,7 +7862,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"MAHNOMEN MN"
+"Mahnomen MN"
 ]
 },
 {
@@ -8135,13 +7872,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1007.epichosted.com/FHIRProxy/LAUNCH/api/FHIR/R4",
 "places": [
-"WYNNEWOOD PA",
+"Wynnewood PA",
 "Bryn Mawr PA",
 "Media PA",
-"BROOMALL PA",
-"PAOLI PA",
+"Broomall PA",
+"Paoli PA",
 "Philadelphia PA",
-"MEDIA PA",
 "Phoenixville PA"
 ]
 },
@@ -8170,7 +7906,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"WAILUKU HI",
+"Wailuku HI",
 "Lahaina HI"
 ]
 },
@@ -8193,8 +7929,8 @@
 "fhir_base_url": "https://prd.lluh.org/fhir/api/FHIR/R4",
 "network": "Loma Linda University Medical Center",
 "places": [
-"YUCAIPA CA",
-"BEAUMONT CA"
+"Yucaipa CA",
+"Beaumont CA"
 ]
 },
 {
@@ -8212,7 +7948,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTMCC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"NOVATO CA"
+"Novato CA"
 ]
 },
 {
@@ -8241,14 +7977,14 @@
 "fhir_base_url": "https://epichaiku.chs-mi.com/FHIRPROXY/api/FHIR/R4",
 "network": "Covenant HealthCare",
 "places": [
-"GRAND RAPIDS MI",
-"TRAVERSE CITY MI",
-"KALAMAZOO MI",
-"NORTON SHORES MI",
-"MUSKEGON MI",
-"WYOMING MI",
-"LANSING MI",
-"ELK RAPIDS MI"
+"Grand Rapids MI",
+"Traverse City MI",
+"Kalamazoo MI",
+"Norton Shores MI",
+"Muskegon MI",
+"Wyoming MI",
+"Lansing MI",
+"Elk Rapids MI"
 ]
 },
 {
@@ -8259,14 +7995,14 @@
 "fhir_base_url": "https://epicproxy.et1055.epichosted.com/FHIRProxy/MWHC/api/FHIR/R4",
 "network": "Mary Washington Healthcare",
 "places": [
-"FREDERICKSBURG VA",
-"STAFFORD VA",
-"KING GEORGE VA",
-"LOCUST GROVE VA",
-"RUTHER GLEN VA",
-"SPOTSYLVANIA VA",
-"BOWLING GREEN VA",
-"ORANGE VA"
+"Fredericksburg VA",
+"Stafford VA",
+"King George VA",
+"Locust Grove VA",
+"Ruther Glen VA",
+"Spotsylvania VA",
+"Bowling Green VA",
+"Orange VA"
 ]
 },
 {
@@ -8289,8 +8025,7 @@
 "Bowie MD",
 "Pasadena MD",
 "Hanover MD",
-"Arnold MD",
-"GLEN BURNIE MD"
+"Arnold MD"
 ]
 },
 {
@@ -8318,7 +8053,6 @@
 "platform": "epic",
 "fhir_base_url": "https://tls.mcc.apix.mayo.edu/epic-fhir/api/FHIR/R4",
 "places": [
-"ROCHESTER MN",
 "Rochester MN",
 "Mankato MN",
 "Menomonie WI",
@@ -8336,12 +8070,12 @@
 "fhir_base_url": "https://rxedi.bmhcc.org/prd-fhir/api/FHIR/R4/",
 "network": "Baptist Memorial Health Care",
 "places": [
-"MADISON MS",
-"HATTIESBURG MS",
-"JACKSON MS",
-"MCCOMB MS",
-"RULEVILL MS",
-"COLUMBUS MS"
+"Madison MS",
+"Hattiesburg MS",
+"Jackson MS",
+"McComb MS",
+"Rulevill MS",
+"Columbus MS"
 ]
 },
 {
@@ -8363,7 +8097,6 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"WATFORD CITY ND",
 "Watford City ND",
 "Williston ND",
 "Willison ND"
@@ -8414,8 +8147,6 @@
 "Jamaica NY",
 "Flushing NY",
 "Brooklyn NY",
-"FLUSHING NY",
-"JAMAICA NY",
 "Richmond Hill NY",
 "Forest Hills NY",
 "Hollis NY"
@@ -8441,7 +8172,6 @@
 "Charleston SC",
 "Rincon GA",
 "Pooler GA",
-"SAVANNAH GA",
 "Okatie SC"
 ]
 },
@@ -8455,7 +8185,6 @@
 "places": [
 "Marysville OH",
 "Plain City OH",
-"PLAIN CITY OH",
 "Richwood OH",
 "Urbana OH"
 ]
@@ -8468,14 +8197,12 @@
 "fhir_base_url": "https://mhssp.mhs.net/fhir/api/FHIR/R4",
 "network": "Memorial Healthcare System (FL)",
 "places": [
-"HOLLYWOOD FL",
-"MIRAMAR FL",
-"PEMBROKE PINES FL",
 "Hollywood FL",
-"BOCA RATON FL",
 "Miramar FL",
-"WEST PALM BEACH FL",
-"WESTON FL"
+"Pembroke Pines FL",
+"Boca Raton FL",
+"West Palm Beach FL",
+"Weston FL"
 ]
 },
 {
@@ -8532,14 +8259,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1353.epichosted.com/APIPROXYPRD/api/FHIR/R4",
 "places": [
-"NEW YORK NY",
-"BROOKLYN NY",
-"WEST HARRISON NY",
-"BASKING RIDGE NJ",
-"COMMACK NY",
-"MIDDLETOWN NJ",
 "New York NY",
-"UNIONDALE NY"
+"Brooklyn NY",
+"West Harrison NY",
+"Basking Ridge NJ",
+"Commack NY",
+"Middletown NJ",
+"Uniondale NY"
 ]
 },
 {
@@ -8579,7 +8305,7 @@
 "Coldwater OH",
 "Mendon OH",
 "St. Henry OH",
-"MINSTER OH",
+"Minster OH",
 "New Bremen OH",
 "Maria Stein OH",
 "Fort Recovery OH"
@@ -8610,7 +8336,7 @@
 "fhir_base_url": "https://carepath.health-partners.org/Proxy-FHIR/MYCHART/api/FHIR/R4",
 "network": "Bon Secours Mercy Health",
 "places": [
-"CINCINNATI OH"
+"Cincinnati OH"
 ]
 },
 {
@@ -8654,10 +8380,8 @@
 "Cedar Rapids IA",
 "Hiawatha IA",
 "North Liberty IA",
-"CEDAR RAPIDS IA",
 "Marion IA",
 "Manchester IA",
-"MANCHESTER IA",
 "Cedar Rapieds IA"
 ]
 },
@@ -8668,13 +8392,11 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1062.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
-"HAGERSTOWN MD",
 "Hagerstown MD",
-"BOONSBORO MD",
-"WILLIAMSPORT MD",
-"SMITHSBURG MD",
+"Boonsboro MD",
+"Williamsport MD",
+"Smithsburg MD",
 "Hancock MD",
-"FREDERICK MD",
 "Frederick MD"
 ]
 },
@@ -8686,14 +8408,12 @@
 "fhir_base_url": "https://epcapp.mhd.com/arr-prd-fhir/api/FHIR/R4",
 "network": "Methodist Health System (Dallas",
 "places": [
-"DALLAS TX",
 "Dallas TX",
-"MANSFIELD TX",
+"Mansfield TX",
 "Richardson TX",
-"RICHARDSON TX",
-"CELINA TX",
-"MIDLOTHIAN TX",
-"GRAND PRAIRIE TX"
+"Celina TX",
+"Midlothian TX",
+"Grand Prairie TX"
 ]
 },
 {
@@ -8703,14 +8423,11 @@
 "platform": "epic",
 "fhir_base_url": "https://arr.methodisthospitals.org/FHIR/api/FHIR/R4",
 "places": [
-"MERRILLVILLE IN",
-"GARY IN",
 "Merrillville IN",
-"VALPARAISO IN",
 "Gary IN",
-"CHICAGO IL",
 "Valparaiso IN",
-"SCHERERVILLE IN"
+"Chicago IL",
+"Schererville IN"
 ]
 },
 {
@@ -8726,7 +8443,6 @@
 "Cordova TN",
 "Jackson TN",
 "Bartlett TN",
-"MEMPHIS TN",
 "Collierville TN"
 ]
 },
@@ -8745,14 +8461,13 @@
 "fhir_base_url": "https://fhir.metrohealth.org/fhir_prd/api/FHIR/R4",
 "network": "MetroHealth (OH)",
 "places": [
-"CLEVELAND OH",
 "Cleveland OH",
 "Middleburg Heights OH",
-"PARMA OH",
-"ROCKY RIVER OH",
-"BEACHWOOD OH",
-"WESTLAKE OH",
-"LAKEWOOD OH"
+"Parma OH",
+"Rocky River OH",
+"Beachwood OH",
+"Westlake OH",
+"Lakewood OH"
 ]
 },
 {
@@ -8781,7 +8496,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"MIAMI BEACH FL"
+"Miami Beach FL"
 ]
 },
 {
@@ -8797,14 +8512,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1124.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"MIDDLETOWN CT",
-"ESSEX CT",
 "Middletown CT",
-"MARLBOROUGH CT",
-"CROMWELL CT",
-"MADISON CT",
-"OLD SAYBROOK CT",
-"PORTLAND CT"
+"Essex CT",
+"Marlborough CT",
+"Cromwell CT",
+"Madison CT",
+"Old Saybrook CT",
+"Portland CT"
 ]
 },
 {
@@ -8842,7 +8556,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTMHS/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"MILWAUKEE WI"
+"Milwaukee WI"
 ]
 },
 {
@@ -8853,7 +8567,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTMINIDOKA/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"RUPERT ID"
+"Rupert ID"
 ]
 },
 {
@@ -8883,13 +8597,13 @@
 "network": "CVS Health",
 "places": [
 "Chicago IL",
-"LOS ANGELES CA",
-"ATLANTA GA",
-"SAN ANTONIO TX",
+"Los Angeles CA",
+"Atlanta GA",
+"San Antonio TX",
 "Philadelphia PA",
-"SAN DIEGO CA",
-"CHARLOTTE NC",
-"HOUSTON TX"
+"San Diego CA",
+"Charlotte NC",
+"Houston TX"
 ]
 },
 {
@@ -8912,7 +8626,7 @@
 "network": "Baptist Memorial Health Care",
 "places": [
 "Tupelo MS",
-"MEMPHIS TN",
+"Memphis TN",
 "New Albany MS",
 "Columbus MS"
 ]
@@ -8932,7 +8646,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"MISSOULA MT"
+"Missoula MT"
 ]
 },
 {
@@ -8960,14 +8674,13 @@
 "platform": "epic",
 "fhir_base_url": "https://fhir.mvhealthsystem.org/FHIRproxy/MVHS/api/FHIR/R4",
 "places": [
-"UTICA NY",
 "Utica NY",
-"NEW HARTFORD NY",
-"ROME NY",
-"HERKIMER NY",
-"BOONVILLE NY",
-"WATERVILLE NY",
-"ONEIDA NY"
+"New Hartford NY",
+"Rome NY",
+"Herkimer NY",
+"Boonville NY",
+"Waterville NY",
+"Oneida NY"
 ]
 },
 {
@@ -8978,9 +8691,9 @@
 "fhir_base_url": "https://epicproxy.et1057.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Molina Care Connections",
 "places": [
-"PLANO TX",
-"LONG BEACH CA",
-"EVERETT WA"
+"Plano TX",
+"Long Beach CA",
+"Everett WA"
 ]
 },
 {
@@ -8991,7 +8704,7 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "network": "Parkview Health",
 "places": [
-"CARMEL IN"
+"Carmel IN"
 ]
 },
 {
@@ -9001,14 +8714,11 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1058.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"MONTEREY CA",
 "Monterey CA",
-"MARINA CA",
-"CARMEL CA",
+"Marina CA",
+"Carmel CA",
 "Salinas CA",
-"SALINAS CA",
-"Watsonville CA",
-"Carmel CA"
+"Watsonville CA"
 ]
 },
 {
@@ -9020,11 +8730,9 @@
 "network": "Montefiore Health System",
 "places": [
 "Bronx NY",
-"BRONX NY",
 "New York NY",
 "Yonkers NY",
-"WHITE PLAINS NY",
-"YONKERS NY",
+"White Plains NY",
 "Nyack NY",
 "West Nyack NY"
 ]
@@ -9047,14 +8755,13 @@
 "platform": "epic",
 "fhir_base_url": "https://ehrmobile.monument.health/interconnect-prd-fhir/api/FHIR/R4",
 "places": [
-"RAPID CITY SD",
-"SPEARFISH SD",
 "Rapid City SD",
-"NEWCASTLE WY",
-"HOT SPRINGS SD",
-"UPTON WY",
-"CUSTER SD",
-"PHILIP SD"
+"Spearfish SD",
+"Newcastle WY",
+"Hot Springs SD",
+"Upton WY",
+"Custer SD",
+"Philip SD"
 ]
 },
 {
@@ -9086,10 +8793,9 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1274.epichosted.com/FHIRproxy/api/FHIR/R4",
 "places": [
-"SAINT JOSEPH MO",
+"Saint Joseph MO",
 "Maryville MO",
 "Cameron MO",
-"Saint Joseph MO",
 "Atchison KS",
 "Troy KS",
 "Stanberry MO",
@@ -9104,7 +8810,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTMOSAIC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"BEND OR"
+"Bend OR"
 ]
 },
 {
@@ -9184,11 +8890,11 @@
 "network": "Ardent",
 "places": [
 "Nutley NJ",
-"MONTCLAIR NJ",
+"Montclair NJ",
 "Bloomfield NJ",
 "Montville NJ",
 "Verona NJ",
-"CEDAR GROVE NJ",
+"Cedar Grove NJ",
 "Caldwell NJ",
 "West Caldwell NJ"
 ]
@@ -9201,13 +8907,10 @@
 "fhir_base_url": "https://epicproxy.et0513.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "Mount Sinai Health System",
 "places": [
-"NEW YORK NY",
 "New York NY",
-"BROOKLYN NY",
 "Brooklyn NY",
-"STATEN ISLAND NY",
 "Staten Island NY",
-"OCEANSIDE NY",
+"Oceanside NY",
 "Astoria NY"
 ]
 },
@@ -9226,7 +8929,7 @@
 "fhir_base_url": "https://epicproxy.et1015.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "OrthoVirginia",
 "places": [
-"MCLEAN VA"
+"McLean VA"
 ]
 },
 {
@@ -9280,7 +8983,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"SLAYTON MN"
+"Slayton MN"
 ]
 },
 {
@@ -9292,12 +8995,10 @@
 "network": "Medical University of South Carolina",
 "places": [
 "Charleston SC",
-"CHARLESTON SC",
 "Orangeburg SC",
-"COLUMBIA SC",
-"Mt. Pleasant SC",
 "Columbia SC",
-"FLORENCE SC",
+"Mt. Pleasant SC",
+"Florence SC",
 "Murrells Inlet SC"
 ]
 },
@@ -9333,7 +9034,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTMCHCWI/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"MILWAUKEE WI"
+"Milwaukee WI"
 ]
 },
 {
@@ -9344,14 +9045,13 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/MDN/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"PHOENIX AZ",
-"MESA AZ",
-"GLENDALE AZ",
-"GILBERT AZ",
-"CHANDLER AZ",
 "Phoenix AZ",
-"PEORIA AZ",
-"GOODYEAR AZ"
+"Mesa AZ",
+"Glendale AZ",
+"Gilbert AZ",
+"Chandler AZ",
+"Peoria AZ",
+"Goodyear AZ"
 ]
 },
 {
@@ -9362,11 +9062,11 @@
 "fhir_base_url": "https://proxy.lvh.com/FHIR/api/FHIR/R4",
 "network": "Lehigh Valley Hospital",
 "places": [
-"LEHIGHTON PA",
-"ALLENTOWN PA",
-"BETHLEHEM PA",
-"WHITEHALL PA",
-"E STROUDSBURG PA"
+"Lehighton PA",
+"Allentown PA",
+"Bethlehem PA",
+"Whitehall PA",
+"E Stroudsburg PA"
 ]
 },
 {
@@ -9378,12 +9078,11 @@
 "places": [
 "Midland MI",
 "Alma MI",
-"WEST BRANCH MI",
-"MIDLAND MI",
-"SAGINAW MI",
+"West Branch MI",
+"Saginaw MI",
 "Sault Ste Marie MI",
 "Alpena MI",
-"TAWAS CITY MI"
+"Tawas City MI"
 ]
 },
 {
@@ -9463,11 +9162,10 @@
 "places": [
 "Naples FL",
 "Bonita Springs FL",
-"NAPLES FL",
 "Lutz FL",
 "Marco Island FL",
 "Lehigh Acres FL",
-"AVE MARIA FL"
+"Ave Maria FL"
 ]
 },
 {
@@ -9495,7 +9193,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTNCH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SEATTLE WA"
+"Seattle WA"
 ]
 },
 {
@@ -9505,12 +9203,11 @@
 "platform": "epic",
 "fhir_base_url": "https://host8.ebnhc.org/FHIR/api/FHIR/R4",
 "places": [
-"EAST BOSTON MA",
-"BOSTON MA",
-"WINTHROP MA",
 "East Boston MA",
-"REVERE MA",
-"EVERETT MA"
+"Boston MA",
+"Winthrop MA",
+"Revere MA",
+"Everett MA"
 ]
 },
 {
@@ -9521,7 +9218,7 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/BKT/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"BEND OR"
+"Bend OR"
 ]
 },
 {
@@ -9532,7 +9229,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTNHC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"PORTLAND OR"
+"Portland OR"
 ]
 },
 {
@@ -9557,13 +9254,11 @@
 "network": "Nemours",
 "places": [
 "Wilmington DE",
-"ORLANDO FL",
+"Orlando FL",
 "New Castle DE",
-"WILMINGTON DE",
 "Jacksonville FL",
 "Seaford DE",
-"Orlando FL",
-"KISSIMMEE FL"
+"Kissimmee FL"
 ]
 },
 {
@@ -9574,8 +9269,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"Gurabo PR",
-"GURABO PR"
+"Gurabo PR"
 ]
 },
 {
@@ -9629,12 +9323,9 @@
 "fhir_base_url": "https://epicproxy-pub.et1089.epichosted.com/FHIRProxy/api/FHIR/R4/",
 "network": "New York Consortium",
 "places": [
-"BROOKLYN NY",
 "Brooklyn NY",
 "New York NY",
-"NEW YORK NY",
 "Fresh Meadows NY",
-"FLUSHING NY",
 "Flushing NY",
 "Bronx NY"
 ]
@@ -9647,7 +9338,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"NEWPORT WA"
+"Newport WA"
 ]
 },
 {
@@ -9658,12 +9349,12 @@
 "fhir_base_url": "https://arrprod.midmichigan.net/ProdFHIR/api/FHIR/R4",
 "network": "MyMichigan Health",
 "places": [
-"MOUNT PLEASANT MI"
+"Mount Pleasant MI"
 ]
 },
 {
 "id": "epic-noah",
-"name": "NOAH",
+"name": "Noah",
 "location": "Phoenix, AZ",
 "platform": "epic",
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/NOAHHELPS/api/FHIR/R4",
@@ -9680,14 +9371,14 @@
 "fhir_base_url": "https://prdproxy.nomshealthcare.com/PRD-OAuth2/NOMS/api/FHIR/R4",
 "network": "NOMS Healthcare",
 "places": [
-"SANDUSKY OH",
-"NORWALK OH",
-"WARREN OH",
-"PARMA OH",
-"BELLEVUE OH",
-"BEACHWOOD OH",
-"BOARDMAN OH",
-"MENTOR OH"
+"Sandusky OH",
+"Norwalk OH",
+"Warren OH",
+"Parma OH",
+"Bellevue OH",
+"Beachwood OH",
+"Boardman OH",
+"Mentor OH"
 ]
 },
 {
@@ -9704,7 +9395,7 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"LOVINGTON NM"
+"Lovington NM"
 ]
 },
 {
@@ -9714,14 +9405,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1364.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
-"BUTNER NC",
-"BLACK MOUNTAIN NC",
-"GREENVILLE NC",
-"MORGANTON NC",
-"GOLDSBORO NC",
-"KINSTON NC",
-"WILSON NC",
-"DURHAM NC"
+"Butner NC",
+"Black Mountain NC",
+"Greenville NC",
+"Morganton NC",
+"Goldsboro NC",
+"Kinston NC",
+"Wilson NC",
+"Durham NC"
 ]
 },
 {
@@ -9731,10 +9422,10 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1332.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"SAN FRANCISCO CA",
-"DALY CITY CA",
-"SAN JOSE CA",
-"S SAN FRAN CA"
+"San Francisco CA",
+"Daly City CA",
+"San Jose CA",
+"S San Fran CA"
 ]
 },
 {
@@ -9756,14 +9447,13 @@
 "fhir_base_url": "https://minerva.northmemorial.com/fhir/api/FHIR/R4",
 "network": "North Memorial Health",
 "places": [
-"MAPLE GROVE MN",
-"ROBBINSDALE MN",
-"MINNEAPOLIS MN",
-"ROSEVILLE MN",
-"BLAINE MN",
-"MONTICELLO MN",
-"FRIDLEY MN",
-"Robbinsdale MN"
+"Maple Grove MN",
+"Robbinsdale MN",
+"Minneapolis MN",
+"Roseville MN",
+"Blaine MN",
+"Monticello MN",
+"Fridley MN"
 ]
 },
 {
@@ -9799,10 +9489,8 @@
 "places": [
 "Hammond LA",
 "Livingston LA",
-"HAMMOND LA",
-"WALKER LA",
+"Walker LA",
 "Ponchatoula LA",
-"hammond LA",
 "Independence LA"
 ]
 },
@@ -9814,8 +9502,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"Port Angeles WA",
-"PORT ANGELES WA"
+"Port Angeles WA"
 ]
 },
 {
@@ -9840,13 +9527,12 @@
 "fhir_base_url": "https://wpprod.nghs.com/fhir/NGHS/api/FHIR/R4",
 "places": [
 "Gainesville GA",
-"GAINESVILLE GA",
-"DAHLONEGA GA",
-"DEMOREST GA",
-"TOCCOA GA",
-"BRASELTON GA",
-"OAKWOOD GA",
-"DAWSONVILLE GA"
+"Dahlonega GA",
+"Demorest GA",
+"Toccoa GA",
+"Braselton GA",
+"Oakwood GA",
+"Dawsonville GA"
 ]
 },
 {
@@ -9857,7 +9543,6 @@
 "fhir_base_url": "https://scproxy.gundersenhealth.org/FHIRARR/api/FHIR/R4",
 "network": "Emplify Health",
 "places": [
-"GREEN BAY WI",
 "Green Bay WI"
 ]
 },
@@ -9880,8 +9565,8 @@
 "Sleepy Hollow NY",
 "Riverhead NY",
 "Mount Kisco NY",
-"GREAT NECK NY",
-"HUNTINGTON NY"
+"Great Neck NY",
+"Huntington NY"
 ]
 },
 {
@@ -9899,11 +9584,11 @@
 "fhir_base_url": "https://epicproxy.et4006.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "network": "Garden Plot Orthopedics",
 "places": [
-"SPOKANE WA",
-"SPOKANE VALLEY WA",
-"ODESSA WA",
-"RITZVILLE WA",
-"POST FALLS ID"
+"Spokane WA",
+"Spokane Valley WA",
+"Odessa WA",
+"Ritzville WA",
+"Post Falls ID"
 ]
 },
 {
@@ -9915,13 +9600,12 @@
 "featured": true,
 "places": [
 "Chicago IL",
-"CHICAGO IL",
 "Geneva IL",
 "Winfield IL",
 "Crystal Lake IL",
 "Huntley IL",
-"WHEATON IL",
-"SYCAMORE IL"
+"Wheaton IL",
+"Sycamore IL"
 ]
 },
 {
@@ -9973,8 +9657,7 @@
 "Winston-Salem NC",
 "Huntersville NC",
 "Salisbury NC",
-"Kernersville NC",
-"WINSTON SALEM NC"
+"Kernersville NC"
 ]
 },
 {
@@ -9985,7 +9668,7 @@
 "fhir_base_url": "https://epicproxy.et1326.epichosted.com/FHIRProxy/MHCC/api/FHIR/R4",
 "network": "Memorial Hermann",
 "places": [
-"CYPRESS TX"
+"Cypress TX"
 ]
 },
 {
@@ -10009,14 +9692,11 @@
 "fhir_base_url": "https://epicproxypda.nychhc.org/FHIRProxy/HOME/api/FHIR/R4",
 "network": "NYC Health + Hospitals",
 "places": [
-"BROOKLYN NY",
-"BRONX NY",
-"NEW YORK NY",
 "Brooklyn NY",
+"Bronx NY",
 "New York NY",
 "Jackson Heights NY",
-"Staten Island NY",
-"JACKSON HEIGHTS NY"
+"Staten Island NY"
 ]
 },
 {
@@ -10028,14 +9708,12 @@
 "featured": true,
 "network": "NYU Langone Health",
 "places": [
-"NEW YORK NY",
-"Brooklyn NY",
-"BROOKLYN NY",
-"Mineola NY",
 "New York NY",
+"Brooklyn NY",
+"Mineola NY",
 "Patchogue NY",
-"GARDEN CITY NY",
-"NEW HYDE PARK NY"
+"Garden City NY",
+"New Hyde Park NY"
 ]
 },
 {
@@ -10046,14 +9724,14 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/OAK/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"EAU CLAIRE WI",
-"RICE LAKE WI",
-"CHIPPEWA FALLS WI",
-"CUMBERLAND WI",
-"MENOMONIE WI",
-"LADYSMITH WI",
-"CORNELL WI",
-"BALDWIN WI"
+"Eau Claire WI",
+"Rice Lake WI",
+"Chippewa Falls WI",
+"Cumberland WI",
+"Menomonie WI",
+"Ladysmith WI",
+"Cornell WI",
+"Baldwin WI"
 ]
 },
 {
@@ -10070,7 +9748,7 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"ILWACO WA"
+"Ilwaco WA"
 ]
 },
 {
@@ -10080,14 +9758,14 @@
 "platform": "epic",
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHART/api/FHIR/R4",
 "places": [
-"PORTLAND OR",
-"SEATTLE WA",
-"CHICAGO IL",
-"SAN JOSE CA",
-"OAKLAND CA",
-"SACRAMENTO CA",
-"MILWAUKEE WI",
-"SAN FRANCISCO CA"
+"Portland OR",
+"Seattle WA",
+"Chicago IL",
+"San Jose CA",
+"Oakland CA",
+"Sacramento CA",
+"Milwaukee WI",
+"San Francisco CA"
 ]
 },
 {
@@ -10097,14 +9775,11 @@
 "platform": "epic",
 "fhir_base_url": "https://myc.ochsner.org/FHIR/api/FHIR/R4",
 "places": [
-"NEW ORLEANS LA",
+"New Orleans LA",
 "Lafayette LA",
 "Baton Rouge LA",
-"New Orleans LA",
-"BATON ROUGE LA",
 "Slidell LA",
-"Covington LA",
-"SLIDELL LA"
+"Covington LA"
 ]
 },
 {
@@ -10121,14 +9796,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1316.epichosted.com/APIPROXYPRD/api/FHIR/R4",
 "places": [
-"COLUMBUS OH",
-"CLEVELAND OH",
-"CAMBRIDGE OH",
-"PARMA OH",
-"NORTHFIELD OH",
-"MASSILLON OH",
-"MADISON OH",
-"CINCINNATI OH"
+"Columbus OH",
+"Cleveland OH",
+"Cambridge OH",
+"Parma OH",
+"Northfield OH",
+"Massillon OH",
+"Madison OH",
+"Cincinnati OH"
 ]
 },
 {
@@ -10144,8 +9819,7 @@
 "Cambridge OH",
 "Mansfield OH",
 "Grove City OH",
-"Delaware OH",
-"MANSFIELD OH"
+"Delaware OH"
 ]
 },
 {
@@ -10173,10 +9847,10 @@
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/OHI/api/FHIR/R4",
 "network": "Ardent",
 "places": [
-"TULSA OK",
-"OKEMAH OK",
-"STILLWATER OK",
-"MUSKOGEE OK"
+"Tulsa OK",
+"Okemah OK",
+"Stillwater OK",
+"Muskogee OK"
 ]
 },
 {
@@ -10193,14 +9867,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1077.epichosted.com/APIPROXYPRD/HOME/api/FHIR/R4",
 "places": [
-"ROCHESTER MN",
 "Rochester MN",
-"OWATONNA MN",
-"LAKE CITY MN",
+"Owatonna MN",
+"Lake City MN",
 "Faribault MN",
-"CANNON FALLS MN",
-"STEWARTVILLE MN",
-"PINE ISLAND MN"
+"Cannon Falls MN",
+"Stewartville MN",
+"Pine Island MN"
 ]
 },
 {
@@ -10223,7 +9896,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTOL/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SAN FRANCISCO CA"
+"San Francisco CA"
 ]
 },
 {
@@ -10235,7 +9908,6 @@
 "network": "One Brooklyn Health",
 "places": [
 "Brooklyn NY",
-"BROOKLYN NY",
 "Elmhurst NY"
 ]
 },
@@ -10269,7 +9941,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"UPLAND CA"
+"Upland CA"
 ]
 },
 {
@@ -10287,9 +9959,8 @@
 "fhir_base_url": "https://yrmccare1.yumaregional.org/FHIR/Onvida/api/FHIR/R4",
 "network": "Onvida Health",
 "places": [
-"YUMA AZ",
 "Yuma AZ",
-"SAN LUIS AZ"
+"San Luis AZ"
 ]
 },
 {
@@ -10300,7 +9971,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/ODHCMYCHART/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"MANKATO MN"
+"Mankato MN"
 ]
 },
 {
@@ -10311,7 +9982,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTOPENDOOR/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"ARCATA CA"
+"Arcata CA"
 ]
 },
 {
@@ -10388,7 +10059,6 @@
 "network": "Sanford Health",
 "places": [
 "Orange City IA",
-"ORANGE CITY IA",
 "Hospers IA"
 ]
 },
@@ -10400,7 +10070,7 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"MISSION VIEJO CA",
+"Mission Viejo CA",
 "Laguna Hills CA"
 ]
 },
@@ -10412,7 +10082,6 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"ORANGE CA",
 "Orange CA",
 "Fullerton CA"
 ]
@@ -10456,14 +10125,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1131.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"ORLANDO FL",
 "Orlando FL",
-"TAMPA FL",
-"ST PETERSBURG FL",
-"CLERMONT FL",
-"ZEPHYRHILLS FL",
-"LAKE MARY FL",
-"OCOEE FL"
+"Tampa FL",
+"St Petersburg FL",
+"Clermont FL",
+"Zephyrhills FL",
+"Lake Mary FL",
+"Ocoee FL"
 ]
 },
 {
@@ -10473,14 +10141,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epwebapps.orthocarolina.com/fhir-prd/api/FHIR/R4",
 "places": [
-"CHARLOTTE NC",
-"WINSTON SALEM NC",
-"MOORESVILLE NC",
-"INDIAN LAND SC",
-"CONCORD NC",
-"LAURINBURG NC",
-"BELMONT NC",
-"MATTHEWS NC"
+"Charlotte NC",
+"Winston Salem NC",
+"Mooresville NC",
+"Indian Land SC",
+"Concord NC",
+"Laurinburg NC",
+"Belmont NC",
+"Matthews NC"
 ]
 },
 {
@@ -10491,7 +10159,7 @@
 "fhir_base_url": "https://ss.uch.edu/FHIRProxy/api/FHIR/R4",
 "network": "UCHealth - Colorado",
 "places": [
-"FORT COLLINS CO"
+"Fort Collins CO"
 ]
 },
 {
@@ -10514,14 +10182,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1015.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"RICHMOND VA",
-"MIDLOTHIAN VA",
-"FAIRFAX VA",
-"ALEXANDRIA VA",
-"VIRGINIA BEACH VA",
-"MECHANICSVILLE VA",
-"ARLINGTON VA",
-"CHRISTIANSBURG VA"
+"Richmond VA",
+"Midlothian VA",
+"Fairfax VA",
+"Alexandria VA",
+"Virginia Beach VA",
+"Mechanicsville VA",
+"Arlington VA",
+"Christiansburg VA"
 ]
 },
 {
@@ -10533,7 +10201,7 @@
 "network": "Sanford Health",
 "places": [
 "Clinton MN",
-"ORTONVILLE MN"
+"Ortonville MN"
 ]
 },
 {
@@ -10572,14 +10240,13 @@
 "platform": "epic",
 "fhir_base_url": "https://ssproxy.osfhealthcare.org/fhir-proxy/api/FHIR/R4",
 "places": [
-"PEORIA IL",
 "Peoria IL",
-"OTTAWA IL",
-"ROCKFORD IL",
-"BLOOMINGTON IL",
-"PERU IL",
-"PONTIAC IL",
-"GALESBURG IL"
+"Ottawa IL",
+"Rockford IL",
+"Bloomington IL",
+"Peru IL",
+"Pontiac IL",
+"Galesburg IL"
 ]
 },
 {
@@ -10589,14 +10256,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1181.epichosted.com/FHIRProxy/HOME/api/FHIR/R4",
 "places": [
-"OKLAHOMA CITY OK",
-"TULSA OK",
-"EDMOND OK",
-"LAWTON OK",
-"NORMAN OK",
 "Oklahoma City OK",
-"BETHANY OK",
-"ENID OK"
+"Tulsa OK",
+"Edmond OK",
+"Lawton OK",
+"Norman OK",
+"Bethany OK",
+"Enid OK"
 ]
 },
 {
@@ -10614,7 +10280,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTOCHS/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"HARWICH PORT MA"
+"Harwich Port MA"
 ]
 },
 {
@@ -10671,14 +10337,13 @@
 "fhir_base_url": "https://fhir.omhs.org/rp-prd-fhir/api/FHIR/R4",
 "network": "Owensboro Health",
 "places": [
-"OWENSBORO KY",
-"MADISONVILLE KY",
-"LEITCHFIELD KY",
-"HENDERSON KY",
-"GREENVILLE KY",
-"POWDERLY KY",
 "Owensboro KY",
-"BEAVER DAM KY"
+"Madisonville KY",
+"Leitchfield KY",
+"Henderson KY",
+"Greenville KY",
+"Powderly KY",
+"Beaver Dam KY"
 ]
 },
 {
@@ -10689,9 +10354,8 @@
 "fhir_base_url": "https://rxedi.bmhcc.org/prd-fhir/api/FHIR/R4/",
 "network": "Baptist Memorial Health Care",
 "places": [
-"OXFORD MS",
-"New Albany MS",
-"Oxford MS"
+"Oxford MS",
+"New Albany MS"
 ]
 },
 {
@@ -10702,11 +10366,10 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"SEATTLE WA",
 "Seattle WA",
 "Federal Way WA",
 "Elma WA",
-"PUYALLUP WA",
+"Puyallup WA",
 "Bothell WA",
 "Renton WA",
 "Lynnwood WA"
@@ -10731,7 +10394,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SPRINGFIELD OR"
+"Springfield OR"
 ]
 },
 {
@@ -10742,7 +10405,7 @@
 "fhir_base_url": "https://arrprd.metrohealth.net/fhir/api/FHIR/R4",
 "network": "University of Michigan Health - West",
 "places": [
-"ANN ARBOR MI"
+"Ann Arbor MI"
 ]
 },
 {
@@ -10761,7 +10424,6 @@
 "network": "Parkland Health",
 "places": [
 "Dallas TX",
-"DALLAS TX",
 "Grand Prairie TX",
 "Garland TX",
 "Irving TX",
@@ -10784,8 +10446,7 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "places": [
 "Fort Wayne IN",
-"FORT WAYNE IN",
-"LOGANSPORT IN",
+"Logansport IN",
 "Kendallville IN",
 "Columbia City IN",
 "Wabash IN",
@@ -10808,7 +10469,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"MISSOULA MT"
+"Missoula MT"
 ]
 },
 {
@@ -10837,10 +10498,10 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "network": "Parkview Health",
 "places": [
-"OAKWOOD OH",
-"PAYNE OH",
+"Oakwood OH",
+"Payne OH",
 "Paulding OH",
-"ANTWERP OH"
+"Antwerp OH"
 ]
 },
 {
@@ -10850,14 +10511,13 @@
 "platform": "epic",
 "fhir_base_url": "https://soapproxy.peacehealth.org/FHIRProxy/PeaceHealth/api/FHIR/R4",
 "places": [
-"BELLINGHAM WA",
-"VANCOUVER WA",
-"EUGENE OR",
-"LONGVIEW WA",
-"FLORENCE OR",
-"SPRINGFIELD OR",
+"Bellingham WA",
 "Vancouver WA",
-"SEDRO WOOLLEY WA"
+"Eugene OR",
+"Longview WA",
+"Florence OR",
+"Springfield OR",
+"Sedro Woolley WA"
 ]
 },
 {
@@ -10919,12 +10579,10 @@
 "network": "University of Pennsylvania Health System",
 "places": [
 "Philadelphia PA",
-"PHILADELPHIA PA",
 "Doylestown PA",
 "Princeton NJ",
 "West Chester PA",
 "Exton PA",
-"WEST CHESTER PA",
 "Plainsboro NJ"
 ]
 },
@@ -10959,7 +10617,7 @@
 "network": "Sanford Health",
 "places": [
 "New York Mills MN",
-"PERHAM MN",
+"Perham MN",
 "Ottertail MN"
 ]
 },
@@ -10971,12 +10629,12 @@
 "fhir_base_url": "https://epicproxy.et0502.epichosted.com/FhirProxy/MPC/api/FHIR/R4",
 "network": "UC San Diego Health",
 "places": [
-"SAN DIEGO CA",
-"LA JOLLA CA",
-"CHULA VISTA CA",
+"San Diego CA",
+"La Jolla CA",
+"Chula Vista CA",
 "Carlsbad CA",
-"BONITA CA",
-"ENCINITAS CA",
+"Bonita CA",
+"Encinitas CA",
 "Irvine CA",
 "Santee CA"
 ]
@@ -11000,11 +10658,10 @@
 "fhir_base_url": "https://epicproxy.et1134.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
 "Rolla MO",
-"ROLLA MO",
 "Salem MO",
-"HOUSTON MO",
+"Houston MO",
 "Waynesville MO",
-"SAINT JAMES MO",
+"Saint James MO",
 "Vienna MO"
 ]
 },
@@ -11056,7 +10713,6 @@
 "Prestonsburg KY",
 "South Williamson KY",
 "Grundy VA",
-"PIKEVILLE KY",
 "Martin KY",
 "Whitesburg KY",
 "Hazard KY"
@@ -11070,12 +10726,11 @@
 "fhir_base_url": "https://epicproxy.et1086.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "Pine Rest Christian Hospital",
 "places": [
-"GRAND RAPIDS MI",
 "Grand Rapids MI",
-"KALAMAZOO MI",
-"PELLA IA",
-"TRAVERSE CITY MI",
-"ZEELAND MI",
+"Kalamazoo MI",
+"Pella IA",
+"Traverse City MI",
+"Zeeland MI",
 "Spring Lake MI",
 "Byron Center MI"
 ]
@@ -11134,7 +10789,7 @@
 "network": "Sanford Health",
 "places": [
 "Parker SD",
-"VIBORG SD",
+"Viborg SD",
 "Centerville SD"
 ]
 },
@@ -11201,9 +10856,8 @@
 "network": "Ardent",
 "places": [
 "Pocatello ID",
-"TWIN FALLS ID",
+"Twin Falls ID",
 "Burley ID",
-"POCATELLO ID",
 "Idaho Falls ID",
 "Blackfoot ID"
 ]
@@ -11221,7 +10875,6 @@
 "Valparaiso IN",
 "Crown Point IN",
 "Schererville IN",
-"MUNSTER IN",
 "Portage IN"
 ]
 },
@@ -11240,14 +10893,14 @@
 "fhir_base_url": "https://scripts.prevea.com/FHIR-ARR-PRD/api/FHIR/R4",
 "network": "Hospital Sisters Health System (HSHS)",
 "places": [
-"SPRINGFIELD IL",
-"CERRO GORDO IL",
+"Springfield IL",
+"Cerro Gordo IL",
 "Shelbyville IL",
-"SULLIVAN IL",
-"SPARTA IL",
-"O FALLON IL",
-"VANDALIA IL",
-"PANA IL"
+"Sullivan IL",
+"Sparta IL",
+"O Fallon IL",
+"Vandalia IL",
+"Pana IL"
 ]
 },
 {
@@ -11258,7 +10911,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"DADE CITY FL"
+"Dade City FL"
 ]
 },
 {
@@ -11268,14 +10921,14 @@
 "platform": "epic",
 "fhir_base_url": "https://rx.premierhealthpartners.org/fhir/PREMIER/api/FHIR/R4",
 "places": [
-"DAYTON OH",
-"MIDDLETOWN OH",
-"CENTERVILLE OH",
-"TROY OH",
-"BEAVERCREEK OH",
-"ENGLEWOOD OH",
-"SPRINGBORO OH",
-"KETTERING OH"
+"Dayton OH",
+"Middletown OH",
+"Centerville OH",
+"Troy OH",
+"Beavercreek OH",
+"Englewood OH",
+"Springboro OH",
+"Kettering OH"
 ]
 },
 {
@@ -11285,14 +10938,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1052.epichosted.com/FHIRProxy/PREMISE/api/FHIR/R4",
 "places": [
-"NEW YORK NY",
-"ATLANTA GA",
-"SAN ANTONIO TX",
-"CHARLOTTE NC",
-"BRENTWOOD TN",
-"FORT SMITH AR",
-"DALTON GA",
-"ORLANDO FL"
+"New York NY",
+"Atlanta GA",
+"San Antonio TX",
+"Charlotte NC",
+"Brentwood TN",
+"Fort Smith AR",
+"Dalton GA",
+"Orlando FL"
 ]
 },
 {
@@ -11349,7 +11002,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTPRIMEHEALTHPLUS/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"GRAND JUNCTION CO"
+"Grand Junction CO"
 ]
 },
 {
@@ -11359,9 +11012,8 @@
 "platform": "epic",
 "fhir_base_url": "https://phsfhir.primehealthcare.com/PHS-PRD-FHIR/api/FHIR/R4",
 "places": [
-"CHICAGO IL",
-"Evanston IL",
 "Chicago IL",
+"Evanston IL",
 "Lewiston ME",
 "Kankakee IL",
 "Reno NV",
@@ -11377,7 +11029,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTPGCHD/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"LARGO MD"
+"Largo MD"
 ]
 },
 {
@@ -11387,14 +11039,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0915.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"COLUMBIA SC",
-"GREENVILLE SC",
-"Greenville SC",
 "Columbia SC",
-"SUMTER SC",
-"SENECA SC",
-"GREER SC",
-"MARYVILLE TN"
+"Greenville SC",
+"Sumter SC",
+"Seneca SC",
+"Greer SC",
+"Maryville TN"
 ]
 },
 {
@@ -11451,7 +11101,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"KIRKLAND WA"
+"Kirkland WA"
 ]
 },
 {
@@ -11475,11 +11125,9 @@
 "Toledo OH",
 "Monroe MI",
 "Fremont OH",
-"MONROE MI",
 "Adrian MI",
 "Coldwater MI",
-"Tecumseh MI",
-"TOLEDO OH"
+"Tecumseh MI"
 ]
 },
 {
@@ -11496,8 +11144,8 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"BELLEVUE WA",
-"KIRKLAND WA"
+"Bellevue WA",
+"Kirkland WA"
 ]
 },
 {
@@ -11510,7 +11158,6 @@
 "places": [
 "Prosser WA",
 "Grandview WA",
-"PROSSER WA",
 "Benton City WA"
 ]
 },
@@ -11533,7 +11180,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"PROVIDENCE RI"
+"Providence RI"
 ]
 },
 {
@@ -11548,9 +11195,7 @@
 "Bellevue WA",
 "Issaquah WA",
 "Sammamish WA",
-"ISSAQUAH WA",
 "Redmond WA",
-"SEATTLE WA",
 "Shoreline WA"
 ]
 },
@@ -11562,14 +11207,13 @@
 "fhir_base_url": "https://haikuak.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Alaska",
 "places": [
-"ANCHORAGE AK",
-"SOLDOTNA AK",
-"KENAI AK",
-"KODIAK AK",
-"SEWARD AK",
 "Anchorage AK",
+"Soldotna AK",
+"Kenai AK",
+"Kodiak AK",
+"Seward AK",
 "Renton WA",
-"HOMER AK"
+"Homer AK"
 ]
 },
 {
@@ -11581,11 +11225,10 @@
 "network": "Providence Oregon/California",
 "places": [
 "Portland OR",
-"PORTLAND OR",
 "Hillsboro OR",
 "Medford OR",
 "Hood River OR",
-"ORANGE CA",
+"Orange CA",
 "Newberg OR",
 "Apple Valley CA"
 ]
@@ -11598,13 +11241,13 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"EUREKA CA",
+"Eureka CA",
 "Santa Monica CA",
 "Torrance CA",
-"SANTA ROSA CA",
+"Santa Rosa CA",
 "San Pedro CA",
-"NAPA CA",
-"LOS ANGELES CA",
+"Napa CA",
+"Los Angeles CA",
 "Burbank CA"
 ]
 },
@@ -11618,11 +11261,9 @@
 "places": [
 "Spokane WA",
 "Seattle WA",
-"SEATTLE WA",
 "Everett WA",
-"SPOKANE WA",
 "Olympia WA",
-"RICHLAND WA",
+"Richland WA",
 "Missoula MT"
 ]
 },
@@ -11634,7 +11275,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYPHMCHEALTH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"PHILADELPHIA PA"
+"Philadelphia PA"
 ]
 },
 {
@@ -11645,7 +11286,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"PUEBLO CO"
+"Pueblo CO"
 ]
 },
 {
@@ -11670,7 +11311,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"TACOMA WA"
+"Tacoma WA"
 ]
 },
 {
@@ -11681,14 +11322,14 @@
 "fhir_base_url": "https://epicicfore.quadmedical.com/FHIRPRD/api/FHIR/R4",
 "network": "QuadMed",
 "places": [
-"SUSSEX WI",
-"BEAVER DAM WI",
-"MAYVILLE WI",
-"NEWPORT NEWS VA",
-"PASCAGOULA MS",
-"MILWAUKEE WI",
-"WEST BEND WI",
-"FINDLAY OH"
+"Sussex WI",
+"Beaver Dam WI",
+"Mayville WI",
+"Newport News VA",
+"Pascagoula MS",
+"Milwaukee WI",
+"West Bend WI",
+"Findlay OH"
 ]
 },
 {
@@ -11719,7 +11360,7 @@
 "places": [
 "Kealakekua HI",
 "Kapaau HI",
-"KAILUA KONA HI"
+"Kailua Kona HI"
 ]
 },
 {
@@ -11767,7 +11408,6 @@
 "network": "Sanford Health",
 "places": [
 "International Falls MN",
-"INTERNATIONAL FALLS MN",
 "Littlefork MN"
 ]
 },
@@ -11805,13 +11445,11 @@
 "network": "Garden Plot Orthopedics",
 "places": [
 "Vancouver WA",
-"VANCOUVER WA",
-"PORTLAND OR",
-"LAKE OSWEGO OR",
-"BATTLE GROUND WA",
 "Portland OR",
-"RIDGEFIELD WA",
-"HOOD RIVER OR"
+"Lake Oswego OR",
+"Battle Ground WA",
+"Ridgefield WA",
+"Hood River OR"
 ]
 },
 {
@@ -11841,9 +11479,7 @@
 "places": [
 "Richmond IN",
 "Connersville IN",
-"RICHMOND IN",
 "Brookville IN",
-"CAMBRIDGE CITY IN",
 "Cambridge City IN",
 "Rushville IN",
 "Eaton OH"
@@ -11856,13 +11492,12 @@
 "platform": "epic",
 "fhir_base_url": "https://fhirprd.reliantmedicalgroup.org/FHIRPRD/api/FHIR/R4",
 "places": [
-"WORCESTER MA",
-"AUBURN MA",
 "Worcester MA",
-"LEOMINSTER MA",
-"MILFORD MA",
-"SHREWSBURY MA",
-"SOUTHBOROUGH MA",
+"Auburn MA",
+"Leominster MA",
+"Milford MA",
+"Shrewsbury MA",
+"Southborough MA",
 "Webster MA"
 ]
 },
@@ -11874,12 +11509,12 @@
 "fhir_base_url": "https://epicproxy.et4006.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "network": "Garden Plot Orthopedics",
 "places": [
-"RENO NV",
-"CARSON CITY NV",
-"SPARKS NV",
-"WINNEMUCCA NV",
-"FALLON NV",
-"FERNLEY NV"
+"Reno NV",
+"Carson City NV",
+"Sparks NV",
+"Winnemucca NV",
+"Fallon NV",
+"Fernley NV"
 ]
 },
 {
@@ -11891,13 +11526,10 @@
 "network": "Renown Health",
 "places": [
 "Reno NV",
-"RENO NV",
 "Sparks NV",
 "Carson City NV",
-"CARSON CITY NV",
 "Fallon NV",
-"SPARKS NV",
-"FERNLEY NV"
+"Fernley NV"
 ]
 },
 {
@@ -11914,7 +11546,7 @@
 "fhir_base_url": "https://minerva.northmemorial.com/fhir/api/FHIR/R4",
 "network": "North Memorial Health",
 "places": [
-"ROBBINSDALE MN"
+"Robbinsdale MN"
 ]
 },
 {
@@ -11932,7 +11564,7 @@
 "fhir_base_url": "https://sfd.fairview.org/FHIR/RMG/api/FHIR/R4",
 "network": "Fairview",
 "places": [
-"RICHFIELD MN"
+"Richfield MN"
 ]
 },
 {
@@ -11954,7 +11586,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/RIVERHILLSHEALTH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"OTTUMWA IA"
+"Ottumwa IA"
 ]
 },
 {
@@ -11965,7 +11597,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/RPHC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SCOTTSDALE AZ"
+"Scottsdale AZ"
 ]
 },
 {
@@ -11994,7 +11626,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/RCHEALTH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SAINT PAUL MN"
+"Saint Paul MN"
 ]
 },
 {
@@ -12005,14 +11637,14 @@
 "fhir_base_url": "https://ep-rpfg.rivhs.com/Interconnect-FHIR-PRD/RHSMYCHART/api/FHIR/R4",
 "network": "Riverside Health",
 "places": [
-"NEWPORT NEWS VA",
-"WILLIAMSBURG VA",
-"GLOUCESTER VA",
-"HAMPTON VA",
-"ONANCOCK VA",
-"SMITHFIELD VA",
-"YORKTOWN VA",
-"TAPPAHANNOCK VA"
+"Newport News VA",
+"Williamsburg VA",
+"Gloucester VA",
+"Hampton VA",
+"Onancock VA",
+"Smithfield VA",
+"Yorktown VA",
+"Tappahannock VA"
 ]
 },
 {
@@ -12030,12 +11662,10 @@
 "places": [
 "Kankakee IL",
 "Bourbonnais IL",
-"KANKAKEE IL",
 "Watseka IL",
 "Frankfort IL",
 "Coal City IL",
-"BOURBONNAIS IL",
-"BRADLEY IL"
+"Bradley IL"
 ]
 },
 {
@@ -12045,12 +11675,11 @@
 "platform": "epic",
 "fhir_base_url": "https://SF1.rmcps.com/FHIRProxy/RMC/api/FHIR/R4",
 "places": [
-"RIVERSIDE CA",
 "Riverside CA",
-"TEMESCAL VALLEY CA",
-"EASTVALE CA",
-"CORONA CA",
-"MURRIETA CA"
+"Temescal Valley CA",
+"Eastvale CA",
+"Corona CA",
+"Murrieta CA"
 ]
 },
 {
@@ -12064,10 +11693,8 @@
 "Riverside CA",
 "Moreno Valley CA",
 "Perris CA",
-"MORENO VALLEY CA",
-"INDIO CA",
-"RIVERSIDE CA",
-"MURRIETA CA",
+"Indio CA",
+"Murrieta CA",
 "Banning CA"
 ]
 },
@@ -12086,13 +11713,13 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "network": "Parkview Health",
 "places": [
-"NOBLESVILLE IN",
-"WESTFIELD IN",
-"CARMEL IN",
-"SHERIDAN IN",
-"ZIONSVILLE IN",
-"CICERO IN",
-"FISHERS IN"
+"Noblesville IN",
+"Westfield IN",
+"Carmel IN",
+"Sheridan IN",
+"Zionsville IN",
+"Cicero IN",
+"Fishers IN"
 ]
 },
 {
@@ -12103,7 +11730,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"CROOKSTON MN",
+"Crookston MN",
 "Thief River Falls MN",
 "Red Lake Falls MN",
 "East Grand Forks MN",
@@ -12140,8 +11767,8 @@
 "fhir_base_url": "https://ssproxy.osfhealthcare.org/fhir-proxy/api/FHIR/R4",
 "network": "OSF HealthCare",
 "places": [
-"ROCHELLE IL",
-"SYCAMORE IL"
+"Rochelle IL",
+"Sycamore IL"
 ]
 },
 {
@@ -12193,7 +11820,6 @@
 "Polson MT",
 "Missoula MT",
 "Bozeman MT",
-"MISSOULA MT",
 "Butte MT"
 ]
 },
@@ -12205,7 +11831,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTROGUE/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"MEDFORD OR"
+"Medford OR"
 ]
 },
 {
@@ -12216,7 +11842,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/ROOTCENTERMYCHART/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"MANCHESTER CT"
+"Manchester CT"
 ]
 },
 {
@@ -12227,10 +11853,10 @@
 "fhir_base_url": "https://carepath.health-partners.org/Proxy-FHIR/RSF/api/FHIR/R4",
 "network": "Bon Secours Mercy Health",
 "places": [
-"CHARLESTON SC",
-"SUMMERVILLE SC",
-"MONCKS CORNER SC",
-"MOUNT PLEASANT SC"
+"Charleston SC",
+"Summerville SC",
+"Moncks Corner SC",
+"Mount Pleasant SC"
 ]
 },
 {
@@ -12249,14 +11875,12 @@
 "featured": true,
 "network": "Rush University System for Health",
 "places": [
-"CHICAGO IL",
-"AURORA IL",
 "Chicago IL",
-"MUNSTER IL",
 "Aurora IL",
-"SKOKIE IL",
+"Munster IL",
+"Skokie IL",
 "Oak Park IL",
-"OAK BROOK IL"
+"Oak Brook IL"
 ]
 },
 {
@@ -12267,14 +11891,13 @@
 "fhir_base_url": "https://epicproxy.et1157.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "RWJBarnabas Health",
 "places": [
-"NEWARK NJ",
+"Newark NJ",
 "North Brunswick NJ",
-"PISCATAWAY NJ",
-"MONMOUTH JUNCTION NJ",
+"Piscataway NJ",
+"Monmouth Junction NJ",
 "Bridgewater Township NJ",
 "Carteret NJ",
-"Warren NJ",
-"Piscataway NJ"
+"Warren NJ"
 ]
 },
 {
@@ -12286,10 +11909,8 @@
 "places": [
 "Jersey City NJ",
 "Toms River NJ",
-"JERSEY CITY NJ",
 "West Orange NJ",
 "New Brunswick NJ",
-"NEW BRUNSWICK NJ",
 "Newark NJ",
 "Edison NJ"
 ]
@@ -12315,7 +11936,6 @@
 "places": [
 "San Bernardino CA",
 "Indio CA",
-"SAN BERNARDINO CA",
 "Rialto CA",
 "Barstow CA",
 "Blythe CA",
@@ -12340,14 +11960,14 @@
 "platform": "epic",
 "fhir_base_url": "https://eprdsoap000.saintfrancis.Com/FHIRProxy/api/FHIR/R4",
 "places": [
-"TULSA OK",
-"STILLWATER OK",
-"MUSKOGEE OK",
-"SAND SPRINGS OK",
-"PERRY OK",
-"VINITA OK",
-"CUSHING OK",
-"BROKEN ARROW OK"
+"Tulsa OK",
+"Stillwater OK",
+"Muskogee OK",
+"Sand Springs OK",
+"Perry OK",
+"Vinita OK",
+"Cushing OK",
+"Broken Arrow OK"
 ]
 },
 {
@@ -12358,14 +11978,14 @@
 "fhir_base_url": "https://reverseproxy.sfmc.net/fhirproxyprd/api/FHIR/R4",
 "network": "Saint Francis Healthcare System (MO)",
 "places": [
-"CAPE GIRARDEAU MO",
-"POPLAR BLUFF MO",
-"SIKESTON MO",
-"JACKSON MO",
-"DEXTER MO",
-"FARMINGTON MO",
-"PIEDMONT MO",
-"SCOTT CITY MO"
+"Cape Girardeau MO",
+"Poplar Bluff MO",
+"Sikeston MO",
+"Jackson MO",
+"Dexter MO",
+"Farmington MO",
+"Piedmont MO",
+"Scott City MO"
 ]
 },
 {
@@ -12376,8 +11996,7 @@
 "fhir_base_url": "https://epicproxy.et1157.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "RWJBarnabas Health",
 "places": [
-"Newark NJ",
-"NEWARK NJ"
+"Newark NJ"
 ]
 },
 {
@@ -12391,11 +12010,8 @@
 "Kansas City MO",
 "Lees Summit MO",
 "Overland Park KS",
-"OVERLAND PARK KS",
 "Leavenworth KS",
-"KANSAS CITY MO",
-"Leawood KS",
-"LEES SUMMIT MO"
+"Leawood KS"
 ]
 },
 {
@@ -12406,8 +12022,8 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"SALEM OR",
-"KEIZER OR"
+"Salem OR",
+"Keizer OR"
 ]
 },
 {
@@ -12417,13 +12033,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0516.epichosted.com/APIProxyPRD/STANDARD/api/FHIR/R4",
 "places": [
-"SALEM OR",
-"DALLAS OR",
 "Salem OR",
-"KEIZER OR",
-"INDEPENDENCE OR",
-"MONMOUTH OR",
-"STAYTON OR",
+"Dallas OR",
+"Keizer OR",
+"Independence OR",
+"Monmouth OR",
+"Stayton OR",
 "Woodburn OR"
 ]
 },
@@ -12435,7 +12050,7 @@
 "fhir_base_url": "https://ssproxy.osfhealthcare.org/fhir-proxy/api/FHIR/R4",
 "network": "OSF HealthCare",
 "places": [
-"SALEM IL"
+"Salem IL"
 ]
 },
 {
@@ -12445,13 +12060,11 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1146.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"SALINAS CA",
 "Salinas CA",
 "Monterey CA",
-"GONZALES CA",
-"MONTEREY CA",
-"SEASIDE CA",
-"HOLLISTER CA"
+"Gonzales CA",
+"Seaside CA",
+"Hollister CA"
 ]
 },
 {
@@ -12470,12 +12083,9 @@
 "places": [
 "Corvallis OR",
 "Albany OR",
-"CORVALLIS OR",
-"ALBANY OR",
-"NEWPORT OR",
-"LEBANON OR",
-"Lincoln City OR",
-"Lebanon OR"
+"Newport OR",
+"Lebanon OR",
+"Lincoln City OR"
 ]
 },
 {
@@ -12486,8 +12096,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"Moses Lake WA",
-"MOSES LAKE WA"
+"Moses Lake WA"
 ]
 },
 {
@@ -12498,7 +12107,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTSFSOS/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SAN FRANCISCO CA"
+"San Francisco CA"
 ]
 },
 {
@@ -12509,7 +12118,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTSFCHC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SAN FRANCISCO CA"
+"San Francisco CA"
 ]
 },
 {
@@ -12520,7 +12129,6 @@
 "fhir_base_url": "https://epicproxy.et1082.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
 "San Francisco CA",
-"SAN FRANCISCO CA",
 "San Bruno CA",
 "La Honda CA",
 "Santa Rosa CA",
@@ -12547,7 +12155,6 @@
 "San Ysidro CA",
 "Campo CA",
 "Julian CA",
-"CHULA VISTA CA",
 "El Cajon CA"
 ]
 },
@@ -12599,11 +12206,10 @@
 "fhir_base_url": "https://scvhhsfhir.sccgov.org/interconnect-oauth2/api/FHIR/R4",
 "network": "Santa Clara Valley Healthcare",
 "places": [
-"SAN JOSE CA",
 "San Jose CA",
-"PALO ALTO CA",
+"Palo Alto CA",
 "Gilroy CA",
-"MOUNTAIN VIEW CA",
+"Mountain View CA",
 "Milpitas CA",
 "Sunnyvale CA",
 "Morgan Hill CA"
@@ -12641,7 +12247,7 @@
 "fhir_base_url": "https://epicproxy.et1146.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Salinas Valley Health",
 "places": [
-"SALINAS CA"
+"Salinas CA"
 ]
 },
 {
@@ -12677,7 +12283,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/SMC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"GRAND MARAIS MN"
+"Grand Marais MN"
 ]
 },
 {
@@ -12695,7 +12301,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/SCENICRIVERSHEALTH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"COOK MN"
+"Cook MN"
 ]
 },
 {
@@ -12706,14 +12312,13 @@
 "fhir_base_url": "https://epichaiku.chs-mi.com/FHIRPROXY/api/FHIR/R4",
 "network": "Covenant HealthCare",
 "places": [
-"PIGEON MI",
-"HARBOR BEACH MI",
-"SEBEWAING MI",
-"PORT HOPE MI",
 "Pigeon MI",
-"UBLY MI",
-"BAD AXE MI",
-"CARO MI"
+"Harbor Beach MI",
+"Sebewaing MI",
+"Port Hope MI",
+"Ubly MI",
+"Bad Axe MI",
+"Caro MI"
 ]
 },
 {
@@ -12724,7 +12329,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTSHC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SAN JOSE CA"
+"San Jose CA"
 ]
 },
 {
@@ -12752,14 +12357,10 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0964.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "places": [
-"SAN DIEGO CA",
 "San Diego CA",
 "La Jolla CA",
 "Encinitas CA",
-"LA JOLLA CA",
-"ENCINITAS CA",
-"Chula Vista CA",
-"CHULA VISTA CA"
+"Chula Vista CA"
 ]
 },
 {
@@ -12788,14 +12389,13 @@
 "fhir_base_url": "https://fhir.seattlechildrens.org/fhir/api/FHIR/R4",
 "network": "Seattle Children's Hospital",
 "places": [
-"SEATTLE WA",
-"Bothell WA",
 "Seattle WA",
-"ANCHORAGE AK",
-"SEQUIM WA",
-"SITKA AK",
+"Bothell WA",
+"Anchorage AK",
+"Sequim WA",
+"Sitka AK",
 "Great Falls MT",
-"FAIRBANKS AK"
+"Fairbanks AK"
 ]
 },
 {
@@ -12829,7 +12429,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"SEATTLE WA"
+"Seattle WA"
 ]
 },
 {
@@ -12840,7 +12440,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"SEATTLE WA"
+"Seattle WA"
 ]
 },
 {
@@ -12863,7 +12463,7 @@
 "places": [
 "Columbus OH",
 "Tallahassee FL",
-"LOUISVILLE KY",
+"Louisville KY",
 "Gainesville FL",
 "St. Louis MO",
 "Cleveland OH",
@@ -12879,14 +12479,14 @@
 "fhir_base_url": "https://epicproxy.et1235.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Self Regional Healthcare",
 "places": [
-"GREENWOOD SC",
-"LAURENS SC",
-"ABBEVILLE SC",
-"EDGEFIELD SC",
-"SALUDA SC",
-"NEWBERRY SC",
-"CLINTON SC",
-"MC CORMICK SC"
+"Greenwood SC",
+"Laurens SC",
+"Abbeville SC",
+"Edgefield SC",
+"Saluda SC",
+"Newberry SC",
+"Clinton SC",
+"Mc Cormick SC"
 ]
 },
 {
@@ -12896,14 +12496,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicfhir.sentara.com/ARR-FHIR-PRD/api/FHIR/R4",
 "places": [
-"NORFOLK VA",
-"VIRGINIA BEACH VA",
-"SUFFOLK VA",
-"WILLIAMSBURG VA",
-"HARRISONBURG VA",
-"CHESAPEAKE VA",
-"NEWPORT NEWS VA",
-"ELIZABETH CITY NC"
+"Norfolk VA",
+"Virginia Beach VA",
+"Suffolk VA",
+"Williamsburg VA",
+"Harrisonburg VA",
+"Chesapeake VA",
+"Newport News VA",
+"Elizabeth City NC"
 ]
 },
 {
@@ -12917,7 +12517,6 @@
 "Harker Heights TX",
 "Killeen TX",
 "Temple TX",
-"HARKER HEIGHTS TX",
 "Belton TX"
 ]
 },
@@ -12929,7 +12528,7 @@
 "fhir_base_url": "https://haikuak.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Alaska",
 "places": [
-"SEWARD AK"
+"Seward AK"
 ]
 },
 {
@@ -12943,7 +12542,6 @@
 "Valdosta GA",
 "Nashville GA",
 "Lakeland GA",
-"VALDOSTA GA",
 "Hahira GA",
 "Lake Park GA"
 ]
@@ -12988,7 +12586,6 @@
 "San Diego CA",
 "Chula Vista CA",
 "La Mesa CA",
-"SAN DIEGO CA",
 "Coronado CA",
 "National City CA",
 "El Cajon CA",
@@ -13027,7 +12624,6 @@
 "places": [
 "Helena MT",
 "Butte MT",
-"HELENA MT",
 "Great Falls MT"
 ]
 },
@@ -13064,7 +12660,6 @@
 "network": "Sanford Health",
 "places": [
 "Fairview MT",
-"SIDNEY MT",
 "Sidney MT"
 ]
 },
@@ -13076,7 +12671,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTSH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"MENTOR OH"
+"Mentor OH"
 ]
 },
 {
@@ -13087,9 +12682,9 @@
 "fhir_base_url": "https://epicproxy.et0986.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Southern Illinois Healthcare",
 "places": [
-"CARBONDALE IL",
+"Carbondale IL",
 "Rosiclare IL",
-"MARION IL"
+"Marion IL"
 ]
 },
 {
@@ -13100,8 +12695,8 @@
 "fhir_base_url": "https://epicproxy.et1453.epichosted.com/FHIRProxyPRD/SIMPSON/api/FHIR/R4",
 "network": "South Central Regional Medical Center",
 "places": [
-"MENDENHALL MS",
-"PUCKETT MS"
+"Mendenhall MS",
+"Puckett MS"
 ]
 },
 {
@@ -13112,8 +12707,8 @@
 "fhir_base_url": "https://ssproxy.osfhealthcare.org/fhir-proxy/api/FHIR/R4",
 "network": "OSF HealthCare",
 "places": [
-"CHICAGO IL",
-"CICERO IL"
+"Chicago IL",
+"Cicero IL"
 ]
 },
 {
@@ -13127,10 +12722,8 @@
 "Ocean Springs MS",
 "Biloxi MS",
 "Gulfport MS",
-"PASCAGOULA MS",
 "Hurley MS",
-"Vancleave MS",
-"OCEAN SPRINGS MS"
+"Vancleave MS"
 ]
 },
 {
@@ -13159,7 +12752,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"CAVE JUNCTION OR"
+"Cave Junction OR"
 ]
 },
 {
@@ -13170,7 +12763,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTSCHC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"MILWAUKEE WI"
+"Milwaukee WI"
 ]
 },
 {
@@ -13181,14 +12774,13 @@
 "fhir_base_url": "https://epicproxy.et1005.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Skagit Regional Health",
 "places": [
-"MOUNT VERNON WA",
-"ARLINGTON WA",
 "Mount Vernon WA",
-"ANACORTES WA",
-"GRANITE FALLS WA",
-"OAK HARBOR WA",
-"STANWOOD WA",
-"CAMANO ISLAND WA"
+"Arlington WA",
+"Anacortes WA",
+"Granite Falls WA",
+"Oak Harbor WA",
+"Stanwood WA",
+"Camano Island WA"
 ]
 },
 {
@@ -13210,7 +12802,7 @@
 "fhir_base_url": "https://fhir.mvhealthsystem.org/FHIRproxy/api/FHIR/R4",
 "network": "Mohawk Valley Health System",
 "places": [
-"NEW HARTFORD NY"
+"New Hartford NY"
 ]
 },
 {
@@ -13271,12 +12863,11 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxyprd.solutionhealth.org/FHIR_PRD/MYCHART/api/FHIR/R4",
 "places": [
-"MANCHESTER NH",
-"Nashua NH",
 "Manchester NH",
+"Nashua NH",
 "Milford NH",
 "Merrimack NH",
-"LONDONDERRY NH",
+"Londonderry NH",
 "Hudson NH",
 "Bedford NH"
 ]
@@ -13296,7 +12887,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/SVCHC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SONOMA CA"
+"Sonoma CA"
 ]
 },
 {
@@ -13307,8 +12898,7 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"Sonoma CA",
-"SONOMA CA"
+"Sonoma CA"
 ]
 },
 {
@@ -13329,14 +12919,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1453.epichosted.com/FHIRProxyPRD/api/FHIR/R4/",
 "places": [
-"LAUREL MS",
-"Ellisville MS",
-"MAGEE MS",
 "Laurel MS",
-"COLLINS MS",
-"Mendenhall MS",
+"Ellisville MS",
 "Magee MS",
-"HARRISVILLE MS"
+"Collins MS",
+"Mendenhall MS",
+"Harrisville MS"
 ]
 },
 {
@@ -13353,7 +12941,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTEQUITYHEALTH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SAN FRANCISCO CA"
+"San Francisco CA"
 ]
 },
 {
@@ -13375,14 +12963,14 @@
 "fhir_base_url": "https://sshic.southshorehealth.org/FHIR/SSH/api/FHIR/R4",
 "network": "South Shore Health System",
 "places": [
-"SOUTH WEYMOUTH MA",
-"WEYMOUTH MA",
-"KINGSTON MA",
-"PEMBROKE MA",
-"ABINGTON MA",
-"HINGHAM MA",
-"EAST WEYMOUTH MA",
-"NORWELL MA"
+"South Weymouth MA",
+"Weymouth MA",
+"Kingston MA",
+"Pembroke MA",
+"Abington MA",
+"Hingham MA",
+"East Weymouth MA",
+"Norwell MA"
 ]
 },
 {
@@ -13399,7 +12987,7 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"PORTLAND OR"
+"Portland OR"
 ]
 },
 {
@@ -13416,7 +13004,6 @@
 "Wareham MA",
 "North Dartmouth MA",
 "Fairhaven MA",
-"DARTMOUTH MA",
 "Middletown RI"
 ]
 },
@@ -13444,7 +13031,7 @@
 "network": "Providence Oregon/California",
 "places": [
 "Valencia CA",
-"SHERMAN OAKS CA",
+"Sherman Oaks CA",
 "Porter Ranch CA",
 "Tarzana CA"
 ]
@@ -13467,14 +13054,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0986.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"HERRIN IL",
-"CARBONDALE IL",
-"MARION IL",
-"HARRISBURG IL",
-"MURPHYSBORO IL",
-"WEST FRANKFORT IL",
-"ANNA IL",
-"MACEDONIA IL"
+"Herrin IL",
+"Carbondale IL",
+"Marion IL",
+"Harrisburg IL",
+"Murphysboro IL",
+"West Frankfort IL",
+"Anna IL",
+"Macedonia IL"
 ]
 },
 {
@@ -13496,7 +13083,6 @@
 "fhir_base_url": "https://haikuor.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Oregon/California",
 "places": [
-"MEDFORD OR",
 "Medford OR",
 "Grants Pass OR"
 ]
@@ -13509,7 +13095,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/SOUTHSIDECHS/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"MINNEAPOLIS MN"
+"Minneapolis MN"
 ]
 },
 {
@@ -13543,13 +13129,10 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0939.epichosted.com/FHIRProxy/SRMYCHART/api/FHIR/R4",
 "places": [
-"SPARTANBURG SC",
 "Spartanburg SC",
 "Gaffney SC",
 "Greer SC",
-"GAFFNEY SC",
 "Union SC",
-"GREER SC",
 "Inman SC"
 ]
 },
@@ -13561,13 +13144,13 @@
 "fhir_base_url": "https://ema.franciscanalliance.org/FHIR_PROXY/api/FHIR/R4/",
 "network": "Franciscan Alliance",
 "places": [
-"CHICAGO HEIGHTS IL",
-"HAZEL CREST IL",
-"MATTESON IL",
-"FRANKFORT IL",
-"FLOSSMOOR IL",
-"NEW LENOX IL",
-"TINLEY PARK IL"
+"Chicago Heights IL",
+"Hazel Crest IL",
+"Matteson IL",
+"Frankfort IL",
+"Flossmoor IL",
+"New Lenox IL",
+"Tinley Park IL"
 ]
 },
 {
@@ -13636,13 +13219,13 @@
 "platform": "epic",
 "fhir_base_url": "https://fhir.ssmhc.com/Fhir/MyChart/api/FHIR/R4",
 "places": [
-"SAINT LOUIS MO",
-"FOND DU LAC WI",
-"MADISON WI",
-"OKLAHOMA CITY OK",
-"RIPON WI",
-"MONROE WI",
-"BEAVER DAM WI",
+"Saint Louis MO",
+"Fond Du Lac WI",
+"Madison WI",
+"Oklahoma City OK",
+"Ripon WI",
+"Monroe WI",
+"Beaver Dam WI",
 "Fond du Lac WI"
 ]
 },
@@ -13654,14 +13237,14 @@
 "fhir_base_url": "https://fhir.slhn.org/fhir/api/FHIR/R4",
 "network": "St Luke's University Health Network",
 "places": [
-"BETHLEHEM PA",
-"ALLENTOWN PA",
-"EASTON PA",
-"QUAKERTOWN PA",
-"CENTER VALLEY PA",
-"SELLERSVILLE PA",
-"PHILLIPSBURG NJ",
-"PALMERTON PA"
+"Bethlehem PA",
+"Allentown PA",
+"Easton PA",
+"Quakertown PA",
+"Center Valley PA",
+"Sellersville PA",
+"Phillipsburg NJ",
+"Palmerton PA"
 ]
 },
 {
@@ -13691,7 +13274,6 @@
 "network": "SBH Health System",
 "places": [
 "Bronx NY",
-"BRONX NY",
 "New York NY",
 "Brooklyn NY",
 "Bronc NY"
@@ -13711,7 +13293,7 @@
 "Madras OR",
 "Burns OR",
 "La Pine OR",
-"COOS BAY OR"
+"Coos Bay OR"
 ]
 },
 {
@@ -13729,12 +13311,11 @@
 "fhir_base_url": "https://stdavidsfhirprd.app.medcity.net/fhir-proxy/api/FHIR/R4",
 "network": "HCA Central and West Texas",
 "places": [
-"AUSTIN TX",
 "Austin TX",
-"ROUND ROCK TX",
-"MARBLE FALLS TX",
-"FREDERICKSBURG TX",
-"GEORGETOWN TX",
+"Round Rock TX",
+"Marble Falls TX",
+"Fredericksburg TX",
+"Georgetown TX",
 "Dallas TX",
 "Cedar Park TX"
 ]
@@ -13746,14 +13327,12 @@
 "platform": "epic",
 "fhir_base_url": "https://sehproxy.stelizabeth.com/arr-fhir/api/FHIR/R4",
 "places": [
-"FLORENCE KY",
-"EDGEWOOD KY",
-"BROWNSBURG IN",
-"DANVILLE IN",
-"GREENDALE IN",
 "Florence KY",
-"LAWRENCEBURG IN",
-"Edgewood KY"
+"Edgewood KY",
+"Brownsburg IN",
+"Danville IN",
+"Greendale IN",
+"Lawrenceburg IN"
 ]
 },
 {
@@ -13777,8 +13356,7 @@
 "fhir_base_url": "https://rp.stjude.org/oauth2-prd/api/FHIR/R4",
 "network": "St. Jude Children's Research Hospital",
 "places": [
-"Memphis TN",
-"MEMPHIS TN"
+"Memphis TN"
 ]
 },
 {
@@ -13789,14 +13367,12 @@
 "fhir_base_url": "https://epincoming.slhs.org/Interconnect-FHIR/api/FHIR/R4",
 "network": "St. Luke's Health System (ID)",
 "places": [
-"BOISE ID",
-"TWIN FALLS ID",
-"MERIDIAN ID",
-"MCCALL ID",
-"NAMPA ID",
 "Boise ID",
-"JEROME ID",
-"Nampa ID"
+"Twin Falls ID",
+"Meridian ID",
+"McCall ID",
+"Nampa ID",
+"Jerome ID"
 ]
 },
 {
@@ -13807,7 +13383,7 @@
 "fhir_base_url": "https://epicproxy.et0905.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Atrium Health",
 "places": [
-"COLUMBUS NC"
+"Columbus NC"
 ]
 },
 {
@@ -13848,9 +13424,8 @@
 "fhir_base_url": "https://myc.ochsner.org/FHIR/api/FHIR/R4",
 "network": "Ochsner Health System",
 "places": [
-"MADISONVILLE LA",
-"Covington LA",
-"COVINGTON LA"
+"Madisonville LA",
+"Covington LA"
 ]
 },
 {
@@ -13861,14 +13436,14 @@
 "fhir_base_url": "https://epicproxy.et1378.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "The Stamford Hospital",
 "places": [
-"STAMFORD CT",
-"DARIEN CT",
-"NORWALK CT",
-"NEW CANAAN CT",
-"WESTPORT CT",
-"WILTON CT",
-"RIVERSIDE CT",
-"GREENWICH CT"
+"Stamford CT",
+"Darien CT",
+"Norwalk CT",
+"New Canaan CT",
+"Westport CT",
+"Wilton CT",
+"Riverside CT",
+"Greenwich CT"
 ]
 },
 {
@@ -13898,14 +13473,14 @@
 "fhir_base_url": "https://epicproxy.et0857.epichosted.com/FHIRProxy/api/FHIR/R4",
 "featured": true,
 "places": [
-"PALO ALTO CA",
-"LOS GATOS CA",
-"WALNUT CREEK CA",
-"SAN JOSE CA",
-"MOUNTAIN VIEW CA",
-"PLEASANTON CA",
-"SAN FRANCISCO CA",
-"CHICO CA"
+"Palo Alto CA",
+"Los Gatos CA",
+"Walnut Creek CA",
+"San Jose CA",
+"Mountain View CA",
+"Pleasanton CA",
+"San Francisco CA",
+"Chico CA"
 ]
 },
 {
@@ -13939,12 +13514,12 @@
 "fhir_base_url": "https://eproxy.mercycare.org/oauth2/STEINDLER/api/FHIR/R4",
 "network": "Mercy Medical Center (IA)",
 "places": [
-"NORTH LIBERTY IA",
-"CEDAR RAPIDS IA",
-"BURLINGTON IA",
-"MUSCATINE IA",
-"WASHINGTON IA",
-"FAIRFIELD IA"
+"North Liberty IA",
+"Cedar Rapids IA",
+"Burlington IA",
+"Muscatine IA",
+"Washington IA",
+"Fairfield IA"
 ]
 },
 {
@@ -14004,13 +13579,12 @@
 "fhir_base_url": "https://epicsoap.stormontvail.org/FHIRproxy/HOME/api/FHIR/R4",
 "network": "Stormont Vail Health",
 "places": [
-"TOPEKA KS",
 "Topeka KS",
-"MANHATTAN KS",
-"EMPORIA KS",
-"CARBONDALE KS",
-"ALMA KS",
-"LYNDON KS",
+"Manhattan KS",
+"Emporia KS",
+"Carbondale KS",
+"Alma KS",
+"Lyndon KS",
 "Junction City KS"
 ]
 },
@@ -14022,7 +13596,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/SUBLETTE/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"PINEDALE WY"
+"Pinedale WY"
 ]
 },
 {
@@ -14050,7 +13624,7 @@
 "Fairlawn OH",
 "Hudson OH",
 "Tallmadge OH",
-"ROOTSTOWN OH"
+"Rootstown OH"
 ]
 },
 {
@@ -14076,8 +13650,7 @@
 "Lawrence Township NJ",
 "Wayne NJ",
 "Monroe NJ",
-"WEST ORANGE NJ",
-"CHERRY HILL NJ",
+"Cherry Hill NJ",
 "Sparta NJ",
 "Edison NJ"
 ],
@@ -14093,11 +13666,10 @@
 "fhir_base_url": "https://epicsoap.bmctotalcare.com/fhir/SUMMIT/api/FHIR/R4",
 "network": "Summit Health",
 "places": [
-"BEND OR",
-"REDMOND OR",
 "Bend OR",
-"SISTERS OR",
-"SUNRIVER OR"
+"Redmond OR",
+"Sisters OR",
+"Sunriver OR"
 ]
 },
 {
@@ -14115,7 +13687,7 @@
 "fhir_base_url": "https://epicproxy.et1017.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Virtua Health",
 "places": [
-"VOORHEES NJ"
+"Voorhees NJ"
 ]
 },
 {
@@ -14132,8 +13704,7 @@
 "Watertown NY",
 "Oneida NY",
 "Liverpool NY",
-"Fayetteville NY",
-"SYRACUSE NY"
+"Fayetteville NY"
 ]
 },
 {
@@ -14146,9 +13717,9 @@
 "places": [
 "Carthage MS",
 "Yazoo MS",
-"FOREST MS",
-"JACKSON MS",
-"FLOWOOD MS"
+"Forest MS",
+"Jackson MS",
+"Flowood MS"
 ]
 },
 {
@@ -14173,14 +13744,11 @@
 "fhir_base_url": "https://apiservices.sutterhealth.org/ifs/api/FHIR/R4/",
 "featured": true,
 "places": [
-"SACRAMENTO CA",
-"San Francisco CA",
 "Sacramento CA",
-"ROSEVILLE CA",
-"SAN MATEO CA",
+"San Francisco CA",
 "Roseville CA",
-"BURLINGAME CA",
-"SAN FRANCISCO CA"
+"San Mateo CA",
+"Burlingame CA"
 ]
 },
 {
@@ -14216,7 +13784,6 @@
 "fhir_base_url": "https://epicproxy.et1387.epichosted.com/FHIRProxyPRD/HOME/api/FHIR/R4",
 "places": [
 "Tallahassee FL",
-"TALLAHASSEE FL",
 "Quincy FL",
 "Panama City Beach FL",
 "Crawfordville FL",
@@ -14233,7 +13800,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"TAMPA FL"
+"Tampa FL"
 ]
 },
 {
@@ -14244,12 +13811,11 @@
 "fhir_base_url": "https://epicproxy.et0761.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
 "Tampa FL",
-"TAMPA FL",
-"BROOKSVILLE FL",
-"ST PETERSBURG FL",
-"RIVERVIEW FL",
-"SAINT PETERSBURG FL",
-"WESLEY CHAPEL FL",
+"Brooksville FL",
+"St Petersburg FL",
+"Riverview FL",
+"Saint Petersburg FL",
+"Wesley Chapel FL",
 "Lakeland FL"
 ]
 },
@@ -14261,12 +13827,9 @@
 "fhir_base_url": "https://epicproxy.et1098.epichosted.com/APIProxyPRD/STANDARD/api/FHIR/R4",
 "places": [
 "Carrollton GA",
-"VILLA RICA GA",
 "Villa Rica GA",
 "Bremen GA",
-"CARROLLTON GA",
 "Wedowee AL",
-"BREMEN GA",
 "Newnan GA"
 ]
 },
@@ -14289,7 +13852,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"CHICAGO IL"
+"Chicago IL"
 ]
 },
 {
@@ -14303,11 +13866,10 @@
 "Philadelphia PA",
 "Furlong PA",
 "Meadowbrook PA",
-"PHILADELPHIA PA",
 "Flourtown PA",
 "Rockledge PA",
 "Jenkintown PA",
-"VOORHEES NJ"
+"Voorhees NJ"
 ]
 },
 {
@@ -14318,7 +13880,7 @@
 "fhir_base_url": "https://myc.ochsner.org/FHIR/api/FHIR/R4",
 "network": "Ochsner Health System",
 "places": [
-"HOUMA LA"
+"Houma LA"
 ]
 },
 {
@@ -14341,10 +13903,9 @@
 "network": "Garden Plot",
 "places": [
 "Bryan TX",
-"BRYAN TX",
-"NAVASOTA TX",
-"COLLEGE STATION TX",
-"DALLAS TX"
+"Navasota TX",
+"College Station TX",
+"Dallas TX"
 ]
 },
 {
@@ -14398,7 +13959,7 @@
 "network": "Scottish Rite for Children",
 "places": [
 "Frisco TX",
-"DALLAS TX"
+"Dallas TX"
 ]
 },
 {
@@ -14418,10 +13979,9 @@
 "places": [
 "Bend OR",
 "John Day OR",
-"BEND OR",
 "La Pine OR",
 "Prineville OR",
-"BURNS OR",
+"Burns OR",
 "Redmond OR",
 "Verona WI"
 ]
@@ -14445,11 +14005,10 @@
 "fhir_base_url": "https://soapproxyprod.thechristhospital.com/fhir/MOBILE/api/FHIR/R4",
 "places": [
 "Cincinnati OH",
-"CINCINNATI OH",
 "Liberty Township OH",
 "Fort Wright KY",
 "Mason OH",
-"SOUTHGATE KY",
+"Southgate KY",
 "Florence KY",
 "Burlington KY"
 ]
@@ -14477,10 +14036,7 @@
 "places": [
 "New York NY",
 "Kingston NY",
-"NEW YORK NY",
 "Bronx NY",
-"BRONX NY",
-"KINGSTON NY",
 "Poughkeepsie NY",
 "Ellenville NY"
 ]
@@ -14493,7 +14049,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/NATIVEPROJECT/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SPOKANE WA"
+"Spokane WA"
 ]
 },
 {
@@ -14505,13 +14061,10 @@
 "network": "Nebraska Medicine",
 "places": [
 "Omaha NE",
-"OMAHA NE",
-"NORTH PLATTE NE",
 "North Platte NE",
 "Hastings NE",
 "Columbus NE",
-"GRAND ISLAND NE",
-"HASTINGS NE"
+"Grand Island NE"
 ]
 },
 {
@@ -14523,7 +14076,6 @@
 "places": [
 "Columbus OH",
 "Dublin OH",
-"COLUMBUS OH",
 "Gahanna OH",
 "Hilliard OH",
 "Westerville OH",
@@ -14544,9 +14096,7 @@
 "Tualatin OR",
 "Newberg OR",
 "Gresham OR",
-"PORTLAND OR",
-"Happy Valley OR",
-"Tualatin, OR"
+"Happy Valley OR"
 ]
 },
 {
@@ -14570,7 +14120,6 @@
 "places": [
 "Portland OR",
 "Tigard OR",
-"PORTLAND OR",
 "Beaverton OR"
 ]
 },
@@ -14582,14 +14131,12 @@
 "fhir_base_url": "https://mobileapps.queens.org/FHIR/MYCHART/api/FHIR/R4",
 "network": "The Queen's Health Systems",
 "places": [
-"HONOLULU HI",
 "Honolulu HI",
-"AIEA HI",
-"WAIPAHU HI",
-"HILO HI",
-"PEARL CITY HI",
-"Ewa Beach HI",
-"EWA BEACH HI"
+"Aiea HI",
+"Waipahu HI",
+"Hilo HI",
+"Pearl City HI",
+"Ewa Beach HI"
 ]
 },
 {
@@ -14607,11 +14154,10 @@
 "network": "University of Kansas Health System",
 "places": [
 "Olathe KS",
-"KANSAS CITY KS",
-"OVERLAND PARK KS",
 "Kansas City KS",
-"GREAT BEND KS",
-"KANSAS CITY MO",
+"Overland Park KS",
+"Great Bend KS",
+"Kansas City MO",
 "Paola KS",
 "Westwood KS"
 ]
@@ -14643,14 +14189,14 @@
 "fhir_base_url": "https://arr.thedacare.org/FHIR/api/FHIR/R4",
 "network": "ThedaCare",
 "places": [
-"APPLETON WI",
-"GREEN BAY WI",
-"NEENAH WI",
-"OSHKOSH WI",
-"WAUPACA WI",
-"MENASHA WI",
-"BERLIN WI",
-"DE PERE WI"
+"Appleton WI",
+"Green Bay WI",
+"Neenah WI",
+"Oshkosh WI",
+"Waupaca WI",
+"Menasha WI",
+"Berlin WI",
+"De Pere WI"
 ]
 },
 {
@@ -14661,14 +14207,13 @@
 "fhir_base_url": "https://fhir.jefferson.edu/FHIRProxy/HOME/api/FHIR/R4",
 "network": "Jefferson Health",
 "places": [
-"PHILADELPHIA PA",
 "Philadelphia PA",
-"SEWELL NJ",
-"VOORHEES NJ",
+"Sewell NJ",
+"Voorhees NJ",
 "Lansdale PA",
 "Abington PA",
-"WILLOW GROVE PA",
-"LANGHORNE PA"
+"Willow Grove PA",
+"Langhorne PA"
 ]
 },
 {
@@ -14702,12 +14247,9 @@
 "fhir_base_url": "https://eweb.tidalhealth.org/Oauth2/api/FHIR/R4",
 "places": [
 "Salisbury MD",
-"SALISBURY MD",
 "Seaford DE",
-"SEAFORD DE",
 "Berlin MD",
-"BERLIN MD",
-"REHOBOTH BEACH DE",
+"Rehoboth Beach DE",
 "Laurel DE"
 ]
 },
@@ -14737,7 +14279,7 @@
 "fhir_base_url": "https://myc.ochsner.org/FHIR/api/FHIR/R4",
 "network": "Ochsner Health System",
 "places": [
-"MOUNT PLEASANT TX"
+"Mount Pleasant TX"
 ]
 },
 {
@@ -14748,9 +14290,8 @@
 "fhir_base_url": "https://scproxy.gundersenhealth.org/FHIRARR/GHS/api/FHIR/R4",
 "network": "Emplify Health",
 "places": [
-"TOMAH WI",
 "Tomah WI",
-"WARRENS WI"
+"Warrens WI"
 ]
 },
 {
@@ -14760,14 +14301,11 @@
 "platform": "epic",
 "fhir_base_url": "https://epicsoap.readinghospital.org/FHIR-PRD/api/FHIR/R4",
 "places": [
-"PHILADELPHIA PA",
-"READING PA",
+"Philadelphia PA",
+"Reading PA",
 "West Reading PA",
 "Wyomissing PA",
-"Reading PA",
-"WYOMISSING PA",
-"PHOENIXVILLE PA",
-"WEST READING PA"
+"Phoenixville PA"
 ]
 },
 {
@@ -14778,7 +14316,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"FELLSMERE FL"
+"Fellsmere FL"
 ]
 },
 {
@@ -14846,7 +14384,7 @@
 "fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Health Choice Network",
 "places": [
-"SANFORD FL"
+"Sanford FL"
 ]
 },
 {
@@ -14881,9 +14419,9 @@
 "fhir_base_url": "https://fhir.tmcaz.com/FHIRProxy/TIPS/api/FHIR/R4",
 "network": "TMC Health",
 "places": [
-"TUCSON AZ",
-"GREEN VALLEY AZ",
-"ORO VALLEY AZ"
+"Tucson AZ",
+"Green Valley AZ",
+"Oro Valley AZ"
 ]
 },
 {
@@ -14894,14 +14432,13 @@
 "fhir_base_url": "https://fhir.tmcaz.com/FHIRProxy/api/FHIR/R4",
 "network": "TMC Health",
 "places": [
-"TUCSON AZ",
-"ORO VALLEY AZ",
-"GREEN VALLEY AZ",
-"VAIL AZ",
-"SELLS AZ",
-"SIERRA VISTA AZ",
 "Tucson AZ",
-"DOUGLAS AZ"
+"Oro Valley AZ",
+"Green Valley AZ",
+"Vail AZ",
+"Sells AZ",
+"Sierra Vista AZ",
+"Douglas AZ"
 ]
 },
 {
@@ -14929,7 +14466,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"TULALIP WA"
+"Tulalip WA"
 ]
 },
 {
@@ -14947,7 +14484,7 @@
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/TSSH/api/FHIR/R4",
 "network": "Ardent",
 "places": [
-"TULSA OK"
+"Tulsa OK"
 ]
 },
 {
@@ -14987,14 +14524,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epic-soap.uchealth.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"CINCINNATI OH",
-"WEST CHESTER OH",
 "Cincinnati OH",
 "West Chester OH",
-"KETTERING OH",
-"WILMINGTON OH",
-"DAYTON OH",
-"LIBERTY TOWNSHIP OH"
+"Kettering OH",
+"Wilmington OH",
+"Dayton OH",
+"Liberty Township OH"
 ]
 },
 {
@@ -15004,14 +14539,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1448.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "places": [
-"IRVINE CA",
-"LOS ALAMITOS CA",
-"ORANGE CA",
-"NEWPORT BEACH CA",
-"FOUNTAIN VALLEY CA",
-"PLACENTIA CA",
-"YORBA LINDA CA",
-"LAKEWOOD CA"
+"Irvine CA",
+"Los Alamitos CA",
+"Orange CA",
+"Newport Beach CA",
+"Fountain Valley CA",
+"Placentia CA",
+"Yorba Linda CA",
+"Lakewood CA"
 ]
 },
 {
@@ -15023,13 +14558,11 @@
 "network": "UC San Diego Health",
 "places": [
 "San Diego CA",
-"SAN DIEGO CA",
 "La Jolla CA",
-"TEMECULA CA",
-"CARLSBAD CA",
-"CHULA VISTA CA",
-"MURRIETA CA",
-"LA JOLLA CA"
+"Temecula CA",
+"Carlsbad CA",
+"Chula Vista CA",
+"Murrieta CA"
 ]
 },
 {
@@ -15040,14 +14573,13 @@
 "fhir_base_url": "https://ss.uch.edu/FHIRProxy/MHC/api/FHIR/R4",
 "network": "UCHealth - Colorado",
 "places": [
-"COLORADO SPRINGS CO",
-"FORT COLLINS CO",
-"AURORA CO",
-"GREELEY CO",
-"STEAMBOAT SPRINGS CO",
-"DENVER CO",
+"Colorado Springs CO",
 "Fort Collins CO",
-"LONGMONT CO"
+"Aurora CO",
+"Greeley CO",
+"Steamboat Springs CO",
+"Denver CO",
+"Longmont CO"
 ]
 },
 {
@@ -15113,14 +14645,12 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0996.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"FARMINGTON CT",
-"STORRS CT",
 "Farmington CT",
-"SOUTHINGTON CT",
-"CANTON CT",
-"WEST HARTFORD CT",
-"EAST HARTFORD CT",
-"Storrs CT"
+"Storrs CT",
+"Southington CT",
+"Canton CT",
+"West Hartford CT",
+"East Hartford CT"
 ]
 },
 {
@@ -15162,14 +14692,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1085.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
-"CHICAGO IL",
-"ROCKFORD IL",
-"PARK RIDGE IL",
-"ELMHURST IL",
-"GURNEE IL",
-"AURORA IL",
-"LIBERTYVILLE IL",
-"RIVER FOREST IL"
+"Chicago IL",
+"Rockford IL",
+"Park Ridge IL",
+"Elmhurst IL",
+"Gurnee IL",
+"Aurora IL",
+"Libertyville IL",
+"River Forest IL"
 ]
 },
 {
@@ -15181,11 +14711,9 @@
 "network": "University of Iowa Health Care",
 "places": [
 "Iowa City IA",
-"CORALVILLE IA",
 "Coralville IA",
-"IOWA CITY IA",
 "Dubuque IA",
-"WASHINGTON IA",
+"Washington IA",
 "North Liberty IA",
 "Des Moines IA"
 ]
@@ -15233,8 +14761,8 @@
 "fhir_base_url": "https://epicproxy.et1442.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "places": [
 "Lubbock TX",
-"AMARILLO TX",
-"SEMINOLE TX",
+"Amarillo TX",
+"Seminole TX",
 "Lamesa TX",
 "Andrews TX"
 ]
@@ -15248,7 +14776,6 @@
 "network": "UMC Nevada",
 "places": [
 "Las Vegas NV",
-"LAS VEGAS NV",
 "Henderson NV",
 "North Las Vegas NV"
 ]
@@ -15262,11 +14789,10 @@
 "network": "UNC Health Care System",
 "places": [
 "Chapel Hill NC",
-"CHAPEL HILL NC",
 "Raleigh NC",
 "Cary NC",
 "Morrisville NC",
-"HENDERSONVILLE NC",
+"Hendersonville NC",
 "Morganton NC",
 "Kinston NC"
 ]
@@ -15279,7 +14805,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"GRAND FORKS ND"
+"Grand Forks ND"
 ]
 },
 {
@@ -15329,7 +14855,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"BLUE EARTH MN",
+"Blue Earth MN",
 "Wells MN",
 "Fairmont MN"
 ]
@@ -15350,9 +14876,8 @@
 "network": "United Regional Health Care System",
 "places": [
 "Wichita Falls TX",
-"WICHITA FALLS TX",
-"JACKSBORO TX",
-"BOWIE TX",
+"Jacksboro TX",
+"Bowie TX",
 "Burburnett TX"
 ]
 },
@@ -15370,7 +14895,7 @@
 "fhir_base_url": "https://scproxy.gundersenhealth.org/FHIRARR/api/FHIR/R4",
 "network": "Emplify Health",
 "places": [
-"DE PERE WI"
+"De Pere WI"
 ]
 },
 {
@@ -15381,7 +14906,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/UNITYCARENW/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"BELLINGHAM WA"
+"Bellingham WA"
 ]
 },
 {
@@ -15392,7 +14917,6 @@
 "fhir_base_url": "https://epicproxy.et1432.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "places": [
 "Washington DC",
-"WASHINGTON DC",
 "Washington DC DC"
 ]
 },
@@ -15421,10 +14945,9 @@
 "fhir_base_url": "https://rxedi.bmhcc.org/prd-fhir/api/FHIR/R4/",
 "network": "Baptist Memorial Health Care",
 "places": [
-"MEMPHIS TN",
 "Memphis TN",
 "Jackson TN",
-"COVINGTON TN"
+"Covington TN"
 ]
 },
 {
@@ -15442,7 +14965,6 @@
 "network": "University Health",
 "places": [
 "San Antonio TX",
-"SAN ANTONIO TX",
 "Corpus Christi TX",
 "El Paso TX",
 "Austin TX",
@@ -15487,7 +15009,6 @@
 "Parma OH",
 "Ashland OH",
 "Chardon OH",
-"CLEVELAND OH",
 "Elyria OH"
 ]
 },
@@ -15499,13 +15020,11 @@
 "fhir_base_url": "https://ucsoap.uams.edu/FHIRProxy/HOME/api/FHIR/R4",
 "places": [
 "Little Rock AR",
-"LITTLE ROCK AR",
 "Fayetteville AR",
 "North Little Rock AR",
-"SPRINGDALE AR",
-"NORTH LITTLE ROCK AR",
+"Springdale AR",
 "Pine Bluff AR",
-"EL DORADO AR"
+"El Dorado AR"
 ]
 },
 {
@@ -15532,9 +15051,8 @@
 "Harvey IL",
 "Orland Park IL",
 "Tinley Park IL",
-"CHICAGO IL",
 "New Lenox IL",
-"MERRILLVILLE IN"
+"Merrillville IN"
 ]
 },
 {
@@ -15547,7 +15065,6 @@
 "places": [
 "Gainesville FL",
 "Jacksonville FL",
-"JACKSONVILLE FL",
 "Ocala FL",
 "Daytona Beach FL",
 "Tallahassee FL",
@@ -15564,12 +15081,12 @@
 "network": "Ardent",
 "places": [
 "Topeka KS",
-"MANHATTAN KS",
-"MAYETTA KS",
-"COUNCIL GROVE KS",
+"Manhattan KS",
+"Mayetta KS",
+"Council Grove KS",
 "Burlington KS",
-"JUNCTION CITY KS",
-"HORTON KS",
+"Junction City KS",
+"Horton KS",
 "Winchester KS"
 ]
 },
@@ -15581,13 +15098,11 @@
 "fhir_base_url": "https://epicproxy.et1193.epichosted.com/FHIRProxy/ULP/api/FHIR/R4",
 "places": [
 "Louisville KY",
-"LOUISVILLE KY",
 "Shelbyville KY",
 "Shepherdsville KY",
 "Elizabethtown KY",
 "Bardstown KY",
-"LEXINGTON KY",
-"SHELBYVILLE KY"
+"Lexington KY"
 ]
 },
 {
@@ -15603,7 +15118,6 @@
 "Bel Air MD",
 "LaPlata MD",
 "Cambridge MD",
-"BALTIMORE MD",
 "Glen Burnie MD"
 ]
 },
@@ -15615,14 +15129,13 @@
 "fhir_base_url": "https://epicproxy.et0747.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "University of Miami Health System",
 "places": [
-"MIAMI FL",
 "Miami FL",
-"DORAL FL",
-"CORAL GABLES FL",
-"BOCA RATON FL",
+"Doral FL",
+"Coral Gables FL",
+"Boca Raton FL",
 "Naples FL",
-"PLANTATION FL",
-"FORT LAUDERDALE FL"
+"Plantation FL",
+"Fort Lauderdale FL"
 ]
 },
 {
@@ -15651,13 +15164,11 @@
 "fhir_base_url": "https://haiku.sparrow.org/fhir-prd/api/FHIR/R4",
 "places": [
 "Lansing MI",
-"LANSING MI",
-"CHARLOTTE MI",
-"IONIA MI",
-"CARSON CITY MI",
-"East Lansing MI",
+"Charlotte MI",
 "Ionia MI",
-"ST JOHNS MI"
+"Carson City MI",
+"East Lansing MI",
+"St Johns MI"
 ]
 },
 {
@@ -15670,11 +15181,9 @@
 "places": [
 "Wayland MI",
 "Wyoming MI",
-"WYOMING MI",
-"GRAND RAPIDS MI",
 "Grand Rapids MI",
-"JENISON MI",
-"ALLENDALE MI",
+"Jenison MI",
+"Allendale MI",
 "Allegan MI"
 ]
 },
@@ -15698,10 +15207,9 @@
 "network": "Fairview",
 "places": [
 "Minneapolis MN",
-"MINNEAPOLIS MN",
 "Wyoming MN",
 "Edina MN",
-"SAINT LOUIS PARK MN"
+"Saint Louis Park MN"
 ]
 },
 {
@@ -15714,12 +15222,11 @@
 "places": [
 "Jackson MS",
 "Yazoo City MS",
-"JACKSON MS",
 "Canton MS",
 "Flowood MS",
 "Hattiesburg MS",
-"GULFPORT MS",
-"BILOXI MS"
+"Gulfport MS",
+"Biloxi MS"
 ]
 },
 {
@@ -15748,7 +15255,7 @@
 "fhir_base_url": "https://epicproxy.et0761.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "Tampa General Hospital",
 "places": [
-"TAMPA FL"
+"Tampa FL"
 ]
 },
 {
@@ -15844,8 +15351,7 @@
 "fhir_base_url": "https://epicproxy.et1023.epichosted.com/FHIRProxy/api/FHIR/R4",
 "network": "UMC Nevada",
 "places": [
-"Las Vegas NV",
-"LAS VEGAS NV"
+"Las Vegas NV"
 ]
 },
 {
@@ -15856,14 +15362,13 @@
 "fhir_base_url": "https://epic-fhir-prd.upmc.com/FHIR-PRD/api/FHIR/R4",
 "network": "University of Pittsburgh Medical Center",
 "places": [
-"PITTSBURGH PA",
-"ERIE PA",
 "Pittsburgh PA",
-"ALTOONA PA",
-"MONROEVILLE PA",
-"WILLIAMSPORT PA",
-"WEXFORD PA",
-"NEW CASTLE PA"
+"Erie PA",
+"Altoona PA",
+"Monroeville PA",
+"Williamsport PA",
+"Wexford PA",
+"New Castle PA"
 ]
 },
 {
@@ -15923,9 +15428,9 @@
 "fhir_base_url": "https://scproxy.gundersenhealth.org/FHIRARR/api/FHIR/R4",
 "network": "Emplify Health",
 "places": [
-"DE PERE WI",
-"GREEN BAY WI",
-"MARINETTE WI"
+"De Pere WI",
+"Green Bay WI",
+"Marinette WI"
 ]
 },
 {
@@ -15960,8 +15465,7 @@
 "fhir_base_url": "https://interconnect.utmedicine.org/OAuth2-prd/api/FHIR/R4",
 "places": [
 "Austin TX",
-"AUSTIN TX",
-"DEL VALLE TX"
+"Del Valle TX"
 ]
 },
 {
@@ -15972,14 +15476,12 @@
 "fhir_base_url": "https://epicproxy.et0582.epichosted.com/FHIRProxy/UTHP/api/FHIR/R4",
 "network": "UT Health San Antonio",
 "places": [
-"SAN ANTONIO TX",
 "San Antonio TX",
-"LAREDO TX",
-"AUSTIN TX",
-"EL PASO TX",
 "Laredo TX",
-"SHAVANO PARK TX",
-"SEGUIN TX"
+"Austin TX",
+"El Paso TX",
+"Shavano Park TX",
+"Seguin TX"
 ]
 },
 {
@@ -16007,14 +15509,14 @@
 "fhir_base_url": "https://epicproxy.ardenthealth.com/fhir/UPC/api/FHIR/R4",
 "network": "Ardent",
 "places": [
-"TULSA OK",
-"CUSHING OK",
-"CLAREMORE OK",
-"PRYOR OK",
-"BROKEN ARROW OK",
-"OWASSO OK",
-"HENRYETTA OK",
-"BRISTOW OK"
+"Tulsa OK",
+"Cushing OK",
+"Claremore OK",
+"Pryor OK",
+"Broken Arrow OK",
+"Owasso OK",
+"Henryetta OK",
+"Bristow OK"
 ]
 },
 {
@@ -16069,9 +15571,6 @@
 "Madison WI",
 "Rockford IL",
 "Middleton WI",
-"MADISON WI",
-"ROCKFORD IL",
-"MIDDLETON WI",
 "Belvidere IL",
 "Wausau WI"
 ]
@@ -16108,7 +15607,7 @@
 "fhir_base_url": "https://ss.uch.edu/FHIRProxy/api/FHIR/R4",
 "network": "UCHealth - Colorado",
 "places": [
-"VAIL CO"
+"Vail CO"
 ]
 },
 {
@@ -16155,7 +15654,6 @@
 "network": "Valley Health Systems",
 "places": [
 "Huntington WV",
-"HUNTINGTON WV",
 "Hurricane WV",
 "Wayne WV",
 "Charleston WV",
@@ -16172,9 +15670,9 @@
 "fhir_base_url": "https://proxy.lvh.com/FHIR/api/FHIR/R4",
 "network": "Lehigh Valley Hospital",
 "places": [
-"ALLENTOWN PA",
-"NEW TRIPOLI PA",
-"BETHLEHEM PA"
+"Allentown PA",
+"New Tripoli PA",
+"Bethlehem PA"
 ]
 },
 {
@@ -16184,14 +15682,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1320.epichosted.com/FHIRProxy/api/FHIR/R4/",
 "places": [
-"WINCHESTER VA",
-"FRONT ROYAL VA",
-"MARTINSBURG WV",
-"WOODSTOCK VA",
-"LURAY VA",
-"STRASBURG VA",
-"RANSON WV",
-"BERKELEY SPRINGS WV"
+"Winchester VA",
+"Front Royal VA",
+"Martinsburg WV",
+"Woodstock VA",
+"Luray VA",
+"Strasburg VA",
+"Ranson WV",
+"Berkeley Springs WV"
 ]
 },
 {
@@ -16218,7 +15716,7 @@
 "fhir_base_url": "https://ss.uch.edu/FHIRProxy/api/FHIR/R4",
 "network": "UCHealth - Colorado",
 "places": [
-"GLENWOOD SPRINGS CO"
+"Glenwood Springs CO"
 ]
 },
 {
@@ -16230,13 +15728,12 @@
 "network": "Valleywise Health",
 "places": [
 "Phoenix AZ",
-"PHOENIX AZ",
 "Mesa AZ",
 "Chandler AZ",
 "Avondale AZ",
 "Guadalupe AZ",
 "Maryvale AZ",
-"PEORIA AZ"
+"Peoria AZ"
 ]
 },
 {
@@ -16258,11 +15755,9 @@
 "fhir_base_url": "https://soapprod.tvc.org/ARR-FHIR/api/FHIR/R4",
 "places": [
 "Vancouver WA",
-"VANCOUVER WA",
 "Ridgefield WA",
-"PORTLAND OR",
-"Tualatin OR",
 "Portland OR",
+"Tualatin OR",
 "Gresham OR",
 "Camas WA"
 ]
@@ -16276,11 +15771,9 @@
 "places": [
 "Nashville TN",
 "Franklin TN",
-"NASHVILLE TN",
 "Lebanon TN",
 "Shelbyville TN",
 "Clarksville TN",
-"CLARKSVILLE TN",
 "Tullahoma TN"
 ]
 },
@@ -16302,14 +15795,14 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1200.epichosted.com/oauth2-PRD/MOBILE/api/FHIR/R4",
 "places": [
-"RICHMOND VA",
-"SOUTH HILL VA",
-"FREDERICKSBRG VA",
-"COLONIAL HEIGHTS VA",
-"TAPPAHANNOCK VA",
-"BON AIR VA",
-"AYLETT VA",
-"CHESTERFIELD VA"
+"Richmond VA",
+"South Hill VA",
+"Fredericksbrg VA",
+"Colonial Heights VA",
+"Tappahannock VA",
+"Bon Air VA",
+"Aylett VA",
+"Chesterfield VA"
 ]
 },
 {
@@ -16327,11 +15820,10 @@
 "fhir_base_url": "https://scproxy.gundersenhealth.org/FHIRARR/GHS/api/FHIR/R4",
 "network": "Emplify Health",
 "places": [
-"VIROQUA WI",
-"WESTBY WI",
-"SOLDIERS GROVE WI",
 "Viroqua WI",
-"LA FARGE WI"
+"Westby WI",
+"Soldiers Grove WI",
+"La Farge WI"
 ]
 },
 {
@@ -16342,7 +15834,7 @@
 "fhir_base_url": "https://myepicapps.uihealthcare.org/FHIRProxy/api/FHIR/R4",
 "network": "University of Iowa Health Care",
 "places": [
-"WAUKON IA"
+"Waukon IA"
 ]
 },
 {
@@ -16354,8 +15846,6 @@
 "places": [
 "Arlington VA",
 "Alexandria VA",
-"ALEXANDRIA VA",
-"ARLINGTON VA",
 "McLean VA",
 "Fairfax VA",
 "Vienna VA",
@@ -16370,7 +15860,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTVG/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"CORNELIUS OR"
+"Cornelius OR"
 ]
 },
 {
@@ -16381,12 +15871,11 @@
 "fhir_base_url": "https://epicproxy.et1017.epichosted.com/FHIRProxy/api/FHIR/R4",
 "places": [
 "Voorhees NJ",
-"MARLTON NJ",
+"Marlton NJ",
 "Cherry Hill NJ",
 "Sewell NJ",
 "Stratford NJ",
 "Moorestown NJ",
-"Marlton NJ",
 "Hammonton NJ"
 ]
 },
@@ -16397,14 +15886,13 @@
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1336.epichosted.com/FHIRProxy/HOME/api/FHIR/R4",
 "places": [
-"DALTON GA",
-"CLEVELAND TN",
-"RINGGOLD GA",
-"CHATSWORTH GA",
-"OOLTEWAH TN",
 "Dalton GA",
-"ATHENS TN",
-"DAYTON TN"
+"Cleveland TN",
+"Ringgold GA",
+"Chatsworth GA",
+"Ooltewah TN",
+"Athens TN",
+"Dayton TN"
 ]
 },
 {
@@ -16415,7 +15903,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/VIVENTHEALTH/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"MILWAUKEE WI"
+"Milwaukee WI"
 ]
 },
 {
@@ -16444,7 +15932,7 @@
 "fhir_base_url": "https://epicproxy.et1030.epichosted.com/FHIRProxy/api/FHIR/R4/",
 "network": "St. Charles Health System",
 "places": [
-"BEND OR"
+"Bend OR"
 ]
 },
 {
@@ -16455,13 +15943,13 @@
 "fhir_base_url": "https://ssproxy.osfhealthcare.org/fhir-proxy/api/FHIR/R4",
 "network": "OSF HealthCare",
 "places": [
-"MOUNT CARMEL IL",
-"LAWRENCEVILLE IL",
-"FLORA IL",
-"ALBION IL",
-"GRAYVILLE IL",
-"FAIRFIELD IL",
-"CARMI IL"
+"Mount Carmel IL",
+"Lawrenceville IL",
+"Flora IL",
+"Albion IL",
+"Grayville IL",
+"Fairfield IL",
+"Carmi IL"
 ]
 },
 {
@@ -16471,13 +15959,11 @@
 "platform": "epic",
 "fhir_base_url": "https://haiku.wacofhc.org/FHIR/api/FHIR/R4",
 "places": [
-"WACO TX",
 "Waco TX",
-"HILLSBORO TX",
-"TEMPLE TX",
+"Hillsboro TX",
 "Temple TX",
 "Bellmead TX",
-"MCGREGOR TX"
+"McGregor TX"
 ]
 },
 {
@@ -16495,7 +15981,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"WAIANAE HI"
+"Waianae HI"
 ]
 },
 {
@@ -16509,7 +15995,6 @@
 "Raleigh NC",
 "Cary NC",
 "Clayton NC",
-"RALEIGH NC",
 "Fuquay Varina NC",
 "Holly Springs NC",
 "Garner NC",
@@ -16524,7 +16009,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTWALLACE/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"PORTLAND OR"
+"Portland OR"
 ]
 },
 {
@@ -16542,7 +16027,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/WVCENTERFORWELLNESS/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"ENTERPRISE OR"
+"Enterprise OR"
 ]
 },
 {
@@ -16564,7 +16049,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/MYCHARTWC/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"HILLSBORO OR"
+"Hillsboro OR"
 ]
 },
 {
@@ -16574,14 +16059,12 @@
 "platform": "epic",
 "fhir_base_url": "https://psacesoap.whhs.com/interconnect-fhir-prd/WHHS/api/FHIR/R4",
 "places": [
-"FREMONT CA",
 "Fremont CA",
-"MENLO PARK CA",
-"UNION CITY CA",
-"REDWOOD CITY CA",
+"Menlo Park CA",
+"Union City CA",
+"Redwood City CA",
 "Newark CA",
-"NEWARK CA",
-"HAYWARD CA"
+"Hayward CA"
 ]
 },
 {
@@ -16596,7 +16079,6 @@
 "Springdale AR",
 "Lincoln AR",
 "Bentonville AR",
-"FAYETTEVILLE AR",
 "Johnson AR",
 "Harrison AR",
 "Farmington AR"
@@ -16638,13 +16120,10 @@
 "network": "New York Consortium",
 "places": [
 "New York NY",
-"NEW YORK NY",
 "Brooklyn NY",
-"BROOKLYN NY",
 "Fresh Meadows NY",
-"FLUSHING NY",
 "Flushing NY",
-"NY NY"
+"Ny NY"
 ]
 },
 {
@@ -16662,7 +16141,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/WELLSPACEHEALTHMYCHART/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"SACRAMENTO CA"
+"Sacramento CA"
 ]
 },
 {
@@ -16673,14 +16152,14 @@
 "fhir_base_url": "https://interconnect.wellspan.org/interconnect-prd-oauth2/api/FHIR/R4",
 "network": "WellSpan Health",
 "places": [
-"YORK PA",
-"CHAMBERSBURG PA",
-"GETTYSBURG PA",
-"LEBANON PA",
-"EPHRATA PA",
-"HANOVER PA",
-"WAYNESBORO PA",
-"LANCASTER PA"
+"York PA",
+"Chambersburg PA",
+"Gettysburg PA",
+"Lebanon PA",
+"Ephrata PA",
+"Hanover PA",
+"Waynesboro PA",
+"Lancaster PA"
 ]
 },
 {
@@ -16693,10 +16172,8 @@
 "places": [
 "Marietta GA",
 "Augusta GA",
-"MARIETTA GA",
 "Atlanta GA",
 "Alpharetta GA",
-"ATLANTA GA",
 "Austell GA",
 "Lagrange GA"
 ]
@@ -16716,7 +16193,7 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/WBFM/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"BEND OR"
+"Bend OR"
 ]
 },
 {
@@ -16743,8 +16220,7 @@
 "Martin TN",
 "Camden TN",
 "Selmer TN",
-"Milan TN",
-"JACKSON TN"
+"Milan TN"
 ]
 },
 {
@@ -16755,13 +16231,13 @@
 "fhir_base_url": "https://apps.mywvuchart.com/FHIRproxy/api/FHIR/R4",
 "network": "WVU Medicine",
 "places": [
-"MORGANTOWN WV",
+"Morgantown WV",
 "Martinsburg WV",
 "Bridgeport WV",
 "Keyser WV",
-"PARKERSBURG WV",
+"Parkersburg WV",
 "Charleston WV",
-"WHEELING WV",
+"Wheeling WV",
 "South Charleston WV"
 ]
 },
@@ -16784,8 +16260,7 @@
 "fhir_base_url": "https://haikuwa.providence.org/fhirproxy/api/FHIR/R4",
 "network": "Providence Washington/Montana",
 "places": [
-"Missoula MT",
-"MISSOULA MT"
+"Missoula MT"
 ]
 },
 {
@@ -16839,14 +16314,14 @@
 "fhir_base_url": "https://epicproxy.et4001.epichosted.com/APIProxyPRD/WWU/api/FHIR/R4",
 "network": "Garden Plot",
 "places": [
-"LADYSMITH WI",
-"LAKE CITY MN",
-"OSCEOLA WI",
-"EAU CLAIRE WI",
-"TOMAH WI",
-"DURAND WI",
-"SHELL LAKE WI",
-"CHIPPEWA FALLS WI"
+"Ladysmith WI",
+"Lake City MN",
+"Osceola WI",
+"Eau Claire WI",
+"Tomah WI",
+"Durand WI",
+"Shell Lake WI",
+"Chippewa Falls WI"
 ]
 },
 {
@@ -16882,7 +16357,7 @@
 "fhir_base_url": "https://epicproxy.et1326.epichosted.com/FHIRProxy/MHCC/api/FHIR/R4",
 "network": "Memorial Hermann",
 "places": [
-"HOUSTON TX"
+"Houston TX"
 ]
 },
 {
@@ -16915,14 +16390,13 @@
 "fhir_base_url": "https://ihismufhir.osumc.edu/fhir-prd/api/FHIR/R4",
 "network": "The Ohio State University Wexner Medical Center",
 "places": [
-"SIDNEY OH",
-"TROY OH",
-"PIQUA OH",
-"JACKSON CENTER OH",
+"Sidney OH",
+"Troy OH",
+"Piqua OH",
+"Jackson Center OH",
 "Minster OH",
-"MINSTER OH",
-"ANNA OH",
-"BOTKINS OH"
+"Anna OH",
+"Botkins OH"
 ]
 },
 {
@@ -16933,7 +16407,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"WINDOM MN"
+"Windom MN"
 ]
 },
 {
@@ -16962,7 +16436,7 @@
 "fhir_base_url": "https://eprescribe.sanfordhealth.org/FHIR/api/FHIR/R4",
 "network": "Sanford Health",
 "places": [
-"WINNER SD"
+"Winner SD"
 ]
 },
 {
@@ -17014,9 +16488,8 @@
 "network": "Woman's Hospital",
 "places": [
 "Baton Rouge LA",
-"LAFAYETTE LA",
-"COVINGTON LA",
-"BATON ROUGE LA"
+"Lafayette LA",
+"Covington LA"
 ]
 },
 {
@@ -17027,9 +16500,9 @@
 "fhir_base_url": "https://epicprod-mobile.parkview.com/FHIR/api/FHIR/R4",
 "network": "Parkview Health",
 "places": [
-"ROCHESTER IN",
-"AKRON IN",
-"ARGOS IN"
+"Rochester IN",
+"Akron IN",
+"Argos IN"
 ]
 },
 {
@@ -17058,7 +16531,7 @@
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/api/FHIR/R4",
 "network": "OCHIN",
 "places": [
-"YAKIMA WA"
+"Yakima WA"
 ]
 },
 {
@@ -17087,14 +16560,14 @@
 "featured": true,
 "network": "Yale New Haven Health System and Yale University",
 "places": [
-"NEW HAVEN CT",
-"BRIDGEPORT CT",
-"HAMDEN CT",
-"BRANFORD CT",
-"STAMFORD CT",
-"FAIRFIELD CT",
-"GREENWICH CT",
-"MILFORD CT"
+"New Haven CT",
+"Bridgeport CT",
+"Hamden CT",
+"Branford CT",
+"Stamford CT",
+"Fairfield CT",
+"Greenwich CT",
+"Milford CT"
 ]
 },
 {

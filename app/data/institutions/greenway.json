@@ -86,7 +86,7 @@
 {
 "id": "greenway-adam-romoff-md",
 "name": "Adam Romoff, MD",
-"location": "New York,, NY",
+"location": "New York, NY",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.73888"
 },
@@ -890,7 +890,7 @@
 {
 "id": "greenway-bay-surgical-specialists-pa",
 "name": "Bay Surgical Specialists, PA",
-"location": "St  Petersburg, FL",
+"location": "St Petersburg, FL",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.694"
 },
@@ -2973,7 +2973,7 @@
 },
 {
 "id": "greenway-evergreen-family-medical-center",
-"name": "Evergreen Family  Medical Center",
+"name": "Evergreen Family Medical Center",
 "location": "San Jose, CA",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.831804"
@@ -4454,7 +4454,7 @@
 },
 {
 "id": "greenway-james-t-martin-jr",
-"name": "james t  martin, jr",
+"name": "James T Martin, Jr",
 "location": "Charleston, SC",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.654"
@@ -7216,7 +7216,7 @@
 {
 "id": "greenway-prime-care-12-priority-health",
 "name": "Prime Care 12 Priority Health",
-"location": "Princeton,, WV",
+"location": "Princeton, WV",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.73858"
 },
@@ -7383,7 +7383,7 @@
 },
 {
 "id": "greenway-raymond-yung-md",
-"name": "Raymond Yung, MD,",
+"name": "Raymond Yung, MD",
 "location": "New York, NY",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.500001"
@@ -7425,7 +7425,7 @@
 },
 {
 "id": "greenway-regional-obstetrical-consultants",
-"name": "Regional Obstetrical Consultants,",
+"name": "Regional Obstetrical Consultants",
 "location": "Chattanooga, TN",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.1116"
@@ -8272,7 +8272,7 @@
 },
 {
 "id": "greenway-southern-ohio-surgical-associates",
-"name": "southern ohio surgical associates",
+"name": "Southern Ohio Surgical Associates",
 "location": "Portsmouth, OH",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.612"
