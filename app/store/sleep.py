@@ -4,13 +4,14 @@ schedule was. Built from the same samples and source choice as the daily sleep f
 so a night here always matches the hours shown everywhere else.
 
 Two shapes of data arrive. Apple Health (and anything writing to it) sends one sample per stretch of a stage; those are
-grouped into nights exactly as ``biometrics._sleep_nights`` does, and the stretches are kept for a hypnogram. Oura,
-WHOOP and Google send one summary per night (total, deep, REM, light, awake over the whole time in bed).
+grouped into nights by ``biometrics.sleep_sessions``, the same as the daily figures, and the stretches are kept for a
+hypnogram. Oura, WHOOP and Google send one summary per night (total, deep, REM, light, awake over the whole time in bed).
+A nap isn't a night: it has no say in bedtime, efficiency or regularity, and is listed apart. A night's clock times are
+where the person was when the source says, otherwise in their home zone.
 """
 
 from __future__ import annotations
 
-import json
 import math
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
@@ -18,7 +19,8 @@ from typing import Any, Optional
 
 from app.core.db import read
 from app.store import biometrics
-from app.store.biometrics import SLEEP_SESSION_GAP_S, SLEEP_STAGE_SAMPLES, _tz, _union, local_day, parse_ts
+from app.store.biometrics import (SLEEP_STAGE_SAMPLES, _asleep_seconds, _stored_day, _tz, _union, local_day, parse_ts,
+                                  sleep_sessions, zone_at)
 
 # Raw sample type -> stage. "asleep" is sleep a device didn't break into stages.
 STAGE = {
@@ -41,35 +43,38 @@ def _hours(spans: list[tuple[float, float]]) -> float:
     return sum(e - s for s, e in _union(spans)) / 3600.0
 
 
-def _staged_night(samples: list[tuple[float, float, str]], tz, keep_segments: bool) -> dict[str, Any]:
+def _staged_night(samples: list[tuple[float, float, str, Optional[int]]], tz, keep_segments: bool) -> dict[str, Any]:
     by_stage: dict[str, list[tuple[float, float]]] = defaultdict(list)
-    for s, e, metric in samples:
+    for s, e, metric, _ in samples:
         by_stage[STAGE[metric]].append((s, e))
     asleep = _union([sp for st, spans in by_stage.items() if st != "awake" for sp in spans])
     staged = {st: _hours(by_stage.get(st, [])) for st in ("deep", "core", "rem")}
     total = sum(e - s for s, e in asleep) / 3600.0
-    bed = min(s for s, _, _ in samples)
-    wake = max(e for _, e, _ in samples)
+    bed = min(x[0] for x in samples)
+    last = max(samples, key=lambda x: x[1])
+    wake = last[1]
+    zone = zone_at(last[3], tz)
     night = {
-        "bed_ts": bed, "wake_ts": wake, "asleep_h": total,
+        "bed_ts": bed, "wake_ts": wake, "asleep_h": total, "zone": zone,
         "stages": {**staged, "awake": _hours(by_stage.get("awake", [])),
                    "unstaged": max(0.0, total - sum(staged.values()))},
     }
     if keep_segments:
-        segs = sorted((s, e, STAGE[m]) for s, e, m in samples if STAGE[m] != "asleep" or not any(staged.values()))
-        night["segments"] = [{"start": datetime.fromtimestamp(s, tz).isoformat(timespec="minutes"),
-                              "end": datetime.fromtimestamp(e, tz).isoformat(timespec="minutes"), "stage": st}
+        segs = sorted((s, e, STAGE[m]) for s, e, m, _ in samples if STAGE[m] != "asleep" or not any(staged.values()))
+        night["segments"] = [{"start": datetime.fromtimestamp(s, zone).isoformat(timespec="minutes"),
+                              "end": datetime.fromtimestamp(e, zone).isoformat(timespec="minutes"), "stage": st}
                              for s, e, st in segs]
     return night
 
 
-def _summary_night(parts: dict[str, list[tuple[float, float, float]]]) -> dict[str, Any]:
-    spans = [(s, e) for rows in parts.values() for s, e, _ in rows]
-    val = {st: sum(v for _, _, v in rows) / 3600.0 for st, rows in parts.items()}
+def _summary_night(parts: dict[str, list[tuple[float, float, float, Optional[int]]]], tz) -> dict[str, Any]:
+    spans = [(s, e) for rows in parts.values() for s, e, _, _ in rows]
+    val = {st: sum(v for _, _, v, _ in rows) / 3600.0 for st, rows in parts.items()}
+    offset = next((o for rows in parts.values() for _, _, _, o in rows if o is not None), None)
     staged = {st: val.get(st, 0.0) for st in ("deep", "core", "rem")}
     total = val.get("total") or val.get("asleep") or sum(staged.values())
     return {
-        "bed_ts": min(s for s, _ in spans), "wake_ts": max(e for _, e in spans), "asleep_h": total,
+        "bed_ts": min(s for s, _ in spans), "wake_ts": max(e for _, e in spans), "asleep_h": total, "zone": zone_at(offset, tz),
         "stages": {**staged, "awake": val.get("awake", 0.0), "unstaged": max(0.0, total - sum(staged.values()))},
     }
 
@@ -84,49 +89,46 @@ def _all_nights(profile_id: str, start: date, end: date, tz,
                       for d in (start - timedelta(days=2), end + timedelta(days=2)))
     with read() as conn:
         rows = conn.execute(
-            f"SELECT metric_type, value, start_date, end_date, source_name, metadata_json FROM biometric_samples "
-            f"WHERE profile_id = ? AND metric_type IN ({','.join('?' * len(STAGE))}) AND start_date >= ? AND start_date < ?",
+            f"SELECT metric_type, value, start_date, end_date, source_name, metadata_json, tz_offset_min FROM biometric_samples "
+            f"WHERE profile_id = ? AND flag IS NULL AND metric_type IN ({','.join('?' * len(STAGE))}) AND start_date >= ? AND start_date < ?",
             (profile_id, *STAGE, lo_utc, hi_utc),
         ).fetchall()
-    staged: dict[str, list[tuple[float, float, str]]] = defaultdict(list)
+    staged: dict[str, list[tuple[float, float, str, Optional[int]]]] = defaultdict(list)
     summaries: dict[tuple[str, str], dict[str, list]] = defaultdict(lambda: defaultdict(list))
     for r in rows:
-        metric, source = r["metric_type"], r["source_name"] or "Unknown"
-        meta_day = None
-        if r["metadata_json"] and '"day"' in r["metadata_json"]:
-            try:
-                meta_day = json.loads(r["metadata_json"]).get("day")
-            except ValueError:
-                meta_day = None
+        metric, source, offset = r["metric_type"], r["source_name"] or "Unknown", r["tz_offset_min"]
+        meta_day = _stored_day(r["metadata_json"], r["start_date"])
         try:
             s, e = parse_ts(r["start_date"]).timestamp(), parse_ts(r["end_date"]).timestamp()
         except (ValueError, TypeError):
             continue
         if metric in SLEEP_STAGE_SAMPLES and not meta_day:
             if e > s:
-                staged[source].append((s, e, metric))
+                staged[source].append((s, e, metric, offset))
             continue
-        day = meta_day or local_day(r["end_date"], tz)
-        summaries[(day, source)][STAGE[metric]].append((s, e, float(r["value"])))
+        day = meta_day or local_day(r["end_date"], tz, offset)
+        summaries[(day, source)][STAGE[metric]].append((s, e, float(r["value"]), offset))
 
     out: dict[tuple[str, str], dict[str, Any]] = {}
     for (day, source), parts in summaries.items():
         if start.isoformat() <= day <= end.isoformat():
-            out[(day, source)] = {"day": day, "source": source, **_summary_night(parts)}
+            out[(day, source)] = {"day": day, "source": source, **_summary_night(parts, tz)}
     for source, samples in staged.items():
-        groups: list[list[Any]] = []
-        for sample in sorted(samples):
-            if groups and sample[0] - groups[-1][0] <= SLEEP_SESSION_GAP_S:
-                groups[-1][0] = max(groups[-1][0], sample[1])
-                groups[-1][1].append(sample)
-            else:
-                groups.append([sample[1], [sample]])
-        for woke, night in groups:
-            day = datetime.fromtimestamp(woke, tz).date().isoformat()
-            if start.isoformat() <= day <= end.isoformat():
-                out[(day, source)] = {"day": day, "source": source,
-                                      **_staged_night(night, tz, keep_segments=day == segments_on)}
+        for session in sleep_sessions(samples, tz):
+            day = session["day"]
+            # A source's own summary of the night wins, as in the daily figures.
+            if start.isoformat() <= day <= end.isoformat() and (day, source) not in out:
+                out[(day, source)] = {"day": day, "source": source, "naps": [_nap(n, tz) for n in session["naps"]],
+                                      **_staged_night(session["night"], tz, keep_segments=day == segments_on)}
     return out
+
+
+def _nap(samples: list[tuple[float, float, str, Optional[int]]], tz) -> dict[str, Any]:
+    first = min(samples, key=lambda x: x[0])
+    zone = zone_at(first[3], tz)
+    return {"start": datetime.fromtimestamp(first[0], zone).isoformat(timespec="minutes"),
+            "end": datetime.fromtimestamp(max(x[1] for x in samples), zone).isoformat(timespec="minutes"),
+            "asleep_h": round(_asleep_seconds(samples) / 3600.0, 2)}
 
 
 def _circular_mean(minutes: list[int]) -> Optional[float]:
@@ -155,7 +157,7 @@ def nights(profile_id: str, days: int = 30, source: Optional[str] = None, end: O
     """Each night in the period from the source the daily sleep figures use, with bedtime, wake time and stages, plus
     averages and how regular bedtime and wake time were. The latest night keeps its stage-by-stage segments when the
     device recorded them."""
-    tz = _tz()
+    tz = _tz(profile_id)
     series = biometrics.daily_series(profile_id, "sleep_duration", days=days, source=source, end=end)
     start, last = date.fromisoformat(series["start"]), date.fromisoformat(series["end"])
     points = series["points"]
@@ -173,10 +175,11 @@ def nights(profile_id: str, days: int = 30, source: Optional[str] = None, end: O
             "day": p["day"], "source": p["source"], "asleep_h": round(p["value"], 2),
             "in_bed_h": round(in_bed, 2),
             "efficiency": round(min(1.0, p["value"] / in_bed), 3) if in_bed else None,
-            "bed": datetime.fromtimestamp(n["bed_ts"], tz).isoformat(timespec="minutes"),
-            "wake": datetime.fromtimestamp(n["wake_ts"], tz).isoformat(timespec="minutes"),
-            "bed_min": _clock(n["bed_ts"], tz), "wake_min": _clock(n["wake_ts"], tz),
+            "bed": datetime.fromtimestamp(n["bed_ts"], n["zone"]).isoformat(timespec="minutes"),
+            "wake": datetime.fromtimestamp(n["wake_ts"], n["zone"]).isoformat(timespec="minutes"),
+            "bed_min": _clock(n["bed_ts"], n["zone"]), "wake_min": _clock(n["wake_ts"], n["zone"]),
             "stages": {k: round(v, 2) for k, v in n["stages"].items()},
+            "naps": n.get("naps") or [],
         }
         if "segments" in n:
             row["segments"] = n["segments"]

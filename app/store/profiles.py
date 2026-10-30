@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from app.core import settings
 from app.core.db import db, discard_pre_upgrade_copies, read, new_id, row_to_dict, rows_to_dicts
-from app.store import sample_counts
+from app.store import biometrics, sample_counts
 
 RELATIONSHIPS = ("self", "partner", "child", "parent", "sibling", "other")
 PALETTE = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#ef4444"]
@@ -68,7 +68,8 @@ def create_profile(
 def update_profile(profile_id: str, **fields: Any) -> Optional[dict[str, Any]]:
     # None clears a birth date or sex; the rest can only be changed.
     allowed = {k: v for k, v in fields.items()
-               if k in ("name", "relationship", "birth_date", "sex", "color") and (v is not None or k in ("birth_date", "sex"))}
+               if k in ("name", "relationship", "birth_date", "sex", "color", "timezone")
+               and (v is not None or k in ("birth_date", "sex", "timezone"))}
     with db() as conn:
         if fields.get("is_default"):
             conn.execute("UPDATE profiles SET is_default = 0")
@@ -84,9 +85,8 @@ def update_profile(profile_id: str, **fields: Any) -> Optional[dict[str, Any]]:
 
 def delete_profile(profile_id: str) -> None:
     """Deletes a profile and all of its data (records, samples, connections, devices)."""
+    biometrics.delete_all_for_profile(profile_id)
     with db() as conn:
-        conn.execute("DELETE FROM biometric_samples WHERE profile_id = ?", (profile_id,))
-        conn.execute("DELETE FROM biometric_daily WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM daily_revisions WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM sync_batches WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM workouts WHERE profile_id = ?", (profile_id,))

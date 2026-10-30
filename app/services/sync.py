@@ -12,8 +12,10 @@ import asyncio
 import logging
 import sqlite3
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
+
+import httpx
 
 from app.connectors import fhir_normalize, google_health, oura, smart, whoop
 from app.connectors import wearable_common as wc
@@ -27,6 +29,8 @@ _locks: dict[str, asyncio.Lock] = {}
 MAX_NOTE_FETCHES = 60
 WEARABLE_INITIAL_DAYS = 90
 WEARABLE_OVERLAP_DAYS = 3
+WINDOW_HELD_MAX_DAYS = 365
+REFETCH_STRETCH_DAYS = 180
 
 
 def _lock(connection_id: str) -> asyncio.Lock:
@@ -196,17 +200,20 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
     module = WEARABLE_MODULES.get(conn["provider"])
     if module is None:
         raise SmartError(f"Unknown wearable provider '{conn['provider']}'")
-    today = datetime.now(timezone.utc).date()
+    # For someone ahead of UTC it's already tomorrow, and the providers' date ranges would leave that day out.
+    today = max(datetime.now(timezone.utc).date(), datetime.now(biometrics._tz(conn["profile_id"])).date())
+    meta = dict(conn.get("metadata") or {})
     # From the last sync that worked: after days of failures (an expired sign-in), the days in between are fetched too.
     last_ok = connections.last_success_at(conn)
     if last_ok:
         since = datetime.fromtimestamp(last_ok, timezone.utc).date() - timedelta(days=WEARABLE_OVERLAP_DAYS)
     else:
         since = today - timedelta(days=WEARABLE_INITIAL_DAYS)
+    since = _hold_window(since, today, meta)
 
     if conn["mode"] == "simulated":
         # Days on this server's clock, so the made-up nights fall at night here.
-        tz = biometrics._tz()
+        tz = biometrics._tz(conn["profile_id"])
         until = datetime.now(tz).date()
         days = (until - since).days + 1
         data = await asyncio.to_thread(module.simulate, days=days, until=until, seed=f"{conn['provider']}-{conn['id']}", tz=tz)
@@ -225,8 +232,11 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
             creds = await module.refresh(creds)
             await asyncio.to_thread(connections.update, conn["id"], credentials=creds)
             data = await module.fetch_live(creds, since, today)
+        await _fetch_older_stretch(module, creds, data, meta, since)
 
-    def store() -> tuple[dict[str, Any], int]:      # in a thread, like the EHR's records
+    warnings = data.pop("_warnings", [])
+
+    def store() -> tuple[dict[str, Any], dict[str, int]]:      # in a thread, like the EHR's records
         samples = module.normalize(data)
         workouts = module.normalize_workouts(data)
         if conn["mode"] == "simulated":
@@ -237,12 +247,72 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
             conn["profile_id"], conn["id"], samples,
             batch_meta={"device_id": f"{conn['provider']}-cloud", "device_name": conn["display_name"],
                         "sync_trigger": "simulated" if conn["mode"] == "simulated" else "cloud"},
+            deleted_prefixes=module.deleted_prefixes(data) if hasattr(module, "deleted_prefixes") else (),
+            must_have_source=True,
         )
-        return result, activity.insert_workouts(conn["profile_id"], conn["id"], workouts)
-    result, workouts = await asyncio.to_thread(store)
-    return {"since": since.isoformat(), "samples": result["received"], "inserted": result["inserted"],
-            "duplicates": result["duplicates"], "days_updated": result["days_updated"], "workouts": workouts,
-            "warnings": []}
+        return result, activity.store_workouts(conn["profile_id"], conn["id"], workouts)
+    try:
+        result, workouts = await asyncio.to_thread(store)
+    except biometrics.SourceRemoved:
+        return {"since": since.isoformat(), "samples": 0, "inserted": 0, "warnings": [], "removed": True}
+    await asyncio.to_thread(_remember_window, conn["id"], meta, since, today, bool(warnings))
+    return {"since": since.isoformat(), "samples": result["received"], "inserted": result["inserted"], "updated": result["updated"],
+            "duplicates": result["duplicates"], "rejected": result["rejected"], "flagged": result["flagged"],
+            "days_updated": result["days_updated"], "workouts": workouts["inserted"], "workouts_updated": workouts["updated"],
+            "warnings": warnings}
+
+
+async def _fetch_older_stretch(module: Any, creds: dict[str, Any], data: dict[str, Any], meta: dict[str, Any], since: date) -> None:
+    """Older days being fetched again (``refetch_from``), one stretch per sync and oldest first, so a long history doesn't run into
+    a provider's page or rate limits all at once, and a restart carries on. If this stretch fails, the usual window still syncs."""
+    start = _meta_date(meta, "refetch_from")
+    if not start:
+        return
+    if start >= since:
+        meta.pop("refetch_from", None)
+        return
+    stop = min(start + timedelta(days=REFETCH_STRETCH_DAYS), since)
+    try:
+        older = await getattr(module, "fetch_stretch", module.fetch_live)(creds, start, stop)
+    except (SmartError, httpx.HTTPError) as exc:
+        log.warning("Couldn't fetch older days for a wearable: %s", exc)
+        return
+    for key, rows in older.items():
+        if key == "_warnings":
+            data["_warnings"] = [*data.get("_warnings", []), *rows]
+        else:
+            data[key] = [*data.get(key, []), *rows]
+    if stop >= since:
+        meta.pop("refetch_from", None)
+    else:
+        meta["refetch_from"] = stop.isoformat()
+
+
+def _meta_date(meta: dict[str, Any], key: str) -> Optional[date]:
+    try:
+        return date.fromisoformat(meta[key]) if isinstance(meta.get(key), str) else None
+    except ValueError:
+        return None
+
+
+def _hold_window(since: date, today: date, meta: dict[str, Any]) -> date:
+    """How far back to fetch. Further than the usual overlap when a data type was refused last time (``window_floor``), since a
+    sync that moves on would leave a gap for good. And never past what was last fetched, once the runs that say so have aged out
+    (only 50 are kept)."""
+    for key in ("window_floor", "fetched_through"):
+        found = _meta_date(meta, key)
+        if found and found >= today - timedelta(days=WINDOW_HELD_MAX_DAYS):
+            since = min(since, found - timedelta(days=WEARABLE_OVERLAP_DAYS if key == "fetched_through" else 0))
+    return since
+
+
+def _remember_window(connection_id: str, meta: dict[str, Any], since: date, today: date, refused: bool) -> None:
+    meta["fetched_through"] = today.isoformat()
+    if refused:
+        meta["window_floor"] = min(since, date.fromisoformat(meta["window_floor"])).isoformat() if meta.get("window_floor") else since.isoformat()
+    else:
+        meta.pop("window_floor", None)
+    connections.update(connection_id, metadata=meta)
 
 
 # ---------------------------------------------------------------------------

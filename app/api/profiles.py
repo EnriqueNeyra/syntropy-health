@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any, Optional
+from zoneinfo import available_timezones
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
 from app.api.deps import check_access, phone_origin, resolve_profile
 from app.core import auth, context, settings
-from app.store import accounts, profiles
+from app.core.db import db
+from app.store import accounts, biometrics, profiles
 
 router = APIRouter(prefix="/api/profiles", tags=["profiles"], dependencies=[Depends(auth.require_user)])
 
@@ -43,6 +45,7 @@ class ProfilePatch(BaseModel):
     birth_date: Optional[str] = Field(None, max_length=10)       # null clears it
     sex: Optional[str] = Field(None, max_length=20)              # null clears it
     color: Optional[str] = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
+    timezone: Optional[str] = Field(None, max_length=64)         # their home time zone; null follows the server's
     is_default: Optional[bool] = None       # earlier versions: whom to open first (now always yourself)
 
     check_birth_date = field_validator("birth_date")(_real_date)
@@ -94,10 +97,18 @@ def update_profile(profile_id: str, req: ProfilePatch) -> dict:
     check_access(profile_id, "manage")
     fields = req.model_dump(exclude_unset=True, exclude={"is_default"})
     # A name, relationship or color can only be changed; a birth date or sex can also be cleared (sent as null).
-    fields = {k: v for k, v in fields.items() if v is not None or k in ("birth_date", "sex")}
+    fields = {k: v for k, v in fields.items() if v is not None or k in ("birth_date", "sex", "timezone")}
+    if fields.get("timezone") and fields["timezone"] not in available_timezones():
+        raise HTTPException(400, "Unknown time zone.")
+    moved = "timezone" in fields and fields["timezone"] != (profiles.get_profile(profile_id) or {}).get("timezone")
+    if moved:       # queued first, so a kill partway is finished at the next start
+        with db() as conn:
+            biometrics.queue_rebuild(conn, profile_id)
     prof = profiles.update_profile(profile_id, **fields)
     if not prof:
         raise HTTPException(404, "Profile not found")
+    if moved:
+        biometrics.run_queued_rebuilds()
     return prof
 
 

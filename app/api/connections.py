@@ -133,6 +133,8 @@ def rename(connection_id: str, req: RenameRequest) -> dict:
 @router.delete("/api/connections/{connection_id}", dependencies=[user])
 def remove(connection_id: str, delete_data: bool = False) -> dict:
     conn = _mine(connection_id)
+    if sync.is_running(connection_id):
+        raise HTTPException(409, "This source is syncing right now. Try again in a minute.")
     if conn["kind"] == "device":
         devices.revoke_for_connection(connection_id)   # the phone stops sending to a source that's gone
     if delete_data:

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 
 from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
-from app.store.biometrics import _tz as local_tz, id_held_elsewhere, parse_ts, source_kind, to_utc_iso
+from app.store.biometrics import _tz as local_tz, id_held_elsewhere, offset_of, parse_ts, source_kind, source_kinds, to_utc_iso
 
 WORKOUT_FIELDS = (
     "activity_type", "name", "duration_s", "active_energy_kcal", "total_energy_kcal", "distance_m", "step_count",
@@ -34,12 +35,12 @@ def _since(days: Optional[int]) -> Optional[str]:
     return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _window(days: Optional[int], start: Optional[str], end: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+def _window(days: Optional[int], start: Optional[str], end: Optional[str], profile_id: Optional[str] = None) -> tuple[Optional[str], Optional[str]]:
     """The UTC bounds for a list: an explicit start/end (dates or times) wins over "the last N days". Plain dates are
-    whole days in the instance's time zone."""
+    whole days in the person's time zone."""
     def bound(value: str, clock: str) -> str:
         if len(value) == 10:
-            return datetime.fromisoformat(f"{value}T{clock}").replace(tzinfo=local_tz()).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            return datetime.fromisoformat(f"{value}T{clock}").replace(tzinfo=local_tz(profile_id)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         return to_utc_iso(value)
     return (bound(start, "00:00:00") if start else _since(days)), (bound(end, "23:59:59") if end else None)
 
@@ -56,66 +57,124 @@ def humidity_pct(value: Any) -> Optional[float]:
     return value / 100 if value > 100 else value
 
 
-def insert_workouts(profile_id: str, connection_id: Optional[str], workouts: Iterable[dict[str, Any]]) -> int:
-    """Stores workouts; idempotent on id and on (start, end, source) so re-sent workouts are kept once."""
+# Including what SQLite says of a value it can't store, such as a list where text belongs.
+_ITEM_ERRORS = (ValueError, KeyError, TypeError, AttributeError, OverflowError, sqlite3.InterfaceError, sqlite3.ProgrammingError)
+
+
+def _own_row(conn: Any, table: str, item_id: str, profile_id: str) -> tuple[str, Any]:
+    """The id this person's copy goes under (see ``id_held_elsewhere``), and the row already stored there, if any."""
+    own = id_held_elsewhere(conn, table, item_id, profile_id) or item_id
+    return own, conn.execute(f"SELECT rowid, * FROM {table} WHERE id = ?", (own,)).fetchone()
+
+
+def _move_from_import(conn: Any, table: str, row: Any, connection_id: Optional[str], imports: set[str]) -> None:
+    """An export can be imported again, but a phone never re-sends: what both delivered now belongs to the phone."""
+    if row["connection_id"] in imports and connection_id and connection_id not in imports:
+        conn.execute(f"UPDATE {table} SET connection_id = ? WHERE rowid = ?", (connection_id, row["rowid"]))
+
+
+def _imports_of(conn: Any, profile_id: str) -> set[str]:
+    return {r[0] for r in conn.execute("SELECT id FROM connections WHERE profile_id = ? AND kind = 'import'", (profile_id,))}
+
+
+def store_workouts(profile_id: str, connection_id: Optional[str], workouts: Iterable[dict[str, Any]]) -> dict[str, int]:
+    """Stores workouts: the same id again with changed figures corrects the stored one (a detail a re-send leaves out stays
+    as it is), and the same (start, end, source) under another id is kept once."""
     now = time.time()
-    inserted = 0
+    inserted = updated = rejected = 0
     with db() as conn:
+        imports = _imports_of(conn, profile_id)
         for w in workouts:
             try:
                 start, end = to_utc_iso(w["start"]), to_utc_iso(w.get("end") or w["start"])
-            except (ValueError, KeyError, TypeError, AttributeError):
-                continue
-            source = w.get("source_name") or "Unknown"
-            indoor = w.get("indoor")
-            values = {k: w.get(k) for k in WORKOUT_FIELDS}
-            values["indoor"] = None if indoor is None else int(bool(indoor))
-            values["humidity_pct"] = humidity_pct(values["humidity_pct"])
-            values["source_name"] = source
-            values["name"] = (w.get("name") or "Workout")[:120]
-            insert = lambda workout_id: conn.execute(
-                f"""INSERT OR IGNORE INTO workouts(id, profile_id, connection_id, start_date, end_date,
-                        {", ".join(WORKOUT_FIELDS)}, metadata_json, heart_rate_json, route_json, created_at)
-                    SELECT ?, ?, ?, ?, ?, {", ".join("?" * len(WORKOUT_FIELDS))}, ?, ?, ?, ?
-                    WHERE NOT EXISTS (SELECT 1 FROM workouts WHERE profile_id = ? AND start_date = ? AND end_date = ?
-                                      AND source_name = ?)""",
-                (workout_id, profile_id, connection_id, start, end, *[values[k] for k in WORKOUT_FIELDS],
-                 dumps(w.get("metadata") or None), dumps(w.get("heart_rate") or None), dumps(w.get("route") or None), now,
-                 profile_id, start, end, source),
-            )
-            cur = insert(w["id"])
-            if not cur.rowcount and (own := id_held_elsewhere(conn, "workouts", w["id"], profile_id)):
-                cur = insert(own)
-            inserted += cur.rowcount
-    return inserted
+                source = w.get("source_name") or "Unknown"
+                indoor = w.get("indoor")
+                values = {k: w.get(k) for k in WORKOUT_FIELDS}
+                values["indoor"] = None if indoor is None else int(bool(indoor))
+                values["humidity_pct"] = humidity_pct(values["humidity_pct"])
+                values["source_name"] = source
+                values["name"] = str(w.get("name") or "Workout")[:120]
+                workout_id, row = _own_row(conn, "workouts", w["id"], profile_id)
+                extras = {"metadata_json": dumps(w.get("metadata") or None), "heart_rate_json": dumps(w.get("heart_rate") or None),
+                          "route_json": dumps(w.get("route") or None)}
+                offset = w.get("tz_offset_min") if isinstance(w.get("tz_offset_min"), int) else offset_of(w["start"])
+                if row:
+                    fresh = {**values, "start_date": start, "end_date": end, **extras}
+                    # Whatever this send leaves out stays as stored, and a default filled in above isn't a change.
+                    changes = {k: v for k, v in fresh.items() if v is not None and v != row[k]
+                               and not (k == "name" and not w.get("name")) and not (k == "source_name" and not w.get("source_name"))}
+                    if changes:
+                        sets = ", ".join(f"{k} = ?" for k in changes)
+                        conn.execute(f"UPDATE workouts SET {sets}, tz_offset_min = COALESCE(?, tz_offset_min), updated_at = ? WHERE rowid = ?",
+                                     (*changes.values(), offset, now, row["rowid"]))
+                        updated += 1
+                    continue
+                same = conn.execute("SELECT rowid, connection_id FROM workouts WHERE profile_id = ? AND start_date = ? AND end_date = ? "
+                                    "AND source_name = ?", (profile_id, start, end, source)).fetchone()
+                if same:
+                    _move_from_import(conn, "workouts", same, connection_id, imports)
+                    continue
+                conn.execute(
+                    f"""INSERT INTO workouts(id, profile_id, connection_id, start_date, end_date, {", ".join(WORKOUT_FIELDS)},
+                            metadata_json, heart_rate_json, route_json, created_at, tz_offset_min)
+                        VALUES (?, ?, ?, ?, ?, {", ".join("?" * len(WORKOUT_FIELDS))}, ?, ?, ?, ?, ?)""",
+                    (workout_id, profile_id, connection_id, start, end, *[values[k] for k in WORKOUT_FIELDS], extras["metadata_json"],
+                     extras["heart_rate_json"], extras["route_json"], now, offset))
+                inserted += 1
+            except _ITEM_ERRORS:
+                rejected += 1
+    return {"inserted": inserted, "updated": updated, "rejected": rejected}
 
 
-def insert_events(profile_id: str, connection_id: Optional[str], events: Iterable[dict[str, Any]]) -> int:
+def insert_workouts(profile_id: str, connection_id: Optional[str], workouts: Iterable[dict[str, Any]]) -> int:
+    return store_workouts(profile_id, connection_id, workouts)["inserted"]
+
+
+def store_events(profile_id: str, connection_id: Optional[str], events: Iterable[dict[str, Any]]) -> dict[str, int]:
     now = time.time()
-    inserted = 0
+    inserted = updated = rejected = 0
     with db() as conn:
+        imports = _imports_of(conn, profile_id)
         for e in events:
             try:
                 start, end = to_utc_iso(e["start"]), to_utc_iso(e.get("end") or e["start"])
-            except (ValueError, KeyError, TypeError, AttributeError):
-                continue
-            source = e.get("source_name") or "Unknown"
-            insert = lambda event_id: conn.execute(
-                """INSERT OR IGNORE INTO health_events(id, profile_id, connection_id, event_type, category, name,
-                       start_date, end_date, value, value_label, source_name, metadata_json, created_at)
-                   SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                   WHERE NOT EXISTS (SELECT 1 FROM health_events WHERE profile_id = ? AND event_type = ?
-                                     AND start_date = ? AND end_date = ? AND source_name = ?)""",
-                (event_id, profile_id, connection_id, e["event_type"][:80], (e.get("category") or "other")[:40],
-                 (e.get("name") or e["event_type"])[:120], start, end, e.get("value"), e.get("value_label"), source,
-                 dumps(e.get("metadata") or None), now,
-                 profile_id, e["event_type"][:80], start, end, source),
-            )
-            cur = insert(e["id"])
-            if not cur.rowcount and (own := id_held_elsewhere(conn, "health_events", e["id"], profile_id)):
-                cur = insert(own)
-            inserted += cur.rowcount
-    return inserted
+                source = e.get("source_name") or "Unknown"
+                event_type = str(e["event_type"])[:80]
+                category = str(e.get("category") or "other")[:40]
+                name = str(e.get("name") or event_type)[:120]
+                event_id, row = _own_row(conn, "health_events", e["id"], profile_id)
+                metadata = dumps(e.get("metadata") or None)
+                offset = e.get("tz_offset_min") if isinstance(e.get("tz_offset_min"), int) else offset_of(e["start"])
+                if row:
+                    fresh = {"name": name if e.get("name") else None, "start_date": start, "end_date": end, "value": e.get("value"),
+                             "value_label": e.get("value_label"), "metadata_json": metadata}
+                    changes = {k: v for k, v in fresh.items() if v is not None and v != row[k]}
+                    if changes and not row["manual"]:
+                        sets = ", ".join(f"{k} = ?" for k in changes)
+                        conn.execute(f"UPDATE health_events SET {sets}, tz_offset_min = COALESCE(?, tz_offset_min), updated_at = ? WHERE rowid = ?",
+                                     (*changes.values(), offset, now, row["rowid"]))
+                        updated += 1
+                    continue
+                same = conn.execute("SELECT rowid, connection_id FROM health_events WHERE profile_id = ? AND event_type = ? "
+                                    "AND start_date = ? AND end_date = ? AND source_name = ?",
+                                    (profile_id, event_type, start, end, source)).fetchone()
+                if same:
+                    _move_from_import(conn, "health_events", same, connection_id, imports)
+                    continue
+                conn.execute(
+                    """INSERT INTO health_events(id, profile_id, connection_id, event_type, category, name, start_date, end_date,
+                           value, value_label, source_name, metadata_json, created_at, tz_offset_min)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (event_id, profile_id, connection_id, event_type, category, name, start, end, e.get("value"), e.get("value_label"),
+                     source, metadata, now, offset))
+                inserted += 1
+            except _ITEM_ERRORS:
+                rejected += 1
+    return {"inserted": inserted, "updated": updated, "rejected": rejected}
+
+
+def insert_events(profile_id: str, connection_id: Optional[str], events: Iterable[dict[str, Any]]) -> int:
+    return store_events(profile_id, connection_id, events)["inserted"]
 
 
 
@@ -126,11 +185,11 @@ def insert_events(profile_id: str, connection_id: Optional[str], events: Iterabl
 def list_workouts(profile_id: str, days: Optional[int] = 90, limit: int = 200, dedupe: bool = True,
                   start: Optional[str] = None, end: Optional[str] = None, name: Optional[str] = None) -> list[dict[str, Any]]:
     q = ["SELECT id, activity_type, name, start_date, end_date, duration_s, active_energy_kcal, total_energy_kcal,",
-         "distance_m, step_count, avg_hr, max_hr, min_hr, elevation_ascent_m, indoor, source_name,",
+         "distance_m, step_count, avg_hr, max_hr, min_hr, elevation_ascent_m, indoor, source_name, tz_offset_min,",
          "route_json IS NOT NULL AS has_route, heart_rate_json IS NOT NULL AS has_heart_rate",
          "FROM workouts WHERE profile_id = ?"]
     params: list[Any] = [profile_id]
-    lo, hi = _window(days, start, end)
+    lo, hi = _window(days, start, end, profile_id)
     if lo:
         q.append("AND start_date >= ?")
         params.append(lo)
@@ -148,7 +207,7 @@ def list_workouts(profile_id: str, days: Optional[int] = 90, limit: int = 200, d
         r["has_route"] = bool(r["has_route"])
         r["has_heart_rate"] = bool(r["has_heart_rate"])
         r["indoor"] = None if r["indoor"] is None else bool(r["indoor"])
-    return (dedupe_workouts(rows) if dedupe else rows)[:limit]
+    return (dedupe_workouts(rows, source_kinds(profile_id)) if dedupe else rows)[:limit]
 
 
 # A Watch run that WHOOP also auto-detected is one session: fold workouts from different sources that overlap by at
@@ -157,13 +216,13 @@ WORKOUT_OVERLAP_MIN = 0.5
 _KIND_ORDER = {"watch": 0, "ring": 1, "phone": 2, "other": 3}
 
 
-def _richness(w: dict[str, Any]) -> tuple:
+def _richness(w: dict[str, Any], kinds: Optional[dict[str, str]] = None) -> tuple:
     simulated = "(simulated)" in (w.get("source_name") or "").lower()
     return (simulated, not w.get("has_route"), not w.get("has_heart_rate"), w.get("avg_hr") is None,
-            _KIND_ORDER[source_kind(w.get("source_name"))], -(w.get("duration_s") or 0))
+            _KIND_ORDER[source_kind(w.get("source_name"), kinds)], -(w.get("duration_s") or 0))
 
 
-def dedupe_workouts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def dedupe_workouts(rows: list[dict[str, Any]], kinds: Optional[dict[str, str]] = None) -> list[dict[str, Any]]:
     """Keeps the richest record of each session (route, heart rate, preferred device) and lists the others under
     ``also_recorded_by``. Input and output are newest first."""
     spans = []
@@ -192,7 +251,7 @@ def dedupe_workouts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             match.append(i)
     out = []
     for g in groups:
-        members = sorted((rows[i] for i in g), key=_richness)
+        members = sorted((rows[i] for i in g), key=lambda w: _richness(w, kinds))
         primary = dict(members[0])
         primary["also_recorded_by"] = [{"id": m["id"], "source_name": m["source_name"], "name": m["name"]} for m in members[1:]]
         out.append(primary)
@@ -258,7 +317,7 @@ def list_events(profile_id: str, days: Optional[int] = 90, event_type: Optional[
     q = ["SELECT id, event_type, category, name, start_date, end_date, value, value_label, source_name, metadata_json,",
          "note, manual FROM health_events WHERE profile_id = ?"]
     params: list[Any] = [profile_id]
-    lo, hi = _window(days, start, end)
+    lo, hi = _window(days, start, end, profile_id)
     if lo:
         q.append("AND start_date >= ?")
         params.append(lo)
@@ -295,7 +354,7 @@ def list_events(profile_id: str, days: Optional[int] = 90, event_type: Optional[
 
 def event_summary(profile_id: str, days: Optional[int] = 90, start: Optional[str] = None,
                   end: Optional[str] = None, view: Optional[str] = None) -> list[dict[str, Any]]:
-    lo, hi = _window(days, start, end)
+    lo, hi = _window(days, start, end, profile_id)
     clause, extra = _view_filter(view)
     with read() as conn:
         return rows_to_dicts(conn.execute(

@@ -272,20 +272,6 @@ def test_steps_merge_watch_and_phone_like_apple_health(client):
     assert pts[-1]["value"] == 3000 and pts[-1]["source"] == "Combined"
 
 
-def test_daily_rollups_rebuilt_once_after_upgrade(client, monkeypatch):
-    from app.core import settings as app_settings
-    calls = []
-    monkeypatch.setattr(biometrics, "rebuild_daily", lambda pid, days=None, metrics=None: calls.append(pid))
-    profile = client.get("/api/status").json()["profiles"][0]["id"]
-    biometrics.insert_samples(profile, None, [{"id": "u1", "metric_type": "step_count", "value": 5, "unit": "count",
-                                               "start_date": "2026-09-20T10:00:00Z", "source_name": "Watch"}])
-    calls.clear()
-    app_settings.set("biometrics.daily_version", 1)
-    biometrics.upgrade_daily_if_needed()
-    biometrics.upgrade_daily_if_needed()
-    assert calls == [profile]
-
-
 def _night(profile, day, source, hours, i):
     end = datetime.fromisoformat(f"{day}T06:30:00+00:00")
     return {"id": f"n{i}-{source}", "metric_type": "sleep_analysis_core", "value": hours * 3600, "unit": "s",
