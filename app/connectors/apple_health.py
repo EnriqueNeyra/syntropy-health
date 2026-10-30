@@ -358,33 +358,86 @@ def iter_items(xml_stream: io.BufferedIOBase,
         elem.clear()
 
 
-def zip_reader(path: Path) -> Optional[Callable[[str], Optional[bytes]]]:
-    """Reads files referenced from export.xml (e.g. '/workout-routes/route_x.gpx') out of the export zip."""
-    if not zipfile.is_zipfile(path):
-        return None
-    zf = zipfile.ZipFile(path)
-    names = zf.namelist()
-
-    def read(ref: str) -> Optional[bytes]:
-        ref = ref.lstrip("/")
-        name = next((n for n in names if n == ref or n.endswith("/" + ref)), None)
-        return zf.read(name) if name else None
-    return read
+# What an export's files may be. Real ones are far below these; a booby-trapped "export" isn't. The sizes are what each file
+# says it holds, which reading can't go past. Deflate shrinks these formats 5 to 30 times, and a file claiming far more
+# is built to fill memory.
+MAX_CLINICAL_FILE = 50 * 1024 * 1024
+MAX_CLINICAL_TOTAL = 256 * 1024 * 1024        # all kept in memory until they're imported
+MAX_ROUTE_FILE = 100 * 1024 * 1024
+MAX_XML = 64 * 1024 ** 3
+MAX_RATIO = 200
+_RATIO_FROM = 1024 * 1024                     # tiny files can shrink by any amount
 
 
-def open_export(path: Path) -> tuple[Optional[Callable[[], io.BufferedIOBase]], list[dict[str, Any]]]:
-    """Returns (opener for export.xml, FHIR clinical record resources found in the archive)."""
-    if zipfile.is_zipfile(path):
-        zf = zipfile.ZipFile(path)
-        xml_name = next((n for n in zf.namelist() if n.endswith("/export.xml") or n == "export.xml"), None)
-        fhir: list[dict[str, Any]] = []
-        for name in zf.namelist():
-            if "/clinical-records/" in name and name.endswith(".json"):
-                try:
-                    res = json.loads(zf.read(name))
-                    if isinstance(res, dict) and res.get("resourceType"):
-                        fhir.append(res)
-                except ValueError:
-                    continue
-        return ((lambda: zf.open(xml_name)) if xml_name else None), fhir  # type: ignore[return-value]
-    return (lambda: open(path, "rb")), []
+class TooBig(ValueError):
+    pass
+
+
+def _implausible(info: zipfile.ZipInfo) -> bool:
+    return info.file_size > _RATIO_FROM and info.file_size > max(info.compress_size, 1) * MAX_RATIO
+
+
+class ExportArchive:
+    """An Apple Health upload (the export's zip, or its export.xml alone), open while it's imported. Close it before
+    deleting the file: Windows won't delete one that's still open."""
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.zip = zipfile.ZipFile(path) if zipfile.is_zipfile(path) else None
+        self.skipped: list[str] = []
+
+    def close(self) -> None:
+        if self.zip:
+            self.zip.close()
+
+    def xml_opener(self) -> Optional[Callable[[], io.BufferedIOBase]]:
+        """Read as a stream, so its size doesn't matter to memory; a lie about its size can still only fill the disk."""
+        if not self.zip:
+            return lambda: open(self.path, "rb")
+        info = next((i for i in self.zip.infolist() if i.filename.endswith("/export.xml") or i.filename == "export.xml"), None)
+        if not info:
+            return None
+        if info.file_size > MAX_XML or _implausible(info):
+            raise TooBig("This file doesn't look like an Apple Health export: its export.xml is built to expand far beyond "
+                         "what it holds. Nothing was imported.")
+        return lambda: self.zip.open(info)  # type: ignore[union-attr,return-value]
+
+    def clinical_records(self) -> list[dict[str, Any]]:
+        """The FHIR resources in the export's clinical-records folder. One too large to be real is left out and noted."""
+        if not self.zip:
+            return []
+        out: list[dict[str, Any]] = []
+        total = 0
+        for info in self.zip.infolist():
+            name = info.filename
+            if "/clinical-records/" not in name or not name.endswith(".json"):
+                continue
+            total += info.file_size
+            if info.file_size > MAX_CLINICAL_FILE or total > MAX_CLINICAL_TOTAL or _implausible(info):
+                self.skipped.append(name.rsplit("/", 1)[-1][:100])
+                total -= info.file_size
+                continue
+            try:
+                res = json.loads(self.zip.read(info))
+            except (ValueError, zipfile.BadZipFile):
+                continue
+            if isinstance(res, dict) and res.get("resourceType"):
+                out.append(res)
+        return out
+
+    def route_reader(self) -> Optional[Callable[[str], Optional[bytes]]]:
+        """Reads files referenced from export.xml (e.g. '/workout-routes/route_x.gpx') out of the zip."""
+        if not self.zip:
+            return None
+        infos = self.zip.infolist()
+
+        def read(ref: str) -> Optional[bytes]:
+            ref = ref.lstrip("/")
+            info = next((i for i in infos if i.filename == ref or i.filename.endswith("/" + ref)), None)
+            if not info:
+                return None
+            if info.file_size > MAX_ROUTE_FILE or _implausible(info):
+                self.skipped.append(info.filename.rsplit("/", 1)[-1][:100])
+                return None
+            return self.zip.read(info)  # type: ignore[union-attr]
+        return read

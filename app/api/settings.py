@@ -54,9 +54,15 @@ def _snapshot() -> dict:
         "timezone": settings.timezone_name(),
         "units": _my_units(),
         "auth_required": auth.auth_required(),
-        "data_dir": str(config.data_dir()),
+        # Usually names the owner's account on this computer: for them only.
+        **({"data_dir": str(config.data_dir())} if _is_owner() else {}),
         "version": config.APP_VERSION,
     }
+
+
+def _is_owner() -> bool:
+    principal = context.principal()
+    return principal is None or principal.owner
 
 
 def _my_units() -> Optional[str]:

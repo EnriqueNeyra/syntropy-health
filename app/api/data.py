@@ -45,9 +45,13 @@ async def import_fhir(file: UploadFile = File(...), profile_id: Optional[str] = 
 async def import_apple_health(file: UploadFile = File(...), profile_id: Optional[str] = Form(None)) -> dict:
     prof = resolve_profile(profile_id)
     dest = imports.upload_dir() / f"{new_id('upload')}{Path(file.filename or 'export.zip').suffix or '.zip'}"
-    with open(dest, "wb") as fh:
-        while chunk := await file.read(1024 * 1024):
-            fh.write(chunk)
+    try:
+        with open(dest, "wb") as fh:
+            while chunk := await file.read(1024 * 1024):
+                fh.write(chunk)
+    except BaseException:
+        dest.unlink(missing_ok=True)
+        raise
     job_id = imports.start_apple_health_import(prof["id"], dest, file.filename or "export.zip")
     return {"job_id": job_id}
 

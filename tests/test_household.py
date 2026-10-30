@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-import sys
 
 from fastapi.testclient import TestClient
 
@@ -266,4 +265,3 @@ def test_the_command_line_tells_people_with_one_name_apart(raw_client, monkeypat
     far = TestClient(client.app, base_url=BASE, client=("8.8.8.8", 5000))
     assert far.post("/api/auth/login", json={"account": "Sam", "password": "a brand new password"}, headers=CSRF).status_code == 200
     assert far.get("/api/status").json()["account"]["id"] == ids[1]
-    assert sys.modules["app.cli"] is cli

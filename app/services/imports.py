@@ -104,8 +104,10 @@ def start_apple_health_import(profile_id: str, path: Path, filename: str) -> str
 
 def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -> None:
     _update(job_id, status="running")
+    export = None
     try:
-        opener, fhir_resources = apple_health.open_export(path)
+        export = apple_health.ExportArchive(path)
+        opener, fhir_resources = export.xml_opener(), export.clinical_records()
         result: dict[str, Any] = {}
         if opener is not None:
             conn = next((c for c in connections.list_for_profile(profile_id, "import")
@@ -123,7 +125,7 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
                 others["workout"], others["event"] = [], []
 
             with opener() as stream:
-                for kind, item in apple_health.iter_items(stream, apple_health.zip_reader(path)):
+                for kind, item in apple_health.iter_items(stream, export.route_reader()):
                     if kind != "sample":
                         others[kind].append(item)
                         if len(others[kind]) >= 200:
@@ -150,12 +152,28 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
                                                             provider="apple_health_records")
         if opener is None and not fhir_resources:
             raise ValueError("No export.xml or clinical records were found in the upload.")
+        if export.skipped:
+            result["skipped_files"] = export.skipped[:50]
         _update(job_id, status="completed", finished_at=time.time(), result=result)
     except Exception as exc:  # noqa: BLE001
         log.exception("Apple Health import failed")
         _update(job_id, status="error", finished_at=time.time(), error=str(exc))
     finally:
+        if export:
+            export.close()
         try:
             path.unlink()
-        except OSError:
-            pass
+        except OSError as exc:
+            # A whole, unencrypted export: the next start tries again (sweep_uploads).
+            log.warning("Couldn't delete an uploaded export: %s", exc)
+
+
+def sweep_uploads() -> None:
+    """At start-up, when nothing can be importing: what an import that was cut off, or couldn't delete, left behind."""
+    folder = config.data_dir() / "uploads"
+    for leftover in folder.iterdir() if folder.is_dir() else []:
+        try:
+            if leftover.is_file():
+                leftover.unlink()
+        except OSError as exc:
+            log.warning("Couldn't delete an uploaded export: %s", exc)

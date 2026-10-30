@@ -9,3 +9,6 @@ WHERE account_id != ''
 -- What the log said about someone since removed could name their doctors and what an AI was asked. That it happened stays.
 UPDATE audit_log SET detail = NULL
 WHERE detail IS NOT NULL AND profile_id IS NOT NULL AND profile_id NOT IN (SELECT id FROM profiles);
+
+-- The same goes for what AI apps searched for, which the log no longer keeps for anyone.
+UPDATE audit_log SET detail = NULL WHERE detail IS NOT NULL AND action LIKE 'mcp.%';

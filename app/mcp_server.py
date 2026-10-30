@@ -399,7 +399,8 @@ def handle(message: dict[str, Any]) -> Optional[dict[str, Any]]:
             text, is_error = call_tool(name, args)
             if not is_error:
                 with db() as conn:
-                    audit(conn, ACTOR.get(), f"mcp.{name}", {k: v for k, v in args.items() if k != "profile"})
+                    # Which options it used, not what they said: what an AI was asked about stays out of the log.
+                    audit(conn, ACTOR.get(), f"mcp.{name}", {"options": sorted(k for k in args if k != "profile")} if len(args) > ("profile" in args) else None)
             result = {"content": [{"type": "text", "text": text}], "isError": is_error}
         else:
             return {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32601, "message": f"Method not found: {method}"}}

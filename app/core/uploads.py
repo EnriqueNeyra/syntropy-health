@@ -1,4 +1,7 @@
-"""Compressed uploads from the iPhone app.
+"""What a request body may be, checked before anything reads it, and compressed uploads from the iPhone app.
+
+Every route has a limit, including those anyone can reach without signing in: the body is read and parsed before a
+route looks at it, so a password field of a gigabyte has already done its damage by the time it's refused.
 
 A page of health samples is a few megabytes of repetitive JSON that compresses about tenfold, which matters most away
 from home (over Tailscale or a phone connection). The app compresses only when the server's pairing probe lists the
@@ -7,8 +10,15 @@ encoding, so older servers keep receiving plain JSON.
 
 from __future__ import annotations
 
+import json
+import shutil
+import tempfile
 import zlib
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Optional
+
+from fastapi import HTTPException
+from starlette.concurrency import run_in_threadpool
+from starlette.requests import Request
 
 UPLOAD_ENCODINGS = ("gzip", "deflate")
 # Where compressed bodies are accepted: the ingest endpoints, nothing else.
@@ -17,6 +27,18 @@ PATH_PREFIX = "/api/ingest/"
 # body can't expand into gigabytes.
 MAX_INFLATED = 64 * 1024 * 1024
 MAX_COMPRESSED = 32 * 1024 * 1024
+MB = 1024 * 1024
+# Far more than any form or setting needs.
+MAX_BODY = 1 * MB
+# Routes that take more. A person's conversations with an AI, kept and sent whole; the rest are files.
+LARGER = (("/api/ai/", 16 * MB), ("/mcp", 4 * MB))
+# Files, and only from someone signed in, asked before the first byte is read: anyone else would otherwise have the
+# server write them to its disk. Well above real files: a heavy Apple Health export is a couple of gigabytes.
+UPLOADS = (("/api/imports/apple-health", 16 * 1024 * MB), ("/api/imports/fhir", 201 * MB), ("/api/labs/extract", 16 * MB))
+# Room to leave on the disk when deciding whether a file fits.
+DISK_MARGIN = 256 * MB
+
+TOO_LARGE = b'{"detail":"That\'s too large for Syntropy Health to accept."}'
 
 Scope = dict[str, Any]
 Receive = Callable[[], Awaitable[dict[str, Any]]]
@@ -25,6 +47,23 @@ Send = Callable[[dict[str, Any]], Awaitable[None]]
 
 class TooLarge(Exception):
     pass
+
+
+def body_limit(path: str) -> int:
+    if path.startswith(PATH_PREFIX):
+        return MAX_INFLATED
+    return next((limit for prefix, limit in (*UPLOADS, *LARGER) if path.startswith(prefix)), MAX_BODY)
+
+
+def _no_room_for(size: int) -> bool:
+    from app.core import config
+    for folder in (config.data_dir(), tempfile.gettempdir()):
+        try:
+            if shutil.disk_usage(folder).free < size + DISK_MARGIN:
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def inflate(body: bytes, encoding: str, limit: int = MAX_INFLATED) -> bytes:
@@ -51,15 +90,23 @@ def inflate(body: bytes, encoding: str, limit: int = MAX_INFLATED) -> bytes:
 
 
 class DecompressUploads:
-    """ASGI middleware: turns a gzip or deflate request body on the ingest endpoints back into plain JSON."""
+    """ASGI middleware: limits the size of every request body, and turns a gzip or deflate one on the ingest endpoints
+    back into plain JSON."""
 
     def __init__(self, app: Callable[[Scope, Receive, Send], Awaitable[None]]):
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or not scope.get("path", "").startswith(PATH_PREFIX):
+        if scope["type"] != "http":
             return await self.app(scope, receive, send)
         headers = scope.get("headers") or []
+        path = scope.get("path", "")
+        if any(path.startswith(prefix) for prefix, _ in UPLOADS) and scope.get("method") == "POST":
+            refused = await self._refused_upload(scope, headers)
+            if refused:
+                return await _reply(send, refused[0], refused[1])
+        if not path.startswith(PATH_PREFIX):
+            return await self._plain(scope, receive, send, headers)
         encoding = next((v.decode("latin-1").strip().lower() for k, v in headers if k == b"content-encoding"), "")
         if not encoding or encoding == "identity":
             return await self._plain(scope, receive, send, headers)
@@ -100,23 +147,50 @@ class DecompressUploads:
         await self.app({**scope, "headers": plain_headers}, replay, send)
 
 
+    async def _refused_upload(self, scope: Scope, headers: list) -> Optional[tuple[int, bytes]]:
+        """Why not to read this file at all: nobody's signed in (or it can't fit). A server unable to say goes on, and
+        the route answers as usual."""
+        from app.core import auth
+
+        if getattr(getattr(scope.get("app"), "state", None), "problem", None):
+            return None
+        try:
+            await run_in_threadpool(auth._signed_in, Request(scope))
+        except HTTPException as exc:
+            return exc.status_code, json.dumps({"detail": exc.detail}).encode()
+        length = next((v for k, v in headers if k == b"content-length"), b"")
+        if length.isdigit() and await run_in_threadpool(_no_room_for, int(length)):
+            return 507, b'{"detail":"There isn\'t enough room on this computer\'s disk for that file. Free up some space and try again."}'
+        return None
+
     async def _plain(self, scope: Scope, receive: Receive, send: Send, headers: list) -> None:
-        """An uncompressed upload gets the same cap as an inflated one: the body is parsed before the device token is
-        checked, so without it anyone on the network could make the server read any amount of JSON."""
+        """An uncompressed body gets its limit whoever sent it: it's parsed before the sign-in or device token is checked,
+        so without one anyone on the network could make the server read any amount of it."""
+        limit = body_limit(scope.get("path", ""))
         length = next((v for k, v in headers if k == b"content-length"), None)
-        if length is not None and length.isdigit() and int(length) > MAX_INFLATED:
-            return await _reply(send, 413, b'{"detail":"Upload too large."}')
+        if length is not None and length.isdigit() and int(length) > limit:
+            return await _reply(send, 413, TOO_LARGE)
         size = 0
+        started = refused = False
 
         async def counted() -> dict[str, Any]:
-            nonlocal size
+            nonlocal size, refused
             message = await receive()
             size += len(message.get("body", b""))
-            if size > MAX_INFLATED:          # a body sent without its length: stop reading it
+            if size > limit:          # a body sent without its length: stop reading it, and answer for the route
+                if not started and not refused:
+                    await _reply(send, 413, TOO_LARGE)
+                refused = True
                 return {"type": "http.disconnect"}
             return message
 
-        await self.app(scope, counted, send)
+        async def sending(message: dict[str, Any]) -> None:
+            nonlocal started
+            if not refused:
+                started = True
+                await send(message)
+
+        await self.app(scope, counted, sending)
 
 
 async def _reply(send: Send, status: int, body: bytes) -> None:

@@ -32,6 +32,9 @@ from app.store import accounts
 
 SESSION_COOKIE = "syntropy_session"
 SESSION_TTL = 30 * 24 * 3600
+# However often it's used, a browser signs in again after this. A phone's app does that by itself with its token, so
+# its session (which the phone can always get anew) isn't held to it.
+SESSION_MAX_AGE = 180 * 24 * 3600
 CSRF_HEADER = "x-requested-with"
 CSRF_VALUE = "syntropy"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
@@ -275,9 +278,13 @@ def _session(token: Optional[str]) -> Optional[dict]:
     h = security.hash_token(token)
     # Looked up without the write lock (every request does this); written only every few minutes, to slide the expiry.
     with read() as conn:
-        row = conn.execute("SELECT account_id, device_id, expires_at, last_seen_at FROM user_sessions WHERE token_hash = ?",
+        row = conn.execute("SELECT account_id, device_id, created_at, expires_at, last_seen_at FROM user_sessions WHERE token_hash = ?",
                            (h,)).fetchone()
     if not row or row["expires_at"] < now:
+        return None
+    if not row["device_id"] and now - row["created_at"] > SESSION_MAX_AGE:
+        with db() as conn:
+            conn.execute("DELETE FROM user_sessions WHERE token_hash = ?", (h,))
         return None
     if now - row["last_seen_at"] > 300:  # sliding expiration, throttled writes
         with db() as conn:
@@ -286,6 +293,40 @@ def _session(token: Optional[str]) -> Optional[dict]:
                 (now, now + SESSION_TTL, h),
             )
     return dict(row)
+
+
+def session_handle(token_hash: str) -> str:
+    """How a session is named to the person, in the list of where they're signed in: its stored hash would be enough
+    to look it up, not to use it, but there's no need to hand that out either."""
+    return security.hash_token(token_hash)[:20]
+
+
+def _browser_sessions(account_id: Optional[str]) -> list[str]:
+    with read() as conn:
+        return [r[0] for r in conn.execute("SELECT token_hash FROM user_sessions WHERE account_id IS ? AND device_id IS NULL",
+                                           (account_id,))]
+
+
+def end_session(account_id: Optional[str], handle: str) -> bool:
+    """Signs one of this account's browsers out. A phone's screens end by unpairing it (Sources): it would just ask again."""
+    h = next((h for h in _browser_sessions(account_id) if hmac.compare_digest(session_handle(h), handle)), None)
+    if not h:
+        return False
+    with db() as conn:
+        conn.execute("DELETE FROM user_sessions WHERE token_hash = ?", (h,))
+        audit(conn, "user", "auth.session_ended")
+    return True
+
+
+def end_other_sessions(request: Request, account_id: Optional[str]) -> int:
+    """Signs this account's other browsers out."""
+    token = request.cookies.get(SESSION_COOKIE)
+    keep = security.hash_token(token) if token else ""
+    others = [h for h in _browser_sessions(account_id) if h != keep]
+    with db() as conn:
+        conn.executemany("DELETE FROM user_sessions WHERE token_hash = ?", [(h,) for h in others])
+        audit(conn, "user", "auth.sessions_ended", {"browsers": len(others)})
+    return len(others)
 
 
 def session_valid(token: Optional[str]) -> bool:

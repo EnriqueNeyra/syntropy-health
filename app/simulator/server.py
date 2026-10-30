@@ -20,6 +20,8 @@ the dynamic client id it receives is itself a signed token carrying that public 
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import html
 import json
 import time
@@ -27,15 +29,24 @@ from datetime import date
 from typing import Any, Optional
 from urllib.parse import urlencode, urlparse
 
-from fastapi import APIRouter, FastAPI, Form, Request
+from fastapi import APIRouter, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from app import directory
-from app.core import security
+from app.api.deps import request_origin
+from app.core import security, settings
 from app.simulator import generator
 from app.simulator.personas import PERSONAS, SIM_PASSWORD, authenticate
 
 router = APIRouter(prefix="/sim", include_in_schema=False)
+
+
+def developers_only() -> None:
+    """Only while developer mode is on does the server answer from these addresses (simulated connections reach it inside
+    the process, asgi_app below, so they keep syncing either way)."""
+    if not settings.developer_mode():
+        raise HTTPException(404, "Not found")
+
 
 CODE_TTL = 300
 ACCESS_TTL = 3600
@@ -135,13 +146,14 @@ def _redirect_error(redirect_uri: str, state: str, error: str, desc: str) -> Red
     return RedirectResponse(f"{redirect_uri}{sep}{urlencode({'error': error, 'error_description': desc, 'state': state})}", 302)
 
 
-def _validate_request(params: dict[str, str]) -> Optional[str]:
+def _validate_request(params: dict[str, str], origin: str) -> Optional[str]:
     if params.get("response_type") != "code":
         return "response_type must be 'code'."
     if not params.get("client_id"):
         return "client_id is required."
-    if not params.get("redirect_uri", "").startswith(("http://", "https://")):
-        return "redirect_uri must be an absolute http(s) URL."
+    redirect = urlparse(params.get("redirect_uri", ""))
+    if redirect.scheme not in ("http", "https") or redirect.netloc != urlparse(origin).netloc:
+        return "redirect_uri must be an address on this server."    # or this page would send anyone anywhere
     if not params.get("state"):
         return "state is required."
     if not _parse_aud(params.get("aud", "")):
@@ -154,11 +166,11 @@ def _validate_request(params: dict[str, str]) -> Optional[str]:
 @router.get("/oauth/authorize", response_class=HTMLResponse)
 async def authorize_page(request: Request) -> Response:
     params = {k: request.query_params.get(k, "") for k in AUTH_PARAMS}
-    problem = _validate_request(params)
+    problem = _validate_request(params, request_origin(request))
     if problem:
-        return HTMLResponse(_page("Invalid authorization request", f"<p class='err'>{html.escape(problem)}</p>"), status_code=400)
+        return _html(_page("Invalid authorization request", f"<p class='err'>{html.escape(problem)}</p>"), status_code=400)
     platform, tenant = _parse_aud(params["aud"])  # type: ignore[misc]
-    return HTMLResponse(_login_page(params, platform, tenant))
+    return _html(_login_page(params, platform, tenant))
 
 
 @router.post("/oauth/authorize", response_class=HTMLResponse)
@@ -172,22 +184,22 @@ async def authorize_submit(
 ) -> Response:
     form = await request.form()
     params = {k: str(form.get(k, "")) for k in AUTH_PARAMS}
-    problem = _validate_request(params)
+    problem = _validate_request(params, request_origin(request))
     if problem:
-        return HTMLResponse(_page("Invalid authorization request", f"<p class='err'>{html.escape(problem)}</p>"), status_code=400)
+        return _html(_page("Invalid authorization request", f"<p class='err'>{html.escape(problem)}</p>"), status_code=400)
     platform, tenant = _parse_aud(params["aud"])  # type: ignore[misc]
 
     if step == "login":
         persona = authenticate(username, password)
         if not persona:
-            return HTMLResponse(_login_page(params, platform, tenant, error="Incorrect username or password."), status_code=401)
+            return _html(_login_page(params, platform, tenant, error="Incorrect username or password."), status_code=401)
         ticket = security.sign({"persona": persona.key, "exp": time.time() + 600}, "sim-login")
-        return HTMLResponse(_consent_page(params, platform, tenant, persona.key, ticket))
+        return _html(_consent_page(params, platform, tenant, persona.key, ticket))
 
     if step == "consent":
         login = security.unsign(ticket, "sim-login")
         if not login:
-            return HTMLResponse(_login_page(params, platform, tenant, error="Your session expired. Sign in again."), status_code=401)
+            return _html(_login_page(params, platform, tenant, error="Your session expired. Sign in again."), status_code=401)
         if decision != "allow":
             return _redirect_error(params["redirect_uri"], params["state"], "access_denied", "The patient declined to share records.")
         code = security.sign({
@@ -198,7 +210,7 @@ async def authorize_submit(
         sep = "&" if "?" in params["redirect_uri"] else "?"
         return RedirectResponse(f"{params['redirect_uri']}{sep}{urlencode({'code': code, 'state': params['state']})}", 302)
 
-    return HTMLResponse(_page("Invalid request", "<p class='err'>Unknown step.</p>"), status_code=400)
+    return _html(_page("Invalid request", "<p class='err'>Unknown step.</p>"), status_code=400)
 
 
 # ---------------------------------------------------------------------------
@@ -465,6 +477,16 @@ padding:9px 11px;cursor:pointer;text-align:left;background:#fafbfc;width:100%;ma
 """
 
 
+_PERSONA_SCRIPT = ("document.querySelector('.personas').addEventListener('click',function(e){var b=e.target.closest('.persona');"
+                   "if(b){document.getElementById('u').value=b.dataset.username;document.getElementById('p').value=b.dataset.password;}});")
+_CSP = ("default-src 'none'; script-src 'sha256-" + base64.b64encode(hashlib.sha256(_PERSONA_SCRIPT.encode()).digest()).decode()
+        + "'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+
+
+def _html(content: str, status_code: int = 200) -> HTMLResponse:
+    return HTMLResponse(content, status_code=status_code, headers={"Content-Security-Policy": _CSP})
+
+
 def _page(title: str, body: str) -> str:
     return (f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
             f"<meta name='referrer' content='no-referrer'><title>{html.escape(title)}</title><style>{_CSS}</style></head>"
@@ -494,8 +516,7 @@ def _age(birth_date: str) -> int:
 
 def _login_page(params: dict[str, str], platform: str, tenant: str, error: str = "") -> str:
     personas = "".join(
-        f"<button type='button' class='persona' onclick=\"document.getElementById('u').value='{p.username}';"
-        f"document.getElementById('p').value='{SIM_PASSWORD}';\"><b>{html.escape(p.full_name)}</b>"
+        f"<button type='button' class='persona' data-username='{html.escape(p.username, quote=True)}' data-password='{SIM_PASSWORD}'><b>{html.escape(p.full_name)}</b>"
         f"<span>{html.escape(p.username)} · {_age(p.birth_date)} · {html.escape(p.summary)}</span></button>"
         for p in PERSONAS.values()
     )
@@ -509,7 +530,7 @@ def _login_page(params: dict[str, str], platform: str, tenant: str, error: str =
         + "<label for='p'>Password</label><input id='p' name='password' type='password' required>"
         + "<button class='primary' type='submit'>Sign in</button></form>"
         + f"<p class='hint'>Test patients (password <code>{SIM_PASSWORD}</code>) — tap to fill:</p>"
-        + f"<div class='personas'>{personas}</div>"
+        + f"<div class='personas'>{personas}</div><script>{_PERSONA_SCRIPT}</script>"
         + "<p class='foot'>Protocol: SMART App Launch 2.0 · OAuth 2.0 authorization code + PKCE (S256)</p>"
     )
     return _page(f"Sign in — {tenant_name(tenant)}", body)

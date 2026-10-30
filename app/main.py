@@ -14,7 +14,7 @@ import sqlite3
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import agents, assistant, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
 from app.core import auth, config, data_fixes, db, maintenance, security, settings as instance_settings
 from app.core.uploads import DecompressUploads
-from app.services import network, scheduler, updates
+from app.services import imports, network, scheduler, updates
 from app.store import biometrics as biometric_store, sample_counts
 from app.simulator import server as simulator
 
@@ -79,6 +79,8 @@ def _start_up() -> None:
     biometric_store.upgrade_daily_if_needed()
     sample_counts.warm()
     maintenance.check_at_start_up()
+    imports.sweep_uploads()
+    scheduler.prune()
     if not instance_settings.get("setup.completed") or auth.password_missing():
         code = auth.setup_code()
         log.warning("Setting up from another network? Your one-time setup code is %s-%s. On this computer or your home "
@@ -170,7 +172,7 @@ def create_app() -> FastAPI:
         title="Syntropy Health",
         version=config.APP_VERSION,
         description="Self-hosted personal health record: EHRs (SMART on FHIR), wearables and imports in one local database.",
-        docs_url="/api/docs", redoc_url=None, openapi_url="/api/openapi.json",
+        docs_url=None, redoc_url=None, openapi_url=None,
         lifespan=lifespan,
     )
 
@@ -218,8 +220,15 @@ def create_app() -> FastAPI:
         app.include_router(module.router)
     app.include_router(agents.mcp_router)
     app.include_router(profiles.accounts_router)
-    app.include_router(simulator.router)
+    app.include_router(simulator.router, dependencies=[Depends(simulator.developers_only)])
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/api/openapi.json", include_in_schema=False)
+    def route_map() -> JSONResponse:
+        # For someone developing against this server. The code is open, but there's no reason to hand everyone a map.
+        if not instance_settings.developer_mode():
+            return JSONResponse({"detail": "Not found"}, status_code=404)
+        return JSONResponse(app.openapi())
 
     @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
     async def index() -> FileResponse:
@@ -231,9 +240,10 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request: Request, exc: RequestValidationError) -> Response:
-        # Same body as FastAPI's default, but echoed inputs such as NaN/Infinity (which are not valid
-        # JSON) become null instead of turning the 422 into a 500.
-        return JSONResponse({"detail": db.finite(jsonable_encoder(exc.errors()))}, status_code=422)
+        # Same body as FastAPI's default, except it doesn't send back what was sent: that could be someone's password,
+        # or everything they posted.
+        errors = [{k: v for k, v in e.items() if k not in ("input", "url")} for e in exc.errors()]
+        return JSONResponse({"detail": db.finite(jsonable_encoder(errors))}, status_code=422)
 
     @app.exception_handler(db.StartupProblem)
     async def startup_problem(request: Request, exc: db.StartupProblem) -> Response:

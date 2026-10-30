@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
-from app.core import auth, config, context, data_fixes, maintenance, settings
+from app.core import auth, config, context, data_fixes, maintenance, security, settings
 from app.core.db import audit, db, read, rows_to_dicts
 from app.services import network, scheduler, updates
 from app.store import accounts, profiles
@@ -446,14 +446,37 @@ def change_password(req: PasswordRequest, request: Request, response: Response,
 
 
 @router.get("/api/auth/sessions")
-def list_sessions(principal: auth.Principal = Depends(auth.require_whole_account)) -> dict:
+def list_sessions(request: Request, principal: auth.Principal = Depends(auth.require_whole_account)) -> dict:
     """Where this account is signed in (its browsers and the screens of phones it paired)."""
     with read() as conn:
-        rows = conn.execute("SELECT s.created_at, s.last_seen_at, s.expires_at, s.user_agent, s.ip, d.name AS device_name, "
-                            "d.platform AS device_platform FROM user_sessions s LEFT JOIN devices d ON d.id = s.device_id "
+        rows = conn.execute("SELECT s.token_hash, s.created_at, s.last_seen_at, s.expires_at, s.user_agent, s.ip, s.device_id, "
+                            "d.name AS device_name, d.platform AS device_platform FROM user_sessions s "
+                            "LEFT JOIN devices d ON d.id = s.device_id "
                             "WHERE s.account_id IS ? AND s.expires_at > ? ORDER BY s.last_seen_at DESC",
                             (principal.account_id, time.time())).fetchall()
-    return {"sessions": rows_to_dicts(rows)}
+    token = request.cookies.get(auth.SESSION_COOKIE)
+    mine = security.hash_token(token) if token else None
+    sessions = []
+    for session in rows_to_dicts(rows):
+        stored = session.pop("token_hash")
+        sessions.append({**session, "id": auth.session_handle(stored), "current": stored == mine})
+    return {"sessions": sessions}
+
+
+@router.delete("/api/auth/sessions/{session_id}")
+def end_session(session_id: str, principal: auth.Principal = Depends(auth.require_whole_account)) -> dict:
+    if not auth.end_session(principal.account_id, session_id):
+        raise HTTPException(404, "That sign-in has already ended.")
+    return {"ok": True}
+
+
+@router.post("/api/auth/sessions/end-others")
+def end_other_sessions(request: Request, principal: auth.Principal = Depends(auth.require_whole_account)) -> dict:
+    return {"ok": True, "ended": auth.end_other_sessions(request, principal.account_id)}
+
+
+# What reaches everyone's data, whose ever account it is, or changes who holds the keys: each member sees it in their log.
+EVERYONE_IS_TOLD = ["export.backup", "auth.password_reset", "account.role"]
 
 
 @router.get("/api/audit")
@@ -469,6 +492,9 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
         params.append(principal.actor)
     if principal.owner:
         where += " OR a.profile_id IS NULL"
+    if not principal.limited:
+        where += f" OR a.action IN ({','.join('?' * len(EVERYONE_IS_TOLD))})"
+        params += EVERYONE_IS_TOLD
     where += ")"
     with read() as conn:
         rows = conn.execute(f"SELECT a.* FROM audit_log a WHERE {where} ORDER BY a.at DESC LIMIT ?",

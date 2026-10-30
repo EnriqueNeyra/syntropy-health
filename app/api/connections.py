@@ -5,18 +5,19 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
+import time
 from typing import Any, Optional
 from urllib.parse import quote
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import check_access, request_origin, resolve_profile
 from app.connectors import smart
 from app.connectors.smart import SmartError
-from app.core import auth, context
+from app.core import auth, context, security
 from app.services import connect, sync
 from app.store import biometrics, connections, devices, records
 
@@ -160,10 +161,22 @@ async def discover(req: DiscoverRequest) -> dict:
 # OAuth callbacks (public: authenticated by the one-time state)
 # ---------------------------------------------------------------------------
 
+def _problem(message: str) -> str:
+    """What went wrong, signed: the page shows only what this server says went wrong, not what a link says it should."""
+    return security.sign({"message": message[:400], "exp": time.time() + 600}, "sign-in-problem")
+
+
 def _done(connection_id: Optional[str] = None, error: Optional[str] = None) -> RedirectResponse:
     if error:
-        return RedirectResponse(f"/#/sources?error={quote(error[:400])}", status_code=303)
+        return RedirectResponse(f"/#/sources?problem={quote(_problem(error))}", status_code=303)
     return RedirectResponse(f"/#/sources?connected={connection_id}", status_code=303)
+
+
+@router.get("/api/sign-in-problem", dependencies=[user])
+def sign_in_problem(token: str = Query(..., max_length=1000)) -> dict:
+    """The words for a sign-in that didn't finish, from the address it came back to."""
+    problem = security.unsign(token, "sign-in-problem")
+    return {"message": problem["message"] if problem else None}
 
 
 async def _complete(pending_kind: str, pending: dict[str, Any], *, code: Optional[str] = None,
@@ -185,14 +198,14 @@ justify-content:center;min-height:100vh;margin:0}p{opacity:.8}
 (function(){
   var h = new URLSearchParams(location.hash.slice(1));
   history.replaceState(null, "", location.pathname);
-  if (!h.get("access_token") || !h.get("state")) { location.replace("/#/sources?error=" + encodeURIComponent("The relay did not return any credentials.")); return; }
+  if (!h.get("access_token") || !h.get("state")) { location.replace("/#/sources?failed=1"); return; }
   var body = {}; h.forEach(function(v,k){ body[k] = v; });
   fetch("/api/connections/oauth/relay", {method:"POST", headers:{"Content-Type":"application/json","X-Requested-With":"syntropy"},
     body: JSON.stringify(body), credentials: "same-origin"})
    .then(function(r){ return r.json().then(function(j){ return [r.ok, j]; }); })
    .then(function(res){ location.replace(res[0] ? "/#/sources?connected=" + encodeURIComponent(res[1].connection_id)
-                                                 : "/#/sources?error=" + encodeURIComponent(res[1].detail || "Connection failed")); })
-   .catch(function(e){ location.replace("/#/sources?error=" + encodeURIComponent(String(e))); });
+                                                 : "/#/sources?" + (res[1].problem ? "problem=" + encodeURIComponent(res[1].problem) : "failed=1")); })
+   .catch(function(){ location.replace("/#/sources?failed=1"); });
 })();
 </script></body></html>"""
 # Only the page's own script may run, and it may only talk to this server.
@@ -207,12 +220,11 @@ async def oauth_callback(request: Request, background: BackgroundTasks, code: Op
                          state: Optional[str] = None, error: Optional[str] = None,
                          error_description: Optional[str] = None, desc: Optional[str] = None):
     if error:
-        if state:
-            await run_in_threadpool(connections.pop_pending, state)
-        message = error_description or desc or error
+        # The provider's words only when it's answering a sign-in this server started: anyone can make a link to here.
+        started = await run_in_threadpool(connections.pop_pending, state) if state else None
         if error == "access_denied":
-            message = "Access was not granted. No records were shared."
-        return _done(error=message)
+            return _done(error="Access was not granted. No records were shared.")
+        return _done(error=(error_description or desc or error) if started else "The sign-in didn't finish. Start the connection again.")
     if not code or not state:
         # Token hand-off from the relay arrives in the URL fragment, which only the browser can read.
         return HTMLResponse(RELAY_PAGE, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
@@ -240,17 +252,18 @@ class RelayTokens(BaseModel):
 
 
 @router.post("/api/connections/oauth/relay", include_in_schema=False)
-async def relay_complete(req: RelayTokens, request: Request, background: BackgroundTasks) -> dict:
+async def relay_complete(req: RelayTokens, request: Request, background: BackgroundTasks) -> Any:
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
     popped = await run_in_threadpool(connections.pop_pending, req.state)
     if not popped or popped[0] not in connect.WEARABLE_MODULES:
-        raise HTTPException(400, "This sign-in link has expired or was already used. Please start the connection again.")
+        message = "This sign-in link has expired or was already used. Please start the connection again."
+        return JSONResponse({"detail": message, "problem": _problem(message)}, status_code=400)
     kind, pending = popped
     context.ACTING_FOR.set(pending.get("actor"))
     try:
         result = await _complete(kind, pending, tokens=req.model_dump(exclude={"state", "relay_provider"}))
     except SmartError as exc:
-        raise HTTPException(400, str(exc))
+        return JSONResponse({"detail": str(exc), "problem": _problem(str(exc))}, status_code=400)
     background.add_task(sync.sync_connection, result["connection_id"], "initial")
     return result

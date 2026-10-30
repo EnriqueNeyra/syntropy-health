@@ -102,7 +102,8 @@ def _answers(host: str, port: int) -> bool:
 
 
 def backup(dest: Optional[str]) -> Path:
-    """A consistent copy of the database (taken while the server runs), the encryption key and uploads, zipped."""
+    """A consistent copy of the database (taken while the server runs) and the encryption key, zipped. Not the uploads
+    folder: all it ever holds is the file an import is working through, which goes when that's done."""
     from app.core import db
 
     data = config.data_dir()
@@ -116,9 +117,8 @@ def backup(dest: Optional[str]) -> Path:
             z.write(snapshot, "syntropy.db")
             if (data / "secret.key").exists():
                 z.write(data / "secret.key", "secret.key")      # without it, saved sign-ins and keys can't be read
-            for f in (data / "uploads").rglob("*") if (data / "uploads").exists() else []:
-                if f.is_file():
-                    z.write(f, str(Path("uploads") / f.relative_to(data / "uploads")))
+        with db.db() as conn:
+            db.audit(conn, "cli", "export.backup")
     if os.name != "nt":
         out.chmod(0o600)
     print(f"Backed up to {out}")
@@ -565,7 +565,7 @@ def accounts_command(action: Optional[str], name: Optional[str]) -> None:
         sys.exit(getattr(exc, "detail", str(exc)))
     accounts.set_password(account["id"], password)
     with db.db() as conn:
-        db.audit(conn, "cli", "auth.password_reset", None, account["profile_id"])
+        db.audit(conn, "cli", "auth.password_reset", {"person": account["name"]}, account["profile_id"])
     print(f"{account['name']} can sign in with the new password. Their other browsers were signed out.")
 
 
