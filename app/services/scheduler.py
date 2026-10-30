@@ -20,6 +20,7 @@ from app.services import sync
 log = logging.getLogger("syntropy.scheduler")
 
 TICK_SECONDS = 300
+AT_ONCE = 3     # a slow health system shouldn't hold up the wearables behind it, and a laptop shouldn't run them all at once
 _task: Optional[asyncio.Task] = None
 last_tick_at: Optional[float] = None    # for the owner's /api/health
 
@@ -40,12 +41,16 @@ def _prune() -> None:
 
 async def run_once() -> list[str]:
     synced = []
-    for conn in await asyncio.to_thread(_due):
-        try:
-            await sync.sync_connection(conn["id"], "scheduled")
-            synced.append(conn["id"])
-        except Exception:  # noqa: BLE001
-            log.exception("Scheduled sync failed for %s", conn["id"])
+    room = asyncio.Semaphore(AT_ONCE)
+
+    async def one(conn: dict) -> None:
+        async with room:
+            try:
+                await sync.sync_connection(conn["id"], "scheduled")
+                synced.append(conn["id"])
+            except Exception:  # noqa: BLE001
+                log.exception("Scheduled sync failed for %s", conn["id"])
+    await asyncio.gather(*(one(conn) for conn in await asyncio.to_thread(_due)))
     await asyncio.to_thread(_prune)
     global last_tick_at
     last_tick_at = time.time()

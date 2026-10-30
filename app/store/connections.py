@@ -180,6 +180,11 @@ def credentials_replaced(connection_id: str, had: dict[str, Any]) -> bool:
     return bool(row) and _replaced(security.decrypt_json(row["credentials_enc"]) or {}, had)
 
 
+def forget_query_state(connection_id: str) -> None:
+    with db() as conn:
+        conn.execute("DELETE FROM sync_query_state WHERE connection_id = ?", (connection_id,))
+
+
 def query_state(connection_id: str) -> dict[str, dict[str, Any]]:
     with read() as conn:
         rows = conn.execute("SELECT * FROM sync_query_state WHERE connection_id = ?", (connection_id,)).fetchall()
@@ -316,6 +321,15 @@ def save_pending(state: str, kind: str, payload: dict[str, Any], ttl: int = 900)
             "INSERT OR REPLACE INTO oauth_pending(state, kind, payload_enc, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
             (state, kind, security.encrypt_json(payload), now, now + ttl),
         )
+
+
+def peek_pending(state: str) -> Optional[tuple[str, dict[str, Any]]]:
+    """What a sign-in link stands for, leaving it usable."""
+    with read() as conn:
+        row = conn.execute("SELECT kind, payload_enc, expires_at FROM oauth_pending WHERE state = ?", (state,)).fetchone()
+    if not row or row["expires_at"] < time.time():
+        return None
+    return row["kind"], security.decrypt_json(row["payload_enc"]) or {}
 
 
 def pop_pending(state: str) -> Optional[tuple[str, dict[str, Any]]]:

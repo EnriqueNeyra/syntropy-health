@@ -16,11 +16,14 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import ipaddress
 import json
 import logging
 import random
 import re
+import socket
 import time
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from email.utils import parsedate_to_datetime
 from typing import Any, Awaitable, Callable, Optional
@@ -55,12 +58,53 @@ class SmartError(Exception):
         self.stats: dict[str, Any] = {}     # what the sync did before this stopped it
 
 
+class BlockedAddress(SmartError):
+    """A FHIR server someone typed in, or one of its redirects, pointed at an address this server won't go to for them."""
+
+
+# A custom FHIR server added by someone other than the server's owner: every request it leads to, each redirect included,
+# has to go over https to an address on the public internet. Otherwise it could read this server's own neighbours (a
+# router's admin page, a local AI server, cloud metadata) from where this server sits. Set per sync or sign-in.
+GUARDED: ContextVar[bool] = ContextVar("smart_guarded", default=False)
+_lookup = socket.getaddrinfo
+
+
+def _public_address(address: str) -> bool:
+    ip = ipaddress.ip_address(address.split("%")[0])
+    mapped = getattr(ip, "ipv4_mapped", None)
+    return (mapped or ip).is_global
+
+
+async def is_public_host(host: str) -> bool:
+    """Every address the name resolves to has to be public: a name with one public and one loopback address is how DNS
+    tricks get past a check like this. A name that doesn't resolve isn't reachable, which isn't this check's to say."""
+    host = host.strip("[]")
+    try:
+        return _public_address(host)
+    except ValueError:
+        pass
+    try:
+        infos = await asyncio.to_thread(_lookup, host, None)
+    except OSError as exc:
+        raise httpx.ConnectError(f"Couldn't look up {host}") from exc
+    return bool(infos) and all(_public_address(info[4][0]) for info in infos)
+
+
+async def _guard_request(request: httpx.Request) -> None:
+    if not GUARDED.get():
+        return
+    if request.url.scheme != "https":
+        raise BlockedAddress("Custom FHIR servers must use https.")
+    if not await is_public_host(request.url.host):
+        raise BlockedAddress("That FHIR server's address is on a private network, which only this server's owner can connect to.")
+
+
 def http_client(simulated: bool = False, timeout: float = 30.0) -> httpx.AsyncClient:
     headers = {"User-Agent": USER_AGENT}
     if simulated:
         from app.simulator.server import asgi_app
         return httpx.AsyncClient(transport=httpx.ASGITransport(app=asgi_app()), timeout=timeout, headers=headers)
-    return httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True)
+    return httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True, event_hooks={"request": [_guard_request]})
 
 
 def retry_after_seconds(resp: httpx.Response) -> Optional[float]:
@@ -98,6 +142,17 @@ def temporary_refusal(resp: httpx.Response) -> bool:
 # Discovery
 # ---------------------------------------------------------------------------
 
+def _check_endpoints(base: str, authorize: Any, token: Any, simulated: bool) -> None:
+    """The page sends the browser to the first of these and the second gets the patient's code. A server's own word for
+    where they are isn't enough for a javascript: address, or for tokens going unencrypted from an https server."""
+    if simulated:
+        return
+    for endpoint in (authorize, token):
+        scheme = urlparse(str(endpoint)).scheme.lower()
+        if scheme != "https" and (scheme != "http" or base.lower().startswith("https://") or GUARDED.get()):
+            raise SmartError(f"{base} gave a sign-in address that isn't secure, so it can't be connected.", "error")
+
+
 async def discover(fhir_base_url: str, simulated: bool = False) -> dict[str, Any]:
     base = fhir_base_url.rstrip("/")
     accept = {"Accept": "application/json, application/fhir+json"}
@@ -107,6 +162,7 @@ async def discover(fhir_base_url: str, simulated: bool = False) -> dict[str, Any
             if resp.status_code == 200:
                 data = _json_object(resp)
                 if data.get("authorization_endpoint") and data.get("token_endpoint"):
+                    _check_endpoints(base, data["authorization_endpoint"], data["token_endpoint"], simulated)
                     return {
                         "authorization_endpoint": data["authorization_endpoint"],
                         "token_endpoint": data["token_endpoint"],
@@ -123,7 +179,7 @@ async def discover(fhir_base_url: str, simulated: bool = False) -> dict[str, Any
             resp.raise_for_status()
             meta = resp.json()
         except httpx.HTTPError as exc:
-            raise SmartError(f"Could not reach FHIR server at {base}: {exc}", "network") from exc
+            raise SmartError(f"Could not reach the FHIR server at {base}.", "network") from exc
         except ValueError as exc:
             raise SmartError(f"FHIR server at {base} returned invalid metadata.", "error") from exc
     rests = meta.get("rest") if isinstance(meta, dict) else None
@@ -133,6 +189,7 @@ async def discover(fhir_base_url: str, simulated: bool = False) -> dict[str, Any
             if str(ext.get("url", "")).endswith("oauth-uris"):
                 uris = {e.get("url"): e.get("valueUri") for e in ext.get("extension", [])}
                 if uris.get("authorize") and uris.get("token"):
+                    _check_endpoints(base, uris["authorize"], uris["token"], simulated)
                     return {"authorization_endpoint": uris["authorize"], "token_endpoint": uris["token"],
                             "capabilities": [], "scopes_supported": [], "source": "metadata"}
     raise SmartError(f"{base} does not advertise SMART on FHIR OAuth endpoints.", "error")
@@ -152,14 +209,27 @@ def _scope_types(scopes: Any) -> Optional[set[str]]:
     return None if not types or "*" in types else types
 
 
-def fit_scopes(requested: str, scopes_supported: Optional[list[str]]) -> str:
+def fit_scopes(requested: str, scopes_supported: Optional[list[str]], own_registration: bool = False) -> str:
     """Drops resource scopes for types the server doesn't offer (Oracle has no Medication), since
     some authorization servers reject the whole request over one unknown scope. Servers that don't list resource
-    scopes (Epic lists none) get the request unchanged."""
+    scopes (Epic lists none) get the request unchanged.
+
+    ``own_registration`` is a server the person registered their own client with. There, a type offered only in SMART 2's
+    form (patient/Observation.rs) is asked for that way. Never for the platforms Syntropy is registered with: each has an
+    exact list of what it granted, and asking for anything else fails after the patient has signed in."""
     offered = _scope_types(scopes_supported)
     if offered is None:
         return requested
-    return " ".join(s for s in requested.split() if not (m := _RESOURCE_SCOPE.match(s)) or m.group(2) in offered)
+    kept = [s for s in requested.split() if not (m := _RESOURCE_SCOPE.match(s)) or m.group(2) in offered]
+    return " ".join(_smart2_form(s, scopes_supported or []) if own_registration else s for s in kept)
+
+
+def _smart2_form(scope: str, offered: list[str]) -> str:
+    if not _RESOURCE_SCOPE.match(scope) or scope in offered:
+        return scope
+    stem = scope.rsplit(".", 1)[0]
+    can_read = any(o.startswith(f"{stem}.") and re.fullmatch(r"c?r?u?d?s?", o.rsplit(".", 1)[1]) and "r" in o.rsplit(".", 1)[1] for o in offered)
+    return f"{stem}.rs" if can_read else scope
 
 
 def make_state(kind: str, origin: str) -> str:
@@ -623,7 +693,11 @@ class FhirClient:
         target = url if url.startswith("http") else f"{self.base}/{url.lstrip('/')}"
         if not self.simulated and not _same_server(target, self.base):
             return None         # an attachment elsewhere never gets this source's access token (as with paging links)
-        resp = await self._get(client, target, headers={"Accept": "application/fhir+json, text/*"})
+        try:
+            resp = await self._get(client, target, headers={"Accept": "application/fhir+json, text/*"})
+        except BlockedAddress as exc:
+            log.warning("A note attachment led somewhere it can't go: %s", exc)
+            return None
         if resp.status_code != 200 or len(resp.content) > max_bytes:
             return None
         ctype = resp.headers.get("content-type", "")

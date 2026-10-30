@@ -12,6 +12,7 @@ identical across institutions for the same real-world fact.
 from __future__ import annotations
 
 import base64
+import hashlib
 import html as html_lib
 import re
 from typing import Any, Callable, Optional
@@ -142,6 +143,14 @@ def decode_attachment(att: dict[str, Any]) -> Optional[str]:
     if "rtf" in ctype:
         return re.sub(r"\\[a-z]+-?\d* ?|[{}]", "", text).strip()
     return text
+
+
+def _system_value(*identifiers: Any) -> Optional[str]:
+    """An identifier that means something outside the system it came from: a bare value could be anyone's."""
+    for identifier in identifiers:
+        if isinstance(identifier, dict) and identifier.get("system") and identifier.get("value"):
+            return f"{identifier['system']}|{identifier['value']}"
+    return None
 
 
 def _base(res: dict[str, Any], category: str, title: str, **extra: Any) -> dict[str, Any]:
@@ -467,6 +476,13 @@ def normalize_encounter(res: dict[str, Any]) -> Optional[dict[str, Any]]:
     rec["details"] = {"class": class_label, "class_code": klass.get("code"), "reasons": reasons,
                       "clinicians": clinicians, "locations": locations,
                       "provider": ref_display(res.get("serviceProvider"))}
+    # The same visit from a file and a live connection. Without a time there's no telling two visits on one day apart.
+    start = str(period.get("start") or "")
+    known = _system_value(*(res.get("identifier") or []))
+    if known:
+        rec["dedup_key"] = f"enc|{known}"
+    elif len(start) > 10:
+        rec["dedup_key"] = f"enc|{klass.get('code') or ''}|{_norm_name(title)}|{start[:16]}"
     return rec
 
 
@@ -540,6 +556,12 @@ def normalize_document_reference(res: dict[str, Any]) -> Optional[dict[str, Any]
                          "size": a.get("size"), "inline": bool(a.get("data"))} for a in attachments],
         "encounter": [e.get("reference") for e in context.get("encounter") or [] if e.get("reference")],
     }
+    # Links differ between copies of a note, so they say nothing about whether two are the same.
+    known = _system_value(res.get("masterIdentifier"))
+    if known:
+        rec["dedup_key"] = f"doc|{known}"
+    elif text:
+        rec["dedup_key"] = f"doc|{_norm_name(doc_type)}|{when or ''}|{hashlib.sha1(text.encode()).hexdigest()[:16]}"
     return rec
 
 
@@ -561,6 +583,8 @@ def normalize_care_team(res: dict[str, Any]) -> Optional[dict[str, Any]]:
                 effective_at=(res.get("period") or {}).get("start"),
                 narrative=", ".join(f"{m['name']} ({m['role']})" for m in members))
     rec["details"] = {"members": members}
+    together = "|".join(sorted(f"{_norm_name(m['name'])}:{_norm_name(m['role'])}" for m in members))
+    rec["dedup_key"] = f"team|{res.get('status') or ''}|{hashlib.sha1(together.encode()).hexdigest()[:16]}"
     return rec
 
 
@@ -578,6 +602,9 @@ def normalize_care_plan(res: dict[str, Any]) -> Optional[dict[str, Any]]:
                 effective_at=(res.get("period") or {}).get("start"), effective_end=(res.get("period") or {}).get("end"),
                 narrative=res.get("description") or "; ".join(a["description"] for a in activities) or None)
     rec["details"] = {"activities": activities, "addresses": [ref_display(a) for a in res.get("addresses") or [] if ref_display(a)]}
+    period = res.get("period") or {}
+    if res.get("title") or period.get("start"):     # a plan with neither is only "Care plan": that says nothing
+        rec["dedup_key"] = f"plan|{_norm_name(title)}|{period.get('start') or ''}|{period.get('end') or ''}"
     return rec
 
 

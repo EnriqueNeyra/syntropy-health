@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
+import html
 import logging
 from typing import Any, Optional
 from urllib.parse import quote
 
-import asyncio
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field
@@ -17,9 +18,9 @@ from pydantic import BaseModel, Field
 from app.api.deps import check_access, request_origin, resolve_profile
 from app.connectors import smart
 from app.connectors.smart import SmartError
-from app.core import auth, context
+from app.core import auth, context, security
 from app.services import connect, sync
-from app.store import biometrics, connections, devices, records
+from app.store import accounts, biometrics, connections, devices, profiles, records
 
 log = logging.getLogger("syntropy.api.connections")
 
@@ -77,10 +78,13 @@ async def connect_ehr(req: EhrConnectRequest, request: Request) -> dict:
     prof = resolve_profile(req.profile_id)
     if not req.institution_id and not req.fhir_base_url:
         raise HTTPException(400, "Choose an institution or enter a FHIR server URL.")
+    # An institution means the address the directory has for it: never one sent along with it. A saved address (for an
+    # institution that has left the directory) only comes through a reconnect.
+    custom = not req.institution_id
     try:
         return await connect.start_ehr(prof["id"], request_origin(request), institution_id=req.institution_id,
-                                       fhir_base_url=req.fhir_base_url, client_id=req.client_id,
-                                       platform="custom" if req.fhir_base_url and not req.institution_id else req.platform)
+                                       fhir_base_url=req.fhir_base_url if custom else None, client_id=req.client_id,
+                                       platform="custom" if custom else None)
     except SmartError as exc:
         raise HTTPException(400, str(exc))
 
@@ -178,9 +182,9 @@ class DiscoverRequest(BaseModel):
 
 @router.post("/api/connections/discover", dependencies=[user])
 async def discover(req: DiscoverRequest) -> dict:
-    if not req.fhir_base_url.startswith("https://"):
-        raise HTTPException(400, "FHIR servers must use https.")
+    smart.GUARDED.set(not connect.acting_as_owner())
     try:
+        await connect.check_custom_server(req.fhir_base_url)
         return await smart.discover(req.fhir_base_url)
     except SmartError as exc:
         raise HTTPException(400, str(exc))
@@ -189,6 +193,90 @@ async def discover(req: DiscoverRequest) -> dict:
 # ---------------------------------------------------------------------------
 # OAuth callbacks (public: authenticated by the one-time state)
 # ---------------------------------------------------------------------------
+
+STARTED_ELSEWHERE = "This sign-in was started by someone else on this server, so nothing was added. Start it from your own account."
+EXPIRED = "This sign-in link has expired or was already used. Please start the connection again."
+CHOICE_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+CHOICE_CSS = """body{font:15px/1.5 -apple-system,system-ui,sans-serif;background:#f6f7f9;color:#0b0b0e;display:flex;align-items:center;
+justify-content:center;min-height:100vh;margin:0;padding:16px;box-sizing:border-box}main{max-width:460px;background:#fff;border-radius:14px;
+padding:24px;box-shadow:0 8px 30px rgba(20,30,60,.08)}h1{font-size:20px;margin:0 0 10px}form{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+button{border:0;border-radius:9px;padding:11px 16px;font:600 15px -apple-system,system-ui,sans-serif;cursor:pointer;background:#eef0f4;color:#1f2330}
+button.go{background:#2f5bd3;color:#fff}@media (prefers-color-scheme:dark){body{background:#0b0b0e;color:#e7e7ea}main{background:#17171b}
+button{background:#2a2a30;color:#e7e7ea}}"""
+
+
+def _may_finish(request: Request, pending: dict[str, Any]) -> str:
+    """Whether the browser a sign-in came back to may finish it. Signing in at a portal is what hands records over, so a
+    link sent to someone else mustn't quietly put their records under another account.
+
+    A browser signed in to the account that started it, or to one that manages that person, goes straight on. A browser
+    signed in to another account is turned away. A browser with no session is ordinary: the Mac and Windows apps and the
+    phone can come back through the system browser, or by another address. With one account on this server there's no one
+    else it could be for; with several, it asks ('ask'), naming who the records will go to."""
+    who = auth.current_user(request)
+    if who is not None:
+        same = who.actor == pending.get("actor") or who.level(pending.get("profile_id")) == "manage"
+        return "go" if same else "refuse"
+    return "ask" if len(accounts.list_accounts()) > 1 else "go"
+
+
+async def _ask(choice: dict[str, Any]) -> str:
+    """Holds what's been received until the person decides; returns the address of the page that asks."""
+    ticket = security.random_token(24)
+    await run_in_threadpool(connections.save_pending, ticket, "choice", choice)
+    return f"/callback/choose?state={quote(ticket)}"
+
+
+def _choice_text(choice: dict[str, Any]) -> tuple[str, str, str, str]:
+    if choice["action"] == "other_patient":
+        new, was = choice.get("name") or "someone else", choice.get("was") or "the person it was connected for"
+        return (f"This is {new}'s chart",
+                f"You signed in to {new}'s chart at {choice['display_name']}, but this source holds {was}'s records. Nothing has "
+                f"changed: {was}'s records are as they were. You can add {new} as a separate source, or go back and sign in "
+                "again with the right chart.", f"Add {new} as a new source", "Leave it as it was")
+    person = (profiles.get_profile(choice["pending"].get("profile_id", "")) or {}).get("name", "another person")
+    return (f"Add these records to {person}?",
+            f"This sign-in was started on this Syntropy Health server, for {person}. Continuing stores the records you just shared "
+            f"there. If you didn't mean to share your records with {person}, cancel. Nothing has been saved yet.",
+            f"Add to {person}", "Cancel")
+
+
+@router.get("/callback/choose", include_in_schema=False)
+def choose_page(state: str = "") -> HTMLResponse:
+    held = connections.peek_pending(state)
+    if not held or held[0] != "choice":
+        return _done(error=EXPIRED)
+    title, text, yes, no = _choice_text(held[1])
+    page = (f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer">'
+            f'<meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}</title><style>{CHOICE_CSS}</style></head>'
+            f'<body><main><h1>{html.escape(title)}</h1><p>{html.escape(text)}</p><form method="post" action="/callback/choose">'
+            f'<input type="hidden" name="state" value="{html.escape(state, quote=True)}">'
+            f'<button class="go" name="decision" value="yes">{html.escape(yes)}</button>'
+            f'<button name="decision" value="no">{html.escape(no)}</button></form></main></body></html>')
+    return HTMLResponse(page, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "Content-Security-Policy": CHOICE_CSP})
+
+
+@router.post("/callback/choose", include_in_schema=False)
+async def choose(background: BackgroundTasks, state: str = Form(...), decision: str = Form(...)) -> RedirectResponse:
+    held = await run_in_threadpool(connections.pop_pending, state)
+    if not held or held[0] != "choice":
+        return _done(error=EXPIRED)
+    choice = held[1]
+    context.ACTING_FOR.set(choice.get("actor"))
+    if decision != "yes":
+        return _done(error="Nothing was added, and nothing has changed.")
+    try:
+        if choice["action"] == "other_patient":
+            result = await connect.add_other_patient(choice)
+        else:
+            result = await _complete(choice["kind"], choice["pending"], code=choice.get("code"), tokens=choice.get("tokens"))
+    except SmartError as exc:
+        return _done(error=str(exc))
+    if result.get("ask"):
+        return RedirectResponse(await _ask(result["ask"]), status_code=303)
+    background.add_task(sync.sync_connection, result["connection_id"], "initial")
+    return _done(result["connection_id"])
+
 
 def _done(connection_id: Optional[str] = None, error: Optional[str] = None) -> RedirectResponse:
     if error:
@@ -220,7 +308,8 @@ justify-content:center;min-height:100vh;margin:0}p{opacity:.8}
   fetch("/api/connections/oauth/relay", {method:"POST", headers:{"Content-Type":"application/json","X-Requested-With":"syntropy"},
     body: JSON.stringify(body), credentials: "same-origin"})
    .then(function(r){ return r.json().then(function(j){ return [r.ok, j]; }); })
-   .then(function(res){ location.replace(res[0] ? "/#/sources?connected=" + encodeURIComponent(res[1].connection_id)
+   .then(function(res){ location.replace(res[1].choose ? res[1].choose
+                                         : res[0] ? "/#/sources?connected=" + encodeURIComponent(res[1].connection_id)
                                                  : "/#/sources?error=" + encodeURIComponent(res[1].detail || "Connection failed")); })
    .catch(function(e){ location.replace("/#/sources?error=" + encodeURIComponent(String(e))); });
 })();
@@ -247,15 +336,25 @@ async def oauth_callback(request: Request, background: BackgroundTasks, code: Op
         # Token hand-off from the relay arrives in the URL fragment, which only the browser can read.
         return HTMLResponse(RELAY_PAGE, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
                                                   "Content-Security-Policy": RELAY_CSP})
+    held = await run_in_threadpool(connections.peek_pending, state)
+    if not held or held[0] == "choice":
+        return _done(error=EXPIRED)
+    verdict = await run_in_threadpool(_may_finish, request, held[1])
+    if verdict == "refuse":
+        return _done(error=STARTED_ELSEWHERE)
     popped = await run_in_threadpool(connections.pop_pending, state)
     if not popped:
-        return _done(error="This sign-in link has expired or was already used. Please start the connection again.")
+        return _done(error=EXPIRED)
     kind, pending = popped
     context.ACTING_FOR.set(pending.get("actor"))
+    if verdict == "ask":
+        return RedirectResponse(await _ask({"action": "finish", "kind": kind, "pending": pending, "code": code}), status_code=303)
     try:
         result = await _complete(kind, pending, code=code)
     except SmartError as exc:
         return _done(error=str(exc))
+    if result.get("ask"):
+        return RedirectResponse(await _ask(result["ask"]), status_code=303)
     background.add_task(sync.sync_connection, result["connection_id"], "initial")
     return _done(result["connection_id"])
 
@@ -273,13 +372,22 @@ class RelayTokens(BaseModel):
 async def relay_complete(req: RelayTokens, request: Request, background: BackgroundTasks) -> dict:
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")
+    held = await run_in_threadpool(connections.peek_pending, req.state)
+    if not held or held[0] not in connect.WEARABLE_MODULES:
+        raise HTTPException(400, EXPIRED)
+    verdict = await run_in_threadpool(_may_finish, request, held[1])
+    if verdict == "refuse":
+        raise HTTPException(403, STARTED_ELSEWHERE)
     popped = await run_in_threadpool(connections.pop_pending, req.state)
-    if not popped or popped[0] not in connect.WEARABLE_MODULES:
-        raise HTTPException(400, "This sign-in link has expired or was already used. Please start the connection again.")
+    if not popped:
+        raise HTTPException(400, EXPIRED)
     kind, pending = popped
     context.ACTING_FOR.set(pending.get("actor"))
+    tokens = req.model_dump(exclude={"state", "relay_provider"})
+    if verdict == "ask":
+        return {"choose": await _ask({"action": "finish", "kind": kind, "pending": pending, "tokens": tokens})}
     try:
-        result = await _complete(kind, pending, tokens=req.model_dump(exclude={"state", "relay_provider"}))
+        result = await _complete(kind, pending, tokens=tokens)
     except SmartError as exc:
         raise HTTPException(400, str(exc))
     background.add_task(sync.sync_connection, result["connection_id"], "initial")

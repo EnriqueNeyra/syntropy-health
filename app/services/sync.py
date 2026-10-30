@@ -20,6 +20,7 @@ import httpx
 from app.connectors import fhir_normalize, google_health, oura, smart, whoop
 from app.connectors import wearable_common as wc
 from app.connectors.smart import SmartError
+from app.services import connect
 from app.core.db import audit, db, read
 from app.store import activity, biometrics, connections, records
 
@@ -69,6 +70,7 @@ async def sync_connection(connection_id: str, trigger: str = "manual") -> dict[s
     async with lock:
         started = time.time()
         run_id = None
+        smart.GUARDED.set(connect.guard_for(conn))
         try:
             run_id = await asyncio.to_thread(connections.start_run, connection_id, trigger)
             if conn["kind"] == "ehr":
@@ -353,18 +355,30 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def import_fhir_resources(profile_id: str, display_name: str, resources: list[dict[str, Any]],
-                          provider: str = "fhir_file") -> dict[str, Any]:
+                          provider: str = "fhir_file", reuse: Optional[dict[str, Any]] = None,
+                          metadata: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """Stores a file's records as a new source, or in ``reuse``, the one an earlier copy of this file went into: there,
+    the same resources are updated, and the file can take back what it now says was wrong. What it doesn't mention stays."""
     patient, recs = fhir_normalize.normalize_resources(resources)
     if not recs and not patient:
         raise ValueError("No supported FHIR R4 resources were found in the file.")
-    conn = connections.create(profile_id, "import", provider, display_name, mode="live",
-                              patient_ref=(patient or {}).get("id"),
-                              metadata={"imported_at": time.time(), "resource_count": len(resources)})
+    info = {"imported_at": time.time(), "resource_count": len(resources), **(metadata or {})}
+    if reuse:
+        conn = reuse
+        connections.update(conn["id"], metadata={**(conn.get("metadata") or {}), **info})
+    else:
+        conn = connections.create(profile_id, "import", provider, display_name, mode="live",
+                                  patient_ref=(patient or {}).get("id"), metadata=info)
     run_id = connections.start_run(conn["id"], "import")
     if patient:
         records.upsert_identity(conn["id"], profile_id, patient)
-    write = records.upsert_records(profile_id, conn["id"], display_name, recs)
-    stats = {"resources": len(resources), "records": len(recs), **write}
+    write = records.upsert_records(profile_id, conn["id"], conn["display_name"], recs)
+    stats: dict[str, Any] = {"resources": len(resources), "records": len(recs), **write}
+    if reuse:
+        stored = {f"{r['resource_type']}/{r['resource_id']}" for r in recs}
+        keys = {f"{r['resourceType']}/{r['id']}": r for r in resources if r.get("id")}
+        stats["removed"] = records.retract(conn["id"], {k for k, r in keys.items() if k not in stored and _says_taken_back(r)})
+        stats["matched_earlier"] = True
     connections.finish_run(run_id, conn["id"], "success", stats)
     return {"connection_id": conn["id"], **stats}
 
