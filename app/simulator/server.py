@@ -16,6 +16,8 @@ Tokens are HMAC-signed and self-contained, so the simulator is stateless apart f
 replay caches for authorization codes and client assertions. Like Epic, Epic tenants
 issue no refresh token to a public client; the app registers a key pair instead, and
 the dynamic client id it receives is itself a signed token carrying that public key. All data is synthetic (see ``personas``).
+
+``faults`` makes it misbehave the way real servers do, so tests can drive the production code through those days too.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from __future__ import annotations
 import html
 import json
 import time
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Optional
 from urllib.parse import urlencode, urlparse
@@ -50,6 +53,76 @@ SUPPORTED_TYPES = (
     "Encounter", "Procedure", "DiagnosticReport", "DocumentReference", "Binary", "CareTeam", "CarePlan", "Goal",
     "Device", "Coverage",
 )
+
+
+@dataclass
+class Faults:
+    """What the simulator should get wrong. In process, for tests; nothing here can be reached over HTTP."""
+    # Answers in place of a search or read: {"type": "Observation", "category": "laboratory", "offset": 200, "status": 500,
+    # "retry_after": "1", "times": 1}, or {"outcome": "fatal"} for a 200 carrying an OperationOutcome. Only "type" is
+    # needed. "read": True answers a read rather than a search; "broad_only": True leaves narrowed searches alone.
+    answers: list[dict[str, Any]] = field(default_factory=list)
+    # Answers in place of the token endpoint: {"status": 503, "body": {...}, "retry_after": "5", "times": 1}.
+    token: list[dict[str, Any]] = field(default_factory=list)
+    rotate_refresh: bool = False        # each refresh token works once
+    expire_access_after: Optional[int] = None      # an access token stops working after this many FHIR requests
+    hidden: set[str] = field(default_factory=set)       # "Observation/id" the source no longer returns
+    retracted: set[str] = field(default_factory=set)    # returned, but marked entered-in-error
+    extra_labs: int = 0                 # this many more lab results, for a long history
+    oldest_first: bool = False          # paged oldest first, unless asked otherwise
+    reject_sort: bool = False           # a 400 for a search with _sort
+    requests: list[str] = field(default_factory=list)   # what was asked, in order
+    _used_refresh: set[str] = field(default_factory=set)
+    _token_uses: dict[str, int] = field(default_factory=dict)
+
+    def take(self, rtype: str, category: Optional[str], offset: int, read: bool) -> Optional[dict[str, Any]]:
+        for answer in self.answers:
+            if answer.get("type") != rtype or answer.get("read", False) != read:
+                continue
+            if answer.get("category") not in (None, category) or answer.get("offset") not in (None, offset):
+                continue
+            if answer.get("broad_only") and category:
+                continue
+            if answer.get("times") is not None:
+                if answer["times"] <= 0:
+                    continue
+                answer["times"] -= 1
+            return answer
+        return None
+
+
+faults = Faults()
+
+
+def reset_faults() -> None:
+    global faults
+    faults = Faults()
+
+
+def _faulty_answer(fault: dict[str, Any]) -> Response:
+    if fault.get("outcome"):
+        return JSONResponse({"resourceType": "OperationOutcome", "issue": [{"severity": fault["outcome"], "code": fault.get("code", "exception"),
+                                                                             "diagnostics": "Backend trouble."}]},
+                            media_type="application/fhir+json")
+    headers = {"Retry-After": str(fault["retry_after"])} if fault.get("retry_after") is not None else None
+    if "body" in fault:
+        return JSONResponse(fault["body"], status_code=fault.get("status", 200), headers=headers)
+    return JSONResponse({"resourceType": "OperationOutcome", "issue": [{"severity": "error", "code": "transient"}]},
+                        status_code=fault.get("status", 500), headers=headers)
+
+
+def _extra_labs(patient: str, count: int) -> list[dict[str, Any]]:
+    days = [f"{2000 + i // 336:04d}-{i // 28 % 12 + 1:02d}-{i % 28 + 1:02d}" for i in range(count)]
+    return [{"resourceType": "Observation", "id": f"extra-lab-{i}", "status": "final",
+             "category": [{"coding": [{"code": "laboratory"}]}], "subject": {"reference": f"Patient/{patient}"},
+             "code": {"coding": [{"system": "http://loinc.org", "code": "2345-7", "display": "Glucose"}]},
+             "effectiveDateTime": f"{day}T08:00:00Z", "valueQuantity": {"value": 80 + i % 40, "unit": "mg/dL"}}
+            for i, day in enumerate(days)]
+
+
+def _date_of(res: dict[str, Any]) -> str:
+    period = res.get("period") or res.get("effectivePeriod") or res.get("performedPeriod") or {}
+    return str(res.get("effectiveDateTime") or res.get("date") or res.get("performedDateTime") or period.get("start") or "")
 
 
 def fhir_base_path(platform: str, tenant: str) -> str:
@@ -215,14 +288,14 @@ def _issue_tokens(claims: dict[str, Any], origin: str) -> dict[str, Any]:
     patient = generator.patient_id_for(persona, claims["tenant"])
     base = {"persona": persona, "platform": claims["platform"], "tenant": claims["tenant"], "scope": claims["scope"],
             "cid": claims["cid"]}
-    access = security.sign({**base, "typ": "access", "exp": now + ACCESS_TTL}, "sim-token")
+    access = security.sign({**base, "typ": "access", "n": security.random_token(8), "exp": now + ACCESS_TTL}, "sim-token")
     body: dict[str, Any] = {
         "access_token": access, "token_type": "Bearer", "expires_in": ACCESS_TTL,
         "scope": claims["scope"], "patient": patient,
     }
     offline = "offline_access" in claims["scope"] or "online_access" in claims["scope"]
     if offline and claims["platform"] not in ("epic", "healow"):  # like the real ones, to public apps
-        body["refresh_token"] = security.sign({**base, "typ": "refresh", "exp": now + REFRESH_TTL}, "sim-token")
+        body["refresh_token"] = security.sign({**base, "typ": "refresh", "n": security.random_token(8), "exp": now + REFRESH_TTL}, "sim-token")
     if "openid" in claims["scope"]:
         fhir_user = f"{origin}{fhir_base_path(claims['platform'], claims['tenant'])}/Patient/{patient}"
         body["id_token"] = security.sign({"iss": f"{origin}{fhir_base_path(claims['platform'], claims['tenant'])}",
@@ -236,6 +309,11 @@ async def token(request: Request) -> JSONResponse:
     form = await request.form()
     grant = form.get("grant_type")
     origin = str(request.base_url).rstrip("/")
+    if grant != "authorization_code":
+        fault = next((f for f in faults.token if f.get("times", 1) > 0), None)
+        if fault:
+            fault["times"] = fault.get("times", 1) - 1
+            return _faulty_answer(fault)
     if grant == "authorization_code":
         code = str(form.get("code", ""))
         claims = security.unsign(code, "sim-code")
@@ -262,6 +340,10 @@ async def token(request: Request) -> JSONResponse:
             return _token_error("invalid_grant", "Refresh token is invalid or expired.")
         if not form.get("scope"):
             return _token_error("invalid_request", "scope is required with a refresh token.")  # as athenahealth's is
+        if faults.rotate_refresh:
+            if str(form["refresh_token"]) in faults._used_refresh:
+                return _token_error("invalid_grant", "This refresh token has already been used.")
+            faults._used_refresh.add(str(form["refresh_token"]))
         return JSONResponse(_issue_tokens(claims, origin), headers={"Cache-Control": "no-store"})
     if grant == "urn:ietf:params:oauth:grant-type:jwt-bearer":
         claims, error = _verify_assertion(str(form.get("assertion", "")), f"{origin}/sim/oauth/token")
@@ -334,6 +416,11 @@ def _authorize_api(request: Request, platform: str, tenant: str, rtype: str) -> 
         return None, _outcome(401, "expired", "Access token is invalid or expired.")
     if claims["platform"] != platform or claims["tenant"] != tenant:
         return None, _outcome(403, "forbidden", "Token was not issued for this FHIR server.")
+    if faults.expire_access_after is not None:
+        token_key = authz[7:].strip()
+        faults._token_uses[token_key] = faults._token_uses.get(token_key, 0) + 1
+        if faults._token_uses[token_key] > faults.expire_access_after:
+            return None, _outcome(401, "expired", "Access token is invalid or expired.")
     scopes = claims.get("scope", "").split()
     allowed = any(s in scopes for s in (f"patient/{rtype}.read", f"patient/{rtype}.rs", "patient/*.read", "patient/*.rs"))
     if not allowed:
@@ -342,7 +429,14 @@ def _authorize_api(request: Request, platform: str, tenant: str, rtype: str) -> 
 
 
 def _chart(claims: dict[str, Any]) -> list[dict[str, Any]]:
-    return generator.build_chart(claims["persona"], claims["tenant"], tenant_name(claims["tenant"]), claims["platform"])
+    chart = generator.build_chart(claims["persona"], claims["tenant"], tenant_name(claims["tenant"]), claims["platform"])
+    if faults.extra_labs:
+        chart += _extra_labs(generator.patient_id_for(claims["persona"], claims["tenant"]), faults.extra_labs)
+    if faults.hidden:
+        chart = [r for r in chart if f"{r['resourceType']}/{r['id']}" not in faults.hidden]
+    if faults.retracted:
+        chart = [{**r, "status": "entered-in-error"} if f"{r['resourceType']}/{r['id']}" in faults.retracted else r for r in chart]
+    return chart
 
 
 def _patient_of(res: dict[str, Any]) -> Optional[str]:
@@ -374,6 +468,10 @@ async def fhir_read(platform: str, tenant: str, rtype: str, rid: str, request: R
     claims, err = _authorize_api(request, platform, tenant, rtype)
     if err:
         return err
+    faults.requests.append(f"{rtype}/{rid}")
+    fault = faults.take(rtype, None, 0, read=True)
+    if fault:
+        return _faulty_answer(fault)
     patient = generator.patient_id_for(claims["persona"], tenant)  # type: ignore[index]
     for res in _chart(claims):  # type: ignore[arg-type]
         if res["resourceType"] == rtype and res["id"] == rid:
@@ -392,6 +490,12 @@ async def fhir_search(platform: str, tenant: str, rtype: str, request: Request) 
     if err:
         return err
     qp = request.query_params
+    faults.requests.append(f"{rtype}?{qp}")
+    fault = faults.take(rtype, qp.get("category"), int(qp.get("_offset", 0)), read=False)
+    if fault:
+        return _faulty_answer(fault)
+    if faults.reject_sort and qp.get("_sort"):
+        return _outcome(400, "not-supported", "_sort is not supported.")
     patient = generator.patient_id_for(claims["persona"], tenant)  # type: ignore[index]
     requested = next((qp.get(k) for k in SEARCH_PARAMS_PATIENT if qp.get(k)), None)
     if rtype != "Patient" and not requested:
@@ -415,6 +519,11 @@ async def fhir_search(platform: str, tenant: str, rtype: str, request: Request) 
     if rtype == "Condition" and qp.get("clinical-status"):
         wanted = set(qp["clinical-status"].split(","))
         matches = [r for r in matches if r["clinicalStatus"]["coding"][0]["code"] in wanted]
+
+    if qp.get("_sort") == "-date":
+        matches = sorted(matches, key=_date_of, reverse=True)
+    elif faults.oldest_first:
+        matches = sorted(matches, key=_date_of)
 
     count = max(1, min(int(qp.get("_count", 50)), 200))
     offset = max(0, int(qp.get("_offset", 0)))

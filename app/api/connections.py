@@ -8,6 +8,7 @@ import logging
 from typing import Any, Optional
 from urllib.parse import quote
 
+import asyncio
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -26,10 +27,16 @@ router = APIRouter(tags=["connections"])
 user = Depends(auth.require_user)
 
 
+SYNC_NOW_WAIT = 25.0     # a sync that takes longer carries on; the page watches it, and a proxy doesn't time it out
+_running: set[asyncio.Task] = set()
+
+
 def _present(conn: dict[str, Any]) -> dict[str, Any]:
     conn["syncing"] = sync.is_running(conn["id"])
     runs = connections.recent_runs(conn["id"], 1)
     conn["last_run"] = runs[0] if runs else None
+    if conn["kind"] == "ehr":
+        conn["removed_count"] = records.removed_count(conn["id"])
     return conn
 
 
@@ -112,11 +119,34 @@ def connect_wearable(req: WearableConnectRequest, request: Request, background: 
 
 @router.post("/api/connections/{connection_id}/sync", dependencies=[user])
 async def sync_now(connection_id: str) -> dict:
-    _mine(connection_id)
+    await run_in_threadpool(_mine, connection_id)
+    task = asyncio.create_task(sync.sync_connection(connection_id, "manual"))
+    _running.add(task)
+    task.add_done_callback(_running.discard)
+    await asyncio.wait({task}, timeout=SYNC_NOW_WAIT)
+    if not task.done():
+        return {"status": "running", "reason": "This is taking a while, so it's carrying on by itself. This page shows how it went."}
     try:
-        return await sync.sync_connection(connection_id, "manual")
+        return task.result()
     except LookupError:
         raise HTTPException(404, "Connection not found")
+
+
+@router.get("/api/connections/{connection_id}/removed", dependencies=[user])
+def removed_records(connection_id: str) -> dict:
+    """Records this source stopped returning or took back. They're out of the record, and can be put back."""
+    _mine(connection_id)
+    return {"items": records.removed_for_connection(connection_id), "keep_days": records.REMOVED_KEEP_DAYS}
+
+
+@router.post("/api/connections/{connection_id}/removed/{record_id}/restore", dependencies=[user])
+def restore_record(connection_id: str, record_id: str) -> dict:
+    _mine(connection_id)
+    item = records.get_removed(record_id)
+    if not item or item["connection_id"] != connection_id:
+        raise HTTPException(404, "That record isn't among this source's removed records.")
+    records.restore_removed(record_id)
+    return {"ok": True}
 
 
 class RenameRequest(BaseModel):

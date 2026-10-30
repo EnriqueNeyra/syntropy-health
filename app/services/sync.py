@@ -15,6 +15,8 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
+import httpx
+
 from app.connectors import fhir_normalize, google_health, oura, smart, whoop
 from app.connectors import wearable_common as wc
 from app.connectors.smart import SmartError
@@ -24,7 +26,11 @@ from app.store import activity, biometrics, connections, records
 log = logging.getLogger("syntropy.sync")
 
 _locks: dict[str, asyncio.Lock] = {}
-MAX_NOTE_FETCHES = 60
+MAX_NOTE_FETCHES = 200
+FAILING_RETRY_HOURS = 6
+# How a source says, in a resource it still returns, that the record was wrong or never happened.
+_TAKEN_BACK = {"entered-in-error", "cancelled", "revoked", "not-done"}
+_NOT_TRUE = {"entered-in-error", "refuted"}
 WEARABLE_INITIAL_DAYS = 90
 WEARABLE_OVERLAP_DAYS = 3
 
@@ -78,26 +84,53 @@ async def sync_connection(connection_id: str, trigger: str = "manual") -> dict[s
                 connections.finish_run(run_id, connection_id, status, stats)
                 with db() as c:
                     audit(c, "scheduler" if trigger == "scheduled" else "user", "sync.completed",
-                          {"connection": connection_id, "status": status, "trigger": trigger}, conn["profile_id"])
+                          {"connection": connection_id, "status": status, "trigger": trigger, "removed": stats.get("removed") or 0,
+                           "held": sum((stats.get("held") or {}).values())}, conn["profile_id"])
             await asyncio.to_thread(finish)
             return {"status": status, **stats}
         except SmartError as exc:
-            stats = {"failure_kind": exc.kind, "duration_s": round(time.time() - started, 2)}
-            await _record_failure(run_id, connection_id, stats, str(exc))
-            return {"status": "error", "error": str(exc), "kind": exc.kind}
+            return await _stopped(run_id, conn, exc, started)
+        except httpx.HTTPError as exc:
+            return await _stopped(run_id, conn, _plain_failure(exc, conn["display_name"]), started)
         except Exception as exc:  # noqa: BLE001 - surface any failure on the connection card
             log.exception("Sync failed for %s", connection_id)
             stats = {"failure_kind": "error", "duration_s": round(time.time() - started, 2)}
-            await _record_failure(run_id, connection_id, stats, f"Unexpected error: {exc}")
-            return {"status": "error", "error": str(exc), "kind": "error"}
+            detail = str(exc) or type(exc).__name__
+            await _record_failure(run_id, connection_id, stats, f"Unexpected error: {detail}")
+            return {"status": "error", "error": detail, "kind": "error"}
 
 
-async def _record_failure(run_id: Optional[int], connection_id: str, stats: dict[str, Any], error: str) -> None:
+def _plain_failure(exc: httpx.HTTPError, name: str) -> SmartError:
+    """A vendor's trouble in words, and whether it's the kind that passes."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        code = exc.response.status_code
+        if code in (408, 425, 429) or code >= 500:
+            return SmartError(f"{name} isn't answering right now ({code}). Syntropy will try again.", "network",
+                              retry_after=smart.retry_after_seconds(exc.response))
+        return SmartError(f"{name} refused this sync ({code}).", "error")
+    return SmartError(f"Couldn't reach {name}. Syntropy will try again.", "network")
+
+
+async def _stopped(run_id: Optional[int], conn: dict[str, Any], exc: SmartError, started: float) -> dict[str, Any]:
+    """A sync that couldn't finish. What it got before that is already stored, and the run says so."""
+    kind = exc.kind
+    if kind == "auth" and await asyncio.to_thread(connections.credentials_replaced, conn["id"], conn.get("credentials") or {}):
+        kind = "superseded"     # the person signed in again while this ran; this failure was about the old tokens
+    stats = {**exc.stats, "failure_kind": kind, "duration_s": round(time.time() - started, 2)}
+    if exc.retry_after:
+        stats["retry_after"] = exc.retry_after
+    status = "partial" if exc.stats else "error"
+    await _record_failure(run_id, conn["id"], stats, None if kind == "superseded" else str(exc), status)
+    return {**exc.stats, "status": status, "error": str(exc), "kind": kind}
+
+
+async def _record_failure(run_id: Optional[int], connection_id: str, stats: dict[str, Any], error: Optional[str],
+                          status: str = "error") -> None:
     """A database too busy to start or finish the run may be too busy to note that as well. The next sync tries again."""
     try:
         if run_id is None:
             run_id = await asyncio.to_thread(connections.start_run, connection_id, "failed")
-        await asyncio.to_thread(connections.finish_run, run_id, connection_id, "error", stats, error)
+        await asyncio.to_thread(connections.finish_run, run_id, connection_id, status, stats, error)
     except sqlite3.Error:
         log.exception("Couldn't record a failed sync for %s", connection_id)
 
@@ -111,45 +144,101 @@ async def _sync_ehr(conn: dict[str, Any]) -> dict[str, Any]:
     if not creds.get("access_token"):
         raise SmartError("This connection has no access token. Reconnect to continue.", "auth")
     simulated = conn["mode"] == "simulated"
+
+    async def renewed(new: dict[str, Any]) -> None:
+        await asyncio.to_thread(connections.save_renewed, conn["id"], conn["credentials"], new)
+        conn["credentials"] = new
     if wc.needs_refresh(creds):
         creds = await smart.refresh(creds, simulated)
-        await asyncio.to_thread(connections.update, conn["id"], credentials=creds)
+        await renewed(creds)
 
-    client = smart.FhirClient(conn["fhir_base_url"], creds, conn["patient_ref"], simulated)
-    fetched = await client.fetch_all()
-    if client.refreshed:
-        await asyncio.to_thread(connections.update, conn["id"], credentials=client.credentials)
+    saved = await asyncio.to_thread(connections.query_state, conn["id"])
+    client = smart.FhirClient(conn["fhir_base_url"], creds, conn["patient_ref"], simulated, on_refresh=renewed)
+    fetched = await client.fetch_all(saved)
 
     # Normalizing and storing thousands of records is plain CPU and SQLite work: it runs in a thread so the server
     # keeps answering (the page, the phone) meanwhile.
-    patient, recs = await asyncio.to_thread(fhir_normalize.normalize_resources, [fetched.patient] + fetched.resources)  # type: ignore[list-item]
-    notes_fetched = await _fetch_note_bodies(conn, client, recs, simulated)
+    unreadable: list[str] = []
+    everything = ([fetched.patient] if fetched.patient else []) + fetched.resources
+    patient, recs = await asyncio.to_thread(fhir_normalize.normalize_resources, everything, unreadable)
+    notes = await _fetch_note_bodies(conn, client, recs, simulated)
 
-    def store() -> tuple[dict[str, Any], int]:
+    returned = {f"{r['resourceType']}/{r.get('id')}": r for r in fetched.resources}
+    stored = {f"{r['resource_type']}/{r['resource_id']}" for r in recs}
+    retracted = {key for key, res in returned.items() if key not in stored and key not in unreadable and _says_taken_back(res)}
+
+    def store() -> tuple[dict[str, Any], dict[str, Any]]:
         if patient:
             records.upsert_identity(conn["id"], conn["profile_id"], patient)
         write = records.upsert_records(conn["profile_id"], conn["id"], conn["display_name"], recs)
-        seen = {f"{r['resource_type']}/{r['resource_id']}" for r in recs}
-        return write, records.prune_missing(conn["id"], fetched.complete_types, seen)
-    write, pruned = await asyncio.to_thread(store)
+        outcome = records.reconcile(conn["id"], set(returned) - retracted, fetched.prune_verdict, retracted)
+        connections.save_query_state(conn["id"], fetched.state())
+        return write, outcome
+    write, outcome = await asyncio.to_thread(store)
 
-    warnings = [f"{k}: {v}" for k, v in fetched.status.items() if v not in ("ok", "empty", "not-granted")]
+    warnings = _query_warnings(fetched, saved)
+    if unreadable:
+        warnings.append(f"{len(unreadable)} records couldn't be read, so the copies already here were kept.")
+    if notes["problem"]:
+        warnings.append(notes["problem"])
     by_category: dict[str, int] = {}
     for r in recs:
         by_category[r["category"]] = by_category.get(r["category"], 0) + 1
-    return {
-        "resources": len(fetched.resources) + 1, "records": len(recs), "inserted": write["inserted"],
-        "updated": write["updated"], "pruned": pruned, "notes_fetched": notes_fetched,
-        "by_category": by_category, "queries": fetched.status, "warnings": warnings,
+    stats = {
+        "resources": len(everything), "records": len(recs), "inserted": write["inserted"],
+        "updated": write["updated"], "pruned": outcome["removed"], "removed": outcome["removed"], "held": outcome["held"],
+        "notes_fetched": notes["fetched"], "notes_pending": notes["pending"], "by_category": by_category,
+        "queries": fetched.status, "counts": fetched.counts, "warnings": warnings,
+        "more_to_fetch": fetched.more_to_fetch or bool(notes["pending"]),
     }
+    if fetched.come_back_at:
+        stats["retry_after"] = max(0.0, fetched.come_back_at - time.time())
+    if fetched.stopped:
+        if recs:
+            fetched.stopped.stats = stats
+        raise fetched.stopped
+    return stats
 
 
-async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, recs: list[dict[str, Any]], simulated: bool) -> int:
+def _says_taken_back(res: dict[str, Any]) -> bool:
+    """The source still returns this resource, but to say it was wrong or never happened."""
+    if (res.get("status") or "").lower() in _TAKEN_BACK or (res.get("docStatus") or "").lower() == "entered-in-error":
+        return True
+    verification = res.get("verificationStatus")
+    return isinstance(verification, dict) and bool(smart._codes(verification) & _NOT_TRUE)
+
+
+def _query_warnings(fetched: smart.FetchResult, saved: dict[str, dict[str, Any]]) -> list[str]:
+    """What the person should hear about. A query this server has never answered, for something it may simply not keep,
+    isn't news. One that used to work and has stopped is."""
+    warnings = []
+    for label, status in fetched.status.items():
+        if status in ("ok", "empty", "not-granted"):
+            continue
+        answered_before = (saved.get(label) or {}).get("ever_answered")
+        if not answered_before and (status == "unsupported" or label in smart.OPTIONAL_QUERIES):
+            continue
+        name = smart.QUERY_NAMES.get(label, label)
+        if status == "paused":
+            warnings.append(f"{name}: still downloading. The rest comes in at the next sync.")
+        elif status == "forbidden":
+            warnings.append(f"{name}: this source didn't allow them to be read.")
+        elif status == "unsupported":
+            warnings.append(f"{name}: this source has stopped offering them.")
+        elif status == "truncated":
+            warnings.append(f"{name}: the source sent the rest from another address, so it wasn't downloaded.")
+        else:
+            warnings.append(f"{name}: couldn't be downloaded this time. What's here was kept, and Syntropy will try again.")
+    return warnings
+
+
+async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, recs: list[dict[str, Any]], simulated: bool) -> dict[str, Any]:
     """Clinical notes and reports often reference their content by URL (Binary); fetch text bodies we don't have yet."""
+    done: dict[str, Any] = {"fetched": 0, "pending": 0, "problem": None}
     pending = [r for r in recs if r["category"] in ("notes", "reports") and not r.get("narrative")
                and (r.get("details") or {}).get("attachments")]
     if not pending:
-        return 0
+        return done
     existing: dict[str, str] = {}
     with read() as c:       # without the write lock: this runs on the event loop, and a big upload may hold it
         rows = c.execute(
@@ -158,21 +247,32 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
             (conn["id"],),
         ).fetchall()
         existing = {r["resource_id"]: r["narrative"] for r in rows}
-    fetched = 0
+    # Every body already here first, whatever happens below: storing a record without one would blank it.
+    for rec in pending:
+        if rec["resource_id"] in existing:
+            rec["narrative"] = existing[rec["resource_id"]]
+    wanted = sorted((r for r in pending if not r.get("narrative")), key=lambda r: r.get("effective_at") or "", reverse=True)
+    attempts = 0
     async with smart.http_client(simulated) as http:
-        for rec in pending:
-            if rec["resource_id"] in existing:
-                rec["narrative"] = existing[rec["resource_id"]]
-                continue
-            if fetched >= MAX_NOTE_FETCHES:
+        for position, rec in enumerate(wanted):
+            if attempts >= MAX_NOTE_FETCHES or client.time_left() <= 0:
+                done["pending"] = len(wanted) - position
                 break
+            attempts += 1
             for att in rec["details"].get("attachments") or []:
                 ctype = (att.get("content_type") or "").lower()
                 if not att.get("url") or not (ctype.startswith("text/") or "xml" in ctype or not ctype):
                     continue
                 try:
                     body = await client.read_binary_text(http, att["url"])
+                except SmartError as exc:
+                    # Access has gone: the other notes would only fail the same way. They come with a later sync.
+                    log.info("Stopped fetching note text from %s: %s", conn["display_name"], exc)
+                    done["pending"] = len(wanted) - position
+                    done["problem"] = "Clinical notes: the text of some couldn't be downloaded this time. Syntropy will try again."
+                    return done
                 except Exception:  # noqa: BLE001
+                    done["problem"] = "Clinical notes: the text of some couldn't be downloaded this time. Syntropy will try again."
                     body = None
                 if body:
                     content_type, raw = body
@@ -180,9 +280,9 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
                     if "html" in content_type or "xml" in content_type:
                         text = fhir_normalize.strip_html(text)
                     rec["narrative"] = text[:200_000]
-                    fetched += 1
+                    done["fetched"] += 1
                     break
-    return fetched
+    return done
 
 
 # ---------------------------------------------------------------------------
@@ -214,16 +314,19 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
         creds = conn.get("credentials") or {}
         if not creds.get("access_token"):
             raise SmartError("This connection has no access token. Reconnect to continue.", "auth")
+        async def renew() -> dict[str, Any]:
+            new = await module.refresh(conn["credentials"])
+            await asyncio.to_thread(connections.save_renewed, conn["id"], conn["credentials"], new)
+            conn["credentials"] = new
+            return new
         if wc.needs_refresh(creds):
-            creds = await module.refresh(creds)
-            await asyncio.to_thread(connections.update, conn["id"], credentials=creds)
+            creds = await renew()
         try:
             data = await module.fetch_live(creds, since, today)
         except SmartError as exc:
             if exc.kind != "auth" or not creds.get("refresh_token"):
                 raise
-            creds = await module.refresh(creds)
-            await asyncio.to_thread(connections.update, conn["id"], credentials=creds)
+            creds = await renew()
             data = await module.fetch_live(creds, since, today)
 
     def store() -> tuple[dict[str, Any], int]:      # in a thread, like the EHR's records
@@ -272,11 +375,16 @@ def due_connections(ehr_hours: float, wearable_hours: float) -> list[dict[str, A
     for c in connections.list_active_all():
         if c["kind"] not in ("ehr", "wearable") or c["status"] == "needs_reauth" or c.get("access_ended"):
             continue
+        # After a temporary failure, or with a history still coming in: when that said to try again, even if it's soon.
+        if c.get("next_retry_at"):
+            if now >= c["next_retry_at"]:
+                due.append(c)
+            continue
         interval = (ehr_hours if c["kind"] == "ehr" else wearable_hours) * 3600
         last = c.get("last_sync_at") or 0
         # Back off failing connections (retry at most every 6 hours).
         if c["status"] == "error":
-            interval = max(interval, 6 * 3600)
+            interval = max(interval, FAILING_RETRY_HOURS * 3600)
         if now - last >= interval:
             due.append(c)
     return due

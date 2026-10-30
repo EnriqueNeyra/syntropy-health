@@ -647,11 +647,12 @@ NORMALIZERS: dict[str, Callable[..., Optional[dict[str, Any]]]] = {
 }
 
 
-def normalize_resources(resources: list[dict[str, Any]]) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:
+def normalize_resources(resources: list[dict[str, Any]],
+                        failures: Optional[list[str]] = None) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:
     """
     Normalizes a flat list of FHIR resources (search results + includes).
     Returns (patient, records). Medication references and lab panel membership are
-    resolved within the set.
+    resolved within the set. ``failures`` collects the resources that couldn't be read.
     """
     index = {f"{r.get('resourceType')}/{r.get('id')}": r for r in resources if r.get("id")}
 
@@ -674,6 +675,8 @@ def normalize_resources(resources: list[dict[str, Any]]) -> tuple[Optional[dict[
             rec = fn(res, resolve) if rtype in ("MedicationRequest", "MedicationStatement") else fn(res)
         except Exception:  # noqa: BLE001 - one malformed resource must never break a sync
             rec = None
+            if failures is not None:
+                failures.append(f"{rtype}/{res.get('id')}")
         if rec and rec["resource_id"]:
             records.append(rec)
 

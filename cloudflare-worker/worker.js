@@ -49,13 +49,14 @@ export default {
     try {
       if (path === "/health") return json({ status: "ok", service: "syntropy-auth-relay", commit: env.COMMIT || null });
       if ((path === "/callback" || path === "/refresh") && !(await allowed(request, env))) {
-        return json({ error: "rate_limited" }, 429);
+        return json({ error: "rate_limited" }, 429, { "Retry-After": "60" });
       }
       if (path === "/callback" && request.method === "GET") return await handleCallback(url, env);
       if (path === "/refresh" && request.method === "POST") return await handleRefresh(request, env);
       if (path === "/") return Response.redirect(SITE, 302);
       return new Response("Not found", { status: 404 });
     } catch (err) {
+      if (path === "/refresh") return json({ error: "relay_error" }, 502);
       return page("Something went wrong", String(err && err.message || err), DEFAULT_TARGET, 500);
     }
   },
@@ -185,20 +186,34 @@ async function handleRefresh(request, env) {
   const form = { grant_type: "refresh_token", refresh_token: body.refresh_token, client_id: env[cfg.idVar], client_secret: secret };
   if (cfg.refreshScope) form.scope = cfg.refreshScope;
   const tokens = await tokenRequest(cfg.tokenUrl, form);
-  if (tokens.error) return json({ error: "refresh_failed", error_description: tokens.error }, 400);
+  // A provider's bad moment stays distinct from a refusal, so the app tries again rather than asking for a new sign-in.
+  // Releases that don't look at this treat any failure alike, as before.
+  if (tokens.error) {
+    const passing = tokens.status === 200 || tokens.status === 429 || tokens.status >= 500 || TEMPORARY_OAUTH.has(tokens.code);
+    if (passing) return json({ error: "provider_unavailable", error_description: tokens.error }, 503, tokens.retryAfter ? { "Retry-After": tokens.retryAfter } : {});
+    return json({ error: "refresh_failed", error_description: tokens.error, oauth_error: tokens.code }, 400);
+  }
   return json({ access_token: tokens.access_token, refresh_token: tokens.refresh_token, expires_in: tokens.expires_in, scope: tokens.scope });
 }
 
+const TEMPORARY_OAUTH = new Set(["temporarily_unavailable", "server_error", "slow_down"]);
+
 async function tokenRequest(tokenUrl, form) {
-  const resp = await fetch(tokenUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
-    body: new URLSearchParams(form),
-  });
+  let resp;
+  try {
+    resp = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams(form),
+    });
+  } catch (_) {
+    return { error: "HTTP 502", status: 502 };   // the provider couldn't be reached at all
+  }
   let data = {};
   try { data = await resp.json(); } catch (_) { /* non-JSON error body */ }
   if (!resp.ok || !data.access_token) {
-    return { error: data.error_description || data.error || `HTTP ${resp.status}` };
+    return { error: data.error_description || data.error || `HTTP ${resp.status}`, code: data.error, status: resp.status,
+             retryAfter: resp.headers.get("retry-after") };
   }
   return data;
 }
@@ -217,8 +232,8 @@ function redirect(location) {
   return new Response(null, { status: 302, headers: { Location: location, ...SECURITY_HEADERS } });
 }
 
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json", ...SECURITY_HEADERS } });
+function json(obj, status = 200, headers = {}) {
+  return new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json", ...SECURITY_HEADERS, ...headers } });
 }
 
 function escapeHtml(s) {

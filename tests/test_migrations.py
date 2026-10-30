@@ -30,6 +30,8 @@ MIGRATION_HASHES = {
     "011_healthkit_export_platform.sql": "019c3c1d7fa357f5c2a148f091a0fcd0be768aeec59adf178b3dc7dd03a4a46f",
     "012_workout_humidity.sql": "35f0dff42fa87d9252f9311efb742eb4c3a0d5f86e1fe512f9597e7c662c2d03",
     "013_daily_revisions.sql": "81aa57eaeaddd9ac7e7504e7e8a811e23936a7bc0274f7988a5414cf90cf7279",
+    "025_sync_query_state.sql": "89b2ae046caae627a8ad9385cb35fbe4a7e2a8a0d00742cbd5fa888c3f7e8ff7",
+    "026_removed_records.sql": "fcef2b3cc2a95d41d33544209356bbde629235071d2591c14dac9e7381ffba27",
 }
 
 
@@ -125,7 +127,9 @@ def _seed(conn: sqlite3.Connection, version: int, stored_hash: str) -> None:
 
 
 def _shipped_versions() -> list[int]:
-    return [int(name.split("_", 1)[0]) for name in MIGRATION_HASHES]
+    from app.core import db
+    # The newest has nothing to upgrade to.
+    return [v for v in (int(name.split("_", 1)[0]) for name in MIGRATION_HASHES) if v < db.newest_schema()]
 
 
 @pytest.mark.parametrize("version", _shipped_versions())

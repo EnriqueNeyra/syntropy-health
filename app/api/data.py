@@ -183,6 +183,7 @@ def wipe_profile_data(profile_id: str) -> dict:
     prof = resolve_profile(profile_id)
     with db() as conn:
         conn.execute("DELETE FROM clinical_records WHERE profile_id = ?", (prof["id"],))
+        conn.execute("DELETE FROM clinical_records_removed WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM patient_identities WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM biometric_samples WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM biometric_daily WHERE profile_id = ?", (prof["id"],))

@@ -89,7 +89,7 @@ async def fetch_live(credentials: dict[str, Any], since: date, until: date) -> d
         data[ep] = res
     if failed:
         # Counted as a success, the next sync would start after the days these didn't bring; as an error it retries.
-        raise SmartError(f"Oura didn't answer for {', '.join(failed)}. Syntropy Health will try again.", "error")
+        raise SmartError(f"Oura didn't answer for {', '.join(failed)}. Syntropy Health will try again.", "network")
     return data
 
 
