@@ -51,7 +51,7 @@ def health_details() -> dict:
         "scheduler": {"enabled": config.scheduler_enabled(), "last_tick_at": tick, "age_seconds": round(now - tick) if tick else None},
         "last_sync": {kind: {"at": at, "age_seconds": round(now - at) if at else None} for kind, at in syncs.items()},
         "data_fixes": data_fixes.status(),
-        "problems": maintenance.problems(),
+        "problems": maintenance.problems() + updates.problems(),
     }
 
 
@@ -86,7 +86,7 @@ def status(request: Request) -> dict:
             if update["available"]:
                 out["update"] = {"version": update["latest"]["version"], "installs": update["method"]["installs"]}
         if principal.owner:
-            out["problems"] = maintenance.problems()
+            out["problems"] = maintenance.problems() + updates.problems()
     return out
 
 

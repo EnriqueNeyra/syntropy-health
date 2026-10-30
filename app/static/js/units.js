@@ -79,11 +79,6 @@ export function fmtMeasure(value, unit, metric = "", { withUnit = true, digits }
   return withUnit && c.unit ? `${n} ${c.unit}` : n;
 }
 
-/** Converts a list of chart points ({ v } or { value }) in place of copies. */
-export function convertPoints(points, unit, metric = "", key = "v") {
-  return points.map((p) => (p[key] == null ? p : { ...p, [key]: convert(p[key], unit, metric).value }));
-}
-
 /**
  * A health-record value (a vital sign like weight or temperature) in the chosen units. Records keep the number and
  * unit they were recorded with; anything that isn't a body measurement is returned as recorded.

@@ -671,7 +671,7 @@ async def _openai_events(payloads: AsyncIterator[dict[str, Any]]) -> AsyncIterat
 
 class _Visible:
     """What of a streamed reply may be shown so far: reasoning some models inline as <think>…</think> never is."""
-    OPEN, CLOSE = "<think>", "</think>"
+    OPEN = "<think>"
 
     def __init__(self) -> None:
         self.raw, self.sent = "", ""

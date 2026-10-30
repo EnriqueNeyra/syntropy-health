@@ -288,7 +288,7 @@ cat > /usr/local/bin/syntropy-health <<EOF
 export SYNTROPY_DATA_DIR="$DATA"
 [ -r "$ETC/env" ] && set -a && . "$ETC/env" && set +a
 case "\${1:-}" in
-  serve|mcp|backup|info)
+  serve|mcp|backup|info|accounts|key|dev)
     if [ "\$(id -u)" = 0 ]; then
       exec runuser -u "$RUN_AS" -- "$PREFIX/venv/bin/syntropy-health" "\$@"
     fi;;

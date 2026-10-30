@@ -17,6 +17,7 @@ The same code runs from a clone (``./run.sh``), a pip or uv install, the Linux i
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shlex
 import shutil
@@ -24,6 +25,8 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
+import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Optional
@@ -34,6 +37,7 @@ SERVICE = "syntropy-health"
 LAUNCHD_LABEL = "io.syntropyhealth.server"
 WINDOWS_TASK = "Syntropy Health"
 DEFAULT_PORT = 8000
+UPDATE_WAIT_SECONDS = 600
 # Where `update` installs from: the latest release, unless the installer recorded another source (--source).
 LATEST = "latest"
 
@@ -350,6 +354,7 @@ def update() -> None:
         sys.exit("This is a clone of the repository: update it with git pull.")
     recorded = Path(sys.prefix) / "syntropy-source.txt"
     source = (recorded.read_text().strip() if recorded.exists() else "") or LATEST
+    target = None       # a package chosen when installing: whichever version that is now
     if source == LATEST:
         try:
             release = updates.fetch_latest()
@@ -365,14 +370,92 @@ def update() -> None:
         except updates.InstallFailed as exc:
             sys.exit(str(exc))
         print(f"Updating Syntropy Health {config.APP_VERSION} to {release['version']}.")
+        target = release["version"]
+    previous = config.APP_VERSION
+    started = time.time() - 2
+    port = _last_port()
+    print("Installing the latest version…")
+    _pip_install(source)
+    if _service_state() in ("not installed",):
+        print("Updated. Your data is untouched; the database is upgraded when the server starts.")
+        return
+    service_control("restart")
+    print("Waiting for the server to start on the new version…")
+    problem = _wait_for_server(port, target, UPDATE_WAIT_SECONDS)
+    if problem is None:
+        updates.clear_failed_update()
+        print("Updated, and the server is running. A copy of the database from before the upgrade is in "
+              f"{config.db_path().parent / 'pre-upgrade'}.")
+        return
+    _update_failed(problem, target, previous, started, port)
+
+
+def _pip_install(source: str) -> None:
     uv = shutil.which("uv")
     cmd = ([uv, "pip", "install", "--python", sys.executable, "--upgrade", source] if uv
            else [sys.executable, "-m", "pip", "install", "--upgrade", source])
-    print("Installing the latest version…")
     subprocess.run(cmd, check=True)
-    if _service_state() not in ("not installed",):
-        service_control("restart")
-    print("Updated. Your data is untouched; the database is upgraded when the server starts.")
+
+
+def _last_port() -> int:
+    """Where the service listens, whether or not it's running right now."""
+    try:
+        return int(_pid_file().read_text().split()[1])
+    except (OSError, ValueError, IndexError):
+        return DEFAULT_PORT
+
+
+def _wait_for_server(port: int, version: Optional[str], seconds: float) -> Optional[str]:
+    """None once the server says it's healthy on ``version``, else why not. Upgrading a large database can take minutes,
+    during which it doesn't answer at all. An answer of 503 is final: it's up, and has said it can't do its job."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    deadline = time.monotonic() + seconds
+    reason = f"It didn't answer within {round(seconds / 60)} minutes."
+    while time.monotonic() < deadline:
+        try:
+            with opener.open(f"http://127.0.0.1:{port}/health", timeout=5) as r:
+                body = json.loads(r.read())
+            if body.get("status") == "ok" and version in (None, body.get("version")):
+                return None
+            reason = f"It answered as version {body.get('version')} instead of {version}."
+        except urllib.error.HTTPError as exc:
+            try:
+                return json.loads(exc.read()).get("detail") or f"It answered {exc.code}."
+            except ValueError:
+                return f"It answered {exc.code}."
+        except (OSError, ValueError):
+            pass
+        time.sleep(2)
+    return reason
+
+
+def _update_failed(problem: str, target: Optional[str], previous: str, started: float, port: int) -> None:
+    """Automatic updates run overnight, with nobody watching: put back the version that worked, and the database as it
+    was for it. What the new version left is kept. Only for the Linux service, which can be stopped for certain."""
+    from app.core import db
+    from app.services import updates
+
+    print(f"The new version didn't start: {problem}")
+    updates.note_failed_update(target, problem)
+    if not target or not sys.platform.startswith("linux"):     # without a release to go back to, or a service to stop for certain
+        copies = db.pre_upgrade_copies()
+        where = f" A copy of the database from before the upgrade is at {copies[0]['path']}." if copies else ""
+        sys.exit(f"Install version {previous} again from {updates.RELEASES_URL} to get back to where you were.{where}")
+    print(f"Going back to version {previous}.")
+    service_control("stop")
+    try:
+        _pip_install(updates.package_source_for(previous))
+    except subprocess.CalledProcessError:
+        service_control("start")
+        sys.exit(f"Couldn't reinstall version {previous}. Install it from {updates.RELEASES_URL}.")
+    restored = db.restore_pre_upgrade(started)
+    service_control("start")
+    again = _wait_for_server(port, previous, UPDATE_WAIT_SECONDS)
+    if again:
+        sys.exit(f"Version {previous} is back in place, but the server didn't start either: {again}")
+    note = f" The database was put back as it was before the upgrade, from {restored}." if restored else ""
+    sys.exit(f"Version {previous} is running again.{note} Version {target} won't be installed automatically; "
+             "`syntropy-health update` tries it again.")
 
 
 def update_due() -> None:
@@ -391,6 +474,11 @@ def update_due() -> None:
         sys.exit(1)
     if not release or not updates.is_newer(release["version"]):
         print(f"Syntropy Health {config.APP_VERSION} is the latest version.")
+        sys.exit(1)
+    failed = updates.failed_update()
+    if failed and failed.get("version") == release["version"]:
+        print(f"Syntropy Health {release['version']} didn't start here, so it won't be tried again automatically. "
+              "`syntropy-health update` tries it by hand.")
         sys.exit(1)
     print(f"Syntropy Health {release['version']} is available.")
 

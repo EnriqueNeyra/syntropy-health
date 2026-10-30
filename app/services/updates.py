@@ -16,7 +16,9 @@ Checks can be turned off in Settings, or for the whole installation with SYNTROP
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
 import re
 import sys
 import threading
@@ -112,6 +114,50 @@ def package_source(release: dict[str, Any]) -> str:
     if not wheel:
         raise InstallFailed(f"Version {release['version']} has no package for this computer yet. Try again later.")
     return f"syntropy-health @ {wheel}"
+
+
+def package_source_for(version: str) -> str:
+    """A release's wheel by its version, to go back to one (scripts/install.sh builds the same address)."""
+    return (f"syntropy-health @ https://github.com/{REPO}/releases/download/v{version}/"
+            f"syntropy_health-{version}-py3-none-any.whl")
+
+
+# ---------------------------------------------------------------------------
+# An update that didn't start: kept in a file, not the database, because whoever runs the update may be root, and the
+# database was just put back. With it the nightly timer doesn't retry the same release, and the owner is told.
+# ---------------------------------------------------------------------------
+
+def _failed_file() -> Path:
+    return config.data_dir() / "update-failed.json"
+
+
+def note_failed_update(version: Optional[str], detail: str) -> None:
+    path = _failed_file()
+    path.write_text(json.dumps({"version": version, "at": time.time(), "detail": detail}))
+    try:
+        owner = config.data_dir().stat()
+        os.chown(path, owner.st_uid, owner.st_gid)
+    except (OSError, AttributeError):       # not root, or Windows
+        pass
+
+
+def failed_update() -> Optional[dict[str, Any]]:
+    try:
+        return json.loads(_failed_file().read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def clear_failed_update() -> None:
+    _failed_file().unlink(missing_ok=True)
+
+
+def problems() -> list[dict[str, str]]:
+    failed = failed_update()
+    if not failed or (failed.get("version") and not is_newer(failed["version"])):
+        return []      # since then, that version or a newer one has been installed
+    return [{"id": f"update-failed-{failed.get('version')}", "title": f"The update to {failed.get('version') or 'a new version'} didn't start",
+             "text": f"Syntropy Health went back to the version that worked, so nothing is lost. What happened: {failed.get('detail')}"}]
 
 
 # ---------------------------------------------------------------------------

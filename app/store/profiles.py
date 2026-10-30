@@ -5,7 +5,8 @@ from __future__ import annotations
 import time
 from typing import Any, Optional
 
-from app.core.db import db, read, new_id, row_to_dict, rows_to_dicts
+from app.core import settings
+from app.core.db import db, discard_pre_upgrade_copies, read, new_id, row_to_dict, rows_to_dicts
 from app.store import sample_counts
 
 RELATIONSHIPS = ("self", "partner", "child", "parent", "sibling", "other")
@@ -97,12 +98,14 @@ def delete_profile(profile_id: str) -> None:
         conn.execute("UPDATE agent_tokens SET revoked_at = ? WHERE revoked_at IS NULL AND (profile_id = ? OR account_id IN "
                      "(SELECT id FROM accounts WHERE profile_id = ?))", (time.time(), profile_id, profile_id))
         conn.execute("DELETE FROM devices WHERE account_id IN (SELECT id FROM accounts WHERE profile_id = ?)", (profile_id,))
-        conn.execute("DELETE FROM app_settings WHERE key = ?", (f"overview.layout.{profile_id}",))
+        for prefix in (f"overview.layout.{profile_id}", f"alerts.seen.{profile_id}", f"alerts.dismissed.{profile_id}", f"goals.{profile_id}"):
+            settings.delete_prefix_in(conn, prefix)
         conn.execute("DELETE FROM profiles WHERE id = ?", (profile_id,))
         remaining = conn.execute("SELECT id FROM profiles ORDER BY created_at LIMIT 1").fetchone()
         if remaining and not conn.execute("SELECT 1 FROM profiles WHERE is_default = 1").fetchone():
             conn.execute("UPDATE profiles SET is_default = 1 WHERE id = ?", (remaining["id"],))
     sample_counts.forget()
+    discard_pre_upgrade_copies()
 
 
 def resolve(profile_id: Optional[str]) -> dict[str, Any]:

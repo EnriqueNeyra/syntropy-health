@@ -121,10 +121,6 @@ def delete_profile(profile_id: str) -> dict:
     if len(profiles.list_profiles()) <= 1:
         raise HTTPException(400, "At least one profile must remain.")
     profiles.delete_profile(profile_id)
-    settings.delete_prefix(f"overview.layout.{profile_id}")
-    settings.delete_prefix(f"alerts.seen.{profile_id}")
-    settings.delete_prefix(f"alerts.dismissed.{profile_id}")
-    settings.delete_prefix(f"goals.{profile_id}")
     return {"ok": True}
 
 

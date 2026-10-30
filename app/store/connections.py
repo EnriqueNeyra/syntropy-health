@@ -6,7 +6,7 @@ import time
 from typing import Any, Optional
 
 from app.core import security
-from app.core.db import audit, db, read, dumps, new_id, row_to_dict, rows_to_dicts
+from app.core.db import audit, db, discard_pre_upgrade_copies, read, dumps, new_id, row_to_dict, rows_to_dicts
 from app.store import sample_counts
 
 PUBLIC_FIELDS = (
@@ -151,13 +151,6 @@ def update(connection_id: str, **fields: Any) -> None:
         conn.execute(f"UPDATE connections SET {sets} WHERE id = ?", (*cols.values(), connection_id))
 
 
-def update_credentials(connection_id: str, patch: dict[str, Any]) -> dict[str, Any]:
-    current = (get(connection_id, include_credentials=True) or {}).get("credentials") or {}
-    current.update({k: v for k, v in patch.items() if v is not None})
-    update(connection_id, credentials=current)
-    return current
-
-
 def disconnect(connection_id: str, delete_data: bool = False) -> None:
     with db() as conn:
         row = conn.execute("SELECT profile_id, display_name FROM connections WHERE id = ?", (connection_id,)).fetchone()
@@ -177,6 +170,7 @@ def disconnect(connection_id: str, delete_data: bool = False) -> None:
               {"id": connection_id, "name": row["display_name"]}, row["profile_id"])
     if delete_data:
         sample_counts.forget()
+        discard_pre_upgrade_copies()
 
 
 # ---------------------------------------------------------------------------

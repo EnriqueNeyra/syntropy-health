@@ -358,13 +358,6 @@ def iter_items(xml_stream: io.BufferedIOBase,
         elem.clear()
 
 
-def iter_samples(xml_stream: io.BufferedIOBase) -> Iterator[dict[str, Any]]:
-    """Quantity and sleep samples only (kept for callers that don't store workouts/events)."""
-    for kind, item in iter_items(xml_stream):
-        if kind == "sample":
-            yield item
-
-
 def zip_reader(path: Path) -> Optional[Callable[[str], Optional[bytes]]]:
     """Reads files referenced from export.xml (e.g. '/workout-routes/route_x.gpx') out of the export zip."""
     if not zipfile.is_zipfile(path):

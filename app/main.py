@@ -44,7 +44,17 @@ class _RedactSecrets(logging.Filter):
         return True
 
 
+class _QuietHealthChecks(logging.Filter):
+    """A container's health check every 30 seconds would bury everything else in the access log. Failures still show."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        return not (isinstance(args, tuple) and len(args) >= 5 and args[2] == "/health" and args[4] == 200
+                    and str(args[0]).startswith(("127.0.0.1", "[::1]", "::1")))
+
+
 logging.getLogger("uvicorn.access").addFilter(_RedactSecrets())
+logging.getLogger("uvicorn.access").addFilter(_QuietHealthChecks())
 
 STATIC_DIR = config.APP_DIR / "static"
 

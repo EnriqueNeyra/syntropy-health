@@ -158,7 +158,8 @@ class Server:
         self.thread.start()
         # Wait for this server to be listening (uvicorn sets `started` once bound), not just for something to answer
         # on the port: another program there would otherwise pass for it.
-        deadline = time.time() + 60
+        # Long enough for the first start after an update: copying and upgrading a database of several GB takes minutes.
+        deadline = time.time() + 900
         while time.time() < deadline and self.thread.is_alive():
             if self.server.started:
                 return

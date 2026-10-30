@@ -390,6 +390,41 @@ def _prune_copies(folder: Path) -> None:
         newest_of[version][1].unlink(missing_ok=True)
 
 
+def restore_pre_upgrade(since: float, path: Optional[Path] = None) -> Optional[Path]:
+    """Puts back the copy made by an upgrade after ``since``, for a release that won't start. The server must be stopped.
+    The files it replaces are kept, in pre-upgrade/replaced-*. May run as root: the files keep their owner."""
+    path = path or config.db_path()
+    copies = [c for c in pre_upgrade_copies(path) if c["created_at"] >= since]
+    if not copies:
+        return None
+    copy = Path(copies[0]["path"])
+    owner = path.stat()
+    aside = copy.parent / f"replaced-{time.strftime('%Y%m%d-%H%M%S', time.gmtime())}"
+    aside.mkdir(parents=True, exist_ok=True)
+    restoring = path.with_name(f"{path.name}.restoring")
+    shutil.copyfile(copy, restoring)
+    with open(restoring, "rb+") as fh:
+        os.fsync(fh.fileno())
+    for target in (aside, restoring):
+        if os.name != "nt":
+            target.chmod(0o700 if target.is_dir() else 0o600)
+            if os.geteuid() == 0:
+                os.chown(target, owner.st_uid, owner.st_gid)
+    for f in (path, Path(f"{path}-wal"), Path(f"{path}-shm")):
+        if f.exists():
+            os.replace(f, aside / f.name)
+    os.replace(restoring, path)
+    log.warning("Put the database back from %s; what it replaced is in %s", copy, aside)
+    return copy
+
+
+def discard_pre_upgrade_copies(path: Optional[Path] = None) -> None:
+    """When someone's data is deleted, it has to go from these copies too."""
+    folder = (path or config.db_path()).parent / PRE_UPGRADE_DIR
+    if folder.is_dir():
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def pre_upgrade_copies(path: Optional[Path] = None) -> list[dict[str, Any]]:
     """The copies kept from before upgrades, newest first."""
     folder = (path or config.db_path()).parent / PRE_UPGRADE_DIR

@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.deps import check_access, resolve_profile
 from app.core import auth, maintenance
-from app.core.db import StartupProblem, audit, db, new_id, read, snapshot
+from app.core.db import StartupProblem, audit, db, discard_pre_upgrade_copies, new_id, read, snapshot
 from app.services import imports
 from app.store import activity, biometrics, records, sample_counts
 
@@ -196,6 +196,7 @@ def wipe_profile_data(profile_id: str) -> dict:
         conn.execute("DELETE FROM devices WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM connections WHERE profile_id = ?", (prof["id"],))
         audit(conn, "user", "profile.data_deleted", None, prof["id"])
+    discard_pre_upgrade_copies()
     sample_counts.forget()
     return {"ok": True}
 

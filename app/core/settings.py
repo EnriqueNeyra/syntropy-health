@@ -113,10 +113,14 @@ def set(key: str, value: Any) -> None:  # noqa: A001 - mirrors dict API
 
 
 def delete_prefix(prefix: str) -> None:
-    """Removes a key and every key under it (``prefix`` and ``prefix.*``)."""
     with db() as conn:
-        conn.execute("DELETE FROM app_settings WHERE key = ? OR key LIKE ? ESCAPE '\\'",
-                     (prefix, prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + ".%"))
+        delete_prefix_in(conn, prefix)
+
+
+def delete_prefix_in(conn: Any, prefix: str) -> None:
+    """Removes a key and every key under it (``prefix`` and ``prefix.*``), as part of a transaction."""
+    conn.execute("DELETE FROM app_settings WHERE key = ? OR key LIKE ? ESCAPE '\\'",
+                 (prefix, prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + ".%"))
 
 
 def timezone_name() -> str:

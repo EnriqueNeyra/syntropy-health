@@ -147,8 +147,6 @@ export async function loadMarkers(profileId) {
 const MARKERS_KEY = "syntropy-trends-markers";
 export function markersOn() { try { return localStorage.getItem(MARKERS_KEY) !== "0"; } catch { return true; } }
 export function setMarkersOn(on) { try { localStorage.setItem(MARKERS_KEY, on ? "1" : "0"); } catch {} }
-/** The markers inside a window (YYYY-MM-DD bounds). */
-export const markersIn = (list, start, end) => list.filter((m) => m.t >= start && m.t <= end);
 export const markerToggle = (count, on) => (count ? html`<label class="check small" title="Mark when medications started and conditions were diagnosed">
   <input type="checkbox" data-markers ${on ? "checked" : ""}> <span>Medications & diagnoses <span class="faint">(${count})</span></span></label>` : "");
 export const markerList = (list) => (list.length ? html`<div class="marker-list small">${list.slice(0, 6).map((m) =>

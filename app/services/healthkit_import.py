@@ -251,10 +251,6 @@ def _ts(v: Any):
         return None
 
 
-def _text(v: Any) -> Optional[str]:
-    return v if isinstance(v, str) and v.strip() else None
-
-
 def _qty(obj: Any) -> tuple[Optional[float], str]:
     """Reads ``{"qty": 1, "units": "km"}`` or a bare number."""
     if isinstance(obj, dict):
