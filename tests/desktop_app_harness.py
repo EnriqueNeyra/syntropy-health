@@ -113,6 +113,7 @@ def script():
         results["while_starting"] = snapshot()
         picture("starting")
     wait_for(lambda: not app.starting, 60)
+    wait_for(lambda: on_main(lambda: bool(app.mac.ns_window.isVisible())), 8)
     time.sleep(1.5)
     results["first"] = snapshot()
     results["health"] = answers()
@@ -143,9 +144,20 @@ def script():
         results["health_after"] = answers()
     elif scenario == "normal":
         results["own_home"] = app.home_url
-        started = time.monotonic()
+    elif scenario == "quit":
+        # Cmd-Q while the server takes a while to stop: the app stays responsive, then really ends.
+        stop = app.server.stop
+
+        def slow_stop():
+            time.sleep(1.5)
+            results["main_thread_free_while_stopping"] = on_main(lambda: True)
+            out.write_text(json.dumps(results, default=str))
+            return stop()
+
+        app.server.stop = slow_stop
         AppHelper.callAfter(AppKit.NSApp.terminate_, None)
-        results["terminate_asked"] = started
+        time.sleep(30)      # the app ending ends this too; the test sees the time it took
+        return
 
     out.write_text(json.dumps(results, default=str))
     time.sleep(0.5)

@@ -666,7 +666,7 @@ class DesktopApp:
 
     def on_load_failed(self, url: str, code: int, reason: str) -> None:
         """The window couldn't open a page (Mac: WebKit otherwise leaves it blank, or on the page it was on)."""
-        if self.quitting or not url:
+        if self.quitting or sites.origin(url) is None:      # a page trying an app's own scheme simply carries on
             return
         if sites.origin(url) in sites.home_origins(self.home_url):
             if self.joined:
@@ -1004,7 +1004,8 @@ class DesktopApp:
             self.mac = MacWindow(self.window, background=self.background, prefs=self.prefs, tray_actions=actions,
                                  dock_menu_state=self.menu_state, on_request=self.on_request,
                                  home_url=lambda: self.home_url, on_uninstall=self.uninstall, location=self.location,
-                                 on_load_failed=self.on_load_failed)
+                                 on_load_failed=self.on_load_failed,
+                                 on_away_changed=lambda: threading.Thread(target=self.refresh_menu, daemon=True).start())
         elif sys.platform == "win32":
             self.guard_windows_window()
 

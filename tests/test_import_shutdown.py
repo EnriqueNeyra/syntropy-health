@@ -33,7 +33,7 @@ def _endless_import(monkeypatch, tmp_path, client):
     monkeypatch.setattr(imports.biometrics, "insert_samples", lambda profile, conn, batch: {"inserted": len(batch)})
     upload = tmp_path / "export.zip"
     upload.write_bytes(b"x")
-    job_id = imports.start_apple_health_import(client.get("/api/profiles").json()[0]["id"], upload, "export.zip")
+    job_id = imports.start_apple_health_import(client.get("/api/profiles").json()["profiles"][0]["id"], upload, "export.zip")
     assert started.wait(5)
     return job_id, upload
 

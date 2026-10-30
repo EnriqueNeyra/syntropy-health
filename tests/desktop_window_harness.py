@@ -148,9 +148,18 @@ def state():
             "back": on_main(lambda: any(str(i.itemIdentifier()) == "syntropy.back" for i in mac.ns_window.toolbar().items()))}
 
 
+def until(check, seconds=15):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if check():
+            return
+        time.sleep(0.1)
+
+
 def go_to_away():
     window.load_url(f"{AWAY}/foreign")
-    time.sleep(1.2)
+    until(lambda: (url() or "").startswith(AWAY) and mac.away)
+    time.sleep(0.3)
 
 
 def post(payload):
@@ -179,7 +188,8 @@ def frame_that_says(attrs):
 
 
 def scenario():
-    time.sleep(2.5)
+    until(lambda: mac.webview is not None and (url() or "").startswith(HOME))
+    time.sleep(1)
     results["home"] = state()
 
     # What a foreign page can open with script alone.
@@ -212,28 +222,33 @@ def scenario():
     results["moved_by_page"] = on_main(lambda: mac.ns_window.frame().origin.x) != x
 
     # Leaving the site for a page with no origin of its own keeps the "another site" chrome.
-    js("location.href=URL.createObjectURL(new Blob(['<!doctype html><title>Syntropy Health</title><h1>Your session expired</h1>'],{type:'text/html'}))", 1.2)
+    js("location.href=URL.createObjectURL(new Blob(['<!doctype html><title>Syntropy Health</title><h1>Your session expired</h1>'],{type:'text/html'}))", 0.2)
+    until(lambda: (url() or "").startswith("blob:"))
+    time.sleep(0.3)
     results["blob"] = state()
     go_to_away()
-    js("location.href='about:blank'", 1.0)
+    js("location.href='about:blank'", 0.2)
+    until(lambda: url() == "about:blank")
+    time.sleep(0.3)
     results["blank"] = state()
 
     # Menu commands on another site go to the app.
     go_to_away()
     on_main(lambda: mac.go("#/overview"))
-    time.sleep(1.0)
+    until(lambda: (url() or "").endswith("#/overview") and not mac.away)
     results["menu_from_away"] = state()
 
     # The app's own page: no site name, and it may talk to the app.
     location.showing_own_page()
     window.load_html("<!doctype html><title>own</title><script>window.webkit.messageHandlers.syntropyDesktop.postMessage("
                      f"JSON.stringify({{type:'retry',token:{json.dumps(sites.OWN_PAGE_TOKEN)}}}));</script>")
-    time.sleep(1.0)
+    until(lambda: [m for m in requests if m.get("_own_page")])
     results["own_page"] = state()
     results["own_page_requests"] = [m for m in requests if m.get("type") == "retry" and m.get("_own_page")]
 
     window.load_url(f"{HOME}/page")
-    time.sleep(1.0)
+    until(lambda: (url() or "").endswith("/page"))
+    time.sleep(0.3)
     results["back_home"] = state()
     js(post({"type": "title", "title": "Named by the app"}), 0.3)
     results["home_title"] = on_main(lambda: str(mac.ns_window.title()))
@@ -243,24 +258,28 @@ def scenario():
 
     # A page that can't load is reported.
     window.load_url("http://127.0.0.1:9/")
-    time.sleep(1.5)
+    until(lambda: any("127.0.0.1:9" in str(f[0]) for f in failures))
     results["failures"] = [[str(a) for a in f] for f in failures]
     window.load_url(f"{HOME}/page")
-    time.sleep(1.0)
+    until(lambda: (url() or "").endswith("/page"))
+    time.sleep(0.3)
 
     # Saving over an existing file, and a download that breaks part way.
     folder = Path(sys.argv[1]).parent
     Panel.dest = str(folder / "kept.bin")
     Path(Panel.dest).write_bytes(b"OLD")
-    js("var a=document.createElement('a');a.href='/backup.bin';a.download='';document.body.appendChild(a);a.click();", 1.5)
+    js("var a=document.createElement('a');a.href='/backup.bin';a.download='';document.body.appendChild(a);a.click();", 0.2)
+    until(lambda: results.get("reported"))
     results["saved_over"] = Path(Panel.dest).read_bytes().decode()
     results["leftovers_after_saving"] = sorted(p.name for p in folder.iterdir() if ".part" in p.name)
-    js("var a=document.createElement('a');a.href='/broken.bin';a.download='';document.body.appendChild(a);a.click();", 1.5)
+    js("var a=document.createElement('a');a.href='/broken.bin';a.download='';document.body.appendChild(a);a.click();", 0.2)
+    until(lambda: len(results["reported"]) >= 2)
     results["kept_after_failure"] = Path(Panel.dest).read_bytes().decode()
     results["leftovers_after_failure"] = sorted(p.name for p in folder.iterdir() if ".part" in p.name)
     # A link to a file type the window can't show (no download attribute) still sends the sign-in cookie.
     Panel.dest = str(folder / "plain.bin")
-    js("location.href='/plain.bin'", 1.5)
+    js("location.href='/plain.bin'", 0.2)
+    until(lambda: len(results["reported"]) >= 3)
     results["plain_link"] = Path(Panel.dest).read_bytes().decode() if Path(Panel.dest).exists() else None
     results["download_without_cookie"] = results.get("download_without_cookie", False)
 

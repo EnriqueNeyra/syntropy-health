@@ -99,6 +99,11 @@ jobs:
           }
           check "0 1" "$RUNNER_TEMP/app-window"
           check "1 0" "$RUNNER_TEMP/app-background" --background
+      # With a real web view and the real swap script: other sites in the window, start-up problems, going back.
+      - name: The window's and the updater's tests
+        run: |
+          python -m pip install -U pip && pip install --group dev
+          python -m pytest -q tests/test_desktop_window.py tests/test_desktop_start.py tests/test_desktop_updater.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mac

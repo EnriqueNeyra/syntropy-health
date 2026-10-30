@@ -221,8 +221,9 @@ def _report_load_failure(error: Any) -> None:
     if _current and error.code() not in NOT_FAILURES:
         url = error.userInfo().get("NSErrorFailingURLStringKey") or error.userInfo().get("NSErrorFailingURLKey") or ""
         log.warning("A page didn't load (%s): %s", error.code(), error.localizedDescription())
-        if _current.on_load_failed:
-            _current.on_load_failed(str(url), int(error.code()), str(error.localizedDescription()))
+        if _current.on_load_failed:     # beside the main thread: what it does waits on the main thread
+            threading.Thread(target=_current.on_load_failed, daemon=True,
+                             args=(str(url), int(error.code()), str(error.localizedDescription()))).start()
 
 
 def _set_in_dock(on: bool) -> None:
@@ -244,7 +245,8 @@ class MacWindow:
                  on_uninstall: Optional[Callable[[bool], None]] = None,
                  location: Optional[sites.Location] = None,
                  on_load_failed: Optional[Callable[[str, int, str], None]] = None,
-                 on_download: Optional[Callable[[bool, str, str], None]] = None):
+                 on_download: Optional[Callable[[bool, str, str], None]] = None,
+                 on_away_changed: Optional[Callable[[], None]] = None):
         self.window = window                   # the pywebview Window
         self.background = background
         self.prefs = prefs
@@ -261,6 +263,7 @@ class MacWindow:
         self.away = False                                   # showing another site
         self.on_load_failed = on_load_failed                # given the address, the error's code and its description
         self.on_download = on_download
+        self.on_away_changed = on_away_changed
         self.person_acted_at = 0.0
         if background:              # opened at login: only the menu bar item, from the start (this is the main thread)
             _set_in_dock(False)
@@ -403,6 +406,8 @@ class MacWindow:
         if away == self.away:
             return
         self.away = away
+        if self.on_away_changed:
+            self.on_away_changed()
         win, toolbar = self.ns_window, self.ns_window.toolbar()
         # Changing whether the page runs under the title bar would grow or shrink the window by the title bar's height
         # (AppKit keeps the content's size): keep the window where it is. A full-screen window keeps its own frame.

@@ -20,7 +20,7 @@ pytest.importorskip("WebKit")
 HARNESS = Path(__file__).with_name("desktop_app_harness.py")
 
 
-def _run(scenario: str, folder: Path) -> dict:
+def _run(scenario: str, folder: Path, seconds: int = 200) -> dict:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
@@ -30,7 +30,7 @@ def _run(scenario: str, folder: Path) -> dict:
     out = folder / "result.json"
     env = {**os.environ, "SYNTROPY_DATA_DIR": str(data), "SYNTROPY_SCHEDULER": "false", "SYNTROPY_MDNS": "0",
            "SYNTROPY_UPDATE_CHECK": "false", "SYNTROPY_NO_DOTENV": "1", "PYWEBVIEW_LOG": "ERROR"}
-    proc = subprocess.run([sys.executable, str(HARNESS), scenario, str(out)], capture_output=True, text=True, timeout=200,
+    proc = subprocess.run([sys.executable, str(HARNESS), scenario, str(out)], capture_output=True, text=True, timeout=seconds,
                           check=False, env=env, cwd=folder)
     assert out.exists(), f"The app's test run ended early:\n{proc.stdout}\n{proc.stderr}\n{_log(data)}"
     return json.loads(out.read_text())
@@ -90,6 +90,12 @@ def test_starting_fresh_keeps_the_damaged_file(tmp_path):
     assert seen["after_fresh"]["url"].startswith("http://localhost")
     kept = list(data.glob("set-aside-*/syntropy.db"))
     assert len(kept) == 1 and kept[0].stat().st_size == 200_000
+
+
+def test_quitting_stays_responsive_and_ends(tmp_path):
+    # Cmd-Q waited for the server on the main thread: a beachball for up to 15 seconds.
+    seen = _run("quit", tmp_path, seconds=25)      # the harness waits 30 seconds unless the app really ends
+    assert seen["main_thread_free_while_stopping"] is True
 
 
 def test_the_window_says_its_starting_during_a_long_start(tmp_path):

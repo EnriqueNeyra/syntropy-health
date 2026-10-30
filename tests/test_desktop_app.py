@@ -559,3 +559,147 @@ def test_probe_answers_a_mistyped_address_with_advice(raw_client):
     for url in ("http://a:99999", "http://[bad", "file:///etc/passwd", "   "):
         r = raw_client.post("/api/desktop/probe", json={"url": url}, headers=headers)
         assert r.status_code == 400 and "Enter an address" in r.json()["detail"], url
+
+
+# ---------------------------------------------------------------------------
+# What pages and failures can ask of the app
+# ---------------------------------------------------------------------------
+
+class FakeWindow:
+    def __init__(self):
+        self.loaded, self.pages = [], []
+
+    def load_url(self, url):
+        self.loaded.append(url)
+
+    def load_html(self, page):
+        self.pages.append(page)
+
+    def show(self):
+        pass
+
+    def restore(self):
+        pass
+
+
+@pytest.fixture
+def desktop(monkeypatch, tmp_path):
+    monkeypatch.setenv("SYNTROPY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(syntropy_desktop, "update_installer", lambda fn: None)
+    monkeypatch.setattr(syntropy_desktop, "network_controller", lambda fn: None)
+    app = syntropy_desktop.DesktopApp(background=False)
+    app.window = FakeWindow()
+    return app
+
+
+@pytest.mark.parametrize("kind", ["problem-quit", "problem-restore", "problem-fresh", "problem-folder", "problem-retry", "go-home"])
+def test_recovery_is_only_taken_from_the_apps_own_page(desktop, monkeypatch, kind):
+    asked = []
+    monkeypatch.setattr(desktop, "on_own_page_request", asked.append)
+    desktop.on_request({"type": kind, "_origin": f"http://localhost:{desktop.server.port}"})
+    assert asked == []
+    desktop.on_request({"type": kind, "_own_page": True})
+    assert asked == [kind]
+
+
+def test_a_site_that_wont_open_says_so_with_a_way_back(desktop):
+    desktop.on_load_failed("https://mychart.example.org/login", -1001, "The request timed out.")
+    assert "mychart.example.org" in desktop.window.pages[0] and "timed out" in desktop.window.pages[0]
+    assert "send('go-home')" in desktop.window.pages[0]
+    assert desktop.location.own_page is True
+
+
+def test_a_page_trying_an_apps_scheme_is_left_alone(desktop):
+    # Some portals try their phone app's own address and carry on when it fails.
+    desktop.on_load_failed("epicmychart://login", -1002, "unsupported URL")
+    desktop.on_load_failed("", -1002, "unsupported URL")
+    assert desktop.window.pages == []
+
+
+def test_the_apps_own_server_failing_a_load_doesnt_replace_the_page(desktop):
+    desktop.on_load_failed(f"{desktop.server.url}/x", -1004, "Could not connect")
+    assert desktop.window.pages == []
+
+
+def test_a_joined_server_that_macos_wont_open_is_explained(desktop):
+    # Plain http to a name that isn't local: Settings there lists it, and the window was left blank.
+    desktop.prefs.set("role", "join")
+    desktop.prefs.set("server", "http://server.example.org:8000")
+    desktop.on_load_failed("http://server.example.org:8000/", syntropy_desktop.ATS_REFUSED, "App Transport Security policy")
+    assert "secure connection" in desktop.window.pages[0] and "send('switch')" in desktop.window.pages[0]
+
+
+def test_while_starting_menu_items_wait(desktop, monkeypatch):
+    opened = []
+    monkeypatch.setattr(syntropy_desktop.webbrowser, "open", opened.append)
+    desktop.starting = True
+    desktop.open_browser()
+    desktop.open_page("/#/settings")
+    desktop.toggle_lan()
+    desktop.check_for_updates()
+    assert opened == [] and desktop.window.loaded == []
+
+
+def test_a_problem_shows_the_page_even_when_opened_at_login(desktop, monkeypatch):
+    desktop.hidden = True
+    monkeypatch.setattr(desktop.server, "start", lambda host, port: None)
+    monkeypatch.setattr(desktop.server, "problem", lambda: ("too_new", "This data was last used by a newer version."))
+    desktop.bring_up_own_server()
+    assert desktop.hidden is False and desktop.starting is False
+    assert "newer version" in desktop.window.pages[0] and "problem-latest" in desktop.window.pages[0]
+    assert desktop.window.loaded == []
+
+
+def test_a_start_that_fails_outright_shows_the_page(desktop, monkeypatch):
+    def fail(host, port):
+        raise OSError(errno.ENOSPC, "No space left on device", "/data")
+
+    monkeypatch.setattr(desktop.server, "start", fail)
+    desktop.bring_up_own_server()
+    assert "disk is full" in desktop.window.pages[0] and not desktop.starting
+
+
+def test_a_good_start_opens_the_app(desktop, monkeypatch):
+    monkeypatch.setattr(desktop.server, "start", lambda host, port: setattr(desktop.server, "port", port))
+    monkeypatch.setattr(desktop.server, "problem", lambda: None)
+    desktop.bring_up_own_server()
+    assert desktop.window.loaded == [desktop.server.url] and desktop.window.pages == []
+
+
+def test_a_new_version_that_cant_upgrade_goes_back(desktop, monkeypatch, tmp_path):
+    import updater
+    folder = tmp_path / "updates"
+    folder.mkdir()
+    (folder / updater.ATTEMPT).write_text(json.dumps({"version": "0.0.1", "from": "0.0.0", "at": time.time()}))
+    monkeypatch.setattr(desktop.server, "start", lambda host, port: None)
+    monkeypatch.setattr(desktop.server, "problem", lambda: ("upgrade_failed", "It couldn't upgrade."))
+    quit_called = []
+    monkeypatch.setattr(desktop, "quit", lambda: quit_called.append(True))
+    desktop.bring_up_own_server()
+    assert quit_called and (folder / updater.BAD_MARK).read_text() == "It couldn't upgrade."
+    assert desktop.window.pages == []
+
+
+def test_a_damaged_database_stays_with_the_new_version(desktop, monkeypatch, tmp_path):
+    # The old version couldn't read it either: going back wouldn't help, and the person needs the page.
+    import updater
+    folder = tmp_path / "updates"
+    folder.mkdir()
+    (folder / updater.ATTEMPT).write_text(json.dumps({"version": "0.0.1", "from": "0.0.0", "at": time.time()}))
+    monkeypatch.setattr(desktop.server, "start", lambda host, port: None)
+    monkeypatch.setattr(desktop.server, "problem", lambda: ("damaged", "It's damaged."))
+    desktop.bring_up_own_server()
+    assert "damaged" in desktop.window.pages[0] and not (folder / updater.BAD_MARK).exists()
+
+
+def test_back_item_appears_in_the_menu_on_another_site():
+    import tray
+    assert "home" in {a for a, _t, _c in tray._labels({"lan": False, "login": False, "away": True})}
+    assert "home" not in {a for a, _t, _c in tray._labels({"lan": False, "login": False, "away": False})}
+    assert "home" in {a for a, _t, _c in tray._labels({"joined": "Mac mini", "away": True})}
+
+
+def test_a_moved_port_shows_in_the_menu():
+    import tray
+    lines = [t for _a, t, _c in tray._labels({"lan": False, "login": False, "port_note": "Using port 8001: 8000 is busy"})]
+    assert any("8000 is busy" in t for t in lines)
