@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 
 import pytest
@@ -70,6 +71,18 @@ def test_only_the_last_few_are_kept_and_nothing_else_is_touched(client, tmp_path
     names = sorted(f.name for f in folder.iterdir())
     assert names == ["my-holiday-photos.zip", "syntropy-backup-19990101-000000.zip",
                      "syntropy-backup-20260102-000000.syntropy", "syntropy-backup-20260103-000000.syntropy"]
+
+
+def test_an_unfinished_file_from_a_power_cut_does_not_stay_for_ever(tmp_path):
+    folder = tmp_path / "drive"
+    folder.mkdir()
+    stale = folder / "syntropy-backup-20200101-000000.syntropy.partial"
+    current = folder / "syntropy-backup-20990101-000000.syntropy.partial"
+    stale.write_bytes(b"x")
+    current.write_bytes(b"x")
+    os.utime(stale, (1, 1))
+    backup_schedule._prune(folder, 3)
+    assert not stale.exists() and current.exists()
 
 
 def test_when_it_is_due(client, tmp_path):
@@ -185,3 +198,10 @@ def test_damage_found_by_a_scheduled_backup_is_noted(client, tmp_path, monkeypat
     from app.core import maintenance
     assert maintenance.integrity()["ok"] is False
     maintenance.forget_damage()
+
+
+def test_with_no_plan_the_tick_starts_nothing(client, monkeypatch):
+    started = []
+    monkeypatch.setattr(backup_schedule.threading, "Thread", lambda *a, **k: started.append(k))
+    backup_schedule.start_if_due()
+    assert started == []

@@ -7,6 +7,7 @@ import { regionSystem, setUnitPreference, unitPreference } from "../units.js";
 import { renderAiTab } from "./settings-ai.js";
 import { addressList, networkStatus, renderNetworkPanel } from "../network.js";
 import { renderUpdates } from "../updates.js";
+import { importArchive, openBackupDialog, openRestoreDialog, openScheduleDialog, scheduleText } from "../backup.js";
 import { PRIVACY_URL, SOURCE_URL, TERMS_URL } from "../consent.js";
 import {
   $, capitalize, confirmDialog, fmtDateTime, html, icon, initials, loading, modal, mount, onAction, plural, toast,
@@ -105,7 +106,7 @@ export async function render({ el, parts, state, navigate }) {
           html`<a href="${SOURCE_URL}" target="_blank" rel="noopener">View on GitHub</a>`)}
         ${row("Your responsibility", "Your records are stored only on this computer and in your backups, not with Syntropy Labs. Keeping them secure and backed up is up to you. Syntropy Health isn't medical advice.",
           html`<span class="row" style="gap:12px"><a href="${TERMS_URL}" target="_blank" rel="noopener">Terms</a><a href="${PRIVACY_URL}" target="_blank" rel="noopener">Privacy</a></span>`)}
-        ${isOwner() ? row("Data folder", "Back this folder up, or download a backup from Your data.", html`<code>${settings.data_dir}</code>`) : ""}`)}
+        ${isOwner() ? row("Data folder", "Make backups from Your data. A copy of this folder taken while Syntropy Health is running may not be complete.", html`<code>${settings.data_dir}</code>`) : ""}`)}
     </div>`);
     const updPanel = $("#upd-panel", body);
     if (updPanel) {
@@ -262,27 +263,70 @@ export async function render({ el, parts, state, navigate }) {
 
   if (tab === "data") {
     const p = state.profile;
+    const owner = isOwner();
     const dl = (href) => html`<a class="btn btn-sm" href="${href}" download>${icon("download")} Download</a>`;
+    const backup = owner ? await get("/api/backups", undefined, { fresh: true }) : null;
+    const last = backup?.last;
+    const failing = backup?.schedule.state?.last_error;
     mount(body, html`<div class="stack">
-      ${section(`Export ${p.name}'s data`, "Files download straight from this machine.", html`
+      ${section(`Export ${p.name}'s data`, "Files download straight from this machine, and aren't encrypted.", html`
         ${row("Visit summary", "A one-page summary to print or save as PDF for appointments.", html`<a class="btn btn-sm" href="#/report">${icon("printer")} Open</a>`)}
-        ${row("FHIR R4 bundle", "Every clinical record in the standard format other apps and portals read.", dl(`/api/export/fhir?profile=${p.id}`))}
+        ${p.access === "manage" ? row("Everything, in one file", html`Records, wearable samples, workouts with routes, the journal, goals and your conversations with the assistant. Another Syntropy Health can import it.`,
+          dl(`/api/export/archive?profile=${p.id}`)) : ""}
+        ${row("Patient summary (FHIR)", "An International Patient Summary: current conditions, medications, allergies and results, in the format clinicians' systems read.", dl(`/api/export/ips?profile=${p.id}`))}
+        ${row("FHIR R4 bundle", "Every clinical record in the standard format other apps and portals read, with the source of each.", dl(`/api/export/fhir?profile=${p.id}`))}
         ${row("Records (CSV)", "Conditions, medications, labs, visits and more, one row each.", dl(`/api/export/csv?kind=records&profile=${p.id}`))}
         ${row("Daily wearable data (CSV)", "One row per metric per day.", dl(`/api/export/csv?kind=daily&profile=${p.id}`))}
         ${row("Workouts (CSV)", "", dl(`/api/export/csv?kind=workouts&profile=${p.id}`))}
-        ${row("Health journal (CSV)", "Symptoms, cycle tracking, mood and more.", dl(`/api/export/csv?kind=events&profile=${p.id}`))}`)}
-      ${!isOwner() ? "" : section("Backup", "", html`
-        ${row("Database backup", html`A complete copy of everything, for all people. Store it somewhere only you can reach: it holds your health records unencrypted (sign-in tokens in it stay encrypted; keep <code>secret.key</code> with it to restore).`,
-          html`<a class="btn btn-sm btn-primary" href="/api/export/backup" download>${icon("download")} Download backup</a>`)}
+        ${row("Health journal (CSV)", "Symptoms, cycle tracking, mood and more, with your notes.", dl(`/api/export/csv?kind=events&profile=${p.id}`))}
+        ${p.access === "manage" ? html`${row("Import an archive", `Brings an "Everything" file from another Syntropy Health into ${p.name}'s data. What's already here is left as it is.`,
+          html`<label class="btn btn-sm">${icon("upload")} Choose file<input type="file" id="ar-file" accept=".zip" hidden></label>`)}<div id="ar-status" style="padding:0 16px"></div>` : ""}`)}
+      ${!owner ? "" : section("Backup", "", html`
+        ${failing ? html`<div class="banner bad" style="margin:12px 16px"><div class="grow"><p><b>The last scheduled backup failed.</b> ${failing}</p></div></div>` : ""}
+        ${row("Download a backup", html`Everyone's data in one encrypted file, with the encryption key that opens saved sign-ins, so it restores on any computer.
+          ${last ? html`<br>Last backup: ${fmtDateTime(last.created_at)}${last.encrypted ? "" : " (not encrypted)"}.` : html`<br><b>No backup has been made yet.</b>`}`,
+          html`<button class="btn btn-sm btn-primary" data-action="backup">${icon("download")} Back up…</button>`)}
+        ${row("Scheduled backups", html`${scheduleText(backup.schedule)}
+          ${backup.schedule.same_disk ? html`<br><b>This folder is on the same disk as your data, so a failed disk would take both.</b>` : ""}
+          ${backup.schedule.scheduler_off ? html`<br><b>They can't run: the server's scheduler is turned off (SYNTROPY_SCHEDULER).</b>` : ""}`,
+          html`<button class="btn btn-sm" data-action="schedule">${backup.schedule.enabled ? "Change…" : "Set up…"}</button>
+            ${backup.schedule.enabled ? html`<button class="btn btn-sm btn-ghost" data-action="run-backup">Back up now</button>` : ""}`)}
+        ${row("Restore from a backup", "Replaces everything here with what's in a backup, after checking it. What's here now is kept in a folder beside the data.",
+          html`<button class="btn btn-sm" data-action="restore">Restore…</button>`)}
         ${row("Uninstalling", uninstallHint(), "")}`)}
-      ${p.access !== "manage" ? "" : section("Delete data", "", row(`Delete all of ${p.name}'s data`, "Removes their sources, records, wearable data and paired devices from this machine. This can't be undone.",
+      ${p.access !== "manage" ? "" : section("Delete data", "", row(`Delete all of ${p.name}'s data`, html`Removes their sources, records, wearable data, journal entries, everyone's conversations with the
+          assistant about them, goals and paired devices from this machine. This can't be undone. Backups you've already made still contain it.`,
         html`<button class="btn btn-sm btn-danger" data-action="wipe">Delete…</button>`), "danger")}
     </div>`);
+    $("#ar-file", body)?.addEventListener("change", (e) => {
+      if (e.target.files[0]) importArchive(e.target.files[0], p.id, $("#ar-status", body), null);
+    });
     return onAction(body, {
-      wipe: async () => {
-        if (await confirmDialog(`Delete all of ${p.name}'s data?`, "Records, samples, sources and devices will be permanently deleted. Consider downloading a backup first.", { confirmLabel: "Delete permanently", danger: true })) {
-          await del(`/api/profiles/${p.id}/data`); toast("Deleted"); redraw();
-        }
+      backup: () => openBackupDialog(backup, redraw),
+      schedule: () => openScheduleDialog(backup, redraw),
+      "run-backup": async (_, button) => {
+        button.disabled = true;
+        const after = await post("/api/backups/schedule/run");
+        toast(after.schedule.state.last_error ? `The backup failed: ${after.schedule.state.last_error}` : "Backed up", after.schedule.state.last_error ? "bad" : "good");
+        redraw();
+      },
+      restore: () => openRestoreDialog(),
+      wipe: () => {
+        const m = modal({ title: `Delete all of ${p.name}'s data?`,
+          body: html`<p style="margin-bottom:10px">This permanently deletes their sources, records, wearable data, journal entries, goals and paired devices, and
+              <b>everyone's conversations with the assistant about them</b>. ${p.name} stays listed here, with nothing in their record.</p>
+            <p class="small muted" style="margin-bottom:12px">It's overwritten in the database file. Backups you've already made still contain it: delete those yourself if it has to go from them too.
+              To keep a copy first, <a href="/api/export/archive?profile=${p.id}" download>download everything for ${p.name}</a>.</p>
+            <div class="field"><label class="label" for="wipe-confirm">Type DELETE to go ahead</label><input class="input" id="wipe-confirm" autocomplete="off"></div>`,
+          footer: html`<button class="btn" data-cancel>Cancel</button><button class="btn btn-danger" data-yes>Delete permanently</button>` });
+        m.el.querySelector("[data-cancel]").addEventListener("click", m.close);
+        m.el.querySelector("[data-yes]").addEventListener("click", async (e) => {
+          if ($("#wipe-confirm", m.el).value.trim() !== "DELETE") return toast("Type DELETE to go ahead.", "bad");
+          e.currentTarget.disabled = true;
+          e.currentTarget.textContent = "Deleting…";
+          try { await del(`/api/profiles/${p.id}/data`); m.close(); toast("Deleted"); redraw(); }
+          catch (err) { m.close(); toast(err.message, "bad"); }
+        });
       },
     });
   }
@@ -397,7 +441,9 @@ const AUDIT_ACTIONS = {
   "invite.accepted": "Joined by invitation", "connection.created": "Source added", "connection.disconnected": "Source disconnected",
   "connection.removed": "Source removed with its data", "sync.completed": "Synced", "device.paired": "Phone paired",
   "device.revoked": "Phone unpaired", "labs.entered": "Lab results entered", "labs.report_read": "Lab report read",
-  "export.fhir": "Exported a FHIR file", "export.backup": "Downloaded a backup", "profile.data_deleted": "Deleted all data",
+  "export.fhir": "Exported a FHIR file", "export.ips": "Exported a patient summary", "export.archive": "Exported everything for one person",
+  "export.backup": "Made a backup", "backup.restored": "Restored from a backup", "backup.schedule_set": "Scheduled backups changed",
+  "backup.schedule_off": "Scheduled backups turned off", "profile.data_deleted": "Deleted all data",
   "network.enabled": "Other devices allowed", "network.disabled": "This computer only", "updates.settings": "Update settings changed",
   "updates.install": "Update installed", "ai.chat": "Asked the AI", "ai.provider_data_acknowledged": "Agreed to an online AI",
   "agent.token_created": "AI app access created", "agent.token_revoked": "AI app access revoked",
@@ -489,8 +535,8 @@ async function renderPeople(body, { redraw }) {
     "delete-profile": async ({ id }) => {
       const p = profiles.find((x) => x.id === id);
       const text = p.signs_in
-        ? `${p.name} will be signed out everywhere, and their sources, records, wearable data and devices are permanently deleted from this machine.`
-        : "This permanently deletes them with all of their sources, records, wearable data and devices.";
+        ? `${p.name} will be signed out everywhere, and their sources, records, wearable data, journal and devices are permanently deleted from this machine. Backups you've already made still contain them.`
+        : "This permanently deletes them with all of their sources, records, wearable data, journal and devices. Backups you've already made still contain them.";
       if (await confirmDialog(`Remove ${p.name}?`, text, { confirmLabel: "Remove and delete their data", danger: true })) {
         try { await del(`/api/profiles/${id}`); await refreshProfiles(); toast(`Removed ${p.name}`); redraw(); }
         catch (err) { toast(err.message, "bad"); }

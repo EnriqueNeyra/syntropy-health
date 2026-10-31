@@ -32,6 +32,7 @@ INTEGRITY_EVERY = 24 * 3600
 OPTIMIZE_EVERY = 6 * 3600
 SMALL_FILE = 256 * 1024 * 1024
 RECLAIM_STEP_PAGES = 2048       # 8 MB at a time: a few milliseconds of holding the write lock
+RECLAIM_TRIES = 60              # ticks: five minutes of a busy file, then the next delete or the shutdown empties the log
 QUIET_HOURS = range(1, 5)       # when a large file written by an older version gets its one rewrite, unprompted
 LARGE_FILE_DELAY = 120          # not while the first pages are loading
 MIN_FREE_DISK = 1024 * 1024     # SQLite can't commit without room
@@ -185,7 +186,6 @@ def reclaim(path: Optional[Path] = None, *, step_pages: int = RECLAIM_STEP_PAGES
         out["checkpointed"] = db.checkpoint(path)
     except sqlite3.Error as exc:
         log.info("Couldn't reclaim space in the database right now: %s", exc)
-        db.note_deleted()
     finally:
         if conn:
             conn.close()
@@ -313,11 +313,14 @@ def _run(path: Path) -> None:
     next_check = time.monotonic() + (0 if _size(path) <= SMALL_FILE else LARGE_FILE_DELAY)
     next_optimize = time.monotonic() + 300
     next_rewrite = time.monotonic() + 300
+    tries = 0
     while not _stop.wait(TICK_SECONDS):
         try:
             db.checkpoint_if_large(path)
             if db.take_deleted():
-                reclaim(path)
+                tries = RECLAIM_TRIES
+            if tries:
+                tries = 0 if (reclaim(path) or {}).get("checkpointed") else tries - 1
             now = time.monotonic()
             if now >= next_rewrite:
                 next_rewrite = now + 3600

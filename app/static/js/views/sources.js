@@ -498,7 +498,9 @@ export async function render({ el, params, state }) {
     mount(status, html`<div class="small"><span class="spinner"></span> Importing ${file.name}…</div>`);
     try {
       const r = await api("/api/imports/fhir", { method: "POST", form });
-      toast(`Imported ${plural(r.records, "record")}`, "good");
+      const kept = r.kept_both ? ` ${plural(r.kept_both, "record")} differed from what's here, so both were kept.` : "";
+      const again = r.unchanged ? ` ${plural(r.unchanged, "record")} already here.` : "";
+      toast(`Imported ${plural(r.inserted, "new record")}.${again}${kept}`, "good");
       await refresh();
     } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };

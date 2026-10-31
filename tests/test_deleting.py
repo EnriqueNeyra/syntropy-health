@@ -355,3 +355,30 @@ def test_deleting_all_data_includes_goals_layouts_and_alerts(client):
     assert keys == []
     # The person stays.
     assert client.get("/api/profiles").json()["profiles"][0]["id"] == pid
+
+
+def test_a_wipe_moves_the_rollup_revision_forward(client):
+    """What's cached from the old rows is keyed by this number, so it mustn't start again from where it once was."""
+    pid = _profile_id(client)
+    biometrics.insert_samples(pid, None, [_sample(1)])
+    before = biometrics.daily_revision(pid)
+    assert before
+    assert client.delete(f"/api/profiles/{pid}/data").status_code == 200
+    assert biometrics.daily_revision(pid) > before
+
+
+def test_a_file_that_stays_busy_is_tried_again_for_a_while_only(client, monkeypatch):
+    monkeypatch.setattr(maintenance, "TICK_SECONDS", 0.001)
+    monkeypatch.setattr(maintenance, "RECLAIM_TRIES", 5)
+    calls = []
+    monkeypatch.setattr(maintenance, "reclaim", lambda path=None, **k: calls.append(1) or {"checkpointed": False})
+    maintenance.stop()
+    db.take_deleted()
+    maintenance.start()
+    db.note_deleted()
+    for _ in range(200):
+        if len(calls) >= 5:
+            break
+        time.sleep(0.01)
+    time.sleep(0.05)
+    assert len(calls) == 5

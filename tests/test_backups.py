@@ -12,6 +12,7 @@ import sqlite3
 import stat
 import struct
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -913,3 +914,18 @@ def test_the_linux_wrapper_goes_through_root_for_backup_and_restore():
     script = (config.REPO_ROOT / "scripts" / "install.sh").read_text()
     assert '--service-account "$RUN_AS"' in script
     assert "serve|mcp|info|accounts|key|dev)" in script and "backup|restore)" in script
+
+
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="needs time.tzset")
+def test_the_date_in_the_sign_in_advice_is_the_date_here_not_greenwich(monkeypatch):
+    """Made in the evening in California it's already tomorrow in UTC, and the report beside it shows today."""
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    time.tzset()
+    try:
+        info = {"accounts": [{"has_password": True}]}
+        text = backups._sign_in_text(info, {"created_at": "2026-10-31T00:36:00Z"})
+        assert "2026-10-30" in text and "2026-10-31" not in text
+        assert "made," in backups._sign_in_text(info, {"created_at": "not a date"})
+    finally:
+        monkeypatch.delenv("TZ")
+        time.tzset()

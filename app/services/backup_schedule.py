@@ -125,6 +125,10 @@ def _prune(folder: Path, keep: int) -> int:
     old = _ours(folder)[:-keep]
     for f in old:
         f.unlink(missing_ok=True)
+    # A backup cut off by a power cut leaves its unfinished file, as large as a real one, and nothing else would remove it.
+    for f in folder.glob(f"{backups.NAME_PREFIX}*{backups.SEALED_SUFFIX}.partial"):
+        if time.time() - f.stat().st_mtime > backups.WORK_LIFETIME:
+            f.unlink(missing_ok=True)
     return len(old)
 
 
@@ -190,17 +194,18 @@ def run_if_due() -> None:
 
 
 def start_if_due() -> None:
-    """From the scheduler's tick, which has syncs to get on with: a large backup takes minutes."""
-    if not _running.locked():
+    """From the scheduler's tick, which has syncs to get on with: a large backup takes minutes, on a thread of its own."""
+    backups.clean_leftovers()
+    plan = _settings()
+    if plan and not _running.locked() and _due(plan, _state(), time.time()):
         threading.Thread(target=_run_quietly, name="scheduled-backup", daemon=True).start()
 
 
 def _run_quietly() -> None:
     try:
-        backups.clean_leftovers()
-        run_if_due()
+        run_now()
     except Exception:  # noqa: BLE001 - the next tick tries again; a failure is reported by what stops being saved
-        log.exception("Scheduled backup check failed")
+        log.exception("Scheduled backup failed")
 
 
 def _ago(seconds: float) -> str:

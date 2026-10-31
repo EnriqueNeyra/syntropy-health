@@ -119,9 +119,15 @@ def delete_rows(table: str, column: str, value: str) -> None:
     db_batches.write_in_batches(step)
 
 
-def _delete_loose(profile_id: str) -> None:
+def _delete_loose(profile_id: str, keep_revision: bool = False) -> None:
     for table in LOOSE_TABLES:
-        delete_rows(table, "profile_id", profile_id)
+        if not (keep_revision and table == "daily_revisions"):
+            delete_rows(table, "profile_id", profile_id)
+
+
+def _rollups_changed(conn: Any, profile_id: str) -> None:
+    """As biometrics.mark_daily_changed: the person stays, so what's cached from their old rows has to go."""
+    conn.execute("INSERT INTO daily_revisions(profile_id, rev) VALUES (?, 1) ON CONFLICT(profile_id) DO UPDATE SET rev = rev + 1", (profile_id,))
 
 
 def delete_profile(profile_id: str) -> None:
@@ -158,8 +164,9 @@ def delete_all_data(profile_id: str) -> None:
         conn.execute("DELETE FROM connections WHERE profile_id = ?", (profile_id,))      # records, identities and runs with them
         _person_settings(conn, profile_id)
         audit(conn, "user", "profile.data_deleted", None, profile_id)
-    _delete_loose(profile_id)
+    _delete_loose(profile_id, keep_revision=True)
     with db() as conn:
+        _rollups_changed(conn, profile_id)
         note_unfinished(conn, f"profile:{profile_id}", done=True)
     sample_counts.forget()
     discard_pre_upgrade_copies()
@@ -186,10 +193,12 @@ def finish_deletes() -> None:
     for item in json.loads(row[0]) if row else []:
         kind, _, value = item.partition(":")
         if kind == "profile":
-            _delete_loose(value)
+            _delete_loose(value, keep_revision=value in known)
         elif kind == "connection":
             delete_rows("biometric_samples", "connection_id", value)
         with db() as conn:
+            if kind == "profile" and value in known:
+                _rollups_changed(conn, value)
             note_unfinished(conn, item, done=True)
     for profile_id in gone:
         log.info("Removing data left behind for a person who was deleted")

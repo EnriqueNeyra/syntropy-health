@@ -3,6 +3,7 @@ import { get, post } from "./api.js";
 import { networkStatus, renderNetworkPanel } from "./network.js";
 import { $, html, icon, mount, onAction, toast, wordmark } from "./ui.js";
 import { termsCheckbox } from "./consent.js";
+import { restoreSteps } from "./backup.js";
 
 const STEPS = 5;
 
@@ -38,8 +39,11 @@ export function renderSetup(status, onDone) {
         <button class="onboard-tile" type="button" data-action="host"><span class="ev-icon">${icon("monitor")}</span>
           <span class="grow"><b>Set it up on this Mac</b><span class="small muted">This Mac becomes the server: it keeps everyone's
             records and should stay on for your phone to sync.</span></span>${icon("chevronRight")}</button>
+        <button class="onboard-tile" type="button" data-action="restore"><span class="ev-icon">${icon("upload")}</span>
+          <span class="grow"><b>Restore from a backup</b><span class="small muted">Bring back everything from a backup file you made
+            with Syntropy Health.</span></span>${icon("chevronRight")}</button>
       </div>`);
-    onAction($(".onboard-card"), { join, host: welcome });
+    onAction($(".onboard-card"), { join, host: welcome, restore: () => restore(choose) });
     looking.then((found) => {
       const box = $("#ob-found");
       if (!box || !found.length) return;
@@ -85,6 +89,14 @@ export function renderSetup(status, onDone) {
     } catch (err) { toast(err.message, "bad"); }
   };
 
+  const restore = (back) => {
+    screen(null, html`
+      <h1>Restore from a backup</h1>
+      <p class="muted onboard-lede">Everything comes back as it was when the backup was made: records, people, passwords and saved sign-ins.</p>
+      <div id="ob-restore"></div>`);
+    restoreSteps($("#ob-restore"), { onCancel: back, onRestored: () => { history.replaceState(null, "", "#/"); location.reload(); } });
+  };
+
   const welcome = () => {
     screen(1, html`
       <h1>Welcome</h1>
@@ -98,8 +110,11 @@ export function renderSetup(status, onDone) {
         <div class="field"><label class="label" for="s-name">Your first name</label>
           <input class="input" id="s-name" required maxlength="80" placeholder="e.g. Alex" autocomplete="given-name" value="${draft.name}" autofocus></div>
         <button class="btn btn-primary onboard-next" type="submit">Get started</button>
-      </form>`);
+      </form>
+      <p class="small muted" style="margin-top:14px;text-align:center">Moving from another computer?
+        <button class="link-btn" type="button" data-action="restore">Restore from a backup</button></p>`);
     $("#s-name").focus();
+    onAction($(".onboard-card"), { restore: () => restore(welcome) });
     $("#ob-name").addEventListener("submit", (e) => {
       e.preventDefault();
       draft.name = $("#s-name").value.trim();

@@ -12,6 +12,7 @@ the key from elsewhere, and says so).
 
 from __future__ import annotations
 
+import calendar
 import errno
 import json
 import logging
@@ -42,7 +43,7 @@ LAST_KEY = "backup.last"
 SAFETY_COPIES_KEPT = 2
 _WORK_PREFIX, _DOWNLOAD_PREFIX, _RESTORE_PREFIX = ".backup-work-", ".backup-download-", ".restore-"
 _STAGED_LIFETIME = 3600
-_WORK_LIFETIME = 6 * 3600
+WORK_LIFETIME = 6 * 3600
 _MARGIN = 16 * 1024 * 1024
 _SQLITE_MAGIC = b"SQLite format 3\0"
 # Files on their way into an import, gone once it's processed: restored, nothing would ever finish them or clear them.
@@ -88,7 +89,7 @@ def clean_leftovers() -> None:
     for folder in data.iterdir():
         if not folder.is_dir():
             continue
-        limit = _WORK_LIFETIME if folder.name.startswith(_WORK_PREFIX) else (
+        limit = WORK_LIFETIME if folder.name.startswith(_WORK_PREFIX) else (
             _STAGED_LIFETIME if folder.name.startswith((_DOWNLOAD_PREFIX, _RESTORE_PREFIX)) else None)
         try:
             if limit is not None and now - folder.stat().st_mtime > limit:
@@ -533,8 +534,17 @@ def _what_is_here() -> Optional[dict[str, Any]]:
             conn.close()
 
 
+def _local_date(created_at: Optional[str]) -> Optional[str]:
+    """The manifest says UTC. In the evening in America that's already tomorrow, beside a report showing today."""
+    try:
+        return time.strftime("%Y-%m-%d", time.localtime(calendar.timegm(time.strptime(created_at or "", "%Y-%m-%dT%H:%M:%SZ"))))
+    except ValueError:
+        return None
+
+
 def _sign_in_text(info: dict[str, Any], manifest: dict[str, Any]) -> str:
-    when = f" ({manifest['created_at'][:10]})" if manifest.get("created_at") else ""
+    made = _local_date(manifest.get("created_at"))
+    when = f" ({made})" if made else ""
     if not any(a["has_password"] for a in info["accounts"]):
         return "Nobody needed a password when this backup was made."
     return (f"After restoring, sign in with the password that was current when this backup was made{when}, not one you've set "
