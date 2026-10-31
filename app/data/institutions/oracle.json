@@ -15,7 +15,7 @@
 },
 {
 "id": "oracle-abha-mishra-neurology-pllc",
-"name": "ABHA MISHRA NEUROLOGY PLLC",
+"name": "Abha Mishra Neurology PLLC",
 "location": "Pass Christian, MS",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/cafecfe3-1c38-4574-90a6-d2bb7610e4a4/"
@@ -36,7 +36,7 @@
 },
 {
 "id": "oracle-adair-county-memorial-hospital",
-"name": "ADAIR COUNTY MEMORIAL HOSPITAL",
+"name": "Adair County Memorial Hospital",
 "location": "Greenfield, IA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/f904b187-16a4-4582-8ea3-887d87de0011/"
@@ -148,7 +148,7 @@
 },
 {
 "id": "oracle-adventist-healthcare",
-"name": "ADVENTIST HEALTHCARE",
+"name": "Adventist Healthcare",
 "location": "Gaithersburg, MD",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/f71725f4-8a5d-45dc-9e68-6ddbc583dfb3/"
@@ -218,7 +218,7 @@
 },
 {
 "id": "oracle-alaska-native-medical-center",
-"name": "ALASKA NATIVE MEDICAL CENTER",
+"name": "Alaska Native Medical Center",
 "location": "Anchorage, AK",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/-yJKGL5-49LdGDJaxmfdb85K2Njr-hkB/"
@@ -512,7 +512,7 @@
 },
 {
 "id": "oracle-aschinberg-pediatrics",
-"name": "ASCHINBERG PEDIATRICS",
+"name": "Aschinberg Pediatrics",
 "location": "Joliet, IL",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/9376d5c9-afda-4b32-a319-0c1c159dffd7/"
@@ -624,7 +624,7 @@
 },
 {
 "id": "oracle-atlanticare-health-system",
-"name": "ATLANTICARE HEALTH SYSTEM",
+"name": "Atlanticare Health System",
 "location": "Egg Harbor Township, NJ",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/3e8d4a4e-e1e9-4f4d-8b87-af7fa09f6ac8/"
@@ -701,7 +701,7 @@
 },
 {
 "id": "banner-health",
-"name": "BANNER HEALTH",
+"name": "Banner Health",
 "location": "Phoenix, AZ",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/Y62ncCuwN85GGa7s0iz44XRnQoc9qr60/",
@@ -709,7 +709,7 @@
 },
 {
 "id": "oracle-baptist-health",
-"name": "BAPTIST HEALTH",
+"name": "Baptist Health",
 "location": "Montgomery, AL",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/bef96e27-b3e6-4b62-ab3e-78a9a16c8040/"
@@ -821,7 +821,7 @@
 },
 {
 "id": "oracle-beebe-healthcare",
-"name": "BEEBE HEALTHCARE",
+"name": "Beebe Healthcare",
 "location": "Lewes, DE",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/13b50b3e-3008-4cea-8436-d50ebe0744e1/"
@@ -891,7 +891,7 @@
 },
 {
 "id": "oracle-billings-clinic",
-"name": "BILLINGS CLINIC",
+"name": "Billings Clinic",
 "location": "Billings, MT",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/R0BnjtS1Cg4P990d7iegvoMVqlnOQ9OI/"
@@ -961,7 +961,7 @@
 },
 {
 "id": "oracle-boone-county-health-center",
-"name": "BOONE COUNTY HEALTH CENTER",
+"name": "Boone County Health Center",
 "location": "Albion, NE",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/2f32da6e-80b8-497f-843c-a19a93e136d5/"
@@ -996,7 +996,7 @@
 },
 {
 "id": "oracle-brattleboro-memorial-hospital",
-"name": "BRATTLEBORO MEMORIAL HOSPITAL",
+"name": "Brattleboro Memorial Hospital",
 "location": "Brattleboro, VT",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/d9dc001d-1bc5-42f9-bd4d-eb79208fd32a/"
@@ -1094,7 +1094,7 @@
 },
 {
 "id": "oracle-cabell-huntington-hospital",
-"name": "CABELL HUNTINGTON HOSPITAL",
+"name": "Cabell Huntington Hospital",
 "location": "Huntington, WV",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/3N1pCmlUG0710nvlzCuO977VaU0tztwr/"
@@ -1227,7 +1227,7 @@
 },
 {
 "id": "oracle-carroll-county-memorial-hospital",
-"name": "CARROLL COUNTY MEMORIAL HOSPITAL",
+"name": "Carroll County Memorial Hospital",
 "location": "Carrollton, MO",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/89am5gSIswYvqOJuGoJ38cMjxUeNFOma/"
@@ -1339,7 +1339,7 @@
 },
 {
 "id": "oracle-chadron-community-hospital",
-"name": "CHADRON COMMUNITY HOSPITAL",
+"name": "Chadron Community Hospital",
 "location": "Chadron, NE",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/d8abdf5e-a2d6-41b9-bff8-4f8bef8b37dd/"
@@ -1458,7 +1458,7 @@
 },
 {
 "id": "oracle-childrens-hospital-of-the-kings-daughters",
-"name": "CHILDRENS HOSPITAL OF THE KINGS DAUGHTERS",
+"name": "Childrens Hospital of the Kings Daughters",
 "location": "Norfolk, VA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/237789e0-8b40-4355-aefd-25694ca16391/"
@@ -1874,7 +1874,7 @@
 },
 {
 "id": "oracle-county-of-orange-health-care-agency",
-"name": "COUNTY OF ORANGE HEALTH CARE AGENCY",
+"name": "County of Orange Health Care Agency",
 "location": "Santa Ana, CA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/00647884-2425-4aef-9dfc-60b7447da45a/"
@@ -1888,21 +1888,21 @@
 },
 {
 "id": "oracle-county-of-ventura",
-"name": "COUNTY OF VENTURA",
+"name": "County of Ventura",
 "location": "Ventura, CA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/8cf1bb66-7b18-4eaa-b641-538f19feb923/"
 },
 {
 "id": "oracle-covenant-health",
-"name": "COVENANT HEALTH",
+"name": "Covenant Health",
 "location": "Knoxville, TN",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/3c4a889f-c0c4-4f50-90d1-60f6a5ad9e7d/"
 },
 {
 "id": "oracle-covenant-health-2",
-"name": "COVENANT HEALTH",
+"name": "Covenant Health",
 "location": "Knoxville, TN",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/9d9ce2ac-65e8-4488-a0f0-ba102e060a58/"
@@ -2098,7 +2098,7 @@
 },
 {
 "id": "oracle-davis-county-hospital",
-"name": "DAVIS COUNTY HOSPITAL",
+"name": "Davis County Hospital",
 "location": "Bloomfield, IA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/639e10d5-cd9b-4520-ac16-cab58cec3fc7/"
@@ -2784,7 +2784,7 @@
 },
 {
 "id": "oracle-ellis-hospital",
-"name": "ELLIS HOSPITAL",
+"name": "Ellis Hospital",
 "location": "Schenectady, NY",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/44449a6c-e014-4a84-b9a2-5f63676d31de/"
@@ -2980,14 +2980,14 @@
 },
 {
 "id": "oracle-fairbanks-memorial-hospital",
-"name": "FAIRBANKS MEMORIAL HOSPITAL",
+"name": "Fairbanks Memorial Hospital",
 "location": "Fairbanks, AK",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/d2e61489-9680-4a3d-974a-fc8d705fc283/"
 },
 {
 "id": "oracle-fairfield-medical-center",
-"name": "FAIRFIELD MEDICAL CENTER",
+"name": "Fairfield Medical Center",
 "location": "Lancaster, OH",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/f17aed19-e2f6-49d4-bba0-64508a2357d2/"
@@ -3113,7 +3113,7 @@
 },
 {
 "id": "oracle-fisher-titus-medical-center",
-"name": "FISHER TITUS MEDICAL CENTER",
+"name": "Fisher Titus Medical Center",
 "location": "Norwalk, OH",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/d1e1772a-df16-459e-9e9d-ac11507ad967/"
@@ -3302,14 +3302,14 @@
 },
 {
 "id": "oracle-genesis-health-system",
-"name": "GENESIS HEALTH SYSTEM",
+"name": "Genesis Health System",
 "location": "Davenport, IA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/Hq9lMFKIau9MlCiBN698ZPzTKNvsMrCb/"
 },
 {
 "id": "oracle-genesis-health-system-2",
-"name": "GENESIS HEALTH SYSTEM",
+"name": "Genesis Health System",
 "location": "Davenport, IA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/zRBZsbKdoME7HivKpjAL4ZEb8JQBD9Cn/"
@@ -3330,7 +3330,7 @@
 },
 {
 "id": "oracle-gerald-champion-regional-medical-center",
-"name": "GERALD CHAMPION REGIONAL MEDICAL CENTER",
+"name": "Gerald Champion Regional Medical Center",
 "location": "Alamogordo, NM",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/304d13bb-2c34-4ffe-bf3e-d4d17562b002/"
@@ -3505,7 +3505,7 @@
 },
 {
 "id": "oracle-gwynedd-mercy-college",
-"name": "GWYNEDD MERCY COLLEGE",
+"name": "Gwynedd Mercy College",
 "location": "Gwynedd Valley, PA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/7f97a135-de8b-4d0d-8cae-944f42aa5be1/"
@@ -3834,7 +3834,7 @@
 },
 {
 "id": "oracle-hypertension-nephrology-associates",
-"name": "hypertension nephrology associates",
+"name": "Hypertension Nephrology Associates",
 "location": "Willow Grove, PA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/0ffe150c-5435-4b81-b402-c9449af1a376/"
@@ -4240,7 +4240,7 @@
 },
 {
 "id": "oracle-joseph-f-roberts-md",
-"name": "JOSEPH F. ROBERTS MD",
+"name": "Joseph F. Roberts MD",
 "location": "Grenada, MS",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/8ae75827-0f9b-457f-be6b-a17f2d896c19/"
@@ -4303,7 +4303,7 @@
 },
 {
 "id": "oracle-kaleida-health",
-"name": "KALEIDA HEALTH",
+"name": "Kaleida Health",
 "location": "Buffalo, NY",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/977e949f-0f0b-4a36-bf59-4f0819b90ab8/"
@@ -4716,7 +4716,7 @@
 },
 {
 "id": "oracle-los-angeles-county-dept-of-health-services",
-"name": "LOS ANGELES COUNTY DEPT OF HEALTH SERVICES",
+"name": "Los Angeles County Dept of Health Services",
 "location": "Los Angeles, CA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/208486af-ceea-4a7d-b4d7-95c884a327df/"
@@ -4807,14 +4807,14 @@
 },
 {
 "id": "oracle-madison-valley-medical-center",
-"name": "MADISON VALLEY MEDICAL CENTER",
+"name": "Madison Valley Medical Center",
 "location": "Ennis, MT",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/c11411f4-01ed-4048-962f-685091adad2f/"
 },
 {
 "id": "oracle-madison-women-s-clinic-p-l-l-c",
-"name": "MADISON WOMEN'S CLINIC P.L.L.C.",
+"name": "Madison Women's Clinic P.L.L.C.",
 "location": "Rexburg, ID",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/c46a5838-35ac-47fa-bfe5-86530b685fbb/"
@@ -4828,7 +4828,7 @@
 },
 {
 "id": "oracle-mammoth-hospital",
-"name": "MAMMOTH HOSPITAL",
+"name": "Mammoth Hospital",
 "location": "Mammoth Lakes, CA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/89b7757a-432f-4f56-8638-86920235f2d0/"
@@ -4926,7 +4926,7 @@
 },
 {
 "id": "oracle-mary-free-bed-rehabilitation-hospital",
-"name": "MARY FREE BED REHABILITATION HOSPITAL",
+"name": "Mary Free Bed Rehabilitation Hospital",
 "location": "Grand Rapids, MI",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/7006fdc7-df54-41b9-a969-0708fc6f2031/"
@@ -4961,7 +4961,7 @@
 },
 {
 "id": "oracle-mcdonough-district-hospital",
-"name": "MCDONOUGH DISTRICT HOSPITAL",
+"name": "Mcdonough District Hospital",
 "location": "Macomb, IL",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/9c9d3cdf-0f7f-4b63-979a-f711747b3e95/"
@@ -5076,7 +5076,7 @@
 },
 {
 "id": "oracle-memorial-community-health-inc",
-"name": "MEMORIAL COMMUNITY HEALTH INC",
+"name": "Memorial Community Health Inc",
 "location": "Aurora, NE",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/a4c7307b-5132-41db-ae59-8b3c5b480948/"
@@ -5104,7 +5104,7 @@
 },
 {
 "id": "oracle-memorial-hospital-at-gulfport",
-"name": "MEMORIAL HOSPITAL AT GULFPORT",
+"name": "Memorial Hospital at Gulfport",
 "location": "Gulfport, MS",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/4a2476ac-8e51-4591-af31-2fc7fcc3fc0d/"
@@ -5139,7 +5139,7 @@
 },
 {
 "id": "oracle-mercy-hospital-inc",
-"name": "MERCY HOSPITAL INC",
+"name": "Mercy Hospital Inc",
 "location": "Moundridge, KS",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/0f28b1ab-8e47-4a25-b8ea-aeb6ede39b7d/"
@@ -5440,7 +5440,7 @@
 },
 {
 "id": "oracle-monongalia-county-gen-hosp-co",
-"name": "MONONGALIA COUNTY GEN HOSP CO",
+"name": "Monongalia County Gen Hosp Co",
 "location": "Morgantown, WV",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/41e7ed61-011a-4b3f-8e27-7aa832467b04/"
@@ -5573,7 +5573,7 @@
 },
 {
 "id": "oracle-munson-healthcare",
-"name": "MUNSON HEALTHCARE",
+"name": "Munson Healthcare",
 "location": "Traverse City, MI",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/d63001e8-2b2d-46b2-9b8b-4bc37428b829/"
@@ -5832,7 +5832,7 @@
 },
 {
 "id": "oracle-nicklaus-childrens-pediatric-specialists",
-"name": "NICKLAUS CHILDRENS PEDIATRIC SPECIALISTS",
+"name": "Nicklaus Childrens Pediatric Specialists",
 "location": "Hialeah, FL",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/53e6a1e6-ae3a-42a1-b1de-6de5bdf38a06/"
@@ -5853,7 +5853,7 @@
 },
 {
 "id": "oracle-north-broward-hospital-district",
-"name": "NORTH BROWARD HOSPITAL DISTRICT",
+"name": "North Broward Hospital District",
 "location": "Fort Lauderdale, FL",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/4ec99ef7-2f74-4efb-9ab9-a702c7c570f4/"
@@ -5902,7 +5902,7 @@
 },
 {
 "id": "oracle-north-kansas-city-hospital",
-"name": "NORTH KANSAS CITY HOSPITAL",
+"name": "North Kansas City Hospital",
 "location": "North Kansas City, MO",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/MtxVU3dbzZwHcvfCb2vTAE2_Nwhai9Oq/"
@@ -6070,14 +6070,14 @@
 },
 {
 "id": "oracle-oklahoma-heart-hospital-llc",
-"name": "OKLAHOMA HEART HOSPITAL, LLC.",
+"name": "Oklahoma Heart Hospital, LLC.",
 "location": "Oklahoma City, OK",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/I-7_h5bO8aC4DcrZl24eCXsg8gA1KGV3/"
 },
 {
 "id": "oracle-oklahoma-surgical-hospital",
-"name": "OKLAHOMA SURGICAL HOSPITAL",
+"name": "Oklahoma Surgical Hospital",
 "location": "Tulsa, OK",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/37d0fa6b-e0f7-4581-adbb-f9e2eac855e1/"
@@ -6133,7 +6133,7 @@
 },
 {
 "id": "oracle-opelousas-general-hospital",
-"name": "OPELOUSAS GENERAL HOSPITAL",
+"name": "Opelousas General Hospital",
 "location": "Opelousas, LA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/840cfaf0-ce3e-493c-a182-e85f2fdef4ac/"
@@ -6210,7 +6210,7 @@
 },
 {
 "id": "oracle-otsego-county",
-"name": "OTSEGO COUNTY",
+"name": "Otsego County",
 "location": "Cooperstown, NY",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/b4c98020-9abb-4401-82af-2d9776616390/"
@@ -6525,7 +6525,7 @@
 },
 {
 "id": "oracle-pickens-county-medical-center",
-"name": "PICKENS COUNTY MEDICAL CENTER",
+"name": "Pickens County Medical Center",
 "location": "Carrollton, AL",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/6ad4f704-f405-4202-8945-20913573c2bf/"
@@ -6574,7 +6574,7 @@
 },
 {
 "id": "oracle-poarch-band-of-creek-indians",
-"name": "POARCH BAND OF CREEK INDIANS",
+"name": "Poarch Band of Creek Indians",
 "location": "Atmore, AL",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/148f5931-d9cf-4d65-8c66-7021ed161b73/"
@@ -6721,7 +6721,7 @@
 },
 {
 "id": "oracle-prospect-medical-holdings-waterbury-hospital",
-"name": "Prospect Medical Holdings  - Waterbury Hospital",
+"name": "Prospect Medical Holdings - Waterbury Hospital",
 "location": "Waterbury, CT",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/2ff937d5-49c0-4d88-b923-0f5bdcf3b04f/"
@@ -6882,7 +6882,7 @@
 },
 {
 "id": "oracle-renaissance-health-llc",
-"name": "RENAISSANCE HEALTH LLC",
+"name": "Renaissance Health LLC",
 "location": "Little Rock, AR",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/30367288-af74-4979-9ada-cd518e69cb2c/"
@@ -7225,7 +7225,7 @@
 },
 {
 "id": "oracle-san-joaquin-general-hospital",
-"name": "SAN JOAQUIN GENERAL HOSPITAL",
+"name": "San Joaquin General Hospital",
 "location": "French Camp, CA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/1014839d-07f9-4c12-a617-3f1d8afea267/"
@@ -7267,7 +7267,7 @@
 },
 {
 "id": "oracle-saunders-medical-center",
-"name": "SAUNDERS MEDICAL CENTER",
+"name": "Saunders Medical Center",
 "location": "Wahoo, NE",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/06e9d567-9657-447f-97fb-d967654387e7/"
@@ -7288,7 +7288,7 @@
 },
 {
 "id": "oracle-scotland-memorial-hospital",
-"name": "SCOTLAND MEMORIAL HOSPITAL",
+"name": "Scotland Memorial Hospital",
 "location": "Laurinburg, NC",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/bf2bc40a-17cb-4353-8de2-68c75c849bc8/"
@@ -7358,14 +7358,14 @@
 },
 {
 "id": "oracle-sharon-regional-health-system",
-"name": "SHARON REGIONAL HEALTH SYSTEM",
+"name": "Sharon Regional Health System",
 "location": "Sharon, PA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/0c45d456-c156-4baa-b6a0-bf60418740f7/"
 },
 {
 "id": "oracle-sharon-regional-health-system-2",
-"name": "SHARON REGIONAL HEALTH SYSTEM",
+"name": "Sharon Regional Health System",
 "location": "Sharon, PA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/XxCJ99kCIg2i3KfxlKhrZa_KjVzO5m_9/"
@@ -7414,7 +7414,7 @@
 },
 {
 "id": "oracle-shoshone-medical-center",
-"name": "SHOSHONE MEDICAL CENTER",
+"name": "Shoshone Medical Center",
 "location": "Kellogg, ID",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/9a0a9763-cc6e-4ca0-bdec-c16291c965b9/"
@@ -7442,7 +7442,7 @@
 },
 {
 "id": "oracle-silver-cross-hospital",
-"name": "SILVER CROSS HOSPITAL",
+"name": "Silver Cross Hospital",
 "location": "New Lenox, IL",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/11ea0cbd-06f9-4ba7-9e47-64230780fa06/"
@@ -7743,7 +7743,7 @@
 },
 {
 "id": "oracle-st-james-parish-hospital",
-"name": "ST. JAMES PARISH HOSPITAL",
+"name": "St. James Parish Hospital",
 "location": "Lutcher, LA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/71db284b-f315-4638-addc-f58faa7c70f7/"
@@ -8394,7 +8394,7 @@
 },
 {
 "id": "oracle-torrance-memorial-medical-center",
-"name": "TORRANCE MEMORIAL MEDICAL CENTER",
+"name": "Torrance Memorial Medical Center",
 "location": "Torrance, CA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/Dbsl25a-uo0gf9Q0PnfwA_QlUbZ5qTHL/"
@@ -8618,7 +8618,7 @@
 },
 {
 "id": "oracle-united-surgical-partners-international-inc",
-"name": "UNITED SURGICAL PARTNERS INTERNATIONAL INC",
+"name": "United Surgical Partners International Inc",
 "location": "Addison, TX",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/ed29dd2e-7f6b-4b48-93ba-6ba78c79cd2d/"
@@ -8842,7 +8842,7 @@
 },
 {
 "id": "oracle-virginia-mason-medical-center",
-"name": "VIRGINIA MASON MEDICAL CENTER",
+"name": "Virginia Mason Medical Center",
 "location": "Seattle, WA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/66ad9a50-d7f7-4c21-b933-2ba90047388e/"
@@ -9017,7 +9017,7 @@
 },
 {
 "id": "oracle-west-tennessee-healthcare",
-"name": "WEST TENNESSEE HEALTHCARE",
+"name": "West Tennessee Healthcare",
 "location": "Jackson, TN",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/b673e6c7-c87b-498f-86b2-99b24c52c924/"
@@ -9087,7 +9087,7 @@
 },
 {
 "id": "oracle-wilkes-regional-medical-center",
-"name": "WILKES REGIONAL MEDICAL CENTER",
+"name": "Wilkes Regional Medical Center",
 "location": "North Wilkesboro, NC",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/c3fd4b2e-3df5-4463-9a73-d51db35baf91/"
@@ -9150,7 +9150,7 @@
 },
 {
 "id": "oracle-winona-health-services-inc",
-"name": "WINONA HEALTH SERVICES INC",
+"name": "Winona Health Services Inc",
 "location": "Winona, MN",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/h-wugRRmXDZkm9_GMtf9rhlhb3aHTbV5/"
@@ -9178,7 +9178,7 @@
 },
 {
 "id": "oracle-wood-county-hospital",
-"name": "WOOD COUNTY HOSPITAL",
+"name": "Wood County Hospital",
 "location": "Bowling Green, OH",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/m6q718FZg_-IH-imjhHk1P9jJGSwQzGK/"

@@ -453,10 +453,12 @@ def test_a_health_system_whose_sign_in_failed_the_check_says_so(client, monkeypa
     key = broken["fhir_base_url"].strip().rstrip("/").lower()
     monkeypatch.setattr(directory, "_sign_in_status", lambda: {
         key: {"status": "portal_error", "since": "2026-10-03", "instead": [working["id"], "gone-from-directory"]}})
+    monkeypatch.setattr(directory, "_status_file", lambda: {"servers": directory._sign_in_status()})
+    monkeypatch.setattr(directory, "_today", lambda: __import__("datetime").date(2026, 10, 10))
     client.put("/api/settings/developer", json={"enabled": False})
 
     found = client.get(f"/api/directory/{broken['id']}").json()
-    assert found["sign_in_problem"] == {"status": "portal_error", "since": "2026-10-03",
+    assert found["sign_in_problem"] == {"status": "portal_error", "since": "2026-10-03", "checked": None, "stale": False,
                                         "instead": [{"id": working["id"], "name": working["name"]}]}
     assert client.get(f"/api/directory/{working['id']}").json()["sign_in_problem"] is None
     assert client.get("/api/directory/not-a-real-id").status_code == 404

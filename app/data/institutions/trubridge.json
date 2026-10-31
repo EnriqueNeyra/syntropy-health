@@ -92,7 +92,7 @@
 },
 {
 "id": "trubridge-annie-jeffrey-memorial-co-health-center",
-"name": "Annie Jeffrey Memorial Co Health Center",
+"name": "Annie Jeffrey Memorial CO Health Center",
 "location": "Osceola, NE",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/anniej/id-osfac.2f9a1343-442b-4cd1-b1d6-8a1e7477fb95/fhir/r4"
@@ -155,7 +155,7 @@
 },
 {
 "id": "trubridge-ashlin-paz-do",
-"name": "Ashlin Paz DO",
+"name": "ASHLIN PAZ DO",
 "location": "Sweetwater, TN",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/sweet/id-osfac.22bc1e76-3a6d-4cd6-a8e5-e45fb3fc6480/fhir/r4"
@@ -166,6 +166,13 @@
 "location": "Athens, AL",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/athens/id-osfac.5c06847d-879c-4d7e-b532-d69ce798a33b/fhir/r4"
+},
+{
+"id": "trubridge-athens-limestone-hospital-2",
+"name": "Athens-Limestone Hospital",
+"location": "Athens, AL",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/athens_mcc/id-osfac.5c06847d-879c-4d7e-b532-d69ce798a33b/fhir/r4"
 },
 {
 "id": "trubridge-atoka-county-medical-center",
@@ -292,6 +299,13 @@
 "location": "Big Bear Lake, CA",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/bearvch/id-osfac.ac9cdb94-8ba3-4d5d-91f7-abdc3d80fec6/fhir/r4"
+},
+{
+"id": "trubridge-bear-valley-community-2",
+"name": "Bear Valley Community",
+"location": "Big Bear Lake, CA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/yorkgen/id-osfac.ac9cdb94-8ba3-4d5d-91f7-abdc3d80fec6/fhir/r4"
 },
 {
 "id": "trubridge-ben-d-coffey-co13",
@@ -441,6 +455,27 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/buchgen/id-osfac.6cf7e1ed-9ab9-4cc7-b39e-6ce78002704a/fhir/r4"
 },
 {
+"id": "trubridge-buchanan-general-hospital-2",
+"name": "Buchanan General Hospital",
+"location": "Grundy, VA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/buchgen_mcc/id-osfac.6cf7e1ed-9ab9-4cc7-b39e-6ce78002704a/fhir/r4"
+},
+{
+"id": "trubridge-bullock-county-clinic",
+"name": "Bullock County Clinic",
+"location": "Union Springs, AL",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/inmedgp/id-osfac.59011331-9dbf-49da-8c5c-221f49e47e38/fhir/r4"
+},
+{
+"id": "trubridge-bullock-county-hospital",
+"name": "Bullock County Hospital",
+"location": "Union Springs, AL",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/inmedgp/id-osfac.770f4811-5cf1-4f9d-972a-82610e84747d/fhir/r4"
+},
+{
 "id": "trubridge-bunkie-general-hospital",
 "name": "Bunkie General Hospital",
 "location": "Bunkie, LA",
@@ -522,7 +557,7 @@
 "name": "Caliente/Alamo Clinics",
 "location": "Caliente, NV",
 "platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/thriveehr/grover/fhir/r4"
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/grover/id-osfac.ebdd6483-5494-43e4-940d-0e8779542ed2/fhir/r4"
 },
 {
 "id": "trubridge-cameron-regional-medical-cente",
@@ -673,7 +708,7 @@
 },
 {
 "id": "trubridge-clay-county-hospital-co-01",
-"name": "Clay County Hospital Co 01",
+"name": "Clay County Hospital CO 01",
 "location": "Ashland, AL",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/clayco/id-osfac.9060336a-1765-4630-88dd-de060cdaea13/fhir/r4"
@@ -747,6 +782,13 @@
 "location": "Columbus, GA",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/colspec/id-osfac.1f992d8c-e875-4831-a377-9e2122c85db0/fhir/r4"
+},
+{
+"id": "trubridge-columbus-specialty-hospital-2",
+"name": "Columbus Specialty Hospital",
+"location": "Columbus, GA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/paulsva/id-osfac.1f992d8c-e875-4831-a377-9e2122c85db0/fhir/r4"
 },
 {
 "id": "trubridge-colusa-medical-center",
@@ -1043,6 +1085,13 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dodge/id-osfac.a3d0bf9e-50b3-448b-af97-bc9f9a6c0ecb/fhir/r4"
 },
 {
+"id": "trubridge-dodge-county-hospital-2",
+"name": "Dodge County Hospital",
+"location": "Eastman, GA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/jeffcou/id-osfac.a3d0bf9e-50b3-448b-af97-bc9f9a6c0ecb/fhir/r4"
+},
+{
 "id": "trubridge-donalsonville-hospital",
 "name": "Donalsonville Hospital",
 "location": "Donalsonville, GA",
@@ -1055,6 +1104,13 @@
 "location": "Southport, NC",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/jarthur/id-osfac.1d58e6c2-6947-4517-9a9f-882b4fa82104/fhir/r4"
+},
+{
+"id": "trubridge-dosher-memorial-hospital-2",
+"name": "Dosher Memorial Hospital",
+"location": "Southport, NC",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/jarthur_mcc/id-osfac.1d58e6c2-6947-4517-9a9f-882b4fa82104/fhir/r4"
 },
 {
 "id": "trubridge-dr-ahmed-jahangeer",
@@ -1106,6 +1162,13 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dodge/id-osfac.12496535-d991-4cec-bed3-c184ba3d705e/fhir/r4"
 },
 {
+"id": "trubridge-eastman-surgical-associates-2",
+"name": "Eastman Surgical Associates",
+"location": "Eastman, GA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/jeffcou/id-osfac.12496535-d991-4cec-bed3-c184ba3d705e/fhir/r4"
+},
+{
 "id": "trubridge-edgewood-surgical-hospital",
 "name": "Edgewood Surgical Hospital",
 "location": "Transfer, PA",
@@ -1128,7 +1191,7 @@
 },
 {
 "id": "trubridge-el-campo-memorial-hospital",
-"name": "El Campo Memorial Hospital",
+"name": "EL Campo Memorial Hospital",
 "location": "El Campo, TX",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/elcampo/id-osfac.fbb57a71-4482-4dbf-8db3-229aa3836f05/fhir/r4"
@@ -1155,11 +1218,25 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/electra/id-osfac.5cc71560-5d78-4701-9aca-0213ab36addb/fhir/r4"
 },
 {
+"id": "trubridge-electra-medical-clinic-2",
+"name": "Electra Medical Clinic",
+"location": "Electra, TX",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/electra_mcc/id-osfac.5cc71560-5d78-4701-9aca-0213ab36addb/fhir/r4"
+},
+{
 "id": "trubridge-electra-memorial-hospital",
 "name": "Electra Memorial Hospital",
 "location": "Electra, TX",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/electra/id-osfac.8b6450ad-78f5-49d7-b45f-05d6560fa63b/fhir/r4"
+},
+{
+"id": "trubridge-electra-memorial-hospital-2",
+"name": "Electra Memorial Hospital",
+"location": "Electra, TX",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/electra_mcc/id-osfac.8b6450ad-78f5-49d7-b45f-05d6560fa63b/fhir/r4"
 },
 {
 "id": "trubridge-elizabethtown-community-hosp",
@@ -1352,7 +1429,7 @@
 },
 {
 "id": "trubridge-ghs-ar-ap-gl-jackson-medical-center",
-"name": "GHS Ar/Ap/GL Jackson Medical Center",
+"name": "GHS AR/AP/GL Jackson Medical Center",
 "location": "Jackson, AL",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/jackmed/id-osfac.5ef3d4cc-15d7-4bf0-9c80-fe692eb8c364/fhir/r4"
@@ -1460,7 +1537,7 @@
 "name": "Grover C Dils Medical Center",
 "location": "Caliente, NV",
 "platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/thriveehr/grover/fhir/r4"
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/grover/id-osfac.74b8fe2b-b09d-4164-a4d8-c21afe5dc88c/fhir/r4"
 },
 {
 "id": "trubridge-gunnison-valley-hospital",
@@ -1771,11 +1848,25 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/hughcha/id-osfac.24aa8540-53ea-4536-a513-99b73aadc82c/fhir/r4"
 },
 {
+"id": "trubridge-hugh-chatham-memorial-2",
+"name": "Hugh Chatham Memorial",
+"location": "Elkin, NC",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/huron/id-osfac.24aa8540-53ea-4536-a513-99b73aadc82c/fhir/r4"
+},
+{
 "id": "trubridge-humboldt-family-medical-care",
 "name": "Humboldt Family Medical Care",
-"location": "Mckinleyville, CA",
+"location": "McKinleyville, CA",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/madrmc/id-osfac.1b5c30c8-fd55-4ac5-ba28-c5cece38f043/fhir/r4"
+},
+{
+"id": "trubridge-humboldt-family-medical-care-2",
+"name": "Humboldt Family Medical Care",
+"location": "McKinleyville, CA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/madrmc_mcc/id-osfac.1b5c30c8-fd55-4ac5-ba28-c5cece38f043/fhir/r4"
 },
 {
 "id": "trubridge-iberia-medical-center",
@@ -1811,6 +1902,13 @@
 "location": "Iowa Park, TX",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/electra/id-osfac.01788213-221b-45bb-8483-85c4f02ee6c7/fhir/r4"
+},
+{
+"id": "trubridge-iowa-park-clinic-2",
+"name": "Iowa Park Clinic",
+"location": "Iowa Park, TX",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/electra_mcc/id-osfac.01788213-221b-45bb-8483-85c4f02ee6c7/fhir/r4"
 },
 {
 "id": "trubridge-iraan-general-hospital-dist",
@@ -2037,6 +2135,13 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/flint/id-osfac.887dd8db-b961-4767-80e3-20d0dd8365eb/fhir/r4"
 },
 {
+"id": "trubridge-labette-health-2",
+"name": "Labette Health",
+"location": "Parsons, KS",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/labette/id-osfac.887dd8db-b961-4767-80e3-20d0dd8365eb/fhir/r4"
+},
+{
 "id": "trubridge-lackey-memorial-hospital",
 "name": "Lackey Memorial Hospital",
 "location": "Forest, MS",
@@ -2107,6 +2212,34 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/lawrenc/id-osfac.76107fde-6d86-46e1-af1a-c8f7e517ef31/fhir/r4"
 },
 {
+"id": "trubridge-legacy-bullock-county-clinic",
+"name": "Legacy Bullock County Clinic",
+"location": "Union Springs, AL",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/inmedgp/id-osfac.b033fe0a-6b49-40c4-a2b7-6acd84386efb/fhir/r4"
+},
+{
+"id": "trubridge-legacy-bullock-county-hospital",
+"name": "Legacy Bullock County Hospital",
+"location": "Union Springs, AL",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/inmedgp/id-osfac.0bfd7761-8b13-48ec-8b52-7b7f9e87762b/fhir/r4"
+},
+{
+"id": "trubridge-legacy-mt-lakes-med-center",
+"name": "Legacy Mt Lakes Med Center",
+"location": "Clayton, GA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/mtlake/id-osfac.b71b2ccd-fe32-4d6f-bf01-5ad0e8b7a646/fhir/r4"
+},
+{
+"id": "trubridge-legacy-south-texas-specialty-hospital",
+"name": "Legacy South Texas Specialty Hospital",
+"location": "San Antonio, TX",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/legento/id-osfac.1f74275b-9b4f-46a1-a293-43cde345a614/fhir/r4"
+},
+{
 "id": "trubridge-legent-hosp-for-special-surgery",
 "name": "Legent Hosp for Special Surgery",
 "location": "Plano, TX",
@@ -2119,13 +2252,6 @@
 "location": "Tomball, TX",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/legenth/id-osfac.2f9a1343-442b-4cd1-b1d6-8a1e7477fb95/fhir/r4"
-},
-{
-"id": "trubridge-legent-ortho-and-spine",
-"name": "Legent Ortho and Spine",
-"location": "San Antonio, TX",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/legento/id-osfac.15cc0d37-e285-4030-9561-32aa81752c20/fhir/r4"
 },
 {
 "id": "trubridge-legent-orthopedic-hospital",
@@ -2219,13 +2345,6 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/linchos/id-osfac.fd8440c7-fa48-4e86-bde5-9a72c239c0d2/fhir/r4"
 },
 {
-"id": "trubridge-lincoln-county-medical-ass",
-"name": "Lincoln County Medical Ass.",
-"location": "Caliente, NV",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/thriveehr/grover/fhir/r4"
-},
-{
 "id": "trubridge-lindsay-municipal-hospital",
 "name": "Lindsay Municipal Hospital",
 "location": "Lindsay, OK",
@@ -2275,11 +2394,25 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/madrmc/id-osfac.42b3f975-5f67-48d1-b000-14d69d2d94ad/fhir/r4"
 },
 {
+"id": "trubridge-mad-river-community-hospital-2",
+"name": "Mad River Community Hospital",
+"location": "Arcata, CA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/madrmc_mcc/id-osfac.42b3f975-5f67-48d1-b000-14d69d2d94ad/fhir/r4"
+},
+{
 "id": "trubridge-mad-river-exp-healthcare",
 "name": "Mad River Exp Healthcare",
 "location": "Arcata, CA",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/madrmc/id-osfac.23fe14b3-0a27-414e-8c21-b49eea3494f1/fhir/r4"
+},
+{
+"id": "trubridge-mad-river-exp-healthcare-2",
+"name": "Mad River Exp Healthcare",
+"location": "Arcata, CA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/madrmc_mcc/id-osfac.23fe14b3-0a27-414e-8c21-b49eea3494f1/fhir/r4"
 },
 {
 "id": "trubridge-madison-county-memorial-hospital",
@@ -2354,23 +2487,9 @@
 {
 "id": "trubridge-mcgehee-hospital",
 "name": "McGehee Hospital",
-"location": "Mcgehee, AR",
+"location": "McGehee, AR",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/mcgehee/id-osfac.860256a2-af06-4712-aad8-18d8fc67c350/fhir/r4"
-},
-{
-"id": "trubridge-mckenzie-health-system",
-"name": "McKenzie Health System",
-"location": "Sandusky, MI",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/mckenzi/id-osfac.09f810e0-68dd-45cc-860d-0a2fb7632180/fhir/r4"
-},
-{
-"id": "trubridge-mclaren-thumb-region",
-"name": "McLaren Thumb Region",
-"location": "Bad Axe, MI",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/huronmc/id-osfac.f9936410-2259-45f6-b1bc-72b68841d2c0/fhir/r4"
 },
 {
 "id": "trubridge-mcmc-crockett",
@@ -2378,6 +2497,34 @@
 "location": "Crockett, TX",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/crocket/id-osfac.2f9a1343-442b-4cd1-b1d6-8a1e7477fb95/fhir/r4"
+},
+{
+"id": "trubridge-mcpherson-hospital",
+"name": "Mcpherson Hospital",
+"location": "McPherson, KS",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/mcphers/id-osfac.a9345740-6e38-490f-af17-4d5fe3d84b10/fhir/r4"
+},
+{
+"id": "trubridge-mcpherson-med-surg-clinic-a",
+"name": "McPherson Med & Surg Clinic A",
+"location": "McPherson, KS",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/mcphers/id-osfac.72890df9-e287-4d88-b649-d11218771949/fhir/r4"
+},
+{
+"id": "trubridge-mcpherson-med-surg-clinic-d",
+"name": "McPherson Med & Surg Clinic D",
+"location": "McPherson, KS",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/mcphers/id-osfac.30ef038d-be55-4030-85c9-37afef923cba/fhir/r4"
+},
+{
+"id": "trubridge-mcpherson-med-and-surg-clinic",
+"name": "McPherson Med and Surg Clinic",
+"location": "McPherson, KS",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/mcphers/id-osfac.14b747e9-3c6b-4361-ad09-a5d2d36d764d/fhir/r4"
 },
 {
 "id": "trubridge-meade-district-hospital",
@@ -2464,6 +2611,13 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/bellvil/id-osfac.2f9a1343-442b-4cd1-b1d6-8a1e7477fb95/fhir/r4"
 },
 {
+"id": "trubridge-mid-coast-medical-center-bellville-2",
+"name": "Mid Coast Medical Center - Bellville",
+"location": "Bellville, TX",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/hmhosp/id-osfac.2f9a1343-442b-4cd1-b1d6-8a1e7477fb95/fhir/r4"
+},
+{
 "id": "trubridge-mid-coast-medical-center-central",
 "name": "Mid Coast Medical Center - Central",
 "location": "Llano, TX",
@@ -2476,6 +2630,13 @@
 "location": "Eastman, GA",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dodge/id-osfac.19c55cf6-a3b5-4c2c-8c1c-877d6e7aa335/fhir/r4"
+},
+{
+"id": "trubridge-middle-georgia-total-care-2",
+"name": "Middle Georgia Total Care",
+"location": "Eastman, GA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/jeffcou/id-osfac.19c55cf6-a3b5-4c2c-8c1c-877d6e7aa335/fhir/r4"
 },
 {
 "id": "trubridge-millinocket-regional-hospital",
@@ -2527,13 +2688,6 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/monroe/id-osfac.63ce42a2-9c49-47e4-9d2e-8ad286325049/fhir/r4"
 },
 {
-"id": "trubridge-monroe-hospital",
-"name": "Monroe Hospital",
-"location": "Bloomington, IN",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/monhosp/id-osfac.73b95e5e-16de-4744-8592-75c88dcf2846/fhir/r4"
-},
-{
 "id": "trubridge-monroe-regional-hospital",
 "name": "Monroe Regional Hospital",
 "location": "Aberdeen, MS",
@@ -2567,13 +2721,6 @@
 "location": "Heppner, OR",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/piohosp/id-osfac.2f9a1343-442b-4cd1-b1d6-8a1e7477fb95/fhir/r4"
-},
-{
-"id": "trubridge-mountain-lakes-medical-center",
-"name": "Mountain Lakes Medical Center",
-"location": "Clayton, GA",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/mtlake/id-osfac.e17d4cba-8f90-413d-aea5-3f9fe4d17418/fhir/r4"
 },
 {
 "id": "trubridge-mountainview-medical-center",
@@ -2631,34 +2778,6 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/millin/id-osfac.3cef3ed8-8e0c-4333-bfae-fbe26f100481/fhir/r4"
 },
 {
-"id": "trubridge-mtr-after-hours-clinic",
-"name": "MTR After Hours Clinic",
-"location": "Bad Axe, MI",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/huronmc/id-osfac.2a0a01ea-a105-44fe-86fd-6f46f2bb905d/fhir/r4"
-},
-{
-"id": "trubridge-mtr-pediatrics",
-"name": "MTR Pediatrics",
-"location": "Bad Axe, MI",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/huronmc/id-osfac.9689ab2d-0654-4fc2-b236-4d0c14a591f8/fhir/r4"
-},
-{
-"id": "trubridge-mtr-primary-care",
-"name": "MTR Primary Care",
-"location": "Bad Axe, MI",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/huronmc/id-osfac.e0edff24-9dee-4f41-8925-4e3815955929/fhir/r4"
-},
-{
-"id": "trubridge-mtr-specialty-care",
-"name": "MTR Specialty Care",
-"location": "Bad Axe, MI",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/huronmc/id-osfac.e35f10a9-605b-48b0-8535-855ce25a7e94/fhir/r4"
-},
-{
 "id": "trubridge-muleshoe-area-medical-center",
 "name": "Muleshoe Area Medical Center",
 "location": "Muleshoe, TX",
@@ -2671,6 +2790,13 @@
 "location": "Murphy, NC",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/cheroke/id-osfac.13cf922d-cb12-435e-b3d3-4f1bc90ef332/fhir/r4"
+},
+{
+"id": "trubridge-murphy-medical-center-2",
+"name": "Murphy Medical Center",
+"location": "Murphy, NC",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/murphy/id-osfac.13cf922d-cb12-435e-b3d3-4f1bc90ef332/fhir/r4"
 },
 {
 "id": "trubridge-nemaha-county-hospital",
@@ -2692,6 +2818,13 @@
 "location": "Seiling, OK",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/santacv/id-osfac.3021368b-492b-458a-aa7c-65891e42bb31/fhir/r4"
+},
+{
+"id": "trubridge-new-seiling-municipal-hospital-2",
+"name": "New Seiling Municipal Hospital",
+"location": "Seiling, OK",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/seiling/id-osfac.3021368b-492b-458a-aa7c-65891e42bb31/fhir/r4"
 },
 {
 "id": "trubridge-niobrara-valley-hospital",
@@ -2771,6 +2904,13 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dochosp/id-osfac.22f489c5-0666-41b3-ae8b-e78afec43ae0/fhir/r4"
 },
 {
+"id": "trubridge-och-historical-review-only-co1-2",
+"name": "Och - Historical Review Only Co1",
+"location": "Springfield, MO",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dochosp_mcc/id-osfac.22f489c5-0666-41b3-ae8b-e78afec43ae0/fhir/r4"
+},
+{
 "id": "trubridge-och-missouri-rhc-usr3-f05",
 "name": "OCH MISSOURI RHC (/usr3/f05)",
 "location": "Gravette, AR",
@@ -2778,11 +2918,25 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dochosp/id-osfac.3cc22090-7905-4d9b-bf6a-30ca1d129101/fhir/r4"
 },
 {
+"id": "trubridge-och-missouri-rhc-usr3-f05-2",
+"name": "OCH MISSOURI RHC (/usr3/f05)",
+"location": "Gravette, AR",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dochosp_mcc/id-osfac.3cc22090-7905-4d9b-bf6a-30ca1d129101/fhir/r4"
+},
+{
 "id": "trubridge-och-regional-rhc-f06",
 "name": "OCH Regional RHC (f06)",
 "location": "Gravette, AR",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dochosp/id-osfac.60cf9c36-262a-462d-add0-251e5451a6a0/fhir/r4"
+},
+{
+"id": "trubridge-och-regional-rhc-f06-2",
+"name": "OCH Regional RHC (f06)",
+"location": "Gravette, AR",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dochosp_mcc/id-osfac.60cf9c36-262a-462d-add0-251e5451a6a0/fhir/r4"
 },
 {
 "id": "trubridge-ochiltree-general-hospital",
@@ -2799,8 +2953,15 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dodge/id-osfac.f260c1b7-892a-4ef7-beb3-2a9ae52e332f/fhir/r4"
 },
 {
+"id": "trubridge-ocmulgee-family-medicine-2",
+"name": "Ocmulgee Family Medicine",
+"location": "Eastman, GA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/jeffcou/id-osfac.f260c1b7-892a-4ef7-beb3-2a9ae52e332f/fhir/r4"
+},
+{
 "id": "trubridge-ofmc-tfmc",
-"name": "Ofmc/TFMC",
+"name": "OFMC/TFMC",
 "location": "Tonasket, WA",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/nvalley/id-osfac.ec065b97-efd8-41be-baf5-b15984b4c7c6/fhir/r4"
@@ -2905,10 +3066,17 @@
 },
 {
 "id": "trubridge-ozarks-community-hospital-gr-co4",
-"name": "Ozarks Community Hospital GR Co4",
+"name": "Ozarks Community Hospital GR CO4",
 "location": "Gravette, AR",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dochosp/id-osfac.78cb77b5-7772-4e63-9025-edc4f540c453/fhir/r4"
+},
+{
+"id": "trubridge-ozarks-community-hospital-gr-co4-2",
+"name": "Ozarks Community Hospital GR CO4",
+"location": "Gravette, AR",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dochosp_mcc/id-osfac.78cb77b5-7772-4e63-9025-edc4f540c453/fhir/r4"
 },
 {
 "id": "trubridge-palacios-com-med-ctr",
@@ -2930,6 +3098,13 @@
 "location": "Iowa Park, TX",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/electra/id-osfac.bbd27063-7dae-457c-9426-dfe976d33d85/fhir/r4"
+},
+{
+"id": "trubridge-park-clinic-2",
+"name": "Park Clinic",
+"location": "Iowa Park, TX",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/electra_mcc/id-osfac.bbd27063-7dae-457c-9426-dfe976d33d85/fhir/r4"
 },
 {
 "id": "trubridge-park-place-surgical-hospital",
@@ -2981,11 +3156,11 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/heringt/id-osfac.962a6a35-4831-46b7-8dbb-7b8f9dacacf8/fhir/r4"
 },
 {
-"id": "trubridge-penobscot-valley-hospital",
-"name": "Penobscot Valley Hospital",
-"location": "Lincoln, ME",
+"id": "trubridge-pecos-county-memorial-hospital-2",
+"name": "Pecos County Memorial Hospital",
+"location": "Fort Stockton, TX",
 "platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/penob/id-osfac.a1d47010-ebda-4372-ab7b-ed6e04cd459e/fhir/r4"
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/pecos/id-osfac.962a6a35-4831-46b7-8dbb-7b8f9dacacf8/fhir/r4"
 },
 {
 "id": "trubridge-perkins-county-hospital-district",
@@ -3000,6 +3175,13 @@
 "location": "Perryville, MO",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/perrymo/id-osfac.815e0748-28f6-4bb9-84ba-a996a0255016/fhir/r4"
+},
+{
+"id": "trubridge-perry-county-memorial-hospital-2",
+"name": "Perry County Memorial Hospital",
+"location": "Perryville, MO",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/perrymo_mcc/id-osfac.815e0748-28f6-4bb9-84ba-a996a0255016/fhir/r4"
 },
 {
 "id": "trubridge-pershing-general-hospital",
@@ -3107,13 +3289,6 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/pushhos/id-osfac.eaa2d816-9409-4654-8211-736fc67f1043/fhir/r4"
 },
 {
-"id": "trubridge-putnam-county-hospital",
-"name": "Putnam County Hospital",
-"location": "Greencastle, IN",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/putnamc/id-osfac.b381e365-8d54-4ba0-88a4-e13d6ebdbc1a/fhir/r4"
-},
-{
 "id": "trubridge-putnam-county-memorial-hospital",
 "name": "Putnam County Memorial Hospital",
 "location": "Unionville, MO",
@@ -3140,6 +3315,13 @@
 "location": "Richmond, MO",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/perryco/id-osfac.391a769c-35d3-49c8-afad-0f4d33ee9311/fhir/r4"
+},
+{
+"id": "trubridge-ray-county-memorial-hospital-2",
+"name": "Ray County Memorial Hospital",
+"location": "Richmond, MO",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/raycnty/id-osfac.391a769c-35d3-49c8-afad-0f4d33ee9311/fhir/r4"
 },
 {
 "id": "trubridge-reading-health-clinic",
@@ -3212,6 +3394,13 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/dodge/id-osfac.a03b5360-00bd-47c4-8860-c5a0a859935e/fhir/r4"
 },
 {
+"id": "trubridge-rosenbaum-orthopaedics-2",
+"name": "Rosenbaum Orthopaedics",
+"location": "Eastman, GA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/jeffcou/id-osfac.a03b5360-00bd-47c4-8860-c5a0a859935e/fhir/r4"
+},
+{
 "id": "trubridge-ruby-valley-medical-center",
 "name": "Ruby Valley Medical Center",
 "location": "Sheridan, MT",
@@ -3238,6 +3427,13 @@
 "location": "Salem, MO",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/salem/id-osfac.9529e2a9-2171-4e8f-9119-305b4605a55c/fhir/r4"
+},
+{
+"id": "trubridge-legent-ortho-and-spine",
+"name": "San Antonio - FS Hospital",
+"location": "San Antonio, TX",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/legento/id-osfac.15cc0d37-e285-4030-9561-32aa81752c20/fhir/r4"
 },
 {
 "id": "trubridge-san-gabriel-valley-medical-ctr",
@@ -3415,6 +3611,13 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/colspec/id-osfac.52fce8bf-befc-44bb-8a1c-e2dafcf4287c/fhir/r4"
 },
 {
+"id": "trubridge-south-georgia-specialty-hosp-2",
+"name": "South Georgia Specialty Hosp",
+"location": "Albany, GA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/paulsva/id-osfac.52fce8bf-befc-44bb-8a1c-e2dafcf4287c/fhir/r4"
+},
+{
 "id": "trubridge-south-lincoln-medical-center",
 "name": "South Lincoln Medical Center",
 "location": "Kemmerer, WY",
@@ -3433,7 +3636,7 @@
 "name": "South Lyon Medical Center",
 "location": "Yerington, NV",
 "platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/thriveehr/slyonmc/fhir/r4"
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/slyonmc/id-osfac.f57e6ea2-724e-416d-ac33-093b234c4e44/fhir/r4"
 },
 {
 "id": "trubridge-south-peninsula-hospital",
@@ -3532,13 +3735,6 @@
 "location": "Toccoa, GA",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/stephen/id-osfac.6011a02c-2962-4dcc-a47c-6ccdf3041fbb/fhir/r4"
-},
-{
-"id": "trubridge-sterling-surgical-hospital",
-"name": "Sterling Surgical Hospital",
-"location": "Slidell, LA",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/doctor/id-osfac.f08468d4-9891-4dc0-aa9f-0b0195b35348/fhir/r4"
 },
 {
 "id": "trubridge-stonewall-memorial-hospital",
@@ -3751,13 +3947,6 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/trinhos/id-osfac.66acd5fb-1644-43e6-a69a-50bbd76dcd8e/fhir/r4"
 },
 {
-"id": "trubridge-trinity-hospital-twin-city",
-"name": "Trinity Hospital Twin City",
-"location": "Dennison, OH",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/twincty/id-osfac.91da8e21-7da2-4a52-9db4-c23c8240281f/fhir/r4"
-},
-{
 "id": "trubridge-trinity-medical",
 "name": "Trinity Medical",
 "location": "Ferriday, LA",
@@ -3794,7 +3983,7 @@
 },
 {
 "id": "trubridge-union-co-general-hospital-clinics",
-"name": "Union Co General Hospital Clinics",
+"name": "Union CO General Hospital Clinics",
 "location": "Clayton, NM",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/unionco/id-osfac.3970442e-4b5d-4d74-bac9-60fe47fe3d55/fhir/r4"
@@ -3821,18 +4010,11 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/univers/id-osfac.2f9a1343-442b-4cd1-b1d6-8a1e7477fb95/fhir/r4"
 },
 {
-"id": "trubridge-upmc-kane",
-"name": "Upmc - Kane",
-"location": "Kane, PA",
+"id": "trubridge-trinity-hospital-twin-city",
+"name": "UPMC Twin City",
+"location": "Dennison, OH",
 "platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/kanehos/id-osfac.2f9a1343-442b-4cd1-b1d6-8a1e7477fb95/fhir/r4"
-},
-{
-"id": "trubridge-valley-forge-medical-center",
-"name": "Valley Forge Medical Center",
-"location": "Norristown, PA",
-"platform": "trubridge",
-"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/valforg/id-osfac.1e535194-2d28-4881-91cf-4f7a13ec0b87/fhir/r4"
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/twincty/id-osfac.91da8e21-7da2-4a52-9db4-c23c8240281f/fhir/r4"
 },
 {
 "id": "trubridge-vernon-clinic-rhc",
@@ -3856,6 +4038,13 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/santacv/id-osfac.4f9a3b06-3e5c-4eaa-83ba-f9f55424eb77/fhir/r4"
 },
 {
+"id": "trubridge-vici-health-clinic-2",
+"name": "Vici Health Clinic",
+"location": "Seiling, OK",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/seiling/id-osfac.4f9a3b06-3e5c-4eaa-83ba-f9f55424eb77/fhir/r4"
+},
+{
 "id": "trubridge-w-j-mangold-memorial-hospital",
 "name": "W. J. Mangold Memorial Hospital",
 "location": "Lockney, TX",
@@ -3875,6 +4064,20 @@
 "location": "Monahans, TX",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/wardhsp/id-osfac.6d6d3433-06ae-4df5-a0bf-64024956b24b/fhir/r4"
+},
+{
+"id": "trubridge-ward-memorial-hospital-2",
+"name": "Ward Memorial Hospital",
+"location": "Monahans, TX",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/wardhsp_mcc/id-osfac.6d6d3433-06ae-4df5-a0bf-64024956b24b/fhir/r4"
+},
+{
+"id": "trubridge-warm-springs-medical-center",
+"name": "Warm Springs Medical Center",
+"location": "Warm Springs, GA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/wsmed/id-osfac.1e0c8c81-afe2-472f-8d75-a8b5fcaff268/fhir/r4"
 },
 {
 "id": "trubridge-wash-county-mem-hospital",
@@ -3940,6 +4143,13 @@
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/weisman/id-osfac.834f805e-d540-4c87-94e6-3136c3bde770/fhir/r4"
 },
 {
+"id": "trubridge-mountain-lakes-medical-center",
+"name": "Wellstar Mountain Lakes Medical Center",
+"location": "Clayton, GA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/mtlake/id-osfac.e17d4cba-8f90-413d-aea5-3f9fe4d17418/fhir/r4"
+},
+{
 "id": "trubridge-wendy-st-robbins-md-co03",
 "name": "Wendy St Robbins, MD (co03)",
 "location": "Sweetwater, TN",
@@ -3990,7 +4200,7 @@
 },
 {
 "id": "trubridge-wickenburg-commnty-hosp-new-ar",
-"name": "Wickenburg Commnty Hosp-New Ar",
+"name": "Wickenburg Commnty Hosp-New AR",
 "location": "Wickenburg, AZ",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/wickenb/id-osfac.5a18344c-150f-4470-b668-5b91e2c778ac/fhir/r4"
@@ -4036,6 +4246,13 @@
 "location": "Arcata, CA",
 "platform": "trubridge",
 "fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/madrmc/id-osfac.7089a20a-4a13-4265-9f17-68d99a0b0ee2/fhir/r4"
+},
+{
+"id": "trubridge-willow-creek-six-river-med-ctr-2",
+"name": "Willow Creek/Six River Med CTR",
+"location": "Arcata, CA",
+"platform": "trubridge",
+"fhir_base_url": "https://thrive-gw.cpsi-cloud.com/api/smart/madrmc_mcc/id-osfac.7089a20a-4a13-4265-9f17-68d99a0b0ee2/fhir/r4"
 },
 {
 "id": "trubridge-wiregrass-medical-center",

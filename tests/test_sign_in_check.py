@@ -1,11 +1,12 @@
 """scripts/check_sign_in.py against made-up health systems (no network)."""
 
 import asyncio
+import json
 from typing import Callable
 
 import httpx
 
-from scripts.check_sign_in import check_server
+from scripts.check_sign_in import RECORDED, check_server
 
 BASE = "https://fhir.example.org/api/FHIR/R4"
 AUTHORIZE = "https://fhir.example.org/oauth2/authorize"
@@ -155,10 +156,60 @@ def test_the_status_file_records_failures_since_first_seen_and_working_listings(
                Result("blocked", "403", "https://mayo.example.org/FHIR")]
     previous = {"servers": {"https://broken.example.org/fhir": {"status": "portal_error", "since": "2026-09-28"},
                             "https://pending.example.org/fhir": {"status": "unreachable", "since": "2026-09-28"}}}
-    assert sign_in_status(results, entries, previous, "2026-10-05") == {"servers": {
+    assert sign_in_status(results, entries, previous, "2026-10-05") == {"checked": "2026-10-05", "servers": {
         "https://broken.example.org/fhir": {"status": "portal_error", "since": "2026-09-28", "instead": ["upmc-portal"]},
         "https://pending.example.org/fhir": {"status": "client_unknown", "since": "2026-10-05"},
-    }}
+    }, "watching": {}}
+
+
+def test_a_server_that_does_not_answer_is_recorded_the_second_week():
+    """One bad night at a hospital, or for the runner, shouldn't warn everyone for a week."""
+    from scripts.check_sign_in import Result, sign_in_status
+
+    entries = [{"id": "a", "name": "A", "fhir_base_url": "https://a.example.org/r4"}]
+    down = [Result("unreachable", "timeout", "https://a.example.org/r4")]
+    first = sign_in_status(down, entries, {"servers": {}}, "2026-10-05")
+    assert first["servers"] == {} and first["watching"] == {"https://a.example.org/r4": {"status": "unreachable", "since": "2026-10-05"}}
+    second = sign_in_status(down, entries, first, "2026-10-12")
+    assert second["servers"] == {"https://a.example.org/r4": {"status": "unreachable", "since": "2026-10-05"}} and second["watching"] == {}
+    third = sign_in_status(down, entries, second, "2026-10-19")
+    assert third["servers"] == second["servers"]
+    back = [Result("ok", "", "https://a.example.org/r4")]
+    assert sign_in_status(back, entries, first, "2026-10-12") == {"checked": "2026-10-12", "servers": {}, "watching": {}}
+
+
+def test_a_refusal_at_smart_discovery_is_blocked_not_unreachable():
+    """A hospital firewall turning away cloud addresses says nothing about what happens from someone's home."""
+    for status in (401, 403, 429):
+        def handle(request, status=status):
+            return httpx.Response(status)
+        result = asyncio.run(check_server(BASE, "client", RELAY, httpx.MockTransport(handle)))
+        assert result.status == "blocked" and str(status) in result.detail and result.status not in RECORDED
+
+
+def test_other_errors_at_smart_discovery_are_a_broken_server(monkeypatch):
+    monkeypatch.setattr("scripts.check_sign_in.RETRY_DELAYS", ())
+    for status in (404, 500):
+        def handle(request, status=status):
+            return httpx.Response(status)
+        result = asyncio.run(check_server(BASE, "client", RELAY, httpx.MockTransport(handle)))
+        assert result.status == "portal_error" and str(status) in result.detail
+
+
+def test_write_status_only_fails_when_the_check_itself_breaks(monkeypatch, tmp_path):
+    import scripts.check_sign_in as check
+    status_file = tmp_path / "status.json"
+    monkeypatch.setattr(check, "STATUS_FILE", status_file)
+    monkeypatch.setattr(check, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(check, "health_system_servers", lambda *a: {"https://a.example.org": ("epic", ["A"])})
+    async def fails(servers, redirect):
+        return [check.Result("portal_error", "500", "https://a.example.org", ["A"], platform="epic")]
+    monkeypatch.setattr(check, "check_all", fails)
+    monkeypatch.setattr(check, "_entries", lambda *a: [{"id": "a", "name": "A", "fhir_base_url": "https://a.example.org"}])
+    assert check.main(["--write-status", "--no-browser"]) == 0
+    saved = json.loads(status_file.read_text())
+    assert saved["checked"] and "https://a.example.org" in saved["servers"]
+    assert check.main(["--no-browser"]) == 1       # asked by hand, a failure is still reported
 
 
 def test_oracle_health_s_script_page_moves_on_to_its_session_service():

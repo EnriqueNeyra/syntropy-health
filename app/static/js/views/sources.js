@@ -1,10 +1,11 @@
 import { api, del, get, post } from "../api.js";
 import {
-  $, confirmDialog, debounce, dropdown, emptyState, esc, fmtAgo, fmtDate, fmtDateTime, html, icon, initials, loading, modal, modeBadge, mount,
+  $, confirmDialog, debounce, dropdown, emptyState, fmtAgo, fmtDate, fmtDateTime, html, icon, initials, loading, modal, modeBadge, mount,
   onAction, plural, toast,
 } from "../ui.js";
 import { embedded, nativeNav, setToolbar } from "../app.js";
 import { networkStatus, renderNetworkPanel } from "../network.js";
+import { clearPrintedLetter, openRecordsRequest } from "./records-request.js";
 
 const PLATFORM_COLORS = { epic: "#c2410c", cerner: "#b91c1c", athena: "#7c3aed", healow: "#0f766e", trubridge: "#0e7490", greenway: "#15803d", modmed: "#be185d", nextgen: "#4338ca", practicefusion: "#0891b2", medhost: "#9333ea", "smart-health-it": "#0369a1", custom: "#4b5563" };
 const PLATFORM_LABELS = { epic: "Epic MyChart", cerner: "Oracle Health", athena: "athenahealth", healow: "healow", trubridge: "TruBridge", greenway: "Greenway", modmed: "ModMed", nextgen: "NextGen", practicefusion: "Practice Fusion", medhost: "MEDHOST", "smart-health-it": "SMART Health IT", custom: "FHIR server" };
@@ -159,54 +160,65 @@ function offerRow(iconName, title, text, actions) {
 
 // ------------------------------------------------------------------ add health system
 function institutionMeta(inst) {
-  return [inst.platform_label, inst.portal, inst.location].filter(Boolean).join(" · ");
+  return [inst.platform_label, inst.portal, inst.location, inst.hint].filter(Boolean).join(" · ");
 }
 
 function institutionButton(inst) {
+  const problem = inst.sign_in_problem;
   return html`<button class="inst ${inst.available ? "" : "unavailable"}" data-action="choose" data-id="${inst.id}">${avatar(inst.name, inst.platform)}
     <div class="grow" style="min-width:0"><div class="inst-name">${inst.name}</div>
       <div class="small muted inst-meta">${institutionMeta(inst)}</div>
+      ${inst.includes ? html`<div class="small inst-includes">Includes ${inst.includes}</div>` : ""}
       ${!inst.available ? html`<div class="tiny faint">${inst.needs_release_build ? "Not available in this copy" : "Not available yet"}</div>`
-        : inst.sign_in_problem ? html`<div class="tiny faint">Sign-in not working right now</div>` : ""}</div></button>`;
+        : problem ? html`<div class="tiny faint">${problem.stale ? "Sign-in had trouble when last checked" : "Sign-in not working right now"}</div>` : ""}</div></button>`;
+}
+
+/** "October 3", with the year when it isn't this one. */
+function checkDate(value) {
+  const d = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, d.getFullYear() === new Date().getFullYear()
+    ? { month: "long", day: "numeric" } : { year: "numeric", month: "long", day: "numeric" });
 }
 
 // Why a health system's sign-in failed the weekly check (scripts/check_sign_in.py), in the user's words.
 function signInProblem(inst) {
   const p = inst.sign_in_problem;
-  const name = esc(inst.name);
+  const name = inst.name;
   const portal = inst.portal || "patient portal";
-  const since = p.since ? new Date(`${p.since}T12:00:00`).toLocaleDateString(undefined, { month: "long", day: "numeric" }) : "";
-  const checked = since ? `when we checked on ${since}` : "when we last checked";
+  const date = checkDate(p.checked || p.since);
+  const checked = date ? `when we checked on ${date}` : "when we last checked";
   const when = ` ${checked[0].toUpperCase()}${checked.slice(1)},`;
   const what = {
-    client_unknown: html`<b>${name} hasn't finished setting up Syntropy Health yet.</b> ${inst.platform_label} has approved the connection, but ${checked},
-      ${name}'s ${portal} didn't recognize Syntropy Health yet. This usually sorts itself out within days.`,
-    unreachable: html`<b>${name}'s connection server isn't responding.</b>${when} it didn't answer, so signing in will probably fail.`,
-    rejected: html`<b>${name} is turning down connections.</b>${when} its ${portal} refused Syntropy Health's sign-in request.`,
-  }[p.status] || html`<b>${name}'s sign-in page isn't working.</b>${when} its ${portal} showed an error instead of a sign-in page,
-      so signing in will probably fail until ${name} fixes it.`;
-  return html`<div class="banner warn">${icon("alert")}<div class="grow"><p>${what}</p>
-    ${p.instead.length ? html`<p>Try ${p.instead.map((alt, i) => html`${i ? " or " : ""}<button class="link-btn" data-action="choose" data-id="${alt.id}">${esc(alt.name)}</button>`)} instead: it's working.</p>` : ""}
-    <p>You can also import a file downloaded from ${name}'s ${portal}, or try signing in anyway.</p></div></div>`;
+    client_unknown: html`<b>${name} ${p.stale ? "hadn't" : "hasn't"} finished setting up Syntropy Health${p.stale ? "" : " yet"}.</b> ${inst.platform_label} has approved the connection, but ${checked},
+      its ${portal} didn't recognize Syntropy Health yet. This usually sorts itself out within days.`,
+    unreachable: html`<b>The connection server for ${name} wasn't responding.</b>${when} it didn't answer${p.stale ? "." : ", so signing in will probably fail."}`,
+    rejected: html`<b>${name} was turning down connections.</b>${when} its ${portal} refused Syntropy Health's sign-in request.`,
+  }[p.status] || html`<b>The sign-in page for ${name} wasn't working.</b>${when} its ${portal} showed an error instead of a sign-in page${p.stale ? "." : html`,
+      so signing in will probably fail until ${name} fixes it.`}`;
+  return html`<div class="banner ${p.stale ? "" : "warn"}">${icon("alert")}<div class="grow"><p>${what}</p>
+    ${p.stale ? html`<p>That was a while ago, so it may have been fixed. It's worth trying.</p>` : ""}
+    ${p.instead.length ? html`<p>Try ${p.instead.map((alt, i) => html`${i ? " or " : ""}<button class="link-btn" data-action="choose" data-id="${alt.id}">${alt.name}</button>`)} instead: it's working.</p>` : ""}
+    <p>You can also import a file downloaded from its ${portal}${p.stale ? "" : ", or try signing in anyway"}.</p></div></div>`;
 }
 
 function modeExplainer(inst) {
   if (!inst.available && inst.needs_release_build) {
     return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Not available in this copy.</b> It was built from Syntropy Health's
       source code, so it can't use Syntropy Labs' registration with ${inst.platform_label}. The apps from
-      <a href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">health.syntropylabs.io</a> connect ${esc(inst.name)} directly,
+      <a href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">health.syntropylabs.io</a> connect ${inst.name} directly,
       or you can add your own ${inst.platform_label} client ID in Settings → Developer.</p>
       <p>You can also download your records from its ${inst.portal || "patient portal"} and import the file.</p></div></div>`;
   }
   if (!inst.available) {
     return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Not available yet.</b> Syntropy Health isn't registered with
-      ${inst.platform_label} yet, so ${esc(inst.name)} can't be connected directly.</p>
+      ${inst.platform_label} yet, so ${inst.name} can't be connected directly.</p>
       <p>You can still bring in your records: download them from its ${inst.portal || "patient portal"} (look for a health summary or
-      "download my record" option) and import the file.</p></div></div>`;
+      "download my record" option) and import the file. If it has no portal, ask for them with a records request letter.</p></div></div>`;
   }
   if (inst.mode === "simulated") {
     return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Simulated sign-in.</b> Developer mode connects ${inst.platform_label} through
-      Syntropy's built-in EHR simulator, so this goes there instead of ${esc(inst.name)}'s real ${inst.portal || "portal"}.</p>
+      Syntropy's built-in EHR simulator, so this goes there instead of ${inst.name}'s real ${inst.portal || "portal"}.</p>
       <p>You'll see a sign-in page with test patients (password <code>syntropy</code>). The full protocol — OAuth consent, PKCE token exchange,
       FHIR download, normalization — is exactly what runs for a real connection.</p></div></div>`;
   }
@@ -215,51 +227,118 @@ function modeExplainer(inst) {
       sandbox with a test patient. Real patient data isn't available in this mode.</p>
       ${inst.sandbox_hint ? html`<p>${inst.sandbox_hint}</p>` : ""}</div></div>`;
   }
-  return html`<div class="banner">${icon("shieldCheck")}<div class="grow"><p>You'll be taken to <b>${esc(inst.name)}</b>'s ${inst.portal || "patient portal"} to sign in and approve sharing.
+  return html`<div class="banner">${icon("shieldCheck")}<div class="grow"><p>You'll be taken to <b>${inst.name}</b>'s ${inst.portal || "patient portal"} to sign in and approve sharing.
     Syntropy never sees your password; records download directly to this machine.</p>
     ${inst.one_time ? html`<p><b>A one-time import.</b> ${inst.portal || inst.platform_label} doesn't let apps like Syntropy Health stay connected, so this
       brings in your records as they are today. To update them later, choose Update beside it in Sources and sign in again.</p>` : ""}</div></div>`;
 }
 
-async function openAddHealthSystem(profileId) {
-  const m = modal({ title: "Connect a health system", wide: true, body: loading(3) });
-  let featured;
-  try { featured = await get("/api/directory/featured"); }
-  catch (err) { m.close(); toast(err.message, "bad"); return; }
-  let current = featured.results;
-  const byId = new Map(current.map((i) => [i.id, i]));
+const PAGE = 30;
 
-  const showList = (items, label) => {
-    items.forEach((i) => byId.set(i.id, i));
-    mount(m.body.querySelector("#dir-results"), items.length ? html`<div class="small muted" style="margin:4px 0 10px">${label}</div>
-      <div class="inst-grid">${items.map(institutionButton)}</div>` : emptyState("No matches", "Try the organization's name, city, or portal name."));
+/** "20,000+" for a long list: how many, without pretending to count them. */
+const roughly = (n) => (n >= 1000 ? `${(Math.floor(n / 1000) * 1000).toLocaleString()}+` : n.toLocaleString());
+
+function directorySize(featured) {
+  const { total, connectable } = featured;
+  if (!total) return "";
+  if (connectable >= total) return `${roughly(total)} hospitals and clinics.`;
+  if (!connectable) return `${roughly(total)} hospitals and clinics are listed.`;
+  return `${roughly(connectable)} hospitals and clinics you can connect today, and ${roughly(total - connectable)} more listed that aren't available yet.`;
+}
+
+const STATE_LABELS = { AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", PR: "Puerto Rico", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming" };
+
+async function openAddHealthSystem(profileId) {
+  const m = modal({ title: "Connect a health system", wide: true, body: loading(3), onClose: clearPrintedLetter });
+  let featured = { results: [], total: 0, connectable: 0, athena: null, problem: null };
+  // The list not answering is no reason to hide what doesn't need it: importing a file, or asking for records by letter.
+  try { featured = await get("/api/directory/featured"); }
+  catch (err) { featured.problem = `The list of health systems couldn't be loaded: ${err.message}`; }
+  const byId = new Map(featured.results.map((i) => [i.id, i]));
+  if (featured.athena) byId.set(featured.athena.id, featured.athena);
+  let shown = [];
+  let query = { q: "", state: "" };
+
+  const resultsEl = () => m.body.querySelector("#dir-results");
+  const showPopular = () => {
+    shown = featured.results;
+    mount(m.body.querySelector("#dir-narrow"), "");
+    mount(resultsEl(), shown.length ? html`<div class="small muted" style="margin:4px 0 10px">Popular</div>
+      <div class="inst-grid">${shown.map(institutionButton)}</div>`
+      : featured.total ? html`<p class="muted dir-prompt">Type the name of your hospital or clinic, the portal you log in to, or your town.</p>` : "");
   };
+  const showResults = (res) => {
+    res.results.forEach((i) => byId.set(i.id, i));
+    shown = res.results;
+    const count = `${res.total.toLocaleString()} match${res.total === 1 ? "" : "es"}.`;
+    const similar = res.total - res.as_typed;
+    const typedFirst = res.as_typed === undefined ? count
+      : `${res.as_typed ? `${res.as_typed.toLocaleString()} spelled as you typed, then ` : ""}${similar.toLocaleString()} with a similar spelling.`;
+    const label = [res.corrected ? `Showing results for "${res.corrected}".` : "", typedFirst,
+      res.no_state ? `${res.no_state.toLocaleString()} ${res.no_state === 1 ? "has" : "have"} no location listed, so ${res.no_state === 1 ? "it stays" : "they stay"} in the list.` : "",
+      res.total > shown.length && !query.state ? "Add a city or state to narrow this." : ""].filter(Boolean).join(" ");
+    const states = Object.keys(res.states || {}).filter((code) => STATE_LABELS[code]);
+    mount(m.body.querySelector("#dir-narrow"), states.length > 1 ? html`<select class="input dir-state" id="dir-state" aria-label="Narrow by state"><option value="">All states</option>
+        ${states.map((code) => html`<option value="${code}" ${code === query.state ? "selected" : ""}>${STATE_LABELS[code]} (${res.states[code].toLocaleString()})</option>`)}</select>` : "");
+    mount(resultsEl(), res.total ? html`<div class="small muted" style="margin:4px 0 10px">${label}</div>
+      <div class="inst-grid" id="dir-grid">${shown.map(institutionButton)}</div>
+      ${res.total > shown.length ? html`<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" data-action="show-more" data-total="${res.total}">Show more</button></div>` : ""}`
+      : emptyState(`No matches for "${query.q}"`, "Try the name on your bill, the portal you log in to, or your town. If it isn't listed, the choices below still work."));
+  };
+  const facility = () => query.q;
   m.setBody(html`
-    <div class="search" style="margin-bottom:14px">${icon("search")}<input class="input" id="dir-q" placeholder="Search ${featured.total.toLocaleString()} health systems — e.g. Kaiser, Mayo, Cedars…" autofocus></div>
+    ${featured.problem ? html`<div class="banner warn">${icon("alert")}<div class="grow"><p>${featured.problem}</p></div></div>` : ""}
+    <div class="search" style="margin-bottom:6px">${icon("search")}<input class="input" id="dir-q" maxlength="200" placeholder="Search by hospital, clinic, portal or town, e.g. Kaiser, Mayo, Cedars…" autofocus></div>
+    <p class="tiny faint" style="margin:0 0 12px">${directorySize(featured)}</p>
+    <div id="dir-narrow"></div>
     <div id="dir-results"></div>
+    ${featured.athena?.available ? html`<p class="small muted" style="margin-top:14px">Clinic uses athenahealth? <button class="link-btn" data-action="choose" data-id="athenahealth">Sign in through athenahealth</button></p>` : ""}
     <div class="divider"></div>
-    <p class="small muted">Don't see yours? <button class="link-btn" data-action="custom">Connect any SMART on FHIR server</button> ·
-      <button class="link-btn" data-action="import">import a record file</button></p>`);
-  showList(current, "Popular");
+    <p class="small"><b>Not listed, or can't connect yet?</b> You can still get your records.</p>
+    <div class="row wrap"><button class="btn" data-action="records">Write a records request</button>
+      <button class="btn" data-action="import">Import a file you downloaded</button></div>
+    <p class="tiny faint" style="margin-top:12px">For developers: <button class="link-btn" data-action="custom">connect a SMART on FHIR server</button> with your own client ID.</p>`);
+  showPopular();
   const input = m.body.querySelector("#dir-q");
   input.focus();
   let searchSeq = 0;
-  input.addEventListener("input", debounce(async () => {
+  const run = async () => {
     const q = input.value.trim();
     const seq = ++searchSeq;
-    if (!q) return showList(featured.results, "Popular");
+    if (!q) { query = { q: "", state: "" }; return showPopular(); }
+    if (q !== query.q) query = { q, state: "" };
     let res;
-    try { res = await get("/api/directory", { q, limit: 30 }); }
+    try { res = await get("/api/directory", { q, limit: PAGE, ...(query.state ? { state: query.state } : {}) }); }
     catch (err) { if (seq === searchSeq) toast(err.message, "bad"); return; }
     if (seq !== searchSeq) return;     // the search changed while this one was answering
-    showList(res.results, `${res.total} match${res.total === 1 ? "" : "es"}`);
-  }, 200));
+    showResults(res);
+  };
+  input.addEventListener("input", debounce(run, 200));
+  m.body.addEventListener("change", (ev) => {
+    if (ev.target.id === "dir-state") { query.state = ev.target.value; run(); }
+  });
 
   onAction(m.el, {
     choose: async ({ id }) => {
       if (!byId.has(id)) byId.set(id, await get(`/api/directory/${encodeURIComponent(id)}`));
       confirmInstitution(m, byId.get(id), profileId);
     },
+    "show-more": async ({ total }, btn) => {
+      const seq = searchSeq;
+      btn.disabled = true;
+      let res;
+      try { res = await get("/api/directory", { q: query.q, limit: PAGE, offset: shown.length, ...(query.state ? { state: query.state } : {}) }); }
+      catch (err) { toast(err.message, "bad"); btn.disabled = false; return; }
+      if (seq !== searchSeq) return;
+      res.results.forEach((i) => byId.set(i.id, i));
+      shown = [...shown, ...res.results];
+      m.body.querySelector("#dir-grid").insertAdjacentHTML("beforeend", res.results.map((i) => institutionButton(i).value).join(""));
+      if (shown.length >= Number(total) || !res.results.length) btn.parentElement.remove();
+      else btn.disabled = false;
+    },
+    records: ({ name }) => openRecordsRequest(m, { facility: name ?? facility(), profileId }),
+    "print-letter": () => m.letter?.print(),
+    "copy-letter": () => m.letter?.copy(),
     custom: () => customServer(m, profileId),
     import: () => { m.close(); location.hash = "#/sources?add=import"; },
     back: () => { m.close(); openAddHealthSystem(profileId); },
@@ -299,9 +378,11 @@ function confirmInstitution(m, inst, profileId) {
       ${inst.available && inst.sign_in_problem ? signInProblem(inst) : modeExplainer(inst)}
       ${inst.available ? html`<div class="small muted"><b>What gets shared (read-only):</b> demographics, conditions, medications, allergies, lab results, vitals,
         immunizations, visits, procedures, clinical notes, imaging reports, care team, care plans, devices and insurance.</div>` : ""}
-      <div class="row between"><button class="btn" data-action="back">Back</button>
-        ${!inst.available ? html`<button class="btn btn-primary" data-action="import">Import a record file</button>`
-          : inst.sign_in_problem ? html`<div class="row"><button class="btn" data-action="go" data-id="${inst.id}">Try anyway</button>
+      <div class="row between wrap"><button class="btn" data-action="back">Back</button>
+        ${!inst.available ? html`<div class="row wrap"><button class="btn" data-action="records" data-name="${inst.name}">Write a records request</button>
+              <button class="btn btn-primary" data-action="import">Import a record file</button></div>`
+          : inst.sign_in_problem && !inst.sign_in_problem.stale ? html`<div class="row wrap"><button class="btn" data-action="go" data-id="${inst.id}">Try anyway</button>
+              <button class="btn" data-action="records" data-name="${inst.name}">Write a records request</button>
               <button class="btn btn-primary" data-action="import">Import a record file</button></div>`
           : html`<button class="btn btn-primary" data-action="go" data-id="${inst.id}">Continue</button>`}</div>
       ${inst.mode === "simulated" ? html`<p class="tiny faint">Change how ${inst.platform_label} connects in Settings → Developer.</p>` : ""}

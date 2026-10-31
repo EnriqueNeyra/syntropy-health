@@ -78,7 +78,7 @@ version = { attr = "app.core.config.APP_VERSION" }
 include = ["app*"]
 
 [tool.setuptools.package-data]
-app = ["static/**/*", "core/migrations/*.sql", "data/*.json", "data/institutions/*.json"]
+app = ["static/**/*", "core/migrations/*.sql", "data/*.json", "data/*.tsv", "data/institutions/*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
