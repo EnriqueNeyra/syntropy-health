@@ -707,6 +707,91 @@ def get_record(record_id_: str, profile_id: Optional[str] = None) -> Optional[di
     return rec
 
 
+_LINK_COLUMNS = "id, title, category, status, value_text, unit, value_num, interpretation, ref_text, effective_at, details_json, source_name"
+_ENCOUNTER_OF = ("coalesce(json_extract(raw_json, '$.encounter.reference'), json_extract(raw_json, '$.context.encounter[0].reference'), "
+                 "json_extract(raw_json, '$.context.reference'))")
+
+
+def visit_links(rec: dict[str, Any]) -> dict[str, Any]:
+    """Records that go together by what the source itself says: a visit's notes, results, diagnoses and orders; the visit a
+    record came from; and for a result, the one before it. Read from the stored resources, so older records have them too."""
+    out: dict[str, Any] = {}
+    with read() as conn:
+        if rec["category"] == "encounters" and rec.get("resource_id"):
+            rows = rows_to_dicts(conn.execute(
+                f"SELECT {_LINK_COLUMNS} FROM clinical_records WHERE connection_id = ? AND id != ? AND {_ENCOUNTER_OF} LIKE ? "
+                "ORDER BY category, title LIMIT 300", (rec["connection_id"], rec["id"], f"%Encounter/{rec['resource_id']}")).fetchall(), ["details_json"])
+            grouped: dict[str, list[dict[str, Any]]] = {}
+            for row in rows:
+                grouped.setdefault(row["category"], []).append(row)
+            out["visit_records"] = grouped
+        else:
+            ref = None
+            raw = rec.get("raw") or {}
+            context = raw.get("context") if isinstance(raw.get("context"), dict) else {}
+            encounter = raw.get("encounter") or (context.get("encounter") or [None])[0] or (context if "reference" in context else None)
+            if isinstance(encounter, dict):
+                ref = encounter.get("reference")
+            if isinstance(ref, str) and "Encounter/" in ref:
+                row = conn.execute("SELECT id, title, effective_at FROM clinical_records WHERE connection_id = ? AND resource_type = 'Encounter' AND resource_id = ?",
+                                   (rec["connection_id"], ref.rstrip("/").split("/")[-1])).fetchone()
+                if row:
+                    out["visit"] = dict(row)
+        if rec["category"] in ("labs", "vitals", "observations") and rec.get("effective_at"):
+            where = ("code = ?", rec["code"]) if rec.get("code") else ("title = ?", rec["title"])
+            earlier = rows_to_dicts(conn.execute(
+                f"SELECT id, code, code_system, title, value_text, interpretation, effective_at, source_name FROM clinical_records "
+                f"WHERE profile_id = ? AND category = ? AND {where[0]} AND effective_at < ? ORDER BY effective_at DESC LIMIT 20",
+                (rec["profile_id"], rec["category"], where[1], rec["effective_at"])).fetchall())
+            day = str(rec["effective_at"])[:10]
+            prior = next((e for e in earlier if _row_key(e) == _row_key(rec) and str(e["effective_at"])[:10] != day), None)
+            if prior:
+                out["previous"] = {k: prior[k] for k in ("id", "value_text", "interpretation", "effective_at", "source_name")}
+    return out
+
+
+NEW_ITEMS_SHOWN = 5
+NEW_OLD_HISTORY_DAYS = 90       # a record dated this long before the last look is old history that has just arrived, not news
+NEW_GROUPS = [("encounters", "New visits"), ("conditions", "New diagnoses"), ("medications", "New medications"), ("allergies", "New allergies"),
+              ("notes", "New notes"), ("labs", "New results"), ("reports", "New reports"), ("procedures", "New procedures"),
+              ("immunizations", "New vaccines"), ("vitals", "New vital signs")]
+
+
+def new_since(profile_id: str, mark: float) -> dict[str, Any]:
+    """What arrived after a moment: counts, titles and dates by kind. A source's first import is one line rather than years of history,
+    and a record another source had already sent isn't new."""
+    columns = "r.id, r.category, r.title, r.effective_at, r.value_text, r.interpretation, r.source_name, r.connection_id, r.status"
+    with read() as conn:
+        first_time = {r[0] for r in conn.execute("SELECT id FROM connections WHERE profile_id = ? AND created_at > ?", (profile_id, mark)).fetchall()}
+        rows = rows_to_dicts(conn.execute(
+            f"SELECT {columns} FROM clinical_records r WHERE r.profile_id = ? AND r.first_seen_at > ? AND NOT EXISTS "
+            "(SELECT 1 FROM clinical_records o WHERE o.profile_id = r.profile_id AND o.dedup_key = r.dedup_key AND o.first_seen_at <= ?) "
+            "ORDER BY coalesce(r.effective_at, '') DESC", (profile_id, mark, mark)).fetchall())
+        stopped = rows_to_dicts(conn.execute(
+            f"SELECT {columns} FROM clinical_records r WHERE r.profile_id = ? AND r.category = 'medications' AND r.updated_at > ? AND r.first_seen_at <= ? "
+            f"AND lower(coalesce(r.status, '')) IN ({','.join('?' * len(ENDED_MED_STATUSES))}) ORDER BY coalesce(r.effective_at, '') DESC",
+            (profile_id, mark, mark, *ENDED_MED_STATUSES)).fetchall())
+    imported: dict[str, dict[str, Any]] = {}
+    by_category: dict[str, list[dict[str, Any]]] = {}
+    older = 0
+    cutoff = datetime.fromtimestamp(mark - NEW_OLD_HISTORY_DAYS * 86400, timezone.utc).isoformat()
+    for row in rows:
+        if row["connection_id"] in first_time:
+            line = imported.setdefault(row["connection_id"], {"source": row["source_name"], "count": 0})
+            line["count"] += 1
+        elif row["effective_at"] and row["effective_at"] < cutoff:
+            older += 1
+        else:
+            by_category.setdefault(row["category"], []).append(row)
+    known = {key for key, _ in NEW_GROUPS}
+    other = [row for key, group in by_category.items() if key not in known for row in group]
+    groups = [(key, label, by_category.get(key, [])) for key, label in NEW_GROUPS] + [("medications_stopped", "Medications marked stopped", stopped), ("other", "Other new records", other)]
+    return {"since": mark, "imported": list(imported.values()), "older": older,
+            "groups": [{"key": key, "label": label, "count": len(group),
+                        "items": [{k: r[k] for k in ("id", "title", "effective_at", "value_text", "interpretation", "source_name")} for r in group[:NEW_ITEMS_SHOWN]]}
+                       for key, label, group in groups if group]}
+
+
 def category_counts(profile_id: str) -> dict[str, int]:
     with read() as conn:
         rows = conn.execute(

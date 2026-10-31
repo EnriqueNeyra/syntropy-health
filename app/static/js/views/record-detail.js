@@ -3,6 +3,7 @@
 import { del, get } from "../api.js";
 import { appBridge, nativeNav } from "../app.js";
 import { recordValue } from "../units.js";
+import { printLetter } from "./records-request.js";
 import {
   capitalize, CATEGORY_ICON, confirmDialog, flagBadge, fmtDate, fmtDateTime, html, icon, loading, modal, mount, resultStatus, statusBadge, toast,
 } from "../ui.js";
@@ -63,6 +64,30 @@ function detailRows(r) {
   }
 }
 
+const VISIT_GROUPS = [["notes", "Notes"], ["labs", "Results"], ["vitals", "Vital signs"], ["reports", "Reports"], ["conditions", "Diagnoses"],
+  ["medications", "Medications ordered"], ["procedures", "Procedures"], ["observations", "Other observations"], ["immunizations", "Vaccines"]];
+
+const linkRow = (x) => html`<button class="list-item small" data-open-result="${x.id}" style="text-align:left;width:100%;background:none;border:0;cursor:pointer">
+  <span class="grow">${x.title}</span><b>${x.category === "vitals" ? recordValue(x) : x.value_text || ""}</b>${resultStatus(x.status)}${flagBadge(x.interpretation)}</button>`;
+
+/** A visit's results, with each panel folded under its name. */
+function visitResults(rows) {
+  const panels = new Map();
+  const loose = [];
+  for (const x of rows) {
+    if (x.details?.panel) panels.set(x.details.panel, [...(panels.get(x.details.panel) || []), x]);
+    else loose.push(x);
+  }
+  return html`<div class="list card">${loose.map(linkRow)}${[...panels].map(([name, members]) => html`<details class="list-item small" style="display:block">
+    <summary style="cursor:pointer">${name} (${members.length})</summary>${members.map(linkRow)}</details>`)}</div>`;
+}
+
+const visitBlock = (r) => (r.category === "encounters" ? VISIT_GROUPS.filter(([key]) => r.visit_records?.[key]?.length).map(([key, label]) => html`<div><div class="label">${label}</div>
+  ${key === "labs" ? visitResults(r.visit_records[key]) : html`<div class="list card">${r.visit_records[key].map(linkRow)}</div>`}</div>`) : "");
+
+const seriesLink = (r) => (r.category === "labs" || r.category === "vitals"
+  ? `#/trends/${r.category}?${r.code ? `code=${encodeURIComponent(r.code)}` : `title=${encodeURIComponent(r.title)}`}` : null);
+
 /** The record's content: shown in the drawer, or as its own screen in the iPhone app. */
 function recordBody(r, text) {
   return html`
@@ -74,6 +99,10 @@ function recordBody(r, text) {
       ${r.details?.body_stale ? html`<div class="banner warn small"><div class="grow">This changed at the source, and the new text couldn't be fetched yet.
         This is the earlier version. The next sync tries again.</div></div>` : ""}
       ${kv(detailRows(r))}
+      ${r.previous ? html`<div class="small muted">Previous result: ${r.previous.value_text || "—"} on ${fmtDate(r.previous.effective_at)}${r.previous.source_name ? ` from ${r.previous.source_name}` : ""}</div>` : ""}
+      ${seriesLink(r) ? html`<div><a class="btn btn-sm" href="${seriesLink(r)}" data-leave>See history ${icon("arrowRight")}</a></div>` : ""}
+      ${r.visit ? html`<div class="small">From the visit: <button class="btn btn-sm btn-ghost" data-open-result="${r.visit.id}">${r.visit.title} · ${fmtDate(r.visit.effective_at)}</button></div>` : ""}
+      ${visitBlock(r)}
       ${r.results?.length ? html`<div><div class="label">Results</div>
         <div class="list card">${r.results.map((x) => html`<button class="list-item small" data-open-result="${x.id}"
           style="text-align:left;width:100%;background:none;border:0;cursor:pointer">
@@ -82,7 +111,7 @@ function recordBody(r, text) {
           ${resultStatus(x.status)}${flagBadge(x.interpretation)}</button>`)}</div></div>` : ""}
       ${r.narrative && !text && !shownAbove(r) ? html`<div><div class="label">Notes</div><p>${r.narrative}</p></div>` : ""}
       ${text ? html`<div><div class="row between" style="margin-bottom:6px"><div class="label" style="margin:0">Full text</div>
-        <button class="btn btn-sm" data-copy>Copy</button></div><div class="note-text">${text}</div></div>` : ""}
+        <div class="row"><button class="btn btn-sm" data-print>${icon("printer")} Print</button><button class="btn btn-sm" data-copy>Copy</button></div></div><div class="note-text">${text}</div></div>` : ""}
       ${r.duplicates?.length ? html`<div><div class="label">Also reported by</div>
         <div class="list card">${r.duplicates.map((dup) => html`<div class="list-item small"><span class="grow">${dup.source_name}</span>
           ${["conditions", "allergies", "medications"].includes(r.category) ? statusBadge(dup.status) : ""}
@@ -111,6 +140,10 @@ function wire(el, r, text, { leave, done }) {
     try { await del(`/api/labs/${encodeURIComponent(r.id)}`); } catch (err) { toast(err.message, "bad"); return; }
     toast("Deleted");
     done();
+  });
+  el.querySelector("[data-leave]")?.addEventListener("click", () => leave());
+  el.querySelector("[data-print]")?.addEventListener("click", () => {
+    printLetter(`${r.title}\n${fmtDate(r.effective_at)}${r.source_name ? ` · ${r.source_name}` : ""}\n\n${text}`);
   });
   // The clipboard needs a secure page: opened by its home-network address over plain http, it isn't there.
   const copy = el.querySelector("[data-copy]");

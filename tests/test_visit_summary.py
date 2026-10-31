@@ -250,3 +250,131 @@ def test_insurance_starts_off_and_the_summary_stops_promising_one_page():
     assert '{ id: "insurance", title: "Insurance", off: true }' in text and "one-page" not in text
     assert "one-page" not in (STATIC / "views/records.js").read_text(encoding="utf-8")
     assert "one-page" not in (STATIC / "views/settings.js").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# F121
+# ---------------------------------------------------------------------------
+
+def _rec(pid, src, rid, category, title, day="2026-10-28", **extra):
+    records.upsert_records(pid, src, "Clinic", [{"resource_type": extra.pop("resource_type", "X"), "resource_id": rid, "category": category, "title": title,
+                                                 "effective_at": day, "dedup_key": extra.pop("dedup_key", f"{category}|{rid}"), **extra}])
+
+
+def _new(client, pid):
+    return client.get("/api/new-records", params={"profile": pid}).json()
+
+
+def _age_connection(src):
+    with db.db() as conn:
+        conn.execute("UPDATE connections SET created_at = 1 WHERE id = ?", (src,))
+
+
+def test_new_records_are_listed_with_counts_titles_and_dates(client, pid):
+    from datetime import date
+    today = date.today().isoformat()
+    src = _source(pid, "Stanford")
+    _age_connection(src)
+    assert _new(client, pid)["groups"] == []
+    _rec(pid, src, "e", "encounters", "Emergency visit", day=today)
+    _rec(pid, src, "c", "conditions", "Atrial fibrillation", day=today)
+    _rec(pid, src, "m", "medications", "Warfarin 5 MG", day=today)
+    _rec(pid, src, "n", "notes", "Discharge summary", day=today)
+    found = {g["key"]: g for g in _new(client, pid)["groups"]}
+    assert set(found) == {"encounters", "conditions", "medications", "notes"}
+    assert found["medications"]["count"] == 1 and found["medications"]["items"][0]["title"] == "Warfarin 5 MG" and found["medications"]["items"][0]["effective_at"] == today
+
+
+def test_a_first_import_is_one_line(client, pid):
+    assert _new(client, pid)["imported"] == []
+    src = _source(pid, "Banner")
+    for i in range(30):
+        _rec(pid, src, f"l{i}", "labs", f"Test {i}", day="2010-01-01")
+    found = _new(client, pid)
+    assert found["imported"] == [{"source": "Clinic", "count": 30}] and found["groups"] == []
+
+
+def test_old_history_arriving_later_is_not_news(client, pid):
+    src = _source(pid)
+    _age_connection(src)
+    _new(client, pid)
+    _rec(pid, src, "old", "labs", "Old", day="2010-01-01")
+    found = _new(client, pid)
+    assert found["older"] == 1 and found["groups"] == []
+
+
+def test_what_another_source_already_sent_is_not_new(client, pid):
+    src = _source(pid)
+    _rec(pid, src, "m1", "medications", "Metformin", dedup_key="med|1")
+    other = _source(pid, "Other")
+    _age_connection(other)
+    _new(client, pid)
+    _rec(pid, other, "m2", "medications", "Metformin", dedup_key="med|1")
+    assert _new(client, pid)["groups"] == []
+
+
+def test_a_medication_marked_stopped_is_listed(client, pid):
+    src = _source(pid)
+    _age_connection(src)
+    _rec(pid, src, "m", "medications", "Lisinopril", status="active")
+    _new(client, pid)
+    _rec(pid, src, "m", "medications", "Lisinopril", status="stopped")
+    assert [g["key"] for g in _new(client, pid)["groups"]] == ["medications_stopped"]
+
+
+def test_marking_as_seen_clears_it_and_the_mark_goes_with_the_person(client, pid):
+    src = _source(pid)
+    _age_connection(src)
+    from datetime import date
+    _new(client, pid)
+    _rec(pid, src, "e", "encounters", "Visit", day=date.today().isoformat())
+    assert _new(client, pid)["groups"]
+    assert client.post(f"/api/new-records/seen?profile={pid}").status_code == 200
+    assert _new(client, pid)["groups"] == []
+    from app.core import settings
+    with db.db() as conn:
+        profiles._person_settings(conn, pid)
+    assert settings.get(f"records.seen.{pid}.") is None
+
+
+# ---------------------------------------------------------------------------
+# F126
+# ---------------------------------------------------------------------------
+
+def _linked(pid):
+    src = _source(pid)
+    enc = {"reference": "https://x.example/fhir/Encounter/enc1"}
+    _rec(pid, src, "enc1", "encounters", "Nephrology follow-up", resource_type="Encounter", raw={"resourceType": "Encounter", "id": "enc1"})
+    _rec(pid, src, "n", "notes", "Progress note", resource_type="DocumentReference", raw={"resourceType": "DocumentReference", "context": {"encounter": [enc]}})
+    _rec(pid, src, "l1", "labs", "Creatinine", resource_type="Observation", code="2160-0", code_system="http://loinc.org", value_text="1.2", day="2026-10-15",
+         raw={"resourceType": "Observation", "encounter": {"reference": "Encounter/enc1"}}, details={"panel": "Metabolic panel"})
+    _rec(pid, src, "l0", "labs", "Creatinine", resource_type="Observation", code="2160-0", code_system="http://loinc.org", value_text="1.0", day="2026-01-15",
+         raw={"resourceType": "Observation"})
+    _rec(pid, src, "x", "labs", "Other visit", resource_type="Observation", raw={"resourceType": "Observation", "encounter": {"reference": "Encounter/enc11"}})
+    return src
+
+
+def _get(client, pid, resource_id):
+    with db.read() as conn:
+        rid = conn.execute("SELECT id FROM clinical_records WHERE resource_id = ?", (resource_id,)).fetchone()[0]
+    return client.get(f"/api/records/{rid}").json()
+
+
+def test_a_visit_lists_its_notes_and_results(client, pid):
+    _linked(pid)
+    visit = _get(client, pid, "enc1")
+    assert [r["title"] for r in visit["visit_records"]["notes"]] == ["Progress note"]
+    assert [r["title"] for r in visit["visit_records"]["labs"]] == ["Creatinine"]
+    assert visit["visit_records"]["labs"][0]["details"]["panel"] == "Metabolic panel"
+
+
+def test_a_note_and_a_result_link_back_to_their_visit(client, pid):
+    _linked(pid)
+    assert _get(client, pid, "n")["visit"]["title"] == "Nephrology follow-up"
+    assert _get(client, pid, "l1")["visit"]["title"] == "Nephrology follow-up"
+
+
+def test_a_result_shows_the_one_before_it(client, pid):
+    _linked(pid)
+    latest = _get(client, pid, "l1")
+    assert latest["previous"]["value_text"] == "1.0" and "previous" not in _get(client, pid, "l0")

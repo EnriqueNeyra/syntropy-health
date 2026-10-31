@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.deps import check_access, resolve_profile
-from app.core import auth
+from app.core import auth, context, settings
 from app.store import activity, connections, records
 
 router = APIRouter(prefix="/api", tags=["records"], dependencies=[Depends(auth.require_user)])
@@ -54,7 +55,30 @@ def get_record(record_id: str) -> dict:
     check_access(rec["profile_id"])
     conn = connections.get(rec["connection_id"])
     rec["editable"] = bool(conn and conn["provider"] == "manual")   # results the person typed in can be deleted
-    return rec
+    return {**rec, **records.visit_links(rec)}
+
+
+def _seen_key(profile_id: str) -> str:
+    principal = context.principal()
+    return f"records.seen.{profile_id}.{principal.account_id if principal and principal.account_id else ''}"
+
+
+@router.get("/new-records")
+def new_records(profile: Optional[str] = None) -> dict:
+    """What arrived since this account last marked this person's records as looked at. The first time, that starts now."""
+    prof = resolve_profile(profile, "view")
+    mark = settings.get(_seen_key(prof["id"]))
+    if mark is None:
+        mark = time.time()
+        settings.set(_seen_key(prof["id"]), mark)
+    return records.new_since(prof["id"], float(mark))
+
+
+@router.post("/new-records/seen")
+def mark_new_records_seen(profile: Optional[str] = None) -> dict:
+    prof = resolve_profile(profile, "view")
+    settings.set(_seen_key(prof["id"]), time.time())
+    return {"ok": True}
 
 
 # Besides record categories, the timeline can show what was logged and measured day to day. "Everything" includes the

@@ -188,6 +188,20 @@ export const WIDGETS = [
         <div class="grow"><div class="title truncate">${w.name}</div><div class="meta truncate">${fmtDateTime(w.start_date)} · ${w.source_name}</div></div>
         <span class="small muted">${[w.distance_m ? fmtMeasure(w.distance_m, "m", "distance_walking_running") : null, duration(w.duration_s)].filter(Boolean).join(" · ")}</span>
       </div>`, "No workouts in the last 30 days.", { href: "#/workouts", more: "All workouts" }) },
+  { id: "new", title: "New since you last looked", desc: "Visits, diagnoses, medications, notes and results that have arrived", size: "l", on: true, needs: ["newRecords"], records: true,
+    render: (d) => {
+      const n = d.newRecords;
+      if (!n || (!n.groups.length && !n.imported.length && !n.older)) return "";
+      return html`<div class="card widget-card">
+        <div class="card-head"><h3>${icon("bell")} New since you last looked</h3><button class="btn btn-sm btn-ghost" data-action="seen-new">Mark as seen</button></div>
+        <div class="list">
+          ${n.imported.map((i) => html`<div class="list-item"><span class="grow">Imported ${plural(i.count, "record")} from ${i.source}</span></div>`)}
+          ${n.groups.map((g) => html`<div class="list-item" style="display:block"><div class="title">${g.label} <span class="badge">${g.count}</span></div>
+            ${g.items.map((r) => html`<div class="meta clickable" data-action="record" data-id="${r.id}" role="link" tabindex="0">${r.title}${r.value_text ? ` ${r.value_text}` : ""} · ${fmtDate(r.effective_at)} · ${r.source_name || ""}</div>`)}
+            ${g.count > g.items.length ? html`<div class="meta">and ${g.count - g.items.length} more</div>` : ""}</div>`)}
+          ${n.older ? html`<div class="list-item small muted"><span>${plural(n.older, "older record")} also arrived.</span></div>` : ""}
+        </div></div>`;
+    } },
   { id: "labs", title: "Out-of-range results", desc: "Your latest lab results that are high or low", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Out of range", "flask", d.summary.flagged_labs, (l) => html`
       <div class="list-item clickable ${l.older ? "muted" : ""}" data-action="lab" data-code="${l.code || ""}" data-title="${l.title}">
@@ -307,6 +321,7 @@ export async function render({ el, state, navigate }) {
       workouts: () => needs.has("workouts") ? get("/api/biometrics/workouts", { profile: profile.id, days: 30, limit: LIST_MAX }) : null,
       events: () => needs.has("events") ? get("/api/biometrics/events", { profile: profile.id, view: "journal", days: 30, limit: 20 }) : null,
       insights: () => needs.has("insights") ? early.insights : null,
+      newRecords: () => needs.has("newRecords") ? get("/api/new-records", { profile: profile.id }) : null,
       // Goals also show on the number tiles, so they load whenever there are any.
       goals: () => early.goals,
     };
@@ -444,6 +459,11 @@ export async function render({ el, state, navigate }) {
     "hide-insight": async ({ id }) => {
       await hideInsight(profile.id, id);
       if (data.insights?.insights) data.insights.insights = data.insights.insights.filter((i) => i.id !== id);
+      draw();
+    },
+    "seen-new": async () => {
+      await api(`/api/new-records/seen?profile=${encodeURIComponent(profile.id)}`, { method: "POST" });
+      data.newRecords = null;
       draw();
     },
     edit: () => { editing = true; draw(); },
