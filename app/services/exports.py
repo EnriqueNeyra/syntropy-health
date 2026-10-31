@@ -31,7 +31,7 @@ from typing import Any, Iterator, Optional
 from app.core import config, db
 from app.core.db import read
 from app.services.sync import SOURCE_TAG, SOURCE_URN
-from app.store import activity, biometrics, chats, connections, goals, records
+from app.store import activity, biometrics, chats, connections, goals, record_overrides, records
 
 log = logging.getLogger("syntropy.exports")
 
@@ -120,6 +120,18 @@ def _with_note_text(res: dict[str, Any], narrative: Optional[str]) -> dict[str, 
     return res
 
 
+# The resources with an Annotation note: what a person said about a record stays beside it in the file, and is labelled.
+_TAKES_A_NOTE = {"MedicationRequest", "MedicationStatement", "Condition", "AllergyIntolerance", "Observation", "Immunization", "Procedure", "DiagnosticReport"}
+
+
+def _with_person_note(res: dict[str, Any], override: Optional[dict[str, Any]]) -> dict[str, Any]:
+    if not override or res.get("resourceType") not in _TAKES_A_NOTE or res.get("resourceType") == "DiagnosticReport":
+        return res
+    words = record_overrides.said(override)
+    note = {"authorString": "The patient or their caregiver, through Syntropy Health", "text": f"Patient-reported: {words['text']}"}
+    return {**res, "note": [*(res.get("note") or []), note]}
+
+
 def _medication_from_record(ref: str, row: dict[str, Any]) -> Optional[dict[str, Any]]:
     """Saved before referenced resources were kept: the name and code live on the record, so the Medication is made from
     those. Without it, a reader of the file (this app included) has only a reference to nothing."""
@@ -150,8 +162,10 @@ def _collect(profile_id: str) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]
             "SELECT f.connection_id, f.resource_type, f.resource_id, f.raw_json FROM fhir_references f "
             "JOIN connections c ON c.id = f.connection_id WHERE c.profile_id = ?", (profile_id,)).fetchall()
         rows = conn.execute(
-            "SELECT raw_json, narrative, connection_id, category, title, code_system, code, code_display, resource_type FROM clinical_records "
+            "SELECT id, dedup_key, raw_json, narrative, connection_id, category, title, code_system, code, code_display, resource_type FROM clinical_records "
             "WHERE profile_id = ? AND raw_json IS NOT NULL ORDER BY category, effective_at", (profile_id,)).fetchall()
+
+    said = record_overrides.for_profile(profile_id)
 
     def load(raw: str) -> Optional[dict[str, Any]]:
         try:
@@ -176,7 +190,7 @@ def _collect(profile_id: str) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]
             if made := _medication_from_record(key, dict(row)):
                 have.add((row["connection_id"], key))
                 yield made, source
-        yield _with_note_text(res, row["narrative"]), source
+        yield _with_person_note(_with_note_text(res, row["narrative"]), said.get(record_overrides.key_for(dict(row)))), source
 
 
 def entries(profile_id: str) -> Iterator[dict[str, Any]]:
@@ -223,9 +237,9 @@ def _sections(summary: dict[str, Any], profile_id: str) -> list[tuple[str, str, 
         return records.list_records(profile_id, category, limit=limit)["items"]
     allergy_note = summary.get("allergy_note") or "No allergy information is on record."
     return [
-        ("Medication Summary", "10160-0", "No current medications are on record.", True, [*summary["active_medications"], *summary["medications_to_check"]]),
-        ("Allergies and Intolerances", "48765-2", allergy_note, True, summary["allergies"]),
-        ("Problem List", "11450-4", "No current problems are on record.", True, summary["active_conditions"]),
+        ("Medication Summary", "10160-0", "No current medications are on record.", True, [*summary["active_medications"], *summary["medications_to_check"], *summary["medications_corrected"]]),
+        ("Allergies and Intolerances", "48765-2", allergy_note, True, [*summary["allergies"], *summary["allergies_corrected"]]),
+        ("Problem List", "11450-4", "No current problems are on record.", True, [*summary["active_conditions"], *summary["conditions_corrected"]]),
         ("History of Immunizations", "11369-6", "", False, summary["immunizations"]),
         ("History of Procedures", "47519-4", "", False, recent("procedures", 100)),
         ("Medical Devices", "46264-8", "", False, recent("devices", 50)),
@@ -270,6 +284,8 @@ def _line(row: dict[str, Any]) -> str:
         bits.append(str(row["status"]))
     if row.get("effective_at"):
         bits.append(str(row["effective_at"])[:10])
+    if row.get("override"):
+        bits.append(f"Patient-reported: {row['override']['text']}")
     return " · ".join(bits)
 
 
@@ -420,13 +436,14 @@ def csv_bytes(kind: str, profile_id: str) -> bytes:
     if kind == "records":
         writer.writerow(["category", "title", "code_system", "code", "effective_at", "status", "value", "unit",
                          "value_normalized", "unit_normalized", "reference_low", "reference_high", "interpretation",
-                         "source", "narrative", "value_as_reported", "comparator", "reference_as_reported"])
+                         "source", "narrative", "value_as_reported", "comparator", "reference_as_reported", "patient_reported_correction"])
         for r in records.list_records(profile_id, dedupe=False, limit=10**7)["items"]:
             writer.writerow([r["category"], r["title"], r.get("code_system"), r.get("code"), r.get("effective_at"),
                              r.get("status"), r.get("value_num") if r.get("value_num") is not None else r.get("value_text"),
                              r.get("unit"), r.get("value_norm"), r.get("unit_norm"), r.get("ref_low"), r.get("ref_high"),
                              r.get("interpretation"), r.get("source_name"), r.get("narrative") or "",
-                             r.get("value_text"), (r.get("details") or {}).get("comparator"), r.get("ref_text")])
+                             r.get("value_text"), (r.get("details") or {}).get("comparator"), r.get("ref_text"),
+                             (r.get("override") or {}).get("text")])
     elif kind == "daily":
         writer.writerow(["day", "metric", "source", "value", "unit", "min", "max", "samples"])
         with read() as conn:
@@ -472,6 +489,7 @@ events.csv        the journal and device events, one row each
 samples.ndjson    every wearable sample, one JSON object per line
 workouts.ndjson   every workout with its heart rate and route, one JSON object per line
 journal.ndjson    the journal and device events with notes, one JSON object per line
+corrections.json  what this person said about entries in their record: not taking, taken differently, wrong, or a note
 goals.json        daily goals
 chats.ndjson      {whose} conversations with the assistant, one JSON object per line
 
@@ -551,6 +569,9 @@ def build_archive(profile: dict[str, Any], account_id: Optional[str]) -> Path:
             person_goals = goals.get(profile_id)
             z.writestr("goals.json", json.dumps(person_goals, indent=2))
             counts["goals"] = len(person_goals)
+            said = list(record_overrides.for_profile(profile_id).values())
+            z.writestr("corrections.json", json.dumps(said, indent=2, ensure_ascii=False))
+            counts["corrections"] = len(said)
             sources = [{k: c.get(k) for k in ("id", "kind", "provider", "display_name", "fhir_base_url", "created_at", "last_sync_at")}
                        for c in connections.list_for_profile(profile_id, include_disconnected=True)]
             with read() as conn:
@@ -664,6 +685,9 @@ def import_archive(profile_id: str, account_id: Optional[str], path: Path, on_pr
                     pass
         for chat in _lines(z, "chats.ndjson"):
             out[_bring_in_chat(profile_id, account_id, chat)] += 1
+        if "corrections.json" in z.namelist():
+            wanted = json.loads(z.read("corrections.json"))
+            out["corrections"] = record_overrides.bring_in(profile_id, wanted if isinstance(wanted, list) else [])
     return out
 
 

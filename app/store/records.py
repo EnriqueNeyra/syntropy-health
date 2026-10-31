@@ -16,7 +16,7 @@ from app.connectors import units
 from app.connectors.fhir_normalize import partial_pressure
 from app.core import data_fixes, settings
 from app.core.db import audit, db, finite, note_deleted, read, dumps, row_to_dict, rows_to_dicts, write_in_batches
-from app.store import lab_catalog, search
+from app.store import lab_catalog, record_overrides, search
 
 CATEGORIES = [
     "conditions", "medications", "allergies", "labs", "vitals", "immunizations", "encounters",
@@ -417,6 +417,8 @@ def condition_class(rec: dict[str, Any], today: Optional[date] = None) -> str:
     """The one rule for what a condition means right now. "active" is an active problem: clinical status active, recurrence or
     relapse, on the problem list or with no category, and not ended. The rest stay visible under their own name: "unconfirmed",
     "unknown" (no status stated), "visit" (a diagnosis made at a visit) and "inactive"."""
+    if _said_wrong(rec):
+        return "corrected"
     today = today or date.today()
     status = (rec.get("status") or "").lower()
     verification = ((rec.get("details") or {}).get("verification") or "").lower()
@@ -429,7 +431,13 @@ def condition_class(rec: dict[str, Any], today: Optional[date] = None) -> str:
     return "unconfirmed" if verification in UNCONFIRMED_VERIFICATION else "active"
 
 
+def _said_wrong(rec: dict[str, Any]) -> bool:
+    return (rec.get("override") or {}).get("state") == record_overrides.WRONG
+
+
 def _allergy_active(rec: dict[str, Any]) -> bool:
+    if _said_wrong(rec):
+        return False
     return (rec.get("status") or "active").lower() not in INACTIVE_ALLERGY_STATUSES + NOT_ALLERGIES
 
 
@@ -645,6 +653,7 @@ def list_records(
         rows = _load(conn.execute(sql, params).fetchall())
     if dedupe:
         rows = _dedupe(rows)
+    record_overrides.attach(profile_id, rows)
     total = len(rows)
     return {"total": total, "offset": offset, "limit": limit, "items": rows[offset:offset + limit]}
 
@@ -703,6 +712,7 @@ def get_record(record_id_: str, profile_id: Optional[str] = None) -> Optional[di
         ).fetchall()) if keys else []
     rec["duplicates"] = others
     rec["results"] = results
+    record_overrides.attach(rec["profile_id"], [rec])
     return rec
 
 
@@ -1069,7 +1079,18 @@ def drug_key(title: Optional[str]) -> Optional[str]:
 def medication_tier(med: dict[str, Any], today: Optional[date] = None) -> tuple[Optional[str], Optional[str]]:
     """The one rule for what a medication on record means right now, with the reason in words. "current": an active order in date.
     "check": still listed, but it may be out of date, so it's shown with why rather than hidden or presented as being taken.
-    "planned": a draft or proposal nobody has started. None: stopped, completed, cancelled or a mistake."""
+    "planned": a draft or proposal nobody has started. "corrected": the person said it isn't so, which is shown beside what the source
+    says. None: stopped, completed, cancelled or a mistake."""
+    tier, reason = _source_tier(med, today)
+    override = med.get("override") or {}
+    if tier is None or override.get("state") not in (record_overrides.NOT_TAKING, record_overrides.WRONG):
+        return tier, reason
+    if override["state"] == record_overrides.NOT_TAKING and record_overrides.ordered_again_since(med, override):
+        return tier, "Ordered again after it was marked not taking."
+    return "corrected", override["words"]
+
+
+def _source_tier(med: dict[str, Any], today: Optional[date] = None) -> tuple[Optional[str], Optional[str]]:
     today = today or date.today()
     details = med.get("details") or {}
     status = (med.get("status") or "").lower()
@@ -1102,7 +1123,7 @@ def medication_tier(med: dict[str, Any], today: Optional[date] = None) -> tuple[
 def medication_lists(rows: list[dict[str, Any]], today: Optional[date] = None) -> dict[str, list[dict[str, Any]]]:
     """De-duplicated medication rows sorted by what they mean now, each saying why, with one drug's strengths and duplicates side by
     side and newest first. Different strengths are never collapsed: two can be a real regimen, and which is right is for a person to say."""
-    tiers: dict[str, list[dict[str, Any]]] = {"current": [], "check": [], "planned": []}
+    tiers: dict[str, list[dict[str, Any]]] = {"current": [], "check": [], "planned": [], "corrected": []}
     groups: dict[str, list[dict[str, Any]]] = {}
     for m in rows:
         tier, reason = medication_tier(m, today)
@@ -1110,7 +1131,7 @@ def medication_lists(rows: list[dict[str, Any]], today: Optional[date] = None) -
             continue
         m.update(med_tier=tier, med_reason=reason, last_prescribed=m.get("effective_at"), drug_group=drug_key(m.get("title")))
         tiers[tier].append(m)
-        if tier != "planned" and m["drug_group"]:
+        if tier not in ("planned", "corrected") and m["drug_group"]:
             groups.setdefault(m["drug_group"], []).append(m)
     newest: dict[str, str] = {}
     for group, members in groups.items():
@@ -1135,7 +1156,7 @@ def medication_lists(rows: list[dict[str, Any]], today: Optional[date] = None) -
 def summary(profile_id: str) -> dict[str, Any]:
     today = date.today()
     conds = list_records(profile_id, "conditions", limit=500)["items"]
-    by_class: dict[str, list[dict[str, Any]]] = {"active": [], "unconfirmed": [], "unknown": [], "visit": [], "inactive": []}
+    by_class: dict[str, list[dict[str, Any]]] = {"active": [], "unconfirmed": [], "unknown": [], "visit": [], "inactive": [], "corrected": []}
     for c in conds:
         by_class[condition_class(c, today)].append(c)
     meds = medication_lists(list_records(profile_id, "medications", limit=500)["items"], today)
@@ -1171,6 +1192,9 @@ def summary(profile_id: str) -> dict[str, Any]:
         "active_medications": meds["current"],
         "medications_to_check": meds["check"],
         "medications_planned": meds["planned"],
+        "medications_corrected": meds["corrected"],
+        "conditions_corrected": by_class["corrected"],
+        "allergies_corrected": [a for a in allergy_rows if _said_wrong(a)],
         "allergies": allergies,
         "allergy_note": allergy_note,
         "flagged_labs": flagged,

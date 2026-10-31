@@ -19,7 +19,8 @@ const conflicted = (rec) => (rec.status_note ? html`${rec.title}<div class="smal
 const sourcesOf = (m) => (m.sources || []).map((s) => s.source_name).filter(Boolean).join(", ") || m.source_name || "—";
 
 function medRow(m) {
-  const notes = [m.group_note, m.status_note, m.details?.reported ? "Reported, not prescribed" : null].filter(Boolean).join(". ");
+  const notes = [m.group_note, m.status_note, m.details?.reported ? "Reported, not prescribed" : null,
+    m.override ? `Patient-reported: ${m.override.text}` : null].filter(Boolean).join(". ");
   return [notes ? html`${m.title}<div class="small muted">${notes}</div>` : m.title, m.value_text || "—", m.details?.prescriber || "—",
     fmtDate(m.last_prescribed), sourcesOf(m)];
 }
@@ -28,6 +29,7 @@ export async function render({ el, state }) {
   mount(el, loading(4));
   const r = await get("/api/report", { profile: state.profile.id });
   const conflict = r.identity_conflict || [];
+  const corrected = [...(r.medications_corrected || []), ...(r.conditions_corrected || []), ...(r.allergies_corrected || [])];
   const identity = conflict.length ? {} : r.identities[0] || {};   // never print one person's details over mixed records
   const dob = r.profile.birth_date || identity.birth_date;
   const years = age(dob);
@@ -72,6 +74,10 @@ export async function render({ el, state }) {
         ${r.medications_planned?.length ? html`<h3>Planned or proposed, not started</h3>${table(["Medication", "Date", "Source"],
           r.medications_planned.map((m) => [m.title, fmtDate(m.last_prescribed), sourcesOf(m)]))}` : ""}
         <p class="small muted" style="margin-top:6px">From records, not from what's actually being taken. Confirm this list with the patient.</p></section>
+
+      ${corrected.length ? html`<section><h2>On record, and the patient says otherwise</h2>${table(["Entry", "The source says", "Patient-reported", "Source"],
+        corrected.map((c) => [c.title, capitalize(c.status) || "—", c.override.text, sourcesOf(c)]))}
+        <p class="small muted" style="margin-top:6px">Both are shown so they can be checked. The patient's words don't change the source's record.</p></section>` : ""}
 
       <section><h2>Latest vital signs</h2>${table(["Measure", "Value", "Date"],
         r.latest_vitals.map((v) => [v.title, recordValue(v), fmtDate(v.effective_at)]))}</section>

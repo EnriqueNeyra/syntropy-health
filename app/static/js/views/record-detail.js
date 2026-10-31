@@ -1,6 +1,6 @@
 // One clinical record, in a drawer (or its own screen in the iPhone app): normalized fields, sources, note text and raw FHIR.
 
-import { del, get } from "../api.js";
+import { del, get, put } from "../api.js";
 import { appBridge, nativeNav } from "../app.js";
 import { recordValue } from "../units.js";
 import {
@@ -88,11 +88,52 @@ function recordBody(r, text) {
           ${["conditions", "allergies", "medications"].includes(r.category) ? statusBadge(dup.status) : ""}
           <span class="muted">${fmtDate(dup.effective_at)}</span></div>`)}</div>
         <p class="hint">Syntropy merges the same fact reported by several institutions into one entry.</p></div>` : ""}
-      ${r.editable ? html`<div class="row"><span class="small muted grow">You entered this result.</span>
-        <button class="btn btn-sm btn-ghost btn-danger" data-delete>${icon("trash")} Delete</button></div>` : ""}
+      ${filesBlock(r)}
+      ${r.editable ? html`<div class="row"><span class="small muted grow">You entered this.</span>
+        <button class="btn btn-sm btn-ghost btn-danger" data-delete>${icon("trash")} Delete</button></div>` : correctionBlock(r)}
       <details><summary class="small muted" style="cursor:pointer">Original FHIR resource</summary>
         <pre class="raw">${JSON.stringify(r.raw, null, 2)}</pre></details>
     </div>`;
+}
+
+const FILE_WORDS = {
+  scanned: "Scanned document, no text. Open it to read it.", unreadable: "This document's text couldn't be read. Open it to read it.",
+  too_large: "This document is too large to keep here. It's still at the source.",
+};
+
+/** PDFs and images that came with the record, and the health summary a file import was read from. */
+function filesBlock(r) {
+  if (!r.files?.length) return "";
+  return html`<div><div class="label">Documents</div><div class="list card">${r.files.map((f) => {
+    const url = `/api/records/${encodeURIComponent(r.id)}/files/${encodeURIComponent(f.id)}`;
+    const canShow = ["application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"].includes(f.content_type);
+    return html`<div class="list-item small"><div class="grow"><b>${f.name || (f.content_type === "application/pdf" ? "PDF document" : "Document")}</b>
+      ${FILE_WORDS[f.state] ? html`<div class="muted">${FILE_WORDS[f.state]}</div>` : ""}</div>
+      ${f.state === "too_large" ? "" : html`${canShow ? html`<a class="btn btn-sm" href="${url}" target="_blank" rel="noopener">Open</a>` : ""}
+      <a class="btn btn-sm btn-ghost" href="${url}?download=true">Download</a>`}</div>`;
+  })}</div></div>`;
+}
+
+const CORRECTIONS = { medications: [["not_taking", "I'm not taking this"], ["taking_differently", "I take this differently"], ["wrong", "This is wrong or not me"]] };
+const CORRECTABLE = ["medications", "conditions", "allergies", "labs", "vitals", "observations", "immunizations", "procedures", "encounters", "reports", "notes"];
+
+/** What the person says about this entry: beside what the source says, never over it. */
+function correctionBlock(r) {
+  if (!CORRECTABLE.includes(r.category)) return "";
+  const said = r.override;
+  const choices = CORRECTIONS[r.category] || [["wrong", "This is wrong or not me"]];
+  return html`<div class="stack" data-correction>
+    ${said ? html`<div class="banner info small"><div class="grow"><b>In your own words:</b> ${said.text}<div class="muted">
+      Added ${fmtDateTime(new Date(said.set_at * 1000).toISOString())}. What the source says above hasn't changed.</div></div></div>` : ""}
+    <details><summary class="small muted" style="cursor:pointer">${said ? "Change what you said" : "Something wrong with this?"}</summary>
+      <div class="stack" style="margin-top:8px">
+        <p class="small muted">This stays in Syntropy Health, beside what the source says. It doesn't change anything at the source.</p>
+        <select class="input" data-correction-state aria-label="What's wrong"><option value="">Just add a note</option>
+          ${choices.map(([v, label]) => html`<option value="${v}" ${said?.state === v ? "selected" : ""}>${label}</option>`)}</select>
+        <textarea class="input" rows="2" maxlength="2000" data-correction-note aria-label="Note" placeholder="Add a note, in your own words">${said?.note || ""}</textarea>
+        <div class="row"><button class="btn btn-sm btn-primary" data-correction-save>Save</button>
+          ${said ? html`<button class="btn btn-sm btn-ghost" data-correction-clear>Remove</button>` : ""}</div>
+      </div></details></div>`;
 }
 
 /** An allergy's narrative is its reactions, already listed above. */
@@ -110,6 +151,19 @@ function wire(el, r, text, { leave, done }) {
     if (!(await confirmDialog("Delete result", `Delete ${r.title} from ${fmtDate(r.effective_at)}?`, { confirmLabel: "Delete", danger: true }))) return;
     try { await del(`/api/labs/${encodeURIComponent(r.id)}`); } catch (err) { toast(err.message, "bad"); return; }
     toast("Deleted");
+    done();
+  });
+  el.querySelector("[data-correction-save]")?.addEventListener("click", async () => {
+    const state = el.querySelector("[data-correction-state]").value || null;
+    const note = el.querySelector("[data-correction-note]").value.trim() || null;
+    try { await put(`/api/records/${encodeURIComponent(r.id)}/override`, { state, note }); }
+    catch (err) { toast(err.message, "bad"); return; }
+    toast("Saved");
+    done();
+  });
+  el.querySelector("[data-correction-clear]")?.addEventListener("click", async () => {
+    try { await del(`/api/records/${encodeURIComponent(r.id)}/override`); } catch (err) { toast(err.message, "bad"); return; }
+    toast("Removed");
     done();
   });
   // The clipboard needs a secure page: opened by its home-network address over plain http, it isn't there.

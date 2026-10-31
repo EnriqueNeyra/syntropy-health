@@ -71,6 +71,8 @@ def _slim(rec: dict[str, Any], narrative_chars: Optional[int] = 600) -> dict[str
     for key in ("status_note", "med_reason", "group_note"):
         if rec.get(key):
             out[key] = rec[key]
+    if rec.get("override"):
+        out["person_says"] = rec["override"]["text"]
     return out
 
 
@@ -177,6 +179,8 @@ def t_health_summary(args: dict[str, Any]) -> Any:
         "medications_may_be_out_of_date": [_slim(m) for m in s["medications_to_check"]],
         "medications_planned_not_started": [_slim(m) for m in s["medications_planned"]],
         "allergies": [_slim(a) for a in s["allergies"]],
+        # On the record, and the person says it isn't so: person_says is their words, the rest is what the source says.
+        "corrected_by_the_person": [_slim(r) for r in (*s["medications_corrected"], *s["conditions_corrected"], *s["allergies_corrected"])],
         "out_of_range_recent_labs": [_lab_line(l) for l in s["flagged_labs"] if not l.get("older")],
         "older_out_of_range_labs": [_lab_line(l) for l in s["flagged_labs"] if l.get("older")],
         "recent_labs": [_lab_line(l) for l in s["recent_labs"]],
@@ -275,6 +279,7 @@ def _lab_line(rec: dict[str, Any]) -> dict[str, Any]:
         "flag": rec.get("interpretation"), "reference_range": _range(rec), "source": rec.get("source_name"),
         "result_status": rec.get("status") if (rec.get("status") or "").lower() not in ("final", "") else None,
         "older_result": rec.get("older"),
+        "person_says": (rec.get("override") or {}).get("text"),
     }.items() if v not in (None, "")}
 
 
@@ -634,7 +639,7 @@ _NUMBER = {"type": "number"}
 TOOL_DISPLAY: dict[str, tuple[str, dict[str, Any]]] = {
     "list_profiles": ("List people", {"people": _LIST}),
     "get_health_summary": ("Health summary", {"profile": _OBJECT, "patient": _LIST, "identity_conflict": _LIST, "active_conditions": _LIST,
-                                              "active_medications": _LIST, "allergies": _LIST, "out_of_range_recent_labs": _LIST, "recent_labs": _LIST,
+                                              "active_medications": _LIST, "allergies": _LIST, "corrected_by_the_person": _LIST, "out_of_range_recent_labs": _LIST, "recent_labs": _LIST,
                                               "latest_vitals": _LIST, "recent_visits": _LIST, "record_counts": _OBJECT, "connected_sources": _LIST,
                                               "wearable_headline_30d": _LIST}),
     "search_records": ("Search records", {"total_matches": _NUMBER, "records": _LIST, "matches_per_word": _OBJECT, "hint": _TEXT}),
