@@ -3,9 +3,9 @@ Google Health API (v4) connector — Fitbit trackers, Pixel Watch and apps that 
 
 The Google Health API replaced the Fitbit Web API (turned down in September 2026) and is the cloud route to
 Google's health data; Health Connect, the other Google store, lives only on an Android phone. It uses Google
-OAuth 2.0 with a client secret, so like Oura and WHOOP the secret is held by the relay worker or by this
-instance (your own Google Cloud OAuth client). All ``googlehealth.*`` scopes are *restricted*: a public app
-needs Google's security review, while a Google Cloud project in "Testing" works for up to 100 named test users.
+OAuth 2.0 with a client secret, held by this instance (your own Google Cloud OAuth client), and never goes through
+the relay worker. All ``googlehealth.*`` scopes are *restricted*: a public app needs Google's security review, while
+a Google Cloud project in "Testing" works for up to 100 named test users.
 
 Daily totals (steps, distance, energy, floors) come from ``dataPoints:dailyRollUp``, which reconciles every
 source Google holds without double counting. Daily summaries, measurements, sleep sessions and exercises come
@@ -58,19 +58,19 @@ ENDPOINT_SCOPES = {**{t: _ACTIVITY for t in ROLLUPS}, "exercise": _ACTIVITY, "sl
                    **{t: _METRICS for t in LISTS if t not in ("sleep", "exercise")}}
 
 
-def authorization_url(state: str) -> str:
+def authorization_url(state: str, redirect: Optional[str] = None) -> str:
     creds = settings.wearable_credentials("google")
-    if not creds["client_id"]:
+    if not creds["client_id"] or not creds["client_secret"]:
         raise SmartError("Google Health isn't set up yet. Add your Google Cloud OAuth client ID and secret in "
                          "Settings → Wearables.", "error")
     return f"{AUTH_URL}?" + urlencode({
-        "response_type": "code", "client_id": creds["client_id"], "redirect_uri": wc.redirect_uri(), "scope": SCOPES,
+        "response_type": "code", "client_id": creds["client_id"], "redirect_uri": redirect or wc.redirect_uri("google"), "scope": SCOPES,
         "state": state, "access_type": "offline", "prompt": "consent",   # a refresh token on every consent
     })
 
 
-async def exchange_code(code: str) -> dict[str, Any]:
-    return await wc.exchange_code_local(TOKEN_URL, "google", code, wc.redirect_uri())
+async def exchange_code(code: str, redirect: Optional[str] = None) -> dict[str, Any]:
+    return await wc.exchange_code_local(TOKEN_URL, "google", code, redirect or wc.redirect_uri("google"))
 
 
 async def refresh(credentials: dict[str, Any]) -> dict[str, Any]:

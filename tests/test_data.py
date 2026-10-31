@@ -111,7 +111,7 @@ def test_platform_settings_control_mode(client):
 def test_wearable_secret_never_returned(client):
     client.put("/api/settings/wearables/oura", json={"client_id": "abc", "client_secret": "super-secret"})
     snap = client.get("/api/settings").json()
-    assert snap["wearables"]["oura"] == {"label": "Oura Ring", "client_id": "abc", "client_secret_set": True}
+    assert snap["wearables"]["oura"] == {"label": "Oura Ring", "client_id": "abc", "client_secret_set": True, "redirect_uri": "", "relay_url": ""}
     assert "super-secret" not in json.dumps(snap)
     # Defaults to the registered Syntropy app (secret held by the relay) when nothing is configured.
     assert snap["wearables"]["whoop"]["client_id"] == "91dbd202-060d-477e-a9b7-3aedd1def98c"

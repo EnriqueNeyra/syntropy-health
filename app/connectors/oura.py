@@ -33,15 +33,15 @@ ENDPOINT_SCOPES = {"daily_sleep": "daily", "sleep": "daily", "daily_readiness": 
                    "daily_spo2": "spo2", "workout": "workout", "heartrate": "heartrate"}
 
 
-def authorization_url(state: str) -> str:
+def authorization_url(state: str, redirect: Optional[str] = None) -> str:
     creds = settings.wearable_credentials("oura")
     if not creds["client_id"]:
         raise SmartError(wc.not_configured("Oura"), "error")
-    return f"{AUTH_URL}?{urlencode({'response_type': 'code', 'client_id': creds['client_id'], 'redirect_uri': wc.redirect_uri(), 'scope': SCOPES, 'state': state})}"
+    return f"{AUTH_URL}?{urlencode({'response_type': 'code', 'client_id': creds['client_id'], 'redirect_uri': redirect or wc.redirect_uri('oura'), 'scope': SCOPES, 'state': state})}"
 
 
-async def exchange_code(code: str) -> dict[str, Any]:
-    return await wc.exchange_code_local(TOKEN_URL, "oura", code, wc.redirect_uri())
+async def exchange_code(code: str, redirect: Optional[str] = None) -> dict[str, Any]:
+    return await wc.exchange_code_local(TOKEN_URL, "oura", code, redirect or wc.redirect_uri("oura"))
 
 
 async def refresh(credentials: dict[str, Any]) -> dict[str, Any]:

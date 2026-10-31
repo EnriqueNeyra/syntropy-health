@@ -482,7 +482,7 @@ export async function render({ el, params, state }) {
           ${offerRow("phone", "Syntropy Health Android app", "Health Connect from Fitbit, Pixel Watch, Samsung Health, Oura and other apps: heart, HRV, sleep stages, steps, workouts and more, synced in the background.", html`
             <button class="btn btn-sm btn-primary" data-action="pair">${icon("phone")} Pair Android phone</button>`)}`}</div>`)}
 
-      ${group("Wearables", "Oura, WHOOP and Google Health (Fitbit, Pixel Watch) sync from their cloud every few hours. Signing in passes through Syntropy Labs' sign-in relay, which completes the sign-in and keeps nothing.", "",
+      ${group("Wearables", "Oura, WHOOP and Google Health (Fitbit, Pixel Watch) sync from their cloud every few hours. Signing in to Oura or WHOOP passes through Syntropy Labs' sign-in relay, which completes the sign-in and keeps nothing. Google Health uses your own Google Cloud app.", "",
         html`<div class="src-rows">${WEARABLES.map(([provider, label, blurb]) => {
           const mine = wear.filter((c) => c.provider === provider);
           const connected = mine.some((c) => c.status !== "disconnected");

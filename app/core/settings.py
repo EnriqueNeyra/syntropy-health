@@ -70,7 +70,6 @@ DEFAULTS: dict[str, Any] = {
     "developer.mode": False,    # off: health systems connect for real; on: each platform's own mode (simulator, sandbox)
     "auth.required": True,
     "relay.redirect_uri": config.DEFAULT_RELAY_URL,
-    "relay.wearable_redirect_uri": config.DEFAULT_WEARABLE_RELAY_URL,
     "sync.ehr_interval_hours": 24,
     "sync.wearable_interval_hours": 4,
     "display.timezone": None,

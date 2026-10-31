@@ -30,15 +30,15 @@ ENDPOINTS = {"recovery": "recovery", "cycle": "cycle", "sleep": "activity/sleep"
 ENDPOINT_SCOPES = {"recovery": "read:recovery", "cycle": "read:cycles", "sleep": "read:sleep", "workout": "read:workout"}
 
 
-def authorization_url(state: str) -> str:
+def authorization_url(state: str, redirect: Optional[str] = None) -> str:
     creds = settings.wearable_credentials("whoop")
     if not creds["client_id"]:
         raise SmartError(wc.not_configured("WHOOP"), "error")
-    return f"{AUTH_URL}?{urlencode({'response_type': 'code', 'client_id': creds['client_id'], 'redirect_uri': wc.redirect_uri(), 'scope': SCOPES, 'state': state})}"
+    return f"{AUTH_URL}?{urlencode({'response_type': 'code', 'client_id': creds['client_id'], 'redirect_uri': redirect or wc.redirect_uri('whoop'), 'scope': SCOPES, 'state': state})}"
 
 
-async def exchange_code(code: str) -> dict[str, Any]:
-    return await wc.exchange_code_local(TOKEN_URL, "whoop", code, wc.redirect_uri())
+async def exchange_code(code: str, redirect: Optional[str] = None) -> dict[str, Any]:
+    return await wc.exchange_code_local(TOKEN_URL, "whoop", code, redirect or wc.redirect_uri("whoop"))
 
 
 async def refresh(credentials: dict[str, Any]) -> dict[str, Any]:
