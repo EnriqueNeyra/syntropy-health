@@ -197,7 +197,7 @@ jobs:
           sudo systemctl stop syntropy-health
           sudo sh -c 'syntropy-health restore /root-backups/syntropy-backup-*.syntropy --passphrase-file /root-pass --yes'
           sudo systemctl start syntropy-health
-          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8000/health && break; sleep 2; done
+          for _ in $(seq 1 30); do curl -fs http://127.0.0.1:8000/health && break; sleep 2; done
       # The daily update timer: with automatic updates off (the default) its run checks and does nothing.
       - run: |
           systemctl is-enabled syntropy-health-update.timer

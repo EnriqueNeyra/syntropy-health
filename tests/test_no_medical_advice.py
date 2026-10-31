@@ -91,6 +91,30 @@ def test_no_advice_is_written_into_the_apps_text(path):
         assert phrase not in text, phrase
 
 
+# Telling someone to go and get care, in any of the words for it. Folders with record field names like "urgent care" are read for these too.
+GO_AND_GET_CARE = re.compile(
+    r"\b(see|visit|call|ask|consult|talk to|speak to|speak with|contact|check with) (a|an|your|the) (doctor|physician|provider|clinician|nurse|pharmacist|specialist)\b"
+    r"|\bseek (out )?(medical|immediate|emergency|professional|prompt|care|attention|help)\b|\bcall 911\b|\bemergency (room|number|department|services)\b"
+    r"|\bgo to (the|an) (er|hospital|emergency)\b|\byou should\b|\byou (may|might) want to\b", re.I)
+
+
+def _everything_with_words_people_see():
+    return sorted(p for pattern in ("*.py", "*/*.py", "static/index.html", "static/js/*.js", "static/js/views/*.js") for p in APP.glob(pattern))
+
+
+@pytest.mark.parametrize("path", _everything_with_words_people_see(), ids=lambda p: str(p.relative_to(APP)))
+def test_nothing_tells_someone_to_go_and_get_care(path):
+    found = GO_AND_GET_CARE.search(path.read_text(encoding="utf-8"))
+    assert not found, found and found.group(0)
+
+
+def test_the_care_check_catches_what_a_person_might_write():
+    for said in ("See a doctor about this", "seek medical attention", "Call 911", "you should rest", "emergency services", "talk to your provider"):
+        assert GO_AND_GET_CARE.search(said), said
+    assert {"services/ai.py", "mcp_server.py", "static/js/views/prepare.js", "connectors/fhir_normalize.py", "core/auth.py", "simulator/personas.py", "static/index.html"} <= {
+        str(p.relative_to(APP)) for p in _everything_with_words_people_see()}
+
+
 def test_the_check_above_reads_the_newest_pages_and_services():
     scanned = {str(p.relative_to(APP)) for p in _code_with_the_apps_text()}
     assert {"static/js/views/prepare.js", "static/js/views/people.js", "static/js/views/trend-tools.js", "services/visit_prep.py", "services/ccda.py",
