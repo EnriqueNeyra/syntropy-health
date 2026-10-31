@@ -12,7 +12,7 @@ def test_a_new_overview_starts_with_the_medical_record_and_a_saved_one_stays_put
     ])""")
     assert fresh[:7] == ["insights", "new", "labs", "medications", "conditions", "allergies", "m:steps"]
     assert fresh.index("m:steps") < fresh.index("vitals") < fresh.index("sleep")
-    assert [i for i in saved if i != "insights"][:3] == ["workouts", "m:steps", "allergies"]
+    assert [i for i in saved if i not in ("insights", "new")][:3] == ["workouts", "m:steps", "allergies"]
 
 
 def test_charts_keep_their_lines_when_a_page_comes_back_from_the_browser(session):

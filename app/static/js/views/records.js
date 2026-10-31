@@ -162,7 +162,7 @@ export async function render({ el, parts, params, state, navigate }) {
       history.replaceState(null, "", `#/records${cat ? "/" + cat : ""}`);
       load();
     },
-    open: ({ id }) => openRecord(id, () => load()),
+    open: ({ id }) => openRecord(id, () => { drawFilters(); load(); }),
     "add-labs": () => openLabEntry(profile, () => navigate("#/records/labs")),
     "add-own": () => openSelfReported(profile, () => load()),
     more: () => { offset += PAGE; return load(true); },

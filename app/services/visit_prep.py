@@ -91,7 +91,8 @@ def changes_since(profile_id: str, since: str) -> dict[str, Any]:
                   for r in _on_record(profile_id, kind, since) if _said_wrong(r)]
     lists = {
         "results": _results(profile_id, since),
-        "medications_started": [{"id": m["record_id"], "title": m["name"], "effective_at": m["first"], "status": m["status"]}
+        "medications_started": [{"id": m["record_id"], "title": m["name"], "effective_at": m["first"], "status": m["status"],
+                                 "override": next((x.get("override") for x in meds if x["id"] == m["record_id"]), None)}
                                 for m in timeline if m["first"] >= day],
         "medications_stopped": [_light(m) for m in stopped],
         "visits": [_visit(e) for e in visits],

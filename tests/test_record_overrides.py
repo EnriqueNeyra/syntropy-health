@@ -258,3 +258,10 @@ def test_people_who_can_only_view_dont_get_controls_that_would_be_refused():
     hidden = css.split(":root[data-view-only] :is(")[1].split(")")[0]
     for control in ("[data-correction-form]", '[data-action="add-own"]', "#prep-form", "[data-remove-question]", ".report-choices"):
         assert control in hidden
+
+
+def test_prepare_carries_what_the_person_said_about_a_medication(client, pid):
+    med = _one(pid, "medications")
+    client.put(f"/api/records/{med['id']}/override", json={"state": "taking_differently", "note": "Half a tablet"})
+    prep = client.get("/api/visit-prep", params={"profile": pid, "since": str(med["effective_at"])[:10]}).json()
+    assert "Half a tablet" in prep["medications_started"][0]["override"]["text"]

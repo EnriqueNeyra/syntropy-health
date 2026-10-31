@@ -182,7 +182,7 @@ export async function render({ el, state }) {
         ${r.upcoming_encounters?.length ? html`<h3>Upcoming</h3>${table(["Date", "Visit", "Clinician", "Where"], r.upcoming_encounters.map(visitRow))}` : ""}`)}
 
       ${currentTeams.length ? section("care_team", "Care team", table(["Name", "Role", "Source"],
-        currentTeams.flatMap((t) => (t.details?.members || []).map((m) => [m.name, m.role, t.source_name])))) : ""}
+        currentTeams.flatMap((t) => (t.details?.members || []).map((m) => [html`${m.name}${saidOf(t)}`, m.role, t.source_name])))) : ""}
 
       ${r.coverage.length ? section("insurance", "Insurance", table(["Plan", "Member ID", "Status"],
         r.coverage.map((c) => [html`${c.title}${saidOf(c)}`, c.details?.subscriber_id || "—", capitalize(c.status) || "—"]))) : ""}

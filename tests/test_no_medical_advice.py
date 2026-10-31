@@ -91,6 +91,12 @@ def test_no_advice_is_written_into_the_apps_text(path):
         assert phrase not in text, phrase
 
 
+def test_the_check_above_reads_the_newest_pages_and_services():
+    scanned = {str(p.relative_to(APP)) for p in _code_with_the_apps_text()}
+    assert {"static/js/views/prepare.js", "static/js/views/people.js", "static/js/views/trend-tools.js", "services/visit_prep.py", "services/ccda.py",
+            "store/record_overrides.py", "store/record_files.py"} <= scanned
+
+
 def test_a_medication_that_may_be_out_of_date_is_not_a_task():
     assert ">Check<" not in (APP / "static/js/views/overview.js").read_text(encoding="utf-8")
 
