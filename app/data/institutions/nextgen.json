@@ -1015,23 +1015,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-alpha-enterprise-practice-1-1",
-"name": "Alpha Enterprise Practice 1_1",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-alpha-environment-practice-2",
-"name": "Alpha Environment Practice 2",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
-"former_ids": [
-"nextgen-alpha-environment-practice-2-2"
-]
-},
-{
 "id": "nextgen-alpine-pediatrics",
 "name": "Alpine Pediatrics",
 "location": "Pleasant Grove, UT",
@@ -5077,25 +5060,14 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-chc-practice",
-"name": "CHC Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-chc-practice-2",
-"name": "CHC Practice",
-"location": "Irvine, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-chelmsford-mri-pc",
 "name": "Chelmsford MRI PC",
 "location": "Chelmsford, MA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-z-retired-chelmsford-mri-pc"
+]
 },
 {
 "id": "nextgen-cherokee-health-systems",
@@ -5725,7 +5697,11 @@
 "name": "CML 2 Practice",
 "location": "Mays Landing, NJ",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-optical-practice-2",
+"nextgen-default-practice-2-2"
+]
 },
 {
 "id": "nextgen-coal-creek-family-medicine",
@@ -7744,20 +7720,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-dry-run-2",
-"name": "Dry Run 2",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-dry-run-3",
-"name": "Dry Run 3",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-dsa-dermatology",
 "name": "DSA Dermatology",
 "location": "Plano, TX",
@@ -8370,41 +8332,6 @@
 "id": "nextgen-ent-of-south-georgia-surgery-center-llc",
 "name": "ENT Of South Georgia Surgery Center, LLC",
 "location": "Valdosta, GA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-enterprise-chart-behavioral-health-pract",
-"name": "Enterprise Chart Behavioral Health Pract",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-enterprise-chart-cardiology-practice",
-"name": "Enterprise Chart Cardiology Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-enterprise-chart-family-practice",
-"name": "Enterprise Chart Family Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-enterprise-chart-ophthalmology-practice",
-"name": "Enterprise Chart Ophthalmology Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-enterprise-chart-specialty-practice",
-"name": "Enterprise Chart Specialty Practice",
-"location": "Horsham, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -9826,20 +9753,6 @@
 "id": "nextgen-fvc-tampa-llc",
 "name": "FVC Tampa, LLC",
 "location": "Tampa, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-g2-tin-a",
-"name": "G2 - TIN A",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-g2-tin-b",
-"name": "G2 - TIN B",
-"location": "Horsham, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -14117,32 +14030,16 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-master-practice",
-"name": "Master Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-master-practice-2",
-"name": "Master Practice",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-master-practice-3",
-"name": "Master Practice",
-"location": "Fort Lauderdale, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-master-practice-cbo-anesthesia",
 "name": "Master Practice CBO Anesthesia",
 "location": "Nashville, TN",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-master-practice",
+"nextgen-master-practice-2",
+"nextgen-master-practice-3"
+]
 },
 {
 "id": "nextgen-mat-su-health-services-inc",
@@ -16549,34 +16446,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-nextgen-ambulatory-surgical-center",
-"name": "NextGen Ambulatory Surgical Center",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-nextgen-behavioral-health-practice",
-"name": "NextGen Behavioral Health Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-nextgen-cardiology-practice",
-"name": "NextGen Cardiology Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-nextgen-chc-practice",
-"name": "NextGen CHC Practice",
-"location": "Irvine, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-nextgen-medical-group",
 "name": "NextGen Medical Group",
 "location": "Atlanta, OH",
@@ -16633,30 +16502,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-nextgen-ophthalmology-practice",
-"name": "NextGen Ophthalmology Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-nextgen-orthopedic-group",
 "name": "Nextgen Orthopedic Group",
 "location": "Denver, CO",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-nextgen-specialty-practice",
-"name": "NextGen Specialty Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-nextgen-ugm-presenters-db",
-"name": "NextGen UGM Presenters DB",
-"location": "Irvine, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -17947,23 +17795,6 @@
 "location": "Saint Louis, MO",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-optical-practice-1",
-"name": "Optical Practice 1",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-optical-practice-2",
-"name": "Optical Practice 2",
-"location": "Irvine, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
-"former_ids": [
-"nextgen-default-practice-2-2"
-]
 },
 {
 "id": "nextgen-optometry",
@@ -19684,13 +19515,6 @@
 "id": "nextgen-pprm",
 "name": "PPRM",
 "location": "Denver, CO",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-practice-4",
-"name": "Practice 4",
-"location": "Horsham, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -23804,13 +23628,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-standard-practice",
-"name": "Standard Practice",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-star-asc",
 "name": "Star Asc",
 "location": "San Antonio, TX",
@@ -25908,7 +25725,10 @@
 "name": "USC Ambulatory Surgical Center",
 "location": "Sioux Falls, SD",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-nextgen-ambulatory-surgical-center"
+]
 },
 {
 "id": "nextgen-user-deactivation-combin-practice1",
@@ -26940,13 +26760,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-wave-5-dry-run",
-"name": "WAVE 5 Dry Run",
-"location": "Horsham, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-waverley-surgery-center",
 "name": "Waverley Surgery Center",
 "location": "Nashville, TN",
@@ -27944,118 +27757,6 @@
 "id": "nextgen-z-reteast-bay-medical-imaging-center-llc",
 "name": "Z RetEast Bay Medical Imaging Center LLC",
 "location": "San Ramon, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-american-health-centers-inc",
-"name": "Z Retired American Health Centers, Inc",
-"location": "Portsmouth, NH",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-bdc-radiology-inc-ps",
-"name": "Z Retired BDC Radiology Inc PS",
-"location": "Federal Way, WA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-central-states-imaging-llc",
-"name": "Z Retired Central States Imaging LLC",
-"location": "Lake In The Hills, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-chelmsford-mri-pc",
-"name": "Z Retired Chelmsford MRI PC",
-"location": "Chelmsford, MA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-east-side-imaging-llc",
-"name": "Z Retired East Side Imaging LLC",
-"location": "Cincinnati, OH",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-fort-worth-radiology-pllc",
-"name": "Z Retired Fort Worth Radiology PLLC",
-"location": "Fort Worth, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-imaging-partners-medical-group",
-"name": "Z Retired Imaging Partners Medical Group",
-"location": "Lafayette, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-insight-proscan-llc",
-"name": "Z Retired Insight Proscan LLC",
-"location": "Columbus, OH",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-maxum-health-services-corp",
-"name": "Z Retired Maxum Health Services Corp",
-"location": "Dallas, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-open-imaging-layton-llc",
-"name": "Z Retired Open Imaging Layton LLC",
-"location": "Cincinnati, OH",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-open-mri-inc",
-"name": "Z Retired Open MRI INC",
-"location": "Hayward, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-parkway-imaging-center-llc",
-"name": "Z Retired Parkway Imaging Center LLC",
-"location": "Henderson, NV",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-select-ventures-llc",
-"name": "Z Retired Select Ventures LLC",
-"location": "Huntington Beach, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-slmri-llc",
-"name": "Z Retired SLMRI LLC",
-"location": "Salt Lake City, UT",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-us-sports-medicine-llc",
-"name": "Z Retired US Sports Medicine LLC",
-"location": "Los Angeles, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retired-usc-imaging-associates-inc",
-"name": "Z Retired USC Imaging Associates INC",
-"location": "Los Angeles, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },

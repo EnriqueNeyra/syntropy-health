@@ -5,7 +5,7 @@ import {
 } from "../ui.js";
 import { embedded, nativeNav, setToolbar } from "../app.js";
 import { networkStatus, renderNetworkPanel } from "../network.js";
-import { openRecordsRequest } from "./records-request.js";
+import { clearPrintedLetter, openRecordsRequest } from "./records-request.js";
 
 const PLATFORM_COLORS = { epic: "#c2410c", cerner: "#b91c1c", athena: "#7c3aed", healow: "#0f766e", trubridge: "#0e7490", greenway: "#15803d", modmed: "#be185d", nextgen: "#4338ca", practicefusion: "#0891b2", medhost: "#9333ea", "smart-health-it": "#0369a1", custom: "#4b5563" };
 const PLATFORM_LABELS = { epic: "Epic MyChart", cerner: "Oracle Health", athena: "athenahealth", healow: "healow", trubridge: "TruBridge", greenway: "Greenway", modmed: "ModMed", nextgen: "NextGen", practicefusion: "Practice Fusion", medhost: "MEDHOST", "smart-health-it": "SMART Health IT", custom: "FHIR server" };
@@ -230,7 +230,7 @@ function directorySize(featured) {
 const STATE_LABELS = { AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", PR: "Puerto Rico", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming" };
 
 async function openAddHealthSystem(profileId) {
-  const m = modal({ title: "Connect a health system", wide: true, body: loading(3) });
+  const m = modal({ title: "Connect a health system", wide: true, body: loading(3), onClose: clearPrintedLetter });
   let featured = { results: [], total: 0, connectable: 0, athena: null, problem: null };
   // The list not answering is no reason to hide what doesn't need it: importing a file, or asking for records by letter.
   try { featured = await get("/api/directory/featured"); }

@@ -149,9 +149,23 @@ def _data_dir() -> Path:
     return config.APP_DIR / "data"
 
 
+def _strings(value: Any) -> bool:
+    return isinstance(value, list) and all(isinstance(v, str) for v in value)
+
+
 def _valid(inst: Any) -> bool:
+    """A field of the wrong kind would otherwise stop the whole list, not just this entry, the first time it's read."""
     return (isinstance(inst, dict) and all(isinstance(inst.get(k), str) and inst[k].strip() for k in ("id", "name", "platform"))
-            and inst["platform"] in PLATFORMS and isinstance(inst.get("fhir_base_url", ""), str))
+            and inst["platform"] in PLATFORMS and isinstance(inst.get("fhir_base_url", ""), str)
+            and all(isinstance(inst.get(k) or "", str) for k in ("location", "network"))
+            and all(_strings(inst.get(k, [])) for k in ("places", "former_ids")))
+
+
+def _host(url: str) -> Optional[str]:
+    try:
+        return urlsplit(url).hostname
+    except ValueError:
+        return None
 
 
 def _hints(rows: list[dict[str, Any]]) -> None:
@@ -166,9 +180,10 @@ def _hints(rows: list[dict[str, Any]]) -> None:
         for inst in group:
             if inst.get("location") and places[inst["location"]] == 1:
                 continue
-            url = urlsplit(inst.get("fhir_base_url") or "")
-            shared_host = sum(urlsplit(o.get("fhir_base_url") or "").hostname == url.hostname for o in group) > 1
-            inst["hint"] = f"sign-in server ending {url.path.rstrip('/')[-6:]}" if shared_host else f"sign-in server {url.hostname}"
+            url = inst.get("fhir_base_url") or ""
+            host = _host(url)
+            shared_host = sum(_host(o.get("fhir_base_url") or "") == host for o in group) > 1
+            inst["hint"] = f"sign-in server ending {url.rstrip('/')[-6:]}" if shared_host else f"sign-in server {host}"
 
 
 @lru_cache(maxsize=1)
@@ -309,7 +324,9 @@ def sign_in_problem(inst: dict[str, Any]) -> Optional[dict[str, Any]]:
     if not isinstance(problem, dict) or not problem.get("status"):
         return None
     checked = _status_file().get("checked")
-    instead = [{"id": alt["id"], "name": alt["name"]} for alt in map(_by_id().get, problem.get("instead", ())) if alt]
+    others = problem.get("instead")
+    instead = [{"id": alt["id"], "name": alt["name"]} for key in (others if isinstance(others, list) else ())
+               if isinstance(key, str) and (alt := _by_id().get(key))]
     return {"status": problem["status"], "since": problem.get("since"), "checked": checked if isinstance(checked, str) else None,
             "stale": _is_stale(problem, checked), "instead": instead}
 

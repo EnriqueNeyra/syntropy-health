@@ -478,3 +478,107 @@ def test_the_picker_keeps_its_other_ways_in_when_the_list_fails():
     for action in ('data-action="records"', 'data-action="import"', 'data-action="custom"', 'data-id="athenahealth"'):
         assert action in body
     assert "No matches" not in body.split("const showPopular")[1].split("const showResults")[0]
+
+
+# ---------------------------------------------------------------------------
+# What a second pass over real searches found
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("q, first", [
+    ("ohio health", "OhioHealth"),
+    ("peace health", "PeaceHealth"),
+    ("metro health", "MetroHealth OH"),
+    ("health partners", "HealthPartners"),
+    ("st louis children", "BJC Healthcare & Washington University"),
+    ("pennsylvania hospital", "Penn Medicine"),
+    ("children's hospital la", "Children's Hospital Los Angeles"),
+    ("mayo clinic mychart", "Mayo Clinic"),
+    ("my chart mayo", "Mayo Clinic"),
+])
+def test_the_one_they_mean_comes_first(q, first):
+    assert names(q)[0] == first, names(q)[:5]
+
+
+def test_words_written_together_in_a_name_are_found_apart():
+    index = small_index([{"name": "Peace Valley Health"}, {"name": "PeaceHealth"}, {"name": "PeaceHealth Southwest"}])
+    assert ranked(index, "peace health")[:2] == ["PeaceHealth", "PeaceHealth Southwest"]
+
+
+def test_the_network_legal_name_ranks_after_the_name():
+    index = small_index([
+        {"name": "St Thomas Community Health Center", "network": "Louisiana Children's Medical Center"},
+        {"name": "St Louis Children's Clinic"},
+    ])
+    assert ranked(index, "st louis children") == ["St Louis Children's Clinic", "St Thomas Community Health Center"]
+    only_network = small_index([{"name": "Quiet Practice", "network": "Lucile Packard Hospital"},
+                                {"name": "Other Practice", "location": "Lucile, ID", "places": ["Packard ID"]}])
+    assert ranked(only_network, "lucile packard") == ["Quiet Practice", "Other Practice"]
+
+
+def test_a_new_york_row_is_not_new_in_its_name_and_york_in_its_town():
+    index = small_index([{"name": "New Hope Clinic", "location": "York, PA"}, {"name": "New York Clinic"},
+                         {"name": "Quiet Clinic", "location": "New York, NY"}])
+    assert ranked(index, "new york")[:2] == ["New York Clinic", "Quiet Clinic"]
+
+
+def test_a_facility_called_that_comes_before_loose_matches():
+    from app.directory_search import Index
+    rows = [{"id": "big", "name": "Big System", "platform": "epic", "fhir_base_url": "https://a.example.org/r"},
+            {"id": "penn", "name": "Penn Medicine", "platform": "epic", "fhir_base_url": "https://b.example.org/r"}]
+    sites = [("big", f"Big Hospital Unit {n} Pennsylvania Rd", "", "") for n in range(40)]
+    sites.append(("penn", "Pennsylvania Hospital", "Philadelphia", "PA"))
+    res = Index(rows, sites, {}, {}).search("pennsylvania hospital", keep=None, drop=set(), later=None, troubled=set(), limit=5, offset=0, state=None)
+    assert [r["name"] for r in res["results"]] == ["Penn Medicine", "Big System"]
+    assert res["results"][0]["includes"] == "Pennsylvania Hospital"
+
+
+def test_a_portal_word_needs_no_explaining():
+    top = find("mayo clinic mychart")["results"][0]
+    assert top["name"] == "Mayo Clinic" and "includes" not in top
+
+
+def test_short_names_for_big_cities():
+    index = small_index([{"name": "Children's Hospital Los Angeles"}, {"name": "Quiet Clinic", "location": "San Francisco, CA"}])
+    assert ranked(index, "childrens hospital la") == ["Children's Hospital Los Angeles"]
+    assert ranked(index, "quiet sf") == ["Quiet Clinic"]
+
+
+@pytest.mark.parametrize("bad", [
+    {"location": 5}, {"network": ["not", "text"]}, {"places": "Boston MA"}, {"places": [5]}, {"former_ids": 5},
+    {"former_ids": [["nested"]]}, {"fhir_base_url": 5},
+])
+def test_a_wrong_field_costs_that_entry_and_nothing_else(data_copy, bad):
+    path = data_copy / "institutions" / "medhost.json"
+    rows = json.loads(path.read_text())
+    good = len(rows)
+    path.write_text(json.dumps([*rows, {"id": "odd", "name": "Odd Entry", "platform": "medhost", "fhir_base_url": "https://a.example.org/r", **bad}]))
+    directory.reload()
+    assert directory.stats()["medhost"] == good
+    assert directory.search("hospital")["total"] > 0
+    assert directory.get_institution(rows[0]["id"])
+
+
+def test_an_address_that_cannot_be_read_does_not_stop_the_list(data_copy):
+    path = data_copy / "institutions" / "medhost.json"
+    rows = json.loads(path.read_text())
+    twin = {"name": "Twin Hospital", "platform": "medhost", "fhir_base_url": "https://[broken/r"}
+    path.write_text(json.dumps([*rows, {"id": "t1", **twin}, {"id": "t2", **twin}]))
+    directory.reload()
+    assert directory.search("twin hospital")["total"] == 2
+
+
+@pytest.mark.parametrize("instead", [5, "text", [["nested"]], [None, 5]])
+def test_a_warning_with_odd_alternatives_is_still_a_warning(data_copy, instead):
+    row = json.loads((data_copy / "institutions" / "medhost.json").read_text())[0]
+    (data_copy / "sign_in_status.json").write_text(json.dumps({"checked": "2026-10-03", "servers": {
+        directory._status_key(row): {"status": "portal_error", "since": "2026-10-03", "instead": instead}}}))
+    directory.reload()
+    problem = directory.sign_in_problem(row)
+    assert problem["status"] == "portal_error" and problem["instead"] == []
+
+
+def test_a_printed_letter_does_not_stay_behind_for_the_next_print():
+    letter = (STATIC / "records-request.js").read_text()
+    picker = (STATIC / "sources.js").read_text()
+    assert "export function clearPrintedLetter" in letter
+    assert "onClose: clearPrintedLetter" in picker

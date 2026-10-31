@@ -9744,20 +9744,6 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CHBAED"
 },
 {
-"id": "ecw-dchbca",
-"name": "APU testing",
-"location": "Westborough, MA",
-"platform": "healow",
-"fhir_base_url": "https://fhir4.healow.com/fhir/r4/DCHBCA"
-},
-{
-"id": "ecw-giaeca",
-"name": "APU testing",
-"location": "Westborough, MA",
-"platform": "healow",
-"fhir_base_url": "https://fhir4.healow.com/fhir/r4/GIAECA"
-},
-{
 "id": "ecw-hhieca",
 "name": "Apurva Advanced Medical Care",
 "location": "Prescott, AZ",
@@ -30518,13 +30504,6 @@
 "location": "Chicago, IL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/FEGJBA"
-},
-{
-"id": "ecw-aghjbd",
-"name": "DEV-Family HealthCare Network",
-"location": "Visalia, CA",
-"platform": "healow",
-"fhir_base_url": "https://fhir4.healow.com/fhir/r4/AGHJBD"
 },
 {
 "id": "ecw-fcabed",
@@ -54915,13 +54894,6 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/FCFHBA"
 },
 {
-"id": "ecw-ebgdad",
-"name": "Internal - Labcorp",
-"location": "Westborough, MA",
-"platform": "healow",
-"fhir_base_url": "https://fhir4.healow.com/fhir/r4/EBGDAD"
-},
-{
 "id": "ecw-eehjcd",
 "name": "Internal Health and Medical Services LLC",
 "location": "Germantown, TN",
@@ -55235,13 +55207,6 @@
 "location": "Norfolk, VA",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/IDICAA"
-},
-{
-"id": "ecw-ghabcd",
-"name": "Internal SAM Environment",
-"location": "Westborough, MA",
-"platform": "healow",
-"fhir_base_url": "https://fhir4.healow.com/fhir/r4/GHABCD"
 },
 {
 "id": "ecw-chhjaa",
@@ -74130,13 +74095,6 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/FGBIBA"
 },
 {
-"id": "ecw-haccbd",
-"name": "MSSQL-CPCI Environment SP3",
-"location": "Westborough, MA",
-"platform": "healow",
-"fhir_base_url": "https://fhir4.healow.com/fhir/r4/HACCBD"
-},
-{
 "id": "ecw-ebhiaa",
 "name": "MT Enterprise Community Health Clinic",
 "location": "Henderson, TX",
@@ -74660,13 +74618,6 @@
 "location": "Montgomery, AL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/HHAIBA"
-},
-{
-"id": "ecw-jcafad",
-"name": "MySQL - eCQMs 10e",
-"location": "Westborough, MA",
-"platform": "healow",
-"fhir_base_url": "https://fhir4.healow.com/fhir/r4/JCAFAD"
 },
 {
 "id": "ecw-ccifad",
@@ -93695,13 +93646,6 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/IHEEAD"
 },
 {
-"id": "ecw-bjfcbd",
-"name": "Prod testing EMR - MSSQL",
-"location": "Westborough, MA",
-"platform": "healow",
-"fhir_base_url": "https://fhir4.healow.com/fhir/r4/BJFCBD"
-},
-{
 "id": "ecw-cgjjca",
 "name": "PROD-Palmetto Primary Care Physicians PPCP",
 "location": "Charleston, SC",
@@ -100952,13 +100896,6 @@
 "location": "New York, NY",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CGAFDD"
-},
-{
-"id": "ecw-dhabcd",
-"name": "Sales-ecwintl",
-"location": "Westborough, MA",
-"platform": "healow",
-"fhir_base_url": "https://fhir4.healow.com/fhir/r4/DHABCD"
 },
 {
 "id": "ecw-cajicd",

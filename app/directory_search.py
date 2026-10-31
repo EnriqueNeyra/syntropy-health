@@ -4,7 +4,8 @@ Finding a health system by whatever someone calls it.
 People type the name on their bill or wristband, the portal they log in to, a town, or a misspelling of any of those. The
 index holds one sorted vocabulary of folded words (see ``fold``), and for each kind of text the rows it appears in:
 
-* name: the listing's name, its network, generated acronyms and the hand-kept aliases;
+* name: the listing's name, generated acronyms and the hand-kept aliases;
+* network: the legal name of who runs its sign-in, long and full of other organizations' words, so it counts for less;
 * place: its location and every town it has a site in;
 * facility: each of a large system's facilities, so "brigham and women" finds Mass General Brigham and can say why.
 
@@ -13,7 +14,7 @@ per row. Every word typed has to match somewhere; where it matched decides the r
 nothing is corrected by Damerau-Levenshtein distance over the vocabulary, preferring the common spelling.
 
 Postings are ``array("I")`` runs laid end to end in vocabulary order, so a prefix is one slice. About 40,000 listings and
-93,000 facilities take about 16 MB here and answer in under 10 ms on the broadest query on a laptop.
+93,000 facilities take about 25 MB here and answer in under 20 ms on the broadest query on a laptop.
 """
 
 from __future__ import annotations
@@ -38,6 +39,8 @@ _COMPOUNDS = {"healthcare": ("health", "care"), "healthsystem": ("health", "syst
 _JOINED = {("my", "chart"): "mychart", ("your", "care"): "yourcare", ("mycare", "corner"): "mycarecorner"}
 # Said alongside a name, these narrow nothing: "mayo patient portal", "hospitals in dallas".
 _NOISE = frozenset({"patient", "portal", "login", "log", "sign", "signin", "online"})
+# What a big city goes by. "children's hospital la" could mean Louisiana too, so these sit beside the state.
+_CITY_SHORT = {"la": ("los", "angeles"), "sf": ("san", "francisco"), "nyc": ("new", "york"), "philly": ("philadelphia",)}
 
 STATE_NAMES = {
     "alabama": "al", "alaska": "ak", "arizona": "az", "arkansas": "ar", "california": "ca", "colorado": "co", "connecticut": "ct",
@@ -56,7 +59,8 @@ _LONGEST_STATE = max(len(k) for k in _STATE_WORDS)
 
 _RANK_BITS = 22
 _RANK_MASK = (1 << _RANK_BITS) - 1
-_EXACT, _STARTS, _PHRASE, _ALL_IN_NAME, _FACILITY, _WITH_PLACE, _ELSEWHERE = range(7)
+_EXACT, _STARTS, _PHRASE, _FACILITY_NAME, _ALL_IN_NAME, _IN_NETWORK, _FACILITY, _WITH_PLACE, _IN_PLACE, _ELSEWHERE = range(10)
+_FACILITIES_READ = 1000  # more than this sharing the words, and a facility being called just that says little
 _RARE = 3               # at most this many rows, and a far commoner spelling one edit away: a typo that happens to be listed
 _RARE_WHEN_NOTHING_FOUND = 100
 _MUCH_COMMONER = 10
@@ -137,7 +141,19 @@ def _terms_for(word: str) -> list[tuple[str, ...]]:
         terms.append(tuple(fold_word(w) for w in _STATE_BY_CODE[word]))
     elif (folded,) in _STATE_FOLDED:
         terms.append((_STATE_FOLDED[folded,],))
+    if word in _CITY_SHORT:
+        terms.append(tuple(fold_word(w) for w in _CITY_SHORT[word]))
     return terms
+
+
+def _name_band(name: str, phrase: str) -> int:
+    """How well a folded name matches what was typed, all of whose words it has. Without spaces too: OhioHealth is "ohio health"."""
+    bare, solid = name.replace(" ", ""), phrase.replace(" ", "")
+    if bare == solid:
+        return _EXACT
+    if bare.startswith(solid):
+        return _STARTS
+    return _PHRASE if f" {phrase}" in name else _ALL_IN_NAME
 
 
 def _letters(word: str) -> int:
@@ -196,6 +212,7 @@ class _Word:
     prefix: bool
     state: bool = False
     name: set[int] = field(default_factory=set)
+    network: set[int] = field(default_factory=set)
     place: set[int] = field(default_factory=set)
     platform: set[int] = field(default_factory=set)
     facilities: set[int] = field(default_factory=set)
@@ -207,7 +224,7 @@ class Index:
                  platform_words: dict[str, Iterable[str]]):
         """``facilities`` yields (listing id, facility or "", city, state), one listing's together."""
         self.rows = rows
-        names, places, sites = _Pairs(), _Pairs(), _Pairs()
+        names, networks, places, sites = _Pairs(), _Pairs(), _Pairs(), _Pairs()
         numbers: dict[str, int] = {}
 
         def number_of(word: str) -> int:
@@ -225,8 +242,8 @@ class Index:
             words = fold(inst["name"])
             self.folded_names.append(" ".join(t for w in words for t in _COMPOUNDS.get(w, (w,))))
             seen = set(_index_words(inst["name"]))
-            if inst.get("network"):
-                seen.update(_index_words(inst["network"]))
+            for word in set(_index_words(inst.get("network") or "")):
+                networks.add(number_of(word), row)
             acronym = _acronym(words)
             if acronym:
                 seen.add(acronym)
@@ -285,10 +302,12 @@ class Index:
             position[numbers[word]] = i
         numbers.clear()
         self.name_field = _Field(names, position)
+        self.network_field = _Field(networks, position)
         self.place_field = _Field(places, position)
         self.site_field = _Field(sites, position)
         self.platform_terms = sorted((fold_word(word), platform_number[p]) for p, words in platform_words.items()
                                      if p in platform_number for word in words)
+        self.portal_words = frozenset(term for term, _ in self.platform_terms)
 
         # Featured first, then larger systems (by powers of two: a tie-breaker, not a contest), then by name.
         order = sorted(range(len(rows)), key=lambda r: (not rows[r].get("featured"), -int(math.log2(sizes.get(r, 0) + 1)), rows[r]["name"].lower()))
@@ -311,36 +330,45 @@ class Index:
             return lo, bisect_left(self.vocabulary, word + "\uffff", lo)
         return (lo, lo + 1) if lo < len(self.vocabulary) and self.vocabulary[lo] == word else (lo, lo)
 
-    def _find_term(self, word: str, prefix: bool) -> tuple[set[int], set[int], set[int], set[int]]:
+    def _find_term(self, word: str, prefix: bool) -> tuple[set[int], set[int], set[int], set[int], set[int]]:
         lo, hi = self._range(word, prefix)
         name = self.name_field.rows_between(lo, hi)
         short = len(word) < 2           # on its way to being a word, so names alone: it would otherwise be half the index
+        network = self.network_field.rows_between(lo, hi) if not short else set()
         place = self.place_field.rows_between(lo, hi) if not short else set()
         sites = self.site_field.rows_between(lo, hi) if not short else set()
         platform: set[int] = set()
         for term, number in self.platform_terms:
             if term == word or (prefix and term.startswith(word)):
                 platform.update(self.platform_rows[number])
-        return name, place, platform, sites
+        return name, network, place, platform, sites
 
     def _look_up(self, word: _Word) -> _Word:
         for term in word.terms:
             found = [self._find_term(w, len(w) >= 3 or (word.prefix and w not in _STATE_CODES)) for w in term]
             if len(found) == 1:
-                name, place, platform, sites = found[0]
+                name, network, place, platform, sites = found[0]
             else:
-                # All the words of "new york", wherever each one is.
-                keep = set.intersection(*(n | p | q | {self.site_row[s] for s in f} for n, p, q, f in found))
-                name = keep & set.union(*(n for n, _, _, _ in found))
-                place = keep & set.union(*(p for _, p, _, _ in found))
-                platform = keep & set.union(*(q for _, _, q, _ in found))
-                sites = set.intersection(*(f for _, _, _, f in found))
+                # All the words of "new york", wherever each one is; it counts as a name or a place only when together in one.
+                word.rows |= set.intersection(*(n | m | p | q | {self.site_row[s] for s in f} for n, m, p, q, f in found))
+                name, network, place, platform, sites = (set.intersection(*part) for part in zip(*found))
             word.name |= name
+            word.network |= network
             word.place |= place
             word.platform |= platform
             word.facilities |= sites
-        word.rows = word.name | word.place | word.platform | {self.site_row[s] for s in word.facilities}
+        word.rows |= word.name | word.network | word.place | word.platform | {self.site_row[s] for s in word.facilities}
         return word
+
+    def _join_neighbors(self, words: list[_Word]) -> list[_Word]:
+        """A name written as one word answers to its parts: "ohio health" is OhioHealth, "mercy one" MercyOne."""
+        for a, b in zip(words, words[1:]):
+            lo, hi = self._range(fold_word(a.text + b.text), False)
+            if lo < hi and (rows := self.name_field.rows_between(lo, hi)):
+                for word in (a, b):
+                    word.name |= rows
+                    word.rows |= rows
+        return words
 
     def _parse(self, q: str) -> list[_Word]:
         typed: list[str] = []
@@ -372,7 +400,8 @@ class Index:
         lo, hi = self._range(word, False)
         if lo == hi:
             return 0
-        return 10 * self.name_field.count_at(lo) + 2 * self.place_field.count_at(lo) + self.site_field.count_at(lo)
+        return (10 * (self.name_field.count_at(lo) + self.network_field.count_at(lo)) + 2 * self.place_field.count_at(lo)
+                + self.site_field.count_at(lo))
 
     def _spellings(self, word: str) -> list[str]:
         """Words one or two edits from ``word``: the closest, and of those the commonest."""
@@ -437,14 +466,34 @@ class Index:
     def _matches(self, words: list[_Word]) -> set[int]:
         return set.intersection(*sorted((w.rows for w in words), key=len))
 
+    def _is_portal(self, word: _Word) -> bool:
+        return len(word.terms[0]) == 1 and word.terms[0][0] in self.portal_words
+
+    def _site_name(self, site: int) -> str:
+        return self.site_names[self.site_start[site]:self.site_start[site + 1] - 1].decode()
+
     def _keys(self, matched: set[int], words: list[_Word], later: Optional[set[str]], troubled: set[int]) -> list[int]:
         """A number per row that sorts it: how well its text matched, then whether it can be connected and works, then rank."""
-        all_in_name = set.intersection(*sorted((w.name for w in words), key=len)) & matched
-        any_in_name = set.union(*(w.name for w in words)) & matched
-        same_site = set.intersection(*sorted((w.facilities for w in words), key=len))
+        # "mayo clinic mychart" asks for Mayo Clinic and says how they log in: a portal word narrows, and isn't part of the name.
+        portals = [w for w in words if self._is_portal(w)]
+        named = [w for w in words if not self._is_portal(w)] or words
+        all_in_name = set.intersection(matched, *(w.name for w in words))
+        name_and_portal = set.intersection(matched, *(w.name for w in named), *(w.name | w.platform for w in portals))
+        in_network = set.intersection(matched, *(w.network for w in named))
+        any_in_name = matched & set.union(*(w.name for w in words))
+        in_name_or_place = set.intersection(matched, *(w.name | w.place | w.platform for w in words))
+        in_place = set.intersection(matched, *(w.place | w.platform for w in words))
+        same_site = set.intersection(*sorted((w.facilities for w in named), key=len))
         site_rows = {self.site_row[s] for s in same_site}
         phrase = " ".join(t for w in words for t in w.terms[0])
-        aliased = set(self.exact_alias.get(phrase, ()))
+        short_phrase = " ".join(t for w in named for t in w.terms[0])
+        called_that: set[int] = set()
+        if len(same_site) <= _FACILITIES_READ:
+            for site in same_site:
+                folded_site = " ".join(t for w in fold(self._site_name(site)) for t in _COMPOUNDS.get(w, (w,)))
+                if folded_site == short_phrase or folded_site.startswith(short_phrase + " "):
+                    called_that.add(self.site_row[site])
+        aliased = set(self.exact_alias.get(phrase, ())) | set(self.exact_alias.get(short_phrase, ()))
         later_platform = [later is not None and p in later for p in self.platform_names]
         folded = self.folded_names
         keys = []
@@ -452,15 +501,21 @@ class Index:
             if row in aliased:
                 band = _EXACT
             elif row in all_in_name:
-                name = folded[row]
-                band = (_EXACT if name == phrase else _STARTS if name.startswith(phrase)
-                        else _PHRASE if f" {phrase}" in name else _ALL_IN_NAME)
+                band = _name_band(folded[row], phrase)
+            elif row in name_and_portal:
+                band = _name_band(folded[row], short_phrase)
+            elif row in in_network:
+                band = _IN_NETWORK
             elif row in site_rows:
                 band = _FACILITY
-            elif row in any_in_name:
+            elif row in any_in_name and row in in_name_or_place:
                 band = _WITH_PLACE
+            elif row in in_place:
+                band = _IN_PLACE
             else:
                 band = _ELSEWHERE
+            if row in called_that:
+                band = min(band, _FACILITY_NAME)
             keys.append(band << (_RANK_BITS + 2) | later_platform[self.platform_of[row]] << (_RANK_BITS + 1)
                         | (row in troubled) << _RANK_BITS | self.rank_of[row])
         return keys
@@ -468,7 +523,7 @@ class Index:
     def includes(self, row: int, words: list[_Word]) -> Optional[str]:
         """The facility that explains why ``row`` matched, when its own name doesn't."""
         span = self.site_range.get(row)
-        if not span or all(row in w.name for w in words):
+        if not span or all(row in w.name or (row in w.platform and self._is_portal(w)) for w in words):
             return None
         best, best_key = None, (0, 0)
         for site in range(*span):
@@ -479,17 +534,17 @@ class Index:
                 best, best_key = site, key
         if best is None:
             return None
-        return self.site_names[self.site_start[best]:self.site_start[best + 1] - 1].decode()
+        return self._site_name(best)
 
     def search(self, q: str, *, keep: Optional[set[int]], drop: set[int], later: Optional[set[str]], troubled: set[int],
                limit: int, offset: int, state: Optional[str]) -> dict[str, Any]:
-        words = [self._look_up(w) for w in self._parse(q)]
+        words = self._join_neighbors([self._look_up(w) for w in self._parse(q)])
         if not words:
             return {"total": 0, "results": [], "states": {}}
         matched = self._matches(words)
         corrected = None
         fixed = self._respell(words, nothing_found=not matched)
-        if fixed is not None and (again := self._matches(fixed)) - matched:
+        if fixed is not None and (again := self._matches(self._join_neighbors(fixed))) - matched:
             corrected = " ".join(t for w in fixed for t in w.terms[0])
             matched, words = again, fixed
         if keep is not None:

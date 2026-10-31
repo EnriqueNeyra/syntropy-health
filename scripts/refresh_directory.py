@@ -90,7 +90,14 @@ VENDOR_POD = re.compile(
     r"\bASP\d{2}|QAPOD\d"
     r"|^(?:(?:ef|ea|ad|me|vw|ophth) ?)?pod ?\d+\b.*$|^(?:(?:ef|ea|ad|me|vw|ophth) ?)?pod ?\d+(?:admin|test|qa|ophth)\w*$"
     r"|^pod ?\d*(?:ophth|qa)\w*$|^(?:ef|ea|ad|me|vw|ophth)?pod$|^(?:ef|ea|ad|me|vw|ophth)pod\d*\w*$"
-    r"|^(?:application )?administrator$|^admin(?: firm)?$|\bSFTP\b", re.I)
+    r"|^(?:application )?administrator$|^admin(?: firm)?$|\bSFTP\b"
+    # The vendors' own systems, listed at their head offices.
+    r"|^internal(?: -| sam\b)|^(?:ms|my)sql\b|^sales-|^dev-|^prod testing\b|^apu testing$|^ambient listening testing$|^fhir medical practice$"
+    r"|\bdry run\b|^enterprise chart\b|^g2 - tin\b|^alpha (?:enterprise|environment) practice\b"
+    r"|^nextgen (?:ambulatory|behavioral|cardiology|ophthalmology|specialty|chc|ugm)\b"
+    r"|^(?:practice \d+|master practice|standard practice|chc practice|optical practice \d+)$", re.I)
+# Retired, the way vendors mark it: "Z Retired Open MRI", "zzzJordan and Associates Office", "CVS - ZZZNJ22052", "... MD INACTIVE".
+RETIRED_NAME = re.compile(r"^z+ ?retired\b|^zzz|\bzzz[a-z]{2}\d|\binactive$", re.I)
 # In an address's first label, where a name can't be judged: bellinghamentsandbox, efpod03test04, lagastro-test, testapi-sdg.
 TEST_HOST = re.compile(r"sandbox|(?<!la)(?<!grea)(?<!fas)(?<!con)(?<!at)(?<!pro)(?<!de)(?<!brigh)(?<!smar)test\d*$|^test|-test|test-|testpod"
                        r"|\d+admin$|^appadmin$|demo\d*$|^demo|-demo|-qa\d*$")
@@ -329,7 +336,8 @@ def clean_url(url: str) -> Optional[str]:
 
 def is_listing(name: str, url: str) -> bool:
     """False for test databases, vendor pods and placeholders, judged by name and by the address's first label."""
-    if TEST_NAME.search(name) or VENDOR_POD.search(name) or (len(name) < 3) or name.lower() in ("client", "person", "mmbatchload"):
+    if (TEST_NAME.search(name) or VENDOR_POD.search(name) or RETIRED_NAME.search(name) or len(name) < 3
+            or name.lower() in ("client", "person", "mmbatchload")):
         return False
     if re.search(r"^model practice\b", name, re.I):
         return False
@@ -431,7 +439,7 @@ def epic_entries(sources: dict[str, Any]) -> list[dict[str, Any]]:
             places[brand].update(where)
             city, state = next(iter(where), ("", ""))
             name = " ".join(html.unescape(org.get("name") or "").split())
-            if name and not TEST_NAME.search(name):
+            if name and not TEST_NAME.search(name) and not RETIRED_NAME.search(name):
                 facilities[brand].setdefault(name, (city, state))
     brands = []
     for org in orgs:

@@ -3154,13 +3154,6 @@
 "fhir_base_url": "https://amaortho.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-ambient-listening-testing",
-"name": "Ambient Listening Testing",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://ambientlistening.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-ambler-eye-associates",
 "name": "Ambler Eye Associates",
 "location": "Ambler, PA",
@@ -23741,13 +23734,6 @@
 "location": "Davie, FL",
 "platform": "modmed",
 "fhir_base_url": "https://8ed1e3c9-dbf5-4379-a703-18007b0d577d.gastro.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-fhir-medical-practice",
-"name": "FHIR Medical Practice",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://fhirmp.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-fhircertification",
@@ -48132,13 +48118,6 @@
 "fhir_base_url": "https://prismvisiongroup.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-prithiviraj-dharmaraja-md-inactive",
-"name": "PRITHIVIRAJ DHARMARAJA, MD INACTIVE",
-"location": "Palmdale, CA",
-"platform": "modmed",
-"fhir_base_url": "https://4d17465b-8973-44b0-bbfb-fedb844d00d5.gastro.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-priyanka-jain-md",
 "name": "Priyanka Jain, MD",
 "location": "Merced, CA",
@@ -64806,12 +64785,5 @@
 "location": "Bloomfield Hills, MI",
 "platform": "modmed",
 "fhir_base_url": "https://zuliani.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-zzzjordan-and-associates-office",
-"name": "zzzJordan and Associates Office",
-"location": "Clayton, NC",
-"platform": "modmed",
-"fhir_base_url": "https://d4c4e6a9-2d32-4bb1-b062-d2a67dd22612.gastro.prod.fhir.ema-api.com/fhir/r4/"
 }
 ]

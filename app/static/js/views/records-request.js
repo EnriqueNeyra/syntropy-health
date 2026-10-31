@@ -59,14 +59,21 @@ export function letterText(f) {
   return lines.join("\n");
 }
 
-function printLetter(text) {
+/** Done when the dialog closes too: the iPhone app's printing doesn't tell the page when it's finished, and a report printed
+ * later must not come out as this letter. */
+export function clearPrintedLetter() {
   document.querySelector(".print-letter")?.remove();
+  document.body.classList.remove("printing-letter");
+}
+
+function printLetter(text) {
+  clearPrintedLetter();
   const sheet = document.createElement("div");
   sheet.className = "print-letter";
   sheet.textContent = text;
   document.body.append(sheet);
   document.body.classList.add("printing-letter");
-  window.addEventListener("afterprint", () => { sheet.remove(); document.body.classList.remove("printing-letter"); }, { once: true });
+  window.addEventListener("afterprint", clearPrintedLetter, { once: true });
   // In the iPhone app, the app prints the page; web views can't open the print dialog.
   appBridge({ type: "print" }) || window.print();
 }
@@ -82,7 +89,7 @@ async function copyLetter(text, area) {
     const selection = getSelection();
     selection.removeAllRanges();
     selection.addRange(range);
-    toast("Press Copy to copy the selected letter");
+    toast("The letter is selected. Copy it with your keyboard or browser menu");
   }
 }
 
