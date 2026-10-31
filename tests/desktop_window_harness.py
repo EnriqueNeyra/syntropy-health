@@ -85,6 +85,8 @@ class Prefs:
 
 class Panel:
     dest = ""
+    answer = AppKit.NSFileHandlingPanelOKButton
+    asked = 0
 
     def setDirectoryURL_(self, _):  # noqa: N802
         pass
@@ -96,7 +98,8 @@ class Panel:
         pass
 
     def runModal(self):  # noqa: N802
-        return AppKit.NSFileHandlingPanelOKButton
+        Panel.asked += 1
+        return Panel.answer
 
     def filename(self):
         return Panel.dest
@@ -268,8 +271,18 @@ def scenario():
     until(lambda: (url() or "").endswith("/page"))
     time.sleep(0.3)
 
-    # Saving over an existing file, and a download that breaks part way.
+    # Pressing Cancel in the save panel.
     folder = Path(sys.argv[1]).parent
+    Panel.answer = AppKit.NSModalResponseCancel
+    js("var a=document.createElement('a');a.href='/backup.bin';a.download='';document.body.appendChild(a);a.click();", 0.2)
+    until(lambda: Panel.asked)
+    time.sleep(1.5)     # WebKit calls it a failed download, a moment later
+    Panel.answer = AppKit.NSFileHandlingPanelOKButton
+    results["panel_asked_before_cancel"] = Panel.asked
+    results["reported_after_cancel"] = list(results.get("reported", []))
+    results["leftovers_after_cancel"] = sorted(p.name for p in folder.iterdir() if ".part" in p.name)
+
+    # Saving over an existing file, and a download that breaks part way.
     Panel.dest = str(folder / "kept.bin")
     Path(Panel.dest).write_bytes(b"OLD")
     js("var a=document.createElement('a');a.href='/backup.bin';a.download='';document.body.appendChild(a);a.click();", 0.2)

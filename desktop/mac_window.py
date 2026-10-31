@@ -39,7 +39,8 @@ import AppKit
 import objc
 import sites
 import WebKit
-from Foundation import NSURL, NSDownloadsDirectory, NSObject, NSSearchPathForDirectoriesInDomains, NSUserDomainMask
+from Foundation import (NSURL, NSDownloadsDirectory, NSObject, NSSearchPathForDirectoriesInDomains, NSURLErrorCancelled,
+                        NSURLErrorDomain, NSUserDomainMask)
 from PyObjCTools import AppHelper
 from webview.platforms import cocoa
 from webview.platforms.cocoa import BrowserView
@@ -178,8 +179,12 @@ class _Download(NSObject):
             _report_download(True, self.dest.name, "")
 
     def download_didFailWithError_resumeData_(self, _download, error, _resume):
-        log.warning("A download failed: %s", error)
         self._part_gone()
+        # Pressing Cancel in the save panel ends here too, and so does quitting mid-download: neither is news to anyone.
+        if error.domain() == NSURLErrorDomain and error.code() == NSURLErrorCancelled:
+            log.info("A download was cancelled")
+            return
+        log.warning("A download failed: %s", error)
         _report_download(False, getattr(self, "dest", Path("the file")).name, str(error.localizedDescription()))
 
     def _part_gone(self):

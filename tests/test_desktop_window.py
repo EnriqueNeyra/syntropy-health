@@ -85,6 +85,13 @@ def test_saving_over_a_file_replaces_it_only_once_the_download_is_complete(seen)
     assert any(r[0] is True for r in seen["reported"])
 
 
+def test_pressing_cancel_in_the_save_panel_says_nothing(seen):
+    # WebKit reports it as a failed download, which put up a box saying the file wasn't saved.
+    assert seen["panel_asked_before_cancel"] == 1
+    assert seen["reported_after_cancel"] == []
+    assert seen["leftovers_after_cancel"] == []
+
+
 def test_a_plain_link_to_a_file_sends_the_sign_in_cookie(seen):
     assert seen["plain_link"] == "NEW-BACKUP"
     assert seen["download_without_cookie"] is False
