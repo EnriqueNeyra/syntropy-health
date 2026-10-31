@@ -21,6 +21,7 @@ const ROUTES = {
   journal: { label: "Journal", icon: "book", symbol: "book", load: () => import("./views/journal.js") },
   sources: { label: "Sources", icon: "sources", symbol: "point.3.connected.trianglepath.dotted", load: () => import("./views/sources.js") },
   report: { label: "Visit summary", icon: "printer", symbol: "doc.richtext", load: () => import("./views/report.js") },
+  prepare: { label: "Prepare for a visit", icon: "note", symbol: "checklist", load: () => import("./views/prepare.js") },
   settings: { label: "Settings", icon: "settings", symbol: "gearshape", load: () => import("./views/settings.js") },
   // A single record as a page: the iPhone app's record screen (elsewhere records open in a drawer).
   _record: { label: "Record", icon: "records", load: () => import("./views/record-detail.js") },
@@ -652,7 +653,7 @@ window.SyntropyShell = nativeNav ? {
 } : undefined;
 
 // The sections in the iPhone app's order: its tabs first (as they're laid out), then More's list.
-const APP_SECTIONS = ["overview", "trends", "ask", "records", "workouts", "journal", "timeline", "report", "sources", "settings"];
+const APP_SECTIONS = ["overview", "trends", "ask", "records", "workouts", "journal", "timeline", "report", "prepare", "sources", "settings"];
 
 /** The sections, for the app's tabs and More: the server decides what there is. */
 function sendSections() {

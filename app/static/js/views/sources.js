@@ -584,6 +584,7 @@ export async function render({ el, params, state }) {
     wireUploads();
     resumeImport();
     renderBanner();
+    showArrived(all);
     clearTimeout(pollTimer);
     // While a source syncs, look again shortly (a failed look tries again rather than stopping).
     if (all.some((c) => c.syncing)) pollTimer = setTimeout(() => refresh(true).catch(() => { if (!gone) pollTimer = setTimeout(() => refresh(true), 5000); }), 1500);
@@ -603,6 +604,19 @@ export async function render({ el, params, state }) {
     else if (job.status === "interrupted" && job.finished_at > Date.now() / 1000 - 86400) mount(box, html`<div class="banner warn">${icon("alert")}<div class="grow">${job.filename}: ${job.error}</div></div>`);
   };
 
+  let arriving = null;
+  /** When a new source has finished its first download: what came in, and where to go from here. */
+  const showArrived = async (all) => {
+    const c = arriving && (all.find((x) => x.id === arriving) || all.filter((x) => x.kind === "ehr").sort((a, b) => b.created_at - a.created_at)[0]);
+    if (!c || c.syncing) return;
+    arriving = null;
+    const counts = (await get(`/api/connections/${encodeURIComponent(c.id)}`, undefined, { fresh: true }).catch(() => ({}))).record_counts || [];
+    if (!counts.length || gone) return;
+    bannerShown = html`<div class="banner info"><div class="grow"><b>${c.display_name}</b>: ${counts.map((x) => `${x.count.toLocaleString()} ${x.label.toLowerCase()}`).join(", ")}.</div>
+      <a class="btn btn-sm btn-primary" href="#/overview">See your Overview</a> <a class="btn btn-sm" href="#/sources?add=ehr">Add another source</a></div>`;
+    const box = $("#src-banner", el);
+    if (box) mount(box, bannerShown);
+  };
   let bannerShown = false;
   const renderBanner = () => {
     const box = $("#src-banner", el);
@@ -626,6 +640,7 @@ export async function render({ el, params, state }) {
     } else if (params.get("connected")) {
       toast("Connected. Downloading records…", "good");
       bannerShown = true;
+      arriving = params.get("connected");
     } else return;
     // A reload shouldn't say it again. (Only while this page is still the one on screen.)
     if (location.hash.startsWith("#/sources")) history.replaceState(null, "", "#/sources");
@@ -689,6 +704,7 @@ export async function render({ el, params, state }) {
   if (params.get("add") === "ehr") openAddHealthSystem(profile.id);
   if (params.get("add") === "iphone" || params.get("add") === "phone") openPairing(profile);
   if (params.get("add") === "import") $("#import-card", el)?.scrollIntoView({ behavior: "smooth" });
+  if (params.get("add") === "wearable") [...el.querySelectorAll("h2, h3")].find((h) => h.textContent.trim() === "Wearables")?.scrollIntoView({ behavior: "smooth" });
 
   const handlers = {
     "add-ehr": () => openAddHealthSystem(profile.id),

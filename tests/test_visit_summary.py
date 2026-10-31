@@ -378,3 +378,122 @@ def test_a_result_shows_the_one_before_it(client, pid):
     _linked(pid)
     latest = _get(client, pid, "l1")
     assert latest["previous"]["value_text"] == "1.0" and "previous" not in _get(client, pid, "l0")
+
+
+# ---------------------------------------------------------------------------
+# F272
+# ---------------------------------------------------------------------------
+
+def _reports(pid):
+    src = _source(pid)
+    _rec(pid, src, "l", "reports", "Lipid panel", details={"kind": "lab"})
+    _rec(pid, src, "i", "reports", "Echocardiogram", details={"kind": "imaging"})
+    _rec(pid, src, "p", "procedures", "Colonoscopy")
+    _rec(pid, src, "n", "notes", "Progress note", details={"type": "Progress", "authors": ["Dr Alvarez"]})
+    _rec(pid, src, "n2", "notes", "Discharge", details={"type": "Discharge", "authors": ["Dr Chen"]})
+    return src
+
+
+def test_timeline_keeps_lab_panels_out_of_imaging(client, pid):
+    _reports(pid)
+    titles = lambda cats: {i["title"] for i in client.get("/api/timeline", params={"profile": pid, "categories": cats}).json()["items"]}  # noqa: E731
+    assert titles("imaging") == {"Echocardiogram"}
+    assert titles("procedures") == {"Colonoscopy"}
+    assert titles("lab_reports") == {"Lipid panel"}
+    assert titles("reports") == {"Lipid panel", "Echocardiogram"}
+
+
+def test_records_narrow_by_kind_type_author_and_date(client, pid):
+    src = _reports(pid)
+    titles = lambda **kw: {i["title"] for i in client.get("/api/records", params={"profile": pid, **kw}).json()["items"]}  # noqa: E731
+    assert titles(category="reports", kind="imaging") == {"Echocardiogram"}
+    assert titles(category="notes", note_type="Discharge") == {"Discharge"}
+    assert titles(category="notes", author="Dr Alvarez") == {"Progress note"}
+    assert titles(category="notes", connection=src, until="2020-01-01") == set()
+    filters = client.get("/api/record-filters", params={"profile": pid, "category": "notes"}).json()
+    assert filters["note_types"] == ["Discharge", "Progress"] and filters["authors"] == ["Dr Alvarez", "Dr Chen"]
+    assert client.get("/api/record-filters", params={"profile": pid, "category": "reports"}).json()["kinds"]
+
+
+# ---------------------------------------------------------------------------
+# F123
+# ---------------------------------------------------------------------------
+
+def test_visit_prep_lists_what_changed_since_a_date(client, pid):
+    src = _source(pid)
+    _lab(pid, src, "a1", 7.0, "high", code="4548-4", title="A1c", day="2026-09-01")
+    _lab(pid, src, "a2", 7.5, "high", code="4548-4", title="A1c", day="2026-08-01")
+    _lab(pid, src, "a3", 8.0, "high", code="4548-4", title="A1c", day="2026-01-01")
+    _lab(pid, src, "old", 5, "normal", code="1", title="Old", day="2025-01-01")
+    _rec(pid, src, "v", "encounters", "Cardiology", day="2026-07-01", details={"clinicians": ["Dr Alvarez"]})
+    _rec(pid, src, "v0", "encounters", "Early", day="2025-07-01")
+    _rec(pid, src, "m", "medications", "Warfarin", day="2026-07-02", status="active", resource_type="MedicationRequest", dedup_key="med|1", details={"intent": "order"})
+    _rec(pid, src, "m0", "medications", "Old drug", day="2024-07-02", status="active", resource_type="MedicationRequest", dedup_key="med|2", details={"intent": "order"})
+    _rec(pid, src, "s", "medications", "Aspirin", day="2026-07-05", status="stopped", resource_type="MedicationRequest", dedup_key="med|3", details={"intent": "order"})
+    _rec(pid, src, "c", "conditions", "Atrial fibrillation", day="2026-07-03")
+    _rec(pid, src, "n", "notes", "Note", day="2026-07-03")
+    d = client.get("/api/visit-prep", params={"profile": pid, "since": "2026-06-01"}).json()
+    assert [r["title"] for r in d["results"]] == ["A1c"]
+    result = d["results"][0]
+    assert result["value_text"] == "7.0" and result["count"] == 2 and result["before"]["value_text"] == "8.0"
+    assert [v["title"] for v in d["visits"]] == ["Cardiology"] and d["visits"][0]["clinician"] == "Dr Alvarez"
+    assert "Warfarin" in {m["title"] for m in d["medications_started"]} and "Old drug" not in {m["title"] for m in d["medications_started"]}
+    assert [m["title"] for m in d["medications_stopped"]] == ["Aspirin"]
+    assert d["diagnoses"][0]["title"] == "Atrial fibrillation" and d["notes"][0]["title"] == "Note"
+
+
+def test_visit_prep_is_the_same_each_time_and_asks_for_a_real_date(client, pid):
+    _lab(pid, _source(pid), "a1", 7.0, "high", day="2026-09-01")
+    args = {"profile": pid, "since": "2026-06-01"}
+    assert client.get("/api/visit-prep", params=args).json() == client.get("/api/visit-prep", params=args).json()
+    assert client.get("/api/visit-prep", params={"profile": pid, "since": "soon"}).status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# F128
+# ---------------------------------------------------------------------------
+
+def test_before_and_after_gives_values_and_counts_on_each_side(client, pid):
+    src = _source(pid)
+    for i, (day, v) in enumerate([("2025-01-01", 8.0), ("2025-06-01", 7.8), ("2026-01-01", 7.0), ("2026-02-01", 7.2)]):
+        _lab(pid, src, f"a{i}", v, "high", code="4548-4", title="A1c", day=day)
+    _lab(pid, src, "same", 7.5, "high", code="4548-4", title="A1c", day="2025-09-01")
+    d = client.get("/api/observations/before-after", params={"profile": pid, "code": "4548-4", "start": "2025-09-01", "category": "labs"}).json()
+    line = d["lines"][0]
+    assert line["before"]["count"] == 2 and line["before"]["avg"] == 7.9 and line["after"]["count"] == 2 and line["after"]["avg"] == 7.1
+    assert (line["after"]["low"], line["after"]["high"]) == (7.0, 7.2)
+    near = client.get("/api/observations/before-after", params={"profile": pid, "code": "4548-4", "start": "2025-09-01", "category": "labs", "window": 180}).json()
+    assert near["lines"][0]["before"]["count"] == 1 and near["lines"][0]["after"]["count"] == 2
+
+
+def test_before_and_after_works_for_blood_pressure_and_leaves_limits_out(client, pid):
+    src = _source(pid)
+    for i, (day, s) in enumerate([("2025-01-01", 150), ("2026-01-01", 130)]):
+        _rec(pid, src, f"bp{i}", "vitals", "Blood pressure", day=day, code="85354-6", code_system="http://loinc.org", value_text=f"{s}/80 mmHg",
+             details={"components": [{"code": "8480-6", "name": "Systolic", "value": s, "unit": "mmHg"}, {"code": "8462-4", "name": "Diastolic", "value": 80, "unit": "mmHg"}]})
+    d = client.get("/api/observations/before-after", params={"profile": pid, "code": "85354-6", "start": "2025-06-01", "category": "vitals"}).json()
+    assert {x["name"]: (x["before"]["avg"], x["after"]["avg"]) for x in d["lines"]} == {"Systolic": (150, 130), "Diastolic": (80, 80)}
+    _lab(pid, src, "t1", 5, "normal", code="X1", title="T", day="2025-01-01", details={"comparator": "<"})
+    d = client.get("/api/observations/before-after", params={"profile": pid, "code": "X1", "start": "2025-06-01", "category": "labs"}).json()
+    assert d["lines"][0]["before"]["count"] == 0 and d["lines"][0]["limits_left_out"] == 1
+
+
+def test_before_and_after_never_claims_a_cause():
+    text = (STATIC / "views/trends.js").read_text(encoding="utf-8").lower()
+    start = text.index("function beforeaftercard")
+    words = text[start:text.index("\n}\n", start)]
+    for word in ("improved", "worked", "lowered", "because", "effect"):
+        assert word not in words, word
+
+
+# ---------------------------------------------------------------------------
+# F303
+# ---------------------------------------------------------------------------
+
+def test_a_source_says_what_it_brought_in(client, pid):
+    src = _source(pid)
+    _rec(pid, src, "c", "conditions", "A")
+    _lab(pid, src, "l", 1, "normal")
+    _lab(pid, src, "l2", 1, "normal", code="z")
+    counts = client.get(f"/api/connections/{src}").json()["record_counts"]
+    assert counts == [{"category": "conditions", "label": "Conditions", "count": 1}, {"category": "labs", "label": "Lab results", "count": 2}]

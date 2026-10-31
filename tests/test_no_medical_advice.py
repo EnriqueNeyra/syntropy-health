@@ -76,7 +76,7 @@ def test_the_phrase_check_would_catch_what_used_to_be_said():
 
 @pytest.mark.parametrize("path", [
     "services/insights.py", "services/ai.py", "mcp_server.py", "static/js/alerts.js", "static/js/onboarding.js", "static/js/views/ask.js",
-    "static/js/views/overview.js", "static/js/views/report.js", "static/js/views/sleep-view.js", "static/js/views/trends.js",
+    "static/js/views/overview.js", "static/js/views/report.js", "static/js/views/prepare.js", "static/js/views/record-detail.js", "services/visit_prep.py", "static/js/views/sleep-view.js", "static/js/views/trends.js",
     "static/js/views/workouts.js",
 ])
 def test_no_advice_is_written_into_the_apps_text(path):

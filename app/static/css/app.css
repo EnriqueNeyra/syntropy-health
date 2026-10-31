@@ -915,6 +915,12 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .report .table td, .report .table th { padding: 6px 10px; }
 .report-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
 .report-off { display: none; }
+.report-questions { margin: 0; padding-left: 20px; }
+.report-questions li { margin-bottom: 4px; }
+.report-questions li > .btn { margin-left: 6px; vertical-align: middle; }
+.prepare-block { margin-top: 16px; }
+.prepare-block h2 { font-size: 15px; margin-bottom: 6px; }
+.chart .line.faint { opacity: .5; stroke-dasharray: 3 3; }
 .report-choices { margin-bottom: 12px; }
 .report-choices summary { cursor: pointer; font-weight: 600; }
 .report-choice-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 14px; margin-top: 10px; }

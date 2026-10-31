@@ -8,6 +8,7 @@ import re
 import shutil
 import time
 import unicodedata
+from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
@@ -19,7 +20,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import check_access, resolve_profile
 from app.core import auth, context, settings
 from app.core.db import audit, db, new_id
-from app.services import exports, imports
+from app.services import exports, imports, visit_prep
 from app.store import accounts, activity, biometrics, connections, profiles, records
 
 router = APIRouter(prefix="/api", tags=["data"], dependencies=[Depends(auth.require_user)])
@@ -198,6 +199,17 @@ def set_report_preferences(req: ReportPreferences) -> dict:
         current["questions"] = [q.strip()[:500] for q in req.questions if q.strip()]
     settings.set(f"report.preferences.{pid}", current)
     return current
+
+
+@router.get("/visit-prep")
+def visit_prep_digest(since: str, profile: Optional[str] = None) -> dict:
+    """What's on record since a visit or a date: the same list every time, with nothing chosen or suggested."""
+    prof = resolve_profile(profile)
+    try:
+        date.fromisoformat(since[:10])
+    except ValueError:
+        raise HTTPException(422, "Say since when, as a date.") from None
+    return visit_prep.changes_since(prof["id"], since)
 
 
 @router.get("/report")

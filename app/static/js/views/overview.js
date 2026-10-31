@@ -188,6 +188,16 @@ export const WIDGETS = [
         <div class="grow"><div class="title truncate">${w.name}</div><div class="meta truncate">${fmtDateTime(w.start_date)} · ${w.source_name}</div></div>
         <span class="small muted">${[w.distance_m ? fmtMeasure(w.distance_m, "m", "distance_walking_running") : null, duration(w.duration_s)].filter(Boolean).join(" · ")}</span>
       </div>`, "No workouts in the last 30 days.", { href: "#/workouts", more: "All workouts" }) },
+  { id: "start", title: "Getting started", desc: "What you can add, until two sources are connected", size: "l", on: true, needs: [],
+    render: (d) => {
+      if ((d.connections || []).length >= 2) return "";
+      const kinds = new Set((d.connections || []).map((c) => c.kind));
+      const steps = [["ehr", "building", "Connect a health system", "#/sources?add=ehr"], ["device", "phone", "Pair your phone", "#/sources?add=iphone"],
+        ["wearable", "watch", "Link a wearable", "#/sources?add=wearable"], ["import", "upload", "Import a file", "#/sources?add=import"]].filter(([k]) => !kinds.has(k));
+      return html`<div class="card widget-card"><div class="card-head"><h3>${icon("plus")} Add another source</h3>
+          <button class="btn btn-ghost btn-icon btn-sm" data-action="remove" data-id="start" aria-label="Hide this" title="Hide">${icon("x")}</button></div>
+        <div class="list">${steps.map(([, ic, label, href]) => html`<a class="list-item" href="${href}"><span class="ev-icon">${icon(ic)}</span><span class="grow">${label}</span>${icon("arrowRight")}</a>`)}</div></div>`;
+    } },
   { id: "new", title: "New since you last looked", desc: "Visits, diagnoses, medications, notes and results that have arrived", size: "l", on: true, needs: ["newRecords"], records: true,
     render: (d) => {
       const n = d.newRecords;

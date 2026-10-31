@@ -617,8 +617,20 @@ def list_records(
     dedupe: bool = True,
     limit: int = 200,
     offset: int = 0,
+    kind: Optional[str] = None,
+    note_type: Optional[str] = None,
+    author: Optional[str] = None,
 ) -> dict[str, Any]:
     where, params = ["profile_id = ?"], [profile_id]
+    if kind:
+        where.append("json_extract(details_json, '$.kind') = ?")
+        params.append(kind)
+    if note_type:
+        where.append("json_extract(details_json, '$.type') = ?")
+        params.append(note_type)
+    if author:
+        where.append("EXISTS (SELECT 1 FROM json_each(details_json, '$.authors') WHERE value = ?)")
+        params.append(author)
     if category:
         cats = category.split(",")
         where.append(f"category IN ({','.join('?' * len(cats))})")
@@ -712,6 +724,27 @@ _ENCOUNTER_OF = ("coalesce(json_extract(raw_json, '$.encounter.reference'), json
                  "json_extract(raw_json, '$.context.reference'))")
 
 
+def record_filters(profile_id: str, category: Optional[str] = None) -> dict[str, Any]:
+    """What a list of records can be narrowed by, from what's actually there."""
+    with read() as conn:
+        sources = [dict(r) for r in conn.execute(
+            "SELECT connection_id AS id, source_name AS name, COUNT(*) AS n FROM clinical_records WHERE profile_id = ? "
+            + ("AND category = ? " if category else "") + "GROUP BY connection_id, source_name ORDER BY n DESC",
+            (profile_id, category) if category else (profile_id,)).fetchall()]
+        kinds: list[Any] = []
+        types: list[Any] = []
+        authors: list[Any] = []
+        if category == "reports":
+            kinds = [r[0] for r in conn.execute("SELECT DISTINCT json_extract(details_json, '$.kind') FROM clinical_records "
+                                                "WHERE profile_id = ? AND category = 'reports'", (profile_id,)).fetchall() if r[0]]
+        if category == "notes":
+            types = [r[0] for r in conn.execute("SELECT DISTINCT json_extract(details_json, '$.type') FROM clinical_records "
+                                                "WHERE profile_id = ? AND category = 'notes' ORDER BY 1", (profile_id,)).fetchall() if r[0]]
+            authors = [r[0] for r in conn.execute("SELECT DISTINCT a.value FROM clinical_records c, json_each(c.details_json, '$.authors') a "
+                                                  "WHERE c.profile_id = ? AND c.category = 'notes' ORDER BY 1", (profile_id,)).fetchall() if r[0]]
+    return {"sources": sources, "kinds": kinds, "note_types": types, "authors": authors}
+
+
 def visit_links(rec: dict[str, Any]) -> dict[str, Any]:
     """Records that go together by what the source itself says: a visit's notes, results, diagnoses and orders; the visit a
     record came from; and for a result, the one before it. Read from the stored resources, so older records have them too."""
@@ -790,6 +823,13 @@ def new_since(profile_id: str, mark: float) -> dict[str, Any]:
             "groups": [{"key": key, "label": label, "count": len(group),
                         "items": [{k: r[k] for k in ("id", "title", "effective_at", "value_text", "interpretation", "source_name")} for r in group[:NEW_ITEMS_SHOWN]]}
                        for key, label, group in groups if group]}
+
+
+def counts_for_connection(connection_id: str) -> list[dict[str, Any]]:
+    """What one source brought in, by kind of record, in the usual order."""
+    with read() as conn:
+        found = {r[0]: r[1] for r in conn.execute("SELECT category, COUNT(*) FROM clinical_records WHERE connection_id = ? GROUP BY category", (connection_id,)).fetchall()}
+    return [{"category": c, "label": CATEGORY_LABELS[c], "count": found[c]} for c in CATEGORIES if found.get(c)]
 
 
 def category_counts(profile_id: str) -> dict[str, int]:
@@ -886,13 +926,23 @@ def timeline_undated(profile_id: str, *, categories: Optional[list[str]] = None,
     return _dedupe(rows)
 
 
+TIMELINE_REPORT_KINDS = {"lab_reports": "json_extract(details_json, '$.kind') = 'lab'",
+                         "imaging": "coalesce(json_extract(details_json, '$.kind'), '') != 'lab'"}
+
+
 def timeline(profile_id: str, *, categories: Optional[list[str]] = None, limit: int = 150,
              before: Optional[str] = None, q: Optional[str] = None, inclusive: bool = False) -> list[dict[str, Any]]:
     """Clinical records newest first, before ``before`` (or at it too, with ``inclusive``)."""
     cats = categories or ["encounters", "labs", "conditions", "medications", "procedures", "immunizations",
                           "notes", "reports", "allergies"]
+    # Reports split by what they are: a lab panel is with labs, not among imaging.
+    kinds = [c for c in cats if c in TIMELINE_REPORT_KINDS]
+    cats = [c for c in cats if c not in TIMELINE_REPORT_KINDS]
+    wanted = f"category IN ({','.join('?' * len(cats))})"
+    for name in kinds:
+        wanted += f" OR (category = 'reports' AND {TIMELINE_REPORT_KINDS[name]})"
     # What hasn't happened yet isn't history: a planned visit is under Upcoming on the Overview, and in Records.
-    where = [f"category IN ({','.join('?' * len(cats))})", "profile_id = ?", "effective_at IS NOT NULL",
+    where = [f"({wanted})", "profile_id = ?", "effective_at IS NOT NULL",
              "NOT (category = 'encounters' AND (lower(coalesce(status, '')) = 'planned' OR effective_at > ?))",
              "NOT (category = 'procedures' AND lower(coalesce(status, '')) = 'preparation')"]
     params: list[Any] = [*cats, profile_id, (date.today() + timedelta(days=2)).isoformat()]
@@ -1029,6 +1079,35 @@ def _unit_series(rows: list[dict[str, Any]]) -> dict[str, Any]:
             point["converted"] = True
         points.append(point)
     return {"unit": unit, "ref_low": ref_low, "ref_high": ref_high, "points": points}
+
+
+def _side(points: list[dict[str, Any]]) -> dict[str, Any]:
+    """The values on one side of a date, as they are."""
+    if not points:
+        return {"count": 0}
+    values = [p["v"] for p in points]
+    return {"count": len(values), "avg": round(sum(values) / len(values), 2), "low": min(values), "high": max(values),
+            "first_at": points[0]["t"], "last_at": points[-1]["t"], "latest": points[-1]["v"]}
+
+
+def before_and_after(profile_id: str, start: str, *, code: Optional[str] = None, title: Optional[str] = None, category: Optional[str] = None,
+                     window_days: Optional[int] = None) -> dict[str, Any]:
+    """A test's values on each side of a date, counted and left at that: two sides of a date say nothing about why they differ.
+    A limit like "<5" isn't a level, so it's left out and counted. Results on the day itself are on neither side: which came first isn't known."""
+    day = date.fromisoformat(start[:10])
+    series = observation_series(profile_id, code, category, title=title)
+    lines = [{"name": series["title"], "unit": series["unit"], "points": series["points"]}] if series["points"] else [
+        {"name": c["name"], "unit": c["unit"], "points": c["points"]} for c in series["components"]]
+    lo = (day - timedelta(days=window_days)).isoformat() if window_days else ""
+    hi = (day + timedelta(days=window_days)).isoformat() if window_days else "9999"
+    out = []
+    for line in lines:
+        measured = sorted((p for p in line["points"] if not p.get("comparator") and p.get("v") is not None), key=lambda p: str(p["t"]))
+        before = [p for p in measured if lo <= str(p["t"])[:10] < day.isoformat()]
+        after = [p for p in measured if day.isoformat() < str(p["t"])[:10] <= hi]
+        out.append({"name": line["name"], "unit": line["unit"], "before": _side(before), "after": _side(after),
+                    "limits_left_out": sum(1 for p in line["points"] if p.get("comparator"))})
+    return {"start": day.isoformat(), "window_days": window_days, "lines": out}
 
 
 def observation_series(profile_id: str, code: Optional[str] = None, category: Optional[str] = None,

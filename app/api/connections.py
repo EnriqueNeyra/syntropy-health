@@ -64,6 +64,7 @@ def get_connection(connection_id: str) -> dict:
     out = _present(conn)
     out["runs"] = connections.recent_runs(connection_id, 20)
     out["queries"] = sync.describe_queries(out["runs"])
+    out["record_counts"] = records.counts_for_connection(connection_id)
     return out
 
 

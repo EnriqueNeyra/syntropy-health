@@ -41,10 +41,19 @@ def list_records(
     dedupe: bool = True,
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
+    kind: Optional[str] = None,
+    note_type: Optional[str] = None,
+    author: Optional[str] = None,
 ) -> dict:
     prof = resolve_profile(profile)
     return records.list_records(prof["id"], category, q=q, connection_id=connection, code=code, status=status,
-                                since=since, until=until, dedupe=dedupe, limit=limit, offset=offset)
+                                since=since, until=until, dedupe=dedupe, limit=limit, offset=offset,
+                                kind=kind, note_type=note_type, author=author)
+
+
+@router.get("/record-filters")
+def record_filters(profile: Optional[str] = None, category: Optional[str] = None) -> dict:
+    return records.record_filters(resolve_profile(profile)["id"], category)
 
 
 @router.get("/records/{record_id}")
@@ -150,6 +159,19 @@ def timeline(profile: Optional[str] = None, before: Optional[str] = None, q: Opt
 def observation_catalog(profile: Optional[str] = None, category: str = "labs") -> dict:
     prof = resolve_profile(profile)
     return {"items": records.observation_catalog(prof["id"], category)}
+
+
+@router.get("/observations/before-after")
+def before_after(start: str, code: Optional[str] = None, title: Optional[str] = None, profile: Optional[str] = None,
+                 category: Optional[str] = None, window: Optional[int] = Query(None, ge=1, le=3650)) -> dict:
+    """A test's values on each side of a date, such as a medication's first order on record."""
+    if not code and not title:
+        raise HTTPException(422, "Say which test: its code or its name.")
+    prof = resolve_profile(profile)
+    try:
+        return records.before_and_after(prof["id"], start, code=code, title=title, category=category, window_days=window)
+    except ValueError:
+        raise HTTPException(422, "Say which date, as a date.") from None
 
 
 @router.get("/observations/series")
