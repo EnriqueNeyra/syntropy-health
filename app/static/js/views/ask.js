@@ -10,7 +10,7 @@ import { openModelPicker, sameChoice } from "../model-picker.js";
 const SUGGESTIONS = [
   "How has my sleep changed over the last month?",
   "Summarize my latest lab results and anything out of range.",
-  "Coach me on my training load this week.",
+  "How does my training load this week compare with my usual?",
   "What's my resting heart rate and HRV trend lately?",
   "Prepare questions for my next doctor's visit.",
 ];
@@ -31,7 +31,7 @@ export async function render({ el, state, params, navigate }) {
   const cfg = await get("/api/ai/config");
   if (!cfg.configured) {
     mount(el, html`
-      <div class="page-head"><div><h1>Ask</h1><p>Questions, trends and coaching from your own data, with the AI you choose.</p></div></div>
+      <div class="page-head"><div><h1>Ask</h1><p>Questions and trends from your own data, with the AI you choose.</p></div></div>
       ${emptyState("Connect an AI to get started",
         "Run a model on your own computer (Ollama, LM Studio) so nothing leaves your network, use your own API key (Anthropic, OpenAI, Google and others), or use Claude Code or Codex already signed in on this computer. The assistant can only read your data.",
         html`<a class="btn btn-primary" href="#/settings/ai">${icon("sparkles")} Connect an AI</a>`)}`);
@@ -75,7 +75,7 @@ export async function render({ el, state, params, navigate }) {
   if (native) mount(el, html`
     <p class="small ask-privacy" id="ask-privacy"></p>
     <div class="chat-log" id="chat-log" aria-live="polite"></div>
-    <p class="tiny faint chat-foot">Read-only access to ${profile.name}'s records. Not medical advice; check anything important with your care team.</p>`);
+    <p class="tiny faint chat-foot">Read-only access to ${profile.name}'s records. Syntropy Health organizes records and doesn't give medical advice.</p>`);
   else mount(el, html`
     <div class="page-head">
       <div><h1>Ask</h1><p class="small ask-privacy" id="ask-privacy"></p></div>
@@ -90,7 +90,7 @@ export async function render({ el, state, params, navigate }) {
         <button class="btn btn-primary btn-icon" type="submit" id="chat-send" aria-label="Send">${icon("send")}</button>
       </form>
     </div>
-    <p class="tiny faint chat-foot">Read-only access to ${profile.name}'s records. Not medical advice; check anything important with your care team.</p>`);
+    <p class="tiny faint chat-foot">Read-only access to ${profile.name}'s records. Syntropy Health organizes records and doesn't give medical advice.</p>`);
 
   const modelBtn = $("#model-btn", el);
   const drawHeader = () => {

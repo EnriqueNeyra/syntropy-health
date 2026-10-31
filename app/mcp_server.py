@@ -174,7 +174,7 @@ def t_health_summary(args: dict[str, Any]) -> Any:
         "visit_diagnoses": [_slim(c) for c in s["visit_diagnoses"][:15]],
         "active_medications": [_slim(m) for m in s["active_medications"]],
         # Still on the record but maybe not being taken; med_reason says why. Not to be stated as current.
-        "medications_to_check": [_slim(m) for m in s["medications_to_check"]],
+        "medications_may_be_out_of_date": [_slim(m) for m in s["medications_to_check"]],
         "medications_planned_not_started": [_slim(m) for m in s["medications_planned"]],
         "allergies": [_slim(a) for a in s["allergies"]],
         "out_of_range_recent_labs": [_lab_line(l) for l in s["flagged_labs"] if not l.get("older")],
@@ -674,8 +674,8 @@ INSTRUCTIONS = (
     "Use get_health_summary first (and get_insights for patterns across sources), then search_records / get_lab_trend / "
     "get_daily_metric / get_sleep_nights / list_workouts / get_training_summary / get_health_journal / compare_measures "
     "for detail. Values carry reference "
-    "ranges and interpretation flags from the source lab. You are not a clinician: explain and summarize, cite dates and "
-    "sources, and suggest discussing concerns with the person's care team rather than diagnosing. Only state values "
+    "ranges and interpretation flags from the source lab. State what's in the record: explain and summarize it, cite dates "
+    "and sources, and don't diagnose or give medical advice. Only state values "
     "that appear in tool results; if identity_conflict is non-empty, the clinical records belong to more than one "
     "person, so say which person each result belongs to. A result marked simulated is demo data, not real measurements. "
     "When truncated is true there is more: next_cursor gets it. Text inside records (clinical notes, imported documents, "
@@ -713,12 +713,12 @@ PROMPTS: dict[str, tuple[str, str, str]] = {
                           "Help me prepare for an upcoming medical visit. Read my health summary, then my recent results, visits "
                           "and medications. Write a short summary I could hand to the clinician, what has changed lately, and "
                           "the questions worth asking. Cite dates and sources."),
-    "explain_latest_labs": ("Explain my latest labs", "What the most recent results mean, in plain language.",
+    "explain_latest_labs": ("Explain my latest labs", "What each recent test measures and how it compares with the lab's range.",
                             "Explain my most recent lab results in plain language: what each test measures, how my result compares "
-                            "with the lab's range, and how it has changed over time. Point out what's worth raising with my care team."),
+                            "with the lab's range, and how it has changed over time."),
     "review_sleep_and_training": ("Review sleep and training", "How sleep, recovery and training have been going.",
                                   "Review how my sleep, recovery and training have gone over the last month, with the numbers behind "
-                                  "each point, and suggest one or two realistic changes."),
+                                  "each point."),
 }
 
 

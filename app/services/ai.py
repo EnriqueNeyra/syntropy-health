@@ -10,7 +10,7 @@ Three ways to run it (Settings → AI), and the choice decides where data goes:
 
 Any number of these can be connected at once; one is the default, and Ask's model menu switches between them.
 
-The assistant answers questions and coaches using the same read-only tools the MCP server exposes, limited to the
+The assistant answers questions using the same read-only tools the MCP server exposes, limited to the
 profile being viewed. A model that can't call tools answers from a compact summary of the person's data instead. Keys
 are encrypted at rest. The provider receives the questions and only the data the model asks for (or the summary).
 """
@@ -933,8 +933,8 @@ def system_prompt(profile: dict[str, Any], snapshot: Optional[str] = None) -> st
     if profile.get("sex"):
         facts.append(f"sex {profile['sex']}")
     return f"""You are the health assistant inside Syntropy Health, a private, self-hosted personal health record. \
-You help {who} ({'; '.join(facts)}) understand their own health data and act on it: answering questions, spotting \
-trends, and coaching on sleep, training, recovery and habits.
+You help {who} ({'; '.join(facts)}) find and understand what's in their own health data: answering questions and \
+describing trends across their records, sleep, training and habits.
 
 Today is {today:%A, %B} {today.day}, {today.year} ({tz}).
 
@@ -947,23 +947,20 @@ doesn't show.
 - For "anything out of range", use out_of_range_recent_labs and the flag on each result. Those in older_out_of_range_labs are over a year old and weren't repeated \
 since: say so rather than presenting them as current. A result_status of preliminary may still change.
 - A result written like "<0.5" is a limit, not a measurement: it says below 0.5, and never exactly 0.5.
-- Medications in current_medications are what the records list as current. Those in medications_to_check may be out of date, for the \
+- Medications in current_medications are what the records list as current. Those in medications_may_be_out_of_date are on record but may not be current, for the \
 reason given (med_reason): never state them as being taken. Those planned but not started aren't being taken.
 - Conditions in active_conditions are active problems. Unconfirmed ones are possibilities and never facts; ones with no stated status and \
 visit diagnoses aren't known to be active. A status_note means sources disagree: say so.
 - Cite specifics: values with units, dates, and where they came from (the source name).
 - Reply in the same language the person writes in.
 - Be concise and practical. Use short paragraphs, bullet lists and small markdown tables when comparing numbers.
-- Coaching: give specific, realistic next steps tied to their data, and explain the reasoning briefly.
 - Daily wearable values already resolve overlapping devices (one source per day; "Combined" is the Apple Watch and \
 iPhone merged). Sources marked "(simulated)" are demo data: say so and don't present them as real measurements.
 - If the health summary reports an identity_conflict, the clinical records describe more than one person. Say so \
 briefly, then still answer, naming which person (and source) each clinical result belongs to. Wearable data comes \
 from the person's own devices and isn't affected.
 
-You are not a clinician. Explain and summarize; don't diagnose, prescribe, or advise changing medication. When a \
-value is out of range, changing quickly, or a symptom sounds urgent, say so plainly and suggest contacting their \
-care team (or emergency services for emergencies).{SNAPSHOT_HEAD + snapshot if snapshot else ""}"""
+You state what's in the record: explain and summarize it, and don't diagnose, prescribe or give medical advice.{SNAPSHOT_HEAD + snapshot if snapshot else ""}"""
 
 
 LOOKUP_TOOLS = ("- Always look things up with the tools before answering; never guess values. Start with get_health_summary "
@@ -995,7 +992,7 @@ def summary_context(profile_id: str, budget_chars: int) -> str:
         ("out_of_range_recent_labs", s["out_of_range_recent_labs"]), ("older_out_of_range_labs", s["older_out_of_range_labs"]),
         ("active_conditions", s["active_conditions"]),
         ("unconfirmed_conditions_not_facts", s["unconfirmed_conditions"]), ("conditions_status_not_stated", s["conditions_status_not_stated"]),
-        ("current_medications", s["active_medications"]), ("medications_to_check_may_be_out_of_date", s["medications_to_check"]),
+        ("current_medications", s["active_medications"]), ("medications_may_be_out_of_date", s["medications_may_be_out_of_date"]),
         ("medications_planned_not_started", s["medications_planned_not_started"]), ("allergies", s["allergies"]),
         ("wearables_latest_and_7_30_day_averages", s["wearable_headline_30d"]), ("latest_vitals", s["latest_vitals"]),
         ("patterns_across_sources", _safe(lambda: [{k: i[k] for k in ("title", "text")} for i in insights.insights(profile_id, 10)])),

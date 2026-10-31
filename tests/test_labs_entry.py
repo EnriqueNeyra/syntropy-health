@@ -112,7 +112,7 @@ def test_the_assistant_gets_the_same_rules(client):
     trend = mcp_server.t_lab_trend({"test": "X"})
     assert [(r["value"], r.get("comparator")) for r in trend["results"]] == [(3, None), (2, "<")]     # newest first
     summary = mcp_server.t_health_summary({})
-    for key in ("unconfirmed_conditions", "conditions_status_not_stated", "visit_diagnoses", "medications_to_check", "medications_planned_not_started"):
+    for key in ("unconfirmed_conditions", "conditions_status_not_stated", "visit_diagnoses", "medications_may_be_out_of_date", "medications_planned_not_started"):
         assert key in summary
 
 
