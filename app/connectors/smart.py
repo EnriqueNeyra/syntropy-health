@@ -90,7 +90,7 @@ async def is_public_host(host: str) -> bool:
         pass
     try:
         infos = await asyncio.to_thread(_lookup, host, None)
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:      # the second is a name DNS couldn't even carry
         raise httpx.ConnectError(f"Couldn't look up {host}") from exc
     return bool(infos) and all(_public_address(info[4][0]) for info in infos)
 

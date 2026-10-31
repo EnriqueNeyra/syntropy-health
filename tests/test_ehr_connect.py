@@ -13,7 +13,7 @@ from app.connectors import smart
 from app.core.db import db
 from app.services import connect, sync as sync_svc
 from app.simulator import server as sim
-from app.store import connections
+from app.store import connections, records
 from tests.conftest import BASE, CSRF, LOCAL_CLIENT, connect_institution, simulated_login
 
 BANNER = "banner-health"
@@ -671,3 +671,100 @@ def test_checking_a_client_id_when_the_vendor_is_unreachable(client, monkeypatch
         raise httpx.ConnectError("no route")
     res = _verify(client, monkeypatch, down)
     assert res["ok"] is False
+
+
+# ---------------------------------------------------------------------------
+# Twins: a shared birth date and surname isn't the same person (F027)
+# ---------------------------------------------------------------------------
+
+BORN = "2015-03-02"
+
+
+def _chart(system="urn:oid:1.2.3", value="M1", **extra):
+    return {"identifier": [{"type": {"coding": [{"code": "MR"}]}, "system": system, "value": value}], **extra}
+
+
+@pytest.mark.parametrize("stored, seen, same", [
+    ("Emma Rivera", "Noah Rivera", False),              # twins
+    ("Emma Rivera", "Emma Rivera", True),
+    ("Emma Rivera", "Emma Rose Rivera", True),          # a middle name appearing is still her
+    ("Emma Rose Rivera", "Emma Grace Rivera", False),
+    ("Rivera", "Noah Rivera", False),                   # one word says too little
+    ("Emma Rivera", "Emma Chen", False),                # a new surname is for the person to confirm
+])
+def test_renewing_in_place_takes_the_whole_name(stored, seen, same):
+    assert connect._same_person({"birth_date": BORN, "full_name": stored}, {"birth_date": BORN, "name": seen}) is same
+
+
+def test_the_same_chart_number_from_the_same_system_is_the_same_person_under_any_name():
+    stored = {"birth_date": BORN, "full_name": "Emma Rivera", "raw": _chart()}
+    assert connect._same_person(stored, {"birth_date": BORN, "name": "Emma Chen", "raw": _chart()})
+
+
+def test_a_different_chart_number_from_the_same_system_is_someone_else_even_with_the_same_name():
+    stored = {"birth_date": BORN, "full_name": "Emma Rivera", "raw": _chart()}
+    assert not connect._same_person(stored, {"birth_date": BORN, "name": "Emma Rivera", "raw": _chart(value="M2")})
+
+
+def test_numbers_that_arent_chart_numbers_dont_make_twins_one_person():
+    member = {"identifier": [{"system": "urn:insurer", "value": "FAMILY-1"}]}
+    stored = {"birth_date": BORN, "full_name": "Emma Rivera", "raw": member}
+    assert not connect._same_person(stored, {"birth_date": BORN, "name": "Noah Rivera", "raw": member})
+
+
+def test_a_new_birth_date_isnt_the_same_person_whatever_else_matches():
+    stored = {"birth_date": BORN, "full_name": "Emma Rivera", "raw": _chart()}
+    assert not connect._same_person(stored, {"birth_date": "2015-03-03", "name": "Emma Rivera", "raw": _chart()})
+
+
+def test_picking_a_twins_chart_asks_and_changes_nothing(client, monkeypatch):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    before = connections.get(cid, include_credentials=True)
+
+    async def twin(pending, creds, patient):
+        return {"name": "Jordan Rivera", "birth_date": next(i for i in records.identities(before["profile_id"]))["birth_date"]}
+    monkeypatch.setattr(connect, "_patient_seen_by", twin)
+    done = _reconnect(client, cid, "jordan.chen")
+    assert done.headers["location"].startswith("/callback/choose?state=")
+    after = connections.get(cid, include_credentials=True)
+    assert after["patient_ref"] == before["patient_ref"] and after["credentials"] == before["credentials"]
+    assert after["record_count"] == before["record_count"]
+
+
+def test_a_patient_answer_of_an_odd_shape_asks_rather_than_failing(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    connections.update(cid, patient_ref="id-before-a-chart-merge")
+    sim.faults.answers.append({"type": "Patient", "read": True, "status": 200, "body": {"resourceType": "Patient", "name": 5}})
+    done = _reconnect(client, cid, "alex.rivera")
+    assert done.headers["location"].startswith("/callback/choose")
+
+
+# ---------------------------------------------------------------------------
+# A mistyped address gets words (F053)
+# ---------------------------------------------------------------------------
+
+def _no_such_name(host, port):
+    raise OSError("nodename nor servname provided")
+
+
+@pytest.mark.parametrize("owner, address", [(False, "https://no-such-host.example/fhir"), (True, "http://no-such-host.local/fhir")])
+@pytest.mark.parametrize("path, extra", [("/api/connections/discover", {}), ("/api/connections/ehr", {"client_id": "x"})])
+def test_a_name_that_doesnt_resolve_is_explained(client, monkeypatch, owner, address, path, extra):
+    monkeypatch.setattr(smart, "_lookup", _no_such_name)
+    monkeypatch.setattr(connect, "acting_as_owner", lambda: owner)
+    monkeypatch.setattr(connect.settings, "developer_mode", lambda: False)
+    res = client.post(path, json={"fhir_base_url": address, **extra})
+    assert res.status_code == 400 and "no-such-host" in res.json()["detail"], res.text
+
+
+@pytest.mark.parametrize("address", ["https://[broken/fhir", "https://example.org:99999/fhir", "https://with space.example/fhir", "not an address"])
+@pytest.mark.parametrize("path, extra", [("/api/connections/discover", {}), ("/api/connections/ehr", {"client_id": "x"})])
+def test_an_address_that_cant_exist_is_explained(client, path, extra, address):
+    res = client.post(path, json={"fhir_base_url": address, **extra})
+    assert res.status_code == 400 and "full address" in res.json()["detail"], res.text
+
+
+def test_a_name_too_long_to_look_up_is_explained(client, monkeypatch):
+    monkeypatch.setattr(connect, "acting_as_owner", lambda: False)
+    res = client.post("/api/connections/discover", json={"fhir_base_url": f"https://{'a' * 70}.example/fhir"})
+    assert res.status_code == 400, res.text

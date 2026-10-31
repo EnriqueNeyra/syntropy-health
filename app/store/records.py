@@ -419,6 +419,17 @@ def identities(profile_id: str) -> list[dict[str, Any]]:
     return rows_to_dicts(rows, ["telecom_json", "address_json"])
 
 
+def identity_raw(connection_id: str) -> Optional[dict[str, Any]]:
+    """The Patient resource a source last gave, which identities() leaves out of what it hands to the page."""
+    with read() as conn:
+        row = conn.execute("SELECT raw_json FROM patient_identities WHERE connection_id = ?", (connection_id,)).fetchone()
+    try:
+        raw = json.loads(row["raw_json"]) if row and row["raw_json"] else None
+    except ValueError:
+        return None
+    return raw if isinstance(raw, dict) else None
+
+
 def _unnamed(rec: dict[str, Any]) -> bool:
     """Observations the source sent without any name (normalization fell back to the resource type)."""
     return rec.get("title") == "Observation" and not rec.get("code_display")

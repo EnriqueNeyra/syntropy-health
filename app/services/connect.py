@@ -104,17 +104,26 @@ def acting_as_owner() -> bool:
 async def check_custom_server(url: str) -> None:
     """Who may point this server at what. The owner, whose server it is, can use their own network, so a local test server
     keeps working. Anyone else gets https to the public internet (and smart.GUARDED holds every later request to that)."""
-    parts = urlsplit(url)
-    if parts.scheme not in ("http", "https") or not parts.hostname:
-        raise SmartError("Enter the FHIR server's full address, starting with https://.")
-    if parts.scheme == "https":
-        if not acting_as_owner() and not await smart.is_public_host(parts.hostname):
-            raise SmartError("That FHIR server's address is on a private network, which only this server's owner can connect to.")
-        return
-    if not acting_as_owner():
-        raise SmartError("FHIR servers must use https.")
-    if not settings.developer_mode() and await smart.is_public_host(parts.hostname):
-        raise SmartError("FHIR servers on the internet must use https. Plain http is only for a server on your own network.")
+    full_address = "Enter the FHIR server's full address, starting with https://."
+    try:
+        parts = urlsplit(url)
+        host, _ = parts.hostname, parts.port
+        httpx.URL(url)
+    except (ValueError, httpx.InvalidURL) as exc:
+        raise SmartError(full_address) from exc
+    if parts.scheme not in ("http", "https") or not host or any(c.isspace() for c in host):
+        raise SmartError(full_address)
+    try:
+        if parts.scheme == "https":
+            if not acting_as_owner() and not await smart.is_public_host(host):
+                raise SmartError("That FHIR server's address is on a private network, which only this server's owner can connect to.")
+            return
+        if not acting_as_owner():
+            raise SmartError("FHIR servers must use https.")
+        if not settings.developer_mode() and await smart.is_public_host(host):
+            raise SmartError("FHIR servers on the internet must use https. Plain http is only for a server on your own network.")
+    except httpx.HTTPError as exc:
+        raise SmartError(f"Couldn't find a server called {host}. Check the address for a typo.", "network") from exc
 
 
 async def _owner_trusts(url: str) -> bool:
@@ -197,15 +206,37 @@ async def _patient_seen_by(pending: dict[str, Any], creds: dict[str, Any], patie
         return None
     if not isinstance(resource, dict) or resource.get("resourceType") != "Patient":
         return None
-    return fhir_normalize.normalize_patient(resource)
+    try:
+        return fhir_normalize.normalize_patient(resource)
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _chart_numbers(patient: Any) -> dict[str, str]:
+    """A person's medical record numbers, by the system that issued them. Other identifiers don't count: an insurance
+    number can be shared by a family."""
+    numbers: dict[str, str] = {}
+    idents = patient.get("identifier") if isinstance(patient, dict) else None
+    for ident in idents if isinstance(idents, list) else []:
+        if not isinstance(ident, dict) or not ident.get("system") or not ident.get("value"):
+            continue
+        kind = ident.get("type") if isinstance(ident.get("type"), dict) else {}
+        if "MR" in smart._codes(kind) or "mrn" in str(ident["system"]).lower():
+            numbers[str(ident["system"])] = str(ident["value"])
+    return numbers
 
 
 def _same_person(stored: Optional[dict[str, Any]], seen: Optional[dict[str, Any]]) -> bool:
-    """A hospital merging charts or changing systems can give one person a new id. Both sides have to say enough to tell."""
-    if not stored or not seen or not stored.get("birth_date") or not seen.get("birth_date"):
+    """A hospital merging charts or changing systems can give one person a new id. Twins share a birth date and a surname,
+    and a parent may hold both charts, so a birth date takes a chart number from the same system or, failing that, the
+    whole name. Anything less gets asked about."""
+    if not stored or not seen or not stored.get("birth_date") or stored["birth_date"] != seen.get("birth_date"):
         return False
-    return (stored["birth_date"] == seen["birth_date"]
-            and bool(records._name_tokens(stored.get("full_name")) & records._name_tokens(seen.get("name"))))
+    ours, theirs = _chart_numbers(stored.get("raw")), _chart_numbers(seen.get("raw"))
+    if shared := ours.keys() & theirs.keys():
+        return all(ours[system] == theirs[system] for system in shared)
+    was, now = records._name_tokens(stored.get("full_name")), records._name_tokens(seen.get("name"))
+    return len(was) > 1 and len(now) > 1 and (was <= now or now <= was)
 
 
 async def _reconnect_target(pending: dict[str, Any], creds: dict[str, Any], patient: str) -> tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
@@ -216,7 +247,7 @@ async def _reconnect_target(pending: dict[str, Any], creds: dict[str, Any], pati
         return target, None
     seen = await _patient_seen_by(pending, creds, patient)
     stored = next((i for i in records.identities(target["profile_id"]) if i["connection_id"] == target["id"]), None)
-    if _same_person(stored, seen):
+    if _same_person({**stored, "raw": records.identity_raw(target["id"])} if stored else None, seen):
         return target, None
     return None, {
         "action": "other_patient", "creds": creds, "patient": patient, "profile_id": pending["profile_id"],
