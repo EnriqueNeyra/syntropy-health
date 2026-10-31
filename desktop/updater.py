@@ -102,10 +102,10 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def _run(cmd: list[str]) -> subprocess.CompletedProcess:
+def _run(cmd: list[str], env: Optional[dict[str, str]] = None) -> subprocess.CompletedProcess:
     # On Windows, keep a console window from flashing up over the app (PowerShell checks the signatures).
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=300, creationflags=flags)
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=300, creationflags=flags, env=env)
 
 
 # ---------------------------------------------------------------------------
@@ -503,9 +503,16 @@ exit 1
     def _signature(path: Path) -> tuple[str, Optional[str]]:
         """(status, certificate thumbprint). The status is PowerShell's, "NotSigned" or "Valid" among others, or "Unknown"
         when it gave no answer."""
-        ps = ("$s = Get-AuthenticodeSignature -LiteralPath $args[0]; "
+        # The path goes by environment variable: powershell.exe joins everything after -Command into one command, so it
+        # can't be an argument, and written into the command an apostrophe (PowerShell counts several kinds) would end it.
+        ps = ("$s = Get-AuthenticodeSignature -LiteralPath $env:SYNTROPY_SIGNED_FILE; "
               "\"$($s.Status)|$($s.SignerCertificate.Thumbprint)\"")
-        out = _run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps, str(path)])
+        try:
+            out = _run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps],
+                       env={**os.environ, "SYNTROPY_SIGNED_FILE": str(path)})
+        except (OSError, subprocess.SubprocessError) as exc:
+            log.warning("Couldn't run PowerShell to read a signature: %s", exc)
+            return "Unknown", None
         status, _, thumbprint = out.stdout.strip().partition("|")
         return status or "Unknown", thumbprint or None
 

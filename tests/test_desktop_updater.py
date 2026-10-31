@@ -425,8 +425,46 @@ def test_windows_signature_fails_closed(monkeypatch, current, new):
 
 @pytest.mark.parametrize("output,answer", [("Valid|AB12\n", ("Valid", "AB12")), ("NotSigned|\n", ("NotSigned", None)), ("", ("Unknown", None))])
 def test_windows_signature_is_read(monkeypatch, output, answer):
-    monkeypatch.setattr(updater, "_run", lambda cmd: _done(stdout=output))
+    monkeypatch.setattr(updater, "_run", lambda cmd, env=None: _done(stdout=output))
     assert updater.Updater._signature(Path("C:/x")) == answer
+
+
+def test_windows_signature_gets_its_path_in_a_way_powershell_reads(monkeypatch):
+    # powershell.exe joins everything after -Command into one command and leaves $args empty: a path passed after it was
+    # a parse error, so no signature could ever be read, and every Windows update was refused once that counted.
+    path = Path("C:/Users/O'Brien [x]/Syntropy Health.exe")
+    seen = {}
+    monkeypatch.setattr(updater, "_run", lambda cmd, env=None: seen.update(cmd=cmd, env=env) or _done(stdout="Valid|AB12\n"))
+    updater.Updater._signature(path)
+    command = seen["cmd"][seen["cmd"].index("-Command") + 1:]
+    assert len(command) == 1 and str(path) not in command[0] and "$args" not in command[0]
+    assert seen["env"][re.search(r"-LiteralPath \$env:(\w+)", command[0]).group(1)] == str(path)
+    assert seen["env"]["PATH"] == os.environ["PATH"]
+
+
+@pytest.mark.parametrize("failure", [FileNotFoundError("powershell"), subprocess.TimeoutExpired("powershell", 300)])
+def test_windows_signature_without_powershell_is_no_answer(monkeypatch, failure):
+    def fails(cmd, env=None):
+        raise failure
+    monkeypatch.setattr(updater, "_run", fails)
+    assert updater.Updater._signature(Path("C:/x")) == ("Unknown", None)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the real PowerShell")
+def test_windows_signature_of_real_programs(tmp_path):
+    system = Path(os.environ["ComSpec"])
+    status, signer = updater.Updater._signature(system)
+    assert status == "Valid" and signer
+    awkward = tmp_path / "O'Brien [x] é" / "Syntropy Health.exe"
+    awkward.parent.mkdir()
+    shutil.copy(system, awkward)
+    assert updater.Updater._signature(awkward)[0] in ("Valid", "NotSigned")
+
+
+def test_the_windows_build_runs_the_signature_check_on_the_real_app():
+    # Every other test stands in for PowerShell, which is how a check that could never succeed went unnoticed.
+    workflow = (ROOT / ".github/workflows/apps.yml").read_text()
+    assert "_check_windows" in workflow and "_signature" in workflow
 
 
 def test_windows_update_starts_its_script_with_paths_as_parameters(monkeypatch, tmp_path):

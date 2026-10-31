@@ -249,6 +249,11 @@ jobs:
           Remove-ItemProperty $runKey "Syntropy Health" -ErrorAction SilentlyContinue      # the person turned Open at Login off
           "stale" | Set-Content "$dir\_internal\stale-from-the-last-version.txt"
 
+          # The check the app makes before it installs, with the real PowerShell: on the installed app and the new version
+          # (not signed here, which it allows), and reading a signature Windows itself made.
+          python -c "import os, pathlib, sys; sys.path[:0] = ['desktop', '.']; import updater; sys.executable = sys.argv[1]; updater.Updater(pathlib.Path('.'), None, None, None)._check_windows(pathlib.Path(sys.argv[2])); status, signer = updater.Updater._signature(pathlib.Path(os.environ['ComSpec'])); sys.exit(0 if status == 'Valid' and signer else f'Read {status} for a signed program')" "$dir\Syntropy Health.exe" "$next"
+          if ($LASTEXITCODE -ne 0) { throw "The app's signature check failed" }
+
           Update-App $next
           if (-not (Wait-Answer)) { Get-Content "$env:RUNNER_TEMP\update-data\desktop.log" -ErrorAction SilentlyContinue; throw "The new version didn't answer on its port" }
           (Get-Content "$env:RUNNER_TEMP\update-data\updates\setup.log" -ErrorAction SilentlyContinue) | Select-Object -Last 5
