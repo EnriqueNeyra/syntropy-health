@@ -1145,7 +1145,7 @@ def summary(profile_id: str) -> dict[str, Any]:
     inactive_allergies = [a for a in allergy_rows if (a.get("status") or "").lower() in INACTIVE_ALLERGY_STATUSES]
     allergy_note = (f"No active allergies. {len(inactive_allergies)} marked inactive." if inactive_allergies and not allergies
                     else "No known allergies." if "no-known-allergies" in statements
-                    else "Allergies haven't been recorded by your care team." if "not-asked" in statements else None)
+                    else "The records say allergies haven't been asked about." if "not-asked" in statements else None)
     latest_by_code = _latest_labs(list_records(profile_id, "labs", limit=SUMMARY_LABS)["items"])
     flagged = _out_of_range(latest_by_code, today)
     vitals_latest: "OrderedDict[str, dict[str, Any]]" = OrderedDict()

@@ -65,26 +65,42 @@ def test_generated_insights_never_advise(client):
         assert not ADVICE.search(f"{i['title']} {i['text']}"), i
         assert "note" not in i["data"]
     assert found[0]["kind"] == "critical" and found[0]["text"].endswith("The lab marked this critical.")
+    # A colour or a tick is a verdict too. Only a lab's flag, the reference range and a person's own goal can set the tone.
+    for i in found:
+        assert i["tone"] == "info" or i["kind"] in ("critical", "lab", "goal"), i
+        assert i["tone"] != "good" or i["kind"] == "goal" or "back in range" in i["title"], i
 
 
 def test_the_phrase_check_would_catch_what_used_to_be_said():
     for said in ("Talk to your care team, or call emergency services if you feel unwell.", "A change this size is worth mentioning to your clinician.",
                  "Increasing gradually is a common approach.", "A steadier schedule tends to make sleep more restful.",
-                 "it's worth discussing with whoever prescribed it", "so go over it with your care team"):
+                 "it's worth discussing with whoever prescribed it", "so go over it with your care team", "Check with your doctor"):
         assert ADVICE.search(said), said
 
 
-@pytest.mark.parametrize("path", [
-    "services/insights.py", "services/ai.py", "mcp_server.py", "static/js/alerts.js", "static/js/onboarding.js", "static/js/views/ask.js",
-    "static/js/views/overview.js", "static/js/views/report.js", "static/js/views/sleep-view.js", "static/js/views/trends.js",
-    "static/js/views/workouts.js",
-])
+def _code_with_the_apps_text():
+    return sorted(p for pattern in ("*.py", "api/*.py", "services/*.py", "store/*.py", "static/js/*.js", "static/js/views/*.js") for p in APP.glob(pattern))
+
+
+@pytest.mark.parametrize("path", _code_with_the_apps_text(), ids=lambda p: str(p.relative_to(APP)))
 def test_no_advice_is_written_into_the_apps_text(path):
-    text = (APP / path).read_text(encoding="utf-8").lower()
+    text = path.read_text(encoding="utf-8").lower()
     for phrase in ("emergency services", "your care team", "the person's care team", "worth mentioning to", "worth discussing", "worth following",
                    "worth raising", "check with your", "talk it over", "common approach", "how fitness grows", "good for recovery",
-                   "more restful", "tends to help", "a prompt to pay attention", "coach", "urgent"):
+                   "more restful", "tends to help", "a prompt to pay attention", "coach", "urgent", "nothing stands out", "questions worth asking"):
         assert phrase not in text, phrase
+
+
+def test_a_medication_that_may_be_out_of_date_is_not_a_task():
+    assert ">Check<" not in (APP / "static/js/views/overview.js").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("metric,usual,now,unit", [("resting_heart_rate", 66, 60, "bpm"), ("resting_heart_rate", 60, 66, "bpm"), ("hrv_rmssd", 50, 42, "ms"),
+                                                   ("hrv_rmssd", 42, 50, "ms"), ("oxygen_saturation", 97, 72, "%")])
+def test_a_change_in_a_reading_is_neither_good_nor_bad(client, metric, usual, now, unit):
+    pid = _prof()
+    _daily(pid, metric, _noisy(usual, usual * 0.015, 60) + _noisy(now, now * 0.015, 7), unit=unit)
+    assert [i["tone"] for i in insights._changes(pid)] == ["info"]
 
 
 def test_the_urgent_route_is_gone():
