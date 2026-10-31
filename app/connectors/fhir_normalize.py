@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import codecs
+import hashlib
 import logging
 import re
 from datetime import date, datetime, timezone
@@ -338,6 +339,14 @@ def retracted(res: dict[str, Any]) -> bool:
     """Whether the source itself says this resource was a mistake: the one reason a stored record is ever removed for its content."""
     verification = status_code(res.get("verificationStatus"))
     return _retracted(res.get("status"), res.get("docStatus"), res.get("lifecycleStatus"), verification) or verification == "refuted"
+
+
+def _system_value(*identifiers: Any) -> Optional[str]:
+    """An identifier that means something outside the system it came from: a bare value could be anyone's."""
+    for identifier in identifiers:
+        if isinstance(identifier, dict) and identifier.get("system") and identifier.get("value"):
+            return f"{identifier['system']}|{identifier['value']}"
+    return None
 
 
 def _base(res: dict[str, Any], category: str, title: str, **extra: Any) -> dict[str, Any]:
@@ -1013,6 +1022,12 @@ def normalize_encounter(res: dict[str, Any]) -> Optional[dict[str, Any]]:
     rec["details"] = {"class": class_label, "class_code": klass.get("code"), "reasons": reasons, "diagnoses": diagnoses,
                       "clinicians": clinicians, "locations": locations,
                       "provider": ref_display(res.get("serviceProvider"))}
+    # The same visit from a file and a live connection. Without a time there's no telling two visits on one day apart,
+    # and an identifier doesn't do that alone: an account or a series number can cover many visits.
+    start = str(period.get("start") or "")
+    if len(start) > 10:
+        known = _system_value(*(res.get("identifier") or [])) or klass.get("code") or ""
+        rec["dedup_key"] = f"enc|{known}|{_norm_name(title)}|{start[:16]}"
     return rec
 
 
@@ -1093,6 +1108,12 @@ def normalize_document_reference(res: dict[str, Any]) -> Optional[dict[str, Any]
                          "size": a.get("size"), "inline": bool(a.get("data"))} for a in attachments],
         "encounter": [e.get("reference") for e in context.get("encounter") or [] if e.get("reference")],
     }
+    # Links differ between copies of a note, so they say nothing about whether two are the same.
+    known = _system_value(res.get("masterIdentifier"))
+    if known:
+        rec["dedup_key"] = f"doc|{known}"
+    elif text:
+        rec["dedup_key"] = f"doc|{_norm_name(doc_type)}|{when or ''}|{hashlib.sha1(text.encode()).hexdigest()[:16]}"
     return rec
 
 
@@ -1120,6 +1141,9 @@ def normalize_care_team(res: dict[str, Any]) -> Optional[dict[str, Any]]:
                 effective_at=_date((res.get("period") or {}).get("start")),
                 narrative=", ".join(p for p in (named, extra) if p))
     rec["details"] = {"members": members, "unnamed_members": unnamed or None}
+    if members:     # with no names it's only "Care team" and a count: that says nothing about being the same team
+        together = "|".join([_norm_name(res.get("name") or ""), *sorted(f"{_norm_name(m['name'])}:{_norm_name(m['role'])}" for m in members)])
+        rec["dedup_key"] = f"team|{res.get('status') or ''}|{hashlib.sha1(together.encode()).hexdigest()[:16]}"
     return rec
 
 
@@ -1139,6 +1163,12 @@ def normalize_care_plan(res: dict[str, Any]) -> Optional[dict[str, Any]]:
                 narrative=res.get("description") or "; ".join(a["description"] for a in activities)
                 or (strip_html(summary) if isinstance(summary, str) else None) or None)
     rec["details"] = {"activities": activities, "addresses": [ref_display(a) for a in res.get("addresses") or [] if ref_display(a)]}
+    period = res.get("period") or {}
+    if res.get("title") or period.get("start"):     # a plan with neither is only "Care plan": that says nothing
+        # What it says is part of which plan it is: many plans share a heading like "Assessment and Plan", and a date.
+        says = "|".join([str(rec["narrative"] or ""), *sorted(str(a["description"]) for a in activities)])
+        rec["dedup_key"] = (f"plan|{_norm_name(title)}|{period.get('start') or ''}|{period.get('end') or ''}"
+                            f"|{hashlib.sha1(says.encode()).hexdigest()[:16]}")
     return rec
 
 
@@ -1275,7 +1305,8 @@ def normalize_one(res: dict[str, Any], resolve: Callable[[str], Optional[dict[st
     return rec
 
 
-def normalize_report(resources: list[dict[str, Any]]) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]], dict[str, dict[str, int]]]:
+def normalize_report(resources: list[dict[str, Any]],
+                     failures: Optional[list[str]] = None) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]], dict[str, dict[str, int]]]:
     """Like ``normalize_resources``, and also what couldn't be kept, by type: {"failed": ..., "skipped": ...}. A resource the
     source retracted or a panel's empty header isn't counted: dropping those is right."""
     index: dict[str, dict[str, Any]] = {}
@@ -1321,6 +1352,8 @@ def normalize_report(resources: list[dict[str, Any]]) -> tuple[Optional[dict[str
         except Exception as exc:  # noqa: BLE001 - one malformed resource must never break a sync
             log.warning("Couldn't read a %s: %s", rtype, type(exc).__name__)
             problems["failed"][rtype] = problems["failed"].get(rtype, 0) + 1
+            if failures is not None:
+                failures.append(f"{rtype}/{res.get('id')}")
             continue
         if rec and rec["resource_id"]:
             records.append(rec)
@@ -1343,11 +1376,12 @@ def normalize_report(resources: list[dict[str, Any]]) -> tuple[Optional[dict[str
     return patient, records, problems
 
 
-def normalize_resources(resources: list[dict[str, Any]]) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:
+def normalize_resources(resources: list[dict[str, Any]],
+                        failures: Optional[list[str]] = None) -> tuple[Optional[dict[str, Any]], list[dict[str, Any]]]:
     """
     Normalizes a flat list of FHIR resources (search results + includes).
     Returns (patient, records). Medication references and lab panel membership are
-    resolved within the set.
+    resolved within the set. ``failures`` collects the resources that couldn't be read.
     """
-    patient, records, _ = normalize_report(resources)
+    patient, records, _ = normalize_report(resources, failures)
     return patient, records

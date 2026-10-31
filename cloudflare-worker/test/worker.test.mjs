@@ -62,6 +62,28 @@ test("provider errors are forwarded to the instance", async () => {
   assert.equal(loc.searchParams.get("error"), "access_denied");
 });
 
+test("refresh tells a provider's bad moment from a refusal", async () => {
+  const refresh = () => worker.fetch(new Request("https://relay.test/refresh", { method: "POST", body: JSON.stringify({ provider: "oura", refresh_token: "RT" }) }), env);
+  for (const status of [429, 500, 503]) {
+    globalThis.fetch = async () => new Response("busy", { status, headers: { "Retry-After": "120" } });
+    const res = await refresh();
+    assert.equal(res.status, 503);
+    assert.equal(res.headers.get("retry-after"), "120");
+    assert.equal((await res.json()).error, "provider_unavailable");
+  }
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: "temporarily_unavailable" }), { status: 400 });
+  assert.equal((await refresh()).status, 503);
+  globalThis.fetch = async () => { throw new TypeError("network"); };
+  assert.equal((await refresh()).status, 503);
+  globalThis.fetch = async () => new Response(JSON.stringify({ token_type: "bearer" }), { status: 200 });
+  assert.equal((await refresh()).status, 503);
+
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: "invalid_grant", error_description: "revoked" }), { status: 400 });
+  const refused = await refresh();
+  assert.equal(refused.status, 400);
+  assert.deepEqual(await refused.json(), { error: "refresh_failed", error_description: "revoked", oauth_error: "invalid_grant" });
+});
+
 test("callback and refresh are rate-limited per client IP", async () => {
   const seen = [];
   const limited = { ...env, RATE_LIMITER: { limit: async ({ key }) => { seen.push(key); return { success: false }; } } };

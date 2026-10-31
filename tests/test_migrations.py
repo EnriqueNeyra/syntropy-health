@@ -31,6 +31,9 @@ MIGRATION_HASHES = {
     "012_workout_humidity.sql": "35f0dff42fa87d9252f9311efb742eb4c3a0d5f86e1fe512f9597e7c662c2d03",
     "013_daily_revisions.sql": "81aa57eaeaddd9ac7e7504e7e8a811e23936a7bc0274f7988a5414cf90cf7279",
     "020_records_without_a_standard_code.sql": "43dc59c069ba81fc8e97eb45d67af7cd4449e941078c224d73aabab56b325538",
+    "025_sync_query_state.sql": "89b2ae046caae627a8ad9385cb35fbe4a7e2a8a0d00742cbd5fa888c3f7e8ff7",
+    "026_removed_records.sql": "fcef2b3cc2a95d41d33544209356bbde629235071d2591c14dac9e7381ffba27",
+    "027_sync_query_progress.sql": "52db3f9056b00235f3bcaeeb657433d84562ce417c8b3a8cead7339d25604be5",
 }
 
 
@@ -126,7 +129,9 @@ def _seed(conn: sqlite3.Connection, version: int, stored_hash: str) -> None:
 
 
 def _shipped_versions() -> list[int]:
-    return [int(name.split("_", 1)[0]) for name in MIGRATION_HASHES]
+    from app.core import db
+    # The newest has nothing to upgrade to.
+    return [v for v in (int(name.split("_", 1)[0]) for name in MIGRATION_HASHES) if v < db.newest_schema()]
 
 
 @pytest.mark.parametrize("version", _shipped_versions())

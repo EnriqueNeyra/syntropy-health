@@ -221,8 +221,8 @@ def test_one_odd_resource_doesnt_mark_a_live_sync_partly_synced(client, monkeypa
     from app.connectors import fhir_normalize
     real = fhir_normalize.normalize_report
 
-    def with_one_unread(resources):
-        patient, recs, problems = real(resources)
+    def with_one_unread(*args):
+        patient, recs, problems = real(*args)
         problems["skipped"]["Observation"] = 1
         return patient, recs, problems
     with monkeypatch.context() as patch:

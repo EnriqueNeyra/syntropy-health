@@ -12,8 +12,14 @@ from app.store import sample_counts
 PUBLIC_FIELDS = (
     "id", "profile_id", "kind", "provider", "institution_id", "display_name", "mode",
     "fhir_base_url", "patient_ref", "status", "scopes", "last_sync_at", "last_sync_status",
-    "last_error", "created_at", "updated_at",
+    "last_error", "next_retry_at", "sync_failures", "created_at", "updated_at",
 )
+
+# A temporary failure tries again soon, then less often. It only reads as "Sync failed" once it has lasted a while: a
+# laptop waking up before its Wi-Fi isn't worth an alert.
+RETRY_DELAYS = (15 * 60, 30 * 60, 3600, 2 * 3600, 4 * 3600, 6 * 3600)
+FAILURES_BEFORE_ALERT = 3
+UNFINISHED_RETRIES = 5        # a history that won't finish goes back to the usual interval after this many early tries
 
 
 def _present(row: Optional[dict[str, Any]], include_credentials: bool = False) -> Optional[dict[str, Any]]:
@@ -151,6 +157,57 @@ def update(connection_id: str, **fields: Any) -> None:
         conn.execute(f"UPDATE connections SET {sets} WHERE id = ?", (*cols.values(), connection_id))
 
 
+def save_renewed(connection_id: str, had: dict[str, Any], renewed: dict[str, Any]) -> bool:
+    """Saves tokens renewed during a sync, the moment they arrive: a vendor that rotates refresh tokens has already
+    retired the old one. Unless the person has signed in again meanwhile: those tokens are newer than these."""
+    with db() as conn:
+        row = conn.execute("SELECT credentials_enc FROM connections WHERE id = ?", (connection_id,)).fetchone()
+        if not row or _replaced(security.decrypt_json(row["credentials_enc"]) or {}, had):
+            return False
+        conn.execute("UPDATE connections SET credentials_enc = ?, updated_at = ? WHERE id = ?",
+                     (security.encrypt_json(renewed), time.time(), connection_id))
+    return True
+
+
+def _replaced(stored: dict[str, Any], had: dict[str, Any]) -> bool:
+    return any(stored.get(k) != had.get(k) for k in ("access_token", "refresh_token"))
+
+
+def credentials_replaced(connection_id: str, had: dict[str, Any]) -> bool:
+    """A sync's failure says nothing about a sign-in that happened after it started."""
+    with read() as conn:
+        row = conn.execute("SELECT credentials_enc FROM connections WHERE id = ?", (connection_id,)).fetchone()
+    return bool(row) and _replaced(security.decrypt_json(row["credentials_enc"]) or {}, had)
+
+
+def forget_query_state(connection_id: str) -> None:
+    with db() as conn:
+        conn.execute("DELETE FROM sync_query_state WHERE connection_id = ?", (connection_id,))
+
+
+def query_state(connection_id: str) -> dict[str, dict[str, Any]]:
+    with read() as conn:
+        rows = conn.execute("SELECT * FROM sync_query_state WHERE connection_id = ?", (connection_id,)).fetchall()
+    return {r["query"]: dict(r) for r in rows}
+
+
+def save_query_state(connection_id: str, states: dict[str, dict[str, Any]]) -> None:
+    now = time.time()
+    with db() as conn:
+        for query, s in states.items():
+            answered = 1 if s["status"] in ("ok", "empty", "recent") else 0
+            conn.execute(
+                """INSERT INTO sync_query_state(connection_id, query, status, record_count, next_url, alternative, no_sort,
+                       ever_answered, place_failures, swept_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(connection_id, query) DO UPDATE SET status = excluded.status,
+                       record_count = excluded.record_count, next_url = excluded.next_url, alternative = excluded.alternative,
+                       no_sort = excluded.no_sort, ever_answered = MAX(ever_answered, excluded.ever_answered),
+                       place_failures = excluded.place_failures, swept_at = excluded.swept_at, updated_at = excluded.updated_at""",
+                (connection_id, query, s["status"], s.get("record_count") or 0, s.get("next_url"), s.get("alternative") or 0,
+                 1 if s.get("no_sort") else 0, answered, s.get("place_failures") or 0, s.get("swept_at"), s.get("asked_at") or now),
+            )
+
+
 def disconnect(connection_id: str, delete_data: bool = False) -> None:
     with db() as conn:
         row = conn.execute("SELECT profile_id, display_name FROM connections WHERE id = ?", (connection_id,)).fetchone()
@@ -186,6 +243,27 @@ def start_run(connection_id: str, trigger: str) -> int:
         return int(cur.lastrowid)
 
 
+def _after_run(row: Any, status: str, stats: dict[str, Any], now: float) -> tuple[str, int, Optional[float]]:
+    """How a connection stands after a sync: its status, how many tries in a row have fallen short, and when to try next
+    if that's sooner than usual."""
+    kind = stats.get("failure_kind")
+    failures = row["sync_failures"] or 0
+    if row["status"] == "disconnected" or kind == "superseded":
+        return row["status"], failures, row["next_retry_at"]
+    if kind == "auth":
+        return "needs_reauth", 0, None
+    if kind == "network":
+        delay = max(RETRY_DELAYS[min(failures, len(RETRY_DELAYS) - 1)], stats.get("retry_after") or 0)
+        return ("error" if failures + 1 >= FAILURES_BEFORE_ALERT else "active"), failures + 1, now + delay
+    if status == "error":
+        return "error", failures + 1, None
+    if stats.get("more_to_fetch"):
+        if failures >= UNFINISHED_RETRIES:
+            return "active", failures, None
+        return "active", failures + 1, now + max(RETRY_DELAYS[failures], stats.get("retry_after") or 0)
+    return "active", 0, None
+
+
 def finish_run(run_id: int, connection_id: str, status: str, stats: dict[str, Any], error: Optional[str] = None) -> None:
     now = time.time()
     with db() as conn:
@@ -193,14 +271,14 @@ def finish_run(run_id: int, connection_id: str, status: str, stats: dict[str, An
             "UPDATE sync_runs SET finished_at = ?, status = ?, stats_json = ?, error = ? WHERE id = ?",
             (now, status, dumps(stats), error, run_id),
         )
-        conn.execute(
-            """UPDATE connections SET last_sync_at = ?, last_sync_status = ?, last_error = ?, updated_at = ?,
-                   status = CASE WHEN status = 'disconnected' THEN status
-                                 WHEN ? = 'auth' THEN 'needs_reauth'
-                                 WHEN ? = 'error' THEN 'error' ELSE 'active' END
-               WHERE id = ?""",
-            (now, status, error, now, stats.get("failure_kind"), status, connection_id),
-        )
+        row = conn.execute("SELECT status, sync_failures, next_retry_at FROM connections WHERE id = ?", (connection_id,)).fetchone()
+        if row:
+            state, failures, retry_at = _after_run(row, status, stats, now)
+            conn.execute(
+                """UPDATE connections SET last_sync_at = ?, last_sync_status = ?, last_error = ?, updated_at = ?, status = ?,
+                       sync_failures = ?, next_retry_at = ? WHERE id = ?""",
+                (now, status, error, now, state, failures, retry_at, connection_id),
+            )
         conn.execute(
             "DELETE FROM sync_runs WHERE connection_id = ? AND id NOT IN "
             "(SELECT id FROM sync_runs WHERE connection_id = ? ORDER BY started_at DESC LIMIT 50)",
@@ -243,6 +321,15 @@ def save_pending(state: str, kind: str, payload: dict[str, Any], ttl: int = 900)
             "INSERT OR REPLACE INTO oauth_pending(state, kind, payload_enc, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
             (state, kind, security.encrypt_json(payload), now, now + ttl),
         )
+
+
+def peek_pending(state: str) -> Optional[tuple[str, dict[str, Any]]]:
+    """What a sign-in link stands for, leaving it usable."""
+    with read() as conn:
+        row = conn.execute("SELECT kind, payload_enc, expires_at FROM oauth_pending WHERE state = ?", (state,)).fetchone()
+    if not row or row["expires_at"] < time.time():
+        return None
+    return row["kind"], security.decrypt_json(row["payload_enc"]) or {}
 
 
 def pop_pending(state: str) -> Optional[tuple[str, dict[str, Any]]]:

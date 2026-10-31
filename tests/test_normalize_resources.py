@@ -136,7 +136,7 @@ async def test_a_failed_read_leaves_it_unnamed_and_changes_nothing_else():
             raise httpx.ConnectError("no")
     c = Broken()
     out = await read_missing(c, [med_request("a", medicationReference={"reference": "Medication/m1"})])
-    assert len(out.resources) == 1 and not out.status and not out.complete_types
+    assert len(out.resources) == 1 and not out.status and not out.queries
 
 
 # ---- F004: vaccines
@@ -224,6 +224,9 @@ class Bodies:
     def __init__(self, text, fail=False):
         self.text, self.fail, self.calls = text, fail, 0
 
+    def time_left(self):
+        return 60.0
+
     async def read_binary_text(self, http, url):
         self.calls += 1
         return None if self.fail else ("text/plain", self.text.encode())
@@ -237,7 +240,7 @@ def linked_note(rid="n", doc="final", url="Binary/1?sig=1", version="1", **kw):
 async def sync_notes(conn, prof, bodies, *resources):
     import asyncio
     _, recs = fn.normalize_resources(list(resources))
-    fetched = await sync._fetch_note_bodies(conn, bodies, recs, True)
+    fetched = (await sync._fetch_note_bodies(conn, bodies, recs, True))["fetched"]
     await asyncio.to_thread(records.upsert_records, prof, conn["id"], "Source", recs)
     return fetched, {r["resource_id"]: r for r in recs}
 

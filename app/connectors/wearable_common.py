@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import re
 import time
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any, Optional
@@ -11,7 +12,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.core import config, settings
-from app.connectors.smart import SmartError, USER_AGENT
+from app.connectors.smart import SmartError, USER_AGENT, retry_after_seconds, temporary_refusal
 
 
 def redirect_uri() -> str:
@@ -61,7 +62,11 @@ async def exchange_code_local(token_url: str, provider: str, code: str, redirect
         })
     if resp.status_code != 200:
         raise SmartError(f"{provider.title()} token exchange failed ({resp.status_code}).", "auth")
-    return token_credentials(resp.json())
+    try:
+        tokens = resp.json()
+    except ValueError:
+        tokens = None
+    return token_credentials(tokens if isinstance(tokens, dict) else {})
 
 
 async def refresh_tokens(token_url: str, provider: str, credentials: dict[str, Any]) -> dict[str, Any]:
@@ -83,13 +88,37 @@ async def refresh_tokens(token_url: str, provider: str, credentials: dict[str, A
                 resp = await client.post(f"{relay_base()}/refresh", json={"provider": provider, "refresh_token": refresh_token},
                                          headers={config.RELAY_KEY_HEADER: key} if key else None)
         except httpx.HTTPError as exc:
-            raise SmartError(f"Could not refresh {provider.title()} access: {exc}", "network") from exc
+            raise SmartError(f"Couldn't reach {provider.title()} to renew access. Syntropy will try again.", "network") from exc
     if resp.status_code == 403 and not creds["client_secret"]:
         raise SmartError(f"Syntropy Labs' sign-in relay only serves up-to-date Syntropy Health releases. Update to the latest "
                          f"version, or add your own {provider.title()} app in Settings → Wearables.", "auth")
     if resp.status_code != 200:
+        if temporary_refusal(resp) or _relay_passing_on_trouble(resp, bool(creds["client_secret"])):
+            raise SmartError(f"{provider.title()} couldn't renew access just now ({resp.status_code}). Syntropy will try again.",
+                             "network", retry_after=retry_after_seconds(resp))
         raise SmartError(f"{provider.title()} refused to refresh access ({resp.status_code}). Reconnect to continue.", "auth")
-    return token_credentials(resp.json(), credentials)
+    try:
+        tokens = resp.json()
+    except ValueError:
+        tokens = None
+    if not isinstance(tokens, dict) or not tokens.get("access_token"):
+        raise SmartError(f"{provider.title()} sent an answer without a new access token. Syntropy will try again.", "network")
+    return token_credentials(tokens, credentials)
+
+
+def _relay_passing_on_trouble(resp: httpx.Response, local: bool) -> bool:
+    """Relays deployed before it reported the provider's status answer 400 refresh_failed for everything. Their text still
+    tells an outage ("HTTP 503") or a provider's temporary error from a refusal."""
+    if local or resp.status_code != 400:
+        return False
+    try:
+        body = resp.json()
+    except ValueError:
+        return False
+    if not isinstance(body, dict) or body.get("error") != "refresh_failed":
+        return False
+    description = str(body.get("error_description") or "")
+    return bool(re.fullmatch(r"HTTP (429|408|425|5\d\d)", description)) or description in ("temporarily_unavailable", "server_error", "slow_down")
 
 
 def token_credentials(tokens: dict[str, Any], previous: Optional[dict[str, Any]] = None) -> dict[str, Any]:

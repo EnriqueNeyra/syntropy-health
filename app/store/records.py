@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from typing import Any, Iterable, Optional
 
 from app.connectors import units
-from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
+from app.core.db import audit, db, read, dumps, row_to_dict, rows_to_dicts, write_in_batches
 from app.store import lab_catalog
 
 CATEGORIES = [
@@ -52,6 +52,11 @@ SUMMARY_LABS = 2000
 SERIES_COLUMNS = ("id, connection_id, title, category, code, code_system, effective_at, status, value_num, value_text, unit, value_norm, unit_norm, "
                   "ref_low, ref_high, interpretation, details_json, dedup_key, source_name")
 
+SHRINK_FLOOR = 3                # up to this many records can go at once: the source correcting a few things is normal
+SHRINK_FRACTION = 0.25          # more than this share of a category vanishing looks like the source's trouble, not corrections
+SHRINK_WAIT_DAYS = 14           # how long such a loss has to last before it's believed
+REMOVED_KEEP_DAYS = 365         # how long a removed record stays available to put back
+
 
 def record_id(connection_id: str, resource_type: str, resource_id: str) -> str:
     return hashlib.sha1(f"{connection_id}|{resource_type}|{resource_id}".encode()).hexdigest()[:24]
@@ -83,62 +88,212 @@ _COMPARED = ("profile_id, connection_id, resource_type, resource_id, category, t
 
 
 def upsert_records(profile_id: str, connection_id: str, source_name: str, records: Iterable[dict[str, Any]]) -> dict[str, int]:
+    """In batches, so a long history doesn't hold the write lock from a phone's upload. Safe to repeat."""
+    items = list(records)
     now = time.time()
+    totals = {"inserted": 0, "updated": 0}
+
+    def step(conn: Any, cursor: Any, size: int) -> Optional[int]:
+        start = cursor or 0
+        chunk = items[start:start + size]
+        added, changed = _upsert_batch(conn, profile_id, connection_id, source_name, chunk, now)
+        totals["inserted"] += added
+        totals["updated"] += changed
+        return start + size if start + size < len(items) else None
+    write_in_batches(step)
+    return totals
+
+
+def _upsert_batch(conn: Any, profile_id: str, connection_id: str, source_name: str, records: list[dict[str, Any]],
+                  now: float) -> tuple[int, int]:
     inserted = updated = 0
-    with db() as conn:
-        for r in records:
-            rid = record_id(connection_id, r["resource_type"], r["resource_id"])
-            existing = conn.execute(f"SELECT {_COMPARED} FROM clinical_records WHERE id = ?", (rid,)).fetchone()
-            values = (
-                profile_id, connection_id, r["resource_type"], r["resource_id"], r["category"],
-                (r.get("title") or "Untitled")[:500], r.get("code_system"), r.get("code"), r.get("code_display"),
-                r.get("effective_at"), r.get("effective_end"), r.get("status"), r.get("value_num"),
-                r.get("value_text"), r.get("unit"), r.get("value_norm"), r.get("unit_norm"),
-                r.get("ref_low"), r.get("ref_high"), r.get("ref_text"), r.get("interpretation"),
-                dumps(r.get("details") or {}), r.get("narrative"), r.get("dedup_key"), source_name,
-                dumps(r.get("raw")), now,
+    for r in records:
+        rid = record_id(connection_id, r["resource_type"], r["resource_id"])
+        existing = conn.execute(f"SELECT {_COMPARED} FROM clinical_records WHERE id = ?", (rid,)).fetchone()
+        values = (
+            profile_id, connection_id, r["resource_type"], r["resource_id"], r["category"],
+            (r.get("title") or "Untitled")[:500], r.get("code_system"), r.get("code"), r.get("code_display"),
+            r.get("effective_at"), r.get("effective_end"), r.get("status"), r.get("value_num"),
+            r.get("value_text"), r.get("unit"), r.get("value_norm"), r.get("unit_norm"),
+            r.get("ref_low"), r.get("ref_high"), r.get("ref_text"), r.get("interpretation"),
+            dumps(r.get("details") or {}), r.get("narrative"), r.get("dedup_key"), source_name,
+            dumps(r.get("raw")), now,
+        )
+        if existing and tuple(existing) == values[:-1]:
+            continue   # unchanged: keep updated_at meaningful and the sync stats honest
+        if existing:
+            conn.execute(
+                """UPDATE clinical_records SET profile_id=?, connection_id=?, resource_type=?, resource_id=?,
+                       category=?, title=?, code_system=?, code=?, code_display=?, effective_at=?, effective_end=?,
+                       status=?, value_num=?, value_text=?, unit=?, value_norm=?, unit_norm=?, ref_low=?, ref_high=?,
+                       ref_text=?, interpretation=?, details_json=?, narrative=?, dedup_key=?, source_name=?,
+                       raw_json=?, updated_at=? WHERE id=?""",
+                (*values, rid),
             )
-            if existing and tuple(existing) == values[:-1]:
-                continue   # unchanged: keep updated_at meaningful and the sync stats honest
-            if existing:
-                conn.execute(
-                    """UPDATE clinical_records SET profile_id=?, connection_id=?, resource_type=?, resource_id=?,
-                           category=?, title=?, code_system=?, code=?, code_display=?, effective_at=?, effective_end=?,
-                           status=?, value_num=?, value_text=?, unit=?, value_norm=?, unit_norm=?, ref_low=?, ref_high=?,
-                           ref_text=?, interpretation=?, details_json=?, narrative=?, dedup_key=?, source_name=?,
-                           raw_json=?, updated_at=? WHERE id=?""",
-                    (*values, rid),
-                )
-                updated += 1
+            updated += 1
+        else:
+            # A record its source had dropped and now sends again: it comes back as what it was, not as new. (An
+            # outage must not make old results look like they just arrived.)
+            back = conn.execute("SELECT first_seen_at FROM clinical_records_removed WHERE id = ?", (rid,)).fetchone()
+            conn.execute(
+                """INSERT INTO clinical_records(profile_id, connection_id, resource_type, resource_id, category,
+                       title, code_system, code, code_display, effective_at, effective_end, status, value_num,
+                       value_text, unit, value_norm, unit_norm, ref_low, ref_high, ref_text, interpretation,
+                       details_json, narrative, dedup_key, source_name, raw_json, updated_at, id, first_seen_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (*values, rid, back["first_seen_at"] if back else now),
+            )
+            if back:
+                conn.execute("DELETE FROM clinical_records_removed WHERE id = ?", (rid,))
+            inserted += 1
+    return inserted, updated
+
+
+def _set_aside(conn: Any, ids: list[str], reason: str, now: float) -> None:
+    """Moves records out of clinical_records, every read of which then stops seeing them, to where they can be put back."""
+    for i in range(0, len(ids), 200):
+        chunk = ids[i:i + 200]
+        marks = ",".join("?" * len(chunk))
+        for row in conn.execute(f"SELECT * FROM clinical_records WHERE id IN ({marks})", chunk).fetchall():
+            conn.execute(
+                """INSERT OR REPLACE INTO clinical_records_removed(id, profile_id, connection_id, resource_type, resource_id,
+                       category, title, effective_at, source_name, first_seen_at, row_json, removed_at, reason)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (row["id"], row["profile_id"], row["connection_id"], row["resource_type"], row["resource_id"], row["category"],
+                 row["title"], row["effective_at"], row["source_name"], row["first_seen_at"], json.dumps(dict(row)), now, reason),
+            )
+        conn.execute(f"DELETE FROM clinical_records WHERE id IN ({marks})", chunk)
+
+
+def reconcile(connection_id: str, seen_ids: set[str], verdict: Any, retracted: Iterable[str] = ()) -> dict[str, Any]:
+    """Squares what's stored with what the source just said. ``verdict(resource)`` says what a stored resource missing
+    from its answer means (see smart.FetchResult.prune_verdict); ``retracted`` are resources it returned marked as wrong.
+
+    Nothing goes on one answer alone. A record leaves only when a second complete answer agrees, never on an empty answer,
+    and if many go at once they stay until that has lasted SHRINK_WAIT_DAYS. What goes is set aside, not deleted."""
+    now = time.time()
+    with read() as conn:
+        rows = conn.execute("SELECT id, resource_type, resource_id, category, missing_since, kept_at "
+                            "FROM clinical_records WHERE connection_id = ?", (connection_id,)).fetchall()
+    def key(r: Any) -> str:
+        return f"{r['resource_type']}/{r['resource_id']}"
+    gone = set(retracted)
+    took_back = [r["id"] for r in rows if key(r) in gone and r["kept_at"] is None]
+    in_answer = [r["id"] for r in rows if key(r) in seen_ids and r["missing_since"] is not None]
+    absent = [r for r in rows if key(r) not in seen_ids and key(r) not in gone and r["kept_at"] is None]
+    verdicts = _verdicts(absent, verdict)
+    stored: dict[str, int] = {}
+    for r in rows:
+        stored[r["category"]] = stored.get(r["category"], 0) + 1
+
+    newly_missing, leaving_by_category, held = [], {}, {}
+    for r in absent:
+        v = verdicts[r["id"]]
+        if v == "hold":
+            held[r["category"]] = held.get(r["category"], 0) + 1
+        elif v == "prune":
+            if r["missing_since"] is None:
+                newly_missing.append(r["id"])
             else:
-                conn.execute(
-                    """INSERT INTO clinical_records(profile_id, connection_id, resource_type, resource_id, category,
-                           title, code_system, code, code_display, effective_at, effective_end, status, value_num,
-                           value_text, unit, value_norm, unit_norm, ref_low, ref_high, ref_text, interpretation,
-                           details_json, narrative, dedup_key, source_name, raw_json, updated_at, id, first_seen_at)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (*values, rid, now),
-                )
-                inserted += 1
-    return {"inserted": inserted, "updated": updated}
+                leaving_by_category.setdefault(r["category"], []).append(r)
+    removing: list[str] = []
+    wait = SHRINK_WAIT_DAYS * 86400
+    for category, leaving in leaving_by_category.items():
+        if len(leaving) > max(SHRINK_FLOOR, SHRINK_FRACTION * stored[category]):
+            for r in leaving:
+                if now - r["missing_since"] >= wait:
+                    removing.append(r["id"])
+                else:
+                    held[category] = held.get(category, 0) + 1
+        else:
+            removing.extend(r["id"] for r in leaving)
 
-
-def prune_missing(connection_id: str, resource_types: Iterable[str], seen_ids: set[str]) -> int:
-    """Removes records the source no longer returns (e.g. entered-in-error), for fully-fetched types."""
-    types = list(resource_types)
-    if not types:
-        return 0
+    work = [("retracted", i) for i in took_back] + [("missing", i) for i in removing] \
+        + [("mark", i) for i in newly_missing] + [("clear", i) for i in in_answer]
+    if work:
+        def step(conn: Any, cursor: Any, size: int) -> Optional[int]:
+            start = cursor or 0
+            for what, rid in work[start:start + size]:
+                if what == "mark":
+                    conn.execute("UPDATE clinical_records SET missing_since = ? WHERE id = ?", (now, rid))
+                elif what == "clear":
+                    conn.execute("UPDATE clinical_records SET missing_since = NULL WHERE id = ?", (rid,))
+                else:
+                    _set_aside(conn, [rid], what, now)
+            return start + size if start + size < len(work) else None
+        write_in_batches(step)
     with db() as conn:
+        conn.execute("DELETE FROM clinical_records_removed WHERE connection_id = ? AND removed_at < ?",
+                     (connection_id, now - REMOVED_KEEP_DAYS * 86400))
+    return {"removed": len(took_back) + len(removing), "retracted": len(took_back), "held": held, "missing": len(newly_missing)}
+
+
+def _verdicts(rows: list[Any], verdict: Any) -> dict[str, str]:
+    """Only the records missing from an answer need their full resource read."""
+    out: dict[str, str] = {}
+    for i in range(0, len(rows), 500):
+        chunk = rows[i:i + 500]
+        with read() as conn:
+            raws = dict(conn.execute(f"SELECT id, raw_json FROM clinical_records WHERE id IN ({','.join('?' * len(chunk))})",
+                                     [r["id"] for r in chunk]).fetchall())
+        for r in chunk:
+            try:
+                raw = json.loads(raws.get(r["id"]) or "null")
+            except ValueError:
+                raw = None
+            out[r["id"]] = verdict(raw if isinstance(raw, dict) else {"resourceType": r["resource_type"]})
+    return out
+
+
+def retract(connection_id: str, resource_keys: Iterable[str]) -> int:
+    """A corrected file said these were wrong. Same as a source saying it, but with nothing else to square up."""
+    wanted = set(resource_keys)
+    if not wanted:
+        return 0
+    with read() as conn:
+        rows = conn.execute("SELECT id, resource_type, resource_id, kept_at FROM clinical_records WHERE connection_id = ?",
+                            (connection_id,)).fetchall()
+    ids = [r["id"] for r in rows if f"{r['resource_type']}/{r['resource_id']}" in wanted and r["kept_at"] is None]
+    if ids:
+        with db() as conn:
+            _set_aside(conn, ids, "retracted", time.time())
+    return len(ids)
+
+
+def removed_for_connection(connection_id: str) -> list[dict[str, Any]]:
+    with read() as conn:
         rows = conn.execute(
-            f"SELECT id, resource_type, resource_id FROM clinical_records WHERE connection_id = ? "
-            f"AND resource_type IN ({','.join('?' * len(types))})",
-            (connection_id, *types),
-        ).fetchall()
-        stale = [r["id"] for r in rows if f"{r['resource_type']}/{r['resource_id']}" not in seen_ids]
-        for i in range(0, len(stale), 500):
-            chunk = stale[i:i + 500]
-            conn.execute(f"DELETE FROM clinical_records WHERE id IN ({','.join('?' * len(chunk))})", chunk)
-    return len(stale)
+            "SELECT id, connection_id, profile_id, resource_type, category, title, effective_at, source_name, removed_at, reason "
+            "FROM clinical_records_removed WHERE connection_id = ? ORDER BY removed_at DESC, title LIMIT 500", (connection_id,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def removed_count(connection_id: str) -> int:
+    with read() as conn:
+        return conn.execute("SELECT COUNT(*) FROM clinical_records_removed WHERE connection_id = ?", (connection_id,)).fetchone()[0]
+
+
+def get_removed(record_id_: str) -> Optional[dict[str, Any]]:
+    with read() as conn:
+        row = conn.execute("SELECT id, connection_id, profile_id, title FROM clinical_records_removed WHERE id = ?", (record_id_,)).fetchone()
+    return dict(row) if row else None
+
+
+def restore_removed(record_id_: str, actor: str = "user") -> bool:
+    """Puts a removed record back and keeps it: the person has looked and wants it, whatever its source says from now on."""
+    with db() as conn:
+        row = conn.execute("SELECT profile_id, title, row_json FROM clinical_records_removed WHERE id = ?", (record_id_,)).fetchone()
+        if not row:
+            return False
+        saved = json.loads(row["row_json"])
+        columns = [c["name"] for c in conn.execute("PRAGMA table_info(clinical_records)").fetchall()]
+        values = {**{c: saved[c] for c in columns if c in saved}, "kept_at": time.time(), "missing_since": None}
+        names = list(values)
+        conn.execute(f"INSERT OR REPLACE INTO clinical_records({','.join(names)}) VALUES ({','.join('?' * len(names))})",
+                     [values[n] for n in names])
+        conn.execute("DELETE FROM clinical_records_removed WHERE id = ?", (record_id_,))
+        audit(conn, actor, "record.restored", {"record": record_id_, "title": row["title"]}, row["profile_id"])
+    return True
 
 
 def delete_record(record_id_: str) -> None:
@@ -149,6 +304,8 @@ def delete_record(record_id_: str) -> None:
 def delete_for_connection(connection_id: str) -> None:
     with db() as conn:
         conn.execute("DELETE FROM clinical_records WHERE connection_id = ?", (connection_id,))
+        conn.execute("DELETE FROM clinical_records_removed WHERE connection_id = ?", (connection_id,))
+        conn.execute("DELETE FROM sync_query_state WHERE connection_id = ?", (connection_id,))
         conn.execute("DELETE FROM patient_identities WHERE connection_id = ?", (connection_id,))
 
 
@@ -463,6 +620,17 @@ def identities(profile_id: str) -> list[dict[str, Any]]:
             (profile_id,),
         ).fetchall()
     return rows_to_dicts(rows, ["telecom_json", "address_json"])
+
+
+def identity_raw(connection_id: str) -> Optional[dict[str, Any]]:
+    """The Patient resource a source last gave, which identities() leaves out of what it hands to the page."""
+    with read() as conn:
+        row = conn.execute("SELECT raw_json FROM patient_identities WHERE connection_id = ?", (connection_id,)).fetchone()
+    try:
+        raw = json.loads(row["raw_json"]) if row and row["raw_json"] else None
+    except ValueError:
+        return None
+    return raw if isinstance(raw, dict) else None
 
 
 def _unnamed(rec: dict[str, Any]) -> bool:

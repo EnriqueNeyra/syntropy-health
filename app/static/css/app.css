@@ -671,6 +671,13 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .src-error { grid-column: 2 / -1; display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--bad); background: var(--bad-bg);
   padding: 8px 10px; border-radius: 8px; overflow-wrap: anywhere; }
 .src-error svg { width: 14px; height: 14px; margin-top: 2px; }
+.src-queries { width: 100%; border-collapse: collapse; font-size: 14px; }
+.src-queries th { text-align: left; font-weight: 500; padding: 6px 12px 6px 0; vertical-align: top; white-space: nowrap; }
+.src-queries td { padding: 6px 0; overflow-wrap: anywhere; }
+.src-queries td.warn { color: var(--warn); }
+.src-queries tr + tr > * { border-top: 1px solid var(--border); }
+.src-removed-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.src-removed-row .grow { min-width: 0; }
 .src-drops { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); padding: 0 18px 16px; }
 .src-drop-status:not(:empty) { padding: 0 18px 16px; }
 .src-drops + .src-drop-status + .src-rows, .src-drops + .src-rows { border-top: 1px solid var(--border); }

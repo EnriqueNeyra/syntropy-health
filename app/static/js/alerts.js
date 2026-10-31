@@ -53,7 +53,10 @@ function collect({ summary, connections, status }) {
     const age = c.last_sync_at ? Math.floor((Date.now() / 1000 - c.last_sync_at) / 86400) : 0;
     if (c.access_ended) {
       // A one-time import (healow): a gentle nudge each month, never a warning. Dismissing it lasts until the next one.
-      if (age >= UPDATE_REMINDER_DAYS) {
+      if (c.last_sync_status === "partial") {
+        out.push({ id: `conn:${c.id}:unfinished:${Math.floor(c.last_sync_at)}`, level: "warn", icon: "sources", title: `${c.display_name} didn't finish importing`,
+                   text: "Access ran out before everything came in. Sign in again to finish.", href: "#/sources", action: "Open Sources" });
+      } else if (age >= UPDATE_REMINDER_DAYS) {
         out.push({ id: `conn:${c.id}:update:${Math.floor(c.last_sync_at)}:${Math.floor(age / UPDATE_REMINDER_DAYS)}`, level: "info", icon: "sources",
                    title: `Update ${c.display_name}?`, text: `Its records here are from ${fmtDate(c.last_sync_at)}. Sign in again to bring in anything new.`,
                    href: "#/sources", action: "Open Sources" });
