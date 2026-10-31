@@ -6,7 +6,7 @@ The Mac window: Syntropy Health's interface drawn edge to edge in a native windo
   app.css, and desktopBridge in app.js).
 - A full menu bar with the usual shortcuts: Settings (⌘,), New Chat (⌘N), Find (⌘F), the sections (⌘1–⌘8), Back and
   Forward (⌘[ ⌘]), Reload (⌘R) and text size (⌘+ ⌘− ⌘0). Right-clicking the Dock icon offers the menu bar item's choices.
-- Swiping with two fingers goes back and forward, and the window remembers its size and place.
+- The window remembers its size and place.
 - The app is in the Dock (and ⌘-Tab) only while its window is open. Closed, it runs on in the menu bar alone, like
   other menu bar apps; opening the window from there puts it back in the Dock.
 - Another site in the window (a health system's sign-in) gets an ordinary title bar naming the site, with a
@@ -344,7 +344,8 @@ class MacWindow:
         win.setContentView_(container)
         win.makeFirstResponder_(wk)
 
-        wk.setAllowsBackForwardNavigationGestures_(True)
+        # No swiping back: WebKit slides the whole page, and here the page includes the sidebar. ⌘[ and ⌘] go back and forward.
+        wk.setAllowsBackForwardNavigationGestures_(False)
         if self.zoom != 1.0:
             wk.setPageZoom_(self.zoom)
         # Size and place are remembered between launches (and restored now, when saved before).
