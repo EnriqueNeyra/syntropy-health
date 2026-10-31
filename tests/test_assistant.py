@@ -82,6 +82,7 @@ def test_connection_test_checks_tool_use(client, fake_model):
     client.put("/api/ai/config", json={"provider": "openai", "model": "gpt-test", "api_key": "sk-test", "acknowledged": True})
     script.append({"choices": [{"message": {"content": "", "tool_calls": [{"id": "c1", "type": "function",
                    "function": {"name": "get_health_summary", "arguments": "{}"}}]}}]})
+    script.append({"choices": [{"message": {"content": "OK"}}]})
     r = client.post("/api/ai/test").json()
     assert r["tools"] is True and client.get("/api/ai/config").json()["tools"] is True
     assert {t["function"]["name"] for t in calls[0]["body"]["tools"]} >= {"get_health_summary", "get_lab_trend"}
@@ -91,7 +92,7 @@ def test_chat_with_anthropic_and_key_is_never_returned(client, fake_model):
     calls, script = fake_model
     client.put("/api/ai/config", json={"provider": "anthropic", "api_key": "sk-ant-secret", "acknowledged": True})
     cfg = client.get("/api/ai/config").json()
-    assert cfg["configured"] and cfg["model"] == "claude-sonnet-5" and "sk-ant-secret" not in json.dumps(cfg)
+    assert cfg["configured"] and cfg["model"] == "claude-sonnet-5-5" and "sk-ant-secret" not in json.dumps(cfg)
     script.extend([
         {"content": [{"type": "tool_use", "id": "t1", "name": "get_health_summary", "input": {}}], "stop_reason": "tool_use"},
         {"content": [{"type": "text", "text": "Here is your summary."}], "stop_reason": "end_turn"},

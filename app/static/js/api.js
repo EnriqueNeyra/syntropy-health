@@ -13,6 +13,8 @@ export function unreachableMessage() {
 
 const listeners = { unauthorized: [], changed: [] };
 export function onUnauthorized(fn) { listeners.unauthorized.push(fn); }
+/** For a page that calls fetch itself (Ask's streaming): the session has ended. */
+export function signedOut() { listeners.unauthorized.forEach((fn) => fn()); }
 /** Called after any change is saved (not bookkeeping), e.g. so the iPhone app can refresh its other screens. */
 export function onDataChanged(fn) { listeners.changed.push(fn); }
 

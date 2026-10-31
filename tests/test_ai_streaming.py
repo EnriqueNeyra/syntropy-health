@@ -68,6 +68,8 @@ def test_anthropic_answer_streams(client, monkeypatch):
         {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Five runs "}},
         {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "this month."}},
         {"type": "content_block_stop", "index": 0},
+        {"type": "message_delta", "delta": {"stop_reason": "end_turn"}},
+        {"type": "message_stop"},
     ]])
     events = _ask(client, "How much did I run?")
     assert [e["type"] for e in events] == ["tool", "delta", "delta", "answer", "done"]
@@ -95,7 +97,7 @@ def test_a_server_that_cannot_stream_is_asked_again_without(client, monkeypatch)
         return httpx.Response(200, json={"choices": [{"message": {"content": "Fine."}}]})
     monkeypatch.setattr(ai, "_client", lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler)))
     events = _ask(client)
-    assert [e["type"] for e in events] == ["answer", "done"] and events[0]["text"] == "Fine."
+    assert [e["type"] for e in events] == ["note", "answer", "done"] and events[1]["text"] == "Fine."
     assert seen == [True, None]
 
 

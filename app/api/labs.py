@@ -154,7 +154,7 @@ def reader() -> dict:
 
 
 @router.post("/extract")
-async def extract(file: UploadFile = File(...), method: str = Form("local")) -> dict:
+async def extract(file: UploadFile = File(...), method: str = Form("local"), profile_id: Optional[str] = Form(None)) -> dict:
     """Reads results from a lab report, on this machine ("local") or with the person's AI provider ("ai"). Nothing is
     saved: the person reviews and corrects the rows, then saves them with POST /api/labs."""
     if method not in ("local", "ai"):
@@ -163,7 +163,9 @@ async def extract(file: UploadFile = File(...), method: str = Form("local")) -> 
     content_type, filename = file.content_type or "", file.filename or ""
     try:
         if method == "ai":
-            out = await ai.extract_lab_results(data, content_type, filename)
+            # An outside AI needs the agreement of the person the report is about.
+            subject = (await run_in_threadpool(resolve_profile, profile_id))["id"] if profile_id else None
+            out = await ai.extract_lab_results(data, content_type, filename, subject)
         else:
             out = await run_in_threadpool(lab_report.read, data, content_type, filename)
     except (ai.AIError, lab_report.ReportError) as exc:

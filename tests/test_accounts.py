@@ -7,6 +7,7 @@ import sqlite3
 
 from fastapi.testclient import TestClient
 
+from app.core import data_fixes
 from tests.conftest import BASE, CSRF, LOCAL_CLIENT, PASSPHRASE
 
 MARIA_PASSWORD = "maria's own password"
@@ -207,6 +208,7 @@ def test_agent_tokens_read_only_what_their_account_sees(raw_client):
 def test_online_ai_consent_is_each_persons(raw_client):
     client = _signed_in_owner(raw_client)
     maria_client, _ = _join(client, _person(client, "Maria"))
+    client.put("/api/ai/config", json={"provider": "openai", "api_key": "sk-test", "model": "gpt-test"})
     assert client.post("/api/ai/acknowledge").status_code == 200
     assert client.get("/api/ai/config").json()["cloud_ack"]
     assert not maria_client.get("/api/ai/config").json()["cloud_ack"]
@@ -249,7 +251,7 @@ def test_an_instance_from_before_accounts_keeps_its_password(tmp_path, monkeypat
     conn.execute("PRAGMA user_version = 8")
     rows = [("setup.completed", True), ("auth.required", True), ("terms.accepted", {"version": 1, "at": 1}),
             ("auth.password_hash", stored_hash),
-            ("overview.layout.prf_a", [{"id": "sleep", "visible": True, "options": {}}]), ("ai.cloud_ack", 1.0),
+            ("overview.layout.prf_a", [{"id": "sleep", "visible": True, "options": {}}]), ("ai.cloud_ack", 1.0), ("ai.provider", "openai"),
             ("display.accent", "teal")]
     conn.executemany("INSERT INTO app_settings(key, value, updated_at) VALUES (?, ?, 0)", [(k, json.dumps(v)) for k, v in rows])
     conn.executemany("INSERT INTO profiles(id, name, relationship, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0)",
@@ -267,6 +269,7 @@ def test_an_instance_from_before_accounts_keeps_its_password(tmp_path, monkeypat
         assert status["preferences"]["accent"] == "teal"
         assert {p["name"]: p["access"] for p in status["profiles"]} == {"Alex": "manage", "Sam": "manage"}
         assert c.get("/api/profiles/prf_a/overview").json()["widgets"][0]["id"] == "sleep"
+        data_fixes.run_pending()
         assert c.get("/api/ai/config").json()["cloud_ack"]
 
 

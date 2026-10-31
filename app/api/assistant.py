@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import aclosing
 from typing import AsyncIterator, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -22,8 +23,9 @@ owner = Depends(auth.require_owner)
 
 
 @router.get("/api/ai/config")
-def get_config() -> dict:
-    return ai.config()
+def get_config(chat: bool = False) -> dict:
+    """The server's default AI, or with ``chat`` the one this person's questions in Ask go to."""
+    return ai.config(chat=chat)
 
 
 class AIConfig(BaseModel):
@@ -50,7 +52,7 @@ async def put_config(req: AIConfig, principal: auth.Principal = Depends(auth.req
                                 or not ai.is_set_up(req.provider, req.agent)):
         raise HTTPException(403, "Only the server's owner can set up an AI. You can choose between the ones set up.")
     if req.acknowledged:
-        await run_in_threadpool(ai.acknowledge_cloud)
+        await run_in_threadpool(ai.acknowledge_cloud, provider=req.provider, agent=req.agent, base_url=req.base_url)
     try:
         # Checking whether an address is private may look up its name.
         return await run_in_threadpool(ai.save_config, req.provider, req.model, req.api_key, req.base_url, req.label,
@@ -59,11 +61,28 @@ async def put_config(req: AIConfig, principal: auth.Principal = Depends(auth.req
         raise HTTPException(400, str(exc))
 
 
+class Acknowledgement(BaseModel):
+    vendor: Optional[str] = Field(None, max_length=300)      # from the config or the model menu; absent: the AI in use now
+    name: Optional[str] = Field(None, max_length=200)
+    provider: Optional[str] = Field(None, max_length=40)     # instead of vendor, an AI being connected
+    agent: Optional[str] = Field(None, max_length=20)
+    base_url: Optional[str] = Field(None, max_length=500)
+    summary: bool = False                                    # also sending a summary of the record, for a model with no tools
+
+
 @router.post("/api/ai/acknowledge")
-def acknowledge() -> dict:
-    """Confirms that an AI outside the person's network sees their questions and what it looks up (asked once)."""
-    ai.acknowledge_cloud()
+def acknowledge(req: Optional[Acknowledgement] = None) -> dict:
+    """Confirms that this AI outside the person's network sees their questions and what it looks up (asked once for each)."""
+    req = req or Acknowledgement()
+    ai.acknowledge_cloud(req.vendor, req.name, req.summary, req.provider, req.agent, req.base_url)
     return {"ok": True}
+
+
+@router.delete("/api/ai/acknowledge")
+def withdraw(vendor: str) -> dict:
+    """Takes back that agreement: nothing more goes to that AI for this person until they agree again."""
+    ai.withdraw_cloud(vendor)
+    return ai.config(chat=True)
 
 
 @router.delete("/api/ai/config", dependencies=[owner])
@@ -111,9 +130,18 @@ async def check_local(req: LocalCheck) -> dict:
     """Connects to a server the person typed in and lists its models."""
     try:
         url = ai_local.normalize_base_url(req.base_url)
-        return await ai_local.check(url, req.api_key or ai.settings.get("ai.key.local"))
+        return await ai_local.check(url, req.api_key or ai.saved_key_for("local", url))
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+
+
+@router.get("/api/ai/local/context")
+async def local_context() -> dict:
+    """How much the local model in use has room for at once, for the warning in Settings."""
+    cfg = ai.config()
+    if cfg.get("provider") != "local" or not cfg.get("configured"):
+        return {"tokens": None}
+    return await ai_local.context_info(cfg["base_url"], cfg["model"], ai.saved_key_for("local"))
 
 
 @router.get("/api/ai/agents")
@@ -139,9 +167,17 @@ class ChatMessage(BaseModel):
     content: str = Field(..., max_length=40_000)
 
 
+class ExpectedAI(BaseModel):
+    provider: Optional[str] = Field(None, max_length=40)
+    agent: Optional[str] = Field(None, max_length=20)
+    model: Optional[str] = Field(None, max_length=200)
+    vendor: Optional[str] = Field(None, max_length=300)
+
+
 class ChatRequest(BaseModel):
     profile_id: Optional[str] = None
     messages: list[ChatMessage] = Field(..., min_length=1, max_length=200)
+    expect: Optional[ExpectedAI] = None      # the AI the page says this goes to: nothing is sent if it isn't that one
 
 
 @router.post("/api/ai/chat")
@@ -150,8 +186,11 @@ async def chat(req: ChatRequest) -> StreamingResponse:
     prof = resolve_profile(req.profile_id, "view")
 
     async def events() -> AsyncIterator[bytes]:
-        async for event in ai.chat(prof["id"], [m.model_dump() for m in req.messages]):
-            yield (json.dumps(event, ensure_ascii=False) + "\n").encode()
+        expect = req.expect.model_dump(exclude_none=True) if req.expect else None
+        # Closed as soon as the person stops or leaves: an agent's process ends and the question stops counting.
+        async with aclosing(ai.chat(prof["id"], [m.model_dump() for m in req.messages], expect)) as answer:
+            async for event in answer:
+                yield (json.dumps(event, ensure_ascii=False) + "\n").encode()
 
     return StreamingResponse(events(), media_type="application/x-ndjson", headers={"Cache-Control": "no-store"})
 
@@ -174,6 +213,8 @@ class SavedMessage(BaseModel):
     steps: list[str] = Field(default_factory=list, max_length=40)
     note: Optional[str] = Field(None, max_length=1000)
     by: Optional[str] = Field(None, max_length=300)
+    stopped: Optional[bool] = None     # the person stopped it, so it's only part of an answer
+    cut: Optional[bool] = None         # the model ran out of room
 
 
 class ChatIn(BaseModel):

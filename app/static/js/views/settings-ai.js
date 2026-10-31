@@ -3,7 +3,7 @@
 // connected; Ask's model menu switches between all of them.
 import { del, get, post, put } from "../api.js";
 import { $, confirmDialog, fmtAgo, fmtDate, html, icon, modal, mount, onAction, plural, toast } from "../ui.js";
-import { confirmAiProvider } from "../consent.js";
+import { confirmAiProvider, vendorKey } from "../consent.js";
 import { logo, logoId } from "../ai-logos.js";
 import { openModelPicker } from "../model-picker.js";
 
@@ -13,13 +13,14 @@ const NAME = { anthropic: "Anthropic", openai: "OpenAI", gemini: "Google Gemini"
   mistral: "Mistral", groq: "Groq", deepseek: "DeepSeek", together: "Together AI", fireworks: "Fireworks AI", cerebras: "Cerebras",
   custom: "Other service" };
 const BLURB = { anthropic: "Claude", openai: "GPT and o-series", gemini: "Gemini", openrouter: "Hundreds of models, one key",
-  xai: "Grok", mistral: "Mistral and Codestral", groq: "Fast open models", deepseek: "DeepSeek V and R", together: "Open models",
+  xai: "Grok", mistral: "Mistral and Codestral", groq: "Fast open models", deepseek: "DeepSeek's own models", together: "Open models",
   fireworks: "Open models", cerebras: "Fast open models", custom: "Any OpenAI-compatible API" };
 const KEY_URL = { anthropic: "https://console.anthropic.com/settings/keys", openai: "https://platform.openai.com/api-keys",
   gemini: "https://aistudio.google.com/apikey", openrouter: "https://openrouter.ai/keys", xai: "https://console.x.ai",
   mistral: "https://console.mistral.ai/api-keys", groq: "https://console.groq.com/keys", deepseek: "https://platform.deepseek.com/api_keys",
   together: "https://api.together.ai/settings/api-keys", fireworks: "https://fireworks.ai/account/api-keys", cerebras: "https://cloud.cerebras.ai" };
 
+const SMALL_WINDOW = 8000;     // tokens; below this Ask offers the model fewer lookups
 const gb = (bytes) => (bytes ? `${(bytes / 1e9).toFixed(bytes >= 1e10 ? 0 : 1)} GB` : "");
 
 function toolsBadge(tools) {
@@ -35,6 +36,7 @@ function whereText(c) {
     return c.address?.private ? html`${icon("shieldCheck")}<span>Runs on your own hardware. Nothing leaves your network.</span>`
       : html`${icon("globe")}<span>Runs on a server you chose, at ${c.base_url}.</span>`;
   }
+  if (c.tools === false) return html`${icon("globe")}<span>This model can't look things up, so questions and a summary of the record go to ${c.label}, billed to your account.</span>`;
   return html`${icon("globe")}<span>Questions and only the records it looks up go to ${c.label}, billed to your account.</span>`;
 }
 
@@ -76,7 +78,7 @@ function snippets(url, token, local) {
 }
 
 export async function renderAiTab(body, { state, redraw }) {
-  const cfg = await get("/api/ai/config");
+  const cfg = await get("/api/ai/config", { chat: true }, { fresh: true });
   // Connecting an AI is the owner's (it serves everyone); anyone switches between them and agrees for themselves.
   const owner = cfg.can_configure !== false;
   const [{ tokens }, { profiles }, local, agentInfo] = await Promise.all([get("/api/agents/tokens"), get("/api/profiles"),
@@ -87,14 +89,21 @@ export async function renderAiTab(body, { state, redraw }) {
   let detected = null;          // local AI servers found on this computer, once the scan finishes
   let scanning = true;
 
-  const consent = async (name) => {
-    if (cfg.cloud_ack) return true;
-    const ok = await confirmAiProvider(name);
-    if (ok) cfg.cloud_ack = true;
+  const consent = async (name, vendor) => {
+    if (cfg.cloud_acks.some((a) => a.vendor === vendor)) return true;
+    const ok = await confirmAiProvider(name, vendor);
+    if (ok) cfg.cloud_acks.push({ vendor, name, at: Date.now() / 1000 });
     return ok;
   };
   const isDefault = (id, agent) => cfg.configured && (agent ? cfg.provider === "agent" && cfg.agent_id === agent : cfg.provider === id);
 
+  // A local model with little room at once: what that does to answers, and how to give it more.
+  let context = null;
+  const windowNote = () => {
+    if (!context?.tokens || context.tokens >= SMALL_WINDOW) return "";
+    return html`<p class="small muted" style="margin-top:8px" id="ai-window">${cfg.model} has room for about ${context.tokens.toLocaleString()} tokens at a time, so long lookups are cut down and some can't run, and answers can miss things.
+      ${context.server === "ollama" ? "To give it more, set OLLAMA_CONTEXT_LENGTH=16384 before starting Ollama, or use the context length slider in Ollama's settings. A larger window uses more memory." : "To give it more, load the model with a larger context length in its server's settings. A larger window uses more memory."}</p>`;
+  };
   // ------------------------------------------------------------------ the default
   const defaultCard = () => {
     if (!cfg.configured && connectedRows().length) {
@@ -115,11 +124,12 @@ export async function renderAiTab(body, { state, redraw }) {
     return html`<section class="card ai-default">
       <span class="ai-default-logo">${logo(id, cfg.label, "", cfg.kind === "local" ? "monitor" : "globe")}</span>
       <div class="grow" style="min-width:0">
-        <div class="eyebrow">Default for Ask</div>
+        <div class="eyebrow">${owner ? "Default for Ask" : "Your questions in Ask"}</div>
         <button class="ai-default-pick" id="default-pick" aria-haspopup="dialog" aria-expanded="false">
           <span class="truncate">${model}</span><span class="muted truncate">${cfg.label}</span>${icon("chevronDown")}</button>
         <div class="ai-where ${cfg.kind === "local" && cfg.address?.private ? "private" : ""}">${whereText(cfg)}</div>
         ${cfg.kind !== "agent" && cfg.tools != null ? html`<div style="margin-top:8px">${toolsBadge(cfg.tools)}</div>` : ""}
+        ${windowNote()}
       </div>
       ${owner ? html`<button class="btn btn-sm" data-action="test-ai">Test</button>` : ""}
     </section>`;
@@ -133,7 +143,7 @@ export async function renderAiTab(body, { state, redraw }) {
       const meta = p.id === "local" ? `${p.base_url.replace(/^https?:\/\//, "").replace(/\/v1$/, "")}${p.saved_model ? ` · ${p.saved_model}` : ""}`
         : [p.models ? plural(p.models, "model") : null, p.id === "custom" ? p.base_url.replace(/^https?:\/\//, "") : null, "Key saved"].filter(Boolean).join(" · ");
       rows.push({ id: p.id, logo: logoId({ provider: p.id, label: p.label }), label: p.id === "custom" || p.id === "local" ? p.label : NAME[p.id] || p.label,
-        meta, kind: p.id === "local" ? "local" : "key", isDefault: isDefault(p.id) });
+        meta, kind: p.id === "local" ? "local" : "key", private: p.private === true, isDefault: isDefault(p.id) });
     }
     for (const a of agents.agents || []) {
       if (!a.installed || a.signed_in === false) continue;
@@ -152,7 +162,7 @@ export async function renderAiTab(body, { state, redraw }) {
         <span class="ai-conn-logo">${logo(r.logo, r.label, "", r.kind === "local" ? "monitor" : "globe")}</span>
         <div class="grow" style="min-width:0"><div class="row" style="gap:8px"><b class="truncate">${r.label}</b>
           ${r.isDefault ? html`<span class="badge accent">Default</span>` : ""}
-          ${r.kind === "local" ? html`<span class="badge good">Private</span>` : ""}</div>
+          ${r.private ? html`<span class="badge good">Private</span>` : ""}</div>
           <div class="meta truncate">${r.meta}</div></div>
         ${owner ? html`<div class="row" style="gap:6px;flex:none">
           ${r.isDefault ? "" : html`<button class="btn btn-sm btn-ghost hide-narrow" data-action="make-default" data-id="${r.id}">Make default</button>`}
@@ -213,15 +223,19 @@ export async function renderAiTab(body, { state, redraw }) {
       : html`<p class="small muted" style="padding:0 18px 16px">No apps connected yet.</p>`}
   </section>`;
 
-  // Someone who isn't the owner: their own agreement to an online AI.
-  const memberCard = () => html`<section class="card set-card"><header><h3>Your records and online AI</h3>
-      <p>${cfg.cloud_ack ? "You've agreed that an AI outside your network may see your questions and the records Ask looks up. The people you share with can ask about you with it too."
-        : "Before Ask sends your questions and records to an AI outside your network, it asks you once. Until you agree, others you share with can only ask about you with a local model."}</p></header>
-    <div class="set-foot small muted">The server's owner chooses which AIs are connected. Switch between them from Ask's model menu.</div></section>`;
+  // Each person's own agreements to AIs outside their network, and taking one back.
+  const agreementsCard = () => html`<section class="card set-card"><header><h3>Your records and online AI</h3>
+      <p>${cfg.cloud_acks.length ? "These can see your questions and the records Ask looks up. The people you share with can ask about you with them too. If you take one back, nothing more is sent to it for you until you agree again. What it has already received stays under its own terms."
+        : "Before Ask sends your questions and records to an AI outside your network, it asks you, once for each one. Until you agree, others you share with can only ask about you with a local model."}</p></header>
+    ${cfg.cloud_acks.length ? html`<div class="list" style="border-top:1px solid var(--border)">${cfg.cloud_acks.map((a) => html`<div class="list-item">
+      <div class="grow" style="min-width:0"><b class="truncate">${a.name}</b>${a.at ? html`<div class="meta">Agreed ${fmtDate(a.at)}${a.summary ? ", including a summary of the record" : ""}</div>` : ""}</div>
+      <button class="btn btn-sm btn-ghost btn-danger" data-action="withdraw-ai" data-id="${a.vendor}" data-name="${a.name}">Take back</button></div>`)}</div>` : ""}
+    ${owner ? "" : html`<div class="set-foot small muted">The server's owner chooses which AIs are connected. Your choice in Ask's model menu is only for your own questions.</div>`}</section>`;
 
   const draw = () => mount(body, html`<div class="stack ai-settings">
     ${defaultCard()}
-    ${owner ? html`${connectedCard()}${addCard()}` : memberCard()}
+    ${owner ? html`${connectedCard()}${addCard()}` : ""}
+    ${agreementsCard()}
     ${appsCard()}</div>`);
   draw();
 
@@ -233,15 +247,16 @@ export async function renderAiTab(body, { state, redraw }) {
     draw();
   };
   if (owner) scan();
+  if (cfg.provider === "local" && cfg.configured) get("/api/ai/local/context", null, { fresh: true }).then((r) => { context = r; draw(); }, () => {});
 
   /** Makes a connected AI the default for Ask. */
   const choose = async (choice, label) => {
     const { provider, agent, model } = choice;
     // A local model on the home network needs no agreement; one on the internet is confirmed when Ask first uses it.
-    if (provider !== "local" && !(await consent(label))) return;
+    if (provider !== "local" && !(await consent(choice.vendor_name || label, choice.vendor_key || vendorKey(provider, agent, providers[provider]?.base_url || "")))) return;
     try {
       await put("/api/ai/config", provider === "agent" ? { provider, agent, model: model ?? undefined } : { provider, model });
-      toast(`${label} is now the default`, "good");
+      toast(owner ? `${label} is now the default` : `Ask now uses ${label} for your questions`, "good");
     } catch (err) { toast(err.message, "bad"); return; }
     redraw();
   };
@@ -254,7 +269,7 @@ export async function renderAiTab(body, { state, redraw }) {
   body.addEventListener("click", (e) => {
     const pickBtn = e.target.closest("#default-pick");
     if (!pickBtn) return;
-    openModelPicker(pickBtn, { onPick: (o, g) => choose(o, g.label) });
+    openModelPicker(pickBtn, { onPick: (o, g) => choose({ ...o, vendor_key: g.vendor_key, vendor_name: g.vendor_name }, g.label) });
   });
 
   return onAction(body, {
@@ -281,6 +296,10 @@ export async function renderAiTab(body, { state, redraw }) {
       } catch (err) { toast(err.message, "bad"); }
       btn.disabled = false;
       btn.textContent = "Test";
+    },
+    "withdraw-ai": async ({ id, name }) => {
+      if (!(await confirmDialog(`Take back your agreement with ${name}?`, "Nothing more is sent to it for you until you agree again. What it has already received stays under its own terms.", { confirmLabel: "Take back", danger: true }))) return;
+      try { await del("/api/ai/acknowledge", { vendor: id }); redraw(); } catch (err) { toast(err.message, "bad"); }
     },
     "connect-app": () => connectApp({ url, local, profiles, state, onToken: (t) => { tokens.unshift(t); draw(); } }),
     "check-tokens": async () => {
@@ -340,7 +359,7 @@ function connectKey({ id, cfg, providers, consent, done }) {
   const name = custom ? (p.connected ? p.label : "Another service") : NAME[id];
   const { m, form, connectBtn } = connectModal({
     logoKey: custom ? logoId({ provider: "custom", label: p.label }) : id, title: p.connected ? name : `Connect ${name}`,
-    lead: "Billed to your account with the provider. It receives your questions and only the records Ask looks up, which it can read but never change.",
+    lead: "Billed to your account with the provider. It receives your questions and the records Ask looks up, which it can read but never change.",
     connected: p.connected, onDisconnect: async () => { await del(`/api/ai/providers/${id}`); toast(`${name} disconnected`); done(); },
   });
   let models = null;      // null until listed
@@ -392,7 +411,8 @@ function connectKey({ id, cfg, providers, consent, done }) {
   form.addEventListener("input", (e) => { if (e.target.id === "ai-key" && models) { models = null; draw(); $("#ai-key", form).focus(); } });
   connectBtn.addEventListener("click", async () => {
     const label = custom ? ($("#custom-label", form).value.trim() || "That service") : name;
-    if (!(await consent(label))) return;
+    const vendor = vendorKey(id, null, custom ? $("#custom-url", form).value : "");
+    if (!(await consent(custom ? `${label} (${vendor.slice(5)})` : label, vendor))) return;
     const key = $("#ai-key", form).value.trim();
     const makeDefault = !cfg.configured || isDefault || !!$("#make-default", form)?.checked;
     const body = { provider: id, model: $("#ai-model", form).value, make_default: makeDefault, ...(key ? { api_key: key } : {}),
@@ -467,6 +487,9 @@ function connectLocal({ address, cfg, detected, consent, done }) {
       ${st.models.length ? defaultToggle(cfg, isDefault) : ""}
       <p class="small muted ai-status-line" id="local-status"></p>`);
     if (keep.def) { const d = $("#make-default", form); if (d) d.checked = true; }
+    const lead = $(".ai-connect-head p", m.el);
+    if (lead) lead.textContent = st.private === false ? "This address is on the internet. Your questions and the records Ask looks up go to that server."
+      : "Ollama, LM Studio, Jan, llama.cpp or vLLM, on this computer or another at home. Nothing leaves your network.";
     connectBtn.disabled = !st.models.length;
   };
   const check = async (addr, name) => {
@@ -489,7 +512,8 @@ function connectLocal({ address, cfg, detected, consent, done }) {
     if (e.target.closest("[data-check]")) check($("#local-url", form).value, "");
   });
   connectBtn.addEventListener("click", async () => {
-    if (st.private === false && !(await consent(st.name || "That server"))) return;
+    const vendor = vendorKey("local", null, st.address);
+    if (st.private === false && !(await consent(`${st.name || "That server"} (${vendor.slice(5)})`, vendor))) return;
     const key = $("#local-key", form)?.value;
     const makeDefault = !cfg.configured || isDefault || !!$("#make-default", form)?.checked;
     connectBtn.disabled = true;
@@ -539,7 +563,7 @@ function connectAgent({ agent, cfg, consent, done, refresh }) {
     if (e.target.closest("[data-refresh]")) { a = (await refresh()) || a; draw(); }
   });
   connectBtn.addEventListener("click", async () => {
-    if (!(await consent(a.vendor))) return;
+    if (!(await consent(a.vendor, vendorKey("agent", a.id)))) return;
     const makeDefault = !cfg.configured || isDefault || !!$("#make-default", form)?.checked;
     try {
       await put("/api/ai/config", { provider: "agent", agent: a.id, model: $("#agent-model", form).value, make_default: makeDefault });

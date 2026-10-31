@@ -125,7 +125,7 @@ export async function openLabEntry(profile, onSaved) {
     else if (t.dataset.read) {
       if (!file) return toast("Choose a PDF or photo first.");
       if (t.dataset.read === "ai" && ai.sends_elsewhere && !ai.cloud_ack) {
-        if (!(await confirmAiProvider(ai.label))) return;
+        if (!(await confirmAiProvider(ai.vendor_name, ai.vendor_key))) return;
         ai.cloud_ack = true;
       }
       readRows(); reading = t.dataset.read; draw();
@@ -133,6 +133,7 @@ export async function openLabEntry(profile, onSaved) {
         const form = new FormData();
         form.append("file", file);
         form.append("method", reading);
+        form.append("profile_id", profile.id);
         const out = await api("/api/labs/extract", { method: "POST", form });
         if (!out.results.length) {
           toast(reading === "local" && ai.configured ? `No results found. Try a sharper photo taken straight on, or Read with ${ai.label}.`

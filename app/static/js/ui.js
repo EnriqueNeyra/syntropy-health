@@ -237,7 +237,7 @@ export function markdown(text) {
   const inline = (s) => s
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<i>$2</i>")
+    .replace(/(^|[^*\w])\*([^*\s](?:[^*]*[^*\s])?)\*(?![*\w])/g, "$1<i>$2</i>")
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
   const out = [];
   let i = 0;

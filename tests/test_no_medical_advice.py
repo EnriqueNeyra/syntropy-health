@@ -75,7 +75,7 @@ def test_the_phrase_check_would_catch_what_used_to_be_said():
 
 
 @pytest.mark.parametrize("path", [
-    "services/insights.py", "services/ai.py", "mcp_server.py", "static/js/alerts.js", "static/js/onboarding.js", "static/js/views/ask.js",
+    "services/insights.py", "services/ai.py", "mcp_server.py", "static/js/alerts.js", "static/js/consent.js", "static/js/onboarding.js", "static/js/views/ask.js",
     "static/js/views/overview.js", "static/js/views/report.js", "static/js/views/sleep-view.js", "static/js/views/trends.js",
     "static/js/views/workouts.js",
 ])
@@ -85,6 +85,15 @@ def test_no_advice_is_written_into_the_apps_text(path):
                    "worth raising", "check with your", "talk it over", "common approach", "how fitness grows", "good for recovery",
                    "more restful", "tends to help", "a prompt to pay attention", "coach", "urgent"):
         assert phrase not in text, phrase
+
+
+def test_what_ask_itself_says_about_an_answer_gives_no_advice():
+    cfg = {"label": "Claude"}
+    said = [ai.NOT_CHECKED, ai.SUMMARY_ACK_NEEDED, ai.CLOUD_ACK_NEEDED]
+    for ending, text in (("refused", ""), ("cut", ""), (None, ""), ("cut", "Part of it")):
+        said += [e.get("message") or e.get("text") or "" for e in ai._closing(cfg, ai.Reply(text=text, ending=ending))]
+    for text in said:
+        assert not ADVICE.search(text.replace("Part of it", "")), text
 
 
 def test_the_urgent_route_is_gone():
