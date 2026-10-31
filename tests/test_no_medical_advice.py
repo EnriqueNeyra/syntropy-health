@@ -103,6 +103,13 @@ def test_a_change_in_a_reading_is_neither_good_nor_bad(client, metric, usual, no
     assert [i["tone"] for i in insights._changes(pid)] == ["info"]
 
 
+def test_what_a_correction_says_only_repeats_what_the_person_said():
+    from app.store import record_overrides
+
+    for words in record_overrides.WORDS.values():
+        assert not ADVICE.search(words), words
+
+
 def test_the_urgent_route_is_gone():
     assert "/api/insights/urgent" not in {getattr(r, "path", None) for r in fastapi_app.routes}
 

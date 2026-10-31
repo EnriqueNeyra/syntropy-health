@@ -1,10 +1,10 @@
-import { get } from "../api.js";
+import { get, post } from "../api.js";
 import { setToolbar } from "../app.js";
 import { openLabEntry } from "./lab-entry.js";
 import { openRecord } from "./record-detail.js";
 import { recordValue } from "../units.js";
 import {
-  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loading, mount, onAction, recordDate, resultStatus, statusBadge,
+  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loading, modal, mount, onAction, recordDate, resultStatus, statusBadge, toast,
 } from "../ui.js";
 
 const PAGE = 100;
@@ -20,6 +20,7 @@ function rowMeta(r) {
   else if (r.category === "care_team") bits.push(r.narrative);
   const n = (r.sources || []).length;
   bits.push(n > 1 ? `${n} sources` : r.source_name);
+  if (r.override) bits.push(`You said: ${r.override.text}`);
   return bits.filter(Boolean).join(" · ");
 }
 
@@ -53,7 +54,8 @@ export async function render({ el, parts, params, state, navigate }) {
     <div class="page-head"><div><h1>Records</h1><p>Everything from every source, merged and de-duplicated.</p></div>
       <div class="row wrap"><div class="search" style="min-width:240px">${icon("search")}<input class="input" id="rec-q" placeholder="Search records, codes, notes…" aria-label="Search records" value="${q}"></div>
         ${appBar ? "" : html`<a class="btn" href="#/report" title="A one-page summary to print or save as PDF">${icon("printer")} Visit summary</a>
-        <button class="btn btn-primary" data-action="add-labs">${icon("plus")} Add lab results</button>`}</div></div>
+        <button class="btn btn-primary" data-action="add-labs">${icon("plus")} Add lab results</button>`}
+        <button class="btn" data-action="add-own">${icon("plus")} Add a medication or allergy</button></div></div>
     ${connection ? html`<div class="banner info"><div class="grow">Showing records from one source only.</div><a class="btn btn-sm" href="#/records">Show all</a></div>` : ""}
     <div class="chips" id="rec-cats" style="margin-bottom:16px"></div>
     <div class="card" id="rec-list"></div>`);
@@ -103,6 +105,31 @@ export async function render({ el, parts, params, state, navigate }) {
     cat: ({ cat }) => { category = cat; drawCats(); history.replaceState(null, "", `#/records${cat ? "/" + cat : ""}`); load(); },
     open: ({ id }) => openRecord(id, () => load()),
     "add-labs": () => openLabEntry(profile, () => navigate("#/records/labs")),
+    "add-own": () => openSelfReported(profile, () => load()),
     more: () => { offset += PAGE; return load(true); },
+  });
+}
+
+/** A medication, supplement or allergy no source lists. Goes in as the person's own word, and says so wherever it's shown. */
+function openSelfReported(profile, done) {
+  const m = modal({ title: "Add a medication or allergy", body: html`<form class="stack" id="own-form">
+    <p class="small muted">For what your record is missing, such as something bought over the counter. It's shown as patient-reported.</p>
+    <label class="field"><span class="label">What is it</span><select class="input" name="kind">
+      <option value="medication">A medication</option><option value="supplement">A supplement</option><option value="allergy">An allergy</option></select></label>
+    <label class="field"><span class="label">Name</span><input class="input" name="name" required maxlength="200"></label>
+    <label class="field"><span class="label">How it's taken, or the reaction</span><input class="input" name="how" maxlength="500"></label>
+    <label class="field"><span class="label">Since (optional)</span><input class="input" type="date" name="started"></label>
+    <label class="field"><span class="label">Note (optional)</span><textarea class="input" name="note" rows="2" maxlength="2000"></textarea></label>
+    <div class="row"><button class="btn btn-primary" type="submit">Add</button></div></form>` });
+  m.el.querySelector("#own-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    try {
+      await post("/api/records/self-reported", { profile_id: profile.id, kind: f.get("kind"), name: f.get("name"),
+        how: f.get("how") || null, started: f.get("started") || null, note: f.get("note") || null });
+    } catch (err) { toast(err.message, "bad"); return; }
+    m.close();
+    toast("Added");
+    done();
   });
 }

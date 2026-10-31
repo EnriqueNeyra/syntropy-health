@@ -947,6 +947,8 @@ doesn't show.
 - For "anything out of range", use out_of_range_recent_labs and the flag on each result. Those in older_out_of_range_labs are over a year old and weren't repeated \
 since: say so rather than presenting them as current. A result_status of preliminary may still change.
 - A result written like "<0.5" is a limit, not a measurement: it says below 0.5, and never exactly 0.5.
+- person_says, on any entry, is what the person told this app about it, in their own words. Say so, beside what the source says. Those in \
+corrected_by_the_person are on record, and the person says they aren't taking them or that they're wrong: never state them as current or as facts.
 - Medications in current_medications are what the records list as current. Those in medications_may_be_out_of_date are on record but may not be current, for the \
 reason given (med_reason): never state them as being taken. Those planned but not started aren't being taken.
 - Conditions in active_conditions are active problems. Unconfirmed ones are possibilities and never facts; ones with no stated status and \
@@ -994,6 +996,7 @@ def summary_context(profile_id: str, budget_chars: int) -> str:
         ("unconfirmed_conditions_not_facts", s["unconfirmed_conditions"]), ("conditions_status_not_stated", s["conditions_status_not_stated"]),
         ("current_medications", s["active_medications"]), ("medications_may_be_out_of_date", s["medications_may_be_out_of_date"]),
         ("medications_planned_not_started", s["medications_planned_not_started"]), ("allergies", s["allergies"]),
+        ("corrected_by_the_person", s["corrected_by_the_person"]),
         ("wearables_latest_and_7_30_day_averages", s["wearable_headline_30d"]), ("latest_vitals", s["latest_vitals"]),
         ("patterns_across_sources", _safe(lambda: [{k: i[k] for k in ("title", "text")} for i in insights.insights(profile_id, 10)])),
         ("workouts_last_30_days", activity.workout_summary(profile_id, 30)),

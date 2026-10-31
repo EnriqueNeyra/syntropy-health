@@ -122,5 +122,5 @@ def test_the_csv_keeps_its_columns_and_adds_what_the_lab_said(client):
     header = lines[0].split(",")
     assert header[:15] == ["category", "title", "code_system", "code", "effective_at", "status", "value", "unit", "value_normalized", "unit_normalized",
                            "reference_low", "reference_high", "interpretation", "source", "narrative"]
-    assert header[15:] == ["value_as_reported", "comparator", "reference_as_reported"]
+    assert header[15:] == ["value_as_reported", "comparator", "reference_as_reported", "patient_reported_correction"]
     assert "<0.5 ng/mL,<," in lines[1]

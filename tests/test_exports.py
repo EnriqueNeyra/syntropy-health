@@ -471,7 +471,7 @@ def test_an_archive_holds_everything_about_a_person(client):
     pid = _rich_person(client)
     z = _archive(client, pid)
     assert {"manifest.json", "README.txt", "fhir.json", "summary-ips.json", "records.csv", "daily.csv", "workouts.csv", "events.csv",
-            "samples.ndjson", "workouts.ndjson", "journal.ndjson", "goals.json", "chats.ndjson"} == set(z.namelist())
+            "samples.ndjson", "workouts.ndjson", "journal.ndjson", "goals.json", "chats.ndjson", "corrections.json", "documents.json"} == set(z.namelist())
     manifest = json.loads(z.read("manifest.json"))
     assert manifest["format"] == exports.ARCHIVE_FORMAT and manifest["schema_version"] == db.newest_schema()
     assert manifest["counts"]["samples"] == 5 and manifest["counts"]["workouts"] == 1 and manifest["person"]["name"] == "Person Zebra"

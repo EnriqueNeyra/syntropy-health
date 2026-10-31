@@ -16,11 +16,11 @@ from app.connectors import units
 from app.connectors.fhir_normalize import partial_pressure
 from app.core import data_fixes, settings
 from app.core.db import audit, db, finite, note_deleted, read, dumps, row_to_dict, rows_to_dicts, write_in_batches
-from app.store import lab_catalog, search
+from app.store import lab_catalog, record_overrides, search
 
 CATEGORIES = [
     "conditions", "medications", "allergies", "labs", "vitals", "immunizations", "encounters",
-    "procedures", "notes", "reports", "care_team", "care_plans", "goals", "devices", "coverage", "observations",
+    "procedures", "notes", "reports", "care_team", "care_plans", "goals", "devices", "coverage", "observations", "other",
 ]
 
 CATEGORY_LABELS = {
@@ -28,7 +28,7 @@ CATEGORY_LABELS = {
     "labs": "Lab results", "vitals": "Vital signs", "immunizations": "Immunizations",
     "encounters": "Visits", "procedures": "Procedures", "notes": "Clinical notes",
     "reports": "Diagnostic reports", "care_team": "Care team", "care_plans": "Care plans",
-    "goals": "Goals", "devices": "Devices", "coverage": "Insurance", "observations": "Other observations",
+    "goals": "Goals", "devices": "Devices", "coverage": "Insurance", "observations": "Other observations", "other": "Other records",
 }
 
 ENDED_MED_STATUSES = ("stopped", "completed", "cancelled", "entered-in-error", "not-taken", "superseded")
@@ -248,6 +248,11 @@ def reconcile(connection_id: str, seen_ids: set[str], verdict: Any, retracted: I
     with db() as conn:
         conn.execute("DELETE FROM clinical_records_removed WHERE connection_id = ? AND removed_at < ?",
                      (connection_id, now - REMOVED_KEEP_DAYS * 86400))
+        # A document stays as long as its record could be put back.
+        conn.execute("""DELETE FROM record_files WHERE connection_id = ?1 AND NOT EXISTS (SELECT 1 FROM clinical_records r WHERE r.connection_id = ?1
+                            AND r.resource_type = record_files.resource_type AND r.resource_id = record_files.resource_id)
+                        AND NOT EXISTS (SELECT 1 FROM clinical_records_removed x WHERE x.connection_id = ?1
+                            AND x.resource_type = record_files.resource_type AND x.resource_id = record_files.resource_id)""", (connection_id,))
     return {"removed": len(took_back) + len(removing), "retracted": len(took_back), "held": held, "missing": len(newly_missing)}
 
 
@@ -349,6 +354,7 @@ def delete_for_connection(connection_id: str) -> None:
     with db() as conn:
         conn.execute("DELETE FROM clinical_records WHERE connection_id = ?", (connection_id,))
         conn.execute("DELETE FROM clinical_records_removed WHERE connection_id = ?", (connection_id,))
+        conn.execute("DELETE FROM record_files WHERE connection_id = ?", (connection_id,))
         conn.execute("DELETE FROM sync_query_state WHERE connection_id = ?", (connection_id,))
         conn.execute("DELETE FROM patient_identities WHERE connection_id = ?", (connection_id,))
 
@@ -417,6 +423,8 @@ def condition_class(rec: dict[str, Any], today: Optional[date] = None) -> str:
     """The one rule for what a condition means right now. "active" is an active problem: clinical status active, recurrence or
     relapse, on the problem list or with no category, and not ended. The rest stay visible under their own name: "unconfirmed",
     "unknown" (no status stated), "visit" (a diagnosis made at a visit) and "inactive"."""
+    if _said_wrong(rec):
+        return "corrected"
     today = today or date.today()
     status = (rec.get("status") or "").lower()
     verification = ((rec.get("details") or {}).get("verification") or "").lower()
@@ -429,7 +437,13 @@ def condition_class(rec: dict[str, Any], today: Optional[date] = None) -> str:
     return "unconfirmed" if verification in UNCONFIRMED_VERIFICATION else "active"
 
 
+def _said_wrong(rec: dict[str, Any]) -> bool:
+    return (rec.get("override") or {}).get("state") == record_overrides.WRONG
+
+
 def _allergy_active(rec: dict[str, Any]) -> bool:
+    if _said_wrong(rec):
+        return False
     return (rec.get("status") or "active").lower() not in INACTIVE_ALLERGY_STATUSES + NOT_ALLERGIES
 
 
@@ -645,6 +659,7 @@ def list_records(
         rows = _load(conn.execute(sql, params).fetchall())
     if dedupe:
         rows = _dedupe(rows)
+    record_overrides.attach(profile_id, rows)
     total = len(rows)
     return {"total": total, "offset": offset, "limit": limit, "items": rows[offset:offset + limit]}
 
@@ -685,6 +700,16 @@ def _reported_elsewhere(conn, rec: dict[str, Any]) -> list[dict[str, Any]]:
         f"SELECT {columns} FROM clinical_records WHERE id IN ({','.join('?' * len(ids))})", ids).fetchall())
 
 
+def _same_source_orders(conn, rec: dict[str, Any]) -> list[dict[str, Any]]:
+    """A prescription renewed: the same drug from the same source, on rows of its own, which a list folds into the newest."""
+    if rec["category"] != "medications" or not rec.get("dedup_key"):
+        return []
+    return rows_to_dicts(conn.execute(
+        "SELECT id, source_name, effective_at, value_text, status FROM clinical_records WHERE profile_id = ? AND dedup_key = ? AND id != ? "
+        "AND connection_id = ? ORDER BY coalesce(effective_at, '') DESC LIMIT 50",
+        (rec["profile_id"], rec["dedup_key"], rec["id"], rec["connection_id"])).fetchall())
+
+
 def get_record(record_id_: str, profile_id: Optional[str] = None) -> Optional[dict[str, Any]]:
     with read() as conn:
         row = conn.execute("SELECT * FROM clinical_records WHERE id = ?", (record_id_,)).fetchone()
@@ -693,6 +718,7 @@ def get_record(record_id_: str, profile_id: Optional[str] = None) -> Optional[di
         rec = row_to_dict(row, ["details_json", "raw_json"])
         assert rec is not None
         others = _reported_elsewhere(conn, rec)
+        renewals = _same_source_orders(conn, rec)
         refs = [r for r in (rec.get("details") or {}).get("result_refs") or [] if isinstance(r, str)]
         keys = ["/".join(r.rstrip("/").split("/")[-2:]) for r in refs]   # "Observation/123", also from absolute URLs
         results = rows_to_dicts(conn.execute(
@@ -703,6 +729,8 @@ def get_record(record_id_: str, profile_id: Optional[str] = None) -> Optional[di
         ).fetchall()) if keys else []
     rec["duplicates"] = others
     rec["results"] = results
+    rec["renewals"] = renewals
+    record_overrides.attach(rec["profile_id"], [rec])
     return rec
 
 
@@ -1026,7 +1054,8 @@ def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
         rows = rows_to_dicts(conn.execute(
             f"SELECT {_LAB_FLAG_COLUMNS} FROM clinical_records WHERE profile_id = ? AND category = 'labs' "
             "ORDER BY coalesce(effective_at, '') DESC, updated_at DESC", (profile_id,)).fetchall())
-    return _out_of_range(_latest_labs(_dedupe(rows)[:SUMMARY_LABS]))
+    record_overrides.attach(profile_id, rows)
+    return _out_of_range(_latest_labs(_dedupe([r for r in rows if not _said_wrong(r)])[:SUMMARY_LABS]))
 
 
 def recently_normal_lab_codes(profile_id: str, since: str, limit: int) -> list[str]:
@@ -1069,7 +1098,18 @@ def drug_key(title: Optional[str]) -> Optional[str]:
 def medication_tier(med: dict[str, Any], today: Optional[date] = None) -> tuple[Optional[str], Optional[str]]:
     """The one rule for what a medication on record means right now, with the reason in words. "current": an active order in date.
     "check": still listed, but it may be out of date, so it's shown with why rather than hidden or presented as being taken.
-    "planned": a draft or proposal nobody has started. None: stopped, completed, cancelled or a mistake."""
+    "planned": a draft or proposal nobody has started. "corrected": the person said it isn't so, which is shown beside what the source
+    says. None: stopped, completed, cancelled or a mistake."""
+    tier, reason = _source_tier(med, today)
+    override = med.get("override") or {}
+    if tier is None or override.get("state") not in (record_overrides.NOT_TAKING, record_overrides.WRONG):
+        return tier, reason
+    if override["state"] == record_overrides.NOT_TAKING and record_overrides.ordered_again_since(med, override):
+        return tier, "Ordered again after it was marked not taking."
+    return "corrected", override["words"]
+
+
+def _source_tier(med: dict[str, Any], today: Optional[date] = None) -> tuple[Optional[str], Optional[str]]:
     today = today or date.today()
     details = med.get("details") or {}
     status = (med.get("status") or "").lower()
@@ -1102,7 +1142,7 @@ def medication_tier(med: dict[str, Any], today: Optional[date] = None) -> tuple[
 def medication_lists(rows: list[dict[str, Any]], today: Optional[date] = None) -> dict[str, list[dict[str, Any]]]:
     """De-duplicated medication rows sorted by what they mean now, each saying why, with one drug's strengths and duplicates side by
     side and newest first. Different strengths are never collapsed: two can be a real regimen, and which is right is for a person to say."""
-    tiers: dict[str, list[dict[str, Any]]] = {"current": [], "check": [], "planned": []}
+    tiers: dict[str, list[dict[str, Any]]] = {"current": [], "check": [], "planned": [], "corrected": []}
     groups: dict[str, list[dict[str, Any]]] = {}
     for m in rows:
         tier, reason = medication_tier(m, today)
@@ -1110,7 +1150,7 @@ def medication_lists(rows: list[dict[str, Any]], today: Optional[date] = None) -
             continue
         m.update(med_tier=tier, med_reason=reason, last_prescribed=m.get("effective_at"), drug_group=drug_key(m.get("title")))
         tiers[tier].append(m)
-        if tier != "planned" and m["drug_group"]:
+        if tier not in ("planned", "corrected") and m["drug_group"]:
             groups.setdefault(m["drug_group"], []).append(m)
     newest: dict[str, str] = {}
     for group, members in groups.items():
@@ -1132,10 +1172,18 @@ def medication_lists(rows: list[dict[str, Any]], today: Optional[date] = None) -
     return tiers
 
 
+def _no_known_note(rows: list[dict[str, Any]]) -> str:
+    """A source ruling out drug allergies hasn't ruled out food ones, so a statement about one kind stays in the source's words."""
+    said = [a for a in rows if (a.get("status") or "").lower() == "no-known-allergies"]
+    if any(a.get("code") == "716186003" for a in said):
+        return "No known allergies."
+    return " ".join(dict.fromkeys(f"{(a.get('title') or 'No known allergies').rstrip('.')}." for a in said))
+
+
 def summary(profile_id: str) -> dict[str, Any]:
     today = date.today()
     conds = list_records(profile_id, "conditions", limit=500)["items"]
-    by_class: dict[str, list[dict[str, Any]]] = {"active": [], "unconfirmed": [], "unknown": [], "visit": [], "inactive": []}
+    by_class: dict[str, list[dict[str, Any]]] = {"active": [], "unconfirmed": [], "unknown": [], "visit": [], "inactive": [], "corrected": []}
     for c in conds:
         by_class[condition_class(c, today)].append(c)
     meds = medication_lists(list_records(profile_id, "medications", limit=500)["items"], today)
@@ -1144,7 +1192,7 @@ def summary(profile_id: str) -> dict[str, Any]:
     allergies = [a for a in allergy_rows if _allergy_active(a)]
     inactive_allergies = [a for a in allergy_rows if (a.get("status") or "").lower() in INACTIVE_ALLERGY_STATUSES]
     allergy_note = (f"No active allergies. {len(inactive_allergies)} marked inactive." if inactive_allergies and not allergies
-                    else "No known allergies." if "no-known-allergies" in statements
+                    else _no_known_note(allergy_rows) if "no-known-allergies" in statements
                     else "The records say allergies haven't been asked about." if "not-asked" in statements else None)
     latest_by_code = _latest_labs(list_records(profile_id, "labs", limit=SUMMARY_LABS)["items"])
     flagged = _out_of_range(latest_by_code, today)
@@ -1171,6 +1219,9 @@ def summary(profile_id: str) -> dict[str, Any]:
         "active_medications": meds["current"],
         "medications_to_check": meds["check"],
         "medications_planned": meds["planned"],
+        "medications_corrected": meds["corrected"],
+        "conditions_corrected": by_class["corrected"],
+        "allergies_corrected": [a for a in allergy_rows if _said_wrong(a)],
         "allergies": allergies,
         "allergy_note": allergy_note,
         "flagged_labs": flagged,

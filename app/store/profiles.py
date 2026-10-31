@@ -177,6 +177,7 @@ def delete_all_data(profile_id: str) -> None:
         conn.execute("DELETE FROM chats WHERE profile_id = ?", (profile_id,))
         conn.execute("DELETE FROM connections WHERE profile_id = ?", (profile_id,))      # records, identities and runs with them
         conn.execute("DELETE FROM clinical_records_removed WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM record_overrides WHERE profile_id = ?", (profile_id,))
         _person_settings(conn, profile_id)
         audit(conn, "user", "profile.data_deleted", None, profile_id)
     _delete_loose(profile_id, keep_revision=True)

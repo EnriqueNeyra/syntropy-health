@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import os
 from typing import Optional
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import BaseModel, Field
 
 from app.api.deps import check_access, resolve_profile
-from app.core import auth
-from app.store import activity, connections, records
+from app.api.labs import _check_date, _manual_connection
+from app.connectors import fhir_normalize
+from app.core import auth, context
+from app.core.db import audit, db, new_id
+from app.services import insights
+from app.store import activity, connections, record_files, record_overrides, records
 
 router = APIRouter(prefix="/api", tags=["records"], dependencies=[Depends(auth.require_user)])
 
@@ -53,8 +60,105 @@ def get_record(record_id: str) -> dict:
         raise HTTPException(404, "Record not found")
     check_access(rec["profile_id"])
     conn = connections.get(rec["connection_id"])
-    rec["editable"] = bool(conn and conn["provider"] == "manual")   # results the person typed in can be deleted
+    rec["editable"] = bool(conn and conn["provider"] == "manual")   # what the person typed in can be deleted
+    rec["files"] = record_files.for_record(rec["connection_id"], rec["resource_type"], rec["resource_id"])
+    if rec["category"] == "medications":
+        rec["history"] = insights.medication_history(rec["profile_id"], rec)
     return rec
+
+
+class OverrideBody(BaseModel):
+    state: Optional[str] = Field(None, max_length=40)
+    note: Optional[str] = Field(None, max_length=record_overrides.MAX_NOTE)
+
+
+def _record_to_change(record_id: str) -> dict:
+    rec = records.get_record(record_id)
+    if not rec:
+        raise HTTPException(404, "Record not found")
+    check_access(rec["profile_id"], "manage")
+    return rec
+
+
+@router.put("/records/{record_id}/override")
+def set_override(record_id: str, body: OverrideBody) -> dict:
+    rec = _record_to_change(record_id)
+    try:
+        said = record_overrides.set_override(rec["profile_id"], rec, body.state, body.note, context.actor())
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    with db() as conn:
+        audit(conn, "user", "record.corrected", None, rec["profile_id"])
+    return said
+
+
+@router.delete("/records/{record_id}/override")
+def clear_override(record_id: str) -> dict:
+    rec = _record_to_change(record_id)
+    record_overrides.clear(rec["profile_id"], rec)
+    with db() as conn:
+        audit(conn, "user", "record.correction_removed", None, rec["profile_id"])
+    return {"ok": True}
+
+
+class SelfReported(BaseModel):
+    profile_id: Optional[str] = None
+    kind: str = Field(..., pattern="^(medication|supplement|allergy)$")
+    name: str = Field(..., min_length=1, max_length=200)
+    how: Optional[str] = Field(None, max_length=500)       # how it's taken, or the reaction
+    started: Optional[str] = Field(None, max_length=10)
+    note: Optional[str] = Field(None, max_length=record_overrides.MAX_NOTE)
+
+
+PATIENT_REPORTED = "Patient-reported"
+
+
+def _self_reported_resource(body: SelfReported) -> dict:
+    name, how, note = body.name.strip(), (body.how or "").strip(), (body.note or "").strip()
+    notes = {"note": [{"text": note}]} if note else {}
+    if body.kind == "allergy":
+        return {"resourceType": "AllergyIntolerance", "id": f"man-{new_id()}", "clinicalStatus": {"coding": [{"code": "active"}]},
+                "code": {"text": name}, **notes, **({"onsetDateTime": body.started} if body.started else {}),
+                **({"reaction": [{"manifestation": [{"text": how}]}]} if how else {})}
+    return {"resourceType": "MedicationStatement", "id": f"man-{new_id()}", "status": "active", "reportedBoolean": True,
+            "category": {"coding": [{"code": "patientspecified"}], "text": "Supplement" if body.kind == "supplement" else "Medication"},
+            "medicationCodeableConcept": {"text": name}, **notes, **({"effectivePeriod": {"start": body.started}} if body.started else {}),
+            **({"dosage": [{"text": how}]} if how else {})}
+
+
+@router.post("/records/self-reported")
+def add_self_reported(body: SelfReported) -> dict:
+    """A medication, supplement or allergy the person says they have, which no source lists. Goes through the manual source and
+    the normalizers, so it reaches the report, Ask and exports like the rest, with its source saying whose word it is."""
+    prof = resolve_profile(body.profile_id, "manage")
+    if not body.name.strip():
+        raise HTTPException(400, "Enter a name.")
+    if body.started:
+        _check_date(body.started, "The date")
+    _, recs = fhir_normalize.normalize_resources([_self_reported_resource(body)])
+    conn = _manual_connection(prof["id"])
+    records.upsert_records(prof["id"], conn["id"], PATIENT_REPORTED, recs)
+    with db() as c:
+        audit(c, "user", "record.self_reported", None, prof["id"])
+    return {"connection_id": conn["id"], "record_id": records.record_id(conn["id"], recs[0]["resource_type"], recs[0]["resource_id"])}
+
+
+@router.get("/records/{record_id}/files/{file_id}")
+def get_record_file(record_id: str, file_id: str, download: bool = False) -> Response:
+    rec = records.get_record(record_id)
+    found = record_files.get(file_id)
+    if not rec or not found or not found.get("data") or (found["connection_id"], found["resource_type"], found["resource_id"]) != (
+            rec["connection_id"], rec["resource_type"], rec["resource_id"]):
+        raise HTTPException(404, "Document not found")
+    check_access(rec["profile_id"], "view")
+    shown = found["content_type"] in record_files.SHOWN_INLINE and not download
+    name = "".join(c for c in (found.get("name") or "document") if c.isalnum() or c in " ._-")[:120].strip() or "document"
+    # Headers are latin-1, so a name in another script goes in the form made for that, beside a plain one for anything older.
+    stem, suffix = os.path.splitext(name)
+    plain = (stem.encode("ascii", "ignore").decode().strip() or "document") + suffix.encode("ascii", "ignore").decode()
+    return Response(found["data"], media_type=found["content_type"] if shown else "application/octet-stream", headers={
+        "Content-Disposition": f"""{"inline" if shown else "attachment"}; filename="{plain}"; filename*=UTF-8''{quote(name)}""",
+        "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"})
 
 
 # Besides record categories, the timeline can show what was logged and measured day to day. "Everything" includes the

@@ -43,6 +43,8 @@ MIGRATION_HASHES = {
     "040_phones_paired_by_others.sql": "c2f08699dd8d015be4aea8ed37e529ddcce5a42bae76111ef356029b4b7b3bd5",
     "041_cleared_what_no_one_can_reach.sql": "7165e2d472680397ea6d05e91ddca84c3163ddabdcb3a430c318c81afcd517bb",
     "045_fhir_references.sql": "47c03487e3b28ce143b31f8cc4cbfe28a44ff248bf1e6f4ea65880cc2b29a152",
+    "061_record_overrides.sql": "ff79d1a0732a0edd276125f67be204f10738e3f8904a06924a136963edd8ade6",
+    "060_record_files.sql": "cc980f5b35eb1e256d074b13dc2a46f5163bbf605db71d40a344488eebc37941",
 }
 
 
@@ -165,6 +167,8 @@ def test_every_old_schema_upgrades_with_its_data(version):
     assert c.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
     assert c.execute("PRAGMA foreign_key_check").fetchall() == []
     assert c.execute("SELECT COUNT(*) FROM fhir_references").fetchone()[0] == 0     # what a sync brings next fills it
+    assert c.execute("SELECT COUNT(*) FROM record_files").fetchone()[0] == 0
+    assert c.execute("SELECT COUNT(*) FROM record_overrides").fetchone()[0] == 0
     if version < 9:
         accounts = c.execute("SELECT * FROM accounts").fetchall()
         assert len(accounts) == 1 and accounts[0]["role"] == "owner" and accounts[0]["password_hash"]

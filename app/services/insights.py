@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from app.services import insight_stats, reading_bounds
-from app.store import activity, biometrics, goals, records, sleep, training
+from app.store import activity, biometrics, goals, record_overrides, records, sleep, training
 from app.store.biometrics import METRICS, _tz, local_day
 
 log = logging.getLogger("syntropy.insights")
@@ -197,9 +197,13 @@ def medication_timeline(profile_id: str) -> list[dict[str, Any]]:
     is right for the current dose but says nothing about when it began: a renewal's date isn't a start. Orders that
     never happened are left out first, so a cancelled one can't move or erase a real first date."""
     by_drug: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    said = record_overrides.for_profile(profile_id)
     for r in records.medication_orders(profile_id):
         day = _iso_day(r.get("effective_at"))
         if not day or (r.get("status") or "").lower() in NOT_TAKEN_STATUSES:
+            continue
+        # The person says this isn't theirs: nothing here should be worked out from it.
+        if said.get(record_overrides.key_for(r), {}).get("state") == record_overrides.WRONG:
             continue
         details = r.get("details") or {}
         # A plan is how some systems file a medication someone reports taking at home. A plan nobody reported isn't an order.
@@ -207,16 +211,25 @@ def medication_timeline(profile_id: str) -> list[dict[str, Any]]:
             continue
         by_drug[r.get("dedup_key") or r["id"]].append({**r, "day": day})
     out = []
-    for rows in by_drug.values():
+    for key, rows in by_drug.items():
         rows.sort(key=lambda r: r["day"])
         oldest, newest = rows[0], rows[-1]
         sure = not {(r.get("status") or "").lower() for r in (oldest, newest)} & UNSURE_STATUSES
         first_sure = (oldest.get("status") or "").lower() not in UNSURE_STATUSES
-        out.append({"name": newest["title"], "first": oldest["day"], "last_ordered": newest["day"],
+        out.append({"key": key, "name": newest["title"], "first": oldest["day"], "last_ordered": newest["day"],
                     "orders": len({r["day"] for r in rows}), "record_id": newest["id"], "status": newest.get("status"), "sure": sure,
                     # Only a statement says the person took it, and only with a status that says so. An order is proof of an order.
                     "reported_taking": (oldest.get("resource_type") == "MedicationStatement" or bool((oldest.get("details") or {}).get("reported"))) and first_sure})
     return out
+
+
+def medication_history(profile_id: str, rec: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """When one medication's orders began and last came, for its record: more than one order, or there's nothing to add to its date."""
+    key = rec.get("dedup_key") or rec["id"]
+    found = next((m for m in medication_timeline(profile_id) if m["key"] == key), None)
+    if not found or found["orders"] < 2:
+        return None
+    return {k: found[k] for k in ("first", "last_ordered", "orders", "reported_taking")}
 
 
 def markers(profile_id: str, start: Optional[str] = None, end: Optional[str] = None) -> list[dict[str, Any]]:
@@ -230,7 +243,7 @@ def markers(profile_id: str, start: Optional[str] = None, end: Optional[str] = N
                     "status": med["status"], "name": med["name"], "event": verb.lower(), "last_ordered": med["last_ordered"],
                     "orders": med["orders"]})
     for r in records.list_records(profile_id, "conditions", since=start, until=end, limit=300)["items"]:
-        if not r.get("effective_at") or (r.get("status") or "").lower() in NOT_A_DIAGNOSIS_STATUSES:
+        if not r.get("effective_at") or (r.get("status") or "").lower() in NOT_A_DIAGNOSIS_STATUSES or (r.get("override") or {}).get("state") == record_overrides.WRONG:
             continue
         out.append({"t": r["effective_at"][:10], "label": f"Diagnosed {r['title']}", "kind": "conditions", "record_id": r["id"],
                     "status": r.get("status"), "name": r["title"], "event": "diagnosed"})
