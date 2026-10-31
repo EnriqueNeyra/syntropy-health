@@ -319,6 +319,31 @@ def _attempt_file() -> Path:
     return config.data_dir() / ATTEMPT_FILE
 
 
+REQUEST_FILE = "encrypt-at-next-start"
+ASK_FIRST = "Records already here stay as they are until you choose to encrypt them, so you can make a backup first."
+
+
+def _request_file() -> Path:
+    return config.data_dir() / REQUEST_FILE
+
+
+def asked_for() -> bool:
+    return _request_file().exists()
+
+
+def ask_for_encryption(on: bool = True) -> None:
+    """The owner's choice, carried out at the next start. A new database is encrypted from the beginning without asking, but
+    converting years of someone's records is theirs to time: the unencrypted original is only kept for minutes afterwards."""
+    if on:
+        _request_file().touch(mode=0o600)
+    else:
+        _request_file().unlink(missing_ok=True)
+
+
+def _chosen() -> bool:
+    return asked_for() or bool(config.env("SYNTROPY_DATABASE_ENCRYPTION"))
+
+
 def _failed_recently() -> Optional[str]:
     try:
         attempt = json.loads(_attempt_file().read_text(encoding="utf-8"))
@@ -419,10 +444,14 @@ def at_start_up() -> None:
             if not db.is_encrypted(path) and path.exists() and path.stat().st_size:
                 _postponed[str(path)] = "Encryption is turned off with SYNTROPY_DATABASE_ENCRYPTION."
             return
+        if not _chosen():
+            _postponed[str(path)] = ASK_FIRST
+            return
         if earlier := _failed_recently():
             _postponed[str(path)] = earlier
             return
         _encrypt_in_place(path)
+        _request_file().unlink(missing_ok=True)
     except _NotNow as exc:
         log.warning("Not encrypting the database yet: %s", exc)
         _postponed[str(path)] = str(exc)

@@ -150,6 +150,9 @@ def isolated_data(tmp_path, monkeypatch):
     for var in ("SYNTROPY_LISTEN_HOST", "SYNTROPY_LISTEN_PORT"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("TZ", "UTC")
+    # Set, so a database that's already here is encrypted at start-up without waiting for its owner to choose
+    # (test_database_encryption covers that choice).
+    monkeypatch.setenv("SYNTROPY_DATABASE_ENCRYPTION", "1")
     # Vendor credentials from a developer's .env would change which client each test sees.
     for var in [v for v in os.environ if v.endswith(("_CLIENT_ID", "_CLIENT_SECRET"))]:
         monkeypatch.delenv(var, raising=False)

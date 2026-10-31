@@ -45,7 +45,11 @@ function encryptionSection(state) {
   return section("Your records on this computer", state.encrypted ? `Encrypted with ${state.cipher}.` : html`<span style="color:var(--warn)">Not encrypted on disk.</span>`, html`
     <div class="stack" style="gap:10px;padding:2px 18px 16px">
       ${state.encrypted ? html`<p class="small" style="margin:0">That covers the database and its log, the copies kept before upgrades, and files on their way in. Backups made with a passphrase are encrypted too. A backup you choose not to encrypt is not, and anyone who gets one can read it.</p>`
-        : html`<p class="small" style="margin:0">${state.why_not || "They will be the next time Syntropy Health starts."}</p>`}
+        : state.chosen ? html`<p class="small" style="margin:0"><b>Your records will be encrypted the next time Syntropy Health starts.</b> Quit it and open it again when you're ready. It takes about a minute for every few gigabytes, and shows its progress.</p>
+          <div><button class="btn btn-sm" data-action="encrypt-choice" data-on="">Not yet</button></div>`
+        : html`<p class="small" style="margin:0">${state.why_not || "They will be the next time Syntropy Health starts."}</p>
+          ${state.can_choose ? html`<p class="small muted" style="margin:0">Make an encrypted backup first, and keep it somewhere else. Once your records are encrypted, losing the key and every backup means losing them.</p>
+            <div class="row wrap" style="gap:8px"><a class="btn btn-sm" href="#/settings/data">Make a backup</a><button class="btn btn-sm btn-primary" data-action="encrypt-choice" data-on="1">Encrypt my records</button></div>` : ""}`}
       <p class="small" style="margin:0"><b>The key</b> is in ${state.key_where}.${state.key_file ? html` <span class="muted">${state.key_file}</span>` : ""}</p>
       ${state.key_beside_data ? html`<div class="banner warn">${icon("shield")}<div class="grow"><p>Anyone who copies this data folder gets the key along with it, so encryption protects little here. Use full-disk encryption (FileVault, BitLocker or LUKS) for a stolen disk. To keep the key apart from the data, set SYNTROPY_KEY_FILE to a file somewhere else, or SYNTROPY_SECRET_KEY.</p></div></div>` : ""}
       ${isOwner() ? html`<p class="small" style="margin:0"><b>If the key is ever lost,</b> ${recovery.applies ? "the password of an owner of this server can bring it back, once they've signed in since this began, and so can any backup made with a passphrase. Without those," : "only a backup made with a passphrase can bring it back. Without one,"} nobody can read your records, and nobody can help with that. <a href="#/settings/data">Keep a backup somewhere else.</a></p>` : ""}
@@ -283,6 +287,7 @@ export async function render({ el, parts, state, navigate }) {
       });
     });
     return onAction(body, {
+      "encrypt-choice": async ({ on }) => { await put("/api/settings/encryption/at-next-start", { on: Boolean(on) }); redraw(); },
       "end-session": async ({ id }) => {
         try { await del(`/api/auth/sessions/${id}`); toast("Signed out"); redraw(); } catch (err) { toast(err.message, "bad"); }
       },

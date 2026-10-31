@@ -14,9 +14,10 @@ of the license, and the Terms on the website cover the website and sign-in relay
 
 ### Your records are encrypted on disk
 
-- **The database is encrypted now**, with SQLCipher (AES-256), and so is its log, the copies kept before an upgrade or a
-  restore, and files on their way into an import. The first start after this update does it, once. The Mac and Windows apps
-  show progress: it took about 40 seconds for a 3 GB database on a recent Mac, including reading it back to check it. It's
+- **The database can be encrypted now**, with SQLCipher (AES-256), and so can its log, the copies kept before an upgrade or a
+  restore, and files on their way into an import. A new install is encrypted from the start. Records already here wait until
+  you choose *Encrypt my records* in Settings → Security, so you can make a backup first, and the next start does it. The Mac
+  and Windows apps show progress: it took about 40 seconds for a 3 GB database on a recent Mac, including reading it back to check it. It's
   safe to interrupt, and if there isn't room for a second copy, or an AI app has the database open, it carries on
   unencrypted, says why in Settings → Security, and tries again at the next start.
 - **The key is kept apart from the data where the system allows:** the Keychain on a Mac, Windows' protected storage on a

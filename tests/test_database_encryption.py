@@ -1007,3 +1007,35 @@ def test_the_progress_is_there_while_it_works_and_gone_after(tmp_path, monkeypat
     monkeypatch.setattr(encryption, "_verify", looking)
     encryption.at_start_up()
     assert seen and seen[0]["stage"].startswith("Checking") and encryption.progress() is None
+
+
+def test_records_already_here_wait_for_their_owner_to_choose(tmp_path, monkeypatch):
+    import sqlite3
+
+    from app.core import config, db, encryption
+    monkeypatch.delenv("SYNTROPY_DATABASE_ENCRYPTION", raising=False)
+    path = config.db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(path) as plain:
+        plain.execute("CREATE TABLE kept(x)")
+        plain.execute("INSERT INTO kept VALUES (1)")
+    plain.close()
+    encryption.at_start_up()
+    assert not db.is_encrypted(path)
+    assert encryption.status()["why_not"] == encryption.ASK_FIRST
+    encryption.ask_for_encryption()
+    encryption.ask_for_encryption(False)
+    encryption.at_start_up()
+    assert not db.is_encrypted(path)
+    encryption.ask_for_encryption()
+    encryption.at_start_up()
+    assert db.is_encrypted(path) and not encryption.asked_for()
+
+
+def test_only_an_owner_can_choose_and_a_new_database_doesnt_wait(client):
+    from app.core import config, db
+    assert db.is_encrypted(config.db_path())
+    state = client.get("/api/settings/encryption").json()
+    assert state["encrypted"] and not state["can_choose"]
+    assert client.put("/api/settings/encryption/at-next-start", json={"on": True}).json()["chosen"]
+    assert not client.put("/api/settings/encryption/at-next-start", json={"on": False}).json()["chosen"]

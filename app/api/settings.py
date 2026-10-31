@@ -169,7 +169,20 @@ def encryption_status() -> dict:
     if not _is_owner():
         state.update(key_file=None, plain_copies=[], why_not="Your records aren't encrypted on this server yet. Ask whoever runs it." if not state["encrypted"] else None)
         state["password_recovery"] = {k: v for k, v in state["password_recovery"].items() if k != "accounts"}
+    state["can_choose"] = _is_owner() and not state.get("encrypted") and encryption.enabled()
+    state["chosen"] = encryption.asked_for()
     return state
+
+
+class EncryptChoice(BaseModel):
+    on: bool = True
+
+
+@router.put("/encryption/at-next-start", dependencies=[owner])
+def encrypt_at_next_start(req: EncryptChoice) -> dict:
+    """Encrypts the records already here the next time the server starts."""
+    encryption.ask_for_encryption(req.on)
+    return {"chosen": encryption.asked_for()}
 
 
 @router.put("/general")
