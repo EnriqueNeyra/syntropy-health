@@ -546,7 +546,7 @@ export async function render({ el, params, state }) {
     // In the iPhone app, Add is the title bar's + menu.
     const appAdd = setToolbar([{ id: "add", title: "Add a Source", symbol: "plus", menu: addMenu() }]);
     mount(el, html`
-      <div class="page-head"><div><h1>Sources</h1><p>Where ${profile.name}'s data comes from. Everything is kept on your own computer.</p></div>
+      <div class="page-head"><div><h1>Sources</h1><p>Where ${profile.name}'s data comes from. Everything is saved on the computer that runs Syntropy Health.</p></div>
         ${appAdd ? "" : html`<button class="btn btn-primary" data-action="add" aria-haspopup="menu" aria-expanded="false">${icon("plus")} Add a source</button>`}</div>
       ${all.length ? html`<div class="src-summary">
         <span><b>${active.length}</b> ${active.length === 1 ? "source" : "sources"} connected</span>

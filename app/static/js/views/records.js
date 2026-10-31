@@ -28,7 +28,8 @@ function byMonth(items, q) {
   const months = [];
   for (const r of items) {
     const d = q ? null : parseDate(r.effective_at);
-    const label = q ? "" : d ? d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "No date";
+    // A source that gave only a year gave no month, so the record goes under the year.
+    const label = q ? "" : /^\d{4}$/.test(r.effective_at) ? r.effective_at : d ? d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "No date";
     if (months.at(-1)?.label !== label) months.push({ label, items: [] });
     months.at(-1).items.push(r);
   }

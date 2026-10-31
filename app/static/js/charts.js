@@ -8,10 +8,13 @@ const PAD = { top: 14, right: 16, bottom: 26, left: 44 };
 
 /** What a chart shows, in words, for those who can't see it: how many values, over which dates, the latest, lowest and highest. */
 function summary(label, rows, show) {
-  const values = rows.map((r) => r.value);
   if (!rows.length) return label;
+  const shown = (r) => `${r.prefix || ""}${show(r.value)}`;
+  // Of equal values the limit is the one to name: "<5" says less than "5" does.
+  const lowest = rows.reduce((a, r) => (r.value < a.value || (r.value === a.value && /^[<≤]/.test(r.prefix)) ? r : a));
+  const highest = rows.reduce((a, r) => (r.value > a.value || (r.value === a.value && /^[>≥]/.test(r.prefix)) ? r : a));
   const span = rows.length > 1 ? ` from ${fmtDate(rows[0].day)} to ${fmtDate(rows.at(-1).day)}` : ` on ${fmtDate(rows[0].day)}`;
-  return `${label}: ${rows.length} value${rows.length === 1 ? "" : "s"}${span}. Latest ${show(values.at(-1))}, lowest ${show(Math.min(...values))}, highest ${show(Math.max(...values))}.`;
+  return `${label}: ${rows.length} value${rows.length === 1 ? "" : "s"}${span}. Latest ${shown(rows.at(-1))}, lowest ${shown(lowest)}, highest ${shown(highest)}.`;
 }
 
 /** The chart's values as a table under it, drawn when it's opened, and still open if the chart is redrawn. */
@@ -23,7 +26,7 @@ function valuesTable(container, rows, show, wasOpen) {
   const fill = () => {
     if (box.querySelector("table") || !box.open) return;
     box.insertAdjacentHTML("beforeend", `<div class="table-wrap" tabindex="0"><table class="table"><thead><tr><th>Date</th><th>Value</th></tr></thead><tbody>${
-      rows.slice().reverse().map((r) => `<tr><td>${esc(fmtDate(r.day))}</td><td>${esc(show(r.value))}${r.series ? ` <span class="muted">${esc(r.series)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
+      rows.slice().reverse().map((r) => `<tr><td>${esc(fmtDate(r.day))}</td><td>${esc(r.prefix || "")}${esc(show(r.value))}${r.series ? ` <span class="muted">${esc(r.series)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
   };
   box.addEventListener("toggle", fill);
   box.open = !!wasOpen;
@@ -91,10 +94,15 @@ export function lineChart(container, series, opts = {}) {
   const y = (v) => PAD.top + ih - ((v - lo) / (hi - lo)) * ih;
 
   const showLine = (v) => `${fmtNum(v, opts.digits)}${opts.unit ? ` ${opts.unit}` : ""}`;
-  const lineRows = series.flatMap((s) => s.points.filter((p) => parseDate(p.t)).map((p) => ({ day: p.t, value: p.v, time: parseDate(p.t).getTime(), series: series.length > 1 ? s.name : "" })))
+  const lineRows = series.flatMap((s) => s.points.filter((p) => parseDate(p.t)).map((p) => ({ day: p.t, value: p.v, prefix: p.prefix, time: parseDate(p.t).getTime(), series: series.length > 1 ? s.name : "" })))
     .sort((a, b) => a.time - b.time);
+  const chartLabel = opts.label || series.map((s) => s.name).join(", ");
+  // Systolic and diastolic are two measures: one "latest, lowest, highest" across them would describe neither.
+  const spoken = series.length > 1
+    ? [`${chartLabel}.`, ...series.map((s) => summary(s.name, lineRows.filter((r) => r.series === s.name), showLine))].join(" ")
+    : summary(chartLabel, lineRows, showLine);
   const lineOpen = container.querySelector(":scope > .chart-table")?.open;
-  let svg = `<svg class="${intro(container)}" viewBox="0 0 ${width} ${height}" height="${height}" role="img" aria-label="${esc(summary(opts.label || series.map((s) => s.name).join(", "), lineRows, showLine))}">`;
+  let svg = `<svg class="${intro(container)}" viewBox="0 0 ${width} ${height}" height="${height}" role="img" aria-label="${esc(spoken)}">`;
   svg += `<g class="axis">`;
   for (const tk of ticks) {
     svg += `<line class="grid-line" x1="${PAD.left}" x2="${width - PAD.right}" y1="${y(tk)}" y2="${y(tk)}"/>`;

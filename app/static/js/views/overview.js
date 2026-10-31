@@ -350,7 +350,7 @@ export async function render({ el, state, navigate }) {
     if (!connections.length && !bio.has_samples) {
       mount(el, html`
         <div class="page-head"><div><h1>${heading}</h1>
-          <p>Let's bring ${self ? "your" : `${first}'s`} health data together. Everything is kept on your own computer.</p></div></div>
+          <p>Let's bring ${self ? "your" : `${first}'s`} health data together. Everything is saved on the computer that runs Syntropy Health.</p></div></div>
         <div class="grid grid-auto">
           ${[
             ["building", "Medical records", "Bring in labs, medications, conditions and visits from patient portals like Epic MyChart, Oracle Health, athenahealth and healow.", "#/sources?add=ehr", "Find my health system", "btn-primary"],

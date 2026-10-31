@@ -398,6 +398,17 @@ export function closeDialogs() { for (const close of [...openDialogs]) close(); 
 // Everything behind the dialog on top is out of reach, for the keyboard and screen readers alike.
 const dialogStack = [];
 let drawerSeq = 0;
+// Going back takes a moment. A drawer opened meanwhile waits, or Back would land on the old drawer's entry, under the new one.
+let afterLeaving = null;
+function leaveEntry() {
+  afterLeaving = [];
+  window.addEventListener("popstate", () => {
+    const waiting = afterLeaving;
+    afterLeaving = null;
+    waiting.forEach((take) => take());
+  }, { once: true });
+  history.back();
+}
 let dialogsHeld = false;
 function holdBehind() {
   const root = document.getElementById("root");
@@ -445,7 +456,7 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
     holdBehind();
     if (entry) {
       window.removeEventListener("popstate", onBack);
-      if (history.state?.drawer === entry) history.back();    // closed on the page, not with Back
+      if (history.state?.drawer === entry) leaveEntry();    // closed on the page, not with Back
     }
     document.removeEventListener("keydown", onKey);
     closeAnimated(overlay);
@@ -470,9 +481,14 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
   // Back closes a drawer rather than leaving the page it's over. The app's own screens have their own back button.
   const entry = drawer && !document.documentElement.hasAttribute("data-native-nav") ? ++drawerSeq : 0;
   const onBack = () => { if (history.state?.drawer !== entry) close(); };
-  if (entry) {
+  const takeEntry = () => {
+    if (closed) return;
     history.pushState({ drawer: entry }, "");
     window.addEventListener("popstate", onBack);
+  };
+  if (entry) {
+    if (afterLeaving) afterLeaving.push(takeEntry);
+    else takeEntry();
   }
   document.addEventListener("keydown", onKey);
   openDialogs.add(close);
