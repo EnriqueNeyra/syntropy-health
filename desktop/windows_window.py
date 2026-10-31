@@ -30,7 +30,8 @@ def _text(value: Any) -> str:
 
 
 def guard_edge(edge_class: Any, module: Any, on_source: Callable[[str], None],
-               on_own_message: Callable[[dict[str, Any]], None]) -> None:
+               on_own_message: Callable[[dict[str, Any]], None],
+               on_view_failed: Optional[Callable[[str], None]] = None) -> None:
     """Replaces what pywebview subscribes to WebView2's events. It looks each handler up when the view is ready, so this
     has to run before webview.start. ``module`` is webview.platforms.edgechromium."""
     module.js_bridge_call = sites.drop_bridge_call
@@ -73,6 +74,8 @@ def guard_edge(edge_class: Any, module: Any, on_source: Callable[[str], None],
                 sender.CoreWebView2.LaunchingExternalUriScheme += refuse_external_scheme
             except AttributeError:      # an older WebView2 runtime asks the person itself
                 log.info("This WebView2 runtime has no external scheme event")
+        elif on_view_failed:
+            threading.Thread(target=on_view_failed, args=(_text(args.InitializationException),), daemon=True).start()
 
     edge_class.on_new_window_request = on_new_window_request
     edge_class.on_source_changed = on_source_changed
@@ -87,12 +90,14 @@ def refuse_external_scheme(_sender: Any, args: Any) -> None:
 
 class WindowsWindow:
     def __init__(self, window: Any, location: sites.Location, home_url: Callable[[], str],
-                 on_request: Callable[[dict[str, Any]], None], on_away_changed: Callable[[], None]):
+                 on_request: Callable[[dict[str, Any]], None], on_away_changed: Callable[[], None],
+                 on_view_failed: Optional[Callable[[str], None]] = None):
         self.window = window
         self.location = location
         self.home_url = home_url
         self.on_request = on_request
         self.on_away_changed = on_away_changed
+        self.on_view_failed = on_view_failed
         self.away = False
         self.bar: Any = None
         self.bar_label: Any = None
@@ -103,7 +108,7 @@ class WindowsWindow:
         from webview.platforms import edgechromium
 
         edgechromium.webbrowser = sites.only_when_clicked(lambda: True)     # on_new_window_request has already asked
-        guard_edge(edgechromium.EdgeChrome, edgechromium, self.source_changed, self.on_request)
+        guard_edge(edgechromium.EdgeChrome, edgechromium, self.source_changed, self.on_request, self.on_view_failed)
 
     def source_changed(self, url: str) -> None:
         # On WebView2's thread, which set_title has to wait for.

@@ -82,7 +82,8 @@ class Location:
             return False        # nothing has loaded yet
         here = origin(url)
         if here is None:
-            return not self.own_page
+            # The app's pages report about:blank or a file address. A blob: page is always written by whatever made it.
+            return not self.own_page or url.lower().startswith("blob:")
         self.own_page = False
         return here not in home_origins(self.home_url())
 

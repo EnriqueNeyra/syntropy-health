@@ -324,10 +324,11 @@ def test_a_file_where_the_data_folder_should_be_is_explained(monkeypatch, tmp_pa
     monkeypatch.setattr(syntropy_desktop.sys, "argv", ["app"])
     before = logging.getLogger().handlers[:]
     try:
-        with pytest.raises(OSError):
+        with pytest.raises(SystemExit) as stopped:      # an exception would also get PyInstaller's traceback box
             syntropy_desktop.main()
     finally:
         logging.getLogger().handlers[:] = before
+    assert stopped.value.code == 1
     assert "isn't one" in shown[0][1] and "no details could be saved" in shown[0][1] and shown[0][2] is None
 
 
@@ -691,6 +692,54 @@ def test_a_damaged_database_stays_with_the_new_version(desktop, monkeypatch, tmp
     monkeypatch.setattr(desktop.server, "problem", lambda: ("damaged", "It's damaged."))
     desktop.bring_up_own_server()
     assert "damaged" in desktop.window.pages[0] and not (folder / updater.BAD_MARK).exists()
+
+
+@pytest.mark.parametrize("step", ["start_fresh", "start_again"])
+def test_nothing_moves_while_the_server_is_still_using_the_data(desktop, monkeypatch, tmp_path, step):
+    import recovery
+    (tmp_path / "syntropy.db").write_bytes(b"data")
+    monkeypatch.setattr(desktop.server, "stop", lambda: False)
+    monkeypatch.setattr(desktop.window, "create_confirmation_dialog", lambda *a: True, raising=False)
+    monkeypatch.setattr(recovery, "set_aside", lambda path: pytest.fail("moved a database in use"))
+    monkeypatch.setattr(desktop, "bring_up_own_server", lambda: pytest.fail("a second server beside the first"))
+    getattr(desktop, step)()
+    assert "still finishing" in desktop.window.pages[-1] and not desktop.starting
+    assert (tmp_path / "syntropy.db").read_bytes() == b"data"
+
+
+def test_restoring_a_backup_says_what_its_doing(desktop, monkeypatch, tmp_path):
+    import recovery
+    monkeypatch.setattr(desktop.window, "create_file_dialog", lambda *a, **k: [str(tmp_path / "backup.zip")], raising=False)
+    monkeypatch.setattr(desktop.window, "create_confirmation_dialog", lambda *a: True, raising=False)
+    monkeypatch.setattr(desktop.server, "stop", lambda: True)
+    monkeypatch.setattr(desktop, "start_again", lambda: None)
+    seen = []
+    monkeypatch.setattr(recovery, "restore", lambda backup, path: seen.append(desktop.window.pages[-1]) or tmp_path)
+    desktop.restore_backup()
+    assert "Restoring your backup" in seen[0]
+
+
+def test_a_web_view_that_wont_start_opens_the_browser_instead(desktop, monkeypatch):
+    told, opened = [], []
+    monkeypatch.setattr(syntropy_desktop, "alert", lambda title, text, offer=None: told.append(text))
+    monkeypatch.setattr(syntropy_desktop.webbrowser, "open", lambda url: opened.append(url))
+    desktop.on_view_failed("no runtime")
+    assert "WebView2" in told[0] and syntropy_desktop.WEBVIEW2_DOWNLOAD in told[0]
+    assert opened == [desktop.home_url] and desktop.browser_mode
+
+
+def test_without_a_window_a_new_version_that_cant_upgrade_goes_back_too(desktop, monkeypatch, tmp_path):
+    import updater
+    folder = tmp_path / "updates"
+    folder.mkdir()
+    (folder / updater.ATTEMPT).write_text(json.dumps({"version": "0.0.1", "from": "0.0.0", "at": time.time()}))
+    monkeypatch.setattr(syntropy_desktop.SingleInstance, "signal_existing", lambda self: False)
+    monkeypatch.setattr(syntropy_desktop.SingleInstance, "listen", lambda self: None)
+    monkeypatch.setattr(desktop, "start_own_server", lambda: None)
+    monkeypatch.setattr(desktop.server, "problem", lambda: ("upgrade_failed", "It couldn't upgrade."))
+    monkeypatch.setattr(syntropy_desktop, "alert", lambda *a, **k: pytest.fail("no message: the old version explains"))
+    desktop.run_in_browser()
+    assert (folder / updater.BAD_MARK).read_text() == "It couldn't upgrade."
 
 
 def test_back_item_appears_in_the_menu_on_another_site():

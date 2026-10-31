@@ -50,6 +50,10 @@ def starting_page() -> str:
 several minutes. Your records are safe. Leave this open, and keep the computer on and plugged in.</p></main>""")
 
 
+def working_page(title: str, detail: str) -> str:
+    return _page(f"""<main><div class="wait"></div><h1>{html.escape(title)}</h1><p>{html.escape(detail)}</p></main>""")
+
+
 def problem_page(problem: str, kind: str, folder: str, log_file: str) -> str:
     buttons = [_button("Try Again", "problem-retry", True)]
     if kind in RESTORABLE:

@@ -142,12 +142,31 @@ def _trying(folder: Path) -> Optional[dict[str, Any]]:
     return attempt if time.time() - float(attempt.get("at") or 0) < WATCH_SECONDS else None
 
 
+def _log_setup_tail(setup_log: Path) -> None:
+    """The setup program's own account of what went wrong, into desktop.log: its file goes with the other leftovers."""
+    try:
+        for line in setup_log.read_text(encoding="utf-8", errors="replace").splitlines()[-30:]:
+            log.error("setup: %s", line)
+    except OSError:
+        pass
+
+
+def _remove_old_copies(folder: Path) -> None:
+    """Copies a script never got to remove, if the computer was restarted while it waited. Nothing is waiting by now."""
+    shutil.rmtree(folder / "previous", ignore_errors=True)
+    if sys.platform == "darwin" and getattr(sys, "frozen", False):
+        bundle = Updater._bundle()
+        if bundle.suffix == ".app":
+            for name in (f".{bundle.name}.old", f".{bundle.name}.update"):
+                _run(["rm", "-rf", str(bundle.with_name(name))])
+
+
 def review_last_attempt(folder: Path) -> None:
     """Before this version's server starts. Still on the old version with an attempt on file means it didn't take."""
     attempt = _read_json(folder / ATTEMPT)
     if not attempt or not isinstance(attempt.get("version"), str):
         _clear_leftovers(folder)
-        shutil.rmtree(folder / "previous", ignore_errors=True)     # Windows: a script that never got to remove its copy
+        _remove_old_copies(folder)
         return
     version = attempt["version"]
     if not updates.is_newer(version):
@@ -155,6 +174,7 @@ def review_last_attempt(folder: Path) -> None:
     result = _read_json(folder / RESULT) or {}
     detail = str(result.get("detail") or "The new version didn't finish installing.")[:500]
     log.error("The update to %s didn't take: %s", version, detail)
+    _log_setup_tail(folder / "setup.log")
     if result.get("outcome") == "rolled-back":
         _restore_database(float(attempt.get("at") or 0))
     try:
@@ -245,7 +265,7 @@ if (-not (Copy-Over $AppDir $previous)) {
 }
 $setupArgs = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CLOSEAPPLICATIONS', "/LOG=`"$log`"")
 $run = Start-Process -FilePath $Setup -ArgumentList $setupArgs -Wait -PassThru
-if ($run.ExitCode -ne 0) { Go-Back "The setup program stopped with code $($run.ExitCode). Its log was $log." }
+if ($run.ExitCode -ne 0) { Go-Back "The setup program stopped with code $($run.ExitCode)." }
 
 Open-App
 $waited = 0
@@ -277,6 +297,7 @@ class Updater:
         self.progress = progress
         self.now = threading.Event()
         self.staged: Optional[Path] = None
+        self.saying: Optional[str] = None
 
     def install_now(self) -> None:
         """The owner asked, while this was waiting for the window to close."""
@@ -294,12 +315,12 @@ class Updater:
         _clear_leftovers(self.folder)       # earlier downloads
         file = self.folder / name
         log.info("Downloading Syntropy Health %s", release["version"])
-        self.progress("downloading", "")
+        self._say("downloading")
         self._check_checksums(release, assets, name, file)
 
-        if self._in_the_way(automatic) and not self._wait_for_window():
+        if not self._go_ahead(automatic):
             return
-        self.progress("installing", "")
+        self._say("installing")
         if sys.platform == "darwin":
             self._stage_mac(file)
         elif sys.platform == "win32":
@@ -307,11 +328,10 @@ class Updater:
         else:
             raise UpdateError("Updates install themselves only in the Mac and Windows apps.")
         # Staging takes a while, long enough for someone to open the window again.
-        if self._in_the_way(automatic):
-            if not self._wait_for_window():
-                self._discard_staged()
-                return
-            self.progress("installing", "")
+        if not self._go_ahead(automatic):
+            self._discard_staged()
+            return
+        self._say("installing")
         background = self.window_hidden()
         log.info("Installing Syntropy Health %s (reopening %s)", release["version"],
                  "in the background" if background else "with its window")
@@ -333,26 +353,35 @@ class Updater:
             _download(assets[updates.SIGNATURE_ASSET], signature, limit=1 << 12)
             if not updates.signature_is_valid(sums.read_bytes(), signature.read_bytes()):
                 raise UpdateError(f"The {release['version']} release's signature isn't valid, so it wasn't installed.")
+            # The signature covers the wheel's name, which holds the version: an old signed release can't pose as a new one.
+            if _expected_sha256(sums.read_text(errors="replace"), updates.wheel_name(release["version"])) is None:
+                raise UpdateError(f"The signed files aren't those of version {release['version']}, so it wasn't installed.")
         _download(assets[name], file)
         expected = _expected_sha256(sums.read_text(errors="replace"), name)
         if not expected or _sha256(file) != expected:
             file.unlink(missing_ok=True)
             raise UpdateError("The download didn't match the release's checksum, so it wasn't installed.")
 
-    def _in_the_way(self, automatic: bool) -> bool:
-        return automatic and not self.now.is_set() and not self.window_hidden()
-
-    def _wait_for_window(self) -> bool:
-        """True when it's time to go on: the window closed, or the owner asked. False if automatic updates were turned off."""
-        self.progress("waiting", "")
-        while not self.window_hidden():
-            if self.now.wait(WAIT_TICK):
-                return True
+    def _go_ahead(self, automatic: bool) -> bool:
+        """True when it's time to go on: the owner asked, or the window is closed. False if automatic updates have been
+        turned off since this started, including while it downloaded with the window closed."""
+        if not automatic:
+            return True
+        while not self.now.is_set():
             if not updates.auto_on():
                 log.info("Automatic updates were turned off, so the update isn't installing")
-                self.progress(None, "")
+                self._say(None)
                 return False
+            if self.window_hidden():
+                return True
+            self._say("waiting")
+            self.now.wait(WAIT_TICK)
         return True
+
+    def _say(self, state: Optional[str]) -> None:
+        if state != self.saying:
+            self.saying = state
+            self.progress(state, "")
 
     def _note_attempt(self, release: dict[str, Any]) -> None:
         from app.core.config import APP_VERSION

@@ -28,7 +28,7 @@ from app.core import db  # noqa: E402
 from app.services import updates  # noqa: E402
 
 APP = b"the new app"
-SUMS_OK = f"{hashlib.sha256(APP).hexdigest()}  {updates.MAC_ASSET}\n"
+SUMS_OK = f"{hashlib.sha256(APP).hexdigest()}  {updates.MAC_ASSET}\n{'0' * 64}  {updates.wheel_name('9.1.0')}\n"
 DMG_URL, SUMS_URL, SIG_URL = "https://github.com/x/mac.dmg", "https://github.com/x/SHA256SUMS", "https://github.com/x/SHA256SUMS.sig"
 
 
@@ -97,9 +97,18 @@ def test_automatic_updates_wait_for_the_window_to_close(mac):
 
 def test_turning_automatic_updates_off_cancels_the_wait(mac, monkeypatch):
     u, state = mac
-    monkeypatch.setattr(updates, "auto_on", lambda: False)
+    _soon(lambda: monkeypatch.setattr(updates, "auto_on", lambda: False))
     u(_release(), True)
     assert state.progress == ["downloading", "waiting", None]
+    assert not state.staged and not state.swapped and not state.quit.is_set()
+
+
+def test_turning_them_off_during_the_download_counts_with_the_window_closed_too(mac, monkeypatch):
+    u, state = mac
+    state.hidden = True
+    monkeypatch.setattr(updates, "auto_on", lambda: False)
+    u(_release(), True)
+    assert state.progress == ["downloading", None]
     assert not state.staged and not state.swapped and not state.quit.is_set()
 
 
@@ -192,6 +201,14 @@ def test_a_signature_for_other_checksums_is_refused(mac, release_key):
     forged = f"{'0' * 64}  {updates.MAC_ASSET}\n"
     with pytest.raises(updater.UpdateError, match="signature isn't valid"):
         u(_release(forged, signature=release_key.sign(SUMS_OK.encode())), False)
+
+
+def test_an_old_signed_release_cant_pose_as_a_new_one(mac, release_key):
+    # Someone able to publish, but without the key, reattaching version 9.1.0's signed files to a release called 9.2.0.
+    u, state = mac
+    with pytest.raises(updater.UpdateError, match="aren't those of version 9.2.0"):
+        u({**_release(signature=release_key.sign(SUMS_OK.encode())), "version": "9.2.0"}, False)
+    assert not state.staged
 
 
 def test_no_key_yet_means_no_signature_needed(mac):
@@ -585,6 +602,35 @@ def test_nothing_on_file_only_clears_old_installers(fresh_state):
     (folder / "previous").mkdir()
     updater.review_last_attempt(folder)
     assert list(folder.iterdir()) == [] and updates.failed_update() is None
+
+
+@pytest.mark.parametrize("attempt,left", [(False, False), (True, True)])
+def test_copies_a_restarted_computer_left_behind_are_removed_once_nothing_waits(fresh_state, monkeypatch, tmp_path, attempt, left):
+    apps = tmp_path / "Applications"
+    exe = apps / "Syntropy Health.app" / "Contents" / "MacOS" / "Syntropy Health"
+    exe.parent.mkdir(parents=True)
+    exe.write_text("x")
+    (apps / "Another.app").mkdir()
+    for name in (".Syntropy Health.app.old", ".Syntropy Health.app.update"):
+        (apps / name).mkdir()
+    monkeypatch.setattr(updater.sys, "platform", "darwin")
+    monkeypatch.setattr(updater.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater.sys, "executable", str(exe))
+    fresh_state.mkdir()
+    if attempt:
+        _attempt(fresh_state, version="0.0.1")      # this is the new version, and its script may still need the copy
+    updater.review_last_attempt(fresh_state)
+    assert (apps / ".Syntropy Health.app.old").exists() is left and (apps / ".Syntropy Health.app.update").exists() is left
+    assert exe.exists() and (apps / "Another.app").exists()
+
+
+def test_what_setup_said_reaches_the_app_log_before_its_file_goes(fresh_state, caplog):
+    folder = fresh_state
+    _attempt(folder)
+    (folder / "setup.log").write_text("Log opened\nDeleteFile failed; code 5. Access is denied.\n")
+    with caplog.at_level("ERROR", logger="syntropy.desktop.update"):
+        updater.review_last_attempt(folder)
+    assert "Access is denied" in caplog.text and not (folder / "setup.log").exists()
 
 
 def test_a_swap_that_failed_is_reported_and_not_retried_for_a_day(fresh_state, client):

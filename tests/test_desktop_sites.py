@@ -72,6 +72,13 @@ def test_the_apps_own_page_counts_as_home_only_until_the_next_address():
     assert location.is_away("about:blank") is True        # that site, sending itself to a blank page
 
 
+def test_a_blob_page_is_never_the_apps_own():
+    # A site whose page is about to be replaced by "didn't open" can still get a page of its own in first.
+    location = sites.Location(lambda: HOME)
+    location.showing_own_page()
+    assert location.is_away("blob:https://evil.example/abc") is True
+
+
 def test_joined_server_is_home_and_this_computer_isnt():
     location = sites.Location(lambda: "http://mac-mini.tail1234.ts.net:8000")
     assert location.is_away("http://mac-mini.tail1234.ts.net:8000/#/overview") is False
@@ -197,6 +204,16 @@ def test_windows_refuses_external_schemes(edge):
 def test_windows_ready_survives_a_runtime_without_that_event(edge):
     edge.instance.on_webview_ready(SimpleNamespace(CoreWebView2=SimpleNamespace()), SimpleNamespace(IsSuccess=True))
     assert edge.instance.ready
+
+
+def test_windows_says_when_the_web_view_wont_start():
+    failed = threading.Event()
+    reasons = []
+    cls = type("Edge", (FakeEdge,), {})
+    windows_window.guard_edge(cls, SimpleNamespace(), lambda url: None, lambda m: None,
+                              lambda reason: (reasons.append(reason), failed.set()))
+    cls().on_webview_ready(SimpleNamespace(), SimpleNamespace(IsSuccess=False, InitializationException="no runtime"))
+    assert failed.wait(2) and reasons == ["no runtime"]
 
 
 def test_windows_reports_each_address(edge):

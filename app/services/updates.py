@@ -137,10 +137,14 @@ def signature_is_valid(sums: bytes, signature: bytes, public_key: Optional[str] 
         return False
 
 
+def wheel_name(version: str) -> str:
+    return f"syntropy_health-{version}-py3-none-any.whl"
+
+
 def package_source(release: dict[str, Any]) -> str:
     """What pip or uv installs for a release: its wheel. Never its source archive, which lacks the relay key the release
     workflow builds into the wheel (config.relay_key), so it would lose Syntropy's sign-in registrations."""
-    wheel = release.get("assets", {}).get(f"syntropy_health-{release['version']}-py3-none-any.whl")
+    wheel = release.get("assets", {}).get(wheel_name(release["version"]))
     if not wheel:
         raise InstallFailed(f"Version {release['version']} has no package for this computer yet. Try again later.")
     return f"syntropy-health @ {wheel}"
@@ -148,8 +152,7 @@ def package_source(release: dict[str, Any]) -> str:
 
 def package_source_for(version: str) -> str:
     """A release's wheel by its version, to go back to one (scripts/install.sh builds the same address)."""
-    return (f"syntropy-health @ https://github.com/{REPO}/releases/download/v{version}/"
-            f"syntropy_health-{version}-py3-none-any.whl")
+    return f"syntropy-health @ https://github.com/{REPO}/releases/download/v{version}/{wheel_name(version)}"
 
 
 # ---------------------------------------------------------------------------

@@ -48,6 +48,7 @@ APP_NAME = "Syntropy Health"
 FIRST_PORT = 8000
 HOME_PORT_WAIT = 4.0        # seconds the saved port may stay busy (the last run closing, say) before using another
 STOP_WAIT = 25              # seconds to wait for the server: its 5 for open requests, then its shutdown steps
+START_WAIT = 1440           # seconds to wait for it to start, within how long an update's script waits (updater.WATCH_SECONDS)
 log = logging.getLogger("syntropy.desktop")
 
 
@@ -223,13 +224,13 @@ class Server:
         # Wait for this server to be listening (uvicorn sets `started` once bound), not just for something to answer
         # on the port: another program there would otherwise pass for it.
         # Long enough for the first start after an update: copying and upgrading a database of several GB takes minutes.
-        deadline = time.time() + 900
+        deadline = time.time() + START_WAIT
         while time.time() < deadline and self.thread.is_alive():
             if self.server.started:
                 return
             time.sleep(0.1)
         if self.thread.is_alive():
-            raise RuntimeError("It's still getting ready after 15 minutes, which is longer than even a large upgrade takes.")
+            raise RuntimeError(f"It's still getting ready after {START_WAIT // 60} minutes, which is longer than even a large upgrade takes.")
         raise RuntimeError("The server stopped while it was starting.")
 
     @property
@@ -768,13 +769,24 @@ class DesktopApp:
         finally:
             self.recovering.release()
 
-    def start_again(self) -> None:
+    def stopped_for_recovery(self) -> bool:
+        """Whether nothing is using the database any more. A server still working on it (a very long upgrade) mustn't have
+        its files moved, or a second one started beside it."""
         from app.core import db
+        if not self.server.stop():
+            self.show_problem("other", f"{APP_NAME} is still finishing what it was doing with your data. Quit, wait a few "
+                                       "minutes, then open it again.")
+            return False
+        db.reset_migration_cache()
+        return True
+
+    def start_again(self) -> None:
         self.starting = True
         self.show_own_page(own_pages.starting_page())
-        self.server.stop()
-        db.reset_migration_cache()
-        self.bring_up_own_server()
+        ready = self.stopped_for_recovery()
+        self.starting = ready
+        if ready:
+            self.bring_up_own_server()
 
     def restore_backup(self) -> None:
         import webview
@@ -792,8 +804,10 @@ class DesktopApp:
                 "Restore this backup?", f"{APP_NAME} will start from {backup.name}, and anything added since it was made won't be "
                                         "there. The current database is kept, in a folder beside it."):
             return
-        self.server.stop()
-        db.reset_migration_cache()
+        if not self.stopped_for_recovery():
+            return
+        self.show_own_page(own_pages.working_page("Restoring your backup…", "It's copied and checked first, which takes a "
+                                                  "while with a lot of data. Your current database isn't changed until that's done."))
         try:
             aside = recovery.restore(backup, config.db_path())
         except recovery.RestoreRefused as exc:
@@ -805,15 +819,15 @@ class DesktopApp:
 
     def start_fresh(self) -> None:
         import recovery
-        from app.core import config, db
+        from app.core import config
 
         if not self.window.create_confirmation_dialog(
                 "Set the damaged database aside?", f"{APP_NAME} will start with no records, as if newly installed. The damaged "
                                                    f"file isn't deleted: it moves to a folder in {self.data}, and repair tools or "
                                                    "a backup may still recover it."):
             return
-        self.server.stop()
-        db.reset_migration_cache()
+        if not self.stopped_for_recovery():
+            return
         try:
             recovery.set_aside(config.db_path())
         except OSError as exc:
@@ -1034,11 +1048,24 @@ class DesktopApp:
 
     def guard_windows_window(self) -> None:
         from windows_window import WindowsWindow
-        self.win = WindowsWindow(self.window, self.location, lambda: self.home_url, self.on_request, self.refresh_menu)
+        self.win = WindowsWindow(self.window, self.location, lambda: self.home_url, self.on_request, self.refresh_menu,
+                                 self.on_view_failed)
         try:
             self.win.guard()
         except Exception:  # noqa: BLE001 - sites.guard_external_links still keeps links to the web and mail
             log.exception("Couldn't set up the window's rules for other sites")
+
+    def on_view_failed(self, reason: str) -> None:
+        """WebView2 is installed but wouldn't start (a damaged runtime, say), which leaves an empty window: the browser instead."""
+        log.error("The window's web view didn't start: %s", reason)
+        alert(f"{APP_NAME}'s window couldn't open", f"Microsoft Edge WebView2, which draws the window, didn't start. "
+              f"{APP_NAME} will open in your web browser instead. To get the window back, install WebView2 again from "
+              f"{WEBVIEW2_DOWNLOAD}, then quit {APP_NAME} from its notification-area icon and open it again.")
+        while self.starting:
+            time.sleep(0.2)
+        self.browser_mode = True
+        self.hidden = True          # no window to interrupt, as in run_in_browser
+        webbrowser.open(self.home_url)
 
     def run_in_browser(self) -> None:
         """Windows without the WebView2 runtime: the server and tray icon run as usual, and the app opens in the
@@ -1054,6 +1081,9 @@ class DesktopApp:
         problem = self.server.problem()
         if not problem:
             updater.started_fine(self.data / "updates")
+        elif problem[0] in updater.GO_BACK_KINDS and updater.started_badly(self.data / "updates", problem[1]):
+            self.server.stop()
+            return
         if problem:     # the browser shows the same explanation, from the server
             threading.Thread(target=alert, daemon=True, args=(f"{APP_NAME} can't start", problem[1])).start()
         from tray import make_tray
@@ -1205,7 +1235,7 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001 - leave a trace for support; a windowed app can't print
         log.exception("Syntropy Health stopped")
         startup_failed(exc)
-        raise
+        sys.exit(1)     # not an exception: PyInstaller would show its traceback in a second box
 
 
 def startup_failed(exc: Exception) -> None:
