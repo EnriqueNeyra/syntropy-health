@@ -57,6 +57,11 @@ def _make(tmp_path, **kwargs) -> Path:
     return Path(backups.create(tmp_path / "out", **kwargs)["path"])
 
 
+def accounts_can_sign_in() -> bool:
+    from app.store import accounts
+    return any(accounts.verify_password(a["id"], PASSPHRASE) for a in accounts.list_accounts())
+
+
 def _move_to(monkeypatch, folder: Path) -> None:
     monkeypatch.setenv("SYNTROPY_DATA_DIR", str(folder))
     db.reset_migration_cache()
@@ -295,10 +300,14 @@ def test_a_folder_never_set_up_is_refused_not_backed_up_empty(tmp_path, monkeypa
     assert list((tmp_path / "out").iterdir()) == [] if (tmp_path / "out").exists() else True
 
 
-def test_a_key_in_the_setting_is_said_not_to_be_in_the_backup(client, tmp_path, capsys, monkeypatch):
-    """F345."""
+@pytest.fixture
+def key_in_the_setting(monkeypatch):
     monkeypatch.setenv("SYNTROPY_SECRET_KEY", "a key kept elsewhere")
     security.forget_key()
+
+
+def test_a_key_in_the_setting_is_said_not_to_be_in_a_plain_backup(key_in_the_setting, client, tmp_path, capsys, monkeypatch):
+    """F345. An encrypted backup has it, protected by the passphrase: see below."""
     out = tmp_path / "out"
     cli.main(["backup", str(out), "--no-encrypt"])
     said = capsys.readouterr().out
@@ -321,9 +330,27 @@ def test_a_key_in_the_setting_restores_with_the_same_setting_and_is_explained_wi
             assert item.report["key"]["status"] == "setting" and item.report["key"]["ok"]
             backups.discard(item.id)
         m.delenv("SYNTROPY_SECRET_KEY")
-        with monkeypatch.context() as m3:
+        with monkeypatch.context() as m3:       # the passphrase is all a new computer needs
             _move_to(m3, tmp_path / "no-setting")
             item = backups.check(out, SECRET)
+            assert item.report["key"]["status"] == "included" and item.report["key"]["ok"]
+            backups.apply(item)
+            assert accounts_can_sign_in()
+    db.reset_migration_cache()
+    security.forget_key()
+
+
+def test_a_plain_backup_with_a_key_in_the_setting_needs_it_for_sign_ins_but_not_records(tmp_path, monkeypatch):
+    from app.main import create_app
+    with monkeypatch.context() as m:
+        m.setenv("SYNTROPY_SECRET_KEY", "a key kept elsewhere")
+        with TestClient(create_app(), base_url=BASE, client=LOCAL_CLIENT) as c:
+            assert c.post("/api/setup", json={"password": PASSPHRASE, "profile_name": "Alex"}, headers=CSRF).status_code == 200
+        out = _make(tmp_path, unencrypted=True)
+        m.delenv("SYNTROPY_SECRET_KEY")
+        with monkeypatch.context() as m3:
+            _move_to(m3, tmp_path / "no-setting")
+            item = backups.check(out)
             assert not item.report["key"]["ok"] and "SYNTROPY_SECRET_KEY" in item.report["key"]["message"]
             with pytest.raises(backups.BackupProblem):
                 backups.apply(item)
@@ -527,7 +554,7 @@ def test_an_older_zip_restores_with_its_key(client, tmp_path, monkeypatch):
     security.forget_key()
 
 
-def test_a_database_alone_from_settings_says_it_needs_the_key(client, tmp_path, monkeypatch):
+def test_a_database_alone_from_settings_says_it_needs_the_key(plain_database, client, tmp_path, monkeypatch):
     """The .db older versions downloaded: on a new computer it needs secret.key, and says so before anything changes."""
     _owner_data(client)
     bare = tmp_path / "syntropy-backup-20240101-000000.db"
@@ -565,7 +592,7 @@ def test_a_database_alone_on_this_computer_works_with_the_key_here(client, tmp_p
     assert settings.get("ai.key.openai") == "sk-saved-key"
 
 
-def test_a_database_alone_can_be_restored_without_its_key_if_someone_insists(client, tmp_path, monkeypatch, capsys):
+def test_a_database_alone_can_be_restored_without_its_key_if_someone_insists(plain_database, client, tmp_path, monkeypatch, capsys):
     _owner_data(client)
     bare = tmp_path / "old.db"
     db.snapshot(bare)
@@ -650,7 +677,7 @@ def test_things_that_are_not_backups_are_called_that(client, tmp_path):
     assert not [f for f in config.data_dir().iterdir() if f.name.startswith(".restore")]
 
 
-def test_a_damaged_database_in_a_backup_is_caught(client, tmp_path):
+def test_a_damaged_database_in_a_backup_is_caught(plain_database, client, tmp_path):
     db.snapshot(tmp_path / "s.db")
     raw = bytearray((tmp_path / "s.db").read_bytes())
     for i in range(8192, len(raw) - 100, 1000):
@@ -898,7 +925,7 @@ def test_restoring_before_setup_is_only_from_nearby(tmp_path):
         assert far.post("/api/restore/check", files={"file": ("b", b"x")}).status_code == 403
 
 
-def test_a_restored_key_of_the_wrong_kind_is_a_problem_not_a_lockout_at_the_door(client, tmp_path):
+def test_a_restored_key_of_the_wrong_kind_is_a_problem_not_a_lockout_at_the_door(plain_database, client, tmp_path):
     """A key file for a different database: caught at the check."""
     settings.set("ai.key.openai", "sk-saved-key")
     bare = tmp_path / "old.db"

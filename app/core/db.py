@@ -33,6 +33,7 @@ log = logging.getLogger("syntropy.db")
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 _migrated_paths: set[str] = set()
+_just_copied: dict[str, tuple[int, Path]] = {}      # by database, what app.core.encryption kept: its version, and where
 _migrate_lock = threading.Lock()
 
 PRE_UPGRADE_DIR = "pre-upgrade"
@@ -49,7 +50,7 @@ WAL_LIMIT = 64 * 1024 * 1024
 _BIG_WRITE = 1000       # rows changed by one transaction
 SQLITE_MAGIC = b"SQLite format 3\0"
 CIPHER_COMPATIBILITY = 4    # SQLCipher's page format: AES-256-CBC, HMAC-SHA512, 4096-byte pages
-_REUSE_COPY_SECONDS = 3600
+CIPHER_PAGE = 4096
 
 
 class StartupProblem(Exception):
@@ -62,14 +63,16 @@ class StartupProblem(Exception):
 
 
 def is_encrypted(path: Path) -> bool:
-    """A SQLite file begins with its name. An encrypted one begins with random bytes. Looked at for every connection, since
-    the file can change from one to the other under a process (app.core.encryption): this costs less than the open itself."""
+    """A SQLite file begins with its name. An encrypted one begins with random bytes, and is a whole number of pages: anything
+    else that doesn't begin with the name is just damage. Looked at for every connection, since the file can change from one to
+    the other under a process (app.core.encryption): this costs less than the open itself."""
     try:
         with open(path, "rb") as fh:
             start = fh.read(len(SQLITE_MAGIC))
+            size = os.fstat(fh.fileno()).st_size
     except OSError:
         return False
-    return len(start) == len(SQLITE_MAGIC) and start != SQLITE_MAGIC
+    return len(start) == len(SQLITE_MAGIC) and start != SQLITE_MAGIC and size % CIPHER_PAGE == 0
 
 
 def encrypt_new_databases() -> bool:
@@ -175,8 +178,9 @@ def is_busy(exc: sqlite3.Error) -> bool:
 
 def is_damage(exc: sqlite3.Error) -> bool:
     """The file itself is bad. The exception's class can't say: a broken constraint or a mistaken query is a DatabaseError
-    too, and telling someone their records are damaged when they aren't is its own harm."""
-    return error_code(exc) in (sqlite3.SQLITE_CORRUPT, sqlite3.SQLITE_NOTADB)
+    too, and telling someone their records are damaged when they aren't is its own harm. The words as well, because VACUUM
+    through SQLCipher reports a damaged page with this message and only a general error code."""
+    return error_code(exc) in (sqlite3.SQLITE_CORRUPT, sqlite3.SQLITE_NOTADB) or "malformed" in str(exc)
 
 
 # Read connections are kept and reused: opening one costs about as much as a small query, and a page's request reads a
@@ -488,12 +492,10 @@ def _run_migrations(conn: sqlite3.Connection, path: Path) -> None:
 
 def _copy_before_upgrade(path: Path, version: int, newest: int) -> Path:
     """An online copy beside the database, or StartupProblem: without one, a migration that's valid SQL and wrong would
-    leave no way back. One from a moment ago at this same version will do: encrypting the database has just left one, and
-    a failed upgrade retried at every start would otherwise copy the same thing each time."""
+    leave no way back. If encrypting the database has just left one at this same version, that will do."""
     folder = path.parent / PRE_UPGRADE_DIR
-    recent = [c for c in pre_upgrade_copies(path) if c["version"] == version and time.time() - c["created_at"] < _REUSE_COPY_SECONDS]
-    if recent:
-        return Path(recent[0]["path"])
+    if str(path) in _just_copied and _just_copied[str(path)][0] == version and _just_copied[str(path)][1].exists():
+        return _just_copied.pop(str(path))[1]
     try:
         copy = _save_copy(path, folder, version)
     except (OSError, sqlite3.Error) as exc:
@@ -506,11 +508,16 @@ def _copy_before_upgrade(path: Path, version: int, newest: int) -> Path:
     return copy
 
 
+def _file_size(conn: sqlite3.Connection) -> int:
+    """SQLCipher answers the page size as text, where SQLite answers a number."""
+    return int(conn.execute("PRAGMA page_count").fetchone()[0]) * int(conn.execute("PRAGMA page_size").fetchone()[0])
+
+
 def _save_copy(path: Path, folder: Path, version: int) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
     src = open_connection(path)
     try:
-        needed = src.execute("PRAGMA page_count").fetchone()[0] * src.execute("PRAGMA page_size").fetchone()[0]
+        needed = _file_size(src)
         free = shutil.disk_usage(folder).free
         if free < needed + _COPY_MARGIN:
             raise StartupProblem("no_copy", f"Syntropy Health needs to upgrade its database and keeps a copy first, but there "
@@ -530,8 +537,7 @@ def _save_copy(path: Path, folder: Path, version: int) -> Path:
                     from app.core import security
                     use_key(dst, security.database_key())
                 src.backup(dst)
-                if dst.execute("PRAGMA user_version").fetchone()[0] != version or \
-                        dst.execute("PRAGMA page_count").fetchone()[0] * dst.execute("PRAGMA page_size").fetchone()[0] < needed:
+                if dst.execute("PRAGMA user_version").fetchone()[0] != version or _file_size(dst) < needed:
                     raise sqlite3.DatabaseError("the copy doesn't match the database")
             finally:
                 dst.close()

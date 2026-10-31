@@ -251,8 +251,9 @@ def test_a_copy_older_than_this_update_is_not_put_back(machine):
     folder.mkdir()
     (folder / "syntropy-v13-20200101-000000.db").write_bytes(b"old")
     since = time.time() + 60
+    before = path.read_bytes()
     assert db.restore_pre_upgrade(since) is None
-    assert path.read_bytes()[:15] == b"SQLite format 3"
+    assert path.read_bytes() == before
 
 
 # ---------------------------------------------------------------------------

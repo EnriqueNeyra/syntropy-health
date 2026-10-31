@@ -268,7 +268,7 @@ def create_app() -> FastAPI:
         """The key's lost and the owner has their password: see app.core.security.recover_key. Only reachable while
         _can_unlock says so; otherwise there's nothing to unlock. The same guessing limits as signing in."""
         if not getattr(request.app.state, "problem", None):
-            return RedirectResponse("/", status_code=303)
+            return Response(status_code=404)
         origin = request.headers.get("origin")
         if origin and origin.split("://")[-1] != request.headers.get("host"):     # another site's page posting a guess here
             return Response(status_code=403)

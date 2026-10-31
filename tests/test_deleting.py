@@ -47,7 +47,7 @@ def _gone_from_the_file(markers: list[bytes]) -> dict[bytes, int]:
 MARKERS = [b"PERSONZEBRA", b"JOURNALZEBRA", b"CHATMSGZEBRA", b"CHATTITLEZEBRA", b"LABZEBRA"]
 
 
-def test_a_deleted_person_can_not_be_read_from_the_database_file(client):
+def test_a_deleted_person_can_not_be_read_from_the_database_file(plain_database, client):
     pid = _person_with_data(client)
     assert _bytes_on_disk(b"JOURNALZEBRA")
     assert client.delete(f"/api/profiles/{pid}").status_code == 200
@@ -68,7 +68,7 @@ def test_single_deletes_clear_the_file_too(client):
     assert _gone_from_the_file([b"JOURNALZEBRA", b"CHATMSGZEBRA"]) == {}
 
 
-def test_what_an_older_version_freed_is_cleared_once(client):
+def test_what_an_older_version_freed_is_cleared_once(plain_database, client):
     pid = _person_with_data(client)
     path = config.db_path()
     db.close_readers()

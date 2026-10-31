@@ -45,9 +45,17 @@ def _open_any_database() -> None:
         if name != ":memory:":
             from app.core import db, security
             if db.is_encrypted(Path(name)):
-                keys = security.known_database_keys()
-                match = next((k for k in keys if db.opens(Path(name), k)), keys[0])
-                db.use_key(conn, match)
+                for key in security.known_database_keys():
+                    probe = real_connect(name)
+                    try:
+                        db.use_key(probe, key)
+                        probe.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()
+                        db.use_key(conn, key)
+                        break
+                    except sqlite3.DatabaseError:
+                        pass
+                    finally:
+                        probe.close()
         return conn
 
     class Unlocking:
@@ -158,6 +166,13 @@ def isolated_data(tmp_path, monkeypatch):
     auth._all_failures.clear()
     yield tmp_path
     db.reset_migration_cache()
+
+
+@pytest.fixture
+def plain_database(monkeypatch):
+    """A server that doesn't encrypt its database: one from before encryption, one with it turned off, or an older backup.
+    Name it before `client`, which is what starts the server."""
+    monkeypatch.setenv("SYNTROPY_DATABASE_ENCRYPTION", "0")
 
 
 @pytest.fixture

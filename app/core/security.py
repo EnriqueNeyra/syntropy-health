@@ -116,6 +116,8 @@ def _find_key(path: Path) -> bytes:
                     return candidate
         if unreachable:
             raise db.StartupProblem("key_locked", _locked_text(unreachable))
+        if damaged:
+            raise damaged
         raise db.StartupProblem("key", f"Your records are encrypted, and the key that opens them isn't on this computer, or the "
                                        f"database file is damaged. {ENCRYPTED_KEY_ADVICE}")
     if found:
@@ -160,7 +162,8 @@ def _read_key(path: Path) -> bytes:
     except ValueError:
         key = b""
     if len(key) != 32:
-        raise db.StartupProblem("key", f"The encryption key file {path} is damaged: it should hold a 32-byte key. {_KEY_ADVICE}")
+        advice = ENCRYPTED_KEY_ADVICE if db.is_encrypted(config.db_path()) else _KEY_ADVICE
+        raise db.StartupProblem("key", f"The encryption key file {path} is damaged: it should hold a 32-byte key. {advice}")
     return key
 
 
@@ -260,9 +263,10 @@ def _retired_keys(key: bytes) -> list[bytes]:
 
 
 def known_database_keys() -> list[str]:
-    """Every key something kept here might be encrypted with, the current one first."""
-    key = master_key()
-    return [database_key(k) for k in (key, *_retired_keys(key))]
+    """Every key something kept here might be encrypted with, the current one first. None if this computer has none yet, and
+    it doesn't make one: this is only for looking."""
+    key = existing_key()
+    return [database_key(k) for k in (key, *_retired_keys(key))] if key else []
 
 
 def explicit_source() -> Optional[str]:

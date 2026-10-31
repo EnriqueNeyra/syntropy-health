@@ -353,6 +353,7 @@ def _keep_original(path: Path, version: int) -> Path:
     now = time.time()
     os.utime(kept, (now, now))
     _sync_folder(folder)
+    db._just_copied[str(path)] = (version, kept)
     return kept
 
 
