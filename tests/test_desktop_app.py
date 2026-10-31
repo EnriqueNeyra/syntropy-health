@@ -679,6 +679,19 @@ def _marker(path: Path) -> str:
         conn.close()
 
 
+def test_an_encrypted_backup_is_refused_in_words_with_nothing_changed(recovery, tmp_path):
+    from app.services import backup_file
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "syntropy.db").write_bytes(b"damaged")
+    backup = tmp_path / "backup.syntropy"
+    backup.write_bytes(backup_file.MAGIC + b"the rest")
+    assert recovery.ENCRYPTED == backup_file.MAGIC
+    with pytest.raises(recovery.RestoreRefused, match="encrypted"):
+        recovery.restore(backup, data / "syntropy.db")
+    assert (data / "syntropy.db").read_bytes() == b"damaged"
+
+
 def test_restoring_a_database_keeps_what_it_replaces(recovery, tmp_path):
     data = tmp_path / "data"
     data.mkdir()

@@ -20,6 +20,7 @@ from app.core import db
 log = logging.getLogger("syntropy.desktop")
 
 KEY_FILE = "secret.key"
+ENCRYPTED = b"SYNTROPY-BACKUP\n"     # how app.services.backup_file begins
 
 
 class RestoreRefused(Exception):
@@ -111,6 +112,11 @@ def restore(backup: Path, path: Path) -> Path:
     key_in: Optional[Path] = None
     archive: Optional[zipfile.ZipFile] = None
     try:
+        with open(backup, "rb") as file:
+            if file.read(len(ENCRYPTED)) == ENCRYPTED:
+                raise RestoreRefused("That backup is encrypted, so it can't be restored from here. Nothing has been changed. Set this "
+                                     "database aside to start Syntropy Health, then restore it from the first screen, or use the "
+                                     "command: syntropy-health restore FILE.")
         if zipfile.is_zipfile(backup):
             archive = zipfile.ZipFile(backup)
             if path.name not in archive.namelist():
