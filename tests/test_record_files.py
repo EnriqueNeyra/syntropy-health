@@ -11,6 +11,7 @@ import zipfile
 import httpx
 import pytest
 
+from app.core import private_files
 from app.connectors import fhir_normalize as fn
 from app.connectors import smart
 from app.services import exports, sync
@@ -133,7 +134,9 @@ def test_removing_the_source_or_the_person_removes_the_files(client, pid):
 def test_an_archive_carries_documents_and_a_later_copy_finds_them(client, pid):
     raw = pdf_with("ARCHIVEZEBRA")
     sync.import_fhir_resources(pid, "File", [_note(raw)])
-    path = exports.build_archive(profiles.get_profile(pid), None)
+    built = exports.build_archive(profiles.get_profile(pid), None)
+    path = built.folder / "archive.zip"
+    path.write_bytes(b"".join(private_files.stream(built.file)))
     with zipfile.ZipFile(path) as z:
         index = json.loads(z.read("documents.json"))
         assert z.read(index[0]["path"]) == raw

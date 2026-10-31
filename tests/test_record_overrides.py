@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 import app
+from app.core import private_files
 from app.core.db import db
 from app.mcp_server import t_health_summary
 from app.services import exports, sync
@@ -135,7 +136,9 @@ def test_exports_show_both(client, pid):
 
 def test_an_archive_carries_them_to_another_copy(client, pid):
     client.put(f"/api/records/{_one(pid, 'medications')['id']}/override", json={"state": "not_taking"})
-    path = exports.build_archive(profiles.get_profile(pid), None)
+    built = exports.build_archive(profiles.get_profile(pid), None)
+    path = built.folder / "archive.zip"
+    path.write_bytes(b"".join(private_files.stream(built.file)))
     with zipfile.ZipFile(path) as z:
         assert json.loads(z.read("corrections.json"))[0]["state"] == "not_taking"
     other = profiles.create_profile("Other", "other")["id"]

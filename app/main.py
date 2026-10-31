@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api import agents, assistant, backups, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
 from app.core import auth, config, data_fixes, db, encryption, keystore, maintenance, security, settings as instance_settings
+from app.core import private_files
 from app.core.uploads import DecompressUploads
 from app.services import backups as backups_service, imports, network, renormalize, scheduler, updates, wearable_fixes  # noqa: F401 - renormalize and wearable_fixes register data fixes
 from app.store import biometrics as biometric_store, profiles as profile_store, sample_counts, search
@@ -57,6 +58,8 @@ class _QuietHealthChecks(logging.Filter):
 
 logging.getLogger("uvicorn.access").addFilter(_RedactSecrets())
 logging.getLogger("uvicorn.access").addFilter(_QuietHealthChecks())
+
+private_files.protect_upload_spool()
 
 STATIC_DIR = config.APP_DIR / "static"
 

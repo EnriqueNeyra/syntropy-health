@@ -48,7 +48,7 @@ def test_stdio_transport(isolated_data):
         [sys.executable, "-m", "app.mcp_server"],
         input=json.dumps({"jsonrpc": "2.0", "id": 7, "method": "tools/list"}) + "\n",
         capture_output=True, text=True, timeout=60,
-        env={"SYNTROPY_DATA_DIR": str(isolated_data), "PATH": "/usr/bin:/bin"},
+        env={"SYNTROPY_DATA_DIR": str(isolated_data), "PATH": "/usr/bin:/bin", "SYNTROPY_KEY_STORE": "file"},
     )
     out = json.loads(proc.stdout.strip())
     assert out["id"] == 7 and out["result"]["tools"]

@@ -42,8 +42,13 @@ def _log(data: Path) -> str:
 
 
 def _good_database(path: Path) -> None:
+    """As an older version would have left it: a backup can be from long ago, and needs no key to open."""
     from app.core import db
-    db.ensure_migrated(path)
+    os.environ["SYNTROPY_DATABASE_ENCRYPTION"] = "0"
+    try:
+        db.ensure_migrated(path)
+    finally:
+        del os.environ["SYNTROPY_DATABASE_ENCRYPTION"]
     db.reset_migration_cache()
 
 

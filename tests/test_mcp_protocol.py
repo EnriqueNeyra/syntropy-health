@@ -347,7 +347,7 @@ def test_instructions_name_who_a_connection_reads(client):
 
 def _stdio(isolated_data, lines: bytes, **env):
     return subprocess.run([sys.executable, "-m", "app.mcp_server"], input=lines, capture_output=True, timeout=60,
-                          env={"SYNTROPY_DATA_DIR": str(isolated_data), "PATH": "/usr/bin:/bin", "SYNTROPY_NO_DOTENV": "1", **env})
+                          env={"SYNTROPY_DATA_DIR": str(isolated_data), "PATH": "/usr/bin:/bin", "SYNTROPY_NO_DOTENV": "1", "SYNTROPY_KEY_STORE": "file", **env})
 
 
 def test_stdio_reads_utf8_whatever_the_computer_is_set_to(client, isolated_data):

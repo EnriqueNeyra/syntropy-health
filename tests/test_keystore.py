@@ -147,7 +147,7 @@ def test_a_copy_of_the_folder_without_the_keychain_opens_nothing(keychain, tmp_p
     db.checkpoint()
     elsewhere = tmp_path.parent / f"{tmp_path.name}-copy"
     shutil.copytree(tmp_path, elsewhere)
-    subprocess.run([keystore.SECURITY_TOOL, "delete-generic-password", "-s", keystore.KEYCHAIN_SERVICE, str(keychain)], capture_output=True)
+    keystore.forget()
     monkeypatch.setenv("SYNTROPY_DATA_DIR", str(elsewhere))
     _fresh_start()
     with _start() as c:

@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core import config, db, encryption, keystore, maintenance, security
+from app.core import config, db, encryption, maintenance, security
 from app.core.sqlite import HAS_ENCRYPTION, sqlite3
 from app.services import backups
 from tests.conftest import BASE, CSRF, LOCAL_CLIENT, PASSPHRASE
