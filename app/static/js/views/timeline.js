@@ -7,7 +7,7 @@ import { openWorkout, duration, workoutIcon } from "./workouts.js";
 import { moodLabel } from "./journal.js";
 import { fmtMeasure } from "../units.js";
 import {
-  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loading, mount, onAction, parseDate, resultStatus,
+  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loadInto, loading, mount, onAction, parseDate, resultStatus,
 } from "../ui.js";
 
 const FILTERS = [
@@ -120,8 +120,11 @@ export async function render({ el, state, navigate }) {
   };
 
   let loadSeq = 0;
-  const load = async (append = false) => {
+  const load = (append = false) => {
     const seq = ++loadSeq;
+    return append ? fetchInto(seq, append) : loadInto($("#tl-body", el), () => fetchInto(seq, append));
+  };
+  const fetchInto = async (seq, append) => {
     const res = await get("/api/timeline", { profile: profile.id, categories: filter || undefined, q: q || undefined,
                                              before: append ? nextBefore : undefined, limit: 150 });
     if (seq !== loadSeq) return;       // a newer filter or search is loading
@@ -135,7 +138,7 @@ export async function render({ el, state, navigate }) {
   $("#tl-q", el).addEventListener("input", debounce((e) => { q = e.target.value.trim(); load(); }, 300));
 
   return onAction(el, {
-    filter: ({ key }) => { filter = key; drawFilters(); mount($("#tl-body", el), loading(3)); return load(); },
+    filter: ({ key }) => { filter = key; drawFilters(); return load(); },
     open: ({ id, kind, type }) => (kind === "workout" ? openWorkout(profile, id) : kind === "journal" ? navigate("#/journal")
       : kind === "signal" ? navigate(`#/trends?event=${encodeURIComponent(type)}`) : openRecord(id)),
     labs: ({ day }) => { expanded.add(day); draw(); },

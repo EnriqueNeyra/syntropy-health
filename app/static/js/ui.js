@@ -20,11 +20,32 @@ function render(value) {
 /** Tagged template: interpolations are escaped unless wrapped in raw() or produced by html``. */
 export function html(strings, ...values) {
   let out = strings[0];
-  for (let i = 0; i < values.length; i++) out += render(values[i]) + strings[i + 1];
+  for (let i = 0; i < values.length; i++) {
+    // A state that's off is still a state: aria-checked="" would leave a screen reader guessing.
+    out += (values[i] === false && /\saria-[a-z]+="$/.test(strings[i]) ? "false" : render(values[i])) + strings[i + 1];
+  }
   return raw(out);
 }
 
-export function mount(el, content) { if (el) el.innerHTML = render(content); return el; }
+/** How to find the focused control again after its part of the page is drawn afresh. */
+function focusKey(el) {
+  if (el.id) return `#${CSS.escape(el.id)}`;
+  const attrs = ["data-action", "data-id", "data-field", "data-value", "data-i", "data-k", "data-mode", "name", "aria-label"]
+    .filter((a) => el.hasAttribute(a)).map((a) => `[${a}="${CSS.escape(el.getAttribute(a))}"]`);
+  return attrs.length ? el.localName + attrs.join("") : null;
+}
+
+export function mount(el, content) {
+  if (!el) return el;
+  const active = document.activeElement;
+  const key = active && active !== el && el.contains(active) ? focusKey(active) : null;
+  el.innerHTML = render(content);
+  // Cards sit directly under the page's heading, whatever tag they're drawn with.
+  for (const h of el.querySelectorAll(".card-head h3")) h.setAttribute("aria-level", "2");
+  // Keyboard users stay where they were when a control redraws the section it's in.
+  if (key) el.querySelector(key)?.focus({ preventScroll: true });
+  return el;
+}
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -40,12 +61,46 @@ export function onAction(root, handlers) {
   };
   // Non-button elements with an action (cards, rows) work from the keyboard too.
   const keys = (ev) => {
-    if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches?.("[data-action][tabindex]")) listener(ev);
+    if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches?.(`[data-action][tabindex]:not(${NATIVE})`)) listener(ev);
   };
   root.addEventListener("click", listener);
   root.addEventListener("keydown", keys);
-  return () => { root.removeEventListener("click", listener); root.removeEventListener("keydown", keys); };
+  markControls(root);
+  const watcher = new MutationObserver(() => markControls(root));
+  watcher.observe(root, { childList: true, subtree: true });
+  return () => { watcher.disconnect(); root.removeEventListener("click", listener); root.removeEventListener("keydown", keys); };
 }
+
+const NATIVE = "button, a[href], input, select, textarea, summary, label";
+
+/** Rows and cards that act as buttons take focus and say so, wherever a page draws them. A table row keeps its role. */
+function markControls(root) {
+  for (const el of root.querySelectorAll(`[data-action]:not(${NATIVE}, [tabindex])`)) {
+    el.tabIndex = 0;
+    if (el.localName !== "tr" && !el.hasAttribute("role") && !el.querySelector(NATIVE)) el.setAttribute("role", "button");
+  }
+  for (const group of root.querySelectorAll("[role=radiogroup]")) rovingRadios(group);
+}
+
+function rovingRadios(group) {
+  const radios = [...group.querySelectorAll("[role=radio]")];
+  const on = radios.find((r) => r.getAttribute("aria-checked") === "true") || radios[0];
+  for (const r of radios) if (r.tabIndex !== (r === on ? 0 : -1)) r.tabIndex = r === on ? 0 : -1;
+}
+
+// The arrow keys move through a set of options and choose as they go, as native radio buttons do.
+document.addEventListener("keydown", (ev) => {
+  if (!ev.target.matches?.("[role=radio]") || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+  const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
+  if (!step) return;
+  const group = ev.target.closest("[role=radiogroup]");
+  const radios = group ? [...group.querySelectorAll("[role=radio]")] : [];
+  if (radios.length < 2) return;
+  ev.preventDefault();
+  const next = radios[(radios.indexOf(ev.target) + step + radios.length) % radios.length];
+  next.focus();
+  next.click();
+});
 
 // ---------------------------------------------------------------- formatting
 const DATE_FMT = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" });
@@ -73,7 +128,12 @@ export function fmtDate(value) {
 /** When a record happened: its date, or what the source wrote where a date belongs ("as a child"). */
 export function recordDate(r) { return r.effective_at || !r.details?.date_text ? fmtDate(r.effective_at) : r.details.date_text; }
 export function fmtShortDate(value) { const d = parseDate(value); return d ? DATE_SHORT.format(d) : "—"; }
-export function fmtDateTime(value) { const d = parseDate(value); return d ? DATETIME_FMT.format(d) : "—"; }
+/** With its clock time, when it has one: a value with only a date shows only the date, not a time nobody recorded. */
+export function fmtDateTime(value) {
+  if (typeof value === "string" && /^\d{4}(-\d{2}(-\d{2})?)?$/.test(value)) return fmtDate(value);
+  const d = parseDate(value);
+  return d ? DATETIME_FMT.format(d) : "—";
+}
 export function fmtAgo(value) {
   const d = parseDate(value);
   if (!d) return "never";
@@ -289,7 +349,11 @@ export function scrollToTop() {
 }
 
 // ---------------------------------------------------------------- toasts
+// The sign-in screen says this itself, so a request that was turned away adds no message on top.
+export const SIGNED_OUT = "You were signed out. Sign in to carry on.";
+
 export function toast(message, kind = "") {
+  if (message === SIGNED_OUT) return;
   const box = document.getElementById("toasts");
   const el = document.createElement("div");
   el.className = `toast ${kind}`;
@@ -325,12 +389,42 @@ const openDialogs = new Set();
 /** Closes every open dialog and drawer: they belong to the page they were opened from (see route in app.js). */
 export function closeDialogs() { for (const close of [...openDialogs]) close(); }
 
-export function modal({ title, body, footer = "", wide = false, drawer = false, onClose } = {}) {
+// Everything behind the dialog on top is out of reach, for the keyboard and screen readers alike.
+const dialogStack = [];
+let drawerSeq = 0;
+let dialogsHeld = false;
+function holdBehind() {
+  const root = document.getElementById("root");
+  if (root) root.inert = dialogStack.length > 0 && !dialogsHeld;
+  dialogStack.forEach((el, i) => { el.inert = i < dialogStack.length - 1; });
+}
+
+/** While someone signs in again, open dialogs wait out of sight (app.css), with what's typed in them. */
+export function holdDialogs(on) {
+  dialogsHeld = on;
+  document.documentElement.toggleAttribute("data-dialogs-held", on);
+  holdBehind();
+}
+
+/** Whether a dialog's fields differ from what they were drawn with. */
+export function fieldsChanged(el) {
+  return [...el.querySelectorAll("input, textarea, select")].some((f) => {
+    if (f.type === "checkbox" || f.type === "radio") return f.checked !== f.defaultChecked;
+    if (f.localName === "select") return [...f.options].some((o) => o.selected !== o.defaultSelected) && f.selectedIndex > 0;
+    return f.type !== "hidden" && f.value !== f.defaultValue;
+  });
+}
+
+/**
+ * `dirty`: true (its fields changed) or a function. While it holds, a stray click outside does nothing, and Escape and the
+ * close button ask first. Cancel and the like call close() and go straight away.
+ */
+export function modal({ title, body, footer = "", wide = false, drawer = false, onClose, dirty } = {}) {
   const overlay = document.createElement("div");
   overlay.className = `overlay${drawer ? " drawer-overlay" : ""}`;
   overlay.innerHTML = render(html`
     <div class="${drawer ? "drawer" : `modal${wide ? " wide" : ""}`}" role="dialog" aria-modal="true" aria-label="${title}">
-      <div class="modal-head"><h2 class="grow truncate">${title}</h2>
+      <div class="modal-head">${title ? html`<h2 class="grow truncate">${title}</h2>` : html`<span class="grow"></span>`}
         <button class="btn btn-ghost btn-icon" data-close aria-label="Close">${icon("x")}</button></div>
       <div class="modal-body">${body}</div>
       ${footer ? html`<div class="modal-foot">${footer}</div>` : ""}
@@ -341,6 +435,12 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
     if (closed) return;
     closed = true;
     openDialogs.delete(close);
+    dialogStack.splice(dialogStack.indexOf(overlay), 1);
+    holdBehind();
+    if (entry) {
+      window.removeEventListener("popstate", onBack);
+      if (history.state?.drawer === entry) history.back();    // closed on the page, not with Back
+    }
     document.removeEventListener("keydown", onKey);
     closeAnimated(overlay);
     // Keyboard focus goes back where it was before the dialog opened.
@@ -348,13 +448,34 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
     onClose && onClose();
   };
   // Escape closes the dialog on top (a confirmation over an editor closes alone).
-  const onKey = (e) => { if (e.key === "Escape" && [...openDialogs].at(-1) === close) close(); };
-  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(); });
-  overlay.querySelector("[data-close]").addEventListener("click", close);
+  const onKey = (e) => { if (e.key === "Escape" && [...openDialogs].at(-1) === close) askClose(); };
+  const unsaved = () => (typeof dirty === "function" ? dirty() : dirty && fieldsChanged(overlay));
+  let asking = false;
+  const askClose = async () => {
+    if (!unsaved()) return close();
+    if (asking) return;
+    asking = true;
+    const leave = await confirmDialog("Discard what you entered?", "It hasn't been saved.", { confirmLabel: "Discard", danger: true });
+    asking = false;
+    if (leave) close();
+  };
+  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay && !unsaved()) close(); });
+  overlay.querySelector("[data-close]").addEventListener("click", askClose);
+  // Back closes a drawer rather than leaving the page it's over. The app's own screens have their own back button.
+  const entry = drawer && !document.documentElement.hasAttribute("data-native-nav") ? ++drawerSeq : 0;
+  const onBack = () => { if (history.state?.drawer !== entry) close(); };
+  if (entry) {
+    history.pushState({ drawer: entry }, "");
+    window.addEventListener("popstate", onBack);
+  }
   document.addEventListener("keydown", onKey);
   openDialogs.add(close);
   document.body.appendChild(overlay);
+  dialogStack.push(overlay);
+  holdBehind();
   const panel = overlay.firstElementChild;
+  // A dialog that draws its own heading takes its name from that.
+  if (!title) panel.setAttribute("aria-label", panel.querySelector("h1, h2, h3")?.textContent.trim() || "Dialog");
   // Focus moves into the dialog: its first field, or the dialog itself (so Tab and Escape work from the keyboard).
   panel.setAttribute("tabindex", "-1");
   requestAnimationFrame(() => {
@@ -402,6 +523,32 @@ export function loading(lines = 3) {
 
 export function emptyState(title, text, action = "") {
   return html`<div class="empty"><h3>${title}</h3><p>${text}</p>${action}</div>`;
+}
+
+/** Runs an async submit once: its button stays disabled and says it's working until the work is done. */
+export async function busy(button, fn) {
+  if (!button) return fn();
+  if (button.disabled) return undefined;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  try { return await fn(); }
+  finally { button.disabled = false; button.removeAttribute("aria-busy"); }
+}
+
+/**
+ * Loads into a part of a page, with a placeholder meanwhile. If that fails the part says so with a Try again button, rather
+ * than keeping the placeholder for good.
+ */
+export function loadInto(el, draw, { lines = 3 } = {}) {
+  const seq = String(Number(el.dataset.loadSeq || 0) + 1);
+  el.dataset.loadSeq = seq;
+  mount(el, loading(lines));
+  return Promise.resolve().then(draw).catch((err) => {
+    if (err?.name === "AbortError" || el.dataset.loadSeq !== seq) return;
+    mount(el, html`<div class="empty page-error" role="alert">${icon("alert")}<h3>This couldn't be loaded</h3>
+      <p>${err?.message || String(err)}</p><button class="btn" type="button" data-retry>${icon("sync")}<span>Try again</span></button></div>`);
+    el.querySelector("[data-retry]").addEventListener("click", () => loadInto(el, draw, { lines }));
+  });
 }
 
 export function debounce(fn, ms = 250) {
@@ -457,7 +604,7 @@ export function dropdown(button, items) {
   const el = document.createElement("div");
   el.className = "popover dropdown";
   el.setAttribute("role", "menu");
-  el.innerHTML = render(html`<div class="menu">${items.map((it, i) => it === "-" ? html`<div class="menu-sep"></div>`
+  el.innerHTML = render(html`<div class="menu">${items.map((it, i) => it === "-" ? html`<div class="menu-sep" role="separator"></div>`
     : it.href ? html`<a class="menu-item ${it.danger ? "danger" : ""}" role="menuitem" href="${it.href}">${it.icon ? icon(it.icon) : ""}<span>${it.label}</span></a>`
     : html`<button class="menu-item ${it.danger ? "danger" : ""}" role="menuitem" data-i="${i}">${it.icon ? icon(it.icon) : ""}<span>${it.label}</span></button>`)}</div>`);
   document.body.appendChild(el);
@@ -473,6 +620,10 @@ export function dropdown(button, items) {
     el.style.right = "auto";
   }
   button.setAttribute("aria-expanded", "true");
+  button.setAttribute("aria-haspopup", "menu");
+  const entries = [...el.querySelectorAll(".menu-item")];
+  entries.forEach((it, i) => { it.tabIndex = i ? -1 : 0; });
+  entries[0]?.focus({ preventScroll: true });
   const scroller = pageScroller();
   const startY = scroller.scrollTop;
   const close = () => {
@@ -485,18 +636,28 @@ export function dropdown(button, items) {
   };
   const outside = (e) => { if (!el.contains(e.target) && !button.contains(e.target)) close(); };
   // Escape closes the menu alone, not the dialog it was opened in (this listener runs first).
-  const key = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); button.focus(); } };
+  const key = (e) => {
+    if (e.key === "Escape") { e.stopPropagation(); close(); button.focus(); return; }
+    if (e.key === "Tab") { close(); button.focus(); return; }   // Tab goes on from the button, not from the end of the page
+    const at = entries.indexOf(document.activeElement);
+    const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: entries.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    e.stopPropagation();
+    entries[(to + entries.length) % entries.length]?.focus();
+  };
   // The menu is pinned to the screen, so it goes once the page has really moved (not a nudge while tapping).
   const scrolled = () => { if (Math.abs(scroller.scrollTop - startY) > 30) close(); };
   el.addEventListener("click", (e) => {
     const b = e.target.closest("[data-i], a");
     if (!b) return;
     close();
+    button.focus({ preventScroll: true });
     if (b.dataset.i != null) runItem(items[Number(b.dataset.i)]);
   });
+  document.addEventListener("keydown", key, true);
   setTimeout(() => {
     document.addEventListener("mousedown", outside, true);
-    document.addEventListener("keydown", key, true);
     document.addEventListener("scroll", scrolled, { passive: true, capture: true });
   });
   openMenu = { el, button, close };

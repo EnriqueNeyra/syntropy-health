@@ -21,6 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 from xml.etree.ElementTree import ParseError
+import zipfile
 
 from fastapi import HTTPException
 
@@ -244,6 +245,10 @@ def stop_running(wait: float = 15.0) -> None:
             log.warning("An import is still finishing as the server stops")
 
 
+NOT_AN_EXPORT = ("This doesn't look like an Apple Health export. In the Health app, tap your photo, then Export All Health Data, "
+                 "and choose the export.zip it makes.")
+
+
 def _where(exc: ParseError) -> str:
     position = getattr(exc, "position", None)
     return f"line {position[0]:,}" if position else "an unreadable point"
@@ -382,6 +387,9 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str, s
         if run:
             connections.finish_run(run[0], run[1], "error", {}, STOPPED)
         _update(job_id, status="error", finished_at=time.time(), error=STOPPED)
+    except (zipfile.BadZipFile, ParseError, UnicodeDecodeError) as exc:
+        log.warning("An upload wasn't an Apple Health export: %s", exc)
+        _update(job_id, status="error", finished_at=time.time(), error=NOT_AN_EXPORT)
     except Exception as exc:  # noqa: BLE001
         log.exception("Apple Health import failed")
         _update(job_id, status="error", finished_at=time.time(), error=str(exc))

@@ -330,6 +330,9 @@ def start_wearable(profile_id: str, provider: str, origin: str, mode: str = "liv
     if provider not in WEARABLE_MODULES:
         raise SmartError("Unknown wearable.")
     if mode == "simulated":
+        # Made-up readings have no place in someone's record unless they're testing the app on purpose.
+        if not settings.developer_mode():
+            raise SmartError("Simulated data is only available in developer mode.")
         existing = next((c for c in connections.list_for_profile(profile_id, "wearable")
                          if c["provider"] == provider and c["mode"] == "simulated"), None)
         if existing:

@@ -10,7 +10,7 @@ import { renderUpdates } from "../updates.js";
 import { importArchive, openBackupDialog, openRestoreDialog, openScheduleDialog, scheduleText } from "../backup.js";
 import { PRIVACY_URL, SOURCE_URL, TERMS_URL } from "../consent.js";
 import {
-  $, capitalize, confirmDialog, fmtDateTime, html, icon, initials, loading, modal, mount, onAction, plural, toast,
+  $, busy, capitalize, confirmDialog, fmtDateTime, html, icon, initials, loading, modal, mount, onAction, plural, toast,
 } from "../ui.js";
 
 // Settings sections, in the order the side navigation lists them. Those marked owner change the server for everyone.
@@ -94,9 +94,9 @@ export async function render({ el, parts, state, navigate }) {
       ${isOwner() ? section("Background sync", settings.sync.scheduler_enabled ? "New data is fetched automatically while Syntropy Health is running."
         : html`<span style="color:var(--warn)">Background sync is off on this instance (SYNTROPY_SCHEDULER=false). Use Sync now on Sources.</span>`, html`
         ${row("Health records", "How often to check connected health systems.",
-          html`<div class="input-unit"><input class="input" id="g-ehr" data-save="ehr_interval_hours" type="number" min="1" value="${settings.sync.ehr_interval_hours}"><span>hours</span></div>`)}
+          html`<div class="input-unit"><input class="input" id="g-ehr" aria-label="Hours between health record checks" data-save="ehr_interval_hours" type="number" min="1" value="${settings.sync.ehr_interval_hours}"><span>hours</span></div>`)}
         ${row("Wearables", "How often to fetch from Oura, WHOOP and Google Health. The phone apps send their data on their own.",
-          html`<div class="input-unit"><input class="input" id="g-wear" data-save="wearable_interval_hours" type="number" min="0.5" step="0.5" value="${settings.sync.wearable_interval_hours}"><span>hours</span></div>`)}`) : ""}
+          html`<div class="input-unit"><input class="input" id="g-wear" aria-label="Hours between wearable fetches" data-save="wearable_interval_hours" type="number" min="0.5" step="0.5" value="${settings.sync.wearable_interval_hours}"><span>hours</span></div>`)}`) : ""}
       ${isOwner() ? section("Updates", "", html`<div id="upd-panel" class="upd-panel"><div class="skeleton" style="height:64px"></div></div>`, "upd-card") : ""}
       ${section("About", "", html`
         ${row("Getting started", "Walk through connecting your other devices, your data and an AI again.",
@@ -297,7 +297,7 @@ export async function render({ el, parts, state, navigate }) {
         ${row("Workouts (CSV)", "", dl(`/api/export/csv?kind=workouts&profile=${p.id}`))}
         ${row("Health journal (CSV)", "Symptoms, cycle tracking, mood and more, with your notes.", dl(`/api/export/csv?kind=events&profile=${p.id}`))}
         ${p.access === "manage" ? html`${row("Import an archive", `Brings an "Everything" file from another Syntropy Health into ${p.name}'s data. What's already here is left as it is.`,
-          html`<label class="btn btn-sm">${icon("upload")} Choose file<input type="file" id="ar-file" accept=".zip" hidden></label>`)}<div id="ar-status" style="padding:0 16px"></div>` : ""}`)}
+          html`<label class="btn btn-sm">${icon("upload")} Choose file<input type="file" id="ar-file" accept=".zip"></label>`)}<div id="ar-status" style="padding:0 16px"></div>` : ""}`)}
       ${!owner ? "" : section("Backup", "", html`
         ${failing ? html`<div class="banner bad" style="margin:12px 16px"><div class="grow"><p><b>The last scheduled backup failed.</b> ${failing}</p></div></div>` : ""}
         ${row("Download a backup", html`Everyone's data in one encrypted file, including anyone who hasn't shared with you, with the encryption key that opens saved sign-ins, so it restores on any computer. ${household() ? "Everyone here sees it in their access log when one is made." : ""}
@@ -398,6 +398,7 @@ export async function render({ el, parts, state, navigate }) {
     $("#dev-mode", body).addEventListener("change", async (ev) => {
       try { await put("/api/settings/developer", { enabled: ev.target.checked }); }
       catch (err) { toast(err.message, "bad"); ev.target.checked = !ev.target.checked; return; }
+      appState.status.developer_mode = ev.target.checked;
       toast(`Developer mode ${ev.target.checked ? "on" : "off"}`); redraw();
     });
     return onAction(body, {
@@ -564,10 +565,10 @@ async function renderPeople(body, { redraw }) {
       <div class="small muted">Which day a reading counts toward, when the device doesn't say where it was.</div></div>` : ""}`;
   };
   const openForm = (p) => {
-    const m = modal({ title: p ? `Edit ${p.name}` : "Add person", body: profileForm(p),
+    const m = modal({ title: p ? `Edit ${p.name}` : "Add person", dirty: true, body: profileForm(p),
       footer: html`<button class="btn" data-cancel>Cancel</button><button class="btn btn-primary" data-save>Save</button>` });
     m.el.querySelector("[data-cancel]").addEventListener("click", m.close);
-    m.el.querySelector("[data-save]").addEventListener("click", async () => {
+    m.el.querySelector("[data-save]").addEventListener("click", (e) => busy(e.currentTarget, async () => {
       const data = { name: $("#p-name", m.el).value.trim(), relationship: $("#p-rel", m.el).value, birth_date: $("#p-dob", m.el).value || null };
       const zone = $("#p-tz", m.el);
       if (zone) data.timezone = zone.value || null;
@@ -577,7 +578,7 @@ async function renderPeople(body, { redraw }) {
         else { const created = await post("/api/profiles", data); m.close(); await refreshProfiles(); setProfile(created.id); toast(`Added ${created.name}`); return; }
         m.close(); await refreshProfiles(); toast("Saved"); redraw();
       } catch (err) { toast(err.message, "bad"); }
-    });
+    }));
   };
 
   return onAction(body, {

@@ -290,6 +290,7 @@ export async function render({ el, parts, params, state, navigate }) {
   // The list's own screen in the app keeps only its topic in the address. With a chart in it, drawing the page again
   // (pull to refresh, a change on another screen, another person) would show that chart in the list's place, with no
   // way back to the list.
+  let chartPushed = false;
   const address = () => history.replaceState(null, "", nativeNav && !detailScreen ? `#/trends/${topic}` : hashFor(selected));
   if (detailScreen) {
     $("#tr-tabs", el).hidden = true;
@@ -551,14 +552,14 @@ export async function render({ el, parts, params, state, navigate }) {
     if (stopResize) { stopResize(); stopResize = null; }
     if (!selected) { mount(detail, ""); return; }
     mount(detail, html`${backBar()}${loading(2)}`);
-    if (selected.kind === "wearable") await drawWearable(detail, selected, seq);
-    else if (selected.kind === "signal") await drawSignal(detail, selected, seq);
-    else {
-      // One test that can't be read costs its own pane, not the whole page.
-      try { await drawClinical(detail, selected, seq); }
-      catch (err) {
-        if (seq === drawSeq) mount(detail, html`${backBar()}<div class="card card-pad"><p class="muted">${selected.title} couldn't be shown: ${err.message}</p></div>`);
-      }
+    // One chart that can't be read costs its own pane, not the whole page.
+    try {
+      if (selected.kind === "wearable") await drawWearable(detail, selected, seq);
+      else if (selected.kind === "signal") await drawSignal(detail, selected, seq);
+      else await drawClinical(detail, selected, seq);
+    } catch (err) {
+      if (seq === drawSeq) mount(detail, html`${backBar()}<div class="card card-pad" role="alert"><p class="muted">${selected.title} couldn't be shown: ${err.message}</p>
+        <button class="btn" style="margin-top:10px" data-action="retry-detail">${icon("sync")} Try again</button></div>`);
     }
   };
 
@@ -573,6 +574,7 @@ export async function render({ el, parts, params, state, navigate }) {
   $("#tr-filter", el).addEventListener("input", (e) => { filter = e.target.value.trim().toLowerCase(); drawList(); });
 
   const off = onAction(el, {
+    "retry-detail": () => drawDetail(),
     "left-out": () => openReadings(profile, { metric: selected.metric, label: selected.title, leftOut: true }, redraw),
     "left-out-all": seeLeftOut,
     readings: () => openReadings(profile, { metric: selected.metric, label: selected.title }, redraw),
@@ -592,12 +594,21 @@ export async function render({ el, parts, params, state, navigate }) {
       if (nativeNav && narrow() && !showDetail && appBridge({ type: "visit", hash: hashFor(next) })) return;
       if (next.key !== selected?.key) { source = ""; unitChoice = 0; cmp.b = null; cmp.lag = 0; }
       selected = next;
+      // On a phone the chart takes over from the list, so Back has to come back to the list.
+      if (narrow() && !nativeNav && !showDetail) {
+        history.replaceState(null, "", `#/trends/${topic}`);
+        history.pushState(null, "", hashFor(next));
+        chartPushed = true;
+      } else address();
       showDetail = true;
-      address(); drawList(); layout();
+      drawList(); layout();
       if (narrow()) scrollToTop();
       return drawDetail();
     },
-    back: () => { showDetail = false; layout(); scrollToTop(); },
+    back: () => {
+      if (chartPushed) { chartPushed = false; history.back(); return; }
+      showDetail = false; layout(); scrollToTop();
+    },
     range: ({ days: d }) => { days = Number(d); saveDays(days); return drawDetail(); },
     unit: ({ index }) => { unitChoice = Number(index) || 0; return drawDetail(); },
     goal: () => {

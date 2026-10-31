@@ -4,7 +4,7 @@ import { openLabEntry } from "./lab-entry.js";
 import { openRecord } from "./record-detail.js";
 import { recordValue } from "../units.js";
 import {
-  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loading, mount, onAction, recordDate, resultStatus, statusBadge,
+  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loadInto, loading, mount, onAction, recordDate, resultStatus, statusBadge,
 } from "../ui.js";
 
 const PAGE = 100;
@@ -84,9 +84,12 @@ export async function render({ el, parts, params, state, navigate }) {
   };
 
   let loadSeq = 0;
-  const load = async (append = false) => {
+  const load = (append = false) => {
     const seq = ++loadSeq;
-    if (!append) { offset = 0; mount($("#rec-list", el), loading(4)); }
+    if (!append) offset = 0;
+    return append ? fetchInto(seq, append) : loadInto($("#rec-list", el), () => fetchInto(seq, append), { lines: 4 });
+  };
+  const fetchInto = async (seq, append) => {
     const res = await get("/api/records", { profile: profile.id, category: category || undefined, q: q || undefined, connection, limit: PAGE, offset });
     if (seq !== loadSeq) return;      // a newer search or category answered first (or will): this one is stale
     total = res.total;

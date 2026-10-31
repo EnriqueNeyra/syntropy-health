@@ -20,7 +20,7 @@ const ADD_ICONS = { "add:phone": "phone", "add:ehr": "building", "add:file": "up
 
 function avatar(name, platform) {
   const c = PLATFORM_COLORS[platform] || "#4b5563";
-  return html`<span class="src-avatar" style="color:${c};background:color-mix(in srgb, ${c} 10%, var(--surface))">${initials(name)}</span>`;
+  return html`<span class="src-avatar" style="--c:${c}">${initials(name)}</span>`;
 }
 const iconAvatar = (name) => html`<span class="src-avatar">${icon(name)}</span>`;
 
@@ -297,7 +297,7 @@ async function openAddHealthSystem(profileId) {
     <p class="small"><b>Not listed, or can't connect yet?</b> You can still get your records.</p>
     <div class="row wrap"><button class="btn" data-action="records">Write a records request</button>
       <button class="btn" data-action="import">Import a file you downloaded</button></div>
-    <p class="tiny faint" style="margin-top:12px">For developers: <button class="link-btn" data-action="custom">connect a SMART on FHIR server</button> with your own client ID.</p>`);
+    <p class="tiny faint" style="margin-top:12px">For developers: <button class="link-btn" data-action="custom">connect a server by its address</button> with your own client ID.</p>`);
   showPopular();
   const input = m.body.querySelector("#dir-q");
   input.focus();
@@ -420,6 +420,7 @@ async function openPairing(profile) {
     <div class="stack">
       ${blocked ? html`<div class="banner warn">${icon("phone")}<div class="grow"><p><b>Your phone can't reach this computer yet.</b></p>
           <div id="pair-net"></div></div></div>` : ""}
+      <p class="small"><a href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">Get the app for iPhone or Android</a> if it isn't on your phone yet.</p>
       <p class="muted">The Syntropy Health apps send your phone's health data straight to this server over your network, with no
         cloud in between: Apple Health from the iPhone app (heart, HRV, sleep stages, steps, workouts with routes, symptoms,
         cycle tracking, ECG and more), and Health Connect from the Android app (Fitbit, Pixel Watch, Samsung Health, Oura and
@@ -443,10 +444,10 @@ function importZones() {
   return html`<div class="src-drops" id="import-card">
       ${embedded ? "" : html`<label class="drop-zone" data-drop="apple">
         ${icon("upload")}<div><b>Apple Health export</b><div class="small muted">Health app → your photo → Export All Health Data → <code>export.zip</code>. Includes Health Records if present.</div></div>
-        <input type="file" id="imp-apple" accept=".zip,.xml" hidden></label>`}
+        <input type="file" id="imp-apple" accept=".zip,.xml"></label>`}
       <label class="drop-zone" data-drop="fhir">
-        ${icon("records")}<div><b>FHIR record file</b><div class="small muted">A FHIR R4 Bundle (.json) or bulk-data NDJSON downloaded from a portal or app.</div></div>
-        <input type="file" id="imp-fhir" accept=".json,.ndjson,application/json" hidden></label>
+        ${icon("records")}<div><b>A record file from your patient portal</b><div class="small muted">A health record file you downloaded from a portal or app. Technically: a FHIR R4 Bundle (.json) or bulk-data NDJSON.</div></div>
+        <input type="file" id="imp-fhir" accept=".json,.ndjson,application/json"></label>
     </div>
     <div id="imp-status" class="src-drop-status"></div>`;
 }
@@ -455,7 +456,7 @@ async function uploadApple(file, profile, statusEl, refresh, left) {
   const form = new FormData();
   form.append("file", file);
   form.append("profile_id", profile.id);
-  mount(statusEl, html`<div class="small">Uploading ${file.name}…</div><div class="progress"><div style="width:15%"></div></div>`);
+  mount(statusEl, html`<div class="small">Uploading ${file.name}…</div><div class="progress working"><div></div></div>`);
   const { job_id } = await api("/api/imports/apple-health", { method: "POST", form });
   await watchImport(job_id, statusEl, refresh, left);
 }
@@ -493,7 +494,7 @@ async function watchImport(job_id, statusEl, refresh, left) {
       refresh();
       return;
     }
-    mount(statusEl, html`<div class="small">Importing… ${plural(job.processed, "sample")} processed</div><div class="progress"><div style="width:60%"></div></div>`);
+    mount(statusEl, html`<div class="small">Importing… ${plural(job.processed, "sample")} processed</div><div class="progress working"><div></div></div>`);
   }
 }
 
@@ -559,9 +560,10 @@ export async function render({ el, params, state }) {
         html`<div class="src-rows">${phones.length ? phones.map((c) => sourceRow(c, devicesFor(c))) : html`
           ${offerRow("phone", "Syntropy Health iPhone app", "Apple Health from iPhone and Apple Watch: heart, HRV, sleep stages, steps, workouts with routes, symptoms, cycle tracking, ECG and more, synced in the background.", html`
             <button class="btn btn-sm btn-primary" data-action="pair">${icon("phone")} Pair iPhone</button>
-            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">Get the app</a>`)}
+            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener" aria-label="Get the iPhone app">Get the app</a>`)}
           ${offerRow("phone", "Syntropy Health Android app", "Health Connect from Fitbit, Pixel Watch, Samsung Health, Oura and other apps: heart, HRV, sleep stages, steps, workouts and more, synced in the background.", html`
-            <button class="btn btn-sm btn-primary" data-action="pair">${icon("phone")} Pair Android phone</button>`)}`}</div>`)}
+            <button class="btn btn-sm btn-primary" data-action="pair">${icon("phone")} Pair Android phone</button>
+            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener" aria-label="Get the Android app">Get the app</a>`)}`}</div>`)}
 
       ${group("Wearables", "Oura, WHOOP and Google Health (Fitbit, Pixel Watch) sync from their cloud every few hours. Signing in to Oura or WHOOP passes through Syntropy Labs' sign-in relay, which completes the sign-in and keeps nothing. Google Health uses your own Google Cloud app.", "",
         html`<div class="src-rows">${WEARABLES.map(([provider, label, blurb]) => {
@@ -570,7 +572,7 @@ export async function render({ el, params, state }) {
           const simulated = mine.some((c) => c.mode === "simulated");
           return html`${mine.map((c) => sourceRow(c))}${connected ? "" : offerRow("watch", label, blurb, html`
             <button class="btn btn-sm btn-primary" data-action="wearable" data-provider="${provider}" data-mode="live">Connect ${label}</button>
-            ${simulated ? "" : html`<button class="btn btn-sm btn-ghost" data-action="wearable" data-provider="${provider}" data-mode="simulated">Try simulated data</button>`}`)}`;
+            ${simulated || !state.status?.developer_mode ? "" : html`<button class="btn btn-sm btn-ghost" data-action="wearable" data-provider="${provider}" data-mode="simulated">Try simulated data</button>`}`)}`;
         })}</div>`)}
 
       ${group("Medical records", "Your history from hospitals and clinics, through their patient portals.",
@@ -656,8 +658,9 @@ export async function render({ el, params, state }) {
   const wireUploads = () => {
     const status = $("#imp-status", el);
     if (importNote && status) mount(status, importNote);
-    $("#imp-apple", el)?.addEventListener("change", (e) => { if (e.target.files[0]) importApple(e.target.files[0], status); });
-    $("#imp-fhir", el)?.addEventListener("change", (e) => { if (e.target.files[0]) importFhir(e.target.files[0], status); });
+    // The value is cleared each time, so choosing the same file again after a failure counts as a choice.
+    $("#imp-apple", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importApple(file, status); });
+    $("#imp-fhir", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importFhir(file, status); });
     // Drag a file onto either box.
     for (const zone of el.querySelectorAll("[data-drop]")) {
       zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
@@ -786,9 +789,10 @@ export async function render({ el, params, state }) {
       m.el.querySelector("[data-wipe]").addEventListener("click", () => run({ delete_data: true }, "Removed with its data"));
     },
     wearable: async ({ provider, mode }) => {
+      if (mode === "simulated" && !(await confirmDialog("Add simulated data?", "This writes 90 days of made-up wearable readings into this person's record, for testing. Overview, Trends and Ask will say that the record includes simulated data until you remove this source with its data.", { confirmLabel: "Add simulated data" }))) return;
       const res = await post("/api/connections/wearable", { provider, mode, profile_id: profile.id });
       if (res.auth_url) window.location.assign(res.auth_url);
-      else { toast("Simulated wearable connected — generating 90 days of data…", "good"); refresh(); }
+      else { toast("Simulated wearable connected. Generating 90 days of data.", "good"); refresh(); }
     },
     pair: async () => { await openPairing(profile); },
     unpair: async ({ id, name }) => {

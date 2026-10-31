@@ -81,7 +81,7 @@ export async function render({ el, state, params, navigate }) {
       <div><h1>Ask</h1><p class="small ask-privacy" id="ask-privacy"></p></div>
       <div class="row"><button class="model-btn" id="model-btn" aria-haspopup="true" aria-expanded="false"></button>
         <button class="btn btn-sm" id="ask-history" aria-haspopup="true" aria-expanded="false" title="Past conversations">${icon("history")}<span class="hide-narrow"> History</span></button>
-        <button class="btn btn-sm" id="ask-new">${icon("plus")}<span class="hide-narrow"> New chat</span></button></div>
+        <button class="btn btn-sm" id="ask-new" aria-label="New chat">${icon("plus")}<span class="hide-narrow"> New chat</span></button></div>
     </div>
     <div class="chat card">
       <div class="chat-log" id="chat-log" aria-live="polite"></div>

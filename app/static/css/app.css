@@ -20,7 +20,7 @@
   --text-2: #4b5563;
   /* Muted and faint text still read at WCAG AA (4.5:1) on cards, faint text sits a step lighter. */
   --text-3: #5f6673;
-  --text-4: #6f7682;
+  --text-4: #656c78;
   /* The accent (Settings → General → Accent color; see the [data-accent] blocks below). --accent is for text, icons and
      borders; --accent-fill carries white text (buttons, the switch, chat bubbles). */
   --accent: #d6204a;
@@ -55,7 +55,7 @@
   --text: #f4f4f5;
   --text-2: #b4b4bb;
   --text-3: #96969f;
-  --text-4: #80808a;
+  --text-4: #8e8e98;
   --accent: #ff6b8b;
   --accent-fill: #e0294f;
   --accent-2: color-mix(in srgb, var(--accent) 16%, var(--surface));
@@ -100,6 +100,13 @@ body {
   -webkit-font-smoothing: antialiased; min-height: 100vh;
 }
 a { color: var(--accent); text-decoration: none; }
+/* Inside running text a link can't rely on its color alone. */
+:where(p, li, .hint, .small, .tiny, .banner, .set-desc, td, label) a:not(.btn, .menu-item, .chip, .list-item) { text-decoration: underline; text-underline-offset: 2px; }
+.progress.working > div { width: 35%; animation: progress-working 1.4s ease-in-out infinite alternate; }
+@keyframes progress-working { from { margin-left: 0; } to { margin-left: 65%; } }
+@media (prefers-reduced-motion: reduce) { .progress.working > div { animation: none; width: 100%; opacity: .5; } }
+h1, h2, h3 { overflow-wrap: anywhere; }
+.set-foot { flex-wrap: wrap; }
 @media (hover: hover) { a:hover { text-decoration: underline; } }
 h1, h2, h3, h4 { font-family: var(--font-brand); letter-spacing: -0.01em; margin: 0; }
 h1 { font-size: 24px; font-weight: 700; }
@@ -158,7 +165,7 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .profile-btn > svg { width: 14px; height: 14px; color: var(--text-3); }
 .avatar {
   --c: var(--accent); width: 26px; height: 26px; border-radius: 50%; flex: none; display: grid; place-items: center;
-  font-size: 11px; font-weight: 700; color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface));
+  font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--c) 60%, var(--text)); background: color-mix(in srgb, var(--c) 14%, var(--surface));
 }
 .top-search { width: 240px; }
 .top-search .input { padding-top: 6px; padding-bottom: 6px; background: var(--surface); }
@@ -217,7 +224,18 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .view-only-note > svg { width: 16px; height: 16px; flex: none; color: var(--text-3); }
 :root[data-view-only] :is([data-action="new"], [data-action="add-labs"], [data-action="add"], [data-action="add-ehr"],
   [data-action="pair"], [data-action="wearable"], [data-action="sync"], [data-action="menu"], [data-action="reconnect"],
-  [data-action="import"], [data-delete], a.btn[href^="#/sources"]) { display: none !important; }
+  [data-action="import"], [data-delete], a.btn[href^="#/sources"], [data-action="edit"], #jr-checkin) { display: none !important; }
+.sim-note { background: color-mix(in srgb, var(--warn, #b45309) 12%, var(--surface)); }
+:root[data-dialogs-held] .overlay { display: none; }
+.skip-link { position: absolute; left: 8px; top: -60px; z-index: 1000; padding: 8px 14px; border-radius: var(--radius); background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.skip-link:focus { top: 8px; }
+#view:focus, #view h1:focus { outline: none; }
+.drop-zone input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.drop-zone { position: relative; }
+.drop-zone:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.btn:has(input[type="file"]) { position: relative; }
+label.btn:has(input[type="file"]) input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+label.btn:has(input[type="file"]):focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 820px) { .view-only-note { margin: 12px 16px -4px; } }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
 .page-head p { color: var(--text-3); margin-top: 4px; }
@@ -523,7 +541,7 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 }
 @media (hover: hover) { .chip:hover { border-color: var(--border-strong); color: var(--text); } }
 .chip.active { background: var(--text); color: var(--bg); border-color: var(--text); }
-.chip .n { font-weight: 500; opacity: .7; font-size: 11.5px; }
+.chip .n { font-weight: 500; font-size: 11.5px; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 .tab { padding: 9px 12px; border: 0; background: none; cursor: pointer; font-weight: 600; color: var(--text-3); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
@@ -639,6 +657,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .flag-high, .flag-critical_high { color: var(--bad); }
 .flag-low, .flag-critical_low { color: var(--info); }
 .flag-abnormal { color: var(--warn); }
+.src-avatar[style*="--c"] { color: color-mix(in srgb, var(--c) 60%, var(--text)); background: color-mix(in srgb, var(--c) 10%, var(--surface)); }
 .src-avatar { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-family: var(--font-brand); background: var(--surface-2); border: 1px solid var(--border); flex: none; font-size: 13px; }
 /* ---------- Sources ---------- */
 .src-summary { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; font-size: 13px; color: var(--text-3); margin: -6px 0 20px; }

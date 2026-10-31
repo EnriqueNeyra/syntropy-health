@@ -174,7 +174,7 @@ export const WIDGETS = [
           ${e.category === "stateOfMind" && e.value != null ? html` <span class="badge">${moodLabel(e.value)}</span>` : e.value_label ? html` <span class="badge">${e.value_label}</span>` : ""}</div>
           <div class="meta">${fmtDateTime(e.start_date)}</div></div></a>`,
       html`Nothing logged in the last 30 days. <a href="#/journal">Check in</a>`, { href: "#/journal", more: "Journal" }) },
-  { id: "workouts", title: "Recent workouts", desc: "Your latest workouts from the iPhone app and wearables", size: "m", on: true, needs: ["workouts"],
+  { id: "workouts", title: "Recent workouts", desc: "Your latest workouts from the phone apps and wearables", size: "m", on: true, needs: ["workouts"],
     render: (d) => listCard("Recent workouts", "activity", d.workouts.workouts, (w) => html`
       <div class="list-item clickable" data-action="workout" data-id="${w.id}">
         <div class="grow"><div class="title truncate">${w.name}</div><div class="meta truncate">${fmtDateTime(w.start_date)} · ${w.source_name}</div></div>
@@ -351,7 +351,7 @@ export async function render({ el, state, navigate }) {
             ["watch", "Wearables and phones", "Pair the Syntropy iPhone or Android app for Apple Health or Health Connect, or link Oura, WHOOP or Google Health for sleep, recovery, HRV and training.", "#/sources", "Connect a device"],
             ["building", "Medical records", "Bring in labs, medications, conditions and visits from patient portals like Epic MyChart, Oracle Health, athenahealth and healow.", "#/sources?add=ehr", "Find my health system"],
             ["upload", "Import files", "Drop in an Apple Health export or any FHIR record file you downloaded from a portal.", "#/sources?add=import", "Import a file"],
-            ["shieldCheck", "Private by design", "No cloud account. Tokens are encrypted at rest and every access is recorded in your access log.", "#/settings/security", "Review security"],
+            ["shieldCheck", "Private by design", "No cloud account. Your sign-ins to other services are stored encrypted, and every access is recorded in your access log.", "#/settings/security", "Review security"],
           ].map(([ic, t, text, href, cta]) => html`
             <div class="card card-pad stack" style="gap:10px">
               <div class="row"><span class="src-avatar">${icon(ic)}</span><h2>${t}</h2></div>
@@ -397,12 +397,15 @@ export async function render({ el, state, navigate }) {
 
   let saveTimer = null;
   let customized = Boolean(saved.widgets);
+  const sendLayout = () => {
+    saveTimer = null;
+    return put(`/api/profiles/${profile.id}/overview`, { widgets: layout.map(({ id, visible, size }) => ({ id, visible, size })) })
+      .catch((err) => toast(`Couldn't save the layout: ${err.message}`, "bad"));
+  };
   const save = () => {
     customized = true;
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => put(`/api/profiles/${profile.id}/overview`,
-      { widgets: layout.map(({ id, visible, size }) => ({ id, visible, size })) })
-      .catch((err) => toast(`Couldn't save the layout: ${err.message}`, "bad")), 400);
+    saveTimer = setTimeout(sendLayout, 400);
   };
   const apply = async (next, { reload = false } = {}) => {
     layout = next;
@@ -452,6 +455,7 @@ export async function render({ el, state, navigate }) {
     reset: async () => {
       if (!(await confirmDialog("Reset the Overview?", "Cards, numbers and sizes go back to how they started.", { confirmLabel: "Reset" }))) return;
       clearTimeout(saveTimer);
+      saveTimer = null;
       if (customized) await del(`/api/profiles/${profile.id}/overview`);
       customized = false;
       layout = resolveLayout(null, defaultMetrics());
@@ -459,7 +463,8 @@ export async function render({ el, state, navigate }) {
       draw();
     },
   });
-  return () => { off(); clearTimeout(saveTimer); stopCharts.forEach((stop) => stop()); };
+  // Leaving straight after a change still saves it.
+  return () => { off(); if (saveTimer) { clearTimeout(saveTimer); sendLayout(); } stopCharts.forEach((stop) => stop()); };
 }
 
 // ------------------------------------------------------------------ adding cards and numbers
