@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from app import directory
 from app.connectors import smart
+from app.connectors import wearable_common
 from app.core import auth, config, context, settings
 from app.store import accounts, biometrics
 
@@ -33,6 +34,8 @@ def _snapshot() -> dict:
         wearables[provider] = {"label": meta["label"], "client_id": creds["client_id"],
                                "client_secret_set": bool(creds["client_secret"]),
                                "redirect_uri": settings.get(f"wearable.{provider}.redirect_uri") or ""}
+        if provider in wearable_common.RELAY_PROVIDERS:
+            wearables[provider]["relay_url"] = settings.get(f"wearable.{provider}.relay_url") or ""
     platforms = []
     for key in settings.EHR_PLATFORMS:
         cfg = settings.platform_config(key)
@@ -100,6 +103,16 @@ class WearablePatch(BaseModel):
     client_id: Optional[str] = Field(None, max_length=200)
     client_secret: Optional[str] = Field(None, max_length=400)
     redirect_uri: Optional[str] = Field(None, max_length=500)
+    relay_url: Optional[str] = Field(None, max_length=500)
+
+
+def _check_relay(provider: str, value: Optional[str]) -> None:
+    if not value or not value.strip():
+        return
+    if provider not in wearable_common.RELAY_PROVIDERS:
+        raise HTTPException(400, f"{provider.title()} renews directly with the provider, so it can't use a relay.")
+    if not wearable_common.own_relay_origin(value):
+        raise HTTPException(400, "Your own relay needs an https address, and it can't be one of Syntropy Labs' own.")
 
 
 def _check_redirect(value: Optional[str]) -> None:
@@ -110,12 +123,15 @@ def _check_redirect(value: Optional[str]) -> None:
 @router.put("/wearables/{provider}", dependencies=[owner])
 def update_wearable(provider: str, req: WearablePatch) -> dict:
     _check_redirect(req.redirect_uri)
+    _check_relay(provider, req.relay_url)
     try:
         settings.set_wearable_credentials(provider, req.client_id, req.client_secret)
     except KeyError:
         raise HTTPException(404, "Unknown wearable")
     if req.redirect_uri is not None:
         settings.set(f"wearable.{provider}.redirect_uri", req.redirect_uri.strip() or None)
+    if req.relay_url is not None:
+        settings.set(f"wearable.{provider}.relay_url", wearable_common.own_relay_origin(req.relay_url))
     return _snapshot()["wearables"][provider]
 
 

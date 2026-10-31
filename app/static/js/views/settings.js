@@ -187,6 +187,9 @@ export async function render({ el, parts, state, navigate }) {
             </div>
             <div style="margin-top:10px"><label class="label" for="w-redirect-${key}">Redirect URI</label>
               <input class="input" id="w-redirect-${key}" value="${w.redirect_uri}" inputmode="url" placeholder="${location.origin}/callback"></div>
+            ${"relay_url" in w ? html`<div style="margin-top:10px"><label class="label" for="w-relay-${key}">Your own relay</label>
+              <input class="input" id="w-relay-${key}" value="${w.relay_url}" inputmode="url" placeholder="https://my-relay.example.workers.dev" aria-describedby="w-relay-hint-${key}">
+              <div class="hint" id="w-relay-hint-${key}">Only if you run your own copy of the sign-in relay and keep this app's secret there instead of here. Your refresh token goes to this address each time access is renewed.</div></div>` : ""}
             <div style="margin-top:10px"><button class="btn btn-sm" data-action="save-wearable" data-key="${key}">Save ${w.label}</button></div></div>`)}
         </details>`)}
     </div>`);
@@ -200,7 +203,9 @@ export async function render({ el, parts, state, navigate }) {
       },
       "save-wearable": async ({ key }) => {
         const secret = $(`#w-secret-${key}`, body).value;
-        await put(`/api/settings/wearables/${key}`, { client_id: $(`#w-id-${key}`, body).value.trim(), redirect_uri: $(`#w-redirect-${key}`, body).value.trim(), ...(secret ? { client_secret: secret } : {}) });
+        const relay = $(`#w-relay-${key}`, body);
+        await put(`/api/settings/wearables/${key}`, { client_id: $(`#w-id-${key}`, body).value.trim(), redirect_uri: $(`#w-redirect-${key}`, body).value.trim(),
+          ...(relay ? { relay_url: relay.value.trim() } : {}), ...(secret ? { client_secret: secret } : {}) });
         toast("Saved"); redraw();
       },
     });

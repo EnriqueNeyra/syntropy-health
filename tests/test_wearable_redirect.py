@@ -119,33 +119,111 @@ def test_ones_own_app_refreshes_directly_with_the_provider(monkeypatch):
     assert "my-oura-secret" in seen[0].content.decode()
 
 
-def test_google_without_a_secret_sends_its_refresh_token_nowhere(monkeypatch):
+EVERY_REDIRECT = [SITE_CALLBACK, RELAY, f"{BASE}/callback", "http://localhost:8110/callback", "http://other-host.example/callback",
+                  "https://my-relay.example.workers.dev/callback", None]
+
+
+@pytest.mark.parametrize("saved", EVERY_REDIRECT)
+def test_google_without_a_secret_sends_its_refresh_token_nowhere(monkeypatch, saved):
     settings.set_wearable_credentials("google", "g-id", None)
-    settings.set("wearable.google.redirect_uri", SITE_CALLBACK)
+    settings.set("wearable.google.redirect_uri", saved)
     seen = _capture(monkeypatch)
     with pytest.raises(SmartError, match="client secret") as err:
         asyncio.run(google_health.refresh({"refresh_token": "RT"}))
     assert err.value.kind == "auth" and seen == []
+    assert wc.refresh_broker("google") is None
+
+
+def test_google_never_has_a_relay_even_if_one_is_stored(monkeypatch):
+    settings.set_wearable_credentials("google", "g-id", None)
+    settings.set("wearable.google.relay_url", "https://my-relay.example.workers.dev")
+    seen = _capture(monkeypatch)
+    with pytest.raises(SmartError, match="client secret"):
+        asyncio.run(google_health.refresh({"refresh_token": "RT"}))
+    assert seen == []
+
+
+def test_google_with_its_secret_renews_with_google(monkeypatch):
+    settings.set_wearable_credentials("google", "g-id", "g-secret")
+    settings.set("wearable.google.redirect_uri", "http://other-host.example/callback")
+    seen = _capture(monkeypatch)
+    asyncio.run(google_health.refresh({"refresh_token": "RT"}))
+    assert str(seen[0].url) == google_health.TOKEN_URL
 
 
 def test_own_client_id_with_its_own_relay_keeps_working(monkeypatch):
-    # A person who runs their own copy of the worker: their client ID here, their secret there.
+    # A person who runs their own copy of the worker: their client ID here, their secret there. They say so in its own
+    # setting, and the sign-in's redirect still points at the worker they registered.
     settings.set_wearable_credentials("oura", "my-oura-app", None)
     settings.set("wearable.oura.redirect_uri", "https://my-relay.example.workers.dev/callback")
+    settings.set("wearable.oura.relay_url", "https://my-relay.example.workers.dev")
     assert wc.redirect_uri("oura", ORIGIN) == "https://my-relay.example.workers.dev/callback"
     seen = _capture(monkeypatch)
     asyncio.run(wc.refresh_tokens(oura.TOKEN_URL, "oura", {"refresh_token": "RT"}))
     assert str(seen[0].url) == "https://my-relay.example.workers.dev/refresh"
 
 
-@pytest.mark.parametrize("saved", [SITE_CALLBACK, RELAY, None])
-def test_own_client_id_never_sends_its_token_to_syntropys_hosts(monkeypatch, saved):
+@pytest.mark.parametrize("saved", EVERY_REDIRECT)
+def test_own_client_id_never_sends_its_token_where_a_redirect_points(monkeypatch, saved):
     settings.set_wearable_credentials("oura", "my-oura-app", None)
     settings.set("wearable.oura.redirect_uri", saved)
     seen = _capture(monkeypatch)
     with pytest.raises(SmartError, match="client secret"):
         asyncio.run(wc.refresh_tokens(oura.TOKEN_URL, "oura", {"refresh_token": "RT"}))
     assert seen == []
+
+
+@pytest.mark.parametrize("stored", ["http://my-relay.example", "http://localhost:8110", SITE_CALLBACK, RELAY, "https://", "my-relay.example", "ftp://x"])
+def test_a_stored_relay_has_to_be_someone_elses_https_address(monkeypatch, stored):
+    # The refresh token travels in the body, so plain http is never right, and Syntropy's hosts hold no secret for this app.
+    settings.set_wearable_credentials("oura", "my-oura-app", None)
+    settings.set("wearable.oura.relay_url", stored)
+    seen = _capture(monkeypatch)
+    with pytest.raises(SmartError, match="client secret"):
+        asyncio.run(wc.refresh_tokens(oura.TOKEN_URL, "oura", {"refresh_token": "RT"}))
+    assert seen == []
+
+
+def test_a_relay_setting_changes_nothing_for_syntropys_own_apps(monkeypatch):
+    settings.set("wearable.oura.relay_url", "https://my-relay.example.workers.dev")
+    seen = _capture(monkeypatch)
+    asyncio.run(wc.refresh_tokens(oura.TOKEN_URL, "oura", {"refresh_token": "RT"}))
+    assert str(seen[0].url) == f"{RELAY_ORIGIN}/refresh"
+
+
+def test_ones_own_relay_turning_a_request_away_isnt_blamed_on_syntropys(monkeypatch):
+    settings.set_wearable_credentials("oura", "my-oura-app", None)
+    settings.set("wearable.oura.relay_url", "https://my-relay.example.workers.dev")
+    _capture(monkeypatch, httpx.Response(403, json={"error": "nope"}))
+    with pytest.raises(SmartError, match="refused to refresh") as err:
+        asyncio.run(wc.refresh_tokens(oura.TOKEN_URL, "oura", {"refresh_token": "RT"}))
+    assert "Syntropy Labs" not in str(err.value)
+
+
+def test_settings_save_and_clear_ones_own_relay(client):
+    assert client.get("/api/settings").json()["wearables"]["oura"]["relay_url"] == ""
+    r = client.put("/api/settings/wearables/oura", json={"relay_url": " https://my-relay.example.workers.dev/ "})
+    assert r.status_code == 200, r.text
+    assert r.json()["relay_url"] == "https://my-relay.example.workers.dev"
+    assert client.put("/api/settings/wearables/oura", json={"client_id": ""}).json()["relay_url"]    # untouched when absent
+    assert client.put("/api/settings/wearables/oura", json={"relay_url": ""}).json()["relay_url"] == ""
+    assert settings.get("wearable.oura.relay_url") is None
+
+
+@pytest.mark.parametrize("bad", ["http://my-relay.example", "my-relay.example", "javascript:alert(1)", SITE_CALLBACK, RELAY, RELAY_ORIGIN])
+def test_settings_refuse_a_relay_that_would_leak_or_fail(client, bad):
+    r = client.put("/api/settings/wearables/oura", json={"relay_url": bad})
+    assert r.status_code == 400
+    assert settings.get("wearable.oura.relay_url") is None
+
+
+def test_settings_have_no_relay_for_google(client):
+    assert "relay_url" not in client.get("/api/settings").json()["wearables"]["google"]
+    r = client.put("/api/settings/wearables/google", json={"relay_url": "https://my-relay.example.workers.dev"})
+    assert r.status_code == 400
+    assert settings.get("wearable.google.relay_url") is None
+    # A page that sends the empty field for every provider is no error.
+    assert client.put("/api/settings/wearables/google", json={"relay_url": ""}).status_code == 200
 
 
 @pytest.mark.parametrize("bad", ["ftp://x/callback", "callback", "javascript:alert(1)"])
@@ -211,6 +289,31 @@ def test_the_old_default_moves_nowhere_and_nothing_is_overwritten():
     assert settings.get("wearable.oura.redirect_uri") == "https://mine.example/callback"
     # And with nothing saved at all, it's a quick no-op.
     _run_fix()
+
+
+def test_a_self_run_relay_in_the_old_setting_stays_the_one_that_renews():
+    # Renewals used to follow the old setting. Someone with no secret here, whose worker it named, keeps working.
+    _legacy("https://my-relay.example.workers.dev/callback")
+    settings.set_wearable_credentials("whoop", "my-whoop-app", None)
+    settings.set_wearable_credentials("google", "g-id", None)
+    _own_app("oura")
+    _run_fix()
+    assert settings.get("wearable.whoop.redirect_uri") == "https://my-relay.example.workers.dev/callback"
+    assert settings.get("wearable.whoop.relay_url") == "https://my-relay.example.workers.dev"
+    assert settings.get("wearable.oura.relay_url") is None, "its secret is here, so it needs no relay"
+    assert settings.get("wearable.google.relay_url") is None
+    assert wc.refresh_broker("whoop") == "https://my-relay.example.workers.dev"
+    assert wc.refresh_broker("google") is None
+
+
+@pytest.mark.parametrize("old", ["http://localhost:8110/callback", "http://nas:8000/callback", SITE_CALLBACK])
+def test_an_old_setting_that_only_ever_was_a_redirect_makes_no_relay(old):
+    _legacy(old)
+    settings.set_wearable_credentials("whoop", "my-whoop-app", None)
+    _run_fix()
+    assert settings.get("wearable.whoop.redirect_uri") == old
+    assert settings.get("wearable.whoop.relay_url") is None
+    assert wc.refresh_broker("whoop") is None
 
 
 def test_moving_the_old_setting_is_a_registered_fix_that_runs_once():

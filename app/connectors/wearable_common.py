@@ -14,6 +14,9 @@ import httpx
 from app.core import config, data_fixes, settings
 from app.connectors.smart import SmartError, USER_AGENT
 
+# Who can renew through a relay at all. Google Health can't: its renewals only ever go to Google, with the person's secret.
+RELAY_PROVIDERS = ("oura", "whoop")
+
 
 def _saved_redirect(provider: str) -> str:
     saved = settings.get(f"wearable.{provider}.redirect_uri") or ""
@@ -61,17 +64,28 @@ def _origin(url: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
+def own_relay_origin(address: Optional[str]) -> Optional[str]:
+    """The origin of a relay someone runs themselves, or None if this address can't be one. It gets refresh tokens, so
+    https only, and Syntropy's hosts hold no secret for that person's app."""
+    try:
+        parsed = urlparse((address or "").strip())
+        if parsed.scheme != "https" or not parsed.hostname:
+            return None
+    except ValueError:
+        return None
+    origin = f"https://{parsed.netloc.lower()}"
+    return None if origin in (_origin(config.DEFAULT_WEARABLE_RELAY_URL), _origin(config.DEFAULT_RELAY_URL)) else origin
+
+
 def refresh_broker(provider: str) -> Optional[str]:
-    """Who renews tokens for an app whose secret isn't on this server: the relay for Syntropy's apps, whatever redirect is
-    saved. For someone's own client ID, only the relay they run themselves and named as its redirect, never Syntropy's
-    hosts, which hold no secret for that app. None when nobody can."""
-    client_id = settings.wearable_credentials(provider)["client_id"]
-    if _syntropys_app(provider, client_id):
+    """Who renews tokens for an app whose secret isn't on this server: the relay for Syntropy's apps. For someone's own
+    Oura or WHOOP app, only the relay they named for this in Settings. Never a redirect setting, which says where a
+    browser goes and can be any host. None when nobody can."""
+    if provider not in RELAY_PROVIDERS:
+        return None
+    if _syntropys_app(provider, settings.wearable_credentials(provider)["client_id"]):
         return _origin(config.DEFAULT_WEARABLE_RELAY_URL)
-    own = _saved_redirect(provider)
-    if own and _origin(own) != _origin(config.DEFAULT_RELAY_URL):
-        return _origin(own)
-    return None
+    return own_relay_origin(settings.get(f"wearable.{provider}.relay_url"))
 
 
 async def exchange_code_local(token_url: str, provider: str, code: str, redirect: str) -> dict[str, Any]:
@@ -114,7 +128,7 @@ async def refresh_tokens(token_url: str, provider: str, credentials: dict[str, A
             raise SmartError(f"Could not refresh {provider.title()} access: {exc}", "network") from exc
     if resp.status_code >= 500 or resp.status_code == 429:
         raise SmartError(f"{provider.title()} isn't answering right now. The connection is fine, and it will be tried again at the next sync.", "network")
-    if resp.status_code == 403 and not creds["client_secret"]:
+    if resp.status_code == 403 and not creds["client_secret"] and _syntropys_app(provider, creds["client_id"]):
         raise SmartError(f"Syntropy Labs' sign-in relay only serves up-to-date Syntropy Health releases. Update to the latest "
                          f"version, or add your own {provider.title()} app in Settings → Wearables.", "auth")
     if resp.status_code != 200:
@@ -143,7 +157,8 @@ def needs_refresh(credentials: dict[str, Any], skew: int = 120) -> bool:
 
 def _move_wearable_redirect(conn: Any, cursor: Any, size: int) -> None:
     """The one redirect setting all wearables once shared becomes per provider, kept only for those with their own app:
-    set up for Google, it had also pulled Oura and WHOOP off the relay they're registered with."""
+    set up for Google, it had also pulled Oura and WHOOP off the relay they're registered with. Renewals used to follow
+    it too, so an app with no secret here keeps renewing at an https address it named, now as that app's own relay."""
     row = conn.execute("SELECT value FROM app_settings WHERE key = 'relay.wearable_redirect_uri'").fetchone()
     if row:
         saved = json.loads(row["value"])
@@ -153,6 +168,10 @@ def _move_wearable_redirect(conn: Any, cursor: Any, size: int) -> None:
                 if creds["client_secret"] or not _syntropys_app(provider, creds["client_id"]):
                     conn.execute("INSERT OR IGNORE INTO app_settings(key, value, updated_at) VALUES (?, ?, ?)",
                                  (f"wearable.{provider}.redirect_uri", row["value"], time.time()))
+                    relay = own_relay_origin(saved) if provider in RELAY_PROVIDERS and not creds["client_secret"] else None
+                    if relay:
+                        conn.execute("INSERT OR IGNORE INTO app_settings(key, value, updated_at) VALUES (?, ?, ?)",
+                                     (f"wearable.{provider}.relay_url", json.dumps(relay), time.time()))
         conn.execute("DELETE FROM app_settings WHERE key = 'relay.wearable_redirect_uri'")
     return None
 
