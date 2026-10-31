@@ -1,11 +1,12 @@
 // Ask: chat about your health data with the AI chosen in Settings — a local model, your own key, or an agent on this
 // computer (read-only tools, one person at a time).
-import { del, get, put, signedOut, unreachableMessage } from "../api.js";
-import { appCan, appScroll, setComposer, setToolbar } from "../app.js";
-import { $, confirmDialog, emptyState, fmtAgo, html, icon, loading, markdown, mount, plural, toast } from "../ui.js";
+import { del, get, patch as change, put, signedOut, unreachableMessage } from "../api.js";
+import { appCan, appScroll, followAddress, setComposer, setToolbar, shell } from "../app.js";
+import { $, confirmDialog, dropdown, emptyState, fmtAgo, html, icon, loading, markdown, modal, mount, plural, toast } from "../ui.js";
 import { confirmAiProvider, confirmAiSummary } from "../consent.js";
 import { logo, logoId } from "../ai-logos.js";
 import { openModelPicker, sameChoice } from "../model-picker.js";
+import { conversationList, renameInPlace } from "../ask-panel.js";
 
 const SUGGESTIONS = [
   "How has my sleep changed over the last month?",
@@ -15,6 +16,15 @@ const SUGGESTIONS = [
   "Prepare questions for my next doctor's visit.",
 ];
 const REDUCED_MOTION = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Where a keyboard's Command key is the one for shortcuts; elsewhere Control. (Control on a Mac moves the cursor in text.)
+const MAC_KEYS = /Mac|iP(hone|ad|od)/.test(navigator.platform);
+const keyName = (key, shifted) => (MAC_KEYS ? `⌘${shifted ? "⇧" : ""}${key}` : `Ctrl+${shifted ? "Shift+" : ""}${key}`);
+// New chat: the Mac app's File menu has ⌘N and the Windows app leaves Ctrl+N to the page; a browser keeps both for a new
+// window, and ⌘⇧O (Open in Browser in the Mac app's menu) is free there.
+const NEW_KEY = shell === "mac" ? "⌘N" : shell === "windows" ? "Ctrl+N" : keyName("O", true);
+const SIDE_CLOSED_KEY = "syntropy-ask-side-closed";
+// Moving what's beside the panel, rather than resizing it, keeps a long conversation from being laid out again every frame.
+const SLIDE = { duration: 240, easing: "cubic-bezier(.2, .8, .2, 1)" };
 
 // Conversations are saved on the server (so they follow you to the desktop and iPhone apps), per person and account.
 const newId = () => `c_${Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
@@ -34,6 +44,28 @@ const historyFor = (messages, question) => [...messages.filter((m) => !m.error &
   .filter((m) => m.content.length <= MAX_QUESTION_CHARS).slice(-(MAX_HISTORY - 1)), { role: "user", content: question }];
 const errorDetail = (body, status) => (Array.isArray(body.detail) ? body.detail.map((d) => d.msg).join("; ") : body.detail) || `Request failed (${status})`;
 
+/** Copies from a click. Without https a browser has no clipboard to ask, and the apps' windows can refuse: the old way still works. */
+async function copyText(value) {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    const back = document.activeElement;
+    const box = Object.assign(document.createElement("textarea"), { value });
+    box.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+    document.body.appendChild(box);
+    box.select();
+    let done = false;
+    try { done = document.execCommand("copy"); } catch { /* said below */ }
+    box.remove();
+    back?.focus?.({ preventScroll: true });
+    return done;
+  }
+}
+
+/** A table as tab-separated text, which pastes into a spreadsheet as a table and reads fine anywhere else. */
+const tableText = (table) => [...table.rows].map((r) => [...r.cells].map((c) => c.textContent.trim()).join("\t")).join("\n");
+
 export async function render({ el, state, params, navigate }) {
   const profile = state.profile;
   mount(el, loading(2));
@@ -52,30 +84,48 @@ export async function render({ el, state, params, navigate }) {
     return;
   }
 
-  const q = { profile: profile.id };
-  let chats = (await get("/api/ai/chats", q, { fresh: true }).catch(() => ({ chats: [] }))).chats;
-  let chatId = newId();
-  let messages = [];
-  // Pick up the latest conversation, unless a new one was asked for (File → New Chat in the desktop app).
-  if (params?.get("new")) history.replaceState(null, "", "#/ask");
-  else if (params?.get("chat") || chats[0]) {
-    const open = await get(`/api/ai/chats/${params?.get("chat") || chats[0].id}`, q, { fresh: true }).catch(() => null);
-    if (open) { chatId = open.id; messages = open.messages; }
-  }
-  let busy = false;
-  let current = cfg;
-  const saveChat = async () => {
-    const keep = stored(messages);
-    if (!keep.some((m) => m.role === "assistant")) return;
-    try {
-      await put(`/api/ai/chats/${chatId}?profile=${encodeURIComponent(profile.id)}`, { title: titleOf(keep), messages: keep });
-      if (native) reloadChats();       // the app's Conversations menu lists it now
-    } catch (err) { toast(`Couldn't save this conversation: ${err.message}`, "bad"); }
-  };
-
   // In the iPhone app the conversation is the screen itself, like Messages: it scrolls with the screen, the message
   // field is the app's own (above the keyboard), and the model, past conversations and New chat are in its title bar.
   const native = appCan("composer") && appCan("toolbar");
+  const q = { profile: profile.id };
+  const chatPath = (id) => `/api/ai/chats/${encodeURIComponent(id)}?profile=${encodeURIComponent(profile.id)}`;
+  let chats = (await get("/api/ai/chats", q, { fresh: true }).catch(() => ({ chats: [] }))).chats;
+  let chatId = newId();
+  let messages = [];
+  // Pick up the conversation in the address or the latest one, unless a new one was asked for (File → New Chat in the
+  // desktop app). An address from before switching person names a conversation that isn't theirs.
+  if (params?.get("new")) history.replaceState(history.state, "", "#/ask");
+  else {
+    const load = (id) => get(`/api/ai/chats/${encodeURIComponent(id)}`, q, { fresh: true }).catch(() => null);
+    const open = (params?.get("chat") && await load(params.get("chat"))) || (chats[0] && await load(chats[0].id));
+    if (open) { chatId = open.id; messages = open.messages; }
+  }
+  let busy = false;
+  let live = null;                  // the conversation being answered, which carries on if another is opened meanwhile
+  let current = cfg;
+  const unsaved = new Map();        // asked, but with no answer saved yet: listed so it doesn't appear from nowhere afterwards
+  const chosenTitles = new Map();   // named before there was anything saved to name
+  const drafts = new Map();         // what was being typed in each conversation
+  let panel = null;
+  const entryOf = (id) => chats.find((c) => c.id === id) || unsaved.get(id);
+
+  const saveChat = async (id = chatId, thread = messages) => {
+    const keep = stored(thread);
+    if (!keep.some((m) => m.role === "assistant")) return;
+    const chosen = chosenTitles.get(id);
+    try {
+      const saved = await put(chatPath(id), { title: chosen || titleOf(keep), messages: keep, ...(chosen ? { title_set: true } : {}) });
+      chosenTitles.delete(id);
+      if (native) return reloadChats();       // the app's Conversations menu lists it now
+      const had = chats.find((c) => c.id === id);
+      unsaved.delete(id);
+      chats = [{ created_at: saved.updated_at, ...had, ...saved, messages: keep.length }, ...chats.filter((c) => c.id !== id)];
+      panel?.draw();
+      drawBar();
+      showAddress();
+    } catch (err) { toast(`Couldn't save this conversation: ${err.message}`, "bad"); }
+  };
+
   // Set once the person has gone to another page: an answer finishing, or the model list arriving, after that must not
   // put Ask's message field and title bar back on the page they went to.
   let left = false;
@@ -86,25 +136,43 @@ export async function render({ el, state, params, navigate }) {
   const loadChoices = () => get("/api/ai/choices", null, { fresh: true }).then((res) => { choices = res; return res; });
   let choicesReady = loadChoices().catch(() => null);
 
+  const foot = html`<p class="tiny faint chat-foot">Read-only access to ${profile.name}'s records. Answers come from an AI and can be wrong. Syntropy Health organizes records and doesn't give medical advice.</p>`;
   if (native) mount(el, html`
     <p class="small ask-privacy" id="ask-privacy"></p>
     <div class="chat-log" id="chat-log" aria-live="polite"></div>
-    <p class="tiny faint chat-foot">Read-only access to ${profile.name}'s records. Answers come from an AI and can be wrong. Syntropy Health organizes records and doesn't give medical advice.</p>`);
+    ${foot}`);
   else mount(el, html`
     <div class="page-head">
       <div><h1>Ask</h1><p class="small ask-privacy" id="ask-privacy"></p></div>
-      <div class="row"><button class="model-btn" id="model-btn" aria-haspopup="true" aria-expanded="false"></button>
-        <button class="btn btn-sm" id="ask-history" aria-haspopup="true" aria-expanded="false" title="Past conversations">${icon("history")}<span class="hide-narrow"> History</span></button>
-        <button class="btn btn-sm" id="ask-new" aria-label="New chat">${icon("plus")}<span class="hide-narrow"> New chat</span></button></div>
+      <div class="row"><button class="model-btn" id="model-btn" aria-haspopup="true" aria-expanded="false"></button></div>
     </div>
-    <div class="chat card">
-      <div class="chat-log" id="chat-log" aria-live="polite"></div>
-      <form class="chat-input" id="chat-form">
-        <textarea class="input" id="chat-text" rows="1" placeholder="Ask about your health data…" aria-label="Your question"></textarea>
-        <button class="btn btn-primary btn-icon" type="submit" id="chat-send" aria-label="Send">${icon("send")}</button>
-      </form>
+    <div class="ask-split card" id="ask-split">
+      <button class="btn btn-ghost btn-icon ask-toggle" id="ask-toggle" type="button" aria-controls="ask-side">${icon("sidebar")}</button>
+      <div class="ask-scrim" id="ask-scrim"></div>
+      <aside class="ask-side" id="ask-side" aria-label="Conversations">
+        <div class="ask-side-head">
+          <button class="btn ask-side-new" id="ask-new" type="button" title="New chat (${NEW_KEY})">${icon("pencil")}<span>New chat</span></button>
+          <button class="btn btn-ghost btn-icon ask-side-close" id="ask-side-close" type="button" aria-label="Close conversations" title="Close">${icon("x")}</button>
+        </div>
+        <div class="search ask-search">${icon("search")}<input class="input" id="ask-search" type="search" placeholder="Search conversations" aria-label="Search conversations" aria-keyshortcuts="${MAC_KEYS ? "Meta+K" : "Control+K"}" autocomplete="off"><kbd class="ask-kbd" aria-hidden="true">${keyName("K")}</kbd></div>
+        <div class="ask-list" id="ask-list"></div>
+      </aside>
+      <section class="chat" id="ask-chat" aria-label="Conversation">
+        <div class="ask-bar">
+          <h2 class="ask-title" id="ask-title"><button class="ask-title-btn truncate" id="ask-title-btn" type="button"></button></h2>
+          <button class="btn btn-ghost btn-icon ask-bar-more" id="ask-bar-more" type="button" aria-label="More for this conversation" title="More" aria-haspopup="menu" aria-expanded="false">${icon("more")}</button>
+          <button class="btn btn-ghost btn-icon ask-bar-new" id="ask-bar-new" type="button" aria-label="New chat" title="New chat (${NEW_KEY})">${icon("pencil")}</button>
+        </div>
+        <div class="chat-log" id="chat-log" aria-live="polite"><div class="chat-thread" id="chat-thread"></div></div>
+        <div class="chat-latest-wrap" id="chat-latest-wrap"><button class="btn btn-icon chat-latest" id="chat-latest" type="button" aria-label="Scroll to the latest message" title="Scroll to the latest message" tabindex="-1">${icon("arrowDown")}</button></div>
+        <form class="chat-input" id="chat-form">
+          <span class="chat-input-bg" id="chat-input-bg"></span>
+          <textarea class="input" id="chat-text" rows="1" placeholder="Ask about your health data…" aria-label="Your question"></textarea>
+          <button class="btn btn-primary btn-icon" type="submit" id="chat-send" aria-label="Send">${icon("send")}</button>
+        </form>
+      </section>
     </div>
-    <p class="tiny faint chat-foot">Read-only access to ${profile.name}'s records. Answers come from an AI and can be wrong. Syntropy Health organizes records and doesn't give medical advice.</p>`);
+    ${foot}`);
 
   const modelBtn = $("#model-btn", el);
   const drawHeader = () => {
@@ -148,28 +216,67 @@ export async function render({ el, state, params, navigate }) {
   modelBtn?.addEventListener("click", openMenu);
 
   const log = $("#chat-log", el);
+  const thread = $("#chat-thread", el) || log;
   const text = $("#chat-text", el);
   const send = $("#chat-send", el);
+  const split = $("#ask-split", el);
+  const side = $("#ask-side", el);
+  const pane = $("#ask-chat", el);
+  const toggle = $("#ask-toggle", el);
+  const titleBtn = $("#ask-title-btn", el);
+  const barMore = $("#ask-bar-more", el);
+  const latest = $("#chat-latest", el);
   const nodes = new Map();          // message → its element, so a streaming answer updates in place
   let controller = null;            // aborts the answer being written (the Stop button)
+  const hasHover = () => window.matchMedia("(hover: hover)").matches;
+  // A phone's keyboard shouldn't come up over the conversation just because one was opened.
+  const focusText = () => { if (text && hasHover() && !left) text.focus({ preventScroll: true }); };
 
   // Follow the answer as it grows, unless the person has scrolled up to read something. In the app the screen itself
   // scrolls, and the app knows whether it's near the bottom.
   const nearBottom = () => native || log.scrollHeight - log.scrollTop - log.clientHeight < 80;
   const toBottom = (smooth, follow = false) => (native ? appScroll("bottom", { animated: smooth && !REDUCED_MOTION(), follow })
     : log.scrollTo({ top: log.scrollHeight, behavior: smooth && !REDUCED_MOTION() ? "smooth" : "auto" }));
+  const drawLatest = () => { latest?.classList.toggle("on", messages.length > 0 && log.scrollHeight - log.scrollTop - log.clientHeight > 120); };
+
+  const toolButton = (tool, label, name) => html`<button class="btn btn-ghost btn-icon btn-sm" type="button" data-tool="${tool}" aria-label="${label}" title="${label}">${icon(name)}</button>`;
 
   const bubble = (m, enter) => {
     const node = document.createElement("div");
-    node.className = `msg ${m.role === "user" ? "msg-user" : "msg-ai"}${enter ? " enter" : ""}`;
-    if (m.role === "user") node.textContent = m.content;
-    else {
+    if (m.role === "user" && native) {
+      node.className = `msg msg-user${enter ? " enter" : ""}`;
+      node.textContent = m.content;
+    } else if (m.role === "user") {
+      node.className = `msg-q${enter ? " enter" : ""}`;
+      mount(node, html`<div class="msg msg-user"></div><div class="msg-tools">${toolButton("copy", "Copy question", "copy")}${toolButton("edit", "Edit and resend", "pencil")}</div>`);
+      $(".msg-user", node).textContent = m.content;
+    } else {
+      node.className = `msg msg-ai${enter ? " enter" : ""}`;
       mount(node, html`<div class="msg-note small muted"></div><div class="msg-steps"></div><div class="msg-body"></div>
-        <div class="typing" aria-hidden="true"><span></span><span></span><span></span></div><div class="msg-by"></div>`);
+        <div class="typing" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="msg-foot"><div class="msg-by"></div><div class="msg-tools">${toolButton("copy", "Copy answer", "copy")}${toolButton("regenerate", "Regenerate answer", "sync")}</div></div>`);
       patch(m, node, false);
     }
     nodes.set(m, node);
     return node;
+  };
+
+  /** A finished answer's code blocks and tables get a Copy button. Not while it's being written: they're redrawn every frame then. */
+  const addCopyButtons = (body) => {
+    for (const block of body.querySelectorAll(":scope > pre.md-code, :scope > .table-wrap")) {
+      const box = document.createElement("div");
+      box.className = "md-block";
+      block.replaceWith(box);
+      box.appendChild(block);
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.className = "btn btn-icon btn-sm md-copy";
+      copy.dataset.copyBlock = "";
+      copy.title = block.matches("pre") ? "Copy code" : "Copy table";
+      copy.setAttribute("aria-label", copy.title);
+      mount(copy, icon("copy"));
+      box.appendChild(copy);
+    }
   };
 
   /** Brings an answer's element up to date: lookups, the text shown so far, the typing dots, who answered. */
@@ -196,6 +303,7 @@ export async function render({ el, state, params, navigate }) {
       // What's rendered, not the raw text: a table's last row is held back while it's being written, and must appear once it's finished.
       const source = m.pending ? partialMarkdown(shown) : shown;
       if (body.dataset.shown !== source) { mount(body, markdown(source)); body.dataset.shown = source; }
+      if (!m.pending) addCopyButtons(body);
     }
     if (m.cut && !m.pending && !m.error && m === messages.at(-1) && !busy && !$("[data-continue]", node)) {
       const more = document.createElement("button");
@@ -210,19 +318,37 @@ export async function render({ el, state, params, navigate }) {
     const by = $(".msg-by", node);
     by.textContent = m.pending ? "" : [m.stopped ? "Stopped" : "", m.by || ""].filter(Boolean).join(" · ");
     by.hidden = !by.textContent;
+    // The row under an answer holds its place while it's written, so it doesn't push the page when it finishes.
+    const row = $(".msg-foot", node);
+    row.hidden = !!m.error;
+    row.classList.toggle("ready", !m.pending && !!m.content);
+  };
+
+  /** Regenerate belongs to the last answer and Edit to the last question; neither while an answer is being written. */
+  const drawTools = () => {
+    const lastAsked = messages.findLast((m) => m.role === "user");
+    for (const [m, node] of nodes) {
+      node.classList.toggle("last", m === messages.at(-1) || m === lastAsked);
+      const again = $('[data-tool="regenerate"]', node);
+      if (again) again.hidden = busy || m !== messages.at(-1);
+      const edit = $('[data-tool="edit"]', node);
+      if (edit) edit.hidden = busy || m !== lastAsked;
+    }
   };
 
   const drawAll = () => {
     nodes.clear();
     if (!messages.length) {
-      mount(log, html`<div class="chat-empty enter">
+      mount(thread, html`<div class="chat-empty enter">
         <span class="chat-empty-icon">${icon("sparkles")}</span>
         <h3>What would you like to know?</h3>
         <div class="chips">${SUGGESTIONS.map((s) => html`<button class="chip" type="button" data-suggest="${s}">${s}</button>`)}</div></div>`);
       if (native) appScroll("top", { animated: false });
+      drawLatest();
       return;
     }
-    log.replaceChildren(...messages.map((m) => bubble(m, false)));
+    thread.replaceChildren(...messages.map((m) => bubble(m, false)));
+    drawTools();
     toBottom(false);
     // The page is built before it's on screen: open at the latest message once it has a size.
     if (native) requestAnimationFrame(() => requestAnimationFrame(() => toBottom(false)));
@@ -230,11 +356,12 @@ export async function render({ el, state, params, navigate }) {
       const ro = new ResizeObserver(() => { if (log.clientHeight) { ro.disconnect(); toBottom(false); } });
       ro.observe(log);
     }
+    drawLatest();
   };
 
   const append = (m) => {
-    log.querySelector(".chat-empty")?.remove();
-    log.appendChild(bubble(m, true));
+    thread.querySelector(".chat-empty")?.remove();
+    thread.appendChild(bubble(m, true));
   };
 
   // The answer appears as if written, at a pace that keeps up with the model: a quick sweep when it arrives all at once,
@@ -256,7 +383,8 @@ export async function render({ el, state, params, navigate }) {
       let end = r.text.length + (REDUCED_MOTION() ? backlog : Math.max(3, Math.ceil(backlog / 14)));
       const space = r.target.slice(end).search(/\s/);
       end = space < 0 ? r.target.length : Math.min(r.target.length, end + Math.min(space, 16));
-      const follow = nearBottom();
+      // Written out of sight when another conversation is open: it's all there on coming back.
+      const follow = nodes.has(m) && nearBottom();
       r.text = r.target.slice(0, end);
       patch(m);
       if (follow) toBottom(false, true);
@@ -274,15 +402,30 @@ export async function render({ el, state, params, navigate }) {
     r.kick();
   });
 
-  const autosize = () => { if (text) { text.style.height = "auto"; text.style.height = `${Math.min(text.scrollHeight, 200)}px`; } };
+  const autosize = () => {
+    if (!text) return;
+    // The field growing takes from the conversation: what was at the bottom stays there.
+    const stay = nearBottom();
+    text.style.height = "auto";
+    text.style.height = `${Math.min(text.scrollHeight, 200)}px`;
+    if (stay) toBottom(false);
+  };
+  /** The button in the message field stops the answer on screen; another conversation's answer can't be stopped from here. */
+  const drawSend = () => {
+    if (native) return;
+    const stopping = busy && live?.thread === messages;
+    if (send.classList.contains("stop") === stopping && send.firstElementChild) return;
+    send.classList.toggle("stop", stopping);
+    mount(send, icon(stopping ? "stop" : "send"));
+    send.setAttribute("aria-label", stopping ? "Stop" : "Send");
+    send.title = stopping ? "Stop" : "";
+    send.type = stopping ? "button" : "submit";
+  };
   const setBusy = (on) => {
     busy = on;
-    if (native) return showComposer();
-    send.classList.toggle("stop", on);
-    mount(send, icon(on ? "stop" : "send"));
-    send.setAttribute("aria-label", on ? "Stop" : "Send");
-    send.title = on ? "Stop" : "";
-    send.type = on ? "button" : "submit";
+    if (native) showComposer();
+    else drawSend();
+    drawTools();
   };
 
   // An AI outside this network: confirmed once for each (Settings asks too, when it's chosen there).
@@ -303,20 +446,41 @@ export async function render({ el, state, params, navigate }) {
     ? { provider: "agent", agent: current.agent_id, model: current.agent_model || "", vendor: current.vendor_key }
     : { provider: current.provider, model: current.model, vendor: current.vendor_key });
 
-  async function ask(question) {
-    if (busy || !question.trim()) return;
+  /** Asks a question. With `again` the last question is asked afresh (as `question`, if edited) and its answer is replaced. */
+  async function ask(question, { again = false } = {}) {
+    if (!question.trim()) return;
+    if (busy) {
+      if (live?.thread !== messages) toast("Wait for the answer in your other conversation first.");
+      return;
+    }
     if (question.trim().length > MAX_QUESTION_CHARS) return toast(`That's too long to send: ${question.trim().length.toLocaleString()} characters, and the limit is ${MAX_QUESTION_CHARS.toLocaleString()}. Shorten it and send again.`, "bad");
     if (!(await consented())) return;
+    const asked = question.trim(), held = messages, heldId = chatId;
+    live = { id: heldId, thread: held };
     setBusy(true);
     log.querySelectorAll("[data-retry], [data-continue]").forEach((b) => b.remove());
-    const history = historyFor(messages, question.trim());
-    const mine = { role: "user", content: question.trim() };
+    if (again && held.at(-1)?.role === "assistant") {
+      const old = held.pop();
+      nodes.get(old)?.remove();
+      nodes.delete(old);
+    }
+    const mine = again ? held.at(-1) : { role: "user", content: asked };
+    if (again && mine.content !== asked) {
+      mine.content = asked;
+      const shownQuestion = nodes.get(mine);
+      if (shownQuestion) (shownQuestion.querySelector(".msg-user") || shownQuestion).textContent = asked;
+    }
+    const history = historyFor(again ? held.slice(0, -1) : held, asked);
     const reply = { role: "assistant", content: "", steps: [], pending: true };
-    messages.push(mine, reply);
-    append(mine);
+    if (again) held.push(reply);
+    else { held.push(mine, reply); append(mine); }
     startReveal(reply);
     append(reply);
-    if (text) { text.value = ""; autosize(); }
+    drawTools();
+    if (!entryOf(heldId)) unsaved.set(heldId, { id: heldId, title: chosenTitles.get(heldId) || titleOf(held), updated_at: Date.now() / 1000, pinned: false, draft: true });
+    panel?.draw();
+    drawBar();
+    if (text && (!again || text.value.trim() === asked)) { text.value = ""; autosize(); }
     toBottom(true);
     controller = new AbortController();
     let answer = null;
@@ -370,69 +534,237 @@ export async function render({ el, state, params, navigate }) {
       delete reply.reveal;
       if (!reply.content && !reply.error) reply.error = reply.stopped ? "Stopped before an answer." : "No answer came back. Try again.";
       if (reply.stopped && !reply.by) reply.by = byline(current);
+      const gone = live?.gone;
+      live = null;
       setBusy(false);
-      const follow = nearBottom();
+      const onScreen = nodes.has(reply);
+      const follow = onScreen && nearBottom();
       patch(reply);
       if (follow) toBottom(true, true);
-      if (text && reply.error && !reply.stopped && !text.value.trim()) { text.value = question.trim(); autosize(); }
-      if (!left) text?.focus();
-      saveChat();
+      if (onScreen && text && reply.error && !reply.stopped && !text.value.trim()) { text.value = asked; autosize(); }
+      if (onScreen) focusText();
+      panel?.draw();
+      // A failed second try leaves the answer already saved in place, for the next time this conversation is opened.
+      if (!gone && !(again && reply.error)) saveChat(heldId, held);
     }
   }
+
+  /** The Copy button says it worked, in place. */
+  const copied = async (button, value) => {
+    if (!(await copyText(value))) return toast("Couldn't copy that. Select the text and copy it instead.", "bad");
+    const label = button.getAttribute("aria-label");
+    mount(button, icon("check"));
+    button.setAttribute("aria-label", "Copied");
+    button.classList.add("did");
+    setTimeout(() => { if (!button.isConnected) return; mount(button, icon("copy")); button.setAttribute("aria-label", label); button.classList.remove("did"); }, 1400);
+  };
+
+  /** Edit and resend: the question becomes a field where it is. Enter sends, Escape leaves it as it was. */
+  const editQuestion = (m) => {
+    const node = nodes.get(m);
+    if (!node || busy || $(".msg-edit", node)) return;
+    const form = document.createElement("form");
+    form.className = "msg-edit";
+    mount(form, html`<textarea class="input" rows="1" aria-label="Edit your question"></textarea>
+      <div class="msg-edit-actions"><button class="btn btn-sm" type="button" data-cancel>Cancel</button><button class="btn btn-sm btn-primary" type="submit">Send</button></div>`);
+    const field = $("textarea", form);
+    field.value = m.content;
+    node.classList.add("editing");
+    node.appendChild(form);
+    const fit = () => { field.style.height = "auto"; field.style.height = `${Math.min(field.scrollHeight, 240)}px`; };
+    fit();
+    field.focus({ preventScroll: true });
+    field.setSelectionRange(field.value.length, field.value.length);
+    if (m === messages.at(-1) || m === messages.at(-2)) toBottom(false);
+    const close = () => { form.remove(); node.classList.remove("editing"); $('[data-tool="edit"]', node)?.focus({ preventScroll: true }); };
+    field.addEventListener("input", fit);
+    field.addEventListener("keydown", (e) => {
+      if (e.isComposing) return;
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+    });
+    $("[data-cancel]", form).addEventListener("click", close);
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const value = field.value.trim();
+      if (!value) return;
+      form.remove();
+      node.classList.remove("editing");
+      ask(value, { again: true });
+    });
+  };
 
   log.addEventListener("click", (e) => {
     const chip = e.target.closest("[data-suggest]");
     if (chip) ask(chip.dataset.suggest);
     if (e.target.closest("[data-continue]")) ask("Please continue from where you stopped.");
-    if (e.target.closest("[data-retry]") && !busy) {
-      const failed = messages.at(-1), question = messages.at(-2);
-      if (!failed?.error || question?.role !== "user") return;
-      nodes.get(failed)?.remove();
-      nodes.get(question)?.remove();
-      messages.splice(-2, 2);
-      if (text) { text.value = ""; autosize(); }
-      const before = messages.length;
-      // Declined the agreement: nothing was asked, so the question is left to edit or send later.
-      ask(question.content).then(() => { if (messages.length === before && text) { text.value = question.content; autosize(); } });
+    if (e.target.closest("[data-retry]")) {
+      const asked = messages.findLast((m) => m.role === "user");
+      if (asked && !busy) ask(asked.content, { again: true });
+    }
+    const block = e.target.closest("[data-copy-block]");
+    if (block) {
+      const pre = $("pre", block.parentElement);
+      copied(block, pre ? pre.textContent : tableText($("table", block.parentElement)));
+    }
+    const tool = e.target.closest("[data-tool]");
+    if (!tool) return;
+    const m = [...nodes].find(([, node]) => node.contains(tool))?.[0];
+    if (!m) return;
+    if (tool.dataset.tool === "copy") copied(tool, m.content);
+    else if (tool.dataset.tool === "edit") editQuestion(m);
+    else if (tool.dataset.tool === "regenerate") {
+      const asked = messages.findLast((x) => x.role === "user");
+      if (asked) ask(asked.content, { again: true });
     }
   });
+
   // The AI can change in another window or on the phone: show the current one on coming back here.
   const refreshAi = async () => {
-    if (busy || left || document.hidden) return;
+    if (left || document.hidden) return;
+    if (!native) reloadChats();      // and any conversation had there
+    if (busy) return;
     try { current = await get("/api/ai/config", { chat: true }, { fresh: true }); } catch { return; }
     if (!left && current.configured) drawHeader();
   };
   window.addEventListener("focus", refreshAi);
   document.addEventListener("visibilitychange", refreshAi);
   const stopRefreshing = () => { window.removeEventListener("focus", refreshAi); document.removeEventListener("visibilitychange", refreshAi); };
-  const newChat = () => {
-    if (busy) return toast("Wait for the current answer first.");
-    chatId = newId(); messages = []; drawAll(); text?.focus();
+
+  // The address says which conversation is open, so a reload or Back returns to it. Replaced, not added to: Back leaves
+  // Ask rather than going through every conversation looked at.
+  const showAddress = () => { if (!native && !left) history.replaceState(history.state, "", chats.some((c) => c.id === chatId) ? `#/ask?chat=${chatId}` : "#/ask"); };
+
+  /** Puts a conversation on screen: instantly, with what's there going straight to what's next. */
+  let opening = 0, openingId = null;
+  const show = (id, held) => {
+    if (text) drafts.set(chatId, text.value);
+    chatId = id;
+    messages = held;
+    openingId = null;
+    // One that never got an answer goes, unless it's the one still being answered.
+    for (const key of unsaved.keys()) if (key !== id && key !== live?.id) unsaved.delete(key);
+    drawAll();
+    if (!native && !REDUCED_MOTION()) thread.animate([{ opacity: .55 }, { opacity: 1 }], { duration: 140, easing: "ease-out" });
+    panel?.draw({ glide: false });
+    drawBar();
+    showAddress();
+    if (text) { text.value = drafts.get(id) || ""; autosize(); }
+    drawSend();
+    if (!native && narrow.matches) setSide(false);
+    focusText();
     drawToolbar();
   };
+  const newChat = () => {
+    if (native && busy) return toast("Wait for the current answer first.");
+    ++opening;
+    openingId = null;
+    if (!native && !messages.length) {
+      if (narrow.matches) setSide(false);
+      panel?.draw({ glide: false });
+      showAddress();
+      return focusText();
+    }
+    show(newId(), []);
+  };
   const openChat = async (id) => {
-    if (busy) return toast("Wait for the current answer first.");
-    const chat = await get(`/api/ai/chats/${id}`, q, { fresh: true }).catch((err) => { toast(err.message, "bad"); return null; });
-    if (chat) { chatId = chat.id; messages = chat.messages; drawAll(); text?.focus(); drawToolbar(); }
+    if (native && busy) return toast("Wait for the current answer first.");
+    const seq = ++opening;
+    if (id === chatId && !native) {
+      openingId = null;
+      panel?.draw({ glide: false });
+      if (!native && narrow.matches) setSide(false);
+      return focusText();
+    }
+    if (live?.id === id) return show(id, live.thread);
+    // The list moves on the click; what's on screen stays until the conversation arrives (usually at once).
+    openingId = id;
+    panel?.draw({ glide: false });
+    const chat = await get(`/api/ai/chats/${encodeURIComponent(id)}`, q, { fresh: true }).catch((err) => { toast(err.message, "bad"); return null; });
+    if (seq !== opening || left) return;
+    openingId = null;
+    if (chat) show(chat.id, chat.messages);
+    else { panel?.draw({ glide: false }); reloadChats(); }
   };
   const deleteChat = async (id) => {
     if (!(await confirmDialog("Delete this conversation?", "It's removed from this server for good.", { confirmLabel: "Delete", danger: true }))) return;
-    try { await del(`/api/ai/chats/${id}`, q); } catch (err) { return toast(err.message, "bad"); }
+    try { await del(`/api/ai/chats/${encodeURIComponent(id)}`, q); } catch (err) { return toast(err.message, "bad"); }
+    if (live?.id === id) { live.gone = true; controller?.abort(); }
     chats = chats.filter((c) => c.id !== id);
-    if (id === chatId) { chatId = newId(); messages = []; drawAll(); }
+    panel?.forget(id);
+    if (id === chatId) show(newId(), []);
+    else panel?.draw();
     drawToolbar();
     toast("Conversation deleted");
   };
   const reloadChats = async () => {
     chats = (await get("/api/ai/chats", q, { fresh: true }).catch(() => ({ chats }))).chats;
+    if (left) return;
+    panel?.draw();
+    drawBar();
     drawToolbar();
   };
+
+  /** Puts a change on screen at once, and back if the server says no. */
+  const changeChat = async (id, fields) => {
+    const c = chats.find((x) => x.id === id);
+    if (!c) return;
+    const was = Object.fromEntries(Object.keys(fields).map((k) => [k, c[k]]));
+    const apply = (values) => { Object.assign(c, values); panel?.change(id, values); panel?.draw(); drawBar(); drawToolbar(); };
+    apply(fields);
+    try { await change(chatPath(id), fields); } catch (err) { apply(was); toast(err.message, "bad"); }
+  };
+  const nameChat = (id, title) => {
+    if (chats.some((c) => c.id === id)) return changeChat(id, { title });
+    // Asked but not saved yet: it's named when it is.
+    chosenTitles.set(id, title);
+    const entry = unsaved.get(id);
+    if (entry) entry.title = title;
+    panel?.draw();
+    drawBar();
+  };
+  const renameInBar = () => {
+    const c = entryOf(chatId);
+    if (!c || !titleBtn) return;
+    const id = chatId;
+    renameInPlace(titleBtn, c.title, { save: (title) => nameChat(id, title) });
+  };
+  const exportChat = (id) => {
+    const link = Object.assign(document.createElement("a"), { href: `/api/ai/chats/${encodeURIComponent(id)}/export?profile=${encodeURIComponent(profile.id)}`, download: "" });
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+  const chatMenu = (c, rename) => [
+    { label: "Rename", icon: "pencil", run: rename },
+    { label: c.pinned ? "Unpin" : "Pin", icon: "pin", run: () => changeChat(c.id, { pinned: !c.pinned }) },
+    { label: "Export as Markdown", icon: "download", run: () => exportChat(c.id) },
+    "-",
+    { label: "Delete", icon: "trash", danger: true, run: () => deleteChat(c.id) },
+  ];
 
   // ---- In the iPhone app: its message field and title bar
   function showComposer() {
     if (left) return;
     setComposer({ placeholder: "Ask about your health data", busy, onSend: (question) => ask(question), onStop: () => controller?.abort() });
   }
+
+  /** The app's menus can't hold a text field, so renaming there is a small dialog. */
+  const renameDialog = (id) => {
+    const c = chats.find((x) => x.id === id);
+    if (!c) return;
+    const m = modal({ title: "Rename conversation", body: html`<input class="input" type="text" maxlength="120" aria-label="Conversation name" value="${c.title}">`,
+                      footer: html`<button class="btn" type="button" data-no>Cancel</button><button class="btn btn-primary" type="button" data-yes>Save</button>` });
+    const field = $("input", m.body);
+    const save = () => {
+      const title = field.value.trim();
+      m.close();
+      if (title && title !== c.title) changeChat(id, { title });
+    };
+    field.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); save(); } });
+    $("[data-no]", m.el).addEventListener("click", () => m.close());
+    $("[data-yes]", m.el).addEventListener("click", save);
+  };
 
   function drawToolbar() {
     if (!native || left) return;
@@ -452,16 +784,21 @@ export async function render({ el, state, params, navigate }) {
     });
     const manage = { items: [{ id: "manage", title: "Manage AI Connections", symbol: "gearshape", run: () => navigate("#/settings/ai") }] };
     const name = modelName(current);
-    const saved = chats.some((c) => c.id === chatId);
+    const saved = chats.find((c) => c.id === chatId);
+    const ordered = [...chats.filter((c) => c.pinned), ...chats.filter((c) => !c.pinned)];
     setToolbar([
       { id: "model", title: name.length > 16 ? `${name.slice(0, 15).trim()}…` : name, accessibilityLabel: `AI: ${byline(current)}. Choose another`,
         menu: choices ? [...modelSections, manage] : [{ items: [{ id: "model:loading", title: "Finding your models…", disabled: true }] }, manage] },
       { id: "history", title: "Conversations", symbol: "clock.arrow.circlepath", menu: [
         { title: chats.length ? `Conversations about ${profile.name}` : null, items: chats.length
-          ? chats.slice(0, 30).map((c) => ({ id: `chat:${c.id}`, title: c.title, subtitle: `${fmtAgo(c.updated_at)} · ${plural(c.messages, "message")}`,
-                                            checked: c.id === chatId, run: () => openChat(c.id) }))
+          ? ordered.slice(0, 30).map((c) => ({ id: `chat:${c.id}`, title: c.title, subtitle: `${fmtAgo(c.updated_at)} · ${plural(c.messages, "message")}`,
+                                               ...(c.pinned ? { symbol: "pin.fill" } : {}), checked: c.id === chatId, run: () => openChat(c.id) }))
           : [{ id: "chat:none", title: "No saved conversations yet", disabled: true }] },
-        ...(saved ? [{ items: [{ id: "chat:delete", title: "Delete This Conversation", symbol: "trash", destructive: true, run: () => deleteChat(chatId) }] }] : []),
+        ...(saved ? [{ items: [
+          { id: "chat:rename", title: "Rename This Conversation", symbol: "pencil", run: () => renameDialog(chatId) },
+          { id: "chat:pin", title: saved.pinned ? "Unpin This Conversation" : "Pin This Conversation", symbol: saved.pinned ? "pin.slash" : "pin", run: () => changeChat(chatId, { pinned: !saved.pinned }) },
+          { id: "chat:delete", title: "Delete This Conversation", symbol: "trash", destructive: true, run: () => deleteChat(chatId) },
+        ] }] : []),
       ] },
       { id: "new", title: "New Chat", symbol: "square.and.pencil", run: newChat },
     ]);
@@ -475,56 +812,172 @@ export async function render({ el, state, params, navigate }) {
     return () => { left = true; stopRefreshing(); controller?.abort(); };
   }
 
+  // ---- The conversation's title, and the panel of conversations beside it
+  function drawBar() {
+    if (!titleBtn) return;
+    const c = entryOf(chatId);
+    titleBtn.textContent = c?.title || "New chat";
+    titleBtn.title = c ? "Rename" : "";
+    titleBtn.disabled = !c;
+    barMore.style.visibility = c && !c.draft ? "" : "hidden";
+  }
+  titleBtn.addEventListener("click", renameInBar);
+  barMore.addEventListener("click", () => { const c = chats.find((x) => x.id === chatId); if (c) dropdown(barMore, chatMenu(c, renameInBar)); });
+
+  panel = conversationList({
+    list: $("#ask-list", el),
+    searchBox: $("#ask-search", el),
+    chats: () => [...unsaved.values(), ...chats],
+    currentId: () => openingId ?? chatId,
+    liveId: () => live?.id,
+    onOpen: openChat,
+    onMenu: (c, button, at) => dropdown(button, chatMenu(c, () => panel.rename(c.id)), at),
+    onRename: nameChat,
+    find: async (words) => (await get("/api/ai/chats", { ...q, q: words }, { fresh: true })).chats,
+  });
+
+  // On a wide window the panel sits beside the conversation and stays as it was left; on a narrow one it slides over.
+  const narrow = window.matchMedia("(max-width: 1023px)");
+  const rememberedClosed = () => { try { return localStorage.getItem(SIDE_CLOSED_KEY) === "1"; } catch { return false; } };
+  let sideOpen = !narrow.matches && !rememberedClosed();
+  const drawSide = () => {
+    split.dataset.side = sideOpen ? "open" : "closed";
+    side.inert = !sideOpen;
+    pane.inert = sideOpen && narrow.matches;
+    const label = sideOpen ? "Hide conversations" : "Show conversations";
+    toggle.setAttribute("aria-label", label);
+    toggle.title = `${label} (${keyName("B")})`;
+    toggle.setAttribute("aria-expanded", String(sideOpen));
+  };
+
+  /** What's near the top of the conversation, to stay there when the text takes a new width. */
+  const readingPlace = () => {
+    if (nearBottom()) return { atEnd: true };
+    const top = log.getBoundingClientRect().top;
+    const node = [...thread.children].find((n) => n.getBoundingClientRect().bottom > top);
+    return node ? { node, y: node.getBoundingClientRect().top } : null;
+  };
+  const keepPlace = (place) => {
+    if (place?.atEnd) log.scrollTop = log.scrollHeight;
+    else if (place) log.scrollTop += place.node.getBoundingClientRect().top - place.y;
+  };
+
+  /**
+   * Opens or closes the panel. Beside the conversation, everything takes its final place at once and then glides there from
+   * where it was: the panel slides, and each part of the conversation moves so that its edges carry on from where they were.
+   */
+  const slideParts = () => [
+    [thread, "middle"], [$("#chat-latest-wrap", el), "middle"], [$("#chat-input-bg", el), "stretch"], [text, "start"], [send, "end"],
+    [$("#ask-title", el), "start"], [barMore, "end"],
+  ];
+  const setSide = (open, { remember = true } = {}) => {
+    if (sideOpen === open) return;
+    sideOpen = open;
+    if (narrow.matches) {
+      drawSide();
+      if (open) { if (hasHover()) panel.focusSearch(); else $("#ask-side-close", el).focus({ preventScroll: true }); }
+      else if (side.contains(document.activeElement)) toggle.focus({ preventScroll: true });
+      return;
+    }
+    if (remember) { try { localStorage.setItem(SIDE_CLOSED_KEY, open ? "0" : "1"); } catch { /* it just won't be remembered */ } }
+    const glide = !REDUCED_MOTION() && el.isConnected;
+    const parts = glide ? slideParts() : [];
+    const before = parts.map(([part]) => part.getBoundingClientRect());
+    const place = readingPlace();
+    const sideFrom = getComputedStyle(side);
+    const sideWas = { transform: sideFrom.transform, opacity: sideFrom.opacity };
+    for (const [part] of parts) part.getAnimations().forEach((a) => a.cancel());
+    side.getAnimations().forEach((a) => a.cancel());
+    split.classList.toggle("side-gliding", glide);
+    split.classList.toggle("side-leaving", glide && !open);
+    drawSide();
+    keepPlace(place);
+    if (!open && side.contains(document.activeElement)) toggle.focus({ preventScroll: true });
+    if (!glide) { drawLatest(); return; }
+    parts.forEach(([part, how], i) => {
+      const was = before[i], now = part.getBoundingClientRect();
+      if (!now.width) return;
+      const shift = how === "middle" ? was.left + was.width / 2 - (now.left + now.width / 2) : how === "end" ? was.right - now.right : was.left - now.left;
+      const from = how === "stretch" ? `translateX(${shift}px) scaleX(${was.width / now.width})` : `translateX(${shift}px)`;
+      if (Math.abs(shift) < .5 && Math.abs(was.width - now.width) < .5) return;
+      part.animate([{ transform: from }, { transform: "none" }], SLIDE);
+    });
+    const hiddenSide = { transform: "translateX(-100%)", opacity: 0 };
+    const startSide = sideWas.transform !== "none" ? sideWas : open ? hiddenSide : { transform: "none", opacity: 1 };
+    const moving = side.animate([startSide, open ? { transform: "none", opacity: 1 } : hiddenSide], SLIDE);
+    moving.finished.then(() => { split.classList.remove("side-gliding", "side-leaving"); drawLatest(); }, () => {});
+  };
+  const onNarrowChange = () => { sideOpen = !narrow.matches && !rememberedClosed(); drawSide(); };
+  narrow.addEventListener("change", onNarrowChange);
+  drawSide();
+  toggle.addEventListener("click", () => setSide(!sideOpen));
+  $("#ask-side-close", el).addEventListener("click", () => setSide(false));
+  $("#ask-scrim", el).addEventListener("click", () => setSide(false));
+
+  const onKeys = (e) => {
+    if (left || document.querySelector(".overlay")) return;
+    const key = e.key.toLowerCase();
+    const mod = MAC_KEYS ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+    if (mod && !e.altKey && !e.shiftKey && key === "k") {
+      e.preventDefault();
+      setSide(true);
+      panel.focusSearch();
+    } else if (mod && !e.altKey && !e.shiftKey && key === "b") {
+      e.preventDefault();
+      setSide(!sideOpen);
+    } else if ((mod && !e.altKey && e.shiftKey && key === "o" && shell !== "mac") || (shell === "windows" && mod && !e.altKey && !e.shiftKey && key === "n")) {
+      e.preventDefault();
+      newChat();
+    } else if (e.key === "Escape" && sideOpen && narrow.matches) {
+      setSide(false);
+    } else if (e.key === "Tab" && sideOpen && narrow.matches) {
+      // The panel is over everything else on a narrow window, so the keyboard stays in it.
+      const stops = [...side.querySelectorAll("button, input, a[href]")].filter((n) => n.offsetParent && !n.disabled);
+      const first = stops[0], last = stops.at(-1);
+      if (!side.contains(document.activeElement)) { e.preventDefault(); first?.focus(); }
+      else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    }
+  };
+  document.addEventListener("keydown", onKeys);
+
+  let latestQueued = false;
+  log.addEventListener("scroll", () => {
+    if (latestQueued) return;
+    latestQueued = true;
+    requestAnimationFrame(() => { latestQueued = false; drawLatest(); });
+  }, { passive: true });
+  const threadSize = new ResizeObserver(drawLatest);
+  threadSize.observe(thread);
+  latest.addEventListener("click", () => { toBottom(true); focusText(); });
+
   $("#chat-form", el).addEventListener("submit", (e) => { e.preventDefault(); ask(text.value); });
-  send.addEventListener("click", (e) => { if (busy) { e.preventDefault(); controller?.abort(); } });
+  send.addEventListener("click", (e) => { if (send.classList.contains("stop")) { e.preventDefault(); controller?.abort(); } });
   text.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(text.value); }
   });
   text.addEventListener("input", autosize);
   $("#ask-new", el).addEventListener("click", newChat);
+  $("#ask-bar-new", el).addEventListener("click", newChat);
+  followAddress((route, where) => {
+    if (route !== "ask") return false;
+    if (where.get("new")) newChat();
+    else if (where.get("chat")) openChat(where.get("chat"));
+    showAddress();
+    return true;
+  });
 
-  // Past conversations: open one to carry on, or delete it.
-  const historyBtn = $("#ask-history", el);
-  let closeHistory = null;
-  const openHistory = async () => {
-    if (closeHistory) { closeHistory(); return; }
-    const list = (await get("/api/ai/chats", q, { fresh: true }).catch(() => ({ chats: [] }))).chats;
-    const menu = document.createElement("div");
-    menu.className = "popover chat-history";
-    menu.setAttribute("role", "dialog");
-    menu.setAttribute("aria-label", "Past conversations");
-    mount(menu, html`<div class="chat-history-head"><b>Conversations</b><span class="tiny faint">about ${profile.name}</span></div>
-      ${list.length ? html`<div class="chat-history-list">${list.map((c) => html`<div class="chat-history-item ${c.id === chatId ? "current" : ""}">
-        <button class="chat-history-open" data-open="${c.id}"><span class="truncate">${c.title}</span><span class="tiny faint">${fmtAgo(c.updated_at)} · ${plural(c.messages, "message")}</span></button>
-        <button class="btn btn-ghost btn-icon btn-sm" data-delete="${c.id}" aria-label="Delete “${c.title}”" title="Delete">${icon("trash")}</button></div>`)}</div>`
-        : html`<div class="small muted" style="padding:12px 14px">No saved conversations yet. They're kept here after each answer.</div>`}`);
-    document.body.appendChild(menu);
-    const r = historyBtn.getBoundingClientRect();
-    const width = Math.min(360, window.innerWidth - 24);
-    menu.style.width = `${width}px`;
-    menu.style.top = `${r.bottom + 6}px`;
-    menu.style.left = `${Math.max(12, Math.min(r.right - width, window.innerWidth - width - 12))}px`;
-    historyBtn.setAttribute("aria-expanded", "true");
-    const outside = (e) => { if (!menu.contains(e.target) && !historyBtn.contains(e.target)) closeHistory(); };
-    const onKey = (e) => { if (e.key === "Escape") { closeHistory(); historyBtn.focus(); } };
-    closeHistory = () => {
-      menu.remove(); historyBtn.setAttribute("aria-expanded", "false");
-      document.removeEventListener("mousedown", outside, true); document.removeEventListener("keydown", onKey, true);
-      closeHistory = null;
-    };
-    setTimeout(() => document.addEventListener("mousedown", outside, true));
-    document.addEventListener("keydown", onKey, true);
-    menu.addEventListener("click", async (e) => {
-      const open = e.target.closest("[data-open]"), gone = e.target.closest("[data-delete]");
-      if (open) { closeHistory(); openChat(open.dataset.open); }
-      else if (gone) { closeHistory(); deleteChat(gone.dataset.delete); }
-    });
-  };
-  historyBtn.addEventListener("click", openHistory);
   drawHeader();
   drawAll();
+  drawBar();
+  panel.draw({ glide: false });
+  showAddress();
   text.focus();
-  return () => { left = true; stopRefreshing(); closeMenu?.(); closeHistory?.(); controller?.abort(); };
+  return () => {
+    left = true; stopRefreshing(); closeMenu?.(); controller?.abort(); threadSize.disconnect();
+    document.removeEventListener("keydown", onKeys);
+    narrow.removeEventListener("change", onNarrowChange);
+  };
 }
 
 /** The model's readable name ("Claude Sonnet 4.5", "qwen3:8b", "Default model" for an app's own default). */

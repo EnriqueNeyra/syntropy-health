@@ -152,6 +152,12 @@ export const state = {
 };
 
 let cleanup = null;
+let ownAddress = null;
+/**
+ * For a page that follows its own address itself rather than being drawn again (File → New Chat while on Ask): `fn(route,
+ * params)` returns true if it did. Lasts until the page goes.
+ */
+export function followAddress(fn) { ownAddress = fn; }
 let renderSeq = 0;
 let shownRoute = null;       // the section on screen: only going to another section animates
 
@@ -575,6 +581,8 @@ async function route(opts) {
   }
   const def = ROUTES[name];
   if (!def) return redirect("#/overview");
+  if (!keepScroll && ownAddress?.(name, params)) { shownHash = location.hash; return; }
+  ownAddress = null;
   closePopover();
   // A dialog left open (Back, a link inside it, the address changed) would cover the next page.
   if (!keepScroll) closeDialogs();

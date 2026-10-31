@@ -131,7 +131,7 @@ def test_a_long_message_gives_a_snippet_around_the_word(client):
 def test_a_conversation_exports_as_markdown(client):
     _save(client, title="Sleep, “notes”/2026: é")
     r = client.get("/api/ai/chats/c_0123456789ab/export")
-    assert r.status_code == 200 and r.headers["content-type"].startswith("text/markdown")
+    assert r.status_code == 200 and r.headers["content-type"] == "application/octet-stream"      # see export_chat
     disposition = r.headers["content-disposition"]
     assert disposition.startswith("attachment") and ".md" in disposition and "/" not in disposition.split("filename*")[0]
     assert r.text.startswith("# Sleep, “notes”/2026: é\n")

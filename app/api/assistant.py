@@ -286,7 +286,8 @@ def export_chat(chat_id: str, profile: Optional[str] = None) -> Response:
     # Only safe characters go in the header (see records' files); filename* keeps a title in another script.
     name = re.sub(r"[^\w -]+", "", chat["title"]).strip()[:60].strip() or "Conversation"
     plain = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().strip() or "Conversation"
-    return Response(chats.as_markdown(chat, prof["name"], time.strftime("%Y-%m-%d")), media_type="text/markdown; charset=utf-8",
+    # Not text/markdown: the Mac app's window shows any text it can rather than saving it, and would leave the app for the file.
+    return Response(chats.as_markdown(chat, prof["name"], time.strftime("%Y-%m-%d")), media_type="application/octet-stream",
                     headers={"Content-Disposition": f"""attachment; filename="{plain}.md"; filename*=UTF-8''{quote(name)}.md""",
                              "Cache-Control": "no-store"})
 
