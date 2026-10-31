@@ -527,6 +527,14 @@ export function loading(lines = 3) {
   return html`<div class="stack">${Array.from({ length: lines }, () => html`<div class="skeleton" style="height:64px"></div>`)}</div>`;
 }
 
+/** On a phone a line of chips scrolls: this brings the chosen one into view without moving the page. */
+export function showActiveChip(strip) {
+  const chip = strip.querySelector(".chip.active");
+  if (!chip || strip.scrollWidth <= strip.clientWidth) return;
+  const [s, c] = [strip.getBoundingClientRect(), chip.getBoundingClientRect()];
+  strip.scrollLeft += c.left - s.left - (s.width - c.width) / 2;
+}
+
 export function emptyState(title, text, action = "") {
   return html`<div class="empty"><h3>${title}</h3><p>${text}</p>${action}</div>`;
 }
