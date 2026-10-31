@@ -61,10 +61,11 @@ restrictions, encryption at rest, PKCE and single-use OAuth state, CSRF and CSP,
 
 ## Checking what you run
 
-- **Release files** (the Mac and Windows apps, the wheel, `SHA256SUMS`) and the **Docker image** are built by this
-  repository's workflows, which sign a build provenance attestation for each:
+- **Release files** (the Mac and Windows apps, the wheel, the installers, the dependency list, SBOMs, `SHA256SUMS`) and
+  the **Docker image** are built by this repository's workflows, which sign a build provenance attestation for each:
   `gh attestation verify <file> -R EnriqueNeyra/syntropy-health`, or
   `gh attestation verify oci://ghcr.io/enriqueneyra/syntropy-health:latest -R EnriqueNeyra/syntropy-health`.
-  The image also carries an SBOM.
+  The image also carries an SBOM. The installers and `syntropy-health update` check what they download against the
+  release's `SHA256SUMS` before installing it, and a Mac app's signature too.
 - **The OAuth relay** is deployed from `main` by a workflow, and its `/health` names the commit it runs:
   `curl https://syntropy-auth-relay.syntropylabs.workers.dev/health`.

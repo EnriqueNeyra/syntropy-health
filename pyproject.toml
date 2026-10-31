@@ -27,7 +27,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
-# The one list of dependencies: installers, Docker, the desktop apps and CI all install from here.
+# The one list of dependencies, as ranges. uv.lock fixes the exact versions that installers, Docker, the desktop apps
+# and CI install: after changing anything here, run uv lock and commit the result.
 dependencies = [
     "fastapi>=0.141.1",
     "uvicorn[standard]>=0.54.0",
@@ -35,8 +36,8 @@ dependencies = [
     "cryptography>=44.0.0",
     "pydantic>=2.10.0",
     "python-multipart>=0.0.20",
-    "pypdf>=6.19.0",
-    "Pillow>=12.3.0",
+    "pypdf>=6.21.2",
+    "Pillow>=13.0.0",
     "zeroconf>=0.136",      # announces syntropyhealth.local on the home network
     "tzdata>=2024.1",       # time zones where the system has none (Windows, slim containers)
 ]

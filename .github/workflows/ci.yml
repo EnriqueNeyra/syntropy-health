@@ -27,16 +27,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: pyproject.toml
-      - run: python -m pip install -U pip && pip install --group dev
-      - run: ruff check app tests desktop scripts   # version and settings in pyproject.toml
+          version: "0.11.15"      # the same in the Dockerfile and the installers
+      - name: uv.lock matches pyproject.toml
+        run: uv lock --check || { echo "::error::uv.lock is out of date. Run uv lock and commit the result."; exit 1; }
+      - run: uv run --frozen --only-group dev ruff check app tests desktop scripts   # version and settings in pyproject.toml
+      - run: shellcheck -s sh scripts/install.sh scripts/docker-entrypoint.sh scripts/docker-syntropy-health.sh scripts/docker_smoke.sh
       # People see warnings from the weekly sign-in check: a release doesn't go out with old ones, and anything else is told.
       - name: The sign-in check is recent
-        run: python scripts/refresh_directory.py --check-fresh 21 ${{ !inputs.release && '--warn-only' || '' }}
+        run: uv run --frozen --only-group dev python scripts/refresh_directory.py --check-fresh 21 ${{ !inputs.release && '--warn-only' || '' }}
       # People's databases have run what's on main: a change to the schema is a new migration, never an edit.
       - name: Migrations on main are not changed
         if: github.event_name == 'pull_request'
@@ -47,8 +47,23 @@ jobs:
           changed=$(git diff --name-status --no-renames FETCH_HEAD HEAD -- app/core/migrations | grep -v '^A' || true)
           [ -z "$changed" ] || { echo "::error::Add a new migration instead of changing these:"; echo "$changed"; exit 1; }
 
+  audit:
+    # What releases install, from uv.lock. A finding fails this until the lock moves past it: Dependabot's security
+    # update, or by hand with uv lock --upgrade-package NAME.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"      # the same in the Dockerfile and the installers
+      - run: uv export --frozen --no-dev --extra desktop --no-emit-project --no-header -o "$RUNNER_TEMP/locked.txt"
+      - run: uvx --from pip-audit==2.10.1 pip-audit --require-hashes --disable-pip -r "$RUNNER_TEMP/locked.txt"
+
   app:
-    # The oldest Python pyproject.toml allows and the newest, which people installing with pip or uv often have.
+    # The oldest Python pyproject.toml allows and the newest, which people installing with pip or uv often have. Tested
+    # with the versions in uv.lock, which are what ships; supply-chain.yml tries the newest ones weekly.
     strategy:
       fail-fast: false
       matrix:
@@ -61,18 +76,19 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
-          cache-dependency-path: pyproject.toml
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"      # the same in the Dockerfile and the installers
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
-      - run: python -m pip install -U pip && pip install -e . --group dev
-      - run: python -m pytest -q tests --cov --cov-report=
+      - run: uv sync --frozen --python "${{ matrix.python }}" --group dev
+      - run: uv run --frozen --no-sync python -m pytest -q tests --cov --cov-report=
       # Everything on the run's summary page, and a floor under what real data depends on: not a target for the whole
       # app, which would reward tests that check little.
       - name: Coverage
         if: matrix.python == '3.12'
         run: |
-          coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
-          coverage report --skip-covered --fail-under=80 --include="app/core/auth.py,app/core/db.py,app/core/data_fixes.py,app/core/maintenance.py,app/core/security.py,app/api/deps.py,app/store/records.py,app/store/biometrics.py,app/services/insights.py,app/services/scheduler.py"
+          uv run --frozen --no-sync coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+          uv run --frozen --no-sync coverage report --skip-covered --fail-under=80 --include="app/core/auth.py,app/core/db.py,app/core/data_fixes.py,app/core/maintenance.py,app/core/security.py,app/api/deps.py,app/store/records.py,app/store/biometrics.py,app/services/insights.py,app/services/scheduler.py"
 
   app-mac-windows:
     # The same suite on the desktop apps' platforms. Without Tesseract, the photo-OCR tests skip; Linux covers them.
@@ -88,10 +104,11 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: pyproject.toml
-      - run: python -m pip install -U pip && pip install -e . --group dev
-      - run: python -m pytest -q tests
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"      # the same in the Dockerfile and the installers
+      - run: uv sync --frozen --python 3.12 --group dev
+      - run: uv run --frozen --no-sync python -m pytest -q tests
 
   web-and-relay:
     runs-on: ubuntu-latest
@@ -116,11 +133,34 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"      # the same in the Dockerfile and the installers
       - run: uv build --wheel -o dist .
       - run: sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --no-ocr
-      - run: for i in $(seq 1 30); do curl -fs localhost:8000/health && exit 0; sleep 1; done; sudo journalctl -u syntropy-health --no-pager; exit 1
+      - run: for _ in $(seq 1 30); do curl -fs localhost:8000/health && exit 0; sleep 1; done; sudo journalctl -u syntropy-health --no-pager; exit 1
       # The data folder is private to the service account, so looking inside takes root.
       - run: systemctl is-active syntropy-health && sudo stat -c '%U' /var/lib/syntropy-health/syntropy.db | grep -x syntropy
+      - name: Anyone can see that the service is running
+        run: |
+          syntropy-health service status | grep -x active
+          sudo syntropy-health info | grep -F 'Service:  active'
+      # The sandbox the service runs in (app/cli.py): how much it holds back, and that reading a photo still works in it.
+      - name: Lab photos can be read inside the service's sandbox
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
+          systemd-analyze security --offline=true /etc/systemd/system/syntropy-health.service --no-pager | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
+          # One argument per setting, since a setting can hold spaces.
+          set --
+          while IFS= read -r setting; do set -- "$@" "--property=$setting"; done <<EOF
+          $(grep -E '^(User|NoNewPrivileges|Protect|Private|Restrict|Lock|Capability|SystemCall|ReadWritePaths)' /etc/systemd/system/syntropy-health.service)
+          EOF
+          sudo systemd-run --wait --pipe "$@" /opt/syntropy-health/venv/bin/python -c '
+          import subprocess
+          from PIL import Image, ImageDraw
+          image = Image.new("L", (300, 60), 255)
+          ImageDraw.Draw(image).text((10, 20), "Glucose 90", fill=0)
+          image.save("/tmp/photo.png")
+          subprocess.run(["tesseract", "/tmp/photo.png", "stdout"], check=True)'
       - name: Back up as the printed instructions say, into a folder only root can write to, and restore it
         run: |
           # A backup of a server nobody has set up is refused, so finish setup first.
@@ -142,7 +182,20 @@ jobs:
           systemctl show -p Result syntropy-health-update.service | grep -x Result=success
           sudo journalctl -u syntropy-health-update --no-pager | grep -q "Automatic updates are off"
       - run: sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --no-ocr   # running it again updates in place
+      - name: Running the installer again keeps the port and address
+        run: |
+          sudo syntropy-health service install --user syntropy --host 127.0.0.1 --port 8123
+          sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --no-ocr | tee "$RUNNER_TEMP/again.txt"
+          grep -F -- '--host 127.0.0.1 --port 8123' /etc/systemd/system/syntropy-health.service
+          grep -F ':8123' "$RUNNER_TEMP/again.txt"
+          for _ in $(seq 1 30); do curl -fs localhost:8123/health && exit 0; sleep 1; done; sudo journalctl -u syntropy-health --no-pager; exit 1
       - run: sudo sh scripts/install.sh --uninstall && sudo test -f /var/lib/syntropy-health/syntropy.db
+      - name: Deleting everything leaves nothing behind
+        run: |
+          sudo sh scripts/install.sh --uninstall --purge
+          sudo test ! -e /var/lib/syntropy-health
+          sudo test ! -e /etc/syntropy-health
+          if id syntropy 2>/dev/null; then echo "::error::The syntropy account is still there"; exit 1; fi
 
   mac-install:
     # scripts/install.sh --server on a Mac: uv, the syntropy-health command, a server that answers, uninstall.
@@ -153,11 +206,13 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"      # the same in the Dockerfile and the installers
       - run: uv build --wheel -o dist .
       - run: sh scripts/install.sh --server --no-service --no-ocr --source "$(ls dist/*.whl)"
       - run: |
           ~/.local/bin/syntropy-health serve --port 8010 &
-          for i in $(seq 1 30); do curl -fs localhost:8010/health && exit 0; sleep 1; done; exit 1
+          for _ in $(seq 1 30); do curl -fs localhost:8010/health && exit 0; sleep 1; done; exit 1
       - run: |
           curl -fs -X POST localhost:8010/api/setup -H 'X-Requested-With: syntropy' -H 'Content-Type: application/json' \
             -d '{"password":"a password for ci","profile_name":"CI","accept_terms":true}'
@@ -172,14 +227,31 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"      # the same in the Dockerfile and the installers
       - run: uv build --wheel -o dist .
-      - shell: pwsh
+      # Windows PowerShell, not pwsh: it's what `irm | iex` runs in on most people's computers, and stricter about stderr.
+      - shell: powershell
         run: ./scripts/install.ps1 -Server -Port 8010 -Source (Get-Item dist/*.whl).FullName
       - shell: pwsh
         run: |
-          if (-not (Get-ScheduledTask -TaskName "Syntropy Health" -ErrorAction SilentlyContinue)) { throw "no sign-in task" }
+          $task = Get-ScheduledTask -TaskName "Syntropy Health" -ErrorAction SilentlyContinue
+          if (-not $task) { throw "no sign-in task" }
+          # Task Scheduler's defaults would stop the server after 72 hours, and when a laptop is unplugged.
+          $task.Settings | Format-List ExecutionTimeLimit, DisallowStartIfOnBatteries, StopIfGoingOnBatteries, RestartCount, RestartInterval
+          if ($task.Settings.ExecutionTimeLimit -ne "PT0S") { throw "The task has a time limit: $($task.Settings.ExecutionTimeLimit)" }
+          if ($task.Settings.DisallowStartIfOnBatteries) { throw "The task won't start on battery" }
+          if ($task.Settings.StopIfGoingOnBatteries) { throw "The task stops on battery" }
+          if ($task.Settings.RestartCount -lt 1) { throw "The task doesn't restart" }
           (Invoke-WebRequest -UseBasicParsing http://localhost:8010/health).Content
           & "$env:UV_TOOL_BIN_DIR\syntropy-health.exe" info --port 8010     # setup-uv moves uv's tool folder
+      - name: Running the installer again keeps the port
+        shell: powershell
+        run: |
+          ./scripts/install.ps1 -Server -Source (Get-Item dist/*.whl).FullName
+          $action = (Get-ScheduledTask -TaskName "Syntropy Health").Actions[0].Arguments
+          if ($action -notmatch '--port 8010') { throw "The port changed: $action" }
+          (Invoke-WebRequest -UseBasicParsing http://localhost:8010/health).Content
       - shell: pwsh
         run: |
           ./scripts/install.ps1 -Uninstall
@@ -193,7 +265,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: always()
-    needs: [lint, app, app-mac-windows, web-and-relay, linux-install, mac-install, windows-install, apps]
+    needs: [lint, audit, app, app-mac-windows, web-and-relay, linux-install, mac-install, windows-install, apps]
     runs-on: ubuntu-latest
     steps:
       - env:

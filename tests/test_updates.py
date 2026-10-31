@@ -52,10 +52,11 @@ def test_versions():
 
 def test_package_source_is_the_wheel_never_the_source():
     rel = updates._release(RELEASE)
-    assert updates.package_source(rel) == "syntropy-health @ https://example.test/w.whl"
+    sums = {f"syntropy_health-{rel['version']}-py3-none-any.whl": "ab12"}
+    assert updates.package_source(rel, sums) == "syntropy-health @ https://example.test/w.whl#sha256=ab12"
     rel["assets"] = {}      # the source archive would install a build without the relay key
     with pytest.raises(updates.InstallFailed):
-        updates.package_source(rel)
+        updates.package_source(rel, sums)
 
 
 def test_owner_sees_an_update(client, latest):

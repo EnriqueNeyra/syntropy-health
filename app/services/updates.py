@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -49,6 +50,7 @@ MAC_ASSET = "Syntropy-Health-mac-arm64.dmg"
 WINDOWS_ASSET = "Syntropy-Health-windows-x64-setup.exe"
 CHECKSUMS_ASSET = "SHA256SUMS"
 SIGNATURE_ASSET = "SHA256SUMS.sig"
+REQUIREMENTS_ASSET = "Syntropy-Health-requirements.txt"
 
 # The key that signs each release's SHA256SUMS (scripts/new_release_key.py makes it), base64. Empty until the owner makes
 # one. With it, the apps install only releases carrying its signature: someone who can publish to the repository, but
@@ -141,18 +143,59 @@ def wheel_name(version: str) -> str:
     return f"syntropy_health-{version}-py3-none-any.whl"
 
 
-def package_source(release: dict[str, Any]) -> str:
-    """What pip or uv installs for a release: its wheel. Never its source archive, which lacks the relay key the release
-    workflow builds into the wheel (config.relay_key), so it would lose Syntropy's sign-in registrations."""
-    wheel = release.get("assets", {}).get(wheel_name(release["version"]))
-    if not wheel:
+def _download(url: str) -> bytes:
+    try:
+        with httpx.Client(timeout=60.0, follow_redirects=True) as client:
+            resp = client.get(url, headers={"User-Agent": "Syntropy-Health-update"})
+    except httpx.HTTPError as exc:
+        raise InstallFailed("GitHub couldn't be reached. Try again later.") from exc
+    if resp.status_code != 200:
+        raise InstallFailed(f"GitHub answered {resp.status_code} for {url.rsplit('/', 1)[-1]}. Try again later.")
+    return resp.content
+
+
+def fetch_checksums(version: str) -> dict[str, str]:
+    """File name → SHA-256, from the SHA256SUMS the release workflow publishes with every release."""
+    raw = _download(f"https://github.com/{REPO}/releases/download/v{version}/{CHECKSUMS_ASSET}")
+    # With a release key, as the Mac and Windows apps ask: someone who can publish but doesn't hold it reaches no one.
+    if RELEASE_PUBLIC_KEY and not signature_is_valid(raw, _download(f"https://github.com/{REPO}/releases/download/v{version}/{SIGNATURE_ASSET}")):
+        raise InstallFailed(f"Version {version} isn't signed with the release key, so nothing was installed.")
+    sums = raw.decode("utf-8", "replace")
+    found = (line.split(None, 1) for line in sums.splitlines() if line.strip())
+    return {name.strip().lstrip("*"): digest.lower() for digest, name in found}
+
+
+def fetch_requirements(version: str, checksums: dict[str, str], folder: Path) -> Optional[Path]:
+    """The exact dependencies a release was built and tested with, checked, so that the same version number means the
+    same software everywhere. None for a release from before they were published."""
+    expected = checksums.get(REQUIREMENTS_ASSET)
+    if not expected:
+        return None
+    content = _download(f"https://github.com/{REPO}/releases/download/v{version}/{REQUIREMENTS_ASSET}")
+    if hashlib.sha256(content).hexdigest() != expected:
+        raise InstallFailed(f"The dependency list of version {version} doesn't match its checksum, so nothing was installed.")
+    path = folder / REQUIREMENTS_ASSET
+    path.write_bytes(content)
+    return path
+
+
+def package_source(release: dict[str, Any], checksums: dict[str, str]) -> str:
+    """What pip or uv installs for a release: its wheel, which they check against its checksum. Never its source archive,
+    which lacks the relay key the release workflow builds into the wheel (config.relay_key), so it would lose Syntropy's
+    sign-in registrations."""
+    name = wheel_name(release["version"])
+    wheel, digest = release.get("assets", {}).get(name), checksums.get(name)
+    if not wheel or not digest:
         raise InstallFailed(f"Version {release['version']} has no package for this computer yet. Try again later.")
-    return f"syntropy-health @ {wheel}"
+    return f"syntropy-health @ {wheel}#sha256={digest}"
 
 
-def package_source_for(version: str) -> str:
+def package_source_for(version: str, checksums: dict[str, str]) -> str:
     """A release's wheel by its version, to go back to one (scripts/install.sh builds the same address)."""
-    return f"syntropy-health @ https://github.com/{REPO}/releases/download/v{version}/{wheel_name(version)}"
+    name = wheel_name(version)
+    if not checksums.get(name):
+        raise InstallFailed(f"Version {version} has no package for this computer.")
+    return f"syntropy-health @ https://github.com/{REPO}/releases/download/v{version}/{name}#sha256={checksums[name]}"
 
 
 # ---------------------------------------------------------------------------

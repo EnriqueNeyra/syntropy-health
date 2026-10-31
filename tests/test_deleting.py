@@ -10,7 +10,7 @@ import zipfile
 
 import pytest
 
-from app.core import config, db, maintenance
+from app.core import config, data_fixes, db, maintenance
 from app.services import imports
 from app.store import activity, biometrics, chats, connections, profiles
 
@@ -140,8 +140,9 @@ def test_reclaiming_gives_space_back_without_holding_the_lock(client):
 
 def test_a_full_disk_does_not_start_a_rewrite_of_the_whole_file(client, monkeypatch):
     path = config.db_path()
+    data_fixes.stop()       # what's still working through old rows at start-up can hold the file for a moment
     db.close_readers()
-    conn = sqlite3.connect(path, isolation_level=None)
+    conn = sqlite3.connect(path, isolation_level=None, timeout=30)
     conn.execute("PRAGMA journal_mode = DELETE")
     conn.execute("PRAGMA auto_vacuum = 0")
     conn.execute("VACUUM")

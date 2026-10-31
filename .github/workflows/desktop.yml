@@ -52,15 +52,24 @@ jobs:
           SYNTROPY_RELAY_KEY: ${{ secrets.SYNTROPY_RELAY_KEY }}
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.11.15"
           enable-cache: false      # the wheel is a release file; build it without a shared cache
       - run: uv build --wheel -o dist .
+      # The exact dependencies the installers and `syntropy-health update` install with this wheel, what's in the wheel
+      # and the apps, and the installers themselves, so that each release has its own.
+      - name: The dependency list, SBOMs and installers
+        run: |
+          uv export --frozen --no-dev --no-emit-project --no-header -o dist/Syntropy-Health-requirements.txt
+          uv export --frozen --no-dev --no-emit-project --format cyclonedx1.5 --preview-features sbom-export -o dist/Syntropy-Health-server-sbom.cdx.json
+          uv export --frozen --no-dev --extra desktop --no-emit-project --format cyclonedx1.5 --preview-features sbom-export -o dist/Syntropy-Health-apps-sbom.cdx.json
+          cp scripts/install.sh scripts/install.ps1 dist/
       - name: The wheel carries the relay key
         if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'EnriqueNeyra/syntropy-health'
         run: python3 -c "import sys, zipfile; sys.exit('app/core/release_key.py' not in zipfile.ZipFile(sys.argv[1]).namelist())" dist/*.whl
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wheel
-          path: dist/*.whl
+          path: dist/*
 
   # The apps (apps.yml), signed and notarized here when the `release` environment has the certificates.
   apps:
@@ -100,10 +109,10 @@ jobs:
       # its name, as Python packaging requires.
       - run: |
           mkdir release
-          cp artifacts/wheel/*.whl release/
+          cp artifacts/wheel/* release/
           cp artifacts/mac/*.dmg release/Syntropy-Health-mac-arm64.dmg
           cp artifacts/windows/*-setup.exe release/Syntropy-Health-windows-x64-setup.exe
-          cd release && sha256sum * > SHA256SUMS && cat SHA256SUMS
+          cd release && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
       - name: Sign SHA256SUMS
         env:
           RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}

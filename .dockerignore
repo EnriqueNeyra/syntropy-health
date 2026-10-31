@@ -1,6 +1,10 @@
 # Send Docker only what the Dockerfile copies, so local data, builds and scratch files never reach it.
 *
 !pyproject.toml
+!uv.lock
+!LICENSE
+!NOTICE
 !app/
 !scripts/docker-entrypoint.sh
+!scripts/docker-syntropy-health.sh
 **/__pycache__

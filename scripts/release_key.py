@@ -32,8 +32,9 @@ def main() -> int:
         print(f"Built the relay key into {TARGET.relative_to(TARGET.parent.parent.parent)}.")
         return 0
     if os.environ.get("GITHUB_REPOSITORY") == UPSTREAM:
-        print("::error::SYNTROPY_RELAY_KEY isn't set, so this build wouldn't carry Syntropy's sign-in registrations. "
-              "Add it under the repository's Settings → Secrets and variables → Actions.")
+        print("::error::Nothing was published: the SYNTROPY_RELAY_KEY secret isn't set, so this build wouldn't carry Syntropy's "
+              "sign-in registrations. The repository's owner adds it under Settings → Secrets and variables → Actions → "
+              "New repository secret, then runs this workflow again.")
         return 1
     print("No relay key: this build uses its own registrations (Settings → Developer and Settings → Wearables).")
     return 0

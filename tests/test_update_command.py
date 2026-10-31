@@ -32,9 +32,10 @@ def machine(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "is_source_checkout", lambda: False)
     monkeypatch.setattr(updates, "fetch_latest", lambda: {"version": "99.0.0", "assets": {
         "syntropy_health-99.0.0-py3-none-any.whl": "https://example.test/new.whl"}})
+    monkeypatch.setattr(updates, "fetch_checksums", lambda version: {f"syntropy_health-{version}-py3-none-any.whl": "ab12"})
     monkeypatch.setattr(cli, "_service_state", lambda: "active")
     monkeypatch.setattr(cli, "service_control", lambda action: actions.append(f"service {action}"))
-    monkeypatch.setattr(cli, "_pip_install", lambda source: actions.append(f"install {source}"))
+    monkeypatch.setattr(cli, "_pip_install", lambda source, constraints=None: actions.append(f"install {source}"))
     monkeypatch.setattr(cli, "UPDATE_WAIT_SECONDS", 1)
     return actions
 
@@ -43,7 +44,7 @@ def test_a_good_update_is_reported_once_the_server_answers(machine, monkeypatch,
     updates.note_failed_update("98.0.0", "an earlier failure")
     monkeypatch.setattr(cli, "_wait_for_server", lambda port, version, seconds: machine.append(f"wait {version}"))
     cli.update()
-    assert machine == ["install syntropy-health @ https://example.test/new.whl", "service restart", "wait 99.0.0"]
+    assert machine == ["install syntropy-health @ https://example.test/new.whl#sha256=ab12", "service restart", "wait 99.0.0"]
     assert "the server is running" in capsys.readouterr().out
     assert updates.failed_update() is None
 
@@ -77,10 +78,10 @@ def test_a_release_that_will_not_start_is_rolled_back(machine, monkeypatch, caps
     monkeypatch.setattr(cli, "service_control", control)
     with pytest.raises(SystemExit) as caught:
         cli.update()
-    assert machine == ["install syntropy-health @ https://example.test/new.whl", "service restart",
+    assert machine == ["install syntropy-health @ https://example.test/new.whl#sha256=ab12", "service restart",
                        "wait 8123 99.0.0", "service stop",
                        f"install syntropy-health @ https://github.com/{updates.REPO}/releases/download/v{config.APP_VERSION}/"
-                       f"syntropy_health-{config.APP_VERSION}-py3-none-any.whl",
+                       f"syntropy_health-{config.APP_VERSION}-py3-none-any.whl#sha256=ab12",
                        "service start", f"wait 8123 {config.APP_VERSION}"]
     assert f"Version {config.APP_VERSION} is running again" in str(caught.value.code)
     path = config.db_path()
@@ -174,7 +175,7 @@ def test_a_rollback_goes_on_when_the_failure_cannot_be_noted(machine, monkeypatc
 
 
 def test_a_reinstall_that_cannot_even_run_still_starts_the_service(machine, monkeypatch):
-    def no_room(_source):
+    def no_room(_source, _constraints=None):
         raise OSError(errno.ENOSPC, "No space left on device")
     monkeypatch.setattr(cli, "_pip_install", no_room)
     with pytest.raises(SystemExit) as caught:
@@ -239,7 +240,7 @@ def test_without_a_release_to_go_back_to_it_says_what_to_do(machine, monkeypatch
 def test_with_no_service_there_is_nothing_to_wait_for(machine, monkeypatch, capsys):
     monkeypatch.setattr(cli, "_service_state", lambda: "not installed")
     cli.update()
-    assert machine == ["install syntropy-health @ https://example.test/new.whl"]
+    assert machine == ["install syntropy-health @ https://example.test/new.whl#sha256=ab12"]
     assert "Updated" in capsys.readouterr().out
 
 

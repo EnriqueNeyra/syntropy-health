@@ -25,7 +25,15 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: pip install -e ".[desktop]"
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"
+          enable-cache: false      # this job signs things: nothing from a shared cache
+      - name: The versions in uv.lock, each checked against its hash
+        shell: bash
+        run: |
+          uv export --frozen --no-dev --extra desktop --no-emit-project --no-header -o "$RUNNER_TEMP/locked.txt"
+          python -m pip install --require-hashes --no-deps -r "$RUNNER_TEMP/locked.txt"
       - name: The relay key (scripts/release_key.py)
         if: startsWith(github.ref, 'refs/tags/v')
         run: python scripts/release_key.py
@@ -84,7 +92,7 @@ jobs:
             want=$1 data=$2; shift 2
             SYNTROPY_DATA_DIR="$data" "$app" "$@" & pid=$!
             ok=
-            for i in $(seq 90); do
+            for _ in $(seq 90); do
               sleep 1
               kill -0 $pid 2>/dev/null || break
               port=$(python -c 'import json, sys; print(json.load(open(sys.argv[1]))["port"])' "$data/desktop.json" 2>/dev/null || echo 8000)
@@ -102,7 +110,8 @@ jobs:
       # With a real web view and the real swap script: other sites in the window, start-up problems, going back.
       - name: The window's and the updater's tests
         run: |
-          python -m pip install -U pip && pip install --group dev
+          uv export --frozen --only-group dev --no-emit-project --no-header -o "$RUNNER_TEMP/dev.txt"
+          python -m pip install --require-hashes --no-deps -r "$RUNNER_TEMP/dev.txt"
           python -m pytest -q tests/test_desktop_window.py tests/test_desktop_start.py tests/test_desktop_updater.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -118,7 +127,15 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: pip install -e ".[desktop]"
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"
+          enable-cache: false      # this job signs things: nothing from a shared cache
+      - name: The versions in uv.lock, each checked against its hash
+        shell: bash
+        run: |
+          uv export --frozen --no-dev --extra desktop --no-emit-project --no-header -o "$RUNNER_TEMP/locked.txt"
+          python -m pip install --require-hashes --no-deps -r "$RUNNER_TEMP/locked.txt"
       - name: The relay key (scripts/release_key.py)
         if: startsWith(github.ref, 'refs/tags/v')
         run: python scripts/release_key.py
@@ -152,7 +169,7 @@ jobs:
       - name: Installer
         shell: pwsh
         run: |
-          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup --version=6.7.0 -y --no-progress }
           $version = python -c "from app.core.config import APP_VERSION; print(APP_VERSION)"
           $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }

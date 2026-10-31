@@ -26,16 +26,24 @@ from __future__ import annotations
 
 import argparse
 import errno
+import io
 import json
+import logging
+import logging.handlers
 import os
+import plistlib
+import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
 import time
 import urllib.error
 import urllib.request
+from xml.parsers.expat import ExpatError
+from xml.sax.saxutils import escape
 from pathlib import Path
 from typing import Optional
 
@@ -46,6 +54,9 @@ LAUNCHD_LABEL = "io.syntropyhealth.server"
 WINDOWS_TASK = "Syntropy Health"
 DEFAULT_PORT = 8000
 UPDATE_WAIT_SECONDS = 600
+SYSTEM_UNIT = Path("/etc/systemd/system") / f"{SERVICE}.service"
+LOG_BYTES = 5_000_000
+LOG_KEEP = 2
 # Where `update` installs from: the latest release, unless the installer recorded another source (--source).
 LATEST = "latest"
 
@@ -54,14 +65,53 @@ LATEST = "latest"
 # serve / mcp / info
 # ---------------------------------------------------------------------------
 
+class _LogFile(logging.handlers.RotatingFileHandler):
+    def handleError(self, record: logging.LogRecord) -> None:
+        """A log that can't be written, on a full disk say, must not stop the server. The usual report of the problem goes
+        to sys.stderr, which is this log: it would fail too, and so on until Python gave up and the server fell over."""
+        if self.stream and self.stream.closed:      # so it opens again once there's room
+            self.stream = None
+
+
+class _RotatingLog(io.TextIOBase):
+    """What a server with no console writes to, instead of a file that grows for as long as the computer stays on."""
+    encoding = "utf-8"
+
+    def __init__(self, path: Path):
+        self._handler = _LogFile(path, maxBytes=LOG_BYTES, backupCount=LOG_KEEP, encoding="utf-8", errors="backslashreplace", delay=True)
+        self._handler.terminator = ""
+
+    def writable(self) -> bool:
+        return True
+
+    def write(self, text: str) -> int:
+        self._handler.handle(logging.makeLogRecord({"msg": text}))      # threads write here too, and one may be rotating
+        return len(text)
+
+    def close(self) -> None:
+        self._handler.close()
+        super().close()
+
+
+def _leave_cleanly(_signum, _frame) -> None:
+    sys.exit(0)
+
+
 def serve(host: str = "0.0.0.0", port: int = DEFAULT_PORT, reload: bool = False) -> None:
     import uvicorn
 
     from app.services import network
 
-    if sys.stdout is None:      # started without a console (pythonw, the windowed app): keep a log instead
-        sys.stdout = sys.stderr = open(config.data_dir() / "server.log", "a", buffering=1, encoding="utf-8")
-    _pid_file().write_text(f"{os.getpid()} {port}")
+    # Started without a console (pythonw, the windowed app) or by launchd, which can't limit a log: keep one here.
+    if sys.stdout is None or config.env_bool("SYNTROPY_LOG_TO_FILE"):
+        sys.stdout = sys.stderr = _RotatingLog(config.data_dir() / "server.log")
+    # Uvicorn passes SIGTERM on once it has shut down. Dying from it would look like a crash to launchd, which restarts
+    # the server, and would leave the pid file behind.
+    signal.signal(signal.SIGTERM, _leave_cleanly)
+    try:
+        _pid_file().write_text(f"{os.getpid()} {port}")
+    except OSError as exc:      # a full disk, perhaps: the records can still be read, and that's when they may be needed
+        print(f"Couldn't write {_pid_file().name}, but starting anyway: {exc}")
     # So pairing can give the iPhone a reachable address, and syntropyhealth.local is announced on the network.
     os.environ["SYNTROPY_LISTEN_HOST"], os.environ["SYNTROPY_LISTEN_PORT"] = host, str(port)
     print(f"Syntropy Health {config.APP_VERSION}: data in {config.data_dir()}")
@@ -69,9 +119,12 @@ def serve(host: str = "0.0.0.0", port: int = DEFAULT_PORT, reload: bool = False)
     if host in ("0.0.0.0", "::"):
         for addr in network.home_addresses() + network.tailscale_addresses():
             print(f"  or http://{addr}:{port} from your other devices")
-    uvicorn.run("app.main:app", host=host, port=port, reload=reload, proxy_headers=True,
-                forwarded_allow_ips=config.env("FORWARDED_ALLOW_IPS") or "127.0.0.1", log_level="info",
-                timeout_graceful_shutdown=10)      # a local AI answer or a long download doesn't hold up stopping
+    try:
+        uvicorn.run("app.main:app", host=host, port=port, reload=reload, proxy_headers=True,
+                    forwarded_allow_ips=config.env("FORWARDED_ALLOW_IPS") or "127.0.0.1", log_level="info",
+                    timeout_graceful_shutdown=10)      # a local AI answer or a long download doesn't hold up stopping
+    finally:
+        _pid_file().unlink(missing_ok=True)
 
 
 def info(port: Optional[int]) -> None:
@@ -94,6 +147,8 @@ def info(port: Optional[int]) -> None:
             print(f"          http://{addr}:{port}  (your devices on Tailscale)")
     if getattr(sys, "frozen", False):
         print("Runs in:  the Syntropy Health app (its menu bar or tray icon has Open at Login)")
+    elif config.env("SYNTROPY_INSTALL") == "docker":
+        print("Runs in:  a Docker container")
     else:
         print(f"Service:  {_service_state()}")
 
@@ -428,11 +483,24 @@ def _running_port() -> Optional[int]:
     """The port the server started by `serve` (or the service) is on, while it runs."""
     try:
         pid, port = _pid_file().read_text().split()
-        if os.name != "nt":
+        if sys.platform == "win32":
+            if not _is_our_server(_windows_command_line(int(pid))):
+                return None
+        else:
             os.kill(int(pid), 0)
         return int(port)
     except (OSError, ValueError):
         return None
+
+
+def _windows_command_line(pid: int) -> str:
+    """What a process was started as, or "" if there's no such process or it can't be told."""
+    query = f"(Get-CimInstance Win32_Process -Filter 'ProcessId={pid}').CommandLine"
+    return _run(["powershell", "-NoProfile", "-NonInteractive", "-Command", query], check=False).stdout.strip()
+
+
+def _is_our_server(command_line: str) -> bool:
+    return re.search(r"\bserve\b", command_line) is not None and re.search(r"python|syntropy", command_line, re.I) is not None
 
 
 def _windows_run_entry(command: Optional[str]) -> Optional[str]:
@@ -464,7 +532,8 @@ def _windows_stop() -> None:
         pid = int(_pid_file().read_text().split()[0])
     except (OSError, ValueError, IndexError):
         return
-    _run(["taskkill", "/F", "/PID", str(pid)], check=False)
+    if _is_our_server(_windows_command_line(pid)):      # after a restart, that number may be some other program's by now
+        _run(["taskkill", "/F", "/PID", str(pid)], check=False)
     _pid_file().unlink(missing_ok=True)
 
 
@@ -472,45 +541,128 @@ def _run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, check=check, capture_output=True, text=True)
 
 
+def _windows_task_xml(args: list[str]) -> str:
+    """The sign-in task. Made from a definition because the defaults of `schtasks /Create` stop the server after 72 hours
+    and when a laptop is unplugged, with nothing to restart it until the next sign-in."""
+    user = escape(f"{os.environ.get('USERDOMAIN', '')}\\{os.environ.get('USERNAME', '')}".lstrip("\\"))
+    return f"""<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Description>Starts the Syntropy Health server when you sign in.</Description></RegistrationInfo>
+  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{user}</UserId></LogonTrigger></Triggers>
+  <Principals><Principal id="Author"><UserId>{user}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <RestartOnFailure><Interval>PT1M</Interval><Count>10</Count></RestartOnFailure>
+    <Enabled>true</Enabled>
+  </Settings>
+  <Actions Context="Author"><Exec><Command>{escape(args[0])}</Command><Arguments>{escape(subprocess.list2cmdline(args[1:]))}</Arguments></Exec></Actions>
+</Task>
+"""
+
+
+def _windows_create_task(args: list[str]) -> subprocess.CompletedProcess:
+    with tempfile.TemporaryDirectory() as tmp:
+        definition = Path(tmp) / "task.xml"
+        definition.write_text(_windows_task_xml(args), encoding="utf-16")
+        return _run(["schtasks", "/Create", "/F", "/TN", WINDOWS_TASK, "/XML", str(definition)], check=False)
+
+
+def _data_dir_chosen() -> bool:
+    return bool(config.env("SYNTROPY_DATA_DIR") or config.env("SYNTROPY_DB_PATH"))
+
+
+def _service_data_dir(user: Optional[str]) -> Path:
+    """Where the service keeps its data. Started as root for another account, not root's own folder, which that account
+    can't read: that account's usual folder, or the shared one for an account with no home of its own."""
+    if not user or not _is_root() or _data_dir_chosen():
+        return config.data_dir()
+    import pwd
+    try:
+        account = pwd.getpwnam(user)
+    except KeyError:
+        sys.exit(f"There's no account named {user} on this computer. Create it first, or name another with --user.")
+    home = Path(account.pw_dir)
+    try:
+        owns_home = home.stat().st_uid == account.pw_uid
+    except OSError:
+        owns_home = False
+    return home / ".local" / "share" / SERVICE if owns_home else Path("/var/lib") / SERVICE
+
+
+def _give_data_dir_to(user: str, folder: Path) -> None:
+    import pwd
+    account = pwd.getpwnam(user)
+    missing = []
+    place = folder
+    while not place.exists():
+        missing.append(place)
+        place = place.parent
+    folder.mkdir(parents=True, exist_ok=True)
+    for made in [*missing, folder]:     # folders made along the way too: the account's own, once it has them
+        os.chown(made, account.pw_uid, account.pw_gid)
+
+
+def _systemd_hardening(data: Path) -> list[str]:
+    """The server needs its data folder and the network, and nothing else on the computer. AF_NETLINK is how it finds its
+    own addresses, for pairing and syntropyhealth.local. Home folders stay readable when it lives or runs from one."""
+    in_home = any(str(p).startswith(("/home/", "/root/")) for p in [data, *map(Path, _program()[:1])])
+    writable = f'"{data}"' if " " in str(data) else str(data)
+    return ["NoNewPrivileges=true", "ProtectSystem=strict", f"ReadWritePaths={writable}", "PrivateTmp=true", "PrivateDevices=true",
+            f"ProtectHome={'read-only' if in_home else 'true'}", "ProtectKernelTunables=true", "ProtectKernelModules=true",
+            "ProtectKernelLogs=true", "ProtectControlGroups=true", "ProtectClock=true", "ProtectHostname=true",
+            "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK", "RestrictNamespaces=true", "RestrictRealtime=true",
+            "RestrictSUIDSGID=true", "LockPersonality=true", "CapabilityBoundingSet=", "SystemCallArchitectures=native"]
+
+
 def _systemd_unit(host: str, port: int, user: Optional[str]) -> str:
-    env = {"SYNTROPY_DATA_DIR": str(config.data_dir()), "PYTHONUNBUFFERED": "1"}
+    data = _service_data_dir(user)
+    env = {"SYNTROPY_DATA_DIR": str(data), "PYTHONUNBUFFERED": "1"}
     if config.env("TZ"):
         env["TZ"] = config.env("TZ")
     lines = ["[Unit]", "Description=Syntropy Health", "After=network-online.target", "Wants=network-online.target", "",
              "[Service]", "Type=simple",
              f"ExecStart={shlex.join([*_program(), 'serve', '--host', host, '--port', str(port)])}",
              *[f'Environment="{k}={v}"' for k, v in env.items()],
-             "EnvironmentFile=-/etc/syntropy-health/env" if user else f"EnvironmentFile=-{config.data_dir() / '.env'}",
+             "EnvironmentFile=-/etc/syntropy-health/env" if user else f"EnvironmentFile=-{data / '.env'}",
              "Restart=on-failure", "RestartSec=5"]
     if user:
-        lines += [f"User={user}", "NoNewPrivileges=true", "ProtectSystem=full", "PrivateTmp=true"]
+        lines += [f"User={user}", *_systemd_hardening(data)]
     lines += ["", "[Install]", f"WantedBy={'multi-user.target' if user else 'default.target'}", ""]
     return "\n".join(lines)
 
 
 def _launchd_plist(host: str, port: int) -> str:
-    args = "".join(f"<string>{a}</string>" for a in [*_program(), "serve", "--host", host, "--port", str(port)])
-    log = config.data_dir() / "server.log"
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>Label</key><string>{LAUNCHD_LABEL}</string>
-  <key>ProgramArguments</key><array>{args}</array>
-  <key>EnvironmentVariables</key><dict><key>SYNTROPY_DATA_DIR</key><string>{config.data_dir()}</string></dict>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
-  <key>StandardOutPath</key><string>{log}</string>
-  <key>StandardErrorPath</key><string>{log}</string>
-</dict></plist>
-"""
+    # The server writes its own log, server.log. launchd's files only catch what happens before that starts.
+    early = str(config.data_dir() / "server-start.log")
+    return plistlib.dumps({
+        "Label": LAUNCHD_LABEL,
+        "ProgramArguments": [*_program(), "serve", "--host", host, "--port", str(port)],
+        "EnvironmentVariables": {"SYNTROPY_DATA_DIR": str(config.data_dir()), "SYNTROPY_LOG_TO_FILE": "1"},
+        "RunAtLoad": True,
+        "KeepAlive": {"SuccessfulExit": False},
+        "StandardOutPath": early,
+        "StandardErrorPath": early,
+    }).decode()
 
 
 def _launchd_path() -> Path:
     return Path.home() / "Library" / "LaunchAgents" / f"{LAUNCHD_LABEL}.plist"
 
 
-def _systemd_system() -> bool:
+def _is_root() -> bool:
     return os.geteuid() == 0 if hasattr(os, "geteuid") else False
+
+
+def _user_unit() -> Path:
+    return Path.home() / ".config" / "systemd" / "user" / f"{SERVICE}.service"
+
+
+def _systemd_system() -> bool:
+    """Root's commands go to the system service. So do anyone else's when it's the one there is (the Linux installer's)."""
+    return _is_root() or (SYSTEM_UNIT.exists() and not _user_unit().exists())
 
 
 def _systemctl(*args: str) -> list[str]:
@@ -518,12 +670,31 @@ def _systemctl(*args: str) -> list[str]:
 
 
 def _unit_path() -> Path:
-    if _systemd_system():
-        return Path("/etc/systemd/system") / f"{SERVICE}.service"
-    return Path.home() / ".config" / "systemd" / "user" / f"{SERVICE}.service"
+    return SYSTEM_UNIT if _systemd_system() else _user_unit()
 
 
-def service_install(host: str, port: int, user: Optional[str]) -> None:
+def _installed_address() -> tuple[Optional[str], Optional[int]]:
+    """The host and port the installed service was set up with, if it's installed."""
+    text = ""
+    try:
+        if sys.platform == "darwin":
+            text = " ".join(plistlib.loads(_launchd_path().read_bytes())["ProgramArguments"])
+        elif sys.platform == "win32":
+            query = _run(["schtasks", "/Query", "/TN", WINDOWS_TASK, "/XML"], check=False)
+            text = query.stdout if query.returncode == 0 else _windows_run_entry(None) or ""
+        else:
+            text = _unit_path().read_text()
+    except (OSError, ValueError, KeyError, TypeError, ExpatError):      # missing, or a file launchctl refused
+        pass
+    host, port = re.search(r"--host\s+([^\s<\"']+)", text), re.search(r"--port\s+(\d+)", text)
+    return host.group(1) if host else None, int(port.group(1)) if port else None
+
+
+def service_install(host: Optional[str], port: Optional[int], user: Optional[str]) -> None:
+    """Installing again, as every run of the installers does, leaves the address alone unless a new one is asked for: the
+    phones paired with this server have the port saved, and someone may have kept it to this computer on purpose."""
+    kept_host, kept_port = _installed_address()
+    host, port = host or kept_host or "0.0.0.0", port or kept_port or DEFAULT_PORT
     if sys.platform == "darwin":
         path = _launchd_path()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -534,8 +705,7 @@ def service_install(host: str, port: int, user: Optional[str]) -> None:
     elif sys.platform == "win32":
         args = [*_program(), "serve", "--host", host, "--port", str(port)]
         cmd = subprocess.list2cmdline(args)
-        created = _run(["schtasks", "/Create", "/F", "/SC", "ONLOGON", "/RL", "LIMITED", "/TN", WINDOWS_TASK, "/TR", cmd],
-                       check=False)
+        created = _windows_create_task(args)
         if created.returncode == 0:
             _run(["schtasks", "/Run", "/TN", WINDOWS_TASK], check=False)
             print(f"Syntropy Health now starts when you sign in to Windows (scheduled task \"{WINDOWS_TASK}\").")
@@ -548,10 +718,15 @@ def service_install(host: str, port: int, user: Optional[str]) -> None:
     else:
         if not shutil.which("systemctl"):
             sys.exit("This system doesn't use systemd. Start `syntropy-health serve` with your init system instead.")
+        if _systemd_system() and not _is_root():
+            sys.exit("The service is set up for the whole computer, so changing it takes root: "
+                     "sudo syntropy-health service install")
         if _systemd_system() and not user:
             sys.exit("As root, say which account runs the server: syntropy-health service install --user syntropy")
         path = _unit_path()
         path.parent.mkdir(parents=True, exist_ok=True)
+        if user and _systemd_system() and not _data_dir_chosen():
+            _give_data_dir_to(user, _service_data_dir(user))
         path.write_text(_systemd_unit(host, port, user if _systemd_system() else None))
         _run(_systemctl("daemon-reload"))
         _run(_systemctl("enable", "--now", SERVICE))
@@ -593,9 +768,14 @@ def _service_state() -> str:
 
 def service_control(action: str) -> None:
     if sys.platform == "darwin":
-        target = f"gui/{os.getuid()}/{LAUNCHD_LABEL}"
-        cmd = {"start": ["launchctl", "kickstart", target], "stop": ["launchctl", "kill", "TERM", target],
-               "restart": ["launchctl", "kickstart", "-k", target]}[action]
+        domain = f"gui/{os.getuid()}"
+        target = f"{domain}/{LAUNCHD_LABEL}"
+        # Only unloading stops it for certain, with KeepAlive set. It loads again at the next login, as installed.
+        if action == "stop":
+            cmd = ["launchctl", "bootout", target]
+        else:
+            _run(["launchctl", "bootstrap", domain, str(_launchd_path())], check=False)
+            cmd = ["launchctl", "kickstart", *(["-k"] if action == "restart" else []), target]
     elif sys.platform == "win32":
         entry = _windows_run_entry(None)
         if entry and _run(["schtasks", "/Query", "/TN", WINDOWS_TASK], check=False).returncode != 0:
@@ -619,12 +799,18 @@ def service_control(action: str) -> None:
 # update
 # ---------------------------------------------------------------------------
 
+class InstallProblem(Exception):
+    """Why the new version couldn't be installed, in words for the person."""
+
+
 def update() -> None:
     from app.services import updates
 
     if getattr(sys, "frozen", False):
         sys.exit("The Mac and Windows apps install updates themselves: Settings → General → Updates, or Check for "
                  f"Updates in the app's menu. Or download the latest from {updates.RELEASES_URL}.")
+    if config.env("SYNTROPY_INSTALL") == "docker":
+        sys.exit("In Docker, update from outside the container: docker compose pull && docker compose up -d")
     if config.is_source_checkout():
         sys.exit("This is a clone of the repository: update it with git pull.")
     recorded = Path(sys.prefix) / "syntropy-source.txt"
@@ -640,17 +826,22 @@ def update() -> None:
         if not updates.is_newer(release["version"]):
             print(f"Syntropy Health {config.APP_VERSION} is the latest version.")
             return
-        try:
-            source = updates.package_source(release)
-        except updates.InstallFailed as exc:
-            sys.exit(str(exc))
         print(f"Updating Syntropy Health {config.APP_VERSION} to {release['version']}.")
         target = release["version"]
     previous = config.APP_VERSION
     started = time.time() - 2
     port = _last_port()
     print("Installing the latest version…")
-    _pip_install(source)
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            constraints = None
+            if target:
+                checksums = updates.fetch_checksums(target)
+                source = updates.package_source(release, checksums)
+                constraints = updates.fetch_requirements(target, checksums, Path(tmp))
+            _pip_install(source, constraints)
+    except (updates.InstallFailed, InstallProblem) as exc:
+        sys.exit(f"Couldn't install the new version, so version {previous} is still in place. {exc}")
     if _service_state() in ("not installed",):
         print("Updated. Your data is untouched; the database is upgraded when the server starts.")
         return
@@ -665,15 +856,47 @@ def update() -> None:
     _update_failed(problem, target, previous, started, port)
 
 
-def _pip_install(source: str) -> None:
-    uv = shutil.which("uv")
-    cmd = ([uv, "pip", "install", "--python", sys.executable, "--upgrade", source] if uv
-           else [sys.executable, "-m", "pip", "install", "--upgrade", source])
-    subprocess.run(cmd, check=True)
+def _uv() -> Optional[str]:
+    """The uv the installer used: it isn't always on PATH (under sudo, from a timer). The venv it made has no pip."""
+    try:
+        recorded = (Path(sys.prefix) / "syntropy-uv.txt").read_text().strip()
+    except OSError:
+        recorded = ""
+    return recorded if recorded and Path(recorded).is_file() else shutil.which("uv")
+
+
+def _pip_install(source: str, constraints: Optional[Path] = None) -> None:
+    """Installs ``source``, with exactly the dependencies in ``constraints`` when a release lists them."""
+    from app.services import updates
+
+    uv = _uv()
+    try:
+        if uv:
+            pinned = ["-c", str(constraints)] if constraints else []
+            cmd = [uv, "pip", "install", "--python", sys.executable, "--upgrade", *pinned, source]
+        elif constraints:
+            # pip won't take hashes as constraints: they make it want an exact version of everything, and the package only
+            # asks for fastapi>=... So, as the Docker image does, one list of everything, all checked before any of it goes in.
+            everything = constraints.with_name("everything.txt")
+            everything.write_text(f"{constraints.read_text(encoding='utf-8')}\n{source}\n", encoding="utf-8")
+            cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--require-hashes", "--no-deps", "-r", str(everything)]
+        else:
+            cmd = [sys.executable, "-m", "pip", "install", "--upgrade", source]
+        subprocess.run(cmd, check=True)
+    except (subprocess.CalledProcessError, OSError) as exc:
+        missing = "" if uv else " uv wasn't found either: run the installer again, which puts it back."
+        raise InstallProblem(f"Installing stopped with an error ({exc}).{missing} If this account can't change the installed "
+                             "program, run the update with sudo.") from exc
+    if Path(sys.prefix).resolve() == updates.LINUX_VENV.resolve():
+        # Root's umask may be strict, and the service runs as another account: as the installer does.
+        subprocess.run(["chmod", "-R", "a+rX", str(updates.LINUX_VENV.parent)], check=False)
 
 
 def _last_port() -> int:
     """Where the service listens, whether or not it's running right now."""
+    installed = _installed_address()[1]
+    if installed:
+        return installed
     try:
         return int(_pid_file().read_text().split()[1])
     except (OSError, ValueError, IndexError):
@@ -722,8 +945,10 @@ def _update_failed(problem: str, target: Optional[str], previous: str, started: 
     print(f"Going back to version {previous}.")
     service_control("stop")
     try:
-        _pip_install(updates.package_source_for(previous))
-    except (subprocess.CalledProcessError, OSError):
+        with tempfile.TemporaryDirectory() as tmp:
+            checksums = updates.fetch_checksums(previous)
+            _pip_install(updates.package_source_for(previous, checksums), updates.fetch_requirements(previous, checksums, Path(tmp)))
+    except (InstallProblem, updates.InstallFailed, OSError):
         service_control("start")
         sys.exit(f"Couldn't reinstall version {previous}. Install it from {updates.RELEASES_URL}.")
     restored, stuck = None, None
@@ -871,8 +1096,9 @@ def _command(argv: Optional[list[str]] = None) -> None:
     p.add_argument("--reload", action="store_true", help=argparse.SUPPRESS)
     s = sub.add_parser("service", help="start with the computer (systemd, launchd or a Windows sign-in task)")
     s.add_argument("action", choices=["install", "uninstall", "status", "start", "stop", "restart"])
-    s.add_argument("--host", default="0.0.0.0")
-    s.add_argument("--port", type=int, default=DEFAULT_PORT)
+    s.add_argument("--host", help="install: 0.0.0.0 lets other devices connect, 127.0.0.1 keeps it to this computer "
+                                  "(default: what's already set, or 0.0.0.0)")
+    s.add_argument("--port", type=int, help=f"install: default: what's already set, or {DEFAULT_PORT}")
     s.add_argument("--user", help="Linux, as root: the account that runs the server")
     b = sub.add_parser("backup", help="everything in one encrypted file: the database, encryption key and uploads")
     b.add_argument("folder", nargs="?", help="where to put it (default: this folder). A drive of its own survives a failed disk")

@@ -1,5 +1,16 @@
 # Syntropy Health — production image
-FROM python:3.12-slim
+# Base images are pinned by digest, so a release is rebuilt from what it was tested on. Dependabot proposes new digests
+# weekly, and docker-refresh.yml rebuilds the latest release on them. uv's version moves with the installers' (UV_VERSION).
+FROM ghcr.io/astral-sh/uv:0.11.15@sha256:e590846f4776907b254ac0f44b5b380347af5d90d668138ca7938d1b0c2f98d3 AS uv
+
+# The exact versions in uv.lock, with their hashes, for this image's install below.
+FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 AS locked
+COPY --from=uv /uv /usr/local/bin/uv
+WORKDIR /src
+COPY pyproject.toml uv.lock ./
+RUN uv export --frozen --no-dev --no-emit-project --no-header -o /requirements.txt
+
+FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -10,17 +21,20 @@ ENV PYTHONUNBUFFERED=1 \
 RUN groupadd -g 10001 syntropy && useradd -u 10001 -g syntropy -m -s /usr/sbin/nologin syntropy \
     && mkdir -p /data && chown syntropy:syntropy /data
 
-# Tesseract reads photos and scans of paper lab reports on this machine.
-RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr \
+# Tesseract reads photos and scans of paper lab reports on this machine. The upgrade brings in the distribution's
+# security fixes from after the base image was built.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-# Dependencies first, read from pyproject.toml, so code changes don't reinstall them.
-COPY pyproject.toml .
-RUN python -c "import tomllib; print('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))" \
-        > /tmp/requirements.txt && pip install -r /tmp/requirements.txt && rm /tmp/requirements.txt
+# Dependencies first, so code changes don't reinstall them.
+COPY --from=locked /requirements.txt /tmp/requirements.txt
+RUN pip install --require-hashes --no-deps -r /tmp/requirements.txt && rm /tmp/requirements.txt
+COPY LICENSE NOTICE ./
 COPY app/ ./app/
 COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY scripts/docker-syntropy-health.sh /usr/local/bin/syntropy-health
 
 # The entrypoint starts as root only to pick the data directory's owner, then drops to that
 # user (or "syntropy" for a fresh volume) before the server starts.
