@@ -45,13 +45,10 @@ def url_text(url: Any) -> Optional[str]:
 
 
 class _SheetWindow(AppKit.NSWindow):
-    """⌘W means Cancel, and the window behind is the one that goes full screen."""
+    """⌘W means Cancel: without a close button AppKit would only beep."""
 
     def performClose_(self, _sender):
         self.sign_in.cancel()
-
-    def toggleFullScreen_(self, sender):
-        self.sign_in.parent.toggleFullScreen_(sender)
 
 
 class _SheetEvents(NSObject):
@@ -330,6 +327,7 @@ class SignInSheet:
 
     # ----------------------------------------------------------------- opening and closing
     def open(self, request: Any) -> None:
+        self._say_where(url_text(request.URL()))       # first: it's drawn as it slides in
         self.parent.beginSheet_completionHandler_(self.window, None)
         self.load(request)
 
