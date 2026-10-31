@@ -51,7 +51,11 @@ export async function api(path, { method = "GET", body, query, form, raw = false
     if (Array.isArray(msg)) msg = msg.map((d) => String(d.msg || "").replace(/^Value error, /, "")).join("; ");
     throw new ApiError(res.status, msg || `Request failed (${res.status})`, data);
   }
-  if (method !== "GET" && !keepCache) listeners.changed.forEach((fn) => fn());
+  if (method !== "GET" && !keepCache) {
+    // Emptied again now it's done: anything asked for while the change was under way may have the old answer.
+    cache.clear();
+    listeners.changed.forEach((fn) => fn());
+  }
   return data;
 }
 
