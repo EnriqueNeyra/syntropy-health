@@ -46,24 +46,14 @@ def _fix_samples(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
     return rows[-1]["rowid"] if rows else None
 
 
-def _is_export_connection(conn: sqlite3.Connection, connection_id: Optional[str], known: dict[Optional[str], bool]) -> bool:
-    if connection_id not in known:
-        row = conn.execute("SELECT metadata_json FROM connections WHERE id = ?", (connection_id,)).fetchone()
-        try:
-            known[connection_id] = bool(row and row[0] and json.loads(row[0]).get("platform") == "healthkit-export")
-        except (ValueError, AttributeError):
-            known[connection_id] = False
-    return known[connection_id]
-
-
 def _fix_json_repeats(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
     """Before re-sent totals replaced each other, each new value of a growing total was a row of its own and they were added
     up. Only the two shapes that can't be two real readings are collapsed: a night's aggregated sleep, and a summed metric's row at
-    local midnight from an export automation. Other rows at one moment can be real entries (two foods logged together)."""
+    local midnight. Only that export route writes hx_ ids, whatever the connection it came in on says about itself. Other rows at
+    one moment can be real entries (two foods logged together)."""
     rows = conn.execute(
-        "SELECT rowid, id, profile_id, connection_id, metric_type, start_date, source_name, metadata_json FROM biometric_samples "
+        "SELECT rowid, id, profile_id, metric_type, start_date, source_name, metadata_json FROM biometric_samples "
         "WHERE id > ? AND id < 'hx`' ORDER BY id LIMIT ?", (cursor or "hx_", size)).fetchall()
-    exports: dict[Optional[str], bool] = {}
     for r in rows:
         metric, source, start = r["metric_type"], r["source_name"], r["start_date"]
         day = _stored_day(r["metadata_json"], start)
@@ -74,7 +64,7 @@ def _fix_json_repeats(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
                 "SELECT rowid, value, created_at, metadata_json, start_date FROM biometric_samples WHERE profile_id = ? AND metric_type = ? "
                 "AND start_date >= ? AND start_date < ? AND source_name = ? AND substr(id, 1, 3) = 'hx_'",
                 (r["profile_id"], metric, lo, hi, source)).fetchall() if _stored_day(s["metadata_json"], s["start_date"]) == day]
-        elif METRICS.get(metric, ("", "", ""))[2] == "sum" and _is_export_connection(conn, r["connection_id"], exports):
+        elif METRICS.get(metric, ("", "", ""))[2] == "sum":
             tz = biometrics._tz(r["profile_id"])
             at = biometrics.parse_ts(start).astimezone(tz)
             if at.hour or at.minute:

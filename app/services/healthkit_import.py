@@ -9,15 +9,17 @@ iPhone app uses, so data arriving through both paths de-duplicates.
 A row that's a group of readings (an hour's or a day's steps) grows as the day goes on and is sent again and again, so a new
 value replaces the last rather than adding to it. The iPhone app says which it's sending in the ``automation-aggregation``
 header. With no header, a row with no end date is taken to be a group, as Health Auto Export's are; rows with the same date in
-one request are then different readings, and are added together. A plain sample keeps its own identity, value included, so two
-entries at one moment both count. Aggregated sleep belongs to its day, wherever its start and end move.
+one request are then different readings, and are added together. A summed row at midnight alone on its date is then either a
+whole day or the first hour of one, which only what else arrives for that day can settle (see ``biometrics._rollup``). A plain
+sample keeps its own identity, value included, so two entries at one moment both count. Aggregated sleep belongs to its day,
+wherever its start and end move.
 """
 
 from __future__ import annotations
 
 import math
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from app.connectors.apple_health import convert_unit
@@ -251,12 +253,22 @@ def _rows(v: Any) -> list[dict[str, Any]]:
 
 
 def _ts(v: Any):
-    """Parsed timestamp, or None when missing or unreadable (the row is then skipped)."""
+    """Parsed timestamp, or None when missing, unreadable or past either end of the calendar in UTC (the row then goes alone)."""
     if not isinstance(v, str) or not v.strip():
         return None
     try:
-        return biometrics.parse_ts(v)
-    except ValueError:
+        parsed = biometrics.parse_ts(v)
+        parsed.astimezone(timezone.utc)
+    except (ValueError, OverflowError):
+        return None
+    return parsed
+
+
+def _after(start: datetime, seconds: float) -> Optional[datetime]:
+    """The time a length after ``start``, or None when a length that long can't be one."""
+    try:
+        return start + timedelta(seconds=seconds)
+    except OverflowError:
         return None
 
 
@@ -283,7 +295,8 @@ def _sample_unit(metric: str, value: float, units: str) -> str:
 
 def _settle_groups(samples: list[dict[str, Any]], grain: str) -> list[dict[str, Any]]:
     """Rows of a group sharing a date in one request add up (or the later one stands, for what isn't a total). A summed row is
-    the whole day's when the automation says so, or with nothing to say when it's at midnight and alone on its date."""
+    the whole day's when the automation says so. With nothing said, one at midnight and alone on its date is the whole day's
+    only as long as no other hour of that day turns up."""
     settled: dict[str, dict[str, Any]] = {}
     out: list[dict[str, Any]] = []
     for s in samples:
@@ -306,8 +319,10 @@ def _settle_groups(samples: list[dict[str, Any]], grain: str) -> list[dict[str, 
             continue
         at = biometrics.parse_ts(s["start_date"])
         alone = on_date[(s["metric_type"], s["source_name"], str(s["start_date"])[:10])] == 1
-        if grain == "days" or (not grain and alone and not at.hour and not at.minute):
+        if grain == "days":
             s["metadata"] = {**(s.get("metadata") or {}), "daily_total": True}
+        elif not grain and alone and not at.hour and not at.minute:
+            s["metadata"] = {**(s.get("metadata") or {}), "daily_total_if_alone": True}
     return out
 
 
@@ -351,9 +366,9 @@ def convert(payload: dict[str, Any], grain: Optional[str] = None) -> dict[str, l
             for r in rows:
                 v = _num(r.get("qty"))
                 start = _ts(r.get("date"))
-                if start is not None and v is not None:
-                    end = (start + timedelta(minutes=v)).isoformat()
-                    event("mindful_session", "mindfulness", "Mindful Minutes", start.isoformat(), end, r.get("source"),
+                end = _after(start, v * 60) if start is not None and v is not None else None
+                if end is not None:
+                    event("mindful_session", "mindfulness", "Mindful Minutes", start.isoformat(), end.isoformat(), r.get("source"),
                           value=v, label=f"{v:g} min")
             continue
         metric = METRIC_NAMES.get(name) or slug(name)
@@ -478,7 +493,10 @@ def _workout(w: dict[str, Any]) -> Optional[dict[str, Any]]:
         duration = (ended - started).total_seconds()
     if ended is None:
         # Keep the workout even if its end time is missing or unreadable.
-        end = (started + timedelta(seconds=duration or 0)).isoformat()
+        finished = _after(started, duration or 0)
+        if finished is None:
+            duration, finished = None, started
+        end = finished.isoformat()
     hr = w.get("heartRate") if isinstance(w.get("heartRate"), dict) else {}
     avg_hr = _qty(hr.get("avg"))[0] if hr else _qty(w.get("avgHeartRate"))[0]
     max_hr = _qty(hr.get("max"))[0] if hr else _qty(w.get("maxHeartRate"))[0]

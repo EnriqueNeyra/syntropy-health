@@ -60,9 +60,13 @@ SLEEP_SESSION_GAP_S = 3 * 3600
 # Stage samples can move between the night and a nap, so a change to any of them can change all of these.
 _STAGE_TARGETS = ["sleep_duration", "sleep_deep", "sleep_rem", "sleep_core", "sleep_awake", "sleep_nap"]
 # A shorter session that isn't the day's longest and starts between these local hours is a nap, apart from the night.
-# Oura's own definition of a nap is up to 3 hours. Waking for a few hours overnight doesn't make the rest of the night one.
+# Oura's own definition of a nap is up to 3 hours. Waking for a few hours overnight doesn't make the rest of the night one:
+# a longer session within NIGHT_BREAK_MAX_S of the day's longest is the same night, if it's after it and began before this hour
+# of the morning, or before it and began outside the nap hours. Any other is sleep at another time, listed with the naps.
 NAP_MAX_S = 3 * 3600
 NAP_HOURS = (6, 20)
+NIGHT_RESUMES_BEFORE_HOUR = 10
+NIGHT_BREAK_MAX_S = 6 * 3600
 # Measured over a whole night and shown on the morning it ends, like sleep.
 OVERNIGHT_METRICS = {"sleeping_wrist_temperature", "sleeping_breathing_disturbances"}
 
@@ -105,8 +109,8 @@ def _tz(profile_id: Optional[str] = None) -> ZoneInfo:
 
 
 def zone_at(offset: Optional[int], tz: tzinfo) -> tzinfo:
-    """Where a reading was taken: its own offset from UTC if it has one, otherwise the person's zone."""
-    return tz if offset is None else timezone(timedelta(minutes=offset))
+    """Where a reading was taken: its own offset from UTC if it has a possible one, otherwise the person's zone."""
+    return tz if offset is None or abs(offset) > OFFSET_MAX_MIN else timezone(timedelta(minutes=offset))
 
 
 def parse_ts(value: str) -> datetime:
@@ -209,6 +213,13 @@ def reading_offset(s: dict[str, Any], meta: dict[str, Any], start: str) -> Optio
     return int(delta.total_seconds() // 60) if delta is not None else None
 
 
+def item_offset(raw: Any, start: str) -> Optional[int]:
+    """A workout's or event's offset: the optional field if it's a possible one, otherwise what its start says."""
+    if isinstance(raw, int) and not isinstance(raw, bool) and abs(raw) <= OFFSET_MAX_MIN:
+        return raw
+    return offset_of(start)
+
+
 def reading_flag(metric: str, value: float, start: str, end: str, day: Optional[str] = None,
                  now: Optional[datetime] = None) -> Optional[str]:
     """Why a reading can't count toward the day's numbers. A clock a little fast isn't one: the phone never sends a
@@ -288,6 +299,9 @@ def _row_days(metric: str, start: str, end: str, day: Optional[str], offset: Opt
         # A stretch before midnight belongs to the night that ends the next morning.
         woke = date.fromisoformat(local_day(end, tz, offset))
         out.update({woke.isoformat(), (woke + timedelta(days=1)).isoformat()})
+        if metric in SLEEP_STAGE_SAMPLES:
+            # One after midnight can join a session that began the evening before, or leave it, which moves that session's day.
+            out.add((date.fromisoformat(local_day(start, tz, offset)) - timedelta(days=1)).isoformat())
     elif METRICS.get(metric, ("", "", ""))[2] == "sum" and end > start:
         out.update(piece[0] for piece in _split_by_day(start, end, 0.0, offset, tz))
     return out
@@ -431,7 +445,8 @@ def insert_samples(
             except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
                 rejected += 1
                 continue
-            if sample_id in removed_ids:
+            # Removed under the id the person saw, which is the id@person form when someone else holds the plain one.
+            if sample_id in removed_ids or f"{sample_id}@{profile_id}" in removed_ids:
                 continue
             source = s.get("source_name") or "Unknown"
             meta_json = dumps(meta) if meta else None
@@ -659,6 +674,8 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
 
     readings: dict[tuple[str, str, str], list[float]] = defaultdict(list)
     totals: dict[tuple[str, str, str], list[float]] = defaultdict(list)    # what a source says the whole day came to
+    maybe_totals: dict[tuple[str, str, str], list[float]] = defaultdict(list)   # the same, unless more of that day turns up
+    export_rows: set[tuple[str, str, str]] = set()
     last_seen: dict[tuple[str, str, str], tuple[str, float]] = {}
     timed: dict[tuple[str, str, str], list[tuple[float, float]]] = defaultdict(list)
     intervals: dict[tuple[str, str], list[tuple[str, str, float, str]]] = defaultdict(list)
@@ -690,6 +707,11 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
             if day or (r["metadata_json"] and '"daily_total":true' in r["metadata_json"]):
                 totals[(day or local_day(start, tz, offset), metric, source)].append(value)
                 continue
+            if r["metadata_json"] and '"daily_total_if_alone":true' in r["metadata_json"]:
+                maybe_totals[(local_day(start, tz, offset), metric, source)].append(value)
+                continue
+            if path == "json" and end == start:
+                export_rows.add((local_day(start, tz, offset), metric, source))
             if end > start:
                 for d, piece_start, piece_end, share in _split_by_day(start, end, value, offset, tz):
                     readings[(d, metric, source)].append(share)
@@ -703,6 +725,9 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
         prev = last_seen.get(key)
         if prev is None or start >= prev[0]:
             last_seen[key] = (start, value)
+
+    for key, values in maybe_totals.items():
+        (readings if key in export_rows or len(values) > 1 else totals)[key].extend(values)
 
     for (day, target, source), spans in _sleep_nights(stages, tz).items():
         # A source's own summary of the night wins over adding up its stages; both would count the night twice.
@@ -890,13 +915,25 @@ def _is_nap(samples: list[tuple[float, float, str, Optional[int]]], tz: tzinfo) 
     return _asleep_seconds(samples) < NAP_MAX_S and NAP_HOURS[0] <= started.hour < NAP_HOURS[1]
 
 
+def _same_night(session: list[tuple[float, float, str, Optional[int]]], main: list[tuple[float, float, str, Optional[int]]], tz: tzinfo) -> bool:
+    """Whether another session on the longest one's day is that night, broken by hours awake."""
+    if _is_nap(session, tz):
+        return False
+    first = min(session, key=lambda x: x[0])
+    hour = datetime.fromtimestamp(first[0], zone_at(first[3], tz)).hour
+    main_start, main_end = min(x[0] for x in main), max(x[1] for x in main)
+    if first[0] >= main_end:
+        return first[0] - main_end <= NIGHT_BREAK_MAX_S and hour < NIGHT_RESUMES_BEFORE_HOUR
+    return main_start - max(x[1] for x in session) <= NIGHT_BREAK_MAX_S and not NAP_HOURS[0] <= hour < NAP_HOURS[1]
+
+
 def sleep_sessions(samples: list[tuple[float, float, str, Optional[int]]], tz: tzinfo) -> list[dict[str, Any]]:
     """One source's stage samples, as ``{day, night: samples, naps: [samples]}``. Samples are grouped into sessions (no
     gap over SLEEP_SESSION_GAP_S) and a session counts toward the local day it ends: counting each sample by its own end
     would give the stretch before midnight to the evening's date, a one-hour "night" on days with no sleep. The day's
-    longest session is the night. Another counts as a nap when it's short and in the daytime, otherwise as part of the
-    night (someone awake for hours at 3 AM didn't nap afterwards). The Sleep page and the daily figures both start here,
-    so they can't disagree."""
+    longest session is the night. Another is part of that night only when it's the same night broken by hours awake
+    (someone awake for hours at 3 AM didn't nap afterwards); sleep at another time is listed with the naps, and doesn't
+    move the bedtime or wake time. The Sleep page and the daily figures both start here, so they can't disagree."""
     sessions: list[list[Any]] = []     # [latest end, samples]
     for sample in sorted(samples, key=lambda x: x[:3]):
         if sessions and sample[0] - sessions[-1][0] <= SLEEP_SESSION_GAP_S:
@@ -915,10 +952,10 @@ def sleep_sessions(samples: list[tuple[float, float, str, Optional[int]]], tz: t
         for session in found:
             if session is main:
                 continue
-            if _is_nap(session, tz):
-                naps.append(session)
-            else:
+            if _same_night(session, main, tz):
                 night.extend(session)
+            elif _asleep_seconds(session):
+                naps.append(session)
         out.append({"day": day, "night": night, "naps": naps})
     return out
 
@@ -1127,8 +1164,9 @@ def daily_series(profile_id: str, metric: str, days: int = 30, source: Optional[
             "SELECT * FROM biometric_daily WHERE profile_id = ? AND metric_type = 'sleep_duration' AND day >= ? AND day <= ?",
             (profile_id, start.isoformat(), end.isoformat()),
         ).fetchall())
-        left_out = conn.execute("SELECT COUNT(*) FROM biometric_samples WHERE profile_id = ? AND metric_type = ? AND flag IS NOT NULL",
-                                (profile_id, metric)).fetchone()[0]
+        feeding = _feeding(metric)
+        left_out = conn.execute(f"SELECT COUNT(*) FROM biometric_samples WHERE profile_id = ? AND metric_type IN ({','.join('?' * len(feeding))}) "
+                                "AND flag IS NOT NULL", (profile_id, *feeding)).fetchone()[0]
     chosen = _pick(rows, metric, source, orders, kinds)
     if nights:
         # Every sleep figure for a night comes from the same source, chosen by how much of the night it covered.
@@ -1256,12 +1294,34 @@ def _samples_signature(conn: Any, profile_id: str) -> tuple:
     return (rev[0] if rev else 0, conn.execute("SELECT MAX(rowid) FROM biometric_samples").fetchone()[0])
 
 
+def _feeding(metric: str) -> list[str]:
+    """The stored types a daily figure is worked out from."""
+    return sorted(m for m in {metric, *SLEEP_MAP} if m == metric or metric in SLEEP_MAP.get(m, ()))
+
+
+def metric_label(metric: str) -> str:
+    """What to call a stored type, including the sleep types that only feed others."""
+    spec = METRICS.get(metric) or METRICS.get(SLEEP_MAP.get(metric, [""])[-1])
+    return spec[0] if spec else metric.replace("_", " ").capitalize()
+
+
+def with_reading_text(sample: dict[str, Any]) -> dict[str, Any]:
+    """A stored reading with its name, and its value in the unit its daily figure uses. A stretch of sleep is stored in seconds; a
+    reading in a unit nobody knows was never converted, so it stays as it came."""
+    metric, value, unit = sample["metric_type"], sample["value"], sample["unit"]
+    if metric in SLEEP_MAP and sample["flag"] != FLAG_UNIT:
+        value, unit = value / 3600.0, "h"
+    elif metric in METRICS and sample["flag"] != FLAG_UNIT:
+        unit = METRICS[metric][1]
+    return {**sample, "label": metric_label(metric), "shown_value": value, "shown_unit": unit}
+
+
 def left_out(profile_id: str, conn: Any = None) -> list[dict[str, Any]]:
     """Readings kept but not counted, per metric and why. The partial index only holds these, so this costs nothing."""
     if conn is None:
         with read() as reader:
             return left_out(profile_id, reader)
-    return [{"metric": r["metric_type"], "label": METRICS.get(r["metric_type"], (r["metric_type"],))[0], "reason": r["flag"], "count": r["n"]}
+    return [{"metric": r["metric_type"], "label": metric_label(r["metric_type"]), "reason": r["flag"], "count": r["n"]}
             for r in conn.execute("SELECT metric_type, flag, COUNT(*) AS n FROM biometric_samples WHERE profile_id = ? AND flag IS NOT NULL "
                                   "GROUP BY metric_type, flag ORDER BY n DESC", (profile_id,)).fetchall()]
 
@@ -1305,15 +1365,21 @@ def overview(profile_id: str) -> dict[str, Any]:
     }
 
 
-def recent_samples(profile_id: str, metric: Optional[str] = None, limit: int = 100, left_out_only: bool = False) -> list[dict[str, Any]]:
+def recent_samples(profile_id: str, metric: Optional[str] = None, limit: int = 100, left_out_only: bool = False,
+                   until: Optional[str] = None) -> list[dict[str, Any]]:
     q = ("SELECT id, metric_type, value, unit, start_date, end_date, device_name, source_name, flag "
          "FROM biometric_samples WHERE profile_id = ?")
     params: list[Any] = [profile_id]
     if metric:
-        q += " AND metric_type = ?"
-        params.append(metric)
+        feeding = _feeding(metric)
+        q += f" AND metric_type IN ({','.join('?' * len(feeding))})"
+        params += feeding
     if left_out_only:
         q += " AND flag IS NOT NULL"
+    if until:
+        following = datetime.combine(date.fromisoformat(until) + timedelta(days=1), datetime.min.time(), _tz(profile_id))
+        q += " AND start_date < ?"
+        params.append(following.astimezone(timezone.utc).strftime(_ISO))
     q += " ORDER BY start_date DESC LIMIT ?"
     params.append(limit)
     with read() as conn:

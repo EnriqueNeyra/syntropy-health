@@ -9,6 +9,7 @@ import sqlite3
 import zipfile
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -1403,3 +1404,259 @@ def test_a_disk_nearly_full_is_said_before_it_stops_anything(client, monkeypatch
         m.setattr(maintenance.shutil, "disk_usage", lambda path: usage(10, 9, 500 * 1024 * 1024))
         assert any(p["id"] == "disk-low" for p in maintenance.problems())
     assert not any(p["id"] == "disk-low" for p in maintenance.problems())
+
+
+# ---------------------------------------------------------------------------
+# Midnight rows, split nights and later sessions, stored repeats, overflow, offsets, removal
+# ---------------------------------------------------------------------------
+
+def _new_york(d: date, clock: str) -> str:
+    return datetime.fromisoformat(f"{d.isoformat()}T{clock}:00").replace(tzinfo=ZoneInfo("America/New_York")).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_a_midnight_row_sent_alone_doesnt_hide_the_hours_sent_after_it(client):
+    _set_zone(client, "America/New_York")
+    day = (TODAY - timedelta(days=2)).isoformat()
+    for clock, qty in (("00:00", 100), ("01:00", 200), ("02:00", 300)):
+        assert client.post("/api/ingest/healthkit-export", json=_export("step_count", "count", {"date": f"{day} {clock}:00 -0400", "qty": qty, "source": "Fit"})).status_code == 200
+    assert _daily(_profile(client), "step_count")[day]["value"] == 600
+
+
+def test_a_midnight_row_counts_with_hours_that_came_before_it_too(client):
+    _set_zone(client, "America/New_York")
+    day = (TODAY - timedelta(days=2)).isoformat()
+    for clock, qty in (("05:00", 200), ("00:00", 100)):
+        client.post("/api/ingest/healthkit-export", json=_export("step_count", "count", {"date": f"{day} {clock}:00 -0400", "qty": qty, "source": "Fit"}))
+    assert _daily(_profile(client), "step_count")[day]["value"] == 300
+
+
+def test_the_automation_saying_days_makes_a_midnight_row_the_whole_days_whatever_else_came(client):
+    _set_zone(client, "UTC")
+    day = (TODAY - timedelta(days=2)).isoformat()
+    client.post("/api/ingest/healthkit-export", json=_export("step_count", "count", {"date": f"{day} 00:00:00 +0000", "qty": 8000, "source": "Fit"}),
+                headers={"automation-aggregation": "days"})
+    client.post("/api/ingest/healthkit-export", json=_export("step_count", "count", {"date": f"{day} 09:00:00 +0000", "qty": 500, "source": "Fit"}))
+    assert _daily(_profile(client), "step_count")[day]["value"] == 8000
+
+
+def _core(sample_id, start, end):
+    return _s(sample_id, "sleep_analysis_core", (biometrics.parse_ts(end) - biometrics.parse_ts(start)).total_seconds(), start, end, unit="s")
+
+
+def test_a_stretch_of_sleep_arriving_later_moves_the_night_off_the_evening(client):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    d = TODAY - timedelta(days=3)
+    eve = d - timedelta(days=1)
+    biometrics.insert_samples(profile, None, [_core("eve", _new_york(eve, "22:30"), _new_york(eve, "23:50"))])
+    assert _daily(profile, "sleep_duration")[eve.isoformat()]["value"] == 1.33
+    biometrics.insert_samples(profile, None, [_core("morn", _new_york(d, "00:10"), _new_york(d, "06:30"))])
+    assert {k: v["value"] for k, v in _daily(profile, "sleep_duration").items()} == {d.isoformat(): 7.67}
+    # And back: without the later part, the evening is a night of its own again.
+    assert biometrics.delete_sample(profile, "morn")
+    assert {k: v["value"] for k, v in _daily(profile, "sleep_duration").items()} == {eve.isoformat(): 1.33}
+
+
+def test_correcting_the_later_stretch_of_a_night_gives_the_evening_back(client):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    d = TODAY - timedelta(days=3)
+    eve = d - timedelta(days=1)
+    biometrics.insert_samples(profile, None, [_core("eve", _new_york(eve, "22:30"), _new_york(eve, "23:50")), _core("morn", _new_york(d, "00:10"), _new_york(d, "06:30"))])
+    # The same id, corrected: it was the next night's sleep.
+    biometrics.insert_samples(profile, None, [_core("morn", _new_york(d + timedelta(days=1), "00:10"), _new_york(d + timedelta(days=1), "06:50"))])
+    shown = {k: v["value"] for k, v in _daily(profile, "sleep_duration").items()}
+    assert shown[eve.isoformat()] == 1.33 and d.isoformat() not in shown
+    biometrics.rebuild_daily(profile)
+    assert shown == {k: v["value"] for k, v in _daily(profile, "sleep_duration").items()}
+
+
+def test_an_export_files_batches_splitting_a_night_dont_leave_a_false_one(client, monkeypatch):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    monkeypatch.setattr(imports, "BATCH", 1)
+    d = TODAY - timedelta(days=3)
+    eve = d - timedelta(days=1)
+    record = ('<Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Watch" value="HKCategoryValueSleepAnalysisAsleepCore" '
+              'startDate="{} -0400" endDate="{} -0400"/>')
+    job = _import(client, profile, _export_xml(record.format(f"{eve} 22:30:00", f"{eve} 23:50:00"), record.format(f"{d} 00:10:00", f"{d} 06:30:00")))
+    assert job["status"] != "error", job
+    assert {k: v["value"] for k, v in _daily(profile, "sleep_duration").items()} == {d.isoformat(): 7.67}
+
+
+@pytest.mark.parametrize("platform", ["ios", None])
+def test_stored_repeats_collapse_on_any_connection_that_route_wrote(client, platform):
+    from app.services import wearable_fixes
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    connection = connections.create(profile, "device", "apple_health", "Phone", mode="live", metadata={"platform": platform})["id"] if platform else None
+    d = _iso(TODAY - timedelta(days=2), "00:00:00")
+    with db() as conn:
+        for sid, value, created in (("hx_0", 1000, 1.0), ("hx_1", 3000, 2.0), ("hx_2", 9000, 3.0)):
+            conn.execute("INSERT INTO biometric_samples(id, profile_id, connection_id, metric_type, value, unit, start_date, end_date, source_name, created_at) "
+                         "VALUES (?, ?, ?, 'step_count', ?, '', ?, ?, 'Fit', ?)", (sid, profile, connection, value, d, d, created))
+        wearable_fixes._fix_json_repeats(conn, None, 100)
+    with read() as conn:
+        assert {r[0] for r in conn.execute("SELECT id FROM biometric_samples")} == {"hx_2"}
+
+
+@pytest.mark.parametrize("row", [
+    {"name": "step_count", "units": "count", "data": [{"date": "0001-01-01 00:00:00 +1400", "qty": 5, "source": "Fit"}]},
+    {"name": "step_count", "units": "count", "data": [{"date": "9999-12-31 23:59:59 -1400", "qty": 5, "source": "Fit"}]},
+    {"name": "blood_pressure", "data": [{"date": "0001-01-01 00:00:00 +1400", "systolic": 120, "diastolic": 80, "source": "Cuff"}]},
+    {"name": "mindful_minutes", "data": [{"date": "2026-01-01 10:00:00 +0000", "qty": 1e30, "source": "Calm"}]},
+    {"name": "mindful_minutes", "data": [{"date": "9999-12-31 23:59:59 +0000", "qty": 90, "source": "Calm"}]},
+])
+def test_dates_and_lengths_that_overflow_go_alone_in_the_export_route(client, row):
+    day = (TODAY - timedelta(days=2)).isoformat()
+    good = {"name": "dietary_water", "units": "mL", "data": [{"date": f"{day} 10:00:00 +0000", "qty": 250, "source": "Log"}]}
+    r = client.post("/api/ingest/healthkit-export", json={"data": {"metrics": [row, good]}})
+    assert r.status_code == 200, r.text
+    assert r.json()["inserted"] == 1
+    _set_zone(client, "UTC")
+    assert _daily(_profile(client), "dietary_water")[day]["value"] == 250
+
+
+def test_a_workout_with_a_length_that_overflows_is_kept_without_it(client):
+    day = (TODAY - timedelta(days=2)).isoformat()
+    r = client.post("/api/ingest/healthkit-export", json={"data": {"workouts": [{"name": "Run", "start": f"{day} 10:00:00 +0000", "duration": 1e30, "source": "Watch"}]}})
+    assert r.status_code == 200, r.text
+    assert r.json()["workouts_inserted"] == 1
+    workout = activity.list_workouts(_profile(client), None)[0]
+    assert workout["duration_s"] is None and workout["end_date"] == workout["start_date"]
+    assert client.get("/api/biometrics/training").status_code == 200
+
+
+def test_an_impossible_length_on_a_workout_doesnt_break_the_training_page(client):
+    batch = {"device_id": "d", "device_name": "Phone", "profile_id": _profile(client),
+             "workouts": [{"id": f"w{i}", "name": "Run", "start": _iso(TODAY - timedelta(days=2 + i)), "duration_s": 1.7e308, "source_name": "Watch"} for i in range(3)]}
+    assert client.post("/api/ingest/wearables", json=batch).json()["workouts_inserted"] == 3
+    assert client.get("/api/biometrics/training").status_code == 200
+    assert activity.list_workouts(_profile(client), None)[0]["duration_s"] is None
+
+
+def test_an_out_of_range_offset_on_a_workout_or_event_isnt_kept(client):
+    start = _iso(TODAY - timedelta(days=2))
+    batch = {"device_id": "d", "device_name": "Phone", "profile_id": _profile(client),
+             "workouts": [{"id": "w1", "name": "Run", "start": start, "duration_s": 600, "tz_offset_min": 100000}],
+             "events": [{"id": "e1", "event_type": "headache", "start": start, "tz_offset_min": -100000}]}
+    r = client.post("/api/ingest/wearables", json=batch).json()
+    assert r["workouts_inserted"] == 1 and r["events_inserted"] == 1
+    with read() as conn:
+        assert conn.execute("SELECT tz_offset_min FROM workouts WHERE id = 'w1'").fetchone()[0] is None
+        assert conn.execute("SELECT tz_offset_min FROM health_events WHERE id = 'e1'").fetchone()[0] is None
+    assert client.get("/api/biometrics/training").status_code == 200
+
+
+def test_an_offset_stored_out_of_range_doesnt_break_the_training_page(client):
+    activity.store_workouts(_profile(client), None, [{"id": "w1", "name": "Run", "start": _iso(TODAY - timedelta(days=2)), "duration_s": 600}])
+    with db() as conn:
+        conn.execute("UPDATE workouts SET tz_offset_min = 100000")
+    assert client.get("/api/biometrics/training").status_code == 200
+
+
+def _night(profile, d):
+    return next(n for n in sleep.nights(profile, days=10)["nights"] if n["day"] == d.isoformat())
+
+
+def test_a_doze_in_the_evening_isnt_part_of_last_nights_sleep(client):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    d = TODAY - timedelta(days=3)
+    biometrics.insert_samples(profile, None, [_core("night", _new_york(d, "00:30"), _new_york(d, "08:00")), _core("doze", _new_york(d, "20:15"), _new_york(d, "21:00"))])
+    night = _night(profile, d)
+    assert night["asleep_h"] == 7.5 and night["in_bed_h"] == 7.5 and night["efficiency"] == 1.0 and "T08:00" in night["wake"]
+    assert [n["asleep_h"] for n in night["naps"]] == [0.75] and "T20:15" in night["naps"][0]["start"]
+    assert _daily(profile, "sleep_nap")[d.isoformat()]["value"] == 0.75
+
+
+def test_a_long_sleep_in_the_day_isnt_part_of_last_nights_sleep(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = TODAY - timedelta(days=3)
+    biometrics.insert_samples(profile, None, [_core("night", _iso(d, "00:30:00"), _iso(d, "08:00:00")), _core("day", _iso(d, "12:00:00"), _iso(d, "16:00:00"))])
+    night = _night(profile, d)
+    assert night["asleep_h"] == 7.5 and "T08:00" in night["wake"] and night["efficiency"] == 1.0
+    assert [n["asleep_h"] for n in night["naps"]] == [4]
+
+
+def test_going_back_to_sleep_after_hours_awake_at_night_is_still_the_night(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = TODAY - timedelta(days=3)
+    biometrics.insert_samples(profile, None, [_core("a", _iso(d - timedelta(days=1), "23:00:00"), _iso(d, "03:00:00")), _core("b", _iso(d, "06:15:00"), _iso(d, "09:30:00"))])
+    night = _night(profile, d)
+    assert night["asleep_h"] == 7.25 and "T09:30" in night["wake"] and night["naps"] == []
+
+
+def test_a_stretch_of_only_awake_time_in_the_day_isnt_a_nap(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = TODAY - timedelta(days=3)
+    biometrics.insert_samples(profile, None, [_core("night", _iso(d, "00:30:00"), _iso(d, "08:00:00")),
+                                              _s("woke", "sleep_analysis_awake", 3600, _iso(d, "15:00:00"), _iso(d, "16:00:00"), unit="s")])
+    assert _night(profile, d)["naps"] == []
+
+
+def test_readings_left_out_of_a_measure_with_nothing_to_chart_can_still_be_found(client):
+    profile = _profile(client)
+    biometrics.insert_samples(profile, None, [_s("w", "body_mass", -5, unit="kg"),
+                                              _s("n", "sleep_total_duration", 900000, _iso(TODAY - timedelta(days=2)), _iso(YESTERDAY), unit="s", metadata={"day": YESTERDAY.isoformat()})])
+    body = client.get("/api/biometrics/metrics", params={"latest": "true"}).json()
+    assert body["metrics"] == []
+    assert {(x["metric"], x["label"], x["count"]) for x in body["left_out"]} == {("body_mass", "Weight", 1), ("sleep_total_duration", "Sleep", 1)}
+    listed = client.get("/api/biometrics/samples", params={"left_out": "true"}).json()["samples"]
+    assert {s["id"]: s["label"] for s in listed} == {"w": "Weight", "n": "Sleep"}
+
+
+def test_sleeps_readings_are_the_ones_it_is_worked_out_from(client):
+    profile = _profile(client)
+    d = TODAY - timedelta(days=3)
+    biometrics.insert_samples(profile, None, [
+        _core("a", _iso(d, "01:00:00"), _iso(d, "02:00:00")),
+        _s("b", "sleep_analysis_deep", 3600, _iso(d, "02:00:00"), _iso(d, "03:00:00"), unit="s"),
+        _s("bad", "sleep_total_duration", 900000, _iso(d, "01:00:00"), _iso(d, "03:00:00"), unit="s", metadata={"day": d.isoformat()})])
+    listed = client.get("/api/biometrics/samples", params={"metric": "sleep_duration"}).json()["samples"]
+    assert {s["id"] for s in listed} == {"a", "b", "bad"}
+    assert {s["id"] for s in client.get("/api/biometrics/samples", params={"metric": "sleep_deep"}).json()["samples"]} == {"b"}
+    assert biometrics.daily_series(profile, "sleep_duration", days=10)["left_out"] == 1
+    assert [s["id"] for s in client.get("/api/biometrics/samples", params={"metric": "sleep_duration", "left_out": "true"}).json()["samples"]] == ["bad"]
+
+
+def test_a_wrong_reading_in_the_possible_range_can_be_found_by_date_and_removed(client):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    old = TODAY - timedelta(days=5)
+    biometrics.insert_samples(profile, None, [_s("kid", "body_mass", 40, _new_york(old, "23:30"), unit="kg"),
+                                              *[_s(f"me{i}", "body_mass", 80, _iso(TODAY - timedelta(days=i), "08:00:00"), unit="kg") for i in range(1, 4)]])
+    listed = client.get("/api/biometrics/samples", params={"metric": "body_mass", "until": old.isoformat(), "limit": 1}).json()["samples"]
+    assert [s["id"] for s in listed] == ["kid"]
+    assert client.get("/api/biometrics/samples", params={"metric": "body_mass", "until": "soon"}).status_code == 400
+    assert client.delete(f"/api/biometrics/samples/{listed[0]['id']}").status_code == 200
+    assert old.isoformat() not in _daily(profile, "body_mass")
+
+
+def _two_people_one_id(client):
+    alex = _profile(client)
+    jordan = client.post("/api/profiles", json={"name": "Jordan"}).json()["id"]
+    biometrics.insert_samples(alex, None, [_s("UUID1")])
+    biometrics.insert_samples(jordan, None, [_s("UUID1")])
+    return alex, jordan
+
+
+def test_a_reading_removed_under_its_id_for_a_second_person_stays_removed(client):
+    alex, jordan = _two_people_one_id(client)
+    stored = biometrics.recent_samples(jordan)[0]["id"]
+    assert stored == f"UUID1@{jordan}"
+    assert biometrics.delete_sample(jordan, stored)
+    assert _daily(jordan, "step_count") == {}
+    assert biometrics.insert_samples(jordan, None, [_s("UUID1")])["inserted"] == 0
+    assert _daily(jordan, "step_count") == {}
+    assert _daily(alex, "step_count")[YESTERDAY.isoformat()]["value"] == 100
+
+
+def test_a_reading_removed_under_its_plain_id_for_a_second_person_stays_removed(client):
+    _, jordan = _two_people_one_id(client)
+    assert biometrics.delete_sample(jordan, "UUID1")
+    assert biometrics.insert_samples(jordan, None, [_s("UUID1")])["inserted"] == 0
+    assert _daily(jordan, "step_count") == {}

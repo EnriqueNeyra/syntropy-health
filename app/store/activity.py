@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 
 from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
-from app.store.biometrics import EARLIEST_YEAR, _tz as local_tz, id_held_elsewhere, offset_of, parse_ts, source_kind, source_kinds, to_utc_iso
+from app.store.biometrics import EARLIEST_YEAR, _tz as local_tz, id_held_elsewhere, item_offset, parse_ts, source_kind, source_kinds, to_utc_iso
 
 WORKOUT_FIELDS = (
     "activity_type", "name", "duration_s", "active_energy_kcal", "total_energy_kcal", "distance_m", "step_count",
@@ -55,6 +55,14 @@ def humidity_pct(value: Any) -> Optional[float]:
     if value is None:
         return None
     return value / 100 if value > 100 else value
+
+
+# No workout lasts longer; a length past this is a fault in what sent it, and the rest of the workout is still good.
+WORKOUT_MAX_S = 30 * 86400
+
+
+def workout_length(value: Any) -> Any:
+    return None if isinstance(value, (int, float)) and not 0 <= value <= WORKOUT_MAX_S else value
 
 
 # Including what SQLite says of a value it can't store, such as a list where text belongs.
@@ -113,12 +121,13 @@ def store_workouts(profile_id: str, connection_id: Optional[str], workouts: Iter
                 values = {k: w.get(k) for k in WORKOUT_FIELDS}
                 values["indoor"] = None if indoor is None else int(bool(indoor))
                 values["humidity_pct"] = humidity_pct(values["humidity_pct"])
+                values["duration_s"] = workout_length(values["duration_s"])
                 values["source_name"] = source
                 values["name"] = str(w.get("name") or "Workout")[:120]
                 workout_id, row = _own_row(conn, "workouts", w["id"], profile_id)
                 extras = {"metadata_json": dumps(w.get("metadata") or None), "heart_rate_json": dumps(thin(w.get("heart_rate") or []) or None),
                           "route_json": dumps(thin(w.get("route") or []) or None)}
-                offset = w.get("tz_offset_min") if isinstance(w.get("tz_offset_min"), int) else offset_of(w["start"])
+                offset = item_offset(w.get("tz_offset_min"), w["start"])
                 if row:
                     fresh = {**values, "start_date": start, "end_date": end, **extras}
                     # Whatever this send leaves out stays as stored, and a default filled in above isn't a change.
@@ -165,7 +174,7 @@ def store_events(profile_id: str, connection_id: Optional[str], events: Iterable
                 name = str(e.get("name") or event_type)[:120]
                 event_id, row = _own_row(conn, "health_events", e["id"], profile_id)
                 metadata = dumps(e.get("metadata") or None)
-                offset = e.get("tz_offset_min") if isinstance(e.get("tz_offset_min"), int) else offset_of(e["start"])
+                offset = item_offset(e.get("tz_offset_min"), e["start"])
                 if row:
                     fresh = {"name": name if e.get("name") else None, "start_date": start, "end_date": end, "value": e.get("value"),
                              "value_label": e.get("value_label"), "metadata_json": metadata}

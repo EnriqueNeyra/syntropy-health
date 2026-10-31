@@ -35,7 +35,7 @@ def metrics(profile: Optional[str] = None, latest: bool = False) -> dict:
     """``latest`` adds each metric's most recent daily value (the Trends list)."""
     prof = resolve_profile(profile)
     found = biometrics.available_metrics(prof["id"])
-    return {"metrics": biometrics.with_latest_values(prof["id"], found) if latest else found}
+    return {"metrics": biometrics.with_latest_values(prof["id"], found) if latest else found, "left_out": biometrics.left_out(prof["id"])}
 
 
 @router.get("/api/biometrics/daily", dependencies=[user])
@@ -54,10 +54,16 @@ def sleep_nights(profile: Optional[str] = None, days: int = Query(30, ge=1, le=3
 
 @router.get("/api/biometrics/samples", dependencies=[user])
 def samples(profile: Optional[str] = None, metric: Optional[str] = None, limit: int = Query(100, ge=1, le=2000),
-            left_out: bool = False) -> dict:
-    """``left_out`` keeps the readings stored but not counted in the daily numbers, each with why (``flag``)."""
+            left_out: bool = False, until: Optional[str] = Query(None, max_length=10)) -> dict:
+    """Newest first, each with what to call it and its value as the person reads it. ``metric`` is what a daily figure is worked
+    out from, ``until`` (a date) reaches older ones, and ``left_out`` keeps the readings stored but not counted in the daily
+    numbers, each with why (``flag``)."""
     prof = resolve_profile(profile)
-    return {"samples": biometrics.recent_samples(prof["id"], metric, limit, left_out)}
+    try:
+        found = biometrics.recent_samples(prof["id"], metric, limit, left_out, until)
+    except (ValueError, OverflowError):
+        raise HTTPException(400, "Dates must look like 2026-01-31.")
+    return {"samples": [biometrics.with_reading_text(s) for s in found]}
 
 
 @router.delete("/api/biometrics/samples/{sample_id:path}", dependencies=[user])
@@ -281,7 +287,7 @@ async def ingest_healthkit_export(request: Request, profile: Optional[str] = Non
         raise HTTPException(400, "Expected a JSON object with a 'data' key.")
     try:
         converted = await run_in_threadpool(healthkit_import.convert, payload, request.headers.get("automation-aggregation"))
-    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+    except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as exc:
         raise HTTPException(422, f"Could not read the export: {exc}")
     profile_id, connection_id = _ingest_target(principal, profile)
     name = request.headers.get("automation-name") or "HealthKit export"
