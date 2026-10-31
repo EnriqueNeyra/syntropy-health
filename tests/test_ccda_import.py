@@ -277,3 +277,10 @@ def test_an_apple_health_export_in_the_wrong_box_says_where_it_goes():
     with pytest.raises(ValueError, match="Apple Health box"):
         ccda.read_upload(_zip(**{"apple_health_export/export.xml": b"<HealthData/>"}), "export.zip")
 
+
+def test_the_visit_summary_names_who_keeps_the_record_and_sources_keep_the_file_name(client):
+    assert client.post("/api/imports/fhir", files={"file": ("ccd.xml", CCD, "text/xml")}).status_code == 200
+    report = client.get("/api/report")
+    assert "Imported · ccd.xml" not in report.text and "Example Clinic" in report.text
+    assert [s["name"] for s in report.json()["source_status"]] == ["Example Clinic"]
+    assert client.get("/api/connections").json()["connections"][0]["display_name"] == "Imported · ccd.xml"

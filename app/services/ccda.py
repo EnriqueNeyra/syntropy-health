@@ -88,11 +88,16 @@ class Summary:
     resources: list[dict[str, Any]] = field(default_factory=list)
     originals: list[dict[str, Any]] = field(default_factory=list)       # resource_id, name, content_type, data
     warnings: list[str] = field(default_factory=list)
+    custodian: Optional[str] = None     # who keeps this record, where the file says and every document in it agrees
 
 
 def looks_like(raw: bytes) -> bool:
     """A zip or XML, as against the JSON a FHIR file is."""
     return raw[:4] == b"PK\x03\x04" or raw[:64].lstrip(b"\xef\xbb\xbf\xff\xfe\x00 \t\r\n")[:1] == b"<"
+
+
+def _custodian(root: ET.Element) -> str:
+    return _clean(root.findtext("custodian/assignedCustodian/representedCustodianOrganization/name"))
 
 
 def parse_xml(raw: bytes) -> tuple[ET.Element, str]:
@@ -731,7 +736,7 @@ def _unstructured(ctx: _Document, el: ET.Element, summary: Summary) -> None:
 def _original(ctx: _Document, raw: bytes, name: str) -> dict[str, Any]:
     """The document as it came, as a note of its own: everything else here is a reading of it."""
     res_id = f"ccda-doc-{ctx.digest[:32]}"
-    custodian = _clean(ctx.root.findtext("custodian/assignedCustodian/representedCustodianOrganization/name"))
+    custodian = _custodian(ctx.root)
     ctx.add({"resourceType": "DocumentReference", "id": res_id, "status": "current",
              "masterIdentifier": {"system": "urn:syntropy-health:ccda-document", "value": ctx.digest},
              "type": {**(_Section(ctx.root).concept(ctx.root.find("code")) or {}), "text": ctx.title or "Health summary"},
@@ -747,7 +752,7 @@ def read_document(raw: bytes, name: str) -> Summary:
     if root.tag != "ClinicalDocument" or namespace != HL7:
         raise ValueError(NOT_SUMMARY_XML)
     ctx = _Document(root, hashlib.sha256(raw).hexdigest())
-    summary = Summary()
+    summary = Summary(custodian=_custodian(root))
     patient = _patient(ctx)
     if patient:
         ctx.patient_id = patient["id"]
@@ -818,6 +823,7 @@ def read_upload(raw: bytes, filename: str) -> Summary:
     out = Summary()
     seen: dict[tuple[str, str], dict[str, Any]] = {}
     damaged: list[tuple[str, ValueError]] = []
+    custodians: set[str] = set()
     for name, body in documents:
         try:
             one = read_document(body, name)
@@ -833,9 +839,11 @@ def read_upload(raw: bytes, filename: str) -> Summary:
                 _keep(seen, res)
         out.originals.extend(one.originals)
         out.warnings.extend(one.warnings)
+        custodians.update(filter(None, [one.custodian]))
     if not out.originals:
         raise damaged[0][1] if damaged else ValueError(NOT_SUMMARY_ZIP)
     out.resources = list(seen.values())
+    out.custodian = custodians.pop() if len(custodians) == 1 else None
     if damaged:
         names = [name for name, _ in damaged]
         out.warnings.append(f"Couldn't be read, so not imported: {', '.join(names[:5])}{' and others' if len(names) > 5 else ''}. "

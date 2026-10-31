@@ -212,17 +212,30 @@ def visit_prep_digest(since: str, profile: Optional[str] = None) -> dict:
     return visit_prep.changes_since(prof["id"], since)
 
 
+def _named_by_custodian(value: Any, names: dict[str, str]) -> Any:
+    """Every source name in a report, as the organization the file says keeps the record."""
+    if isinstance(value, list):
+        return [_named_by_custodian(v, names) for v in value]
+    if isinstance(value, dict):
+        return {k: names.get(v, v) if k == "source_name" and isinstance(v, str) else _named_by_custodian(v, names) for k, v in value.items()}
+    return value
+
+
 @router.get("/report")
 def visit_report(profile: Optional[str] = None) -> dict:
-    """Everything the printable visit summary needs, in one call."""
+    """Everything the printable visit summary needs, in one call. An imported file reads as who keeps the record, not as a
+    file name, where the file says who that is."""
     prof = resolve_profile(profile)
     summary = records.summary(prof["id"], lab_rows=REPORT_LABS)
-    return {"profile": prof, "generated_at": time.time(), **summary, **records.report_history(prof["id"]),
+    names = {c["display_name"]: c["metadata"]["custodian"] for c in connections.list_for_profile(prof["id"], "import")
+             if (c.get("metadata") or {}).get("custodian")}
+    status = [{**s, "name": names.get(s["name"], s["name"])} for s in connections.source_status(prof["id"])]
+    return _named_by_custodian({"profile": prof, "generated_at": time.time(), **summary, **records.report_history(prof["id"]),
             # A summary for clinicians never shows demo data as if it were measured.
             "biometrics": [h for h in biometrics.headline(prof["id"], REPORT_METRICS)
                            if "(simulated)" not in ((h.get("latest") or {}).get("source") or "")],
             "home_readings": biometrics.home_readings(prof["id"]),
             "journal": activity.logged_summary(prof["id"]),
-            "source_status": connections.source_status(prof["id"]),
+            "source_status": status,
             "care_team": records.list_records(prof["id"], "care_team", limit=20)["items"],
-            "coverage": records.list_records(prof["id"], "coverage", limit=10)["items"]}
+            "coverage": records.list_records(prof["id"], "coverage", limit=10)["items"]}, names)

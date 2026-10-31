@@ -213,6 +213,7 @@ def import_fhir_file(profile_id: str, filename: str, raw: bytes) -> dict[str, An
     result = sync.import_fhir_resources(profile_id, f"Imported · {filename}", resources, reuse=reuse, metadata={
         "file_hashes": [*(known.get("file_hashes") or []), digest][-KEEP_FILE_HASHES:],
         "source_keys": sorted({*keys, *(known.get("source_keys") or [])}),
+        **({"custodian": summary.custodian} if summary and summary.custodian else {}),
     })
     if summary:
         _keep_originals(profile_id, result, summary)
