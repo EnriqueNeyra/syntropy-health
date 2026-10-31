@@ -227,7 +227,7 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .view-only-note > svg { width: 16px; height: 16px; flex: none; color: var(--text-3); }
 :root[data-view-only] :is([data-action="new"], [data-action="add-labs"], [data-action="add"], [data-action="add-ehr"],
   [data-action="pair"], [data-action="wearable"], [data-action="sync"], [data-action="menu"], [data-action="reconnect"],
-  [data-action="import"], [data-delete], a.btn[href^="#/sources"], [data-action="edit"], #jr-checkin) { display: none !important; }
+  [data-action="import"], [data-delete], a.btn[href^="#/sources"], [data-action="edit"], #jr-checkin, [data-action="add-own"], [data-correction-form], #prep-form, [data-remove-question], .report-choices) { display: none !important; }
 .sim-note { background: color-mix(in srgb, var(--warn, #b45309) 12%, var(--surface)); }
 .sim-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 :root[data-dialogs-held] .overlay { display: none; }
@@ -969,13 +969,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .report-choice-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 14px; margin-top: 10px; }
 .report-clinician section:not(.report-key) { display: none; }
 .report-clinician { font-size: 1.15em; }
-@media (max-width: 640px) {
-  .report .table thead { display: none; }
-  .report .table, .report .table tbody, .report .table tr, .report .table td { display: block; width: 100%; }
-  .report .table tr { padding: 8px 0; border-bottom: 1px solid var(--border); }
-  .report .table td { padding: 2px 0; border: 0; }
-  .report .table td:not(:first-child)::before { content: attr(data-label) ": "; color: var(--text-3); font-size: 12px; }
-  .report .table td:first-child { font-weight: 600; }
+@media screen and (max-width: 640px) {
   .report-head { flex-direction: column; gap: 6px; }
   .report-head > .small { text-align: left !important; }
 }

@@ -10,7 +10,7 @@ def test_a_new_overview_starts_with_the_medical_record_and_a_saved_one_stays_put
       m.resolveLayout(null, ['steps']).map((i) => i.id),
       m.resolveLayout([{ id: 'workouts' }, { id: 'm:steps' }, { id: 'allergies' }], ['steps']).map((i) => i.id),
     ])""")
-    assert fresh[:6] == ["insights", "labs", "medications", "conditions", "allergies", "m:steps"]
+    assert fresh[:7] == ["insights", "new", "labs", "medications", "conditions", "allergies", "m:steps"]
     assert fresh.index("m:steps") < fresh.index("vitals") < fresh.index("sleep")
     assert [i for i in saved if i != "insights"][:3] == ["workouts", "m:steps", "allergies"]
 

@@ -164,7 +164,7 @@ function correctionBlock(r) {
   return html`<div class="stack" data-correction>
     ${said ? html`<div class="banner info small"><div class="grow"><b>In your own words:</b> ${said.text}<div class="muted">
       Added ${fmtDateTime(new Date(said.set_at * 1000).toISOString())}. What the source says above hasn't changed.</div></div></div>` : ""}
-    <details><summary class="small muted" style="cursor:pointer">${said ? "Change what you said" : "Something wrong with this?"}</summary>
+    <details data-correction-form><summary class="small muted" style="cursor:pointer">${said ? "Change what you said" : "Something wrong with this?"}</summary>
       <div class="stack" style="margin-top:8px">
         <p class="small muted">This stays in Syntropy Health, beside what the source says. It doesn't change anything at the source.</p>
         <select class="input" data-correction-state aria-label="What's wrong"><option value="">Just add a note</option>
