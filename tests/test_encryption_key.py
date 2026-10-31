@@ -17,6 +17,13 @@ from app.store import accounts, connections, profiles
 from tests.conftest import BASE, CSRF, LOCAL_CLIENT, PASSPHRASE
 
 
+@pytest.fixture(autouse=True)
+def database_without_encryption(monkeypatch):
+    """A wrong key can only leave a database working when the database itself isn't encrypted: one from before this was
+    possible, or a server that has it turned off. test_database_encryption covers the rest."""
+    monkeypatch.setenv("SYNTROPY_DATABASE_ENCRYPTION", "0")
+
+
 def _key_path():
     return config.data_dir() / "secret.key"
 

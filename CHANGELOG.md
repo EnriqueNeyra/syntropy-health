@@ -12,6 +12,45 @@ connection and AI access are tighter. Lines under each heading are what changed 
 `NOTICE` as additional terms under section 7 of the license. The first-run checkbox is an acknowledgment, not a condition
 of the license, and the Terms on the website cover the website and sign-in relay.
 
+### Your records are encrypted on disk
+
+- **The database is encrypted now**, with SQLCipher (AES-256), and so is its log, the copies kept before an upgrade or a
+  restore, and files on their way into an import. The first start after this update does it, once. The Mac and Windows apps
+  show progress: it took about 40 seconds for a 3 GB database on a recent Mac, including reading it back to check it. It's
+  safe to interrupt, and if there isn't room for a second copy, or an AI app has the database open, it carries on
+  unencrypted, says why in Settings → Security, and tries again at the next start.
+- **The key is kept apart from the data where the system allows:** the Keychain on a Mac, Windows' protected storage on a
+  PC. On Linux and Docker it stays in `secret.key` beside the data unless you set `SYNTROPY_KEY_FILE` or
+  `SYNTROPY_SECRET_KEY`, and then encryption protects little: use full-disk encryption there. Settings → Security says which
+  applies to you.
+- **Moving to a new computer now takes a backup.** A copy of the data folder alone won't open elsewhere on a Mac or Windows PC.
+  An encrypted backup holds the key, so its passphrase is all you need, whichever computer it's restored on.
+- **Losing the key can lose your records for good.** The password of an owner of the server can bring it back, as can any backup
+  made with this version (`restore FILE --key-only`) or a copy from `syntropy-health key export`. `syntropy-health key new`
+  says plainly that it can't help a database it can't open. Keep a backup somewhere else.
+- **Going back to an earlier version:** an update that fails goes back by itself, with your data, for the first ten minutes.
+  After that, an earlier version can't read the database: `syntropy-health database decrypt FILE` makes a copy it can.
+- **Old copies aren't reached.** Time Machine and other backups made before this update keep the unencrypted database until they
+  expire or you delete them, and deleted files can survive on a disk. That's why FileVault or BitLocker still matters.
+- **Everything in the data folder is private to the account running the server**, including what earlier versions left readable, and
+  on Windows a data folder outside your profile gets an access list saying so.
+- [What this protects, and what it can't](.github/SECURITY-MODEL.md), including a stolen laptop, a second account on the
+  computer, a Docker host, and malware.
+
+### People on one server
+
+Everyone on a server shares one encrypted database. Passwords and sharing rules keep people apart, not encryption, and whoever
+runs the server can read everything. Every route and AI tool was checked for reaching across people, and these are closed:
+
+- **An invitation code stops working once whoever made it no longer looks after that person.** Redeeming one takes the person
+  over and shuts out their carers, and someone removed could still have used a code they'd kept.
+- **A phone paired for someone else no longer reads, or adds to, the conversations of the account that paired it**, or shows what
+  that account asked an AI. It can't agree to an AI service or change preferences for that account, or export the person's data.
+- **Making a backup from a phone's screens takes the password.** A backup holds everyone, and those screens open with the phone's
+  token. A browser that signed in isn't asked again.
+- **A sign-in at a health portal started before someone's access ended can't finish.**
+- **Someone who can only view a person no longer sees in the access log who else has access to them.**
+
 ### How it feels to use
 
 - **Trends charts are cleaner and easier to read.** The pointer only has to be near a value: mouse, finger and arrow keys

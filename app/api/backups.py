@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import shutil
-import sqlite3
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -13,8 +12,10 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from app.core import auth, config, db, maintenance
+from app.core import auth, config, context, db, maintenance
+from app.core.sqlite import sqlite3
 from app.services import backup_file, backup_schedule, backups
+from app.store import accounts
 
 router = APIRouter(prefix="/api", tags=["backups"])
 owner = Depends(auth.require_owner)
@@ -23,6 +24,7 @@ owner = Depends(auth.require_owner)
 class BackupRequest(BaseModel):
     passphrase: Optional[str] = Field(None, max_length=1024)
     unencrypted: bool = False
+    password: Optional[str] = Field(None, max_length=256)     # from a phone's own screens: see make_backup
 
 
 def _problem(exc: Exception) -> HTTPException:
@@ -31,7 +33,9 @@ def _problem(exc: Exception) -> HTTPException:
 
 def status_of() -> dict:
     backups.clean_leftovers()
+    principal = context.principal()
     return {"last": backups.last(), "key_source": backups.key_source(), "min_passphrase": backup_file.MIN_PASSPHRASE,
+            "needs_password": bool(principal and principal.device_id),
             "data_dir": str(config.data_dir()), "schedule": backup_schedule.status(), **backup_schedule.folder_advice()}
 
 
@@ -42,7 +46,12 @@ def backup_status() -> dict:
 
 @router.post("/backups", dependencies=[owner])
 def make_backup(req: BackupRequest) -> dict:
-    """Makes the file. The browser then fetches it from the address in the answer."""
+    """Makes the file. The browser then fetches it from the address in the answer. A phone's screens are open with its token,
+    without a password, which is fine for what the phone's owner sees. A backup is every person on the server, and the
+    passphrase is whatever the person holding the phone chooses, so that takes the password."""
+    principal = context.principal()
+    if principal and principal.device_id and not accounts.verify_password(principal.account_id or "", req.password or ""):
+        raise HTTPException(403, "A backup holds everyone's records. Enter your password to make one from this phone.")
     try:
         return backups.prepare_download(req.passphrase, req.unencrypted)
     except backups.BackupProblem as exc:

@@ -25,10 +25,11 @@ import tempfile
 import time
 import uuid
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
-from app.core import config, db
+from app.core import config, db, private_files
 from app.core.db import read
 from app.services.sync import SOURCE_TAG, SOURCE_URN
 from app.store import activity, biometrics, chats, connections, goals, record_files, record_overrides, records
@@ -610,12 +611,18 @@ def _read_documents(z: zipfile.ZipFile, profile_id: str) -> int:
     return added
 
 
-def build_archive(profile: dict[str, Any], account_id: Optional[str]) -> Path:
-    """On disk, private, in a folder of its own that the caller removes (and a crash leaves for clean_leftovers). A chat
-    belongs to the account that had it, so only this account's are in here."""
+@dataclass
+class BuiltArchive:
+    file: private_files.PrivateFile
+    folder: Path
+
+
+def build_archive(profile: dict[str, Any], account_id: Optional[str]) -> BuiltArchive:
+    """On disk, encrypted with a key only this process has, in a folder of its own that the caller removes (and a crash leaves
+    for clean_leftovers). A chat belongs to the account that had it, so only this account's are in here."""
     profile_id = profile["id"]
     folder = Path(tempfile.mkdtemp(dir=config.data_dir(), prefix=".backup-work-"))
-    target = folder / "archive.zip"
+    target = private_files.create(folder / "archive.zip.encrypted", streaming=True)
     date = time.strftime("%Y-%m-%d")
     counts: dict[str, int] = {}
     try:
@@ -648,9 +655,11 @@ def build_archive(profile: dict[str, Any], account_id: Optional[str]) -> Path:
                 "counts": counts, "sources": sources}, indent=2, ensure_ascii=False))
             z.writestr("README.txt", _README.format(name=profile["name"], date=date, whose="this account's" if account_id else "these"))
     except BaseException:
+        target.close()
         shutil.rmtree(folder, ignore_errors=True)
         raise
-    return target
+    target.finish()
+    return BuiltArchive(target, folder)
 
 
 # ---------------------------------------------------------------------------
@@ -710,7 +719,7 @@ def import_archive(profile_id: str, account_id: Optional[str], path: Path, on_pr
     from app.services import imports, sync
 
     try:
-        z = zipfile.ZipFile(path)
+        z = zipfile.ZipFile(private_files.open_read(path))
     except zipfile.BadZipFile as exc:
         raise ValueError("This file isn't an archive from Syntropy Health.") from exc
     with z:

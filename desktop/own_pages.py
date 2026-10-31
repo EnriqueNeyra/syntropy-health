@@ -5,13 +5,14 @@ from __future__ import annotations
 
 import html
 import json
+from typing import Optional
 
 import sites
 
 APP_NAME = "Syntropy Health"
 
 # Kinds of db.StartupProblem a backup can help with. A key that doesn't fit, or a newer version's data, isn't damage.
-RESTORABLE = {"damaged", "upgrade_failed", "unavailable"}
+RESTORABLE = {"damaged", "upgrade_failed", "unavailable", "key"}
 
 
 def _page(body: str) -> str:
@@ -50,15 +51,25 @@ def starting_page() -> str:
 several minutes. Your records are safe. Leave this open, and keep the computer on and plugged in.</p></main>""")
 
 
+def encrypting_page(stage: str, percent: Optional[int]) -> str:
+    """Once, on the first start of a version that encrypts the database. If it's interrupted, nothing is lost."""
+    done = f"{percent}%" if percent is not None else ""
+    return _page(f"""<main><div class="wait"></div><h1>{html.escape(stage)}… {done}</h1>
+<p>This happens once, and with a lot of data it can take several minutes. Your records are safe, and if this is interrupted it
+simply starts again next time. Leave this open, and keep the computer on and plugged in.</p></main>""")
+
+
 def working_page(title: str, detail: str) -> str:
     return _page(f"""<main><div class="wait"></div><h1>{html.escape(title)}</h1><p>{html.escape(detail)}</p></main>""")
 
 
-def problem_page(problem: str, kind: str, folder: str, log_file: str) -> str:
+def problem_page(problem: str, kind: str, folder: str, log_file: str, can_unlock: bool = False) -> str:
     buttons = [_button("Try Again", "problem-retry", True)]
     if kind in RESTORABLE:
         buttons.append(_button("Restore from a Backup…", "problem-restore"))
-    if kind == "damaged":
+    if kind == "key" and can_unlock:
+        buttons.insert(0, _button("Unlock with Your Password", "problem-unlock", True))
+    if kind in ("damaged", "key"):
         buttons.append(_button("Set It Aside and Start Fresh…", "problem-fresh"))
     if kind == "too_new":
         buttons.append(_button("Get the Latest Version", "problem-latest"))

@@ -279,7 +279,7 @@ def _damage(path: Path, table: str = "biometric_samples") -> None:
                      ((uuid.uuid4().hex,) for _ in range(20000)))
     conn.execute("COMMIT")
     conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    page = conn.execute("PRAGMA page_size").fetchone()[0]
+    page = int(conn.execute("PRAGMA page_size").fetchone()[0])
     pages = conn.execute("PRAGMA page_count").fetchone()[0]
     conn.close()
     db.close_readers()
@@ -475,9 +475,9 @@ def test_every_way_of_emptying_the_log_reaches_the_disk(monkeypatch):
     db.ensure_migrated()
     path = config.db_path()
     seen = []
-    real = sqlite3.connect
+    real = db.sqlite3.connect
 
-    class Spy(sqlite3.Connection):
+    class Spy(db.sqlite3.Connection):
         def execute(self, sql, *a):
             if "wal_checkpoint(TRUNCATE)" in sql:
                 seen.append(super().execute("PRAGMA fullfsync").fetchone()[0])
@@ -488,7 +488,7 @@ def test_every_way_of_emptying_the_log_reaches_the_disk(monkeypatch):
         def close(self):
             seen.append(super().execute("PRAGMA fullfsync").fetchone()[0])     # the last connection to close checkpoints too
             super().close()
-    monkeypatch.setattr(sqlite3, "connect", lambda *a, **k: real(*a, factory=Spy, **k))
+    monkeypatch.setattr(db.sqlite3, "connect", lambda *a, **k: real(*a, factory=Spy, **k))
     db.close_readers()
     assert db.checkpoint(path) is True
     db.probe(path)

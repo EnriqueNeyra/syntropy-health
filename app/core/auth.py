@@ -246,6 +246,8 @@ def login(request: Request, password: str, who: Optional[str] = None) -> str:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect name or password." if who else "Incorrect password.")
     forget_failure(request, what)
     accounts.upgrade_password(account["id"], password)
+    if account["role"] == "owner":
+        security.note_owner_password(account["id"], password)
     accounts.touch_login(account["id"])
     return create_session(request, account["id"])
 

@@ -72,6 +72,9 @@ jobs:
       - name: Smoke test
         run: |
           "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" version
+          # A built app can encrypt: PyInstaller found the SQLCipher binding, and the first bytes of a new database aren't SQLite's name.
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | SYNTROPY_DATA_DIR="$RUNNER_TEMP/data-encrypted" "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" mcp >/dev/null
+          [ "$(head -c 15 "$RUNNER_TEMP/data-encrypted/syntropy.db")" != "SQLite format 3" ] && [ -s "$RUNNER_TEMP/data-encrypted/syntropy.db" ]
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | SYNTROPY_DATA_DIR="$RUNNER_TEMP/data" "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" mcp | grep -q get_health_summary
       # The app itself: its server answers and it opens with its window, in the Dock ("0 1": a regular app, a window
       # on screen). Opened at login (--background) it's in the menu bar only ("1 0": an accessory app, no window).
@@ -146,6 +149,9 @@ jobs:
         shell: bash
         run: |
           "desktop/dist/Syntropy Health/syntropy-health.exe" version
+          # A built app can encrypt: PyInstaller found the SQLCipher binding, and the first bytes of a new database aren't SQLite's name.
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | SYNTROPY_DATA_DIR="$RUNNER_TEMP/data-encrypted" "desktop/dist/Syntropy Health/syntropy-health.exe" mcp >/dev/null
+          [ "$(head -c 15 "$RUNNER_TEMP/data-encrypted/syntropy.db")" != "SQLite format 3" ] && [ -s "$RUNNER_TEMP/data-encrypted/syntropy.db" ]
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | SYNTROPY_DATA_DIR="$RUNNER_TEMP/data" "desktop/dist/Syntropy Health/syntropy-health.exe" mcp | grep -q get_health_summary
       # The app itself, as someone opening it would: its server answers and its window opens (and stays open).
       - name: Smoke test the app window

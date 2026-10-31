@@ -19,8 +19,58 @@ os.environ["SYNTROPY_NO_DOTENV"] = "1"
 for _var in [v for v in os.environ if v != "SYNTROPY_NO_DOTENV" and (v.startswith("SYNTROPY_") or v in ("PORT", "FORWARDED_ALLOW_IPS"))]:
     del os.environ[_var]
 
+# The tests never touch a real Keychain or Windows' protected storage: test_keystore covers those with its own. The second is
+# a seat belt, for a child process or a test that asks for the Keychain: it's a keychain that doesn't exist.
+os.environ["SYNTROPY_KEY_STORE"] = "file"
+os.environ["SYNTROPY_KEYCHAIN_FILE"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-keychain-db")
+
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+
+
+def _open_any_database() -> None:
+    """Many tests look inside the database with `import sqlite3`. That has to mean the same SQLite as the app, or its errors
+    are other classes, and it has to open an encrypted file as the app would. A new file stays plain, so a test can still make
+    a database as an earlier version would have."""
+    import sqlite3 as standard
+
+    from app.core.sqlite import HAS_ENCRYPTION, sqlite3
+    if not HAS_ENCRYPTION:
+        return
+    from pathlib import Path
+
+    real_connect = sqlite3.connect
+
+    def unlocking_connect(target: Any, *args: Any, **kwargs: Any) -> Any:
+        conn = real_connect(target, *args, **kwargs)
+        name = str(target).removeprefix("file:").split("?")[0]
+        if name != ":memory:":
+            from app.core import db, security
+            if db.is_encrypted(Path(name)):
+                for key in security.known_database_keys():
+                    probe = real_connect(name)
+                    try:
+                        db.use_key(probe, key)
+                        probe.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()
+                        db.use_key(conn, key)
+                        break
+                    except sqlite3.DatabaseError:
+                        pass
+                    finally:
+                        probe.close()
+        return conn
+
+    class Unlocking:
+        """The module, with connect that knows the key. app.core.db has its own reference to the real one."""
+        def __getattr__(self, name: str) -> Any:
+            return getattr(sqlite3, name)
+        connect = staticmethod(unlocking_connect)
+
+    assert standard
+    sys.modules["sqlite3"] = Unlocking()  # type: ignore[assignment]
+
+
+_open_any_database()
 
 BASE = "http://localhost:8000"
 CSRF = {"X-Requested-With": "syntropy"}
@@ -118,6 +168,13 @@ def isolated_data(tmp_path, monkeypatch):
     auth._all_failures.clear()
     yield tmp_path
     db.reset_migration_cache()
+
+
+@pytest.fixture
+def plain_database(monkeypatch):
+    """A server that doesn't encrypt its database: one from before encryption, one with it turned off, or an older backup.
+    Name it before `client`, which is what starts the server."""
+    monkeypatch.setenv("SYNTROPY_DATABASE_ENCRYPTION", "0")
 
 
 @pytest.fixture

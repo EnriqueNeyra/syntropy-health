@@ -52,7 +52,7 @@ async def get_choices() -> dict:
 
 
 @router.put("/api/ai/config")
-async def put_config(req: AIConfig, principal: auth.Principal = Depends(auth.require_user)) -> dict:
+async def put_config(req: AIConfig, principal: auth.Principal = Depends(auth.require_whole_account)) -> dict:
     if not principal.owner and (req.api_key or req.base_url or req.allow_public_http or req.label
                                 or not ai.is_set_up(req.provider, req.agent)):
         raise HTTPException(403, "Only the server's owner can set up an AI. You can choose between the ones set up.")
@@ -78,6 +78,7 @@ class Acknowledgement(BaseModel):
 @router.post("/api/ai/acknowledge")
 def acknowledge(req: Optional[Acknowledgement] = None) -> dict:
     """Confirms that this AI outside the person's network sees their questions and what it looks up (asked once for each)."""
+    auth.refuse_if_limited(context.principal())      # it would be agreeing for the account that paired this phone
     req = req or Acknowledgement()
     ai.acknowledge_cloud(req.vendor, req.name, req.summary, req.provider, req.agent, req.base_url)
     return {"ok": True}
@@ -86,6 +87,7 @@ def acknowledge(req: Optional[Acknowledgement] = None) -> dict:
 @router.delete("/api/ai/acknowledge")
 def withdraw(vendor: str) -> dict:
     """Takes back that agreement: nothing more goes to that AI for this person until they agree again."""
+    auth.refuse_if_limited(context.principal())
     ai.withdraw_cloud(vendor)
     return ai.config(chat=True)
 
@@ -212,6 +214,13 @@ def _account() -> Optional[str]:
     return principal.account_id if principal else None
 
 
+def _no_saved_chats() -> bool:
+    """The screens of a phone paired for someone else act as the account that paired it, and that account's conversations
+    about this person are private to it, even from whoever's holding the phone. So that phone keeps none."""
+    principal = context.principal()
+    return bool(principal and principal.limited)
+
+
 class SavedMessage(BaseModel):
     role: str = Field(..., pattern="^(user|assistant)$")
     content: str = Field("", max_length=60_000)
@@ -237,13 +246,13 @@ class ChatChange(BaseModel):
 def list_chats(profile: Optional[str] = None, q: Optional[str] = Query(None, max_length=200)) -> dict:
     """This account's conversations about a person, newest first; with `q`, those with those words in their title or messages."""
     prof = resolve_profile(profile, "view")
-    return {"chats": chats.search_chats(prof["id"], _account(), q) if q and q.strip() else chats.list_chats(prof["id"], _account())}
+    return {"chats": [] if _no_saved_chats() else chats.search_chats(prof["id"], _account(), q) if q and q.strip() else chats.list_chats(prof["id"], _account())}
 
 
 @router.get("/api/ai/chats/{chat_id}")
 def get_chat(chat_id: str, profile: Optional[str] = None) -> dict:
     prof = resolve_profile(profile, "view")
-    chat = chats.get_chat(prof["id"], _account(), chat_id)
+    chat = None if _no_saved_chats() else chats.get_chat(prof["id"], _account(), chat_id)
     if not chat:
         raise HTTPException(404, "Conversation not found")
     return chat
@@ -255,6 +264,8 @@ def save_chat(chat_id: str, req: ChatIn, profile: Optional[str] = None) -> dict:
     if not re.match(CHAT_ID, chat_id):
         raise HTTPException(400, "Bad conversation id.")
     prof = resolve_profile(profile, "view")
+    if _no_saved_chats():
+        return {"id": chat_id, "saved": False}
     try:
         return chats.save_chat(prof["id"], _account(), chat_id, req.title.strip(),
                                [m.model_dump(exclude_none=True) for m in req.messages], title_set=req.title_set)
@@ -298,6 +309,6 @@ def export_chat(chat_id: str, profile: Optional[str] = None) -> Response:
 @router.delete("/api/ai/chats/{chat_id}")
 def delete_chat(chat_id: str, profile: Optional[str] = None) -> dict:
     prof = resolve_profile(profile, "view")
-    if not chats.delete_chat(prof["id"], _account(), chat_id):
+    if _no_saved_chats() or not chats.delete_chat(prof["id"], _account(), chat_id):
         raise HTTPException(404, "Conversation not found")
     return {"ok": True}

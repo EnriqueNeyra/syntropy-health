@@ -13,7 +13,6 @@ from __future__ import annotations
 import base64
 import logging
 import os
-import sqlite3
 import sys
 import threading
 import time
@@ -23,6 +22,7 @@ from typing import Any, Optional
 from app.core import db, maintenance, security, settings
 from app.services import backup_file, backups
 from app.services.backup_file import SealKey
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.backups")
 

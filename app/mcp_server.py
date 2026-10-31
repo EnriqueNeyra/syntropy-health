@@ -21,7 +21,6 @@ import difflib
 import json
 import logging
 import re
-import sqlite3
 import sys
 import time
 from dataclasses import dataclass, field
@@ -32,9 +31,10 @@ from typing import Any, Callable, Optional
 from zoneinfo import ZoneInfo
 
 from app.core import config, settings
-from app.core.db import audit, db, ensure_migrated, finite, is_busy, read
+from app.core.db import audit, close_readers, db, ensure_migrated, finite, is_busy, read
 from app.services import insights
 from app.store import activity, biometrics, connections, goals, lab_catalog, profiles, records, search, sleep, training
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.mcp")
 
@@ -1269,6 +1269,11 @@ def stdio_command(profile_id: Optional[str] = None, actor: Optional[str] = None)
     else:
         cmd = {"command": sys.executable, "args": ["-m", "app.mcp_server"], "env": {"PYTHONPATH": str(config.REPO_ROOT)}}
     cmd["env"]["SYNTROPY_DATA_DIR"] = str(config.data_dir())
+    # It has to find the same key. Not SYNTROPY_SECRET_KEY: this goes in a config file another app keeps, and that value is the
+    # key itself. A server using that setting serves AI apps over its /mcp address, or can use SYNTROPY_KEY_FILE instead.
+    for name in ("SYNTROPY_KEY_FILE", "SYNTROPY_KEY_STORE"):
+        if config.env(name):
+            cmd["env"][name] = config.env(name)
     if profile_id:
         cmd["env"]["SYNTROPY_MCP_PROFILE"] = profile_id
     if actor:
@@ -1321,6 +1326,9 @@ def main(profile: Optional[str] = None) -> None:
         if reply is not None:
             sys.stdout.write(reply + "\n")
             sys.stdout.flush()
+        # Nothing held open between questions: an AI app can stay open for days, and encrypting the database or restoring a
+        # backup waits for everyone else to let go of the file.
+        close_readers()
 
 
 if __name__ == "__main__":

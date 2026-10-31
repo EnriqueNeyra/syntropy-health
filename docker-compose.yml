@@ -15,7 +15,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"   # lets the assistant reach Ollama or LM Studio on this machine (Linux)
     volumes:
-      # Database and encryption key (secret.key). To back up: docker compose exec syntropy syntropy-health backup /data/backups
+      # The encrypted database and, by default, its key (secret.key). To back up: docker compose exec syntropy syntropy-health backup /data/backups
+      # With the key in the same folder, anyone with a copy of it can read your records. To keep them apart, see SYNTROPY_KEY_FILE below.
       # Make it yourself before the first start (mkdir data), so it stays yours. If Docker makes it, it ends up owned by user id 10001 and reading it takes sudo.
       - ./data:/data
     logging:
@@ -42,6 +43,11 @@ services:
       - FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}
       - SYNTROPY_DB_PATH
       - SYNTROPY_SECRET_KEY
+      # A file holding the key, outside ./data, such as /run/secrets/syntropy_key with a Docker secret. Keep a copy somewhere safe, or a
+      # backup: without it your records can't be read. Make one with: openssl rand -base64 32 > syntropy_key
+      - SYNTROPY_KEY_FILE
+      # Set to 0 to leave a database unencrypted, if the disk is already encrypted and you want to read it with other tools.
+      - SYNTROPY_DATABASE_ENCRYPTION
       - SYNTROPY_ALLOWED_HOSTS
       - SYNTROPY_ALLOW_NO_PASSWORD
       - SYNTROPY_UPDATE_CHECK

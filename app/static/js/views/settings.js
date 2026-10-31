@@ -40,6 +40,21 @@ function section(title, hint, content, extra = "") {
   return html`<section class="card set-card ${extra}"><header><h3>${title}</h3>${hint ? html`<p>${hint}</p>` : ""}</header>${content}</section>`;
 }
 
+function encryptionSection(state) {
+  const recovery = state.password_recovery;
+  return section("Your records on this computer", state.encrypted ? `Encrypted with ${state.cipher}.` : html`<span style="color:var(--warn)">Not encrypted on disk.</span>`, html`
+    <div class="stack" style="gap:10px;padding:2px 18px 16px">
+      ${state.encrypted ? html`<p class="small" style="margin:0">That covers the database and its log, the copies kept before upgrades, and files on their way in. Backups made with a passphrase are encrypted too. A backup you choose not to encrypt is not, and anyone who gets one can read it.</p>`
+        : html`<p class="small" style="margin:0">${state.why_not || "They will be the next time Syntropy Health starts."}</p>`}
+      <p class="small" style="margin:0"><b>The key</b> is in ${state.key_where}.${state.key_file ? html` <span class="muted">${state.key_file}</span>` : ""}</p>
+      ${state.key_beside_data ? html`<div class="banner warn">${icon("shield")}<div class="grow"><p>Anyone who copies this data folder gets the key along with it, so encryption protects little here. Use full-disk encryption (FileVault, BitLocker or LUKS) for a stolen disk. To keep the key apart from the data, set SYNTROPY_KEY_FILE to a file somewhere else, or SYNTROPY_SECRET_KEY.</p></div></div>` : ""}
+      ${isOwner() ? html`<p class="small" style="margin:0"><b>If the key is ever lost,</b> ${recovery.applies ? "the password of an owner of this server can bring it back, once they've signed in since this began, and so can any backup made with a passphrase. Without those," : "only a backup made with a passphrase can bring it back. Without one,"} nobody can read your records, and nobody can help with that. <a href="#/settings/data">Keep a backup somewhere else.</a></p>` : ""}
+      ${state.plain_copies?.length ? html`<p class="small" style="margin:0"><b>Still unencrypted:</b> ${plural(state.plain_copies.length, "copy", "copies")} kept from before, which Syntropy Health will encrypt or remove shortly. <span class="muted">${state.plain_copies.join(", ")}</span></p>` : ""}
+      <p class="small muted" style="margin:0">This protects a copy of the files, such as a stolen disk or a backup drive. While Syntropy Health runs it holds the key, so that sources and phones can sync with nobody signed in. So it can't protect you from someone using this computer as you, or from malware. Copies made before encryption, in Time Machine for example, stay as they were. Turn on FileVault or BitLocker as well: it covers what an app can't.</p>
+      ${household() ? html`<p class="small muted" style="margin:0">Everyone on this server shares one encrypted database. Passwords and what each person shares keep people apart, not the encryption, and whoever runs this computer can read everything.</p>` : ""}
+    </div>`);
+}
+
 export async function render({ el, parts, state, navigate }) {
   if (RENAMED[parts[0]]) return navigate(`#/settings/${RENAMED[parts[0]]}`);
   const SECTIONS = sectionsFor();
@@ -215,9 +230,10 @@ export async function render({ el, parts, state, navigate }) {
   }
 
   if (tab === "security") {
-    const { sessions } = await get("/api/auth/sessions");
+    const [{ sessions }, encryption] = await Promise.all([get("/api/auth/sessions"), get("/api/settings/encryption")]);
     const on = settings.auth_required;
     mount(body, html`<div class="stack">
+      ${encryptionSection(encryption)}
       ${section(household() ? "Your password" : "Password", on ? `Needed to open Syntropy Health${household() ? ` as ${appState.status.account.name}` : " in a browser"}. Changing it signs out your other browsers.`
         : html`<span style="color:var(--warn)">No password is set: anyone who can reach this server can open your records.</span>`, html`
         <form class="set-form" id="pw-form">
@@ -241,7 +257,7 @@ export async function render({ el, parts, state, navigate }) {
       ${section("How your data is protected", "", html`<ul class="check-list">
           <li>Everything lives ${settings.data_dir ? html`in <code>${settings.data_dir}</code> on this machine` : "on the computer this server runs on"}.</li>
           ${isOwner() ? "" : html`<li>${ownerName()} runs this server, so can reach the file it's all kept in, and its backups. Your access log shows each backup.</li>`}
-          <li>Sign-in tokens and secrets are encrypted at rest (key in <code>secret.key</code> or <code>SYNTROPY_SECRET_KEY</code>).</li>
+          <li>Sign-in tokens and secrets are encrypted a second time inside the database, so they stay locked in a backup you chose not to encrypt.</li>
           <li>Health record connections use PKCE; the relay only ever sees a one-time code.</li>
           <li>Phones and AI apps use individual tokens you can revoke.</li>
           <li>Every sign-in, sync and export is recorded in the <a href="#/settings/log">access log</a>.</li></ul>`)}
@@ -304,7 +320,7 @@ export async function render({ el, parts, state, navigate }) {
           html`<label class="btn btn-sm">${icon("upload")} Choose file<input type="file" id="ar-file" accept=".zip"></label>`)}<div id="ar-status" style="padding:0 16px"></div>` : ""}`)}
       ${!owner ? "" : section("Backup", "", html`
         ${failing ? html`<div class="banner bad" style="margin:12px 16px"><div class="grow"><p><b>The last scheduled backup failed.</b> ${failing}</p></div></div>` : ""}
-        ${row("Download a backup", html`Everyone's data in one encrypted file, including anyone who hasn't shared with you, with the encryption key that opens saved sign-ins, so it restores on any computer. ${household() ? "Everyone here sees it in their access log when one is made." : ""}
+        ${row("Download a backup", html`Everyone's data in one encrypted file, including anyone who hasn't shared with you, with the encryption key that opens it all, so it restores on any computer with only its passphrase. It's also how to get the key back if this computer loses it. ${household() ? "Everyone here sees it in their access log when one is made." : ""}
           ${last ? html`<br>Last backup: ${fmtDateTime(last.created_at)}${last.encrypted ? "" : " (not encrypted)"}.` : html`<br><b>No backup has been made yet.</b>`}`,
           html`<button class="btn btn-sm btn-primary" data-action="backup">${icon("download")} Back up…</button>`)}
         ${row("Scheduled backups", html`${scheduleText(backup.schedule)}

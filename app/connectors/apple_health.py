@@ -21,6 +21,8 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
+
+from app.core import private_files
 from xml.etree.ElementTree import iterparse
 from zoneinfo import ZoneInfo
 
@@ -464,23 +466,25 @@ class ExportArchive:
 
     def __init__(self, path: Path):
         self.path = path
-        self.zip = zipfile.ZipFile(path) if zipfile.is_zipfile(path) else None
+        self._file = private_files.open_read(path)
+        self.zip = zipfile.ZipFile(self._file) if zipfile.is_zipfile(self._file) else None
         self.skipped: list[str] = []
 
     def close(self) -> None:
         if self.zip:
             self.zip.close()
+        self._file.close()
 
     def xml_opener(self) -> Optional[Callable[[], io.BufferedIOBase]]:
         """Read as a stream, so its size doesn't matter to memory; a lie about its size can still only fill the disk."""
         if not self.zip:
-            with open(self.path, "rb") as fh:
+            with private_files.open_read(self.path) as fh:
                 head = fh.read(512).lstrip(b"\xef\xbb\xbf \t\r\n")
             if head.startswith(b"PK"):
                 raise ValueError("This zip file is incomplete. Copy it again, or export from the Health app again.")
             if not head.startswith(b"<"):
                 raise ValueError("This isn't an Apple Health export. It should be the export.zip the Health app makes, or the export.xml inside it.")
-            return lambda: open(self.path, "rb")
+            return lambda: private_files.open_read(self.path)  # type: ignore[return-value]
         info = next((i for i in self.zip.infolist() if i.filename.endswith("/export.xml") or i.filename == "export.xml"), None)
         if not info:
             return None

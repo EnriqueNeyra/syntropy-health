@@ -48,8 +48,9 @@ the Content-Security-Policy.
 
 - An instance deliberately exposed to the internet without TLS, or with `SYNTROPY_ALLOW_NO_PASSWORD` set (a
   development-only setting).
-- Someone with access to the computer's account or the data folder: the database, `secret.key` and backups are the
-  keys to the record by design. Protect them like the records themselves.
+- Someone using the computer's account, or running as it. They hold the key by design, while the server runs: see
+  [what protects your data on disk](SECURITY-MODEL.md). Reading records from a copy of the data folder alone, on a Mac or
+  Windows PC, without a password, is in scope.
 - Findings from automated scanners with no demonstrated impact, and missing headers that don't lead to one.
 - Reading the relay key out of a release. Every release carries it, so it isn't a secret: it keeps builds from the
   source code from using Syntropy Labs' registrations and relay without someone choosing to, and protects no data.

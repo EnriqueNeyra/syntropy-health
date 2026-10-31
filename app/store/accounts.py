@@ -17,12 +17,12 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 import time
 from typing import Any, Optional
 
 from app.core import security
 from app.core.db import audit, db, new_id, read, rows_to_dicts
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.accounts")
 
@@ -89,6 +89,8 @@ def create(profile_id: str, password: Optional[str], role: str = "member") -> di
     stored = _stored_hash(password)     # slow on purpose: not while holding the write lock
     with db() as conn:
         account_id = _insert(conn, profile_id, stored, role)
+    if role == "owner" and password:
+        security.note_owner_password(account_id, password, changed=True)
     return get(account_id)  # type: ignore[return-value]
 
 
@@ -149,12 +151,19 @@ def upgrade_password(account_id: str, password: str) -> None:
 
 
 def set_password(account_id: str, password: Optional[str]) -> None:
-    """A new password (or none, only while developing). Signs the account out everywhere; the caller signs this
-    browser back in."""
+    """A new password (or none, only while developing). Signs the account's browsers out; the caller signs this one back
+    in. Phones and AI apps have tokens of their own that a password doesn't open, and keep working: a lost phone is
+    unpaired in Sources, which is what ends its access."""
     stored = _stored_hash(password)
     with db() as conn:
         conn.execute("UPDATE accounts SET password_hash = ?, updated_at = ? WHERE id = ?", (stored, time.time(), account_id))
         conn.execute("DELETE FROM user_sessions WHERE account_id = ? AND device_id IS NULL", (account_id,))
+    account = get(account_id)
+    if account and account["role"] == "owner":
+        if password:
+            security.note_owner_password(account_id, password, changed=True)
+        else:
+            security.forget_owner_password(account_id)
 
 
 def matching(ref: str) -> list[dict[str, Any]]:
@@ -196,6 +205,10 @@ def set_role(account_id: str, role: str, step_down: Optional[str] = None) -> Non
             raise ValueError("The server needs at least one owner.")
         for changed in {account_id, step_down} - {None}:
             _end_phones_out_of_reach(conn, "account_id", changed)
+    # Only an owner's password opens the key. A new owner's starts to at their next sign-in, when it's known.
+    for changed, now_role in ((account_id, role), (step_down, "member")):
+        if changed and now_role != "owner":
+            security.forget_owner_password(changed)
 
 
 def touch_login(account_id: str) -> None:
@@ -336,9 +349,14 @@ def _invite(code: str) -> Optional[dict[str, Any]]:
     if not normalized:
         return None
     with read() as conn:
-        row = conn.execute("SELECT i.profile_id, i.expires_at, p.name, p.color FROM invites i JOIN profiles p ON p.id = i.profile_id "
+        row = conn.execute("SELECT i.profile_id, i.expires_at, i.created_by, p.name, p.color FROM invites i JOIN profiles p ON p.id = i.profile_id "
                            "WHERE i.code_hash = ?", (security.hash_token(normalized),)).fetchone()
     if not row or row["expires_at"] < time.time():
+        return None
+    # Redeeming one takes the person over and shuts everyone else out, so it's only good while whoever made it still looks
+    # after them: someone removed yesterday mustn't be able to use a code they kept. None is an invite from before this was noted.
+    maker = get(row["created_by"]) if row["created_by"] else None
+    if row["created_by"] and (not maker or access_for(maker).get(row["profile_id"]) != "manage"):
         return None
     return {**dict(row), "code_hash": security.hash_token(normalized)}
 

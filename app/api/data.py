@@ -14,11 +14,11 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import check_access, resolve_profile
-from app.core import auth, context, settings
+from app.core import auth, context, private_files, settings
 from app.core.db import audit, db, new_id
 from app.services import exports, imports, visit_prep
 from app.store import accounts, activity, biometrics, connections, profiles, records
@@ -26,6 +26,24 @@ from app.store import accounts, activity, biometrics, connections, profiles, rec
 router = APIRouter(prefix="/api", tags=["data"], dependencies=[Depends(auth.require_user)])
 
 MAX_FHIR_UPLOAD = 200 * 1024 * 1024
+
+
+async def _keep_upload(file: UploadFile, dest: Path) -> None:
+    """Encrypted as it's written (app.core.private_files), since it can be a whole health record, and it waits on the disk while
+    the import reads it."""
+    out = None
+    try:
+        out = private_files.create(dest)
+        while chunk := await file.read(1024 * 1024):
+            await run_in_threadpool(out.write, chunk)
+        private_files.keep(dest, out)
+    except BaseException as exc:
+        if out:
+            out.close()
+        dest.unlink(missing_ok=True)
+        if isinstance(exc, OSError) and exc.errno in (errno.ENOSPC, errno.EDQUOT):
+            raise HTTPException(507, imports.NO_ROOM) from exc
+        raise
 
 
 @router.post("/imports/fhir")
@@ -46,15 +64,7 @@ async def import_apple_health(file: UploadFile = File(...), profile_id: Optional
     prof = resolve_profile(profile_id)
     dest = imports.upload_dir() / f"{new_id('upload')}{Path(file.filename or 'export.zip').suffix or '.zip'}"
     imports.check_room(file.size)
-    try:
-        with open(dest, "wb") as fh:
-            while chunk := await file.read(1024 * 1024):
-                fh.write(chunk)
-    except BaseException as exc:
-        dest.unlink(missing_ok=True)
-        if isinstance(exc, OSError) and exc.errno in (errno.ENOSPC, errno.EDQUOT):
-            raise HTTPException(507, imports.NO_ROOM) from exc
-        raise
+    await _keep_upload(file, dest)
     job_id = await imports.start_apple_health_import(prof["id"], dest, file.filename or "export.zip")
     return {"job_id": job_id}
 
@@ -72,15 +82,7 @@ async def import_archive(file: UploadFile = File(...), profile_id: Optional[str]
     principal = context.principal()
     dest = imports.upload_dir() / f"{new_id('upload')}.zip"
     imports.check_room(file.size)
-    try:
-        with open(dest, "wb") as fh:
-            while chunk := await file.read(1024 * 1024):
-                fh.write(chunk)
-    except BaseException as exc:
-        dest.unlink(missing_ok=True)
-        if isinstance(exc, OSError) and exc.errno in (errno.ENOSPC, errno.EDQUOT):
-            raise HTTPException(507, imports.NO_ROOM) from exc
-        raise
+    await _keep_upload(file, dest)
     return {"job_id": await imports.start_archive_import(prof["id"], principal.account_id if principal else None, dest, file.filename or "archive.zip")}
 
 
@@ -110,6 +112,7 @@ def _person(prof: dict[str, Any]) -> str:
 
 @router.get("/export/fhir")
 def export_fhir(profile: Optional[str] = None) -> StreamingResponse:
+    auth.refuse_if_limited(context.principal())      # as for anything that passes someone's data on (auth.require_whole_account)
     prof = resolve_profile(profile)
     with db() as conn:
         audit(conn, "user", "export.fhir", None, prof["id"])
@@ -121,6 +124,7 @@ def export_fhir(profile: Optional[str] = None) -> StreamingResponse:
 @router.get("/export/ips")
 def export_patient_summary(profile: Optional[str] = None) -> Response:
     """An International Patient Summary, for a clinician anywhere."""
+    auth.refuse_if_limited(context.principal())
     prof = resolve_profile(profile)
     document = exports.patient_summary(prof)
     with db() as conn:
@@ -131,6 +135,7 @@ def export_patient_summary(profile: Optional[str] = None) -> Response:
 
 @router.get("/export/csv")
 def export_csv(kind: str = "records", profile: Optional[str] = None) -> StreamingResponse:
+    auth.refuse_if_limited(context.principal())
     prof = resolve_profile(profile)
     if kind not in exports.CSV_KINDS:
         raise HTTPException(400, "kind must be 'records', 'daily', 'workouts' or 'events'")
@@ -142,15 +147,18 @@ def export_csv(kind: str = "records", profile: Optional[str] = None) -> Streamin
 
 
 @router.get("/export/archive")
-def export_archive(background: BackgroundTasks, profile: Optional[str] = None) -> FileResponse:
+def export_archive(background: BackgroundTasks, profile: Optional[str] = None) -> StreamingResponse:
     """Everything kept about one person, for whoever manages them. Their chats are per account: this account's come along."""
     prof = resolve_profile(profile, "manage")
     principal = context.principal()
-    path = exports.build_archive(prof, principal.account_id if principal else None)
+    auth.refuse_if_limited(principal)        # it holds this account's conversations
+    built = exports.build_archive(prof, principal.account_id if principal else None)
     with db() as conn:
         audit(conn, "user", "export.archive", None, prof["id"])
-    background.add_task(shutil.rmtree, path.parent, ignore_errors=True)
-    return FileResponse(path, media_type="application/zip", filename=f"syntropy-{_person(prof)}-archive-{_stamp()}.zip")
+    background.add_task(shutil.rmtree, built.folder, ignore_errors=True)
+    filename = f"syntropy-{_person(prof)}-archive-{_stamp()}.zip"
+    return StreamingResponse(private_files.stream(built.file), media_type="application/zip",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"', "Content-Length": str(built.file.size)})
 
 
 @router.delete("/profiles/{profile_id}/data")

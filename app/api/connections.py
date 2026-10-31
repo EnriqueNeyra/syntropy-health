@@ -226,14 +226,14 @@ def _may_finish(request: Request, pending: dict[str, Any]) -> str:
     """Whether the browser a sign-in came back to may finish it. Signing in at a portal is what hands records over, so a
     link sent to someone else mustn't quietly put their records under another account.
 
-    A browser signed in to the account that started it, or to one that manages that person, goes straight on. A browser
-    signed in to another account is turned away. A browser with no session is ordinary: the Mac and Windows apps and the
+    A browser signed in to an account that manages that person goes straight on: whoever started it, if they still do. It
+    could have been started by someone who has since lost access, and a sign-in lasts a quarter of an hour. A browser signed
+    in to another account is turned away. A browser with no session is ordinary: the Mac and Windows apps and the
     phone can come back through the system browser, or by another address. With one account on this server there's no one
     else it could be for; with several, it asks ('ask'), naming who the records will go to."""
     who = auth.current_user(request)
     if who is not None:
-        same = who.actor == pending.get("actor") or who.level(pending.get("profile_id")) == "manage"
-        return "go" if same else "refuse"
+        return "go" if who.level(pending.get("profile_id")) == "manage" else "refuse"
     return "ask" if len(accounts.list_accounts()) > 1 else "go"
 
 

@@ -38,12 +38,12 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 import threading
 import time
 from typing import Any, Callable, Optional
 
 from app.core import db
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.data_fixes")
 

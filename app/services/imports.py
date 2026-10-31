@@ -15,7 +15,6 @@ import hashlib
 import json
 import logging
 import shutil
-import sqlite3
 import threading
 import time
 from pathlib import Path
@@ -25,10 +24,11 @@ from xml.etree.ElementTree import ParseError
 from fastapi import HTTPException
 
 from app.connectors import apple_health, fhir_normalize
-from app.core import config, data_fixes
+from app.core import config, data_fixes, private_files
 from app.core.db import db, dumps, new_id, read, rows_to_dicts
 from app.services import ccda, sync
 from app.store import activity, biometrics, connections, record_files, records
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.imports")
 
@@ -119,6 +119,7 @@ def recover_at_start_up() -> None:
         for leftover in folder.iterdir():
             if leftover.is_file():
                 leftover.unlink(missing_ok=True)
+                private_files.forget(leftover)
 
 
 def _new_job(kind: str, filename: str, profile_id: str) -> str:
@@ -303,6 +304,7 @@ def _run_archive(job_id: str, profile_id: str, account_id: Optional[str], path: 
         with _jobs_lock:
             _running.pop(threading.current_thread(), None)
         path.unlink(missing_ok=True)
+        private_files.forget(path)
 
 
 def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str, stop: Optional[threading.Event] = None) -> None:
@@ -414,8 +416,9 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str, s
             _running.pop(threading.current_thread(), None)
         try:
             path.unlink()
+            private_files.forget(path)
         except OSError as exc:
-            # A whole, unencrypted export: the next start tries again (sweep_uploads).
+            # The next start tries again (sweep_uploads). It's encrypted, with a key that will be gone by then.
             log.warning("Couldn't delete an uploaded export: %s", exc)
 
 

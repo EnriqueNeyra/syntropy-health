@@ -17,13 +17,13 @@ from __future__ import annotations
 
 import logging
 import shutil
-import sqlite3
 import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
 
 from app.core import config, db, security, settings
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.maintenance")
 
@@ -141,7 +141,9 @@ def check_at_start_up(path: Optional[Path] = None) -> None:
 def _rewrite(path: Path, conn: sqlite3.Connection) -> bool:
     """The one long job: a file from before this version may hold deleted text in space freed then, which only a rewrite
     clears, and can't give space back a little at a time until it has had one. It holds the write lock throughout, so it
-    happens once per database. It needs room for the new file and for the log."""
+    happens once per database. It needs room for the new file and for the log. Its working copy goes on disk rather than
+    in memory (where the rest of the app keeps temporary data): it's as large as the database, and SQLCipher encrypts this
+    one with the database's key."""
     global _checking
     size = _size(path)
     free = shutil.disk_usage(path.parent).free
@@ -153,6 +155,7 @@ def _rewrite(path: Path, conn: sqlite3.Connection) -> bool:
     try:
         conn.execute("PRAGMA busy_timeout = 15000")
         conn.execute("PRAGMA auto_vacuum = INCREMENTAL")
+        conn.execute("PRAGMA temp_store = FILE")
         conn.execute("VACUUM")
     finally:
         _checking = None
@@ -329,9 +332,13 @@ def _optimize(path: Path) -> None:
 
 
 def _run(path: Path) -> None:
+    from app.core import encryption
+
+    started = time.monotonic()
     next_check = time.monotonic() + (0 if _size(path) <= SMALL_FILE else LARGE_FILE_DELAY)
     next_optimize = time.monotonic() + 300
     next_rewrite = time.monotonic() + 300
+    next_finish = time.monotonic()
     tries = 0
     while not _stop.wait(TICK_SECONDS):
         try:
@@ -341,6 +348,10 @@ def _run(path: Path) -> None:
             if tries:
                 tries = 0 if (reclaim(path) or {}).get("checkpointed") else tries - 1
             now = time.monotonic()
+            if now >= next_finish:
+                next_finish = now + 60
+                if encryption.finish_due(path, now - started):
+                    encryption.finish_up(path)
             if now >= next_rewrite:
                 next_rewrite = now + 3600
                 if _rewrite_due(path):

@@ -19,7 +19,6 @@ import os
 import math
 import re
 import shutil
-import sqlite3
 import threading
 import time
 import uuid
@@ -28,11 +27,13 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, Optional
 
 from app.core import config
+from app.core.sqlite import HAS_ENCRYPTION, sqlite3
 
 log = logging.getLogger("syntropy.db")
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 _migrated_paths: set[str] = set()
+_just_copied: dict[str, tuple[int, Path]] = {}      # by database, what app.core.encryption kept: its version, and where
 _migrate_lock = threading.Lock()
 
 PRE_UPGRADE_DIR = "pre-upgrade"
@@ -47,15 +48,58 @@ RELEASES_URL = "https://github.com/EnriqueNeyra/syntropy-health/releases"
 # Past this the log is truncated (app.core.maintenance), and it's what SQLite cuts it back to after any reset.
 WAL_LIMIT = 64 * 1024 * 1024
 _BIG_WRITE = 1000       # rows changed by one transaction
+SQLITE_MAGIC = b"SQLite format 3\0"
+CIPHER_COMPATIBILITY = 4    # SQLCipher's page format: AES-256-CBC, HMAC-SHA512, 4096-byte pages
+CIPHER_PAGE = 4096
 
 
 class StartupProblem(Exception):
     """Why this data can't be used as it is, in words for the person. ``kind``: too_new, no_copy, upgrade_failed,
-    damaged, unavailable, or (from app.core.security) key."""
+    damaged, unavailable, no_encryption, or (from app.core.security) key and key_locked."""
 
     def __init__(self, kind: str, message: str):
         super().__init__(message)
         self.kind = kind
+
+
+def is_encrypted(path: Path) -> bool:
+    """A SQLite file begins with its name. An encrypted one begins with random bytes, and is a whole number of pages: anything
+    else that doesn't begin with the name is just damage. Looked at for every connection, since the file can change from one to
+    the other under a process (app.core.encryption): this costs less than the open itself."""
+    try:
+        with open(path, "rb") as fh:
+            start = fh.read(len(SQLITE_MAGIC))
+            size = os.fstat(fh.fileno()).st_size
+    except OSError:
+        return False
+    return len(start) == len(SQLITE_MAGIC) and start != SQLITE_MAGIC and size % CIPHER_PAGE == 0
+
+
+def encrypt_new_databases() -> bool:
+    return HAS_ENCRYPTION and config.env_bool("SYNTROPY_DATABASE_ENCRYPTION", True)
+
+
+def use_key(conn: sqlite3.Connection, key: str) -> None:
+    """Has to come before anything else on the connection. The compatibility setting is so a later SQLCipher, whose
+    defaults may differ, still reads what this one wrote. Temporary storage in memory, because unlike the database and its log
+    SQLCipher doesn't encrypt temporary files, and a large sort would write one."""
+    conn.execute(f'PRAGMA key = "{key}"')
+    conn.execute(f"PRAGMA cipher_compatibility = {CIPHER_COMPATIBILITY}")
+    conn.execute("PRAGMA temp_store = MEMORY")
+
+
+def _key_for(path: Path, create: bool) -> Optional[str]:
+    from app.core import security
+
+    if is_encrypted(path):
+        if not HAS_ENCRYPTION:
+            raise StartupProblem("no_encryption", f"The database at {path} is encrypted, and this copy of Syntropy Health was installed "
+                                                  "without the part that reads encrypted databases (sqlcipher3). Install it again from "
+                                                  f"{RELEASES_URL}. Nothing has been changed.")
+        return security.database_key()
+    if create and encrypt_new_databases() and (not path.exists() or not path.stat().st_size):
+        return security.database_key()
+    return None
 
 
 def open_connection(path: Path, *, timeout: float = 15.0, create: bool = False, **kwargs: Any) -> sqlite3.Connection:
@@ -64,9 +108,41 @@ def open_connection(path: Path, *, timeout: float = 15.0, create: bool = False, 
     because any connection can be the one that empties the log: it's what actually reaches the disk, and without it a
     power cut can lose what the log was the only durable copy of."""
     target, uri = (str(path), False) if create else (f"{path.resolve().as_uri()}?mode=rw", True)
+    key = _key_for(path, create)
     conn = sqlite3.connect(target, uri=uri, timeout=timeout, isolation_level=None, **kwargs)
+    if key:
+        use_key(conn, key)
     conn.execute("PRAGMA fullfsync = ON")
     return conn
+
+
+def opens(path: Path, key: Optional[str]) -> bool:
+    """Whether this key opens this database file. Reading its list of tables decrypts and checks the first page."""
+    conn = sqlite3.connect(str(path), timeout=2.0)
+    try:
+        if key:
+            use_key(conn, key)
+        conn.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()
+        return True
+    except sqlite3.DatabaseError:
+        return False
+    finally:
+        conn.close()
+
+
+def open_copy(path: Path, keys: Optional[Iterable[str]] = None, **kwargs: Any) -> sqlite3.Connection:
+    """A database file other than the one in use: a backup's, or a copy kept beside this one. It may be encrypted or not,
+    and with any key this computer has had. Fails as SQLite does for a file that isn't a database."""
+    if not is_encrypted(path):
+        return sqlite3.connect(str(path), **kwargs)
+    from app.core import security
+
+    for key in keys if keys is not None else security.known_database_keys():
+        if opens(path, key):
+            conn = sqlite3.connect(str(path), **kwargs)
+            use_key(conn, key)
+            return conn
+    raise sqlite3.DatabaseError("file is not a database")
 
 
 def _connect(path: Path, *, check_same_thread: bool = True, create: bool = False) -> sqlite3.Connection:
@@ -102,8 +178,9 @@ def is_busy(exc: sqlite3.Error) -> bool:
 
 def is_damage(exc: sqlite3.Error) -> bool:
     """The file itself is bad. The exception's class can't say: a broken constraint or a mistaken query is a DatabaseError
-    too, and telling someone their records are damaged when they aren't is its own harm."""
-    return error_code(exc) in (sqlite3.SQLITE_CORRUPT, sqlite3.SQLITE_NOTADB)
+    too, and telling someone their records are damaged when they aren't is its own harm. The words as well, because VACUUM
+    through SQLCipher reports a damaged page with this message and only a general error code."""
+    return error_code(exc) in (sqlite3.SQLITE_CORRUPT, sqlite3.SQLITE_NOTADB) or "malformed" in str(exc)
 
 
 # Read connections are kept and reused: opening one costs about as much as a small query, and a page's request reads a
@@ -264,18 +341,10 @@ def read() -> Iterator[sqlite3.Connection]:
 
 def _make_private(path: Path) -> None:
     """Health records: only this account may read the database (SQLite gives its -wal and -shm files the same
-    permissions) and, when it's the usual data folder, that folder."""
-    if os.name == "nt":          # the per-user profile folders are already private
-        return
-    targets = [(path, 0o600)]
-    if path.parent == config.data_dir():
-        targets.append((path.parent, 0o700))
-    for target, mode in targets:
-        try:
-            if target.stat().st_mode & 0o777 != mode:
-                target.chmod(mode)
-        except OSError as exc:        # e.g. a folder mounted in Docker that belongs to someone else
-            log.warning("Couldn't make %s private: %s", target, exc)
+    permissions) and, when it's the usual data folder, that folder and what's in it."""
+    from app.core import encryption
+
+    encryption.make_private(path)
 
 
 def ensure_migrated(path: Optional[Path] = None) -> None:
@@ -309,6 +378,12 @@ def reset_migration_cache() -> None:
 
 
 def unusable(exc: sqlite3.Error, path: Path) -> StartupProblem:
+    if is_damage(exc) and is_encrypted(path):
+        # A wrong key and a damaged first page look the same: either way that page doesn't check out.
+        from app.core import security
+        log.error("%s can't be opened with this key: %s", path, exc)
+        return StartupProblem("key", "Your records are encrypted, and the key on this computer doesn't open them, or the database "
+                                     f"file at {path} is damaged. {security.ENCRYPTED_KEY_ADVICE}")
     if is_damage(exc):
         log.error("%s can't be read: %s", path, exc)
         return StartupProblem("damaged", f"The database file at {path} is damaged and can't be opened. It hasn't been changed "
@@ -417,8 +492,10 @@ def _run_migrations(conn: sqlite3.Connection, path: Path) -> None:
 
 def _copy_before_upgrade(path: Path, version: int, newest: int) -> Path:
     """An online copy beside the database, or StartupProblem: without one, a migration that's valid SQL and wrong would
-    leave no way back."""
+    leave no way back. If encrypting the database has just left one at this same version, that will do."""
     folder = path.parent / PRE_UPGRADE_DIR
+    if str(path) in _just_copied and _just_copied[str(path)][0] == version and _just_copied[str(path)][1].exists():
+        return _just_copied.pop(str(path))[1]
     try:
         copy = _save_copy(path, folder, version)
     except (OSError, sqlite3.Error) as exc:
@@ -431,11 +508,16 @@ def _copy_before_upgrade(path: Path, version: int, newest: int) -> Path:
     return copy
 
 
+def _file_size(conn: sqlite3.Connection) -> int:
+    """SQLCipher answers the page size as text, where SQLite answers a number."""
+    return int(conn.execute("PRAGMA page_count").fetchone()[0]) * int(conn.execute("PRAGMA page_size").fetchone()[0])
+
+
 def _save_copy(path: Path, folder: Path, version: int) -> Path:
     folder.mkdir(parents=True, exist_ok=True)
-    src = sqlite3.connect(str(path), timeout=15.0)
+    src = open_connection(path)
     try:
-        needed = src.execute("PRAGMA page_count").fetchone()[0] * src.execute("PRAGMA page_size").fetchone()[0]
+        needed = _file_size(src)
         free = shutil.disk_usage(folder).free
         if free < needed + _COPY_MARGIN:
             raise StartupProblem("no_copy", f"Syntropy Health needs to upgrade its database and keeps a copy first, but there "
@@ -451,9 +533,11 @@ def _save_copy(path: Path, folder: Path, version: int) -> Path:
         try:
             dst = sqlite3.connect(str(tmp))
             try:
+                if is_encrypted(path):      # the copy is as private as what it's a copy of
+                    from app.core import security
+                    use_key(dst, security.database_key())
                 src.backup(dst)
-                if dst.execute("PRAGMA user_version").fetchone()[0] != version or \
-                        dst.execute("PRAGMA page_count").fetchone()[0] * dst.execute("PRAGMA page_size").fetchone()[0] < needed:
+                if dst.execute("PRAGMA user_version").fetchone()[0] != version or _file_size(dst) < needed:
                     raise sqlite3.DatabaseError("the copy doesn't match the database")
             finally:
                 dst.close()
@@ -634,7 +718,7 @@ def checkpoint(path: Optional[Path] = None, wait_seconds: float = 2.0) -> bool:
     path = path or config.db_path()
     try:
         conn = open_connection(path, timeout=wait_seconds)
-    except sqlite3.Error:
+    except (sqlite3.Error, StartupProblem):
         return False
     try:
         conn.execute(f"PRAGMA busy_timeout = {int(wait_seconds * 1000)}")
@@ -687,7 +771,8 @@ def probe(path: Path) -> dict[str, Any]:
 def snapshot(dest: Path, path: Optional[Path] = None) -> None:
     """A consistent copy of the database made while it's in use, read back before anyone relies on it. VACUUM INTO, like
     SQLite's backup API, takes no write lock; unlike it, it leaves free space behind, so what was deleted isn't carried
-    into the copy. A damaged file raises StartupProblem: a backup that looks fine and isn't is worse than none."""
+    into the copy. The copy has the same key as the database. A damaged file raises StartupProblem: a backup that looks
+    fine and isn't is worse than none."""
     path = path or config.db_path()
     _enter()
     try:
@@ -697,7 +782,7 @@ def snapshot(dest: Path, path: Optional[Path] = None) -> None:
         try:
             try:
                 src.execute("VACUUM INTO ?", (str(dest),))
-                dst = sqlite3.connect(str(dest))
+                dst = open_copy(dest)
                 found = "; ".join(r[0] for r in dst.execute("PRAGMA quick_check(5)").fetchall())
             except sqlite3.DatabaseError as exc:
                 if not is_damage(exc):

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import math
-import sqlite3
 import threading
 import time
 from collections import deque
@@ -12,6 +11,7 @@ from typing import Any, Optional
 
 from app.core import security
 from app.core.db import audit, db, new_id, read, rows_to_dicts
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.agents")
 

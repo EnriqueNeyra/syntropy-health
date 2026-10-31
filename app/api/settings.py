@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from app import directory
 from app.connectors import smart
 from app.connectors import wearable_common
-from app.core import auth, config, context, settings
+from app.core import auth, config, context, encryption, settings
 from app.core.db import db
 from app.store import accounts, biometrics
 
@@ -162,9 +162,20 @@ def update_source_order(orders: dict[str, list[str]]) -> dict:
     return _source_order()
 
 
+@router.get("/encryption")
+def encryption_status() -> dict:
+    """What's encrypted and how, for Settings → Security. Where the files are is for the owner, as elsewhere here."""
+    state = encryption.status()
+    if not _is_owner():
+        state.update(key_file=None, plain_copies=[], why_not="Your records aren't encrypted on this server yet. Ask whoever runs it." if not state["encrypted"] else None)
+        state["password_recovery"] = {k: v for k, v in state["password_recovery"].items() if k != "accounts"}
+    return state
+
+
 @router.put("/general")
 def update_general(req: GeneralPatch) -> dict:
     principal = context.principal()
+    auth.refuse_if_limited(principal)        # it's the preferences of the account that paired this phone
     if req.units is not None:
         if req.units not in ("", "metric", "us"):
             raise HTTPException(400, "Units must be metric or us.")

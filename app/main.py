@@ -10,23 +10,24 @@ import asyncio
 import html
 import logging
 import re
-import sqlite3
 import threading
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.api import agents, assistant, backups, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
-from app.core import auth, config, data_fixes, db, maintenance, security, settings as instance_settings
+from app.core import auth, config, data_fixes, db, encryption, keystore, maintenance, security, settings as instance_settings
+from app.core import private_files
 from app.core.uploads import DecompressUploads
 from app.services import backups as backups_service, imports, network, renormalize, scheduler, updates, wearable_fixes  # noqa: F401 - renormalize and wearable_fixes register data fixes
 from app.store import biometrics as biometric_store, profiles as profile_store, sample_counts, search
 from app.simulator import server as simulator
+from app.core.sqlite import sqlite3
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -58,6 +59,8 @@ class _QuietHealthChecks(logging.Filter):
 logging.getLogger("uvicorn.access").addFilter(_RedactSecrets())
 logging.getLogger("uvicorn.access").addFilter(_QuietHealthChecks())
 
+private_files.protect_upload_spool()
+
 STATIC_DIR = config.APP_DIR / "static"
 
 CSP = (
@@ -76,6 +79,7 @@ log = logging.getLogger("syntropy")
 
 def _start_up() -> None:
     backups_service.clean_leftovers()
+    encryption.at_start_up()
     db.ensure_migrated()
     security.check_key()
     instance_settings.migrate_client_ids()
@@ -121,7 +125,14 @@ def _database_trouble(exc: Exception) -> Optional[tuple[int, str]]:
     return None
 
 
-def _problem_page(problem: str, here: bool) -> str:
+def _unlock_form(said: str = "") -> str:
+    warning = f'<p role="alert"><strong>{html.escape(said)}</strong></p>' if said else ""
+    return f"""{warning}<form method="post" action="/unlock"><p><label for="pw">The Syntropy Health password of this server's owner can bring the key back:</label></p>
+<p><input id="pw" name="password" type="password" autocomplete="current-password" autofocus required style="font:inherit;padding:.4rem;width:100%;box-sizing:border-box"></p>
+<p><button type="submit" style="font:inherit;padding:.4rem 1rem">Unlock</button></p></form>"""
+
+
+def _problem_page(problem: str, here: bool, extra: str = "") -> str:
     try:
         folder = f"<p>Your data folder is {html.escape(str(config.data_dir()))}.</p>" if here else ""
     except OSError:
@@ -131,7 +142,13 @@ def _problem_page(problem: str, here: bool) -> str:
 body{{font:16px/1.5 -apple-system,system-ui,sans-serif;max-width:36rem;margin:0 auto;padding:12vh 16px;overflow-wrap:anywhere}}
 h1{{font-size:1.3rem;margin:0 0 .75rem}}</style></head>
 <body><h1>{config.APP_NAME} can't start</h1><p>{html.escape(problem)}</p>
-{folder}</body></html>"""
+{extra}{folder}</body></html>"""
+
+
+def _can_unlock(app: FastAPI, here: bool) -> bool:
+    """The key's lost, this is the computer it runs on, and a password can bring it back. Never from elsewhere: nobody should
+    be able to try passwords against the key from across a network."""
+    return here and getattr(app.state, "problem_kind", None) == "key" and bool(keystore.recovery_entries())
 
 
 def _problem_response(request: Request, problem: str) -> Response:
@@ -143,7 +160,20 @@ def _problem_response(request: Request, problem: str) -> Response:
                              "journal_mode": None, "detail": problem}, status_code=503)
     if path.startswith("/api/") or path == "/mcp":
         return JSONResponse({"detail": problem}, status_code=503, headers={"Cache-Control": "no-store"})
-    return HTMLResponse(_problem_page(problem, here), status_code=503, headers={"Cache-Control": "no-store"})
+    extra = _unlock_form() if _can_unlock(request.app, here) else ""
+    return HTMLResponse(_problem_page(problem, here, extra), status_code=503, headers={"Cache-Control": "no-store"})
+
+
+def _begin_work(app: FastAPI) -> None:
+    """On the event loop: the scheduler's tasks belong to it."""
+    app.state.working = True
+    maintenance.start()
+    data_fixes.start()
+    threading.Thread(target=_finish_deletes, name="finish-deletes", daemon=True).start()
+    if config.scheduler_enabled():
+        scheduler.start()
+        updates.start()
+    network.start_announcing()
 
 
 @asynccontextmanager
@@ -165,16 +195,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Up, but touching nothing: the desktop window and browsers can say why, a container's health check fails, and
         # a restart policy doesn't turn it into a crash loop with no explanation.
         log.error("Not starting: %s", app.state.problem)
-        yield
-        return
-    maintenance.start()
-    data_fixes.start()
-    threading.Thread(target=_finish_deletes, name="finish-deletes", daemon=True).start()
-    if config.scheduler_enabled():
-        scheduler.start()
-        updates.start()
-    network.start_announcing()
+    else:
+        _begin_work(app)
     yield
+    if not getattr(app.state, "working", False):
+        return
     network.stop_announcing()
     await asyncio.to_thread(imports.stop_running)
     await scheduler.stop()
@@ -206,7 +231,9 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def explain_a_startup_problem(request: Request, call_next):
         problem = getattr(request.app.state, "problem", None)
-        return _problem_response(request, problem) if problem else await call_next(request)
+        if problem and not (request.url.path == "/unlock" and _can_unlock(request.app, network.from_this_computer(request))):
+            return _problem_response(request, problem)
+        return await call_next(request)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -238,6 +265,34 @@ def create_app() -> FastAPI:
     app.include_router(profiles.accounts_router)
     app.include_router(simulator.router, dependencies=[Depends(simulator.developers_only)])
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.post("/unlock", include_in_schema=False)
+    async def unlock(request: Request) -> Response:
+        """The key's lost and the owner has their password: see app.core.security.recover_key. Only reachable while
+        _can_unlock says so; otherwise there's nothing to unlock. The same guessing limits as signing in."""
+        if not getattr(request.app.state, "problem", None):
+            return Response(status_code=404)
+        origin = request.headers.get("origin")
+        if origin and origin.split("://")[-1] != request.headers.get("host"):     # another site's page posting a guess here
+            return Response(status_code=403)
+        try:
+            auth.check_attempts(request, "unlock")
+        except HTTPException as exc:
+            return HTMLResponse(_problem_page(request.app.state.problem, True, _unlock_form(exc.detail)), status_code=429)
+        auth.note_failure(request, "unlock")
+        password = str((await request.form()).get("password") or "")
+        if not await asyncio.to_thread(security.recover_key, password):
+            return HTMLResponse(_problem_page(request.app.state.problem, True, _unlock_form("That password doesn't open it.")), status_code=401)
+        auth.forget_failure(request, "unlock")
+        db.reset_migration_cache()
+        try:
+            await asyncio.to_thread(_start_up)
+        except db.StartupProblem as exc:
+            request.app.state.problem, request.app.state.problem_kind = str(exc), exc.kind
+            return HTMLResponse(_problem_page(str(exc), True), status_code=503)
+        request.app.state.problem = None
+        _begin_work(request.app)
+        return RedirectResponse("/", status_code=303)
 
     @app.get("/api/openapi.json", include_in_schema=False)
     def route_map() -> JSONResponse:

@@ -9,13 +9,13 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-import sqlite3
 import time
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Optional
 
 from app.core import db
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.desktop")
 
@@ -58,16 +58,20 @@ def set_aside(path: Path) -> Path:
 def _check(candidate: Path) -> None:
     """Opens the copy the way the app will, since a backup that looks fine and isn't is worse than the damage."""
     try:
-        conn = sqlite3.connect(str(candidate))
+        conn = db.open_copy(candidate)
         try:
             found = conn.execute("PRAGMA quick_check(1)").fetchone()[0]
             version = conn.execute("PRAGMA user_version").fetchone()[0]
             is_ours = conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'profiles'").fetchone()
         finally:
             conn.close()
+    except db.StartupProblem as exc:
+        log.warning("%s can't be restored: %s", candidate, exc)
+        raise RestoreRefused(f"That copy is encrypted, and its key isn't on this computer. Nothing has been changed. {exc}") from exc
     except sqlite3.DatabaseError as exc:
         log.warning("%s can't be restored: %s", candidate, exc)
-        raise RestoreRefused("That file isn't a Syntropy Health backup, or it's damaged too. Nothing has been changed.") from exc
+        raise RestoreRefused("That file isn't a Syntropy Health backup, or it's encrypted with a key that isn't here, or it's damaged. "
+                             "Nothing has been changed.") from exc
     if found != "ok":
         raise RestoreRefused("That backup is damaged too, so it wasn't restored. Nothing has been changed. Try an older one.")
     if not is_ours:

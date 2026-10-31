@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import hashlib
-import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 
 from app.core.db import db, note_deleted, read, dumps, row_to_dict, rows_to_dicts
 from app.store.biometrics import EARLIEST_YEAR, _tz as local_tz, check_source, id_held_elsewhere, item_offset, parse_ts, source_kind, source_kinds, to_utc_iso
+from app.core.sqlite import sqlite3
 
 WORKOUT_FIELDS = (
     "activity_type", "name", "duration_s", "active_energy_kcal", "total_energy_kcal", "distance_m", "step_count",

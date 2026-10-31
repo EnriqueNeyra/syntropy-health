@@ -136,7 +136,7 @@ def test_backups_that_quietly_stop_are_reported(client, tmp_path):
     assert problem["id"] == "backups-stopped" and "3 days ago" in problem["text"] and "SYNTROPY_SCHEDULER" in problem["text"]
 
 
-def test_a_new_encryption_key_asks_for_the_passphrase_again(client, tmp_path):
+def test_a_new_encryption_key_asks_for_the_passphrase_again(plain_database, client, tmp_path):
     _turn_on(client, tmp_path / "drive")
     security.start_new_key()
     client.post("/api/backups/schedule/run")
