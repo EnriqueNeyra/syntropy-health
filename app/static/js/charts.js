@@ -310,13 +310,14 @@ export function rangeChart(container, rows, opts = {}) {
   const height = opts.height || 220;
   if (!rows.length) { container.innerHTML = `<div class="empty small">No nights in this range.</div>`; return; }
   const fmt = opts.format || ((m) => String(m));
+  const wasOpen = container.querySelector(":scope > .chart-table")?.open;
   const lo = Math.floor((extent(rows.map((r) => r.from))[0] - 30) / 60) * 60;
   const hi = Math.ceil((extent(rows.map((r) => r.to))[1] + 30) / 60) * 60;
   const iw = width - PAD.left - PAD.right, ih = height - PAD.top - PAD.bottom;
   const slot = iw / rows.length, bw = Math.min(18, Math.max(3, slot - 3));
   const y = (m) => PAD.top + ((m - lo) / (hi - lo)) * ih;     // earlier times at the top
   const step = (hi - lo) / 60 > 8 ? 120 : 60;
-  let svg = `<svg viewBox="0 0 ${width} ${height}" height="${height}" role="img" aria-label="${esc(opts.label || "Bedtime and wake time")}"><g class="axis">`;
+  let svg = `<svg viewBox="0 0 ${width} ${height}" height="${height}" role="img" aria-label="${esc(`${opts.label || "Bedtime and wake time"}: ${rows.length} night${rows.length === 1 ? "" : "s"} from ${fmtDate(rows[0].day)} to ${fmtDate(rows.at(-1).day)}.`)}"><g class="axis">`;
   for (let m = lo; m <= hi; m += step) {
     svg += `<line class="grid-line" x1="${PAD.left}" x2="${width - PAD.right}" y1="${y(m)}" y2="${y(m)}"/>`;
     svg += `<text x="${PAD.left - 8}" y="${y(m) + 3.5}" text-anchor="end">${esc(fmt(m))}</text>`;
@@ -338,6 +339,7 @@ export function rangeChart(container, rows, opts = {}) {
   svg += `</svg>`;
   container.classList.add("chart");
   container.innerHTML = svg;
+  valuesTable(container, rows.map((r) => ({ day: r.day, value: `${fmt(r.from)} – ${fmt(r.to)}` })), String, wasOpen);
   const tip = tipBox(container);
   const svgEl = container.querySelector("svg");
   svgEl.addEventListener("mousemove", (ev) => {
@@ -422,7 +424,9 @@ export function scatterChart(container, points, opts = {}) {
   points.forEach((p, i) => { svg += `<circle class="pt dot" cx="${x(p.x)}" cy="${y(p.y)}" r="4" data-i="${i}"/>`; });
   svg += `</svg>`;
   container.classList.add("chart");
+  const scatterOpen = container.querySelector(":scope > .chart-table")?.open;
   container.innerHTML = svg;
+  valuesTable(container, points.map((p) => ({ day: p.day, value: `${opts.xLabel} ${fx(p.x)}, ${opts.yLabel} ${fy(p.y)}` })), String, scatterOpen);
   const tip = tipBox(container);
   const svgEl = container.querySelector("svg");
   svgEl.addEventListener("mousemove", (ev) => {

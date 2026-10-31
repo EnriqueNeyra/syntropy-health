@@ -9,7 +9,7 @@ import pytest
 
 from tests.e2e.conftest import PASSWORD, Session, seed
 
-ROUTES = ["#/overview", "#/ask", "#/timeline", "#/records", "#/records/labs", "#/trends", "#/workouts", "#/journal", "#/sources", "#/report",
+ROUTES = ["#/overview", "#/ask", "#/timeline", "#/records", "#/records/labs", "#/trends", "#/trends?metric=sleep_duration", "#/trends/sleep", "#/workouts", "#/journal", "#/sources", "#/report",
           "#/settings/general", "#/settings/people", "#/settings/security", "#/settings/ai", "#/settings/data", "#/settings/developer"]
 SETTINGS = [("desktop", False), ("phone", False), ("desktop", True), ("phone", True)]
 AXE = os.environ.get("AXE_CORE_JS", "")
