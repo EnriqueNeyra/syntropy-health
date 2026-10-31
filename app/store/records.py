@@ -1054,7 +1054,8 @@ def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
         rows = rows_to_dicts(conn.execute(
             f"SELECT {_LAB_FLAG_COLUMNS} FROM clinical_records WHERE profile_id = ? AND category = 'labs' "
             "ORDER BY coalesce(effective_at, '') DESC, updated_at DESC", (profile_id,)).fetchall())
-    return _out_of_range(_latest_labs(_dedupe(rows)[:SUMMARY_LABS]))
+    record_overrides.attach(profile_id, rows)
+    return _out_of_range(_latest_labs(_dedupe([r for r in rows if not _said_wrong(r)])[:SUMMARY_LABS]))
 
 
 def recently_normal_lab_codes(profile_id: str, since: str, limit: int) -> list[str]:

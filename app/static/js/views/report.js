@@ -5,7 +5,8 @@ import { recordValue } from "../units.js";
 import { age, capitalize, fmtDate, fmtDateTime, html, icon, loading, mount, recordDate, resultStatus } from "../ui.js";
 
 const flagWord = (interp) => (interp && interp !== "normal" ? capitalize(interp.replace("_", " ")) : "");
-const flaggedRow = (l) => [l.title, l.value_text, flagWord(l.interpretation), l.ref_text || "—", fmtDate(l.effective_at)];
+const saidOf = (r) => (r.override ? html`<div class="small muted">Patient-reported: ${r.override.text}</div>` : "");
+const flaggedRow = (l) => [html`${l.title}${saidOf(l)}`, l.value_text, flagWord(l.interpretation), l.ref_text || "—", fmtDate(l.effective_at)];
 
 function table(headers, rows, empty = "None on record.") {
   if (!rows.length) return html`<p class="muted small">${empty}</p>`;
@@ -56,10 +57,10 @@ export async function render({ el, state }) {
         Remove the sources that don't belong to ${r.profile.name} before sharing it.</p></div></div>` : ""}
 
       <section><h2>Allergies</h2>${table(["Allergen", "Reaction", "Criticality"],
-        r.allergies.map((a) => [conflicted(a), a.narrative || "—", capitalize(a.details?.criticality) || "—"]), r.allergy_note || "No allergies on record.")}</section>
+        r.allergies.map((a) => [html`${conflicted(a)}${saidOf(a)}`, a.narrative || "—", capitalize(a.details?.criticality) || "—"]), r.allergy_note || "No allergies on record.")}</section>
 
       <section><h2>Active problems</h2>${table(["Condition", "ICD-10", "Since"],
-        r.active_conditions.map((c) => [conflicted(c), c.details?.icd10 || "—", c.details?.onset_text || fmtDate(c.effective_at)]))}
+        r.active_conditions.map((c) => [html`${conflicted(c)}${saidOf(c)}`, c.details?.icd10 || "—", c.details?.onset_text || fmtDate(c.effective_at)]))}
         ${r.unconfirmed_conditions?.length ? html`<h3>Unconfirmed, not established diagnoses</h3>${table(["Condition", "Status", "Since"],
           r.unconfirmed_conditions.map((c) => [c.title, capitalize(c.details?.verification) || "Unconfirmed", fmtDate(c.effective_at)]))}` : ""}
         ${r.conditions_status_unknown?.length ? html`<h3>Status not stated</h3>${table(["Condition", "ICD-10", "Recorded"],
@@ -88,7 +89,7 @@ export async function render({ el, state }) {
           r.flagged_labs.filter((l) => l.older).map(flaggedRow))}` : ""}</section>
 
       <section><h2>Recent lab results</h2>${table(["Test", "Result", "Flag", "Date"],
-        r.recent_labs.map((l) => [html`${l.title} ${resultStatus(l.status)}`, l.value_text, flagWord(l.interpretation), fmtDate(l.effective_at)]))}</section>
+        r.recent_labs.map((l) => [html`${l.title} ${resultStatus(l.status)}${saidOf(l)}`, l.value_text, flagWord(l.interpretation), fmtDate(l.effective_at)]))}</section>
 
       ${r.biometrics.length ? html`<section><h2>Wearable trends (30 days)</h2>${table(["Metric", "Latest", "7-day avg", "30-day avg"],
         r.biometrics.map((m) => [m.label, `${metricValue(m, m.latest.value)} ${metricUnit(m)}`,

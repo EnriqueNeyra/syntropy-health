@@ -206,6 +206,8 @@ def _keep_inline_files(conn: Any, cursor: Any, size: int) -> Any:
     last = None
     for row in rows:
         last = row["rowid"]
+        if '"data"' not in (row["raw_json"] or ""):
+            continue
         try:
             res = json.loads(row["raw_json"]) if row["raw_json"] else None
         except ValueError:

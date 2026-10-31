@@ -131,14 +131,14 @@ def _report_body(res: dict[str, Any], details_json: Optional[str]) -> Optional[s
 
 
 # The resources with an Annotation note: what a person said about a record stays beside it in the file, and is labelled.
-_TAKES_A_NOTE = {"MedicationRequest", "MedicationStatement", "Condition", "AllergyIntolerance", "Observation", "Immunization", "Procedure", "DiagnosticReport"}
+_TAKES_A_NOTE = {"MedicationRequest", "MedicationStatement", "Condition", "AllergyIntolerance", "Observation", "Immunization", "Procedure"}
 
 
 def _with_person_note(res: dict[str, Any], override: Optional[dict[str, Any]]) -> dict[str, Any]:
-    if not override or res.get("resourceType") not in _TAKES_A_NOTE or res.get("resourceType") == "DiagnosticReport":
+    if not override or res.get("resourceType") not in _TAKES_A_NOTE:
         return res
     words = record_overrides.said(override)
-    note = {"authorString": "The patient or their caregiver, through Syntropy Health", "text": f"Patient-reported: {words['text']}"}
+    note = {"authorString": record_overrides.NOTE_AUTHOR, "text": f"Patient-reported: {words['text']}"}
     return {**res, "note": [*(res.get("note") or []), note]}
 
 

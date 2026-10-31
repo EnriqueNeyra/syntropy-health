@@ -25,7 +25,7 @@ from app.connectors import wearable_common as wc
 from app.connectors.smart import SmartError
 from app.services import connect
 from app.core.db import audit, db, dumps, read
-from app.store import activity, biometrics, connections, record_files, records
+from app.store import activity, biometrics, connections, record_files, record_overrides, records
 
 log = logging.getLogger("syntropy.sync")
 
@@ -601,6 +601,12 @@ def _take_source_tag(res: dict[str, Any]) -> tuple[dict[str, Any], Optional[str]
     out = {k: v for k, v in res.items() if k != "meta"}
     if left:
         out["meta"] = left
+    if isinstance(out.get("note"), list):       # what an export adds isn't part of what the source sent
+        notes = [n for n in out["note"] if not (isinstance(n, dict) and n.get("authorString") == record_overrides.NOTE_AUTHOR)]
+        if notes:
+            out["note"] = notes
+        else:
+            del out["note"]
     return out, str(ours["code"]), str(ours.get("display") or "") or None
 
 

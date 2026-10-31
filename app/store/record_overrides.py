@@ -18,6 +18,8 @@ STATES = (NOT_TAKING, TAKING_DIFFERENTLY, WRONG)
 MEDICATION_ONLY = (NOT_TAKING, TAKING_DIFFERENTLY)
 WORDS = {NOT_TAKING: "Not taking", TAKING_DIFFERENTLY: "Taking differently", WRONG: "Wrong or not this person"}
 MAX_NOTE = 2000
+# On the note an export adds, so that bringing the file back in recognises the resource as the one it came from.
+NOTE_AUTHOR = "The patient or their caregiver, through Syntropy Health"
 
 
 def key_for(rec: dict[str, Any]) -> str:

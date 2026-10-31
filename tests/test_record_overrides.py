@@ -162,3 +162,28 @@ def test_what_the_person_adds_reaches_the_summary_labelled_patient_reported(clie
     assert client.get(f"/api/records/{rec['id']}").json()["editable"] is True
     assert client.delete(f"/api/labs/{rec['id']}").status_code == 200
     assert connections.get(rec["connection_id"])["provider"] == "manual"
+
+
+def test_what_an_export_adds_comes_back_out_when_the_file_returns(client, pid):
+    client.put(f"/api/records/{_one(pid, 'medications')['id']}/override", json={"state": "not_taking", "note": "Stopped"})
+    bundle = json.loads(b"".join(exports.bundle_stream(pid)))
+    exported = next(e["resource"] for e in bundle["entry"] if e["resource"]["resourceType"] == "MedicationRequest")
+    assert exported["note"]
+    clean, origin, _ = sync._take_source_tag(exported)
+    assert origin and "note" not in clean and clean == records.get_record(_one(pid, "medications")["id"])["raw"]
+
+
+def test_insights_leave_out_what_the_person_says_isnt_theirs(client, pid):
+    from app.services import insights
+    med = _one(pid, "medications")
+    assert any(m["name"] == "Amlodipine" for m in insights.medication_timeline(pid))
+    client.put(f"/api/records/{med['id']}/override", json={"state": "wrong"})
+    assert not insights.medication_timeline(pid)
+    res = sync.import_fhir_resources(pid, "Labs", [{"resourceType": "Observation", "id": "l1", "status": "final", "category": [{"coding": [{"code": "laboratory"}]}],
+                                                    "code": {"coding": [{"system": "http://loinc.org", "code": "2345-7"}], "text": "Glucose"}, "effectiveDateTime": "2025-05-01",
+                                                    "valueQuantity": {"value": 200, "unit": "mg/dL"}, "interpretation": [{"coding": [{"code": "H"}]}]}])
+    assert res["inserted"] == 1
+    assert records.flagged_labs(pid)
+    client.put(f"/api/records/{_one(pid, 'labs')['id']}/override", json={"state": "wrong"})
+    assert not records.flagged_labs(pid)
+    assert records.summary(pid)["flagged_labs"][0]["override"]["words"] == "Wrong or not this person"

@@ -54,8 +54,8 @@ export async function render({ el, parts, params, state, navigate }) {
     <div class="page-head"><div><h1>Records</h1><p>Everything from every source, merged and de-duplicated.</p></div>
       <div class="row wrap"><div class="search" style="min-width:240px">${icon("search")}<input class="input" id="rec-q" placeholder="Search records, codes, notes…" aria-label="Search records" value="${q}"></div>
         ${appBar ? "" : html`<a class="btn" href="#/report" title="A one-page summary to print or save as PDF">${icon("printer")} Visit summary</a>
-        <button class="btn" data-action="add-own">${icon("plus")} Add a medication or allergy</button>
-        <button class="btn btn-primary" data-action="add-labs">${icon("plus")} Add lab results</button>`}</div></div>
+        <button class="btn btn-primary" data-action="add-labs">${icon("plus")} Add lab results</button>`}
+        <button class="btn" data-action="add-own">${icon("plus")} Add a medication or allergy</button></div></div>
     ${connection ? html`<div class="banner info"><div class="grow">Showing records from one source only.</div><a class="btn btn-sm" href="#/records">Show all</a></div>` : ""}
     <div class="chips" id="rec-cats" style="margin-bottom:16px"></div>
     <div class="card" id="rec-list"></div>`);
