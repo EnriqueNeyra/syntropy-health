@@ -201,7 +201,9 @@ def medication_timeline(profile_id: str) -> list[dict[str, Any]]:
         day = _iso_day(r.get("effective_at"))
         if not day or (r.get("status") or "").lower() in NOT_TAKEN_STATUSES:
             continue
-        if ((r.get("details") or {}).get("intent") or "").lower() in NOT_AN_ORDER_INTENTS:
+        details = r.get("details") or {}
+        # A plan is how some systems file a medication someone reports taking at home. A plan nobody reported isn't an order.
+        if (details.get("intent") or "").lower() in NOT_AN_ORDER_INTENTS and not details.get("reported"):
             continue
         by_drug[r.get("dedup_key") or r["id"]].append({**r, "day": day})
     out = []
@@ -213,7 +215,7 @@ def medication_timeline(profile_id: str) -> list[dict[str, Any]]:
         out.append({"name": newest["title"], "first": oldest["day"], "last_ordered": newest["day"],
                     "orders": len({r["day"] for r in rows}), "record_id": newest["id"], "status": newest.get("status"), "sure": sure,
                     # Only a statement says the person took it, and only with a status that says so. An order is proof of an order.
-                    "reported_taking": oldest.get("resource_type") == "MedicationStatement" and first_sure})
+                    "reported_taking": (oldest.get("resource_type") == "MedicationStatement" or bool((oldest.get("details") or {}).get("reported"))) and first_sure})
     return out
 
 

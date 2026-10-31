@@ -948,3 +948,13 @@ def test_a_persons_own_time_zone_decides_what_today_is(client):
     assert their_today.isoformat() in ai.system_prompt(profiles.get_profile(pid)) or f"{their_today:%B}" in ai.system_prompt(profiles.get_profile(pid))
     assert goals.progress(pid) == []
 
+
+def test_a_medication_filed_as_a_plan_counts_when_someone_reported_taking_it(client):
+    pid = _prof()
+    src = _source(pid, "Clinic")
+    records.upsert_records(pid, src, "Clinic", [
+        {"resource_type": "MedicationRequest", "resource_id": "home", "category": "medications", "title": "Home drug", "status": "active",
+         "effective_at": f"{_ago(40)}T09:00:00Z", "dedup_key": "med|home", "details": {"intent": "plan", "reported": True}},
+        {"resource_type": "MedicationRequest", "resource_id": "idea", "category": "medications", "title": "Just a plan", "status": "active",
+         "effective_at": f"{_ago(40)}T09:00:00Z", "dedup_key": "med|idea", "details": {"intent": "plan"}}])
+    assert [m["label"] for m in insights.markers(pid)] == ["Started Home drug"]
