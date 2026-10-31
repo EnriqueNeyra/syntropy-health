@@ -322,6 +322,10 @@ of the license, and the Terms on the website cover the website and sign-in relay
   named instead of the app closing silently.
 - **Another site in the app's window** can't start programs, reach the app or pass itself off as the app, and always
   shows its name and a way back. The Mac app's way back from a sign-in works, and exports ask where to save.
+- **Connecting to a health system no longer jumps.** On a Mac the sign-in opens in a sheet over the window, which stays on
+  Syntropy Health, with the site's name, a Cancel button and nothing flashing white; when it's done the sheet closes and
+  the page shows the result. In a browser and in the Windows and phone apps, a short message says where you're going
+  first, and the page fades in when you come back.
 - A Mac can join a household server by its Tailscale name. Reading photos of lab reports says what the apps need and
   works as soon as Tesseract is installed. Logs rotate instead of growing forever, and the server keeps running when its
   log can't be written. `syntropy-health --help` no longer shows "==SUPPRESS==".

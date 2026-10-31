@@ -6,6 +6,7 @@ import {
 import { embedded, nativeNav, setToolbar } from "../app.js";
 import { networkStatus, renderNetworkPanel } from "../network.js";
 import { clearPrintedLetter, openRecordsRequest } from "./records-request.js";
+import { leaveForSignIn } from "../sign-in.js";
 
 const PLATFORM_COLORS = { epic: "#c2410c", cerner: "#b91c1c", athena: "#7c3aed", healow: "#0f766e", trubridge: "#0e7490", greenway: "#15803d", modmed: "#be185d", nextgen: "#4338ca", practicefusion: "#0891b2", medhost: "#9333ea", "smart-health-it": "#0369a1", custom: "#4b5563" };
 const PLATFORM_LABELS = { epic: "Epic MyChart", cerner: "Oracle Health", athena: "athenahealth", healow: "healow", trubridge: "TruBridge", greenway: "Greenway", modmed: "ModMed", nextgen: "NextGen", practicefusion: "Practice Fusion", medhost: "MEDHOST", "smart-health-it": "SMART Health IT", custom: "FHIR server" };
@@ -349,7 +350,7 @@ async function openAddHealthSystem(profileId) {
       btn.innerHTML = '<span class="spinner"></span> Preparing secure sign-in…';
       try {
         const res = await post("/api/connections/ehr", { institution_id: id, profile_id: profileId });
-        window.location.assign(res.auth_url);
+        leaveForSignIn(res.auth_url, () => { btn.disabled = false; btn.textContent = label; });
       } catch (err) { toast(err.message, "bad"); btn.disabled = false; btn.textContent = label; }
     },
     discover: async () => {
@@ -365,7 +366,7 @@ async function openAddHealthSystem(profileId) {
       btn.disabled = true;
       try {
         const res = await post("/api/connections/ehr", { fhir_base_url: url, client_id: cid, profile_id: profileId });
-        window.location.assign(res.auth_url);
+        leaveForSignIn(res.auth_url, () => { btn.disabled = false; });
       } catch (err) { toast(err.message, "bad"); btn.disabled = false; }
     },
   });
@@ -767,7 +768,7 @@ export async function render({ el, params, state }) {
     },
     reconnect: async ({ id }) => {
       const res = await post(`/api/connections/${id}/reconnect`);
-      window.location.assign(res.auth_url);
+      leaveForSignIn(res.auth_url);
     },
     details: async ({ id }) => {
       const c = await get(`/api/connections/${id}`, undefined, { fresh: true });
@@ -836,7 +837,7 @@ export async function render({ el, params, state }) {
     wearable: async ({ provider, mode }) => {
       if (mode === "simulated" && !(await confirmDialog("Add simulated data?", "This writes 90 days of made-up wearable readings into this person's record, for testing. Overview, Trends and Ask will say that the record includes simulated data until you remove this source with its data.", { confirmLabel: "Add simulated data" }))) return;
       const res = await post("/api/connections/wearable", { provider, mode, profile_id: profile.id });
-      if (res.auth_url) window.location.assign(res.auth_url);
+      if (res.auth_url) leaveForSignIn(res.auth_url);
       else { toast("Simulated wearable connected. Generating 90 days of data.", "good"); refresh(); }
     },
     pair: async () => { await openPairing(profile); },

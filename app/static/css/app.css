@@ -1516,7 +1516,12 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 /* New data is on its way for this part of the page: it stays in place, dimmed, rather than dropping to a placeholder. Dimming
    waits a moment, so a quick answer doesn't flicker. */
 .refreshing { opacity: .55; pointer-events: none; transition: opacity .15s ease .12s; }
-.refreshed { transition: opacity .15s ease; }
+/* Leaving for another site's sign-in, and coming back (sign-in.js). */
+.leaving { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--bg); text-align: center; animation: fade-in .2s ease both; }
+.leaving-words { max-width: 420px; overflow-wrap: anywhere; }
+.leaving-words p { margin: 12px 0 0; }
+.leaving .btn { margin-top: 18px; animation: fade-in .3s ease 4s both; }
+:root[data-arriving] body { animation: fade-in .3s ease; }
 /* Without View Transitions: colors ease into the new theme. */
 .theme-anim, .theme-anim *, .theme-anim *::before, .theme-anim *::after {
   transition: background-color .3s ease, color .3s ease, border-color .3s ease, fill .3s ease, stroke .3s ease, box-shadow .3s ease !important;

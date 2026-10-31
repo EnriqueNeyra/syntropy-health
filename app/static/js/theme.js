@@ -22,6 +22,8 @@
   if (embedded && /SyntropyNav\/\d/.test(ua)) root.setAttribute("data-native-nav", "");
   var shell = /SyntropyHealthDesktop\/[^ ]* \((Mac|Windows)\)/.exec(ua);
   if (shell) root.setAttribute("data-shell", shell[1].toLowerCase());
+  // Back from another site's sign-in: the page fades in rather than popping (app.css).
+  if (/^#\/sources\?(connected|problem|failed|error)=/.test(location.hash)) root.setAttribute("data-arriving", "");
   // Follow the device's appearance unless one was chosen here (Settings → General).
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {
     var chosen = null;

@@ -247,3 +247,69 @@ def test_windows_bar_trouble_doesnt_stop_the_title(monkeypatch):
     monkeypatch.setattr(win, "show_bar", broken)
     win.apply("https://mychart.example.org/")
     assert titles == ["mychart.example.org - Syntropy Health"]
+
+
+# ---------------------------------------------------------------------------
+# The Mac's sign-in sheet
+# ---------------------------------------------------------------------------
+
+HOME_ORIGINS = sites.home_origins(HOME)
+
+
+@pytest.mark.parametrize("url,goes", [
+    ("https://mychart.example.org/oauth2/authorize?state=x", True), ("http://127.0.0.1:9000/authorize", True),
+    ("http://localhost:8001/", True), ("https://localhost:8000/", True),
+    ("http://localhost:8000/#/sources", False), ("http://127.0.0.1:8000/callback?code=x", False),
+    ("about:blank", False), ("blob:https://evil.example/abc", False), ("data:text/html,x", False), ("mailto:a@example.test", False),
+    ("vscode://file/etc/hosts", False), ("http://[bad", False), (None, False)])
+def test_only_another_web_address_goes_to_the_sheet(url, goes):
+    assert sites.belongs_in_sheet(url, HOME_ORIGINS) is goes
+
+
+def test_with_no_home_known_nothing_goes_to_the_sheet():
+    assert sites.belongs_in_sheet("https://mychart.example.org/", set()) is False
+
+
+@pytest.mark.parametrize("url,may", [
+    ("https://mychart.example.org/", "load"), ("http://127.0.0.1:9000/", "load"), ("HTTPS://MyChart.example.org/", "load"),
+    ("about:blank", "load"), ("blob:https://mychart.example.org/abc", "load"), ("data:text/html,x", "load"),
+    ("mailto:a@example.test", "leave"),
+    ("ssh://evil.example/", "refuse"), ("smb://evil.example/share", "refuse"), ("vscode://file/etc/hosts", "refuse"), ("file:///etc/passwd", "refuse"),
+    ("x-apple.systempreferences:com.apple.preference.security", "refuse"), ("epic://sign-in", "refuse"), ("tel:5551234", "refuse"), ("", "refuse"), (None, "refuse")])
+def test_what_a_page_in_the_sheet_may_do(url, may):
+    assert sites.sheet_may(url) == may
+
+
+@pytest.mark.parametrize("url,ended", [
+    ("http://localhost:8000/#/sources?connected=abc", "#/sources?connected=abc"),
+    ("http://127.0.0.1:8000/#/sources?problem=a%2Fb", "#/sources?problem=a%2Fb"),
+    ("http://localhost:8000/", ""), ("http://localhost:8000", ""),
+    # Still going: the callback, the page that asks, and the relay's hand-off in the address.
+    ("http://localhost:8000/callback?code=x&state=y", None), ("http://localhost:8000/callback/choose?state=y", None),
+    ("http://localhost:8000/callback#access_token=t&state=s", None),
+    # Only this server's own pages end a sign-in, whatever the address says after the #.
+    ("https://evil.example/#/settings", None), ("http://localhost:8001/#/settings", None), ("https://localhost:8000/#/settings", None),
+    ("https://mychart.example.org/", None), ("blob:http://localhost:8000/#/settings", None), ("about:blank#/settings", None), (None, None)])
+def test_where_a_sign_in_ended(url, ended):
+    assert sites.sign_in_ended(url, HOME_ORIGINS) == ended
+
+
+def test_the_address_a_sign_in_ends_on_stays_text_in_the_page():
+    # It's put in the page with json.dumps: whatever the address held stays a string.
+    route = sites.sign_in_ended("http://localhost:8000/#/x';alert(1)//", HOME_ORIGINS)
+    assert json.loads(json.dumps(route)) == route and route.startswith("#/")
+
+
+@pytest.mark.parametrize("url,shows", [("http://localhost:8000/callback/choose?state=y", True), ("http://localhost:8000/callback", False),
+                                       ("http://localhost:8000/callback#access_token=t&state=s", False), ("http://localhost:8000/other", True)])
+def test_which_of_the_servers_own_pages_are_read(url, shows):
+    assert sites.sign_in_page_shows(url) is shows
+
+
+@pytest.mark.parametrize("url,name,lock", [
+    ("https://MyChart.example.org/login", "mychart.example.org", "lock"), ("http://clinic.example.org/", "clinic.example.org", "open"),
+    ("http://localhost:8000/callback", "Syntropy Health", ""), ("http://127.0.0.1:8000/callback/choose", "Syntropy Health", ""),
+    ("http://localhost:8001/", "localhost", "open"), ("https://localhost:8000/", "localhost", "lock"),
+    ("blob:https://evil.example/abc", "evil.example", ""), ("about:blank", "A page with no address", ""), ("data:text/html,x", "A page with no address", "")])
+def test_the_sheets_bar_names_the_site(url, name, lock):
+    assert sites.sheet_bar(url, HOME_ORIGINS) == (name, lock)
