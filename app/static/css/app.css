@@ -1197,10 +1197,12 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
   .ask-item:hover .ask-item-more { opacity: 1; }
   .ask-item-more:hover { background: var(--surface-3); }
 }
+/* Without a pointer its menu is always there, with room beside the title, and rows are big enough for a finger. */
 @media (hover: none) {
-  .ask-item-more { opacity: 1; background: none; }
+  .ask-item-more { top: 6px; opacity: 1; background: none; }
   .ask-item-more::before { display: none; }
-  .ask-item-open { padding-right: 34px; }
+  .ask-item-open { padding: 10px 34px 10px 8px; }
+  .ask-item .ask-rename { height: 40px; }
 }
 :root[data-shell] .ask-group { -webkit-user-select: none; user-select: none; }
 :root[data-shell="mac"] .ask-group { text-transform: none; letter-spacing: 0; color: var(--text-3); }
