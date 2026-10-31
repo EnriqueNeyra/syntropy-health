@@ -7,9 +7,11 @@ import io
 import json
 import time
 import zipfile
+from pathlib import Path
 
 import pytest
 
+import app
 from app.core.db import db
 from app.mcp_server import t_health_summary
 from app.services import exports, sync
@@ -249,3 +251,10 @@ def test_an_entry_marked_wrong_isnt_new_and_a_document_on_a_known_record_is(clie
     record_files.save(pid, med["connection_id"], med["resource_type"], med["resource_id"], "letter.pdf", "application/pdf", b"%PDF-1.4 a letter")
     groups = {g["key"]: g for g in records.new_since(pid, mark)["groups"]}
     assert [i["id"] for i in groups["documents"]["items"]] == [med["id"]]
+
+
+def test_people_who_can_only_view_dont_get_controls_that_would_be_refused():
+    css = (Path(app.__file__).parent / "static/css/app.css").read_text()
+    hidden = css.split(":root[data-view-only] :is(")[1].split(")")[0]
+    for control in ("[data-correction-form]", '[data-action="add-own"]', "#prep-form", "[data-remove-question]", ".report-choices"):
+        assert control in hidden

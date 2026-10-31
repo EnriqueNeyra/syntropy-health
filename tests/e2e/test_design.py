@@ -97,3 +97,14 @@ def test_a_disabled_main_button_is_grey_not_faded_accent(session):
     accent = page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--accent-fill').trim()")
     assert opacity == "1"
     assert colour != accent
+
+
+def test_a_name_of_only_spaces_stays_on_the_page(session):
+    page = session.open("#/records")
+    page.locator('[data-action="add-own"]').click()
+    posts: list[str] = []
+    page.on("request", lambda r: posts.append(r.url) if r.method == "POST" and "self-reported" in r.url else None)
+    page.locator('#own-form [name="name"]').fill("   ")
+    page.locator('#own-form [type="submit"], .modal-foot [type="submit"]').first.click()
+    page.wait_for_timeout(200)
+    assert posts == [] and page.locator("#own-form").count() == 1

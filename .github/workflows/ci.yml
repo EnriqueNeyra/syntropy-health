@@ -138,6 +138,8 @@ jobs:
         with:
           version: "0.11.15"      # the same in the Dockerfile and the installers
       - run: uv sync --frozen --python 3.12 --group dev --extra checks
+      # The tests skip themselves where there's no Chrome, which here would pass with nothing tested.
+      - run: google-chrome --version
       - name: Fetch axe-core
         run: |
           curl -fsSL https://registry.npmjs.org/axe-core/-/axe-core-4.10.3.tgz | tar -xz -C "$RUNNER_TEMP" package/axe.min.js

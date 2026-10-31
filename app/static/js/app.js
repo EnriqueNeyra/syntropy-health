@@ -493,7 +493,7 @@ function renderShell() {
   $("#logout-btn").title = out;
   mount($("#sidebar-footer"), household()
     ? html`${icon("user")}<span>Signed in as ${state.status.account.name}<br><span class="faint">v${state.status?.version || ""}</span></span>`
-    : html`${icon("shieldCheck")}<span>Stored on your computer<br><span class="faint">v${state.status?.version || ""}</span></span>`);
+    : html`${icon("shieldCheck")}<span>${state.status?.account?.owner === false ? "Stored on the computer that runs this" : "Stored on your computer"}<br><span class="faint">v${state.status?.version || ""}</span></span>`);
   // Someone shared with you to view: the page says so, and controls that would change their data are hidden.
   document.documentElement.toggleAttribute("data-view-only", p?.access === "view");
   mount($("#view-only"), p?.access === "view"

@@ -487,7 +487,7 @@ function auditAction(action, actor) {
   if (action?.startsWith("export.csv.")) return "Exported a CSV file";
   if (action?.startsWith("mcp.")) {
     const what = action.slice(4).replace(/^(get|list)_/, "").replaceAll("_", " ");
-    return actor?.startsWith("ask:") ? `Looked up ${what} to answer a question` : `AI app looked up ${what}`;
+    return /^ask(:|$)/.test(actor || "") ? `Looked up ${what} to answer a question` : `AI app looked up ${what}`;
   }
   return action;
 }
