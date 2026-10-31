@@ -104,7 +104,9 @@ export async function render({ el, parts, state, navigate }) {
         ${row("Version", "", html`<span class="mono">${settings.version}</span>`)}
         ${row("Source code", "Free and open source under the GNU AGPL-3.0.",
           html`<a href="${SOURCE_URL}" target="_blank" rel="noopener">View on GitHub</a>`)}
-        ${row("Your responsibility", "Your records are stored only on this computer and in your backups, not with Syntropy Labs. Keeping them secure and backed up is up to you. Syntropy Health organizes records and doesn't give medical advice.",
+        ${row(isOwner() ? "Your responsibility" : "Where your records are", isOwner()
+          ? "Your records are stored only on this computer and in your backups, not with Syntropy Labs. Keeping them secure and backed up is up to you. Syntropy Health organizes records and doesn't give medical advice."
+          : "Your records are stored on the computer that runs Syntropy Health and in its backups, not on this device and not with Syntropy Labs. Whoever runs that computer keeps it secure and backed up. Syntropy Health organizes records and doesn't give medical advice.",
           html`<span class="row" style="gap:12px"><a href="${TERMS_URL}" target="_blank" rel="noopener">Terms</a><a href="${PRIVACY_URL}" target="_blank" rel="noopener">Privacy</a></span>`)}
         ${isOwner() ? row("Data folder", "Make backups from Your data. A copy of this folder taken while Syntropy Health is running may not be complete.", html`<code>${settings.data_dir}</code>`) : ""}`)}
     </div>`);
@@ -355,7 +357,7 @@ export async function render({ el, parts, state, navigate }) {
     mount(body, html`<p class="small muted" style="margin:-4px 0 12px">${isOwner() ? "Every sign-in, sync, export and assistant lookup on this instance, newest first."
       : "Sign-ins, syncs, exports and assistant lookups for you and the people you can see, newest first."}</p>
       <div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th></tr></thead>
-      <tbody>${events.map((e) => html`<tr><td class="small" style="white-space:nowrap">${fmtDateTime(e.at)}</td><td class="small">${e.who || e.actor}</td><td title="${e.action}">${auditAction(e.action)}</td>
+      <tbody>${events.map((e) => html`<tr><td class="small" style="white-space:nowrap">${fmtDateTime(e.at)}</td><td class="small">${e.who || e.actor}</td><td title="${e.action}">${auditAction(e.action, e.actor)}</td>
         <td class="small muted" style="max-width:420px;word-break:break-word">${auditDetail(e.detail)}</td></tr>`)}</tbody></table></div></div>`);
     return null;
   }
@@ -480,10 +482,13 @@ const AUDIT_ACTIONS = {
   "updates.install": "Update installed", "ai.chat": "Asked the AI", "ai.provider_data_acknowledged": "Agreed to an online AI",
   "agent.token_created": "AI app access created", "agent.token_revoked": "AI app access revoked",
 };
-function auditAction(action) {
+function auditAction(action, actor) {
   if (AUDIT_ACTIONS[action]) return AUDIT_ACTIONS[action];
   if (action?.startsWith("export.csv.")) return "Exported a CSV file";
-  if (action?.startsWith("mcp.")) return `AI app looked up ${action.slice(4).replace(/^(get|list)_/, "").replaceAll("_", " ")}`;
+  if (action?.startsWith("mcp.")) {
+    const what = action.slice(4).replace(/^(get|list)_/, "").replaceAll("_", " ");
+    return actor?.startsWith("ask:") ? `Looked up ${what} to answer a question` : `AI app looked up ${what}`;
+  }
   return action;
 }
 
