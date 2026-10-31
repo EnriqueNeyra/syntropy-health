@@ -96,7 +96,8 @@ _UNFINISHED = "data.unfinished_deletes"
 
 def _person_settings(conn: Any, profile_id: str) -> None:
     for prefix in (f"overview.layout.{profile_id}", f"alerts.seen.{profile_id}", f"alerts.dismissed.{profile_id}", f"goals.{profile_id}",
-                   f"insights.hidden.{profile_id}", f"training.max_hr.{profile_id}"):
+                   f"insights.hidden.{profile_id}", f"training.max_hr.{profile_id}", f"report.preferences.{profile_id}", f"records.seen.{profile_id}",
+                   f"records.stopped.{profile_id}"):
         settings.delete_prefix_in(conn, prefix)
 
 

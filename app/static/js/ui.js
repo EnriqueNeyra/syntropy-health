@@ -98,6 +98,16 @@ export function age(birthDate) {
   if (now < new Date(now.getFullYear(), d.getMonth(), d.getDate())) a--;
   return a;
 }
+/** An age as it's said: months until two years old, then years. */
+export function ageText(birthDate) {
+  const d = parseDate(birthDate);
+  const years = age(birthDate);
+  if (years == null) return null;
+  if (years >= 2) return `${years} years`;
+  const now = new Date();
+  const months = (now.getFullYear() - d.getFullYear()) * 12 + now.getMonth() - d.getMonth() - (now.getDate() < d.getDate() ? 1 : 0);
+  return `${Math.max(months, 0)} ${months === 1 ? "month" : "months"}`;
+}
 export function initials(name) {
   return String(name || "?").split(/[\s\-–(]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
 }

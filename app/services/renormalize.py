@@ -102,4 +102,24 @@ def step(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
     return {"after": rows[-1]["row_number"], "changed": state["changed"] + changed, "removed": state["removed"] + removed}
 
 
+def written_ranges_step(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
+    """Results whose range came only as text were never compared with it. They're read again now that simple ones can be."""
+    after = cursor or 0
+    top = conn.execute("SELECT max(rowid) FROM (SELECT rowid FROM clinical_records WHERE rowid > ? ORDER BY rowid LIMIT ?)", (after, size)).fetchone()[0]
+    if top is None:
+        return None
+    rows = conn.execute("SELECT * FROM clinical_records WHERE rowid > ? AND rowid <= ? AND raw_json IS NOT NULL AND ref_text IS NOT NULL "
+                        "AND ref_low IS NULL AND ref_high IS NULL AND ref_text GLOB '*[0-9]*'", (after, top)).fetchall()
+    people: dict[str, Any] = {}
+    now = time.time()
+    for raw_row in rows:
+        row = dict(raw_row)
+        fresh = reread(row, _person(conn, row["connection_id"], people))
+        if isinstance(fresh, dict) and any(fresh[k] != row[k] for k in _DERIVED):
+            conn.execute(f"UPDATE clinical_records SET {', '.join(f'{k} = ?' for k in _DERIVED)}, updated_at = ? WHERE id = ?",
+                         (*(fresh[k] for k in _DERIVED), now, row["id"]))
+    return top
+
+
 data_fixes.register(NAME, step)
+data_fixes.register("records-written-ranges-compared", written_ranges_step)

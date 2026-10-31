@@ -8,7 +8,7 @@ import { barChart, lineChart, responsive } from "../charts.js";
 import { metricUnit, metricValue } from "./overview.js";
 import { drawSleep } from "./sleep-view.js";
 import {
-  bucket, bucketWord, compareCard, goalText, loadGoals, loadMarkers, markerList, markerToggle, markersOn, meets, openGoal,
+  bucket, bucketWord, compareCard, goalText, loadGoals, loadMarkers, markerList, markerToggle, markersOn, measureFormat, meets, openGoal,
   rangeButtons, saveDays, savedDays, setMarkersOn,
 } from "./trend-tools.js";
 import { convert, displayUnit, fmtMeasure, recordValue } from "../units.js";
@@ -21,6 +21,56 @@ import {
 const LEFT_OUT_REASON = { range: "Outside what's possible", unit: "In a unit Syntropy Health doesn't know", date: "The date can't be right" };
 
 const READINGS_SHOWN = 500;
+const CLINICAL_PERIODS = [[0, "All"], [1825, "5 years"], [365, "1 year"], [180, "6 months"]];
+const BP_PANEL_CODE = "85354-6";
+const HOME_PRESSURE = [["blood_pressure_systolic", "Home systolic"], ["blood_pressure_diastolic", "Home diastolic"]];
+const BEFORE_AFTER_WINDOWS = [[0, "All on record"], [90, "90 days each side"], [180, "180 days each side"], [365, "1 year each side"]];
+
+/** A measure's daily values on each side of a chosen date. Nothing about why. */
+function beforeAfterDate(host, { profile, it, medications }) {
+  mount(host, html`<h3 style="margin-bottom:8px">Before and after a date</h3>
+    <div class="row wrap" style="gap:8px;margin-bottom:8px">
+      <input class="input input-sm" type="date" data-bd="date" aria-label="Date" style="width:auto">
+      ${medications.length ? html`<select class="input input-sm" data-bd="med" aria-label="A medication's first order" style="width:auto"><option value="">Or a medication</option>
+        ${medications.map((m) => html`<option value="${m.t}">${m.name} · ${fmtDate(m.t)}</option>`)}</select>` : ""}
+      <select class="input input-sm" data-bd="window" aria-label="How far either side" style="width:auto">${[[30, "30 days each side"], [90, "90 days each side"], [180, "180 days each side"]].map(([d, label]) => html`<option value="${d}">${label}</option>`)}</select></div>
+    <div data-bd-out></div>`);
+  const out = host.querySelector("[data-bd-out]");
+  const dateBox = host.querySelector('[data-bd="date"]');
+  const show = async () => {
+    if (!dateBox.value) { mount(out, ""); return; }
+    const d = await get("/api/insights/before-after", { profile: profile.id, measure: it.metric, date: dateBox.value, window: Number(host.querySelector('[data-bd="window"]').value) });
+    const f = measureFormat(d);
+    const cell = (x) => (x.days ? html`${f.text(x.avg)} average<div class="small muted">${plural(x.days, "day")}, ${f.text(x.low)} to ${f.text(x.high)}</div>` : "No days");
+    mount(out, html`<div class="table-wrap"><table class="table"><thead><tr><th>Before ${fmtDate(d.date)}</th><th>After ${fmtDate(d.date)}</th></tr></thead>
+      <tbody><tr><td>${cell(d.before)}</td><td>${cell(d.after)}</td></tr></tbody></table></div>
+      <p class="small muted" style="margin-top:6px">The values on each side of this date. They don't show why any values differ.</p>`);
+  };
+  host.querySelector('[data-bd="med"]')?.addEventListener("change", (e) => { if (e.target.value) { dateBox.value = e.target.value; show().catch((err) => toast(err.message, "bad")); } });
+  host.querySelectorAll('[data-bd="date"], [data-bd="window"]').forEach((c) => c.addEventListener("change", () => show().catch((err) => toast(err.message, "bad"))));
+}
+
+/** A test's values on each side of a medication's first order on record: what they were, and how many. Nothing about why. */
+function beforeAfterCard(host, { profile, it, medications }) {
+  mount(host, html`<h3 style="margin-bottom:8px">Before and after</h3>
+    <div class="row wrap" style="gap:8px;margin-bottom:8px">
+      <select class="input input-sm" data-ba="med" aria-label="Medication" style="width:auto"><option value="">Choose a medication</option>
+        ${medications.map((m) => html`<option value="${m.t}">${m.name} · ${m.event} ${fmtDate(m.t)}</option>`)}</select>
+      <select class="input input-sm" data-ba="window" aria-label="How far either side" style="width:auto">${BEFORE_AFTER_WINDOWS.map(([d, label]) => html`<option value="${d}">${label}</option>`)}</select></div>
+    <div data-ba-out></div>`);
+  const out = host.querySelector("[data-ba-out]");
+  const side = (x, unit) => (x.count ? html`${fmtNum(x.avg)} ${unit || ""} average<div class="small muted">${plural(x.count, "result")}, ${fmtNum(x.low)} to ${fmtNum(x.high)}, ${fmtDate(x.first_at)} to ${fmtDate(x.last_at)}</div>` : "No results");
+  const show = async () => {
+    const start = host.querySelector('[data-ba="med"]').value;
+    if (!start) { mount(out, ""); return; }
+    const window = Number(host.querySelector('[data-ba="window"]').value) || undefined;
+    const d = await get("/api/observations/before-after", { profile: profile.id, start, code: it.code || undefined, title: it.code ? undefined : it.title, category: it.category, window });
+    mount(out, html`<div class="table-wrap"><table class="table"><thead><tr><th>Measure</th><th>Before ${fmtDate(d.start)}</th><th>After ${fmtDate(d.start)}</th></tr></thead>
+      <tbody>${d.lines.map((l) => html`<tr><td>${l.name}</td><td>${side(l.before, l.unit)}</td><td>${side(l.after, l.unit)}</td></tr>`)}</tbody></table></div>
+      <p class="small muted" style="margin-top:6px">The values on each side of this date, from the first order on record. They don't show why any values differ, and the record may not show when it was actually started or stopped.</p>`);
+  };
+  host.querySelectorAll("[data-ba]").forEach((c) => c.addEventListener("change", () => show().catch((err) => toast(err.message, "bad"))));
+}
 
 const readingText = (s) => {
   const m = { metric: s.metric_type, unit: s.shown_unit };
@@ -260,6 +310,7 @@ export async function render({ el, parts, params, state, navigate }) {
   let days = savedDays();
   let source = "";
   let unitChoice = 0;
+  let clinicalDays = 0;
   let showMarkers = markersOn();
   // Comparing the chosen measure with another (kept in the address, so a link from an insight opens it).
   const cmp = { b: params.get("compare") || null, lag: Number(params.get("lag")) || 0 };
@@ -358,10 +409,13 @@ export async function render({ el, parts, params, state, navigate }) {
     s.ref_low = cv(s.ref_low);
     s.ref_high = cv(s.ref_high);
     const latest = pts[pts.length - 1];
-    const first = pts[0];
-    const clinicalMarks = () => (pts.length > 1 ? markers.filter((m) => m.t >= String(first.t).slice(0, 10) && m.t <= String(latest.t).slice(0, 10)) : []);
+    const inPeriod = (p) => !clinicalDays || new Date(p.t).getTime() >= Date.now() - clinicalDays * 86400000;
+    const shownPts = pts.filter(inPeriod);
+    const shownComponents = s.components.map((c) => ({ ...c, points: c.points.filter(inPeriod) }));
+    const span = [...shownPts, ...shownComponents.flatMap((c) => c.points)].map((p) => String(p.t).slice(0, 10)).sort();
+    const clinicalMarks = () => (span.length > 1 ? markers.filter((m) => m.t >= span[0] && m.t <= span[span.length - 1]) : []);
     // A limit like "<5" isn't a level, so the change is between actual measurements.
-    const measured = pts.filter((p) => !p.comparator);
+    const measured = shownPts.filter((p) => !p.comparator);
     const change = measured.length > 1 ? measured[measured.length - 1].v - measured[0].v : null;
     const bound = (p) => (p.comparator ? p.comparator.replace("<=", "≤").replace(">=", "≥") : "");
     const rows = hasComponents ? componentRows(s.components)
@@ -390,7 +444,9 @@ export async function render({ el, parts, params, state, navigate }) {
           <p class="small muted" style="margin:0 0 8px">Some results are in a unit that can't be converted to the others, so they have their own chart rather than sharing an axis.</p>` : ""}
         ${hasComponents ? html`<div class="legend" style="margin-bottom:6px">${s.components.map((c, i) => html`<span class="${i ? "alt" : ""}">${c.name}</span>`)}</div>`
           : ref ? html`<div class="legend" style="margin-bottom:6px"><span class="band">Reference range</span></div>` : ""}
-        ${pts.length > 1 ? html`<div class="row wrap" style="justify-content:flex-end;margin-bottom:4px">${markerToggle(clinicalMarks().length, showMarkers)}</div>` : ""}
+        ${pts.length > 1 || hasComponents ? html`<div class="row wrap between" style="margin-bottom:4px">
+          <div class="chips">${CLINICAL_PERIODS.map(([d, label]) => html`<button class="chip ${clinicalDays === d ? "active" : ""}" data-action="clinical-period" data-days="${d}">${label}</button>`)}</div>
+          ${markerToggle(clinicalMarks().length, showMarkers)}</div>` : ""}
         ${wordsOnly ? html`<p class="small muted" style="margin:0">No chart, because these results are words rather than numbers. Every result is listed below.</p>` : html`<div id="tr-chart"></div>`}
         ${markerList(showMarkers ? clinicalMarks() : [])}
         ${change !== null ? html`<p class="small muted" style="margin-top:8px">${Math.abs(change) < 1e-9 ? "Unchanged" : `${change > 0 ? "Up" : "Down"} ${body ? fmtNum(Math.abs(change), 1) : num(Math.abs(change))} ${unit}`}
@@ -403,13 +459,27 @@ export async function render({ el, parts, params, state, navigate }) {
         <tbody>${rows.slice().reverse().map((r) => html`<tr class="clickable" data-action="open" data-id="${r.record_id}">
           <td>${fmtDate(r.t)}</td><td class="num">${r.text}${r.standard ? html`<div class="small muted">${r.standard}</div>` : ""}</td><td>${resultStatus(r.status)}${flagBadge(r.interpretation)}</td><td class="small muted">${r.source || ""}</td></tr>`)}</tbody></table></div></div>`);
     wireDetail(detail);
+    const medications = markers.filter((m) => m.kind === "medications");
+    if (medications.length && (measured.length || hasComponents)) {
+      const host = document.createElement("div");
+      host.className = "card card-pad";
+      detail.insertBefore(host, detail.lastElementChild);
+      beforeAfterCard(host, { profile, it, medications });
+    }
     if (wordsOnly) return;
     const chartEl = $("#tr-chart", detail);
+    // Home readings beside the clinic's, on the same axis: the same measurement, taken elsewhere.
+    const home = hasComponents && it.code === BP_PANEL_CODE ? (await Promise.all(HOME_PRESSURE.map(([metric, name], i) =>
+      get("/api/biometrics/daily", { profile: profile.id, metric, days: clinicalDays || 3650 }).then((d) => ({ name, alt: i === 1, faint: true, points: d.points.map((p) => ({ t: p.day, v: p.value, label: "Home" })) })).catch(() => null))))
+      .filter((line) => line?.points.length) : [];
+    if (seq !== drawSeq) return;
+    if (home.length) $(".legend", detail)?.insertAdjacentHTML("beforeend", '<span class="faint">Paler lines: home readings, daily</span>');
     const draw = () => {
       if (hasComponents) {
-        lineChart(chartEl, s.components.slice(0, 2).map((c, i) => ({ name: c.name, alt: i === 1, points: c.points })), { unit: s.components[0].unit, label: s.title });
+        lineChart(chartEl, [...shownComponents.slice(0, 2).map((c, i) => ({ name: c.name, alt: i === 1, points: c.points })), ...home],
+          { unit: s.components[0].unit, label: s.title, markers: showMarkers ? clinicalMarks() : [] });
       } else {
-        lineChart(chartEl, [{ name: s.title, points: pts.map((p) => ({ t: p.t, v: p.v, flag: isFlagged(p.interpretation), bound: Boolean(p.comparator),
+        lineChart(chartEl, [{ name: s.title, points: shownPts.map((p) => ({ t: p.t, v: p.v, flag: isFlagged(p.interpretation), bound: Boolean(p.comparator),
             prefix: bound(p), label: p.source_name })) }],
           { unit, band: { low: s.ref_low, high: s.ref_high }, label: s.title, markers: showMarkers ? clinicalMarks() : [],
             onPointClick: (p) => openRecord(pts.find((q) => q.t === p.t)?.record_id) });
@@ -519,6 +589,12 @@ export async function render({ el, parts, params, state, navigate }) {
     };
     stopResize = responsive(chartEl, draw);
     await drawCompare(detail, it, seq);
+    if (seq === drawSeq) {
+      const host = document.createElement("div");
+      host.className = "card card-pad";
+      detail.appendChild(host);
+      beforeAfterDate(host, { profile, it, medications: markers.filter((m) => m.kind === "medications") });
+    }
   };
 
   // An ECG or a notification: every time it happened, newest first, with what the device reported.
@@ -600,6 +676,7 @@ export async function render({ el, parts, params, state, navigate }) {
     back: () => { showDetail = false; layout(); scrollToTop(); },
     range: ({ days: d }) => { days = Number(d); saveDays(days); return drawDetail(); },
     unit: ({ index }) => { unitChoice = Number(index) || 0; return drawDetail(); },
+    "clinical-period": ({ days: d }) => { clinicalDays = Number(d) || 0; return drawDetail(); },
     goal: () => {
       if (selected?.kind !== "wearable") return;
       const g = goalsNow?.goals?.[selected.metric];

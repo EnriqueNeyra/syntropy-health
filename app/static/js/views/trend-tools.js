@@ -66,6 +66,7 @@ export const bucketWord = (size) => (size === "week" ? "Weekly average" : size =
  */
 export function measureFormat(meta) {
   const key = meta.key || meta.metric;
+  if (key?.startsWith("logged:")) return { conv: (v) => v, text: (v) => (v ? "Logged" : "Not logged"), unit: "" };
   if (key === "journal:mood") return { conv: (v) => (v + 1) * 2 + 1, text: (v) => `${fmtNum((v + 1) * 2 + 1, 1)} of 5`, unit: "of 5" };
   if (key?.startsWith("journal:")) return { conv: (v) => v, text: (v) => `${fmtNum(v, 1)} of 5`, unit: "of 5" };
   if (key === "workouts:minutes") return { conv: (v) => v, text: (v) => `${fmtNum(v, 0)} min`, unit: "min" };
@@ -156,16 +157,26 @@ export const markerList = (list) => (list.length ? html`<div class="marker-list 
 async function comparable(profileId) {
   return (await get("/api/insights/comparable", { profile: profileId })).measures;
 }
-const GROUP_NAMES = { journal: "How you felt (Journal)", workouts: "Workouts", sleep: "Sleep", readiness: "Recovery", heart: "Heart",
+const GROUP_NAMES = { logged: "Logged in the Journal", journal: "How you felt (Journal)", workouts: "Workouts", sleep: "Sleep", readiness: "Recovery", heart: "Heart",
   activity: "Activity", vitals: "Vitals", body: "Body", mobility: "Mobility", nutrition: "Nutrition", hearing: "Hearing" };
 
 /** A label inside a sentence: "Steps" → "steps", but "HRV (RMSSD)", "VO₂ max" and "SpO2" stay as they are. */
 const soft = (label) => (/^[A-Z][a-z]+(\s|$)/.test(label) ? label[0].toLowerCase() + label.slice(1) : label);
 const lagWords = (lag) => (lag === 1 ? "the next day" : lag === -1 ? "the day before" : lag > 1 ? `${lag} days later` : lag < -1 ? `${-lag} days before` : "on the same day");
 
+/** A measure on days with something logged, and on days without. */
+function withWithout(res) {
+  const w = res.with_without;
+  const measure = res.a.label === w.item ? res.b : res.a;
+  const f = measureFormat(measure);
+  if (!w.days_with || !w.days_without) return `There aren't days both with and without ${w.item} to compare yet.`;
+  return `${measure.label} averaged ${f.text(w.avg_with)} on ${plural(w.days_with, "day")} with ${w.item}${res.lag ? ` ${lagWords(res.lag)}` : ""}, and ${f.text(w.avg_without)} on ${plural(w.days_without, "day")} without.`;
+}
+
 function describe(res) {
   const fa = measureFormat(res.a), fb = measureFormat(res.b);
   const when = lagWords(res.lag);
+  if (res.with_without) return withWithout(res);
   if (res.strength === "not enough days to tell") return res.n ? `Only ${plural(res.n, "day has", "days have")} both. It takes about four weeks to tell whether two things move together.`
     : "No days have both yet, so there's nothing to compare.";
   const a = soft(res.a.label), b = soft(res.b.label);

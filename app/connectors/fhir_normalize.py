@@ -438,8 +438,9 @@ def _stated_interpretation(res: dict[str, Any]) -> tuple[Optional[str], bool]:
     return None, False
 
 
-def _flag_from_range(value: Optional[float], low: Optional[float], high: Optional[float], comparator: Optional[str]) -> Optional[str]:
-    """A comparator makes the value a bound: "<5" is somewhere below 5. A flag is only given when all of that interval says the same."""
+def _flag_from_range(value: Optional[float], low: Optional[float], high: Optional[float], comparator: Optional[str], open_limit: bool = False) -> Optional[str]:
+    """A comparator makes the value a bound: "<5" is somewhere below 5. A flag is only given when all of that interval says the same.
+    ``open_limit``: the range was written "<5" or ">60", so the limit itself is outside it."""
     if value is None or (low is None and high is None) or comparator == "ad":
         return None
     if comparator in ("<", "<="):
@@ -450,17 +451,17 @@ def _flag_from_range(value: Optional[float], low: Optional[float], high: Optiona
         if high is not None and (value > high or (comparator == ">" and value == high)):
             return "high"
         return "normal" if high is None and low is not None and value >= low else None
-    if high is not None and value > high:
+    if high is not None and (value > high or (open_limit and value == high)):
         return "high"
-    if low is not None and value < low:
+    if low is not None and (value < low or (open_limit and value == low)):
         return "low"
     return "normal"
 
 
 def _interpretation(res: dict[str, Any], value: Optional[float], low: Optional[float], high: Optional[float],
-                    comparator: Optional[str] = None) -> Optional[str]:
+                    comparator: Optional[str] = None, open_limit: bool = False) -> Optional[str]:
     stated, words_only = _stated_interpretation(res)
-    computed = _flag_from_range(value, low, high, comparator)
+    computed = _flag_from_range(value, low, high, comparator, open_limit)
     if stated == "critical":     # says how serious, not which way: the range can tell
         return {"high": "critical_high", "low": "critical_low"}.get(computed or "", "abnormal")
     if stated == "normal" and words_only and computed in ("high", "low"):
@@ -631,6 +632,25 @@ def _bounds(rr: dict[str, Any]) -> tuple[Optional[float], Optional[float]]:
     return _num((rr.get("low") or {}).get("value")), _num((rr.get("high") or {}).get("value"))
 
 
+_NUMBER = r"(\d+(?:\.\d+)?|\.\d+)"
+_WRITTEN_RANGE = re.compile(rf"^\s*(?:{_NUMBER}\s*(?:-|–|—|to)\s*{_NUMBER}|(<=|>=|≤|≥|<|>)\s*{_NUMBER})\s*(\S+)?\s*$")
+
+
+def _written_bounds(rr: dict[str, Any]) -> Optional[tuple[Optional[float], Optional[float], bool, Optional[str]]]:
+    """A range given only as text, when it's plainly numbers: "70-99 mg/dL", "<5.7", ">=60". Low, high, whether the limit itself is
+    outside the range, and the unit written. Anything with more words ("NON-REACTIVE", "Adults: 70-99", "<5.7 if diabetic") stays unread."""
+    text = rr.get("text")
+    match = _WRITTEN_RANGE.match(text) if isinstance(text, str) else None
+    if not match:
+        return None
+    if match.group(1):
+        low, high = float(match.group(1)), float(match.group(2))
+        return (low, high, False, match.group(5)) if low <= high else None
+    limit = float(match.group(4))
+    below = match.group(3) in ("<", "<=", "≤")
+    return (None if below else limit, limit if below else None, match.group(3) in ("<", ">"), match.group(5))
+
+
 def _range_kind(rr: dict[str, Any]) -> str:
     return (status_code(rr.get("type")) or "").replace(" ", "-")
 
@@ -746,9 +766,13 @@ def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] 
     ref_text = None
     compare = (value, None, None)
     source_range = None
+    open_limit = False
     if chosen:
         low, high = _bounds(chosen)
         range_unit = _range_unit(chosen)
+        written = _written_bounds(chosen) if low is None and high is None and value is not None else None
+        if written and (not written[3] or units.unit_key(written[3]) in (units.unit_key(unit), units.unit_key(reported["convert_unit"]))):
+            low, high, open_limit, _ = written
         same_unit = not range_unit or units.unit_key(range_unit) in (units.unit_key(unit), units.unit_key(reported["convert_unit"])) or value is None
         if same_unit:
             # Converted with the value; compared as reported, before rounding can move a result across a limit.
@@ -772,7 +796,7 @@ def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] 
     rec.update({
         "value_num": value, "unit": units.pretty_unit(unit), "value_norm": value_norm,
         "unit_norm": units.pretty_unit(unit_norm), "ref_low": ref_low, "ref_high": ref_high, "ref_text": ref_text,
-        "interpretation": _interpretation(res, compare[0], compare[1], compare[2], comparator),
+        "interpretation": _interpretation(res, compare[0], compare[1], compare[2], comparator, open_limit),
     })
     details: dict[str, Any] = {"components": comps} if comps else {}
     if comparator:

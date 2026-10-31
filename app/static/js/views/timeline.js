@@ -11,8 +11,8 @@ import {
 } from "../ui.js";
 
 const FILTERS = [
-  ["", "Everything"], ["encounters", "Visits"], ["labs", "Labs"], ["conditions", "Diagnoses"], ["medications", "Medications"],
-  ["procedures,reports", "Procedures & imaging"], ["immunizations", "Vaccines"], ["notes", "Notes"],
+  ["", "Everything"], ["encounters", "Visits"], ["labs,lab_reports", "Labs"], ["conditions", "Diagnoses"], ["medications", "Medications"],
+  ["procedures", "Procedures"], ["imaging", "Imaging and reports"], ["immunizations", "Vaccines"], ["notes", "Notes"],
   ["journal,checkins", "Journal"], ["signals", "Device alerts"], ["workouts", "Workouts"],
 ];
 const JOURNAL_ICONS = { symptoms: "stethoscope", medication: "pill", notes: "note", cycle: "heart", stateOfMind: "sparkles", other: "list" };

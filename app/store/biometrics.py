@@ -1298,6 +1298,39 @@ def _headline(profile_id: str, metrics: Optional[list[str]] = None) -> list[dict
     return out
 
 
+HOME_READINGS = ("blood_pressure_systolic", "blood_pressure_diastolic", "blood_glucose")
+
+
+def _window_stats(values: list[float]) -> dict[str, Any]:
+    if not values:
+        return {"count": 0}
+    return {"count": len(values), "avg": round(sum(values) / len(values), 1), "low": min(values), "high": max(values)}
+
+
+def home_readings(profile_id: str, now: Optional[datetime] = None) -> list[dict[str, Any]]:
+    """Averages, counts and lowest and highest of home blood pressure and glucose readings, over 7 and 30 days. Every reading,
+    rather than daily figures: a month of them is the point. One reading sent by two apps counts once, and simulated ones don't."""
+    now = now or datetime.now(timezone.utc)
+    week, month = ((now - timedelta(days=d)).strftime(_ISO) for d in (7, 30))
+    out = []
+    with read() as conn:
+        for metric in HOME_READINGS:
+            rows = conn.execute("SELECT value, unit, start_date, source_name FROM biometric_samples WHERE profile_id = ? AND metric_type = ? "
+                                "AND start_date >= ? AND flag IS NULL ORDER BY start_date DESC", (profile_id, metric, month)).fetchall()
+            once: dict[str, Any] = {}
+            for row in rows:
+                if "(simulated)" not in (row["source_name"] or ""):
+                    once.setdefault(row["start_date"], row)
+            if not once:
+                continue
+            readings = list(once.values())
+            out.append({"metric": metric, "label": metric_label(metric), "unit": readings[0]["unit"], "last_at": readings[0]["start_date"],
+                        "d7": _window_stats([r["value"] for r in readings if r["start_date"] >= week]),
+                        "d30": _window_stats([r["value"] for r in readings]),
+                        "sources": sorted({r["source_name"] for r in readings if r["source_name"]})})
+    return out
+
+
 def has_samples(profile_id: str) -> bool:
     with read() as conn:
         return conn.execute("SELECT 1 FROM biometric_samples WHERE profile_id = ? LIMIT 1", (profile_id,)).fetchone() is not None

@@ -97,7 +97,7 @@ export function lineChart(container, series, opts = {}) {
     if (series.length === 1 && pts.length > 1 && !(opts.band && (opts.band.low != null || opts.band.high != null))) {
       svg += `<path class="area" d="${d}L${x(pts[pts.length - 1].time).toFixed(1)},${PAD.top + ih}L${x(pts[0].time).toFixed(1)},${PAD.top + ih}Z"/>`;
     }
-    svg += `<path class="line${s.alt ? " alt" : ""}" d="${d}" pathLength="1"/>`;
+    svg += `<path class="line${s.alt ? " alt" : ""}${s.faint ? " faint" : ""}" d="${d}" pathLength="1"/>`;
     const showAll = pts.length <= 40;
     pts.forEach((p, i) => {
       if (showAll || p.flag || i === pts.length - 1) {

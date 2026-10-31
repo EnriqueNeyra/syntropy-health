@@ -267,7 +267,7 @@ export function renderOnboarding(status, onDone) {
     onAction($(".onboard-card"), {
       back: devices, next: owner ? ai : () => finish("#/overview"),
       iphone: () => finish("#/sources?add=iphone"),
-      wearables: () => finish("#/sources"),
+      wearables: () => finish("#/sources?add=wearable"),
       ehr: () => finish("#/sources?add=ehr"),
       import: () => finish("#/sources?add=import"),
     });

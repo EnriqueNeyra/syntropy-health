@@ -87,6 +87,17 @@ def compare(a: str = Query(..., max_length=80), b: str = Query(..., max_length=8
         raise HTTPException(400, str(exc)) from exc
 
 
+@router.get("/api/insights/before-after", dependencies=[user])
+def before_after(measure: str = Query(..., max_length=80), date: str = Query(..., max_length=25), profile: Optional[str] = None,
+                 window: int = Query(30, ge=3, le=730)) -> dict:
+    """A measure's daily values on each side of a date."""
+    prof = resolve_profile(profile)
+    try:
+        return insights.before_after_date(prof["id"], measure, date, window)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 @router.get("/api/insights/markers", dependencies=[user])
 def markers(profile: Optional[str] = None, start: Optional[str] = Query(None, max_length=10),
             end: Optional[str] = Query(None, max_length=10)) -> dict:

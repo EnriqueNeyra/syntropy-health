@@ -1,12 +1,12 @@
 import { api, del, get, put } from "../api.js";
-import { refreshAlerts } from "../alerts.js";
+import { isStale, refreshAlerts } from "../alerts.js";
 import { haptic } from "../app.js";
 import { barChart, responsive, sparkline } from "../charts.js";
 import { openRecord } from "./record-detail.js";
 import { moodLabel } from "./journal.js";
 import { duration, openWorkout } from "./workouts.js";
 import {
-  pageScroller, $, $$, age, capitalize, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw,
+  pageScroller, $, $$, age, ageText, capitalize, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw,
   plural, recordDate, resultStatus, toast,
 } from "../ui.js";
 import { displayUnit, fmtMeasure, recordValue, unitSystem } from "../units.js";
@@ -101,6 +101,14 @@ export function insightItem(i, { hide = true } = {}) {
   </div>`;
 }
 
+/** What the latest lab results come to. "All" only when every one of them was checked against a range. */
+export function labStatusText(s) {
+  if (!s?.total) return "No lab results on record.";
+  if (s.in_range === s.total) return `All ${s.total} latest results were in range.`;
+  const unchecked = s.not_assessed ? ` ${s.not_assessed} had no range to compare with.` : "";
+  return `${s.in_range} of ${s.total} latest results were in range${s.flagged ? `, ${s.flagged} out of range` : ""}.${unchecked}`;
+}
+
 /** How long ago, in the words of someone reading a result: "about 3 years ago". */
 function ageWords(when) {
   const years = (Date.now() - new Date(when).getTime()) / (365.25 * 86400000);
@@ -142,6 +150,30 @@ export const WIDGETS = [
           : html`<div class="list-item muted small">No changes to show right now. Insights appear as your devices, check-ins and records build up a picture of your normal.</div>`}
         ${items.length > shown ? html`<div class="card-foot muted small">${items.length - shown} more: ask about them in <a href="#/ask">Ask</a></div>` : ""}
       </div>`;
+    } },
+  { id: "start", title: "Getting started", desc: "What you can add, until two sources are connected", size: "l", on: true, needs: [],
+    render: (d) => {
+      if ((d.connections || []).length >= 2) return "";
+      const kinds = new Set((d.connections || []).map((c) => c.kind));
+      const steps = [["ehr", "building", "Connect a health system", "#/sources?add=ehr"], ["device", "phone", "Pair your phone", "#/sources?add=iphone"],
+        ["wearable", "watch", "Link a wearable", "#/sources?add=wearable"], ["import", "upload", "Import a file", "#/sources?add=import"]].filter(([k]) => !kinds.has(k));
+      return html`<div class="card widget-card"><div class="card-head"><h3>${icon("plus")} Add another source</h3>
+          <button class="btn btn-ghost btn-icon btn-sm" data-action="remove" data-id="start" aria-label="Hide this" title="Hide">${icon("x")}</button></div>
+        <div class="list">${steps.map(([, ic, label, href]) => html`<a class="list-item" href="${href}"><span class="ev-icon">${icon(ic)}</span><span class="grow">${label}</span>${icon("arrowRight")}</a>`)}</div></div>`;
+    } },
+  { id: "new", title: "New since you last looked", desc: "Visits, diagnoses, medications, notes and results that have arrived", size: "xl", on: true, needs: ["newRecords"], records: true, first: true,
+    render: (d) => {
+      const n = d.newRecords;
+      if (!n || (!n.groups.length && !n.imported.length && !n.older)) return "";
+      return html`<div class="card widget-card">
+        <div class="card-head"><h3>${icon("bell")} New since you last looked</h3><button class="btn btn-sm btn-ghost" data-action="seen-new">Mark as seen</button></div>
+        <div class="list">
+          ${n.imported.map((i) => html`<div class="list-item"><span class="grow">Imported ${plural(i.count, "record")} from ${i.source}</span></div>`)}
+          ${n.groups.map((g) => html`<div class="list-item" style="display:block"><div class="title">${g.label} <span class="badge">${g.count}</span></div>
+            ${g.items.map((r) => html`<div class="meta clickable" data-action="record" data-id="${r.id}" role="link" tabindex="0">${r.title}${r.value_text ? ` ${r.value_text}` : ""} · ${fmtDate(r.effective_at)} · ${r.source_name || ""}</div>`)}
+            ${g.count > g.items.length ? html`<div class="meta">and ${g.count - g.items.length} more</div>` : ""}</div>`)}
+          ${n.older ? html`<div class="list-item small muted"><span>${plural(n.older, "older record")} also arrived.</span></div>` : ""}
+        </div></div>`;
     } },
   { id: "goals", title: "Goals", desc: "Your daily goals and how many of the last 7 days met them", size: "m", on: true, needs: ["goals"],
     render: (d) => {
@@ -185,7 +217,7 @@ export const WIDGETS = [
       <div class="list-item clickable ${l.older ? "muted" : ""}" data-action="lab" data-code="${l.code || ""}" data-title="${l.title}">
         <div class="grow"><div class="title">${l.title}</div><div class="meta">${fmtDate(l.effective_at)}${l.older ? ` · older result, ${ageWords(l.effective_at)}` : ""} · range ${l.ref_text || "—"}</div></div>
         <div class="value">${l.value_text}</div>${resultStatus(l.status)}${flagBadge(l.interpretation)}
-      </div>`, "All of your most recent lab results are in range.", { href: "#/trends/labs", more: "Lab trends" }) },
+      </div>`, labStatusText(d.summary.lab_status), { href: "#/trends/labs", more: "Lab trends" }) },
   { id: "medications", title: "Medications", desc: "Medications your records list as current, and any that may be out of date", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Medications", "pill", [...d.summary.active_medications, ...(d.summary.medications_to_check || [])], (m) => html`
       <div class="list-item clickable" data-action="record" data-id="${m.id}">
@@ -299,6 +331,7 @@ export async function render({ el, state, navigate }) {
       workouts: () => needs.has("workouts") ? get("/api/biometrics/workouts", { profile: profile.id, days: 30, limit: LIST_MAX }) : null,
       events: () => needs.has("events") ? get("/api/biometrics/events", { profile: profile.id, view: "journal", days: 30, limit: 20 }) : null,
       insights: () => needs.has("insights") ? early.insights : null,
+      newRecords: () => needs.has("newRecords") ? get("/api/new-records", { profile: profile.id }) : null,
       // Goals also show on the number tiles, so they load whenever there are any.
       goals: () => early.goals,
     };
@@ -334,7 +367,7 @@ export async function render({ el, state, navigate }) {
     const { summary, bio, connections } = data;
     const conflict = summary.identity_conflict || [];
     const identity = conflict.length ? null : summary.identities[0];   // don't guess age/sex from someone else's chart
-    const years = age(profile.birth_date || identity?.birth_date);
+    const years = ageText(profile.birth_date || identity?.birth_date);
     const first = profile.name.split(" ")[0];
     // Someone else's Overview (a child, a parent you look after, someone who shares with you) is headed with their name:
     // the greeting is for whoever is signed in.
@@ -365,17 +398,21 @@ export async function render({ el, state, navigate }) {
     const issues = connections.filter((c) => !c.access_ended && (c.status === "needs_reauth" || c.status === "error"));
     const syncing = connections.some((c) => c.syncing);
     const lastSync = connections.map((c) => c.last_sync_at).filter(Boolean).sort().pop();
+    const oldest = connections.filter(isStale).sort((a, b) => a.last_sync_at - b.last_sync_at)[0];
+    const partly = connections.filter((c) => !c.access_ended && c.last_sync_status === "partial" && c.status === "active");
     const items = layout.filter((w) => w.visible).map((w) => ({ w, out: content(w) })).filter((x) => x.out);
     mount(el, html`
       <div class="page-head">
         <div><h1>${heading}</h1>
-          <p>${[years != null ? `${years} years` : null, identity?.gender ? identity.gender.charAt(0).toUpperCase() + identity.gender.slice(1) : null].filter(Boolean).join(" · ")}</p></div>
+          <p>${[years, identity?.gender ? identity.gender.charAt(0).toUpperCase() + identity.gender.slice(1) : null].filter(Boolean).join(" · ")}</p></div>
         <div class="row wrap" style="gap:8px">
           ${editing ? html`<button class="btn btn-sm btn-ghost" data-action="reset">Reset</button>
               <button class="btn btn-sm" data-action="add">${icon("plus")} Add</button>
               <button class="btn btn-sm btn-primary" data-action="done">${icon("check")} Done</button>`
-            : html`<a class="sync-pill" href="#/sources"><span class="dot ${syncing ? "info pulse" : issues.length ? "warn" : "good"}"></span>
+            : html`<a class="sync-pill" href="#/sources"><span class="dot ${syncing ? "info pulse" : issues.length || oldest || partly.length ? "warn" : "good"}"></span>
               ${syncing ? "Syncing…" : issues.length ? `${plural(issues.length, "source")} need${issues.length === 1 ? "s" : ""} attention`
+                : oldest ? `${oldest.display_name} last synced ${fmtAgo(oldest.last_sync_at)}`
+                : partly.length ? `${partly[0].display_name} synced in part`
                 : `${plural(connections.length, "source")}${lastSync ? ` · synced ${fmtAgo(lastSync)}` : ""}`}</a>
               <button class="btn btn-sm" data-action="edit">${icon("sliders")} Edit</button>`}
         </div>
@@ -432,6 +469,11 @@ export async function render({ el, state, navigate }) {
     "hide-insight": async ({ id }) => {
       await hideInsight(profile.id, id);
       if (data.insights?.insights) data.insights.insights = data.insights.insights.filter((i) => i.id !== id);
+      draw();
+    },
+    "seen-new": async () => {
+      await api(`/api/new-records/seen?profile=${encodeURIComponent(profile.id)}`, { method: "POST" });
+      data.newRecords = null;
       draw();
     },
     edit: () => { editing = true; draw(); },

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import time
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app.core import security
@@ -41,6 +43,8 @@ def _present(row: Optional[dict[str, Any]], include_credentials: bool = False) -
         row["access_ended"] = not row.get("credentials_unreadable") and _access_ended(row, c)
     if "record_count" in row:   # listings: how much each source brought in
         row["sample_count"] = sample_counts.for_connection(row["id"])
+    if "last_warnings" in row:
+        row["last_warnings"] = json.loads(row["last_warnings"]) if row["last_warnings"] else []
     return row
 
 
@@ -131,7 +135,9 @@ def get(connection_id: str, include_credentials: bool = False) -> Optional[dict[
 def list_for_profile(profile_id: Optional[str] = None, kind: Optional[str] = None,
                      include_disconnected: bool = False) -> list[dict[str, Any]]:
     q = """SELECT c.*,
-              (SELECT COUNT(*) FROM clinical_records r WHERE r.connection_id = c.id) AS record_count
+              (SELECT COUNT(*) FROM clinical_records r WHERE r.connection_id = c.id) AS record_count,
+              (SELECT json_extract(s.stats_json, '$.warnings') FROM sync_runs s WHERE s.connection_id = c.id AND s.finished_at IS NOT NULL
+                 ORDER BY s.started_at DESC LIMIT 1) AS last_warnings
            FROM connections c WHERE 1=1"""
     params: list[Any] = []
     if profile_id:
@@ -146,6 +152,21 @@ def list_for_profile(profile_id: Optional[str] = None, kind: Optional[str] = Non
     with read() as conn:
         rows = conn.execute(q, params).fetchall()
     return [_present(r) for r in rows_to_dicts(rows, ["metadata_json"])]  # type: ignore[misc]
+
+
+def source_status(profile_id: str) -> list[dict[str, Any]]:
+    """How old each source's data here is, and what it couldn't provide last time."""
+    sources = list_for_profile(profile_id)
+    now = datetime.now(timezone.utc).isoformat()
+    with read() as conn:
+        for c in sources:
+            row = (conn.execute("SELECT start_date FROM biometric_samples WHERE profile_id = ? AND connection_id = ? ORDER BY start_date DESC LIMIT 1",
+                                (profile_id, c["id"])).fetchone() if c["kind"] in ("wearable", "device")
+                   else conn.execute("SELECT MAX(effective_at) FROM clinical_records WHERE connection_id = ? AND effective_at <= ?", (c["id"], now)).fetchone())
+            c["newest_record_at"] = row[0] if row else None
+    return [{"id": c["id"], "name": c["display_name"], "kind": c["kind"], "last_sync_at": c.get("last_sync_at"), "last_sync_status": c.get("last_sync_status"),
+             "one_time": bool(c.get("access_ended")), "status": c["status"], "newest_record_at": c["newest_record_at"], "not_fetched": c["last_warnings"]}
+            for c in sources]
 
 
 def list_active_all() -> list[dict[str, Any]]:

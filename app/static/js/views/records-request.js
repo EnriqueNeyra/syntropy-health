@@ -66,7 +66,7 @@ export function clearPrintedLetter() {
   document.body.classList.remove("printing-letter");
 }
 
-function printLetter(text) {
+export function printLetter(text) {
   clearPrintedLetter();
   const sheet = document.createElement("div");
   sheet.className = "print-letter";
