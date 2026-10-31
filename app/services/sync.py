@@ -206,6 +206,7 @@ QUERY_WORDS = {
     "empty": "Nothing here", "not-granted": "Not shared when you signed in", "unsupported": "This source doesn't offer them",
     "forbidden": "This source didn't allow them to be read", "paused": "Still downloading. The rest comes in at the next sync.",
     "truncated": "The source sent the rest from another address, so it wasn't downloaded",
+    "recent": "Newest checked. A history this long is read in full about once a month.",
 }
 
 
@@ -222,7 +223,7 @@ def describe_queries(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                  else f"{count:,} {'record' if count == 1 else 'records'}" if status == "ok"
                  else QUERY_WORDS.get(status, "Couldn't be downloaded this time. Syntropy will try again."))
         lines.append({"query": query, "name": smart.QUERY_NAMES.get(query, query), "status": status, "count": count, "words": words,
-                      "ok": status in ("ok", "empty", "not-granted", "unsupported")})
+                      "ok": status in ("ok", "empty", "not-granted", "unsupported", "recent")})
     return lines
 
 
@@ -239,7 +240,7 @@ def _query_warnings(fetched: smart.FetchResult, saved: dict[str, dict[str, Any]]
     isn't news. One that used to work and has stopped is."""
     warnings = []
     for label, status in fetched.status.items():
-        if status in ("ok", "empty", "not-granted"):
+        if status in ("ok", "empty", "not-granted", "recent"):
             continue
         answered_before = (saved.get(label) or {}).get("ever_answered")
         if not answered_before and (status == "unsupported" or label in smart.OPTIONAL_QUERIES):

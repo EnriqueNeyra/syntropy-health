@@ -195,16 +195,16 @@ def save_query_state(connection_id: str, states: dict[str, dict[str, Any]]) -> N
     now = time.time()
     with db() as conn:
         for query, s in states.items():
-            answered = 1 if s["status"] in ("ok", "empty") else 0
+            answered = 1 if s["status"] in ("ok", "empty", "recent") else 0
             conn.execute(
                 """INSERT INTO sync_query_state(connection_id, query, status, record_count, next_url, alternative, no_sort,
-                       ever_answered, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       ever_answered, place_failures, swept_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(connection_id, query) DO UPDATE SET status = excluded.status,
                        record_count = excluded.record_count, next_url = excluded.next_url, alternative = excluded.alternative,
                        no_sort = excluded.no_sort, ever_answered = MAX(ever_answered, excluded.ever_answered),
-                       updated_at = excluded.updated_at""",
+                       place_failures = excluded.place_failures, swept_at = excluded.swept_at, updated_at = excluded.updated_at""",
                 (connection_id, query, s["status"], s.get("record_count") or 0, s.get("next_url"), s.get("alternative") or 0,
-                 1 if s.get("no_sort") else 0, answered, now),
+                 1 if s.get("no_sort") else 0, answered, s.get("place_failures") or 0, s.get("swept_at"), s.get("asked_at") or now),
             )
 
 

@@ -19,6 +19,7 @@ import base64
 import ipaddress
 import json
 import logging
+import math
 import random
 import re
 import socket
@@ -43,6 +44,10 @@ OUTAGE_QUERIES = 3              # this many queries in a row failing means the s
 RETRY_ATTEMPTS = 3
 RETRY_STATUSES = (429, 502, 503, 504)
 RETRY_AFTER_CAP = 30            # the longest a sync sits and waits; beyond it, it stops and comes back then
+LONGEST_PAUSE = 24 * 3600       # the longest a server can put a source off: one bad header mustn't quietly end its syncs
+PLACE_TRIES = 3                 # syncs in a row a saved place can fail, with the server otherwise fine, before starting over
+TOP_UP_PAGES = 5                # how much of a history too long for one sync is read at each sync, newest first
+FULL_READ_EVERY = 30 * 86400    # how often such a history is read whole again, which is what brings corrections to old records
 USER_AGENT = "SyntropyHealth/1.0 (+https://health.syntropylabs.io)"
 
 _sleep = asyncio.sleep
@@ -108,18 +113,18 @@ def http_client(simulated: bool = False, timeout: float = 30.0) -> httpx.AsyncCl
 
 
 def retry_after_seconds(resp: httpx.Response) -> Optional[float]:
-    """Retry-After is either a number of seconds or a date."""
+    """Retry-After is either a number of seconds or a date. Anything else, like "inf", isn't a time at all."""
     value = (resp.headers.get("retry-after") or "").strip()
     if not value:
         return None
     try:
-        return max(0.0, float(value))
+        seconds = float(value)
     except ValueError:
-        pass
-    try:
-        return max(0.0, parsedate_to_datetime(value).timestamp() - time.time())
-    except (TypeError, ValueError):
-        return None
+        try:
+            seconds = parsedate_to_datetime(value).timestamp() - time.time()
+        except (TypeError, ValueError, OverflowError, OSError):
+            return None
+    return min(max(0.0, seconds), LONGEST_PAUSE) if math.isfinite(seconds) else None
 
 
 def _json_object(resp: httpx.Response) -> dict[str, Any]:
@@ -461,14 +466,6 @@ QUERY_PLAN: list[tuple[str, list[dict[str, str]]]] = [
     ("Observation", [{"category": "social-history"}]),
     # Smoking status and screening questionnaires (Synthea-based sandboxes file smoking status here).
     ("Observation", [{"category": "survey"}]),
-    # Inside the Observation scope already asked for; see OPTIONAL_QUERIES for why a refusal here doesn't matter.
-    ("Observation", [{"category": "exam"}]),
-    ("Observation", [{"category": "imaging"}]),
-    ("Observation", [{"category": "procedure"}]),
-    ("Observation", [{"category": "activity"}]),
-    ("Observation", [{"category": "therapy"}]),
-    ("Observation", [{"category": "sdoh"}]),
-    ("Observation", [{"category": "functional-status"}]),
     ("Condition", [{}, {"category": "problem-list-item"}]),
     # athenahealth answers a search without intent 403 ("required parameter combinations [[patient,intent],[_id]]").
     ("MedicationRequest", [{"_include": "MedicationRequest:medication"}, {},
@@ -484,6 +481,14 @@ QUERY_PLAN: list[tuple[str, list[dict[str, str]]]] = [
     ("Goal", [{}]),
     ("Device", [{}]),
     ("Coverage", [{}, {"beneficiary": "{patient}"}]),
+    # Inside the Observation scope already asked for; see OPTIONAL_QUERIES for why a refusal here doesn't matter.
+    ("Observation", [{"category": "exam"}]),
+    ("Observation", [{"category": "imaging"}]),
+    ("Observation", [{"category": "procedure"}]),
+    ("Observation", [{"category": "activity"}]),
+    ("Observation", [{"category": "therapy"}]),
+    ("Observation", [{"category": "sdoh"}]),
+    ("Observation", [{"category": "functional-status"}]),
 ]
 
 # Added after vendors registered Syntropy's API lists, and some of them may refuse these: while one has never answered,
@@ -515,7 +520,10 @@ def _origin(url: str) -> tuple[str, Optional[str], Optional[int]]:
 
 def _same_server(a: str, b: str) -> bool:
     """Host names ignore case: Kaiser's paging links say FHIR.KP.ORG for a server listed as fhir.kp.org."""
-    return _origin(a) == _origin(b)
+    try:
+        return _origin(a) == _origin(b)
+    except ValueError:      # a port that can't exist isn't this server
+        return False
 
 
 def _codes(value: Any) -> set[str]:
@@ -550,6 +558,14 @@ class QueryRun:
     failed: Optional[str] = None
     refused: Optional[str] = None
     suppressed: bool = False            # the server says it left something out
+    asked: bool = False                 # it had a turn in this sync
+    last_failure: Optional[str] = None  # how it ended the last time it was asked, if that was a failure
+    last_asked: Optional[float] = None
+    ever_answered: bool = False
+    place_failures: int = 0             # syncs in a row that next_url has failed
+    swept_at: Optional[float] = None    # too long for one sync: when it was last read whole, 0 until the first time
+    top_up: bool = False                # read the newest pages and no more
+    topped_up: bool = False             # and there was more than those
 
     @property
     def question(self) -> dict[str, str]:
@@ -558,6 +574,11 @@ class QueryRun:
     @property
     def complete(self) -> bool:
         return self.status in ("ok", "empty") and not self.resumed and not self.suppressed and self.answered is not None
+
+    @property
+    def failing_for_the_person(self) -> bool:
+        """An extra kind of result a source has never given may simply be something it doesn't offer."""
+        return self.status.startswith("error:") and (self.ever_answered or self.label not in OPTIONAL_QUERIES)
 
 
 @dataclass
@@ -585,12 +606,14 @@ class FetchResult:
     @property
     def more_to_fetch(self) -> bool:
         """The next sync has work to carry on with, so it shouldn't wait for the usual interval."""
-        return self.patient_failed or any(q.status == "paused" or q.next_url or q.status.startswith("error:") for q in self.queries)
+        return self.patient_failed or any(q.status == "paused" or (q.next_url and q.status != "recent") or q.failing_for_the_person
+                                          for q in self.queries)
 
     def state(self) -> dict[str, dict[str, Any]]:
         """What the next sync needs to know about each query."""
         return {q.label: {"status": q.status, "record_count": q.count, "next_url": q.next_url, "alternative": q.alternative,
-                          "no_sort": q.no_sort} for q in self.queries}
+                          "no_sort": q.no_sort, "place_failures": q.place_failures, "swept_at": q.swept_at,
+                          "asked_at": None if q.asked else q.last_asked} for q in self.queries}
 
 
 @dataclass
@@ -604,14 +627,27 @@ class _Search:
 def _outcome_verdict(outcome: dict[str, Any]) -> tuple[bool, bool]:
     """(failed, left something out). An ordinary empty search can carry a warning (Epic's 4101), which means neither."""
     failed = suppressed = False
-    for issue in outcome.get("issue") or []:
+    issues = outcome.get("issue") or []
+    if not isinstance(issues, list):
+        return True, False
+    for issue in issues:
         if not isinstance(issue, dict):
             continue
-        if (issue.get("severity") or "").lower() in ("error", "fatal"):
+        if str(issue.get("severity") or "").lower() in ("error", "fatal"):
             failed = True
-        if (issue.get("code") or "").lower() in ("suppressed", "incomplete", "too-costly", "throttled"):
+        if str(issue.get("code") or "").lower() in ("suppressed", "incomplete", "too-costly", "throttled"):
             suppressed = True
     return failed, suppressed
+
+
+def _page_link(current: str, link: Any) -> str:
+    """Where a next link goes. Raises ValueError or httpx.InvalidURL for one that can't be followed."""
+    if not isinstance(link, str):
+        raise ValueError("A next link has to be text.")
+    url = urljoin(current, link)
+    _origin(url)
+    httpx.URL(url)
+    return url
 
 
 class FhirClient:
@@ -731,7 +767,7 @@ class FhirClient:
                 return _Search(results, "paused", place, suppressed)
             try:
                 resp = await self._get(client, url, current)
-            except httpx.HTTPError as exc:
+            except (httpx.HTTPError, httpx.InvalidURL) as exc:
                 log.warning("FHIR %s query failed: %s", rtype, type(exc).__name__)
                 return _Search(results, "error:network", place, suppressed)
             if resp.status_code == 403:
@@ -742,7 +778,7 @@ class FhirClient:
                 return _Search(results, f"error:{resp.status_code}", place, suppressed)
             try:
                 bundle = resp.json()
-            except ValueError:
+            except (ValueError, RecursionError):
                 return _Search(results, "error:invalid-json", place, suppressed)
             kind = bundle.get("resourceType") if isinstance(bundle, dict) else None
             if kind == "OperationOutcome":
@@ -752,10 +788,13 @@ class FhirClient:
                 return _Search(results, "ok" if results else "empty", None, suppressed or left_out)
             if kind != "Bundle":            # a gateway's own JSON isn't an answer, and certainly not an empty one
                 return _Search(results, "error:invalid-json", place, suppressed)
+            entries, links = bundle.get("entry") or [], bundle.get("link") or []
+            if not isinstance(entries, list) or not isinstance(links, list):
+                return _Search(results, "error:invalid-json", place, suppressed)
             failed = False
-            for entry in bundle.get("entry") or []:
+            for entry in entries:
                 res = entry.get("resource") if isinstance(entry, dict) else None
-                if not isinstance(res, dict) or not res.get("resourceType"):
+                if not isinstance(res, dict) or not res.get("resourceType") or not isinstance(res["resourceType"], str):
                     continue
                 if res["resourceType"] == "OperationOutcome":
                     bad, left_out = _outcome_verdict(res)
@@ -765,9 +804,12 @@ class FhirClient:
                     self.fetched += 1
             if failed:
                 return _Search(results, "error:outcome", place, suppressed)
-            nxt = next((l.get("url") for l in bundle.get("link") or [] if isinstance(l, dict) and l.get("relation") == "next"), None)
+            nxt = next((l.get("url") for l in links if isinstance(l, dict) and l.get("relation") == "next"), None)
             if nxt:
-                nxt = urljoin(str(resp.url), nxt)
+                try:
+                    nxt = _page_link(str(resp.url), nxt)
+                except (ValueError, httpx.InvalidURL):
+                    return _Search(results, "error:invalid-json", place, suppressed)
                 # Never follow paging links to a different host with our bearer token, and never round in circles.
                 if (not self.simulated and not _same_server(nxt, self.base)) or nxt in walked:
                     return _Search(results, "truncated", None, suppressed)
@@ -792,23 +834,42 @@ class FhirClient:
 
     async def _advance(self, client: httpx.AsyncClient, run: QueryRun, out: FetchResult, seen: set[str]) -> bool:
         """One turn for a query: up to ROUND_PAGES more pages. True when it has nothing further to do in this sync."""
+        run.asked = True
         while run.alternative < len(run.alternatives):
             params = run.alternatives[run.alternative]
             sorting = run.rtype in NEWEST_FIRST and not run.no_sort
             start = run.next_url
+            looking = run.top_up and sorting and not start
+            fetched = self.fetched
             found = await self._search(client, run.rtype, {**params, "_sort": "-date"} if sorting else params,
-                                       start_url=start, max_pages=ROUND_PAGES)
+                                       start_url=start, max_pages=TOP_UP_PAGES if looking else ROUND_PAGES)
             self._keep(found.resources, run, out, seen)
+            if looking:
+                self.fetched = fetched      # a small look: it doesn't come out of what whole histories share
+                found.next_url = None
+                if found.status == "paused":
+                    run.answered, run.got_records, run.topped_up = params, True, True
+                    return True
             if start and found.status in ("forbidden", "unsupported"):
                 run.next_url, run.resumed = None, False      # the saved place has expired: start this query over
                 continue
+            if start and found.status != "paused":
+                # A cursor can die with a 500 as easily as a 410, and being asked again won't bring it back. An outage
+                # isn't its fault, though, and the place is worth keeping through one.
+                stuck = found.next_url == start
+                run.place_failures = run.place_failures + (0 if out.patient_failed else 1) if stuck else 0
+                if run.place_failures >= PLACE_TRIES:
+                    log.info("Starting %s over: its saved place keeps failing", run.label)
+                    run.next_url, run.resumed, run.place_failures = None, False, 0
+                    continue
             if sorting and not start and found.status not in ("ok", "paused") and not found.resources:
                 # It may be the sort it refused, or quietly answered nothing to. Whatever the plain question gets is the
-                # answer, and says which it was.
+                # answer, and says which it was. Only that is remembered: a failure or a busy moment says nothing about sorting.
                 with_sort = found.status
                 found = await self._search(client, run.rtype, params, max_pages=ROUND_PAGES)
                 self._keep(found.resources, run, out, seen)
-                run.no_sort = found.status in ("ok", "paused") or (found.status == "empty" and with_sort != "empty")
+                run.no_sort = (found.status in ("ok", "paused", "empty") and with_sort in ("forbidden", "unsupported")) \
+                    or (found.status in ("ok", "paused") and with_sort == "empty")
             run.next_url = found.next_url
             run.suppressed = run.suppressed or found.suppressed
             if found.status == "paused":
@@ -834,12 +895,27 @@ class FhirClient:
         # be pruned against them. A later alternative's refusal doesn't undo an earlier answer.
         if run.failed:
             run.status = run.failed
+        elif run.topped_up:
+            run.status = "recent"
         elif not finished:
-            run.status = "paused"
+            run.status = (run.last_failure if not run.asked else None) or ("recent" if run.swept_at else "paused")
         elif run.answered is not None:
             run.status = "ok" if run.got_records else "empty"
         else:
             run.status = run.refused or "unsupported"
+
+    @staticmethod
+    def _note_length(run: QueryRun, out_of_budget: bool) -> None:
+        """A history that doesn't fit in one sync would never finish if every sync began it again. Once it has been read
+        whole, later syncs look at the newest pages instead, and it's read whole again now and then. A sweep over several
+        syncs can't say what's gone, so these never have anything removed: keeping a record is the safe way to be wrong."""
+        if run.status == "paused" and run.next_url and out_of_budget and run.swept_at is None:
+            run.swept_at = 0.0
+        elif run.status in ("ok", "empty") and run.answered is not None:
+            if not run.resumed:
+                run.swept_at = None     # it fits
+            elif run.swept_at is not None:
+                run.swept_at = time.time()
 
     async def _read_patient(self, client: httpx.AsyncClient, out: FetchResult) -> None:
         """Declining demographics, or a server having a bad moment, doesn't cost the rest of the record. A patient id
@@ -876,14 +952,33 @@ class FhirClient:
                 continue
             state = saved.get(label) or {}
             run.no_sort = bool(state.get("no_sort"))
+            run.ever_answered = bool(state.get("ever_answered"))
+            run.last_asked = state.get("updated_at")
+            run.swept_at = state.get("swept_at")
+            if str(state.get("status")).startswith("error:"):
+                run.last_failure = state["status"]
             url = state.get("next_url")
             if url and (self.simulated or _same_server(url, self.base)):
                 run.next_url, run.resumed = url, True
                 run.alternative = min(int(state.get("alternative") or 0), len(alternatives) - 1)
+                run.place_failures = int(state.get("place_failures") or 0)
+            elif run.swept_at and time.time() - run.swept_at < FULL_READ_EVERY and rtype in NEWEST_FIRST and not run.no_sort:
+                run.top_up = True
             waiting.append(run)
-        # Queries the last sync didn't reach go first, so a big chart can't keep them waiting.
-        waiting.sort(key=lambda q: (saved.get(q.label) or {}).get("status") != "paused")
+        waiting.sort(key=lambda q: self._turn(q, saved.get(q.label) or {}))
         return waiting
+
+    @staticmethod
+    def _turn(run: QueryRun, state: dict[str, Any]) -> tuple[int, float]:
+        """Queries the last sync didn't reach go first, so a big chart can't keep them waiting. Those that failed go last,
+        the one left waiting longest first, so a run of them stopping a sync can't keep the others, or each other, away.
+        Reading a long history again waits for everything else: it can use up a whole sync."""
+        status = str(state.get("status"))
+        if status.startswith("error:"):
+            return 3, state.get("updated_at") or 0.0
+        if status == "paused":
+            return 0, 0.0
+        return (2, 0.0) if run.swept_at and not run.top_up else (1, 0.0)
 
     async def _newest_page(self, client: httpx.AsyncClient, run: QueryRun, out: FetchResult, seen: set[str]) -> None:
         """Carrying on with old pages, what's new mustn't wait for them to finish."""
@@ -891,6 +986,13 @@ class FhirClient:
         if run.rtype in NEWEST_FIRST and not run.no_sort:
             params = {**params, "_sort": "-date"}
         self._keep((await self._search(client, run.rtype, params, max_pages=1)).resources, run, out, seen)
+
+    def _note_answer(self, run: QueryRun) -> None:
+        """An extra category failing says nothing about the server: vendors may well refuse those. It doesn't count either way."""
+        if run.failed and run.label in OPTIONAL_QUERIES:
+            return
+        down = run.failed and not run.count and run.failed != "error:invalid-json"
+        self._down_in_a_row = self._down_in_a_row + 1 if down else 0
 
     async def fetch_all(self, saved: Optional[dict[str, dict[str, Any]]] = None) -> FetchResult:
         """Everything the plan asks for, as far as this sync's time allows. Queries take turns, so every record type
@@ -912,21 +1014,22 @@ class FhirClient:
                         if await self._advance(client, run, out, seen):
                             finished.add(run.label)
                             turn.remove(run)
-                            down = run.failed and not run.count and run.failed != "error:invalid-json"
-                            self._down_in_a_row = self._down_in_a_row + 1 if down else 0
+                            self._note_answer(run)
                         if self._must_stop():
                             break
             except SmartError as exc:
                 out.stopped = exc
+        out_of_budget = self.time_left() <= 0 or self.fetched >= MAX_RESOURCES_PER_SYNC
         for run in waiting:
             self._settle(run, run.label in finished)
+            self._note_length(run, out_of_budget)
         for run in out.queries:
             out.status[run.label], out.counts[run.label] = run.status, run.count
         out.come_back_at = self.come_back_at
         statuses = [q.status for q in waiting]
         if not out.stopped and not out.resources and (out.patient_failed or statuses) \
                 and any(s.startswith("error:") for s in statuses + [out.status.get("Patient", "")]) \
-                and all(s.startswith("error:") or s == "paused" for s in statuses):
+                and all(s.startswith("error:") or s in ("paused", "recent") for s in statuses):
             out.stopped = SmartError("The source isn't answering right now. Syntropy will try again.", "network",
                                      retry_after=(self.come_back_at - time.time()) if self.come_back_at else None)
         return out

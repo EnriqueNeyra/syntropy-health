@@ -1049,3 +1049,382 @@ def test_sync_now_answers_while_a_long_sync_carries_on(client, monkeypatch):
 def test_read_helper_stays_available():
     with read() as c:
         assert c.execute("SELECT COUNT(*) FROM clinical_records_removed").fetchone()[0] == 0
+
+
+# ---------------------------------------------------------------------------
+# Queries can't starve each other (F139, F242)
+# ---------------------------------------------------------------------------
+
+OPTIONAL_CATEGORIES = ("exam", "imaging", "procedure", "activity", "therapy", "sdoh", "functional-status")
+LABS = "Observation?category=laboratory"
+
+
+def _kinds(profile, *categories):
+    return {c: records.list_records(profile, c, dedupe=False, limit=1)["total"] for c in categories}
+
+
+@pytest.mark.parametrize("fault", [{"status": 500}, {"outcome": "fatal", "code": "forbidden"}])
+def test_the_extra_categories_failing_never_keep_the_rest_of_the_chart_away(client, fault):
+    for category in OPTIONAL_CATEGORIES:
+        sim.faults.answers.append({"type": "Observation", "category": category, **fault})
+    cid = connect_institution(client, BANNER)["connection_id"]
+    conn = connections.get(cid)
+    assert conn["last_sync_status"] == "success", conn["last_error"]
+    assert conn["next_retry_at"] is None         # nothing the person needs, so nothing to hurry back for
+    seen = _kinds(conn["profile_id"], "conditions", "medications", "allergies", "labs")
+    assert all(seen.values()), seen
+    for _ in range(4):
+        res = _sync(client, cid)
+        assert res["status"] == "success" and not res["warnings"] and not res["more_to_fetch"], res
+        assert res["queries"]["Condition"] == "ok" and res["queries"]["AllergyIntolerance"] == "ok"
+
+
+def test_the_core_of_the_chart_is_asked_for_before_the_extra_categories():
+    plan = [alts[0].get("category") for _, alts in smart.QUERY_PLAN]
+    last_core = max(i for i, category in enumerate(plan) if category not in OPTIONAL_CATEGORIES)
+    first_extra = min(i for i, category in enumerate(plan) if category in OPTIONAL_CATEGORIES)
+    assert last_core < first_extra
+
+
+FAILING_RUN = ("Immunization", "Encounter", "Procedure", "DiagnosticReport", "DocumentReference", "CareTeam")
+
+
+def test_a_long_run_of_failing_queries_cant_keep_later_ones_from_being_asked(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    for rtype in FAILING_RUN:
+        sim.faults.answers.append({"type": rtype, "status": 500})
+    results = [_sync(client, cid) for _ in range(6)]
+    later = ("CarePlan", "Goal", "Device", "Coverage")
+    # Once the failing ones are known, everything else is asked first, at every sync.
+    for res in results[2:]:
+        assert all(res["queries"][q] in ("ok", "empty") for q in later), res["queries"]
+        assert res["queries"]["Condition"] == "ok"
+        assert all(res["queries"][q].startswith("error:") for q in FAILING_RUN), res["queries"]
+    # And they share what's left, so one that recovers is noticed whichever it is.
+    sim.faults.requests.clear()
+    for _ in range(2):
+        _sync(client, cid)
+    assert all(any(r.startswith(f"{rtype}?") for r in sim.faults.requests) for rtype in FAILING_RUN)
+    sim.faults.answers.clear()
+    res = [_sync(client, cid) for _ in range(2)][-1]
+    assert res["status"] == "success" and all(res["queries"][q] != "paused" for q in FAILING_RUN), res
+
+
+def test_a_failure_that_wasnt_asked_again_isnt_called_still_downloading(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    for rtype in FAILING_RUN:
+        sim.faults.answers.append({"type": rtype, "status": 500})
+    res = [_sync(client, cid) for _ in range(4)][-1]
+    assert not any("still downloading" in w for w in res["warnings"]), res["warnings"]
+
+
+def test_an_extra_category_that_used_to_answer_and_stops_is_reported_but_isnt_an_outage(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    label = "Observation?category=exam"
+    with db() as c:
+        c.execute("UPDATE sync_query_state SET ever_answered = 1 WHERE connection_id = ? AND query = ?", (cid, label))
+    sim.faults.answers.append({"type": "Observation", "category": "exam", "status": 500})
+    res = _sync(client, cid)
+    assert res["queries"][label] == "error:500" and res["more_to_fetch"] and res["status"] == "partial"
+    assert res["queries"]["Condition"] == "ok"
+
+
+# ---------------------------------------------------------------------------
+# A Retry-After nobody should obey (F034, F242)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("value", ["99999999999", "Fri, 31 Dec 9999 23:59:59 GMT"])
+def test_a_retry_after_of_ages_is_held_to_a_day(value):
+    asked = smart.retry_after_seconds(httpx.Response(429, headers={"Retry-After": value}))
+    assert asked == smart.LONGEST_PAUSE == 86400
+
+
+@pytest.mark.parametrize("value", ["inf", "1e999", "-inf", "nan", "soon"])
+def test_a_retry_after_that_isnt_a_time_is_ignored(value):
+    assert smart.retry_after_seconds(httpx.Response(429, headers={"Retry-After": value})) is None
+
+
+@pytest.mark.parametrize("value", ["inf", "1e999", "99999999999", "Fri, 31 Dec 9999 23:59:59 GMT"])
+def test_one_bad_header_cant_stop_scheduled_syncs_for_longer_than_a_day(client, value):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    sim.faults.answers.append({"type": "Condition", "status": 429, "retry_after": value, "times": 10})
+    assert client.post(f"/api/connections/{cid}/sync").status_code == 200
+    next_try = connections.get(cid)["next_retry_at"]
+    assert next_try is not None and next_try <= time.time() + 86400 + 60
+    assert json.loads(client.get("/api/connections").text, parse_constant=pytest.fail)
+
+
+def test_a_token_endpoints_bad_header_is_held_to_a_day_too(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    _expire(cid)
+    sim.faults.token.append({"status": 503, "retry_after": "99999999999", "times": 1})
+    _sync(client, cid)
+    assert connections.get(cid)["next_retry_at"] <= time.time() + 86400 + 60
+
+
+# ---------------------------------------------------------------------------
+# A saved place that has stopped working (F036, F034)
+# ---------------------------------------------------------------------------
+
+def _save_place(cid, offset=300):
+    conn = connections.get(cid)
+    url = f"{conn['fhir_base_url']}/Observation?category=laboratory&patient={conn['patient_ref']}&_offset={offset}&_count=100"
+    with db() as c:
+        c.execute("UPDATE sync_query_state SET next_url = ?, status = 'paused' WHERE connection_id = ? AND query = ?", (url, cid, LABS))
+    return url
+
+
+@pytest.mark.parametrize("fault", [{"status": 500}, {"outcome": "fatal"}, {"status": 200, "body": {"not": "a bundle"}}])
+def test_a_saved_place_that_keeps_failing_is_given_up_and_the_query_starts_over(client, fault):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    _save_place(cid)
+    sim.faults.answers.append({"type": "Observation", "category": "laboratory", "offset": 300, **fault})
+    outcomes = [_sync(client, cid)["queries"][LABS] for _ in range(smart.PLACE_TRIES)]
+    assert all(o.startswith("error:") for o in outcomes[:-1]), outcomes
+    assert outcomes[-1] == "ok", outcomes
+    state = connections.query_state(cid)[LABS]
+    assert state["next_url"] is None and state["place_failures"] == 0
+
+
+def test_a_place_that_fails_once_is_kept_and_its_count_starts_again_when_it_works(client):
+    sim.faults.extra_labs = 450
+    cid = connect_institution(client, BANNER)["connection_id"]
+    url = _save_place(cid)
+    sim.faults.answers.append({"type": "Observation", "category": "laboratory", "offset": 300, "status": 500, "times": 1})
+    assert _sync(client, cid)["queries"][LABS] == "error:500"
+    state = connections.query_state(cid)[LABS]
+    assert state["next_url"] == url and state["place_failures"] == 1
+    assert _sync(client, cid)["queries"][LABS] == "ok"
+    assert connections.query_state(cid)[LABS]["place_failures"] == 0
+
+
+def test_a_failure_past_the_saved_place_doesnt_count_against_it(client):
+    sim.faults.extra_labs = 450
+    cid = connect_institution(client, BANNER)["connection_id"]
+    _save_place(cid)
+    sim.faults.answers.append({"type": "Observation", "category": "laboratory", "offset": 400, "status": 500})
+    assert _sync(client, cid)["queries"][LABS] == "error:500"
+    state = connections.query_state(cid)[LABS]
+    assert "_offset=400" in state["next_url"] and state["place_failures"] == 0
+
+
+def test_an_outage_doesnt_use_up_a_saved_places_tries(client):
+    from app.simulator.server import SUPPORTED_TYPES
+    cid = connect_institution(client, BANNER)["connection_id"]
+    url = _save_place(cid)
+    for rtype in SUPPORTED_TYPES:
+        sim.faults.answers.append({"type": rtype, "status": 500})
+        sim.faults.answers.append({"type": rtype, "read": True, "status": 500})
+    for _ in range(smart.PLACE_TRIES + 2):
+        _sync(client, cid)
+    assert connections.query_state(cid)[LABS]["next_url"] == url
+
+
+# ---------------------------------------------------------------------------
+# A chart too long for one sync (F036)
+# ---------------------------------------------------------------------------
+
+def _settled(client, cid, tries=8):
+    for _ in range(tries):
+        res = _sync(client, cid)
+        if res["status"] == "success" and not res["more_to_fetch"]:
+            return res
+    raise AssertionError(f"Never settled: {res}")
+
+
+def test_a_chart_too_long_for_one_sync_settles_once_its_been_read_whole(client, monkeypatch):
+    monkeypatch.setattr(smart, "MAX_RESOURCES_PER_SYNC", 1500)
+    sim.faults.extra_labs = 4000
+    cid = connect_institution(client, BANNER)["connection_id"]
+    first = client.get(f"/api/connections/{cid}").json()["last_run"]
+    assert first["status"] == "partial" and any("still downloading" in w for w in first["stats"]["warnings"])
+    _settled(client, cid)
+    assert len(_labs(client)) > 4000
+
+    for _ in range(4):
+        sim.faults.requests.clear()
+        res = _sync(client, cid)
+        assert res["status"] == "success" and not res["warnings"] and not res["more_to_fetch"], res
+        assert res["queries"][LABS] == "recent"
+        assert connections.get(cid)["next_retry_at"] is None
+        # The vendor is asked for the newest pages, not for the chart.
+        assert len([r for r in sim.faults.requests if "category=laboratory" in r]) <= smart.TOP_UP_PAGES
+    line = next(q for q in sync_svc.describe_queries(connections.recent_runs(cid, 1)) if q["query"] == LABS)
+    assert line["ok"] and "still downloading" not in line["words"].lower() and "records" not in line["words"]
+
+
+def test_a_settled_chart_stays_settled_at_a_small_cap_too(client, monkeypatch):
+    monkeypatch.setattr(smart, "MAX_RESOURCES_PER_SYNC", 500)
+    sim.faults.extra_labs = 1200
+    cid = connect_institution(client, BANNER)["connection_id"]
+    _settled(client, cid)
+    for _ in range(4):
+        res = _sync(client, cid)
+        assert res["status"] == "success" and not res["more_to_fetch"], res
+
+
+def test_new_results_reach_a_settled_chart(client, monkeypatch):
+    monkeypatch.setattr(smart, "MAX_RESOURCES_PER_SYNC", 1500)
+    sim.faults.extra_labs = 4000
+    cid = connect_institution(client, BANNER)["connection_id"]
+    _settled(client, cid)
+    patient = connections.get(cid)["patient_ref"]
+    sim.faults.extra_resources.append({
+        "resourceType": "Observation", "id": "brand-new-lab", "status": "final", "category": [{"coding": [{"code": "laboratory"}]}],
+        "subject": {"reference": f"Patient/{patient}"}, "code": {"text": "Glucose"}, "effectiveDateTime": "2099-01-01T08:00:00Z",
+        "valueQuantity": {"value": 90, "unit": "mg/dL"}})
+    assert _sync(client, cid)["inserted"] >= 1
+    assert any(r["resource_id"] == "brand-new-lab" for r in _labs(client))
+
+
+def test_a_look_at_the_newest_pages_never_removes_anything(client, monkeypatch):
+    monkeypatch.setattr(smart, "MAX_RESOURCES_PER_SYNC", 1500)
+    sim.faults.extra_labs = 4000
+    cid = connect_institution(client, BANNER)["connection_id"]
+    _settled(client, cid)
+    sim.faults.hidden.add("Observation/extra-lab-0")
+    before = _stored(cid)
+    for _ in range(3):
+        assert _sync(client, cid)["removed"] == 0
+    assert _stored(cid) == before
+
+
+def test_a_long_chart_is_read_whole_again_each_month_without_any_fuss(client, monkeypatch):
+    monkeypatch.setattr(smart, "MAX_RESOURCES_PER_SYNC", 1500)
+    sim.faults.extra_labs = 4000
+    cid = connect_institution(client, BANNER)["connection_id"]
+    _settled(client, cid)
+    with db() as c:
+        c.execute("UPDATE sync_query_state SET swept_at = ? WHERE connection_id = ? AND query = ?",
+                  (time.time() - smart.FULL_READ_EVERY - 60, cid, LABS))
+    deep = []
+    for _ in range(6):
+        sim.faults.requests.clear()
+        res = _sync(client, cid)
+        assert res["status"] == "success" and not res["warnings"] and not res["more_to_fetch"], res
+        assert connections.get(cid)["next_retry_at"] is None
+        deep += [r for r in sim.faults.requests if "category=laboratory" in r and "_offset=3" in r]
+        if res["queries"][LABS] == "ok":
+            break
+    assert deep and res["queries"][LABS] == "ok"
+    assert time.time() - connections.query_state(cid)[LABS]["swept_at"] < 60
+
+
+def test_a_server_that_cant_sort_a_long_chart_keeps_reading_it_quietly(client, monkeypatch):
+    monkeypatch.setattr(smart, "MAX_RESOURCES_PER_SYNC", 1500)
+    sim.faults.extra_labs = 4000
+    sim.faults.reject_sort = True
+    cid = connect_institution(client, BANNER)["connection_id"]
+    _settled(client, cid)
+    for _ in range(5):
+        res = _sync(client, cid)
+        assert res["status"] == "success" and not res["warnings"] and not res["more_to_fetch"], res
+        assert connections.get(cid)["next_retry_at"] is None
+
+
+def test_an_outage_on_a_settled_chart_is_still_an_outage(client, monkeypatch):
+    from app.simulator.server import SUPPORTED_TYPES
+    monkeypatch.setattr(smart, "MAX_RESOURCES_PER_SYNC", 1500)
+    sim.faults.extra_labs = 4000
+    cid = connect_institution(client, BANNER)["connection_id"]
+    _settled(client, cid)
+    for rtype in SUPPORTED_TYPES:
+        sim.faults.answers.append({"type": rtype, "status": 503})
+        sim.faults.answers.append({"type": rtype, "read": True, "status": 503})
+    res = _sync(client, cid)
+    assert res["status"] == "error" and res["kind"] == "network", res
+
+
+def test_a_chart_that_fits_again_goes_back_to_being_read_whole(client, monkeypatch):
+    monkeypatch.setattr(smart, "MAX_RESOURCES_PER_SYNC", 1500)
+    sim.faults.extra_labs = 4000
+    cid = connect_institution(client, BANNER)["connection_id"]
+    _settled(client, cid)
+    sim.faults.extra_labs = 10
+    assert _sync(client, cid)["queries"][LABS] == "ok"
+    assert connections.query_state(cid)[LABS]["swept_at"] is None
+
+
+def test_a_transient_failure_on_a_small_chart_doesnt_make_it_a_long_one(client):
+    sim.faults.extra_labs = 350
+    sim.faults.answers.append({"type": "Observation", "category": "laboratory", "offset": 200, "status": 500, "times": 1})
+    cid = connect_institution(client, BANNER)["connection_id"]
+    assert _sync(client, cid)["queries"][LABS] == "ok"
+    assert connections.query_state(cid)[LABS]["swept_at"] is None
+    assert _sync(client, cid)["queries"][LABS] == "ok"
+
+
+# ---------------------------------------------------------------------------
+# What newest-first remembers (F036)
+# ---------------------------------------------------------------------------
+
+def test_one_failure_of_a_sorted_search_doesnt_turn_sorting_off(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    sim.faults.answers.append({"type": "Observation", "category": "laboratory", "status": 500, "times": 1})
+    assert _sync(client, cid)["queries"][LABS] == "ok"
+    assert connections.query_state(cid)[LABS]["no_sort"] == 0
+    sim.faults.requests.clear()
+    _sync(client, cid)
+    assert [r for r in sim.faults.requests if "category=laboratory" in r and "_sort=-date" in r]
+
+
+def test_being_throttled_doesnt_turn_sorting_off(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    sim.faults.answers.append({"type": "Observation", "category": "laboratory", "status": 429, "retry_after": "600", "times": 1})
+    assert _sync(client, cid)["queries"][LABS] == "paused"
+    assert connections.query_state(cid)[LABS]["no_sort"] == 0
+
+
+def test_a_failed_plain_answer_doesnt_turn_sorting_off_either(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    sim.faults.answers.append({"type": "Observation", "category": "laboratory", "status": 500, "times": 2})
+    assert _sync(client, cid)["queries"][LABS] == "error:500"
+    assert connections.query_state(cid)[LABS]["no_sort"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Odd shapes end one query, not the sync (F274)
+# ---------------------------------------------------------------------------
+
+ODD_PAGES = [
+    {"resourceType": "Bundle", "type": "searchset", "entry": 5},
+    {"resourceType": "Bundle", "type": "searchset", "entry": "lots"},
+    {"resourceType": "Bundle", "type": "searchset", "link": 5},
+    {"resourceType": "Bundle", "type": "searchset", "entry": [], "link": [{"relation": "next", "url": 5}]},
+    {"resourceType": "Bundle", "type": "searchset", "entry": [], "link": [{"relation": "next", "url": "https://x:99999/y"}]},
+    {"resourceType": "Bundle", "type": "searchset", "entry": [], "link": [{"relation": "next", "url": "https://[broken/y"}]},
+    {"resourceType": "OperationOutcome", "issue": 5},
+]
+
+
+@pytest.mark.parametrize("body", ODD_PAGES)
+def test_an_odd_page_ends_that_query_and_nothing_else(client, body):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    before = _stored(cid)
+    sim.faults.answers.append({"type": "Observation", "category": "laboratory", "status": 200, "body": body})
+    res = _sync(client, cid)
+    assert res["status"] == "partial" and res["queries"][LABS] in ("error:invalid-json", "error:outcome"), res
+    assert res["queries"]["Condition"] == "ok" and res["removed"] == 0
+    assert _stored(cid) == before
+    assert "Unexpected" not in (connections.get(cid)["last_error"] or "")
+
+
+def test_an_outcomes_odd_fields_are_tolerated(client):
+    cid = connect_institution(client, BANNER)["connection_id"]
+    body = {"resourceType": "Bundle", "type": "searchset", "entry": [
+        {"resource": {"resourceType": "OperationOutcome", "issue": [{"severity": 5, "code": ["x"]}, "nonsense"]}},
+        {"resource": {"resourceType": 5, "id": "x"}}]}
+    sim.faults.answers.append({"type": "Goal", "status": 200, "body": body})
+    assert _sync(client, cid)["status"] == "success"
+
+
+def test_a_next_link_with_an_impossible_port_keeps_the_page_it_came_on(client, fake):
+    cid = _fake_source(client)
+    lab = {"resourceType": "Observation", "id": "l1", "status": "final", "category": [{"coding": [{"code": "laboratory"}]}],
+           "code": {"text": "Glucose"}, "effectiveDateTime": "2024-01-01", "subject": {"reference": "Patient/p1"},
+           "valueQuantity": {"value": 90, "unit": "mg/dL"}}
+    fake.handler = lambda request: httpx.Response(200, json={
+        "resourceType": "Bundle", "entry": [{"resource": lab}], "link": [{"relation": "next", "url": "https://fake.example:99999/x"}],
+    }) if request.url.params.get("category") == "laboratory" else None
+    res = _run(cid)
+    assert res["queries"][LABS] == "error:invalid-json" and res["inserted"] == 1, res
