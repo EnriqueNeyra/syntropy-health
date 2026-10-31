@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from tests.e2e.conftest import PASSWORD, Session, seed
+from tests.test_ccda_import import CCD
 
 ROUTES = ["#/overview", "#/ask", "#/timeline", "#/records", "#/records/labs", "#/trends", "#/trends?metric=sleep_duration", "#/trends/sleep", "#/workouts", "#/journal", "#/sources", "#/report", "#/prepare", "#/people",
           "#/settings/general", "#/settings/people", "#/settings/security", "#/settings/ai", "#/settings/data", "#/settings/developer"]
@@ -272,6 +273,39 @@ def test_axe_on_sign_in_setup_and_open_panels(browser, server, fresh_server):
     s.settle()
     page.wait_for_timeout(350)
     found |= _axe(page, script)
+    s.close()
+    assert not found, found
+
+
+def _prepare_digest(browser, server, width="desktop", dark=False, **context):
+    """Prepare for a visit with a visit chosen and what's on record since drawn."""
+    s = Session(browser, server, width=width, dark=dark, **context)
+    page = s.open("#/prepare")
+    page.locator("#prep-visit").select_option(index=1)
+    page.wait_for_selector("#prep-digest .prepare-block")
+    s.settle()
+    return s, page
+
+
+@pytest.fixture
+def visit_on_record(fresh_server):
+    c = seed(fresh_server, simulated=False)
+    assert c.post("/api/imports/fhir", files={"file": ("ccd.xml", CCD, "text/xml")}).status_code == 200
+    c.close()
+    return fresh_server
+
+
+def test_prepare_draws_what_is_on_record_since_a_chosen_visit(browser, visit_on_record):
+    s, page = _prepare_digest(browser, visit_on_record)
+    assert page.locator("#prep-digest h2").count() and s.errors == []
+    s.close()
+
+
+@pytest.mark.skipif(not AXE or not Path(AXE).is_file(), reason="AXE_CORE_JS names a copy of axe-core; CI fetches one")
+@pytest.mark.parametrize(("width", "dark"), SETTINGS)
+def test_axe_finds_nothing_serious_in_the_prepare_digest(browser, visit_on_record, width, dark):
+    s, page = _prepare_digest(browser, visit_on_record, width, dark, bypass_csp=True)
+    found = _axe(page, Path(AXE).read_text())
     s.close()
     assert not found, found
 
