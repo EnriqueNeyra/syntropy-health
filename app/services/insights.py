@@ -5,8 +5,8 @@ a lab result moving further out of range, training load jumping, goals kept.
 
 Everything here is descriptive: "since", "on days when", never "because". Each insight carries plain text (for Ask
 and other AI apps) and the numbers behind it (so the apps can show them in the person's units). A claim only appears
-when the numbers support it (insight_stats), one device is only compared with itself, and a reading past a published
-limit (health_limits) comes first, with what to do about it.
+when the numbers support it (insight_stats) and one device is only compared with itself. Nothing here advises or says
+what a number means for someone's health: a result the lab marked critical comes first, as what the lab reported.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from app.services import health_limits, insight_stats
+from app.services import insight_stats, reading_bounds
 from app.store import activity, biometrics, goals, records, sleep, training
 from app.store.biometrics import METRICS, _tz, local_day
 
@@ -334,6 +334,11 @@ def _same_device(profile_id: str, metric: str, points: list[dict[str, Any]], sou
     return [by_day[day] for day in sorted(by_day)]
 
 
+def _possible(metric: str, points: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Without figures no living person could have, so a glitch or a wrong unit can't read as a change in them."""
+    return [p for p in points if reading_bounds.is_plausible(metric, p["value"])]
+
+
 def _usual_range(metric: str, values: list[float]) -> Optional[dict[str, float]]:
     if len(values) < MIN_BASELINE_VALUES:
         return None
@@ -399,7 +404,6 @@ STALE_DAYS, SPARSE_STALE_DAYS = 3, 14
 # days behind it. Together these keep pure noise below 5% of runs across all ten measures (tests/test_insight_noise.py).
 CHANGE_ALPHA, CHANGE_FDR = 0.01, 0.05
 MOST_DAYS = 0.7
-WORTH_MENTIONING = "A change this size is worth mentioning to your clinician."
 # Health-record measurements worth checking before and after a medication's first order.
 MED_EFFECT_METRICS = ["resting_heart_rate", "blood_pressure_systolic", "blood_glucose", "body_mass", "hrv_rmssd",
                       "sleep_duration"]
@@ -457,7 +461,7 @@ def _changes(profile_id: str) -> list[dict[str, Any]]:
             continue      # nothing recent to speak of
         cut = (last - timedelta(days=recent_days - 1)).isoformat()
         source = _main_source(p for p in pts if p["day"] >= cut)
-        mine = _same_device(profile_id, metric, pts, source, span)
+        mine = _possible(metric, _same_device(profile_id, metric, pts, source, span))
         recent, base = _split(mine, last, recent_days, base_days)
         if len(recent) < min_recent or len(base) < min_base:
             # Too little from this device to compare it with itself. If that's because it's new, say so.
@@ -478,20 +482,17 @@ def _changes(profile_id: str) -> list[dict[str, Any]]:
         if p > CHANGE_ALPHA or not steady or not most or not delta or not _matters(delta, usual, min_abs, min_rel):
             found.append((None, p))
             continue
-        tone, mention = health_limits.tone_for_move(metric, usual, typical, better)
         up = delta > 0
         label = METRICS[metric][0]
         band = _usual_range(metric, base)
-        note = WORTH_MENTIONING if mention else None
         found.append(({
-            "id": f"change:{metric}:{last.isoformat()}", "kind": "change", "tone": tone, "metric": metric,
+            "id": f"change:{metric}:{last.isoformat()}", "kind": "change", "metric": metric,
+            "tone": reading_bounds.tone_for_move(metric, usual, typical, better),
             "title": f"{label} is {'up' if up else 'down'}",
             "text": (f"{label} was typically {_fmt(metric, typical)} over the last {recent_days} days, "
-                     f"{'up' if up else 'down'} from your usual {_fmt(metric, usual)} (the {base_days} days before)."
-                     + (f" {note}" if note else "")),
+                     f"{'up' if up else 'down'} from your usual {_fmt(metric, usual)} (the {base_days} days before)."),
             "data": {"metric": metric, "unit": METRICS[metric][1], "recent": round(typical, 3), "usual": round(usual, 3),
-                     "days": recent_days, "low": round(band["low"], 3), "high": round(band["high"], 3), "source": source,
-                     **({"note": note} if note else {})},
+                     "days": recent_days, "low": round(band["low"], 3), "high": round(band["high"], 3), "source": source},
             "link": f"#/trends?metric={metric}",
         }, p))
     keep = insight_stats.false_discoveries_removed([p for _, p in found], CHANGE_FDR)
@@ -518,17 +519,17 @@ def _sleep_notes(profile_id: str) -> list[dict[str, Any]]:
     n = sleep.nights(profile_id, 14)
     st = n["stats"]
     if st["count"] >= 7 and (st["bedtime_spread_min"] or 0) >= 60:
-        out.append({"id": f"sleep-schedule:{n['end']}", "kind": "sleep", "tone": "attention",
-                    "title": "Irregular bedtime",
+        out.append({"id": f"sleep-schedule:{n['end']}", "kind": "sleep", "tone": "info",
+                    "title": "Bedtime varied",
                     "text": (f"Your bedtime varied by about ±{st['bedtime_spread_min']} minutes over the last two weeks "
-                             f"(usually around {st['bedtime']}). A steadier schedule tends to make sleep more restful."),
+                             f"(usually around {st['bedtime']})."),
                     "data": {"spread_min": st["bedtime_spread_min"], "bedtime": st["bedtime"]},
                     "link": "#/trends/sleep?metric=sleep_duration"})
     week = [x for x in n["nights"] if x["day"] >= (date.fromisoformat(n["end"]) - timedelta(days=6)).isoformat()]
     short = [x for x in week if x["asleep_h"] < 6]
     if len(short) >= 3:
-        out.append({"id": f"short-nights:{n['end']}", "kind": "sleep", "tone": "attention",
-                    "title": f"{len(short)} short nights this week",
+        out.append({"id": f"short-nights:{n['end']}", "kind": "sleep", "tone": "info",
+                    "title": f"{len(short)} nights under 6 hours this week",
                     "text": f"You slept less than 6 hours on {len(short)} of the last {len(week)} nights.",
                     "data": {"short": len(short), "nights": len(week)}, "link": "#/trends/sleep?metric=sleep_duration"})
     return out
@@ -668,7 +669,7 @@ def _hard_day_links(profile_id: str) -> list[Candidate]:
         if abs(a - b) < MIN_HRV_GAP * b:
             return [(None, 1.0)]
         margin = insight_stats.gap_margin(hard, rest)
-        return [({"id": f"link:load-{metric}", "kind": "link", "tone": "info", "title": "Hard days and recovery",
+        return [({"id": f"link:load-{metric}", "kind": "link", "tone": "info", "title": "Hard days and HRV",
                   "text": (f"The morning after your hardest training days your HRV averaged {a:.0f} ms, against "
                            f"{b:.0f} ms after rest days, a gap of {abs(a - b):.0f} ms give or take {margin:.0f}. {COINCIDENCE}"),
                   "data": {"after_hard": round(a, 1), "after_rest": round(b, 1), "metric": metric, "margin": round(margin, 1)},
@@ -702,8 +703,7 @@ def _training_notes(profile_id: str) -> list[dict[str, Any]]:
     return [{"id": f"load:{t['weeks'][-1]['week']}", "kind": "training", "tone": "info",
              "title": "Training load jumped",
              "text": (f"Your training load over the last 7 days is much more than your recent weeks, about "
-                      f"{round((load['ratio'] - 1) * 100)}% above your weekly average for the four weeks before. "
-                      "Increasing gradually is a common approach."),
+                      f"{round((load['ratio'] - 1) * 100)}% above your weekly average for the four weeks before."),
              "data": load, "link": "#/workouts"}]
 
 
@@ -727,7 +727,7 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
                 continue
             pts = _complete(biometrics.daily_series(profile_id, metric, days=60, end=end)["points"])
             source = _main_source(p for p in pts if p["day"] > day)
-            mine = _same_device(profile_id, metric, pts, source, 60, end)
+            mine = _possible(metric, _same_device(profile_id, metric, pts, source, 60, end))
             before = [p["value"] for p in mine if p["day"] < day]
             after = [p["value"] for p in mine if p["day"] > day]
             if len(before) < MED_MIN_DAYS or len(after) < MED_MIN_DAYS:
@@ -743,7 +743,7 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
                 "title": f"{label} since {med['name']}",
                 "text": (f"In the month after {phrase} ({_day(day)}), your {_soft(label)} was typically "
                          f"{_fmt(metric, a)}, against {_fmt(metric, b)} the month before. Other things change too, "
-                         "so it's worth discussing with whoever prescribed it rather than reading it as an effect."),
+                         "so this doesn't show an effect."),
                 "data": {"metric": metric, "unit": METRICS[metric][1], "before": round(b, 3), "after": round(a, 3),
                          "started": day, "medication": med["name"], "reported_taking": med["reported_taking"], "source": source},
                 "link": f"#/trends?metric={metric}",
@@ -829,8 +829,7 @@ def _lab_note(lab: dict[str, Any], s: dict[str, Any]) -> Optional[dict[str, Any]
         # Closer isn't good news while the lab still calls it critical.
         if lab.get("interpretation") in records.CRITICAL:
             return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention", "title": f"{s['title']} still flagged critical",
-                    "text": (f"{sentence}, and still {out_word} the reference range{ref}. The lab marked it critical, so go over it "
-                             "with your care team if you haven't already.")}
+                    "text": f"{sentence}, and still {out_word} the reference range{ref}. The lab marked this critical."}
         return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "good", "title": f"{s['title']} closer to the range",
                 "text": f"{sentence}, and still {out_word} the reference range{ref}."}
     dated = [p for p in pts if _iso_day(p["t"]) and not p.get("comparator")]
@@ -910,7 +909,7 @@ def _goal_notes(profile_id: str) -> list[dict[str, Any]]:
     for g in goals.progress(profile_id, 7):
         if g["days"] < 5:
             continue
-        tone = "good" if g["met"] >= g["days"] - 1 else "attention" if g["met"] <= g["days"] // 3 else "info"
+        tone = "good" if g["met"] >= g["days"] - 1 else "info"
         out.append({
             "id": f"goal:{g['metric']}", "kind": "goal", "tone": tone,
             "title": f"{g['label']} goal: {g['met']} of {g['days']} days",
@@ -924,18 +923,10 @@ def _goal_notes(profile_id: str) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# What shouldn't wait
+# What the lab marked critical
 # ---------------------------------------------------------------------------
 
-URGENT_WORDS = "Talk to your care team, or call emergency services if you feel unwell."
-READING_FRESH_DAYS = 3
 LAB_FRESH_DAYS = 30
-NOTIFICATION_FRESH_DAYS = 14
-WATCH_NOTIFICATIONS = {
-    "irregular_heart_rhythm_event": "an irregular rhythm",
-    "high_heart_rate_event": "a high heart rate",
-    "low_heart_rate_event": "a low heart rate",
-}
 
 
 def _when(day: str, today: date) -> str:
@@ -943,71 +934,8 @@ def _when(day: str, today: date) -> str:
     return "today" if ago == 0 else "yesterday" if ago == 1 else f"on {_day(day)}"
 
 
-def _reading_breach(profile_id: str, metric: str, today: date) -> dict[str, Any]:
-    """Past which limits the newest reading of a measure is, if it's recent, real and not this person's everyday
-    number. A later ordinary reading stands down an earlier alarming one."""
-    pts = [p for p in biometrics.daily_series(profile_id, metric, days=READING_FRESH_DAYS)["points"]
-           if "(simulated)" not in (p.get("source") or "")]
-    if not pts:
-        return {}
-    p = pts[-1]
-    out = {}
-    for limit in health_limits.URGENT:
-        if limit.metric != metric:
-            continue
-        figure = p["value"] if limit.reading == "value" else p.get(limit.reading)
-        figure = p["value"] if figure is None else figure
-        if not health_limits.is_plausible(metric, figure) or not health_limits.breaches(limit, figure):
-            continue
-        if limit.own_usual_counts:
-            history = _complete(biometrics.daily_series(profile_id, metric, days=BASELINE_DAYS, source=p["source"])["points"])
-            usual = _usual_range(metric, [h["value"] for h in history if h["day"] < p["day"]])
-            if usual and (figure >= usual["low"] if limit.side == "low" else figure <= usual["high"]):
-                continue
-        out[limit.side] = {"value": figure, "day": p["day"], "source": p["source"]}
-    return out
-
-
-def _urgent_readings(profile_id: str) -> list[dict[str, Any]]:
-    today = _today(profile_id)
-    have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
-    out = []
-
-    def note(key: str, title: str, side: str, shown: str, hit: dict[str, Any], metric: str) -> None:
-        how = ("Measure it again after a few minutes." if key == "blood_pressure" else "Device readings can be wrong, so check it again if you can.")
-        out.append({
-            "id": f"urgent:{key}:{side}:{hit['day']}", "kind": "urgent", "tone": "attention", "urgent": True,
-            "title": f"{title} reading is unusually {side}",
-            "text": f"Your {_soft(title)} read {shown} {_when(hit['day'], today)}. {how} {URGENT_WORDS}",
-            "data": {"metric": metric, "unit": METRICS[metric][1], "value": round(hit["value"], 2), "side": side, "day": hit["day"],
-                     "source": hit["source"], "shown": shown, "limits_version": health_limits.LIMITS_VERSION},
-            "link": f"#/trends?metric={metric}",
-        })
-
-    for metric in dict.fromkeys(limit.metric for limit in health_limits.URGENT):
-        if metric not in have or metric.startswith("blood_pressure_"):
-            continue
-        for side, hit in _reading_breach(profile_id, metric, today).items():
-            note(metric, METRICS[metric][0], side, _fmt(metric, hit["value"]), hit, metric)
-    systolic = _reading_breach(profile_id, "blood_pressure_systolic", today) if "blood_pressure_systolic" in have else {}
-    diastolic = _reading_breach(profile_id, "blood_pressure_diastolic", today) if "blood_pressure_diastolic" in have else {}
-    for side in ("high", "low"):
-        hit = systolic.get(side) or diastolic.get(side)
-        if not hit:
-            continue
-        # Both numbers of the same day, whichever of them is past its limit.
-        pick = "max" if side == "high" else "min"
-        def paired(metric: str) -> Optional[float]:
-            pts = [p for p in biometrics.daily_series(profile_id, metric, days=READING_FRESH_DAYS)["points"] if p["day"] == hit["day"]]
-            return (pts[0].get(pick) or pts[0]["value"]) if pts else None
-        sys_, dia = paired("blood_pressure_systolic"), paired("blood_pressure_diastolic")
-        shown = f"{sys_:.0f}/{dia:.0f} mmHg" if sys_ is not None and dia is not None else f"{hit['value']:.0f} mmHg"
-        note("blood_pressure", "Blood pressure", side, shown, hit,
-             "blood_pressure_systolic" if systolic.get(side) else "blood_pressure_diastolic")
-    return out
-
-
-def _urgent_labs(profile_id: str) -> list[dict[str, Any]]:
+def _critical_labs(profile_id: str) -> list[dict[str, Any]]:
+    """Recent results the lab marked critical, as the lab reported them."""
     today = _today(profile_id)
     since = (today - timedelta(days=LAB_FRESH_DAYS)).isoformat()
     out = []
@@ -1018,42 +946,17 @@ def _urgent_labs(profile_id: str) -> list[dict[str, Any]]:
         reference = f" (range {lab['ref_text']})" if lab.get("ref_text") else ""
         value = lab.get("value_text") or "out of range"
         out.append({
-            "id": f"urgent:lab:{lab.get('code') or lab['title']}:{day}", "kind": "urgent", "tone": "attention", "urgent": True,
-            "title": f"{lab['title']} was flagged critical by the lab",
-            "text": f"{lab['title']} was {value}{reference} {_when(day, today)}, and the lab marked it critical. {URGENT_WORDS}",
+            "id": f"critical:{lab.get('code') or lab['title']}:{day}", "kind": "critical", "tone": "attention",
+            "title": f"{lab['title']}: the lab marked this critical",
+            "text": f"{lab['title']} was {value}{reference} {_when(day, today)}. The lab marked this critical.",
             "data": {"code": lab.get("code"), "value_text": lab.get("value_text"), "interpretation": lab["interpretation"], "day": day},
             "link": f"#/trends/labs?code={lab.get('code') or ''}",
         })
     return out
 
 
-def _urgent_notifications(profile_id: str) -> list[dict[str, Any]]:
-    today = _today(profile_id)
-    tz = _tz(profile_id)
-    latest: dict[str, tuple[str, int]] = {}
-    for e in activity.list_events(profile_id, NOTIFICATION_FRESH_DAYS, category="events", limit=500):
-        if e["event_type"] in WATCH_NOTIFICATIONS and "(simulated)" not in (e.get("source_name") or ""):
-            day = local_day(e["start_date"], tz)
-            seen, count = latest.get(e["event_type"], (day, 0))
-            latest[e["event_type"]] = (max(seen, day), count + 1)
-    return [{
-        "id": f"urgent:watch:{kind}:{day}", "kind": "urgent", "tone": "attention", "urgent": True,
-        "title": f"Your watch noticed {WATCH_NOTIFICATIONS[kind]}",
-        "text": (f"Your watch sent this notification {_when(day, today)}" + (f", {count} times in the last two weeks" if count > 1 else "")
-                 + f". A watch can be wrong, but it's worth following up. {URGENT_WORDS}"),
-        "data": {"event_type": kind, "day": day, "count": count},
-        "link": f"#/trends?event={kind}",
-    } for kind, (day, count) in latest.items()]
-
-
-def urgent(profile_id: str) -> list[dict[str, Any]]:
-    """What shouldn't wait: results the lab marked critical, readings past a published limit, and the watch's own
-    warnings. Worded calmly and with no diagnosis, since a device can be wrong and only a clinician can tell."""
-    return _guarded((_urgent_labs, _urgent_readings, _urgent_notifications), profile_id)
-
-
 TONE_ORDER = {"attention": 0, "info": 1, "good": 2}
-KIND_ORDER = {"urgent": -1, "lab": 0, "change": 1, "device": 2, "training": 3, "sleep": 4, "medication": 5, "link": 6, "goal": 7}
+KIND_ORDER = {"critical": -1, "lab": 0, "change": 1, "device": 2, "training": 3, "sleep": 4, "medication": 5, "link": 6, "goal": 7}
 
 
 def _guarded(generators: Iterable[Any], profile_id: str) -> list[dict[str, Any]]:
@@ -1069,10 +972,10 @@ def _guarded(generators: Iterable[Any], profile_id: str) -> list[dict[str, Any]]
 
 
 def insights(profile_id: str, limit: int = 12) -> list[dict[str, Any]]:
-    """What's worth knowing right now across every source, most pressing first."""
-    found = _guarded((urgent, _lab_notes, _changes, _training_notes, _sleep_notes, _medication_notes, _links, _goal_notes), profile_id)
+    """What's worth knowing right now across every source, what the lab marked critical first."""
+    found = _guarded((_critical_labs, _lab_notes, _changes, _training_notes, _sleep_notes, _medication_notes, _links, _goal_notes), profile_id)
     # A critical result says everything a note about the same test would.
-    critical = {i["data"]["code"] for i in found if i["kind"] == "urgent" and i["data"].get("code")}
+    critical = {i["data"]["code"] for i in found if i["kind"] == "critical" and i["data"].get("code")}
     found = [i for i in found if not (i["kind"] == "lab" and i["data"].get("code") in critical)]
     found.sort(key=lambda i: (TONE_ORDER[i["tone"]], KIND_ORDER.get(i["kind"], 9)))
     return found[:limit]

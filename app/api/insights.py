@@ -39,13 +39,6 @@ def list_insights(profile: Optional[str] = None, limit: int = Query(12, ge=1, le
     return {"insights": found[:limit]}
 
 
-@router.get("/api/insights/urgent", dependencies=[user])
-def urgent_insights(profile: Optional[str] = None) -> dict:
-    """Critical lab results, readings past a published limit and the watch's own warnings, for the bell."""
-    prof = resolve_profile(profile)
-    return {"urgent": insights.urgent(prof["id"])}
-
-
 @router.get("/api/insights/baseline", dependencies=[user])
 def baseline(metric: str = Query(..., max_length=80), profile: Optional[str] = None, days: int = Query(90, ge=7, le=3650),
              source: Optional[str] = Query(None, max_length=200)) -> dict:

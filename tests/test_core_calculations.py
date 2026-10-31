@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.connectors import units
-from app.services import health_limits, insight_stats, insights, sync
+from app.services import insight_stats, insights, reading_bounds, sync
 from app.simulator.generator import build_chart
 from app.simulator.personas import PERSONAS
 from app.store import activity, biometrics, goals, profiles, sleep
@@ -185,28 +185,29 @@ def test_association_removes_a_shared_trend():
 # Tone, one row at a time
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("metric,usual,now,better,tone,mention", [
-    ("resting_heart_rate", 66, 60, "down", "good", False),
-    ("resting_heart_rate", 60, 66, "down", "attention", False),
-    ("resting_heart_rate", 55, 47, "down", "info", False),            # past the expected band, not yet a concern
-    ("resting_heart_rate", 55, 40, "down", "attention", True),
-    ("resting_heart_rate", 80, 112, "down", "attention", True),
-    ("resting_heart_rate", 110, 95, "down", "good", False),           # heading back, though not there yet
-    ("respiratory_rate", 20, 13, "down", "info", False),              # large, so it isn't called good news
-    ("respiratory_rate", 15, 8, "down", "attention", True),
-    ("oxygen_saturation", 94, 97, "up", "good", False),
-    ("oxygen_saturation", 97, 93, "up", "attention", True),
-    ("sleep_duration", 6.5, 7.5, "up", "good", False),
-    ("sleep_duration", 8.5, 9.5, "up", "info", False),
-    ("sleep_duration", 8, 11, "up", "attention", True),
-    ("sleep_duration", 8, 5, "up", "attention", True),
-    ("hrv_rmssd", 40, 44, "up", "good", False),
-    ("hrv_rmssd", 40, 60, "up", "info", False),
-    ("hrv_rmssd", 40, 20, "up", "attention", False),
-    ("body_mass", 80, 76, None, "info", False),
+@pytest.mark.parametrize("metric,usual,now,better,tone", [
+    ("resting_heart_rate", 66, 60, "down", "good"),
+    ("resting_heart_rate", 60, 66, "down", "attention"),
+    ("resting_heart_rate", 55, 47, "down", "info"),             # past the standard range
+    ("resting_heart_rate", 55, 40, "down", "info"),
+    ("resting_heart_rate", 80, 112, "down", "info"),
+    ("resting_heart_rate", 110, 95, "down", "good"),            # heading back, though not there yet
+    ("respiratory_rate", 20, 13, "down", "info"),               # large, so it isn't called good news
+    ("respiratory_rate", 15, 8, "down", "info"),
+    ("oxygen_saturation", 94, 97, "up", "good"),
+    ("oxygen_saturation", 97, 93, "up", "info"),
+    ("sleep_duration", 6.5, 7.5, "up", "good"),
+    ("sleep_duration", 7.5, 6.5, "up", "attention"),
+    ("sleep_duration", 8.5, 9.5, "up", "info"),
+    ("sleep_duration", 8, 11, "up", "info"),
+    ("sleep_duration", 8, 5, "up", "info"),
+    ("hrv_rmssd", 40, 44, "up", "good"),
+    ("hrv_rmssd", 40, 60, "up", "info"),
+    ("hrv_rmssd", 40, 20, "up", "info"),
+    ("body_mass", 80, 76, None, "info"),
 ])
-def test_tone_for_a_move(metric, usual, now, better, tone, mention):
-    assert health_limits.tone_for_move(metric, usual, now, better) == (tone, mention)
+def test_tone_for_a_move(metric, usual, now, better, tone):
+    assert reading_bounds.tone_for_move(metric, usual, now, better) == tone
 
 
 # ---------------------------------------------------------------------------
@@ -309,11 +310,11 @@ def test_sleep_notes_at_their_edges(client):
          "start_date": (day - timedelta(days=i, hours=h)).isoformat(), "end_date": (day - timedelta(days=i)).isoformat()}
         for i, h in enumerate([5.9, 5.9, 5.9, 6.0, 7, 7, 7])])
     notes = insights._sleep_notes(pid)
-    assert [n["title"] for n in notes if n["id"].startswith("short")] == ["3 short nights this week"]
+    assert [n["title"] for n in notes if n["id"].startswith("short")] == ["3 nights under 6 hours this week"]
     assert sleep.nights(pid, 14)["stats"]["count"] == 7
 
 
-@pytest.mark.parametrize("met_days,tone", [(7, "good"), (6, "good"), (5, "info"), (3, "info"), (2, "attention"), (0, "attention")])
+@pytest.mark.parametrize("met_days,tone", [(7, "good"), (6, "good"), (5, "info"), (3, "info"), (2, "info"), (0, "info")])
 def test_goal_tone_at_its_edges(client, met_days, tone):
     pid = _prof()
     _daily(pid, "resting_heart_rate", [50] * met_days + [80] * (7 - met_days), unit="bpm")
@@ -329,20 +330,20 @@ def test_a_goal_with_few_days_says_nothing(client):
     assert insights._goal_notes(pid) == []
 
 
-def test_order_is_urgent_then_attention_then_the_rest(client, monkeypatch):
-    def fake(kind, tone, urgent=False):
-        return lambda _p: [{"id": kind, "kind": kind, "tone": tone, "data": {}, **({"urgent": True} if urgent else {})}]
+def test_order_is_what_the_lab_marked_critical_then_attention_then_the_rest(client, monkeypatch):
+    def fake(kind, tone):
+        return lambda _p: [{"id": kind, "kind": kind, "tone": tone, "data": {}}]
     with monkeypatch.context() as patch:
-        patch.setattr(insights, "urgent", fake("urgent", "attention", True))
+        patch.setattr(insights, "_critical_labs", fake("critical", "attention"))
         patch.setattr(insights, "_goal_notes", fake("goal", "good"))
         patch.setattr(insights, "_links", fake("link", "info"))
         patch.setattr(insights, "_lab_notes", fake("lab", "attention"))
-        patch.setattr(insights, "_sleep_notes", fake("sleep", "attention"))
+        patch.setattr(insights, "_sleep_notes", fake("sleep", "info"))
         patch.setattr(insights, "_changes", fake("change", "good"))
         patch.setattr(insights, "_training_notes", fake("training", "info"))
         patch.setattr(insights, "_medication_notes", fake("medication", "info"))
-        assert [i["kind"] for i in insights.insights("p")] == ["urgent", "lab", "sleep", "training", "medication", "link", "change", "goal"]
-        assert [i["kind"] for i in insights.insights("p", 2)] == ["urgent", "lab"]
+        assert [i["kind"] for i in insights.insights("p")] == ["critical", "lab", "training", "sleep", "medication", "link", "change", "goal"]
+        assert [i["kind"] for i in insights.insights("p", 2)] == ["critical", "lab"]
 
 
 # ---------------------------------------------------------------------------

@@ -78,22 +78,21 @@ export function insightText(i) {
   const d = i.data || {};
   const m = { metric: d.metric, unit: d.unit };
   const v = (x) => `${metricValue(m, x)}${metricUnit(m) ? ` ${metricUnit(m)}` : ""}`;
-  if (i.kind === "urgent" && d.metric && d.shown && d.metric !== "blood_pressure_systolic" && d.metric !== "blood_pressure_diastolic") return i.text.replace(d.shown, v(d.value));
-  if (i.kind === "change") return `${i.title.split(" is ")[0]} was typically ${v(d.recent)} over the last ${d.days} days, ${d.recent > d.usual ? "up" : "down"} from your usual ${v(d.usual)}.${d.note ? ` ${d.note}` : ""}`;
+  if (i.kind === "change") return `${i.title.split(" is ")[0]} was typically ${v(d.recent)} over the last ${d.days} days, ${d.recent > d.usual ? "up" : "down"} from your usual ${v(d.usual)}.`;
   if (i.kind === "sleep" && d.bedtime && d.spread_min != null) {
     // The usual bedtime in the reader's clock (8:57 PM, or 20:57), not the server's.
     const [h, min] = String(d.bedtime).split(":").map(Number);
     const at = Number.isFinite(h) && Number.isFinite(min)
       ? new Date(2000, 0, 1, h, min).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : d.bedtime;
-    return `Your bedtime varied by about ±${d.spread_min} minutes over the last two weeks (usually around ${at}). A steadier schedule tends to make sleep more restful.`;
+    return `Your bedtime varied by about ±${d.spread_min} minutes over the last two weeks (usually around ${at}).`;
   }
-  if (i.kind === "medication") return `In the month after ${d.reported_taking ? `you started ${d.medication}` : `the first order on record for ${d.medication}`} (${fmtDate(d.started)}), this was typically ${v(d.after)}, against ${v(d.before)} the month before. Other things change too, so talk it over with whoever prescribed it rather than reading it as an effect.`;
+  if (i.kind === "medication") return `In the month after ${d.reported_taking ? `you started ${d.medication}` : `the first order on record for ${d.medication}`} (${fmtDate(d.started)}), this was typically ${v(d.after)}, against ${v(d.before)} the month before. Other things change too, so this doesn't show an effect.`;
   if (i.kind === "goal" && d.unit) return `You met this goal (${d.direction === "min" ? "at least" : "at most"} ${v(d.target)}) on ${d.met} of the last ${d.days} days${d.streak >= 3 ? `, ${d.streak} in a row` : ""}.`;
   return i.text;
 }
 
 export function insightItem(i, { hide = true } = {}) {
-  return html`<div class="insight ${i.tone} ${i.urgent ? "urgent" : ""}" ${i.urgent ? raw('role="alert"') : ""}>
+  return html`<div class="insight ${i.tone}">
     <span class="insight-icon">${icon(TONE_ICON[i.tone] || "lightbulb")}</span>
     <div class="grow" style="min-width:0"><div class="insight-title">${i.title}</div>
       <div class="small muted">${insightText(i)}</div>
@@ -135,8 +134,8 @@ export const WIDGETS = [
     needs: ["insights"], first: true,
     render: (d) => {
       const items = d.insights?.insights || [];
-      // What shouldn't wait is never folded away.
-      const shown = Math.max(6, items.filter((i) => i.urgent).length);
+      // What the lab marked critical is never folded away.
+      const shown = Math.max(6, items.filter((i) => i.kind === "critical").length);
       return html`<div class="card widget-card">
         <div class="card-head"><h3>${icon("lightbulb")} What's changed</h3><span class="small muted">across all your sources</span></div>
         ${items.length ? html`<div class="insights">${items.slice(0, shown).map((i) => insightItem(i))}</div>`
@@ -206,7 +205,7 @@ export const WIDGETS = [
     render: (d) => listCard("Allergies", "alert", d.summary.allergies, (a) => html`
       <div class="list-item clickable" data-action="record" data-id="${a.id}">
         <div class="grow"><div class="title">${a.title}</div><div class="meta">${a.status_note || a.narrative || ""}</div></div>
-        ${a.details?.criticality === "high" ? html`<span class="badge bad">High risk</span>` : html`<span class="badge">${capitalize(a.details?.category || "allergy")}</span>`}
+        ${a.details?.criticality === "high" ? html`<span class="badge bad">Marked high risk</span>` : html`<span class="badge">${capitalize(a.details?.category || "allergy")}</span>`}
       </div>`, d.summary.allergy_note || "No allergies on record.", { href: "#/records/allergies" }) },
   { id: "vitals", title: "Latest vitals", desc: "Blood pressure, weight and other measurements from your visits", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Latest vitals", "heart", d.summary.latest_vitals, (v) => html`

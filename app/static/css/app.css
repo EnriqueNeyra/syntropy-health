@@ -257,8 +257,7 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .wk-load-nums span { display: block; font-size: 11.5px; color: var(--text-3); font-weight: 600; }
 .wk-load-nums b { font-family: var(--font-brand); font-size: 22px; font-variant-numeric: tabular-nums; }
 .wk-meter { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); margin-top: 12px; }
-.wk-meter-fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--accent); }
-.wk-meter-fill.good { background: var(--good); } .wk-meter-fill.attention { background: var(--warn); } .wk-meter-fill.info { background: var(--info); }
+.wk-meter-fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--info); }
 .wk-meter-usual { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text-2); border-radius: 1px; }
 .wk-zones-title { font-weight: 600; color: var(--text-2); margin: 14px 0 6px; }
 /* Heart-rate zones: one hue from light (easy) to dark (maximum). */
@@ -1424,8 +1423,6 @@ svg.spark.intro { animation: wipe .8s cubic-bezier(.4, 0, .2, 1) both; }
 .insight-icon svg { width: 16px; height: 16px; }
 .insight.attention .insight-icon { background: var(--warn-bg); color: var(--warn); }
 .insight.good .insight-icon { background: var(--good-bg); color: var(--good); }
-.insight.urgent { grid-column: 1 / -1; border-right: 0; background: var(--bad-bg); }
-.insight.urgent .insight-icon { background: var(--surface); color: var(--bad); }
 .insight-title { font-weight: 650; margin-bottom: 2px; }
 .insight .small.muted { line-height: 1.45; margin-bottom: 4px; }
 .insight a.small { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }

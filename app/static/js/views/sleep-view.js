@@ -130,7 +130,7 @@ function consistency(st) {
   if (st.bedtime_spread_min == null) return "A few more nights are needed to see how regular your schedule is.";
   const s = Math.max(st.bedtime_spread_min, st.wake_spread_min ?? 0);
   if (s <= 30) return "A steady schedule: you go to bed and get up at much the same time each day.";
-  if (s <= 60) return "Fairly regular. Keeping bedtime and wake time within about half an hour, weekends included, tends to help.";
-  return "Your schedule shifts a lot from night to night. Going to bed and getting up at steadier times, weekends included, often makes sleep more restful.";
+  if (s <= 60) return "Fairly regular: your bedtime and wake time vary by up to about an hour.";
+  return "Your schedule shifts by more than an hour from night to night.";
 }
 

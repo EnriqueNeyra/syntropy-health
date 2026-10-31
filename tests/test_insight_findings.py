@@ -289,106 +289,28 @@ def test_medication_statement_date_is_when_it_began_not_when_it_was_noted():
 
 
 # ---------------------------------------------------------------------------
-# F071: urgent readings and results
+# What the lab marked critical, and nothing else brought forward
 # ---------------------------------------------------------------------------
 
-URGENT_WORDS = "Talk to your care team, or call emergency services if you feel unwell."
-
-
-@pytest.mark.parametrize("metric,value,title", [
-    ("oxygen_saturation", 84, "Blood oxygen reading is unusually low"),
-    ("blood_glucose", 42, "Blood glucose reading is unusually low"),
-    ("blood_glucose", 340, "Blood glucose reading is unusually high"),
-    ("body_temperature", 40.4, "Body temperature reading is unusually high"),
-    ("resting_heart_rate", 142, "Resting heart rate reading is unusually high"),
+@pytest.mark.parametrize("metric,value", [
+    ("oxygen_saturation", 84), ("blood_glucose", 42), ("blood_glucose", 340), ("body_temperature", 40.4),
+    ("resting_heart_rate", 142), ("blood_pressure_systolic", 198),
 ])
-def test_an_urgent_device_reading_comes_first_and_says_what_to_do(client, metric, value, title):
-    pid = _prof()
-    _daily(pid, "step_count", [5000] * 20)
-    _daily(pid, metric, [value], unit="x")
-    goals.set_goal(pid, "step_count", 1000)
-    found = client.get("/api/insights").json()["insights"]
-    assert found[0]["kind"] == "urgent" and found[0]["title"] == title and found[0]["urgent"] is True
-    assert URGENT_WORDS in found[0]["text"]
-    assert not any(w in found[0]["text"].lower() for w in ("hypoxemia", "hypoglyc", "fever", "tachycard", "diagnos"))
-    assert client.get("/api/insights/urgent").json()["urgent"][0]["title"] == title
-
-
-def test_blood_pressure_is_one_note_with_both_numbers(client):
-    pid = _prof()
-    _daily(pid, "blood_pressure_systolic", [198], unit="mmHg")
-    _daily(pid, "blood_pressure_diastolic", [124], unit="mmHg")
-    urgent = insights.urgent(pid)
-    assert len(urgent) == 1 and "198/124" in urgent[0]["text"] and urgent[0]["title"] == "Blood pressure reading is unusually high"
-
-
-@pytest.mark.parametrize("systolic,diastolic,fires", [(180, 120, False), (181, 80, True), (130, 121, True)])
-def test_blood_pressure_limit_is_above_180_or_above_120(client, systolic, diastolic, fires):
-    pid = _prof()
-    _daily(pid, "blood_pressure_systolic", [systolic], unit="mmHg")
-    _daily(pid, "blood_pressure_diastolic", [diastolic], unit="mmHg")
-    assert bool(insights.urgent(pid)) is fires
-
-
-@pytest.mark.parametrize("metric,value,fires", [
-    ("oxygen_saturation", 92, False), ("oxygen_saturation", 91, True), ("resting_heart_rate", 41, False), ("resting_heart_rate", 40, True),
-    ("resting_heart_rate", 130, False), ("resting_heart_rate", 131, True), ("respiratory_rate", 9, False), ("respiratory_rate", 8, True),
-    ("respiratory_rate", 24, False), ("respiratory_rate", 25, True), ("body_temperature", 39.3, False), ("body_temperature", 39.4, True),
-    ("body_temperature", 35.1, False), ("body_temperature", 35.0, True), ("blood_glucose", 54, False), ("blood_glucose", 53, True),
-    ("blood_glucose", 300, False), ("blood_glucose", 301, True),
-])
-def test_each_limit_at_its_edge(client, metric, value, fires):
+def test_a_device_reading_is_never_escalated(client, metric, value):
     pid = _prof()
     _daily(pid, metric, [value], unit="x")
-    assert bool(insights.urgent(pid)) is fires
+    assert insights.insights(pid) == []
 
 
-@pytest.mark.parametrize("metric,value", [("oxygen_saturation", 5), ("body_temperature", 101.3), ("blood_glucose", 5.5), ("resting_heart_rate", 400)])
-def test_impossible_readings_do_not_escalate(client, metric, value):
-    pid = _prof()
-    _daily(pid, metric, [value], unit="x")
-    assert insights.urgent(pid) == []
-
-
-def test_an_old_reading_does_not_stay_urgent(client):
-    pid = _prof()
-    _daily(pid, "oxygen_saturation", [84, 97, 97, 97, 97], unit="%")
-    assert insights.urgent(pid) == []
-
-
-def test_a_reading_with_nothing_after_it_stops_being_urgent_after_a_few_days(client):
-    pid = _prof()
-    _daily(pid, "oxygen_saturation", [84, None, None], unit="%")
-    assert len(insights.urgent(pid)) == 1
-    pid2 = profiles.create_profile("Sam")["id"]
-    _daily(pid2, "oxygen_saturation", [84, None, None, None], unit="%")
-    assert insights.urgent(pid2) == []
-
-
-def test_a_low_number_that_is_this_persons_usual_is_not_urgent(client):
-    pid = _prof()
-    _daily(pid, "resting_heart_rate", _noisy(39, 1, 40), unit="bpm")
-    assert insights.urgent(pid) == []
-    pid2 = profiles.create_profile("Sam")["id"]
-    _daily(pid2, "resting_heart_rate", _noisy(58, 1, 40) + [38], unit="bpm")
-    assert len(insights.urgent(pid2)) == 1
-
-
-def test_simulated_data_never_escalates(client):
-    pid = _prof()
-    _daily(pid, "oxygen_saturation", [84], source="Oura (simulated)", unit="%")
-    assert insights.urgent(pid) == []
-
-
-def test_critical_lab_results_are_escalated_but_not_forever(client):
+def test_a_critical_lab_is_what_the_lab_reported_and_not_forever(client):
     pid = _prof()
     src = _source(pid)
     _lab(pid, src, 1, _ago(5), 6.9, "critical_high", code="2823-3", title="Potassium", unit="mmol/L", low=3.5, high=5.0, ref_text="3.5–5.0")
     _lab(pid, src, 2, _ago(200), 1.9, "critical_low", code="2601-3", title="Magnesium", unit="mg/dL", low=1.7)
-    urgent = insights.urgent(pid)
-    assert [u["title"] for u in urgent] == ["Potassium was flagged critical by the lab"]
-    assert "6.9 mmol/L" in urgent[0]["text"] and URGENT_WORDS in urgent[0]["text"]
-    assert urgent[0]["data"]["code"] == "2823-3"
+    critical = insights._critical_labs(pid)
+    assert [c["title"] for c in critical] == ["Potassium: the lab marked this critical"]
+    assert critical[0]["text"].endswith("The lab marked this critical.") and "6.9 mmol/L" in critical[0]["text"] and "3.5–5.0" in critical[0]["text"]
+    assert critical[0]["data"]["code"] == "2823-3" and critical[0]["tone"] == "attention"
 
 
 def test_a_critical_lab_is_not_said_twice(client):
@@ -397,29 +319,24 @@ def test_a_critical_lab_is_not_said_twice(client):
     _lab(pid, src, 1, _ago(100), 5.6, "high", code="2823-3", title="Potassium", unit="mmol/L", high=5.0)
     _lab(pid, src, 2, _ago(5), 6.9, "critical_high", code="2823-3", title="Potassium", unit="mmol/L", high=5.0)
     found = insights.insights(pid)
-    assert [i["kind"] for i in found] == ["urgent"]
+    assert [i["kind"] for i in found] == ["critical"]
 
 
-@pytest.mark.parametrize("event_type,name,title", [
-    ("irregular_heart_rhythm_event", "Irregular Rhythm Notification", "Your watch noticed an irregular rhythm"),
-    ("high_heart_rate_event", "High Heart Rate Notification", "Your watch noticed a high heart rate"),
-    ("low_heart_rate_event", "Low Heart Rate Notification", "Your watch noticed a low heart rate"),
-])
-def test_watch_notifications_are_brought_forward(client, event_type, name, title):
+def test_a_critical_lab_comes_first(client):
     pid = _prof()
-    activity.insert_events(pid, None, [{"id": "e1", "event_type": event_type, "category": "events", "name": name,
-                                        "start": _noon(2).isoformat(), "end": _noon(2).isoformat(), "source_name": "Apple Watch"}])
-    urgent = insights.urgent(pid)
-    assert [u["title"] for u in urgent] == [title]
-    assert "care team" in urgent[0]["text"]
+    src = _source(pid)
+    _lab(pid, src, 1, _ago(100), 5.6, "normal", code="3016-3", title="TSH", high=6.0)
+    _lab(pid, src, 2, _ago(10), 7.5, "high", code="3016-3", title="TSH", high=6.0)
+    _lab(pid, src, 3, _ago(5), 6.9, "critical_high", code="2823-3", title="Potassium", unit="mmol/L", high=5.0)
+    assert [i["kind"] for i in insights.insights(pid)] == ["critical", "lab"]
 
 
-def test_an_old_watch_notification_is_not_brought_forward(client):
+def test_a_watch_notification_is_not_brought_forward(client):
     pid = _prof()
     activity.insert_events(pid, None, [{"id": "e1", "event_type": "irregular_heart_rhythm_event", "category": "events",
-                                        "name": "Irregular Rhythm Notification", "start": _noon(90).isoformat(),
-                                        "end": _noon(90).isoformat(), "source_name": "Apple Watch"}])
-    assert insights.urgent(pid) == []
+                                        "name": "Irregular Rhythm Notification", "start": _noon(2).isoformat(),
+                                        "end": _noon(2).isoformat(), "source_name": "Apple Watch"}])
+    assert insights.insights(pid) == []
 
 
 # ---------------------------------------------------------------------------
@@ -467,12 +384,11 @@ def test_device_changes_give_the_day_it_happened():
 @pytest.mark.parametrize("metric,usual,now,unit", [
     ("resting_heart_rate", 55.0, 35.4, "bpm"), ("respiratory_rate", 14.9, 7.9, "br/min"),
 ])
-def test_a_big_move_past_a_plausible_value_is_never_good_news(client, metric, usual, now, unit):
+def test_a_big_move_is_neither_good_news_nor_an_alarm(client, metric, usual, now, unit):
     pid = _prof()
     _daily(pid, metric, _noisy(usual, usual * 0.02, 60) + _noisy(now, 0.3, 7), unit=unit)
     item = next(i for i in insights._changes(pid) if i["kind"] == "change")
-    assert item["tone"] == "attention"
-    assert "worth mentioning to your clinician" in item["text"] and "worth mentioning to your clinician" in item["data"]["note"]
+    assert item["tone"] == "info" and "clinician" not in item["text"] and "note" not in item["data"]
 
 
 def test_twelve_hours_of_sleep_is_not_good_news(client):
@@ -485,7 +401,7 @@ def test_twelve_hours_of_sleep_is_not_good_news(client):
                         "start_date": (wake - timedelta(hours=h)).isoformat(), "end_date": wake.isoformat()})
     biometrics.insert_samples(pid, None, samples)
     item = next(i for i in insights._changes(pid) if i["kind"] == "change")
-    assert item["metric"] == "sleep_duration" and item["tone"] == "attention"
+    assert item["metric"] == "sleep_duration" and item["tone"] == "info"
 
 
 def test_a_moderate_healthy_move_stays_good(client):
@@ -781,7 +697,7 @@ def test_a_result_still_flagged_critical_never_gets_a_good_tone(client):
     note = next(i for i in insights.insights(pid) if i["kind"] == "lab")
     assert note["tone"] == "attention" and note["title"] == "Creatinine still flagged critical"
     assert "7.5" in note["text"] and "6.0" in note["text"] and "above the reference range" in note["text"]
-    assert "marked it critical" in note["text"] and "closer" not in note["text"]
+    assert note["text"].endswith("The lab marked this critical.") and "closer" not in note["text"]
 
 
 def test_coming_down_from_critical_to_merely_high_can_be_good(client):

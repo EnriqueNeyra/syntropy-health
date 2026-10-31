@@ -85,13 +85,13 @@ function openMaxHeartRate(profile, current, onSaved) {
 }
 
 const LOAD_WORDS = {
-  spike: ["Big jump", "attention", "This week's load is much more than your recent weeks. Increasing gradually is a common approach."],
-  building: ["Building", "info", "A bit more than your usual. A steady build like this is how fitness grows."],
-  steady: ["Steady", "good", "In line with your last four weeks."],
-  easing: ["Easing off", "info", "Lighter than your usual: good for recovery, or a sign you've been busy."],
-  new: ["Getting started", "info", "Not enough recent weeks to compare with yet."],
-  learning: ["Still learning", "info", "There aren't enough workouts in the last four weeks yet to say what a usual week looks like for you."],
-  none: ["No training yet", "info", "Workouts from the last five weeks will show here."],
+  spike: ["Big jump", "This week's load is much more than your recent weeks."],
+  building: ["Building", "A bit more than your usual."],
+  steady: ["Steady", "In line with your last four weeks."],
+  easing: ["Easing off", "Lighter than your usual."],
+  new: ["Getting started", "Not enough recent weeks to compare with yet."],
+  learning: ["Still learning", "There aren't enough workouts in the last four weeks yet to say what a usual week looks like for you."],
+  none: ["No training yet", "Workouts from the last five weeks will show here."],
 };
 
 export async function render({ el, params, state }) {
@@ -128,7 +128,7 @@ export async function render({ el, params, state }) {
     const maxCount = Math.max(1, ...s.by_type.map((t) => t.count));
     const anyInRange = types.length > 0;
     const anyEver = anyInRange || tr.weeks.some((wk) => wk.count) || (tr.progress || []).length;
-    const [loadWord, loadTone, loadText] = LOAD_WORDS[tr.load.status] || LOAD_WORDS.none;
+    const [loadWord, loadText] = LOAD_WORDS[tr.load.status] || LOAD_WORDS.none;
     const thisWeek = tr.weeks[tr.weeks.length - 1];
     const zoneTotal = thisWeek.zones.reduce((a, b) => a + b, 0);
     const progress = tr.progress || [];
@@ -157,14 +157,14 @@ export async function render({ el, params, state }) {
       <div class="wk-top">
         <div class="card card-pad wk-load">
           <div class="card-head flush"><h3>${icon("flame")} Training load</h3><span class="small muted">last 7 days</span></div>
-          <div class="wk-load-head"><span class="badge ${loadTone === "attention" ? "warn" : loadTone === "good" ? "good" : ""}">${loadWord}</span>
+          <div class="wk-load-head"><span class="badge">${loadWord}</span>
             ${tr.load.ratio ? html`<span class="small muted">${fmtNum(tr.load.ratio, 2)}× your usual week</span>` : ""}</div>
           <div class="wk-load-nums">
             <div><span>This week</span><b>${fmtNum(tr.load.acute, 0)}</b></div>
             <div><span>Usual week</span><b>${tr.load.ratio ? fmtNum(tr.load.chronic, 0) : "—"}</b></div>
           </div>
           ${tr.load.ratio ? html`<div class="wk-meter" role="img" aria-label="This week's load against your usual">
-            <span class="wk-meter-fill ${loadTone}" style="width:${Math.min(100, (tr.load.acute / (tr.load.chronic * 2)) * 100)}%"></span>
+            <span class="wk-meter-fill" style="width:${Math.min(100, (tr.load.acute / (tr.load.chronic * 2)) * 100)}%"></span>
             <span class="wk-meter-usual" style="left:50%" title="Your usual week"></span></div>` : ""}
           <p class="small muted" style="margin:10px 0 0">${loadText}</p>
           ${zoneTotal ? html`<div class="wk-zones-title small">Heart-rate zones this week</div>

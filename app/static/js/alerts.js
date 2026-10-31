@@ -1,9 +1,8 @@
-// Alerts: things that need the person's attention (results and readings that shouldn't wait, a source to reconnect,
-// records from someone else, new out-of-range results), collected for the current profile and shown behind the bell in the top bar instead of across every page.
+// Alerts: things that need the person's attention (a source to reconnect, records from someone else, new out-of-range
+// results), collected for the current profile and shown behind the bell in the top bar instead of across every page.
 
 import { api, get } from "./api.js";
 import { fmtDate, html, icon, mount, plural } from "./ui.js";
-import { fmtMeasure } from "./units.js";
 
 // Earlier versions kept what was seen and dismissed in each browser; the server keeps it now, so clearing alerts on
 // the computer also clears them in the iPhone app. Anything still in this browser is handed over once.
@@ -57,17 +56,10 @@ function growingUp(profile, status) {
 }
 
 /** Builds the alert list from the profile's summary and connections. */
-function collect({ profile, summary, connections, status, urgent }) {
+function collect({ profile, summary, connections, status }) {
   const out = [];
   const grown = growingUp(profile, status);
   if (grown) out.push(grown);
-  // Dismissing one lasts until the next: its id carries the day.
-  for (const u of urgent || []) {
-    // The reading in the person's units, as everywhere else. A blood pressure pair is already in the only unit it has.
-    const d = u.data || {};
-    const text = d.shown && d.value != null && !/^blood_pressure/.test(d.metric) ? u.text.replace(d.shown, fmtMeasure(d.value, d.unit, d.metric)) : u.text;
-    out.push({ id: u.id, level: "bad", icon: "alert", title: u.title, text, href: u.link || "#/trends", action: "See it" });
-  }
   const conflict = summary?.identity_conflict || [];
   if (conflict.length) {
     out.push({
@@ -114,15 +106,13 @@ function collect({ profile, summary, connections, status, urgent }) {
                text: status.update.installs ? "Install it from Settings; the app opens again by itself." : "Settings shows how to update this installation.",
                href: "#/settings/general/updates", action: "Update" });
   }
-  // Old results stay on the Overview, marked as old, but a decade-old cholesterol isn't news. Critical ones in the last
-  // month are already at the top, with what to do.
-  const said = new Set((urgent || []).map((u) => u.data?.code).filter(Boolean));
+  // Old results stay on the Overview, marked as old, but a decade-old cholesterol isn't news. The list has critical ones first.
   for (const l of summary?.flagged_labs || []) {
-    if (l.older || (l.code && said.has(l.code))) continue;
+    if (l.older) continue;
     const word = /low/.test(l.interpretation) ? "low" : /high/.test(l.interpretation) ? "high" : "out of range";
-    const critical = /^critical/.test(l.interpretation) ? "critically " : "";
-    out.push({ id: `lab:${l.id}`, level: "lab", icon: "flask", title: `${l.title} is ${critical}${word}`,
-               text: `${l.value_text}${l.ref_text ? ` (range ${l.ref_text})` : ""} · ${fmtDate(l.effective_at)}${["preliminary", "registered"].includes(String(l.status).toLowerCase()) ? " · preliminary, may change" : ""}`,
+    const critical = /^critical/.test(l.interpretation) ? " · The lab marked this critical" : "";
+    out.push({ id: `lab:${l.id}`, level: "lab", icon: "flask", title: `${l.title} is ${word}`,
+               text: `${l.value_text}${l.ref_text ? ` (range ${l.ref_text})` : ""} · ${fmtDate(l.effective_at)}${["preliminary", "registered"].includes(String(l.status).toLowerCase()) ? " · preliminary, may change" : ""}${critical}`,
                href: `#/trends/labs?${l.code ? `code=${encodeURIComponent(l.code)}` : `title=${encodeURIComponent(l.title)}`}`, action: "See trend" });
   }
   return out;
@@ -133,15 +123,14 @@ export async function refreshAlerts(profile, status, data = null) {
   if (!profile) return;
   profileId = profile.id;
   try {
-    const [summary, connections, marks, urgent] = await Promise.all([
+    const [summary, connections, marks] = await Promise.all([
       data ? data.summary : get("/api/summary", { profile: profile.id }),
       data ? data.connections : get("/api/connections", { profile: profile.id }).then((r) => r.connections),
       loadState(profile.id),
-      get("/api/insights/urgent", { profile: profile.id }).then((r) => r.urgent).catch(() => []),
     ]);
     if (profileId !== profile.id) return;   // switched profile while loading
     ({ seen, dismissed } = marks);
-    alerts = collect({ profile, summary, connections, status, urgent }).filter((a) => !dismissed.has(a.id));
+    alerts = collect({ profile, summary, connections, status }).filter((a) => !dismissed.has(a.id));
   } catch { return; }
   listeners.forEach((fn) => fn());
 }

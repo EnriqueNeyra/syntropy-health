@@ -70,8 +70,8 @@ def test_a_real_jump_is_worded_without_an_injury_claim(client):
     activity.insert_workouts(pid, None, [_w(i, 7 + 7 * i, minutes=60) for i in range(4)] + [_w(9, 1, minutes=200)])
     note = insights._training_notes(pid)[0]
     assert note["title"] == "Training load jumped" and note["tone"] == "info"
-    assert "much more than your recent weeks" in note["text"] and "common approach" in note["text"]
-    assert "injury" not in note["text"] and "233%" in note["text"]
+    assert "much more than your recent weeks" in note["text"] and "233%" in note["text"]
+    assert not any(w in note["text"] for w in ("injury", "common approach", "gradually"))
 
 
 def _a_year_of_workouts(skip):
