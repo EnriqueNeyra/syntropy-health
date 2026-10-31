@@ -178,6 +178,14 @@ def test_it_says_when_the_folder_is_on_the_same_disk(client, tmp_path):
     assert client.get("/api/backups").json()["schedule"]["same_disk"] is True
 
 
+def test_settings_suggests_a_folder_that_fits_this_install(client, monkeypatch):
+    with monkeypatch.context() as m:
+        m.setenv("SYNTROPY_INSTALL", "docker")
+        info = client.get("/api/backups").json()
+        assert info["folder_example"] == "/data/backups" and info["in_container"] is True
+    assert client.get("/api/backups").json()["in_container"] is False
+
+
 def test_only_the_owner_sets_the_schedule(client, tmp_path):
     from tests.test_accounts import _join
     pid = client.post("/api/profiles", json={"name": "Maria", "relationship": "other"}).json()["id"]

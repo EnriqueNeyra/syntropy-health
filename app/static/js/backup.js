@@ -83,8 +83,9 @@ export function openScheduleDialog(info, onDone) {
     title: "Scheduled backups",
     body: html`
       <div class="field"><label class="label" for="sc-folder">Folder on the computer this server runs on</label>
-        <input class="input" id="sc-folder" value="${s.folder || ""}" placeholder="/Volumes/Backup/Syntropy" autocapitalize="off" spellcheck="false">
-        <div class="hint">Another drive is best: a folder on the same disk as ${info.data_dir} is lost with it. Files named syntropy-backup-… in this folder count towards what's kept.</div></div>
+        <input class="input" id="sc-folder" value="${s.folder || ""}" placeholder="${info.folder_example}" autocapitalize="off" spellcheck="false">
+        <div class="hint">Another drive is best: a folder on the same disk as ${info.data_dir} is lost with it. Files named syntropy-backup-… in this folder count towards what's kept.
+          ${info.in_container ? html`<br><b>This server runs in a container: use a folder that's mounted from outside it, such as ${info.folder_example}. Anything else is lost when the container is replaced.</b>` : ""}</div></div>
       <div class="row wrap" style="gap:12px">
         <div class="field grow"><label class="label" for="sc-every">How often</label><select class="input" id="sc-every">
           <option value="24" ${s.every_hours === 24 ? "selected" : ""}>Every day</option>

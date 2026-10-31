@@ -37,6 +37,7 @@ _migrate_lock = threading.Lock()
 
 PRE_UPGRADE_DIR = "pre-upgrade"
 PRE_RESTORE_DIR = "pre-restore"
+WAITING_COPY_PREFIXES = (".backup-download-", ".restore-")      # a backup ready to download, or checked and ready to restore
 PRE_UPGRADE_KEPT = 3            # versions; the newest copy of each
 _COPY_NAME = re.compile(r"^syntropy-v(\d+)-(\d{8}-\d{6})\.db$")
 _COPY_MARGIN = 16 * 1024 * 1024
@@ -539,8 +540,9 @@ def restore_pre_upgrade(since: float, path: Optional[Path] = None) -> Optional[P
 
 def discard_pre_upgrade_copies(path: Optional[Path] = None) -> None:
     """When someone's data is deleted, it has to go from the copies kept here too, and soon from the log and free space."""
-    for name in (PRE_UPGRADE_DIR, PRE_RESTORE_DIR):
-        folder = (path or config.db_path()).parent / name
+    parent = (path or config.db_path()).parent
+    waiting = [f for f in parent.iterdir() if f.name.startswith(WAITING_COPY_PREFIXES)]
+    for folder in (parent / PRE_UPGRADE_DIR, parent / PRE_RESTORE_DIR, *waiting):
         if folder.is_dir():
             shutil.rmtree(folder, ignore_errors=True)
     note_deleted()

@@ -695,17 +695,44 @@ def _check(c, raw: bytes, passphrase=SECRET, **extra):
                   data={"passphrase": passphrase} if passphrase else {})
 
 
-def test_settings_downloads_an_encrypted_backup_only_once(client, tmp_path):
+def test_settings_downloads_an_encrypted_backup_and_does_not_keep_it(client, monkeypatch):
     _owner_data(client)
+    monkeypatch.setattr(backups, "DOWNLOAD_GRACE", 0.05)
     made = client.post("/api/backups", json={"passphrase": SECRET})
     assert made.status_code == 200 and made.json()["encrypted"] and made.json()["filename"].endswith(".syntropy")
     assert SECRET not in made.json()["download"]
     got = client.get(made.json()["download"])
     assert got.status_code == 200 and got.content.startswith(backup_file.MAGIC)
     assert "attachment" in got.headers["content-disposition"]
-    assert client.get(made.json()["download"]).status_code == 404
+    for _ in range(100):
+        if not [f for f in config.data_dir().iterdir() if f.name.startswith(".backup")]:
+            break
+        time.sleep(0.02)
     assert not [f for f in config.data_dir().iterdir() if f.name.startswith(".backup")]
+    assert client.get(made.json()["download"]).status_code == 404
     assert client.get("/api/backups").json()["last"]["encrypted"] is True
+
+
+def test_deleting_someone_clears_copies_waiting_to_be_downloaded_or_restored(client):
+    pid = _owner_data(client)["profile"]
+    address = client.post("/api/backups", json={"unencrypted": True}).json()["download"]
+    raw = client.get(address).content
+    staged = _check(client, raw, passphrase=None).json()["id"]
+    assert [f for f in config.data_dir().iterdir() if f.name.startswith((".backup-download-", ".restore-"))]
+    assert client.delete(f"/api/profiles/{pid}/data").status_code == 200
+    assert not [f for f in config.data_dir().iterdir() if f.name.startswith((".backup-download-", ".restore-"))]
+    assert client.get(address).status_code == 404
+    assert client.post("/api/restore/apply", json={"id": staged}).status_code == 404
+
+
+def test_a_download_fetched_twice_in_a_row_works(client):
+    """The Android app's web view asks first and gives up when it sees a download, then the app fetches it itself. A
+    dropped connection looks the same. The first request can't be the end of the file."""
+    _owner_data(client)
+    address = client.post("/api/backups", json={"passphrase": SECRET}).json()["download"]
+    first = client.get(address)
+    second = client.get(address)
+    assert second.status_code == 200 and second.content == first.content
 
 
 def test_settings_needs_a_passphrase_or_an_explicit_choice(client):

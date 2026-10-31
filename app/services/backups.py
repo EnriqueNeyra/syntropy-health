@@ -41,8 +41,10 @@ PLAIN_SUFFIX = ".zip"
 NAME_PREFIX = "syntropy-backup-"
 LAST_KEY = "backup.last"
 SAFETY_COPIES_KEPT = 2
-_WORK_PREFIX, _DOWNLOAD_PREFIX, _RESTORE_PREFIX = ".backup-work-", ".backup-download-", ".restore-"
+_WORK_PREFIX = ".backup-work-"
+_DOWNLOAD_PREFIX, _RESTORE_PREFIX = db.WAITING_COPY_PREFIXES
 _STAGED_LIFETIME = 3600
+DOWNLOAD_GRACE = 300.0
 WORK_LIFETIME = 6 * 3600
 _MARGIN = 16 * 1024 * 1024
 _SQLITE_MAGIC = b"SQLite format 3\0"
@@ -302,6 +304,19 @@ def download(token: str) -> Optional[dict[str, Any]]:
 
 
 def finish_download(token: str) -> None:
+    """Not gone at once: the Android app's web view asks for it and gives up on seeing a download, then the app fetches it
+    itself, and a dropped connection looks the same as a finished one."""
+    with _lock:
+        item = _downloads.get(token)
+        if not item or item.get("ending"):
+            return
+        item["ending"] = True
+    timer = threading.Timer(DOWNLOAD_GRACE, _end_download, (token,))
+    timer.daemon = True
+    timer.start()
+
+
+def _end_download(token: str) -> None:
     with _lock:
         item = _downloads.pop(token, None)
     if item:

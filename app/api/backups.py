@@ -32,7 +32,7 @@ def _problem(exc: Exception) -> HTTPException:
 def status_of() -> dict:
     backups.clean_leftovers()
     return {"last": backups.last(), "key_source": backups.key_source(), "min_passphrase": backup_file.MIN_PASSPHRASE,
-            "data_dir": str(config.data_dir()), "schedule": backup_schedule.status()}
+            "data_dir": str(config.data_dir()), "schedule": backup_schedule.status(), **backup_schedule.folder_advice()}
 
 
 @router.get("/backups", dependencies=[owner])

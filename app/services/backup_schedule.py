@@ -14,6 +14,7 @@ import base64
 import logging
 import os
 import sqlite3
+import sys
 import threading
 import time
 from pathlib import Path
@@ -53,6 +54,13 @@ def _try_folder(folder: Path) -> None:
     except OSError as exc:
         raise backups.BackupProblem(f"Syntropy Health can't write to {folder}: {exc.strerror or exc}. Choose a folder this server "
                                     "can write to.") from exc
+
+
+def folder_advice() -> dict[str, Any]:
+    """In a container, a folder that isn't mounted looks fine and goes with the container."""
+    in_container = backups.config.env("SYNTROPY_INSTALL") == "docker"
+    example = "/data/backups" if in_container else {"win32": r"D:\Syntropy backups", "darwin": "/Volumes/Backup/Syntropy"}.get(sys.platform, "/mnt/backup/syntropy")
+    return {"in_container": in_container, "folder_example": example}
 
 
 def _same_disk(folder: Path) -> Optional[bool]:
