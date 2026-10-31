@@ -355,8 +355,13 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
                 if body:
                     content_type, raw = body
                     if record_files.is_file_type(content_type):
-                        text, _ = await asyncio.to_thread(record_files.save, conn["profile_id"], conn["id"], rec["resource_type"], rec["resource_id"],
-                                                          att.get("title"), content_type, raw, fingerprint)
+                        try:
+                            text, _ = await asyncio.to_thread(record_files.save, conn["profile_id"], conn["id"], rec["resource_type"], rec["resource_id"],
+                                                              att.get("title"), content_type, raw, fingerprint)
+                        except sqlite3.Error:
+                            log.warning("Couldn't keep a document from %s", conn["display_name"])
+                            done["problem"] = "Clinical notes: some documents couldn't be saved this time. Syntropy will try again."
+                            break
                     else:
                         text = fhir_normalize.decode_body(raw, content_type)[:200_000]
                     record_files.put_text(rec, text)

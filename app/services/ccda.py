@@ -730,7 +730,7 @@ def read_document(raw: bytes, name: str) -> Summary:
     summary.resources.extend(ctx.resources.values())
     if ctx.missed:
         summary.warnings.append(f"{ctx.missed} {'entry' if ctx.missed == 1 else 'entries'} in {name} couldn't be read in detail. "
-                                "The text of those sections is kept under Notes.")
+                                "The text of those sections is kept under Clinical notes.")
     return summary
 
 
@@ -754,6 +754,8 @@ def _zip_documents(raw: bytes) -> tuple[list[tuple[str, bytes]], list[str]]:
             raise ValueError(TOO_BIG)
         for info in infos:
             leaf = info.filename.replace("\\", "/").rsplit("/", 1)[-1]
+            if leaf.lower() == "export.xml":    # Apple Health's: a large file to open only to say it isn't one of these
+                raise ValueError(NOT_SUMMARY_ZIP)
             if leaf.lower().endswith(".pdf"):
                 others.append(leaf)
             if not leaf.lower().endswith(".xml"):

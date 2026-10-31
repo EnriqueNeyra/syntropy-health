@@ -263,3 +263,17 @@ def test_a_document_that_is_only_a_pdf_keeps_it(client, pid):
     assert res.status_code == 200, res.text
     notes = records.list_records(pid, "notes")["items"]
     assert len(notes) == 2
+
+
+def test_a_zip_with_two_people_in_it_is_refused(client, pid):
+    other = CCD.replace(b"MRN-77", b"MRN-88").replace(b"<given>Testa</given>", b"<given>Other</given>").replace(b'value="19700203"', b'value="19800101"')
+    raw = _zip(**{"DOC0001.XML": CCD, "DOC0002.XML": other})
+    res = client.post("/api/imports/fhir", files={"file": ("family.zip", raw, "application/zip")}, data={"profile_id": pid})
+    assert res.status_code == 400 and "different people" in res.text
+    assert not records.list_records(pid, "conditions")["items"]
+
+
+def test_an_apple_health_export_in_the_wrong_box_says_where_it_goes():
+    with pytest.raises(ValueError, match="Apple Health box"):
+        ccda.read_upload(_zip(**{"apple_health_export/export.xml": b"<HealthData/>"}), "export.zip")
+

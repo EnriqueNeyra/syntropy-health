@@ -167,6 +167,8 @@ def test_every_old_schema_upgrades_with_its_data(version):
     assert c.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
     assert c.execute("PRAGMA foreign_key_check").fetchall() == []
     assert c.execute("SELECT COUNT(*) FROM fhir_references").fetchone()[0] == 0     # what a sync brings next fills it
+    assert c.execute("SELECT COUNT(*) FROM record_files").fetchone()[0] == 0
+    assert c.execute("SELECT COUNT(*) FROM record_overrides").fetchone()[0] == 0
     if version < 9:
         accounts = c.execute("SELECT * FROM accounts").fetchall()
         assert len(accounts) == 1 and accounts[0]["role"] == "owner" and accounts[0]["password_hash"]
