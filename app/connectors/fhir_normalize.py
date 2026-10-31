@@ -695,7 +695,7 @@ def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] 
         c_value = _read_value(comp)
         entry = {"code": c_code, "name": concept_text(comp.get("code"), c_disp or COMPONENT_NAMES.get(c_code or "") or "Component"),
                  "value": c_value["num"], "unit": units.pretty_unit(c_value["unit"]),
-                 "text": c_value["text"] if c_value["num"] is None or c_value["comparator"] else None}
+                 "text": (c_value["text"] or concept_text(comp.get("dataAbsentReason")) or None) if c_value["num"] is None or c_value["comparator"] else None}
         if c_value["comparator"]:
             entry["comparator"] = c_value["comparator"]
         comps.append(entry)
@@ -707,11 +707,11 @@ def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] 
     rec["value_text"] = reported["text"]
     if not reported["present"] and comps:
         vals = [c for c in comps if c["value"] is not None]
-        if code in ("85354-6", "55284-4") or len(vals) == 2 and all(c["unit"] in ("mmHg", "mm[Hg]") for c in vals):
-            rec["value_text"] = _blood_pressure(comps)
+        is_pressure = code in ("85354-6", "55284-4") or len(vals) == 2 and all(c["unit"] in ("mmHg", "mm[Hg]") for c in vals)
+        pressure = _blood_pressure(comps) if is_pressure else None
+        if pressure:
             unit = "mmHg"
-        else:
-            rec["value_text"] = " · ".join(f"{c['name']}: {c['text'] or _with_unit(_fmt(c['value']), c['unit']) or 'No value'}" for c in comps)
+        rec["value_text"] = pressure or " · ".join(f"{c['name']}: {c['text'] or _with_unit(_fmt(c['value']), c['unit']) or 'No value'}" for c in comps)
     if rec["value_text"] is None:
         if res.get("dataAbsentReason"):
             rec["value_text"] = concept_text(res["dataAbsentReason"], "Not available")

@@ -291,7 +291,7 @@ def _refuse_several_people(resources: list[dict[str, Any]]) -> None:
     people = records.distinct_people([{"full_name": p["name"], "birth_date": p["birth_date"], "source_name": ""}
                                       for p in (fhir_normalize.normalize_patient(r) for r in resources if r.get("resourceType") == "Patient")])
     if len(people) > 1:
-        names = " and ".join(f"{p['full_name']}{' (born ' + p['birth_date'] + ')' if p['birth_date'] else ''}" for p in people[:4])
+        names = " and ".join(f"{p['full_name'] or 'an unnamed patient'}{' (born ' + p['birth_date'] + ')' if p['birth_date'] else ''}" for p in people[:4])
         raise ValueError(f"This file holds records for {len(people)} different people: {names}. Nothing was imported, so their records "
                          "don't mix. Export one person at a time, and import each into their own profile.")
 

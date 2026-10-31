@@ -18,14 +18,15 @@ UCUM = "http://unitsofmeasure.org"
 
 # Spellings of one unit, and units that mean the same number: ng/mL and ug/L, K/uL and 10*9/L.
 _SAME_UNIT = {
-    "10*3/ul": ("10^3/ul", "x10e3/ul", "x10^3/ul", "x10*3/ul", "x10(3)/ul", "10e3/ul", "×10³/ul", "k/ul", "thou/ul", "thousand/ul",
-                "10*3/mm3", "k/mm3", "10*9/l", "10^9/l", "x10e9/l", "x10^9/l", "x10*9/l", "10e9/l", "×10⁹/l", "giga/l"),
-    "10*6/ul": ("10^6/ul", "x10e6/ul", "x10^6/ul", "x10*6/ul", "x10(6)/ul", "10e6/ul", "×10⁶/ul", "m/ul", "mil/ul", "million/ul",
-                "10*6/mm3", "m/mm3", "10*12/l", "10^12/l", "x10e12/l", "x10^12/l", "x10*12/l", "10e12/l", "×10¹²/l"),
+    "10*3/ul": ("10^3/ul", "x10e3/ul", "x10^3/ul", "x10*3/ul", "x10(3)/ul", "10(3)/ul", "10e3/ul", "×10³/ul", "k/ul", "thou/ul", "thousand/ul",
+                "10*3/mm3", "k/mm3", "thou/mm3", "k/cumm", "thou/cumm", "k/cmm", "10*9/l", "10^9/l", "x10e9/l", "x10^9/l", "x10*9/l", "10e9/l", "×10⁹/l", "giga/l"),
+    "10*6/ul": ("10^6/ul", "x10e6/ul", "x10^6/ul", "x10*6/ul", "x10(6)/ul", "10(6)/ul", "10e6/ul", "×10⁶/ul", "m/ul", "mil/ul", "mill/ul", "million/ul",
+                "10*6/mm3", "m/mm3", "mil/mm3", "m/cumm", "mil/cumm", "m/cmm", "10*12/l", "10^12/l", "x10e12/l", "x10^12/l", "x10*12/l", "10e12/l", "×10¹²/l"),
     "ng/ml": ("ug/l",),
     "pg/ml": ("ng/l",),
     "miu/l": ("uiu/ml", "u[iu]/ml", "m[iu]/l", "mu/l", "uu/ml", "mciu/ml"),
-    "u/l": ("iu/l", "[iu]/l"),
+    "u/l": ("iu/l", "[iu]/l", "miu/ml"),
+    "mm/h": ("mm/hr", "mm/hour"),
     "mmhg": ("mm[hg]", "mm hg"),
     "%": ("percent", "pct"),
     "kg": ("kilogram", "kilograms", "kgs"),
@@ -48,10 +49,12 @@ def unit_key(unit: Optional[str]) -> str:
     """One spelling for each unit, for telling whether two results can share an axis. "" for no unit at all."""
     if not unit:
         return ""
-    u = re.sub(r"\{[^}]*\}", "", unit).strip()
+    u = re.sub(r"\{\s*(1\.73[^}]*)\}", r"\1", unit)     # the one annotation that's part of the unit
+    u = re.sub(r"\{[^}]*\}", "", u).strip()
     u = re.sub(r"\s*\((?:calc|calculated|est|estimated)\)$", "", u, flags=re.I)
-    u = u.lower().replace("µ", "u").replace("μ", "u").replace("mcg", "ug").replace("mcmol", "umol").strip()
+    u = u.lower().replace("µ", "u").replace("μ", "u").replace("mcg", "ug").replace("mcmol", "umol").replace("mcl", "ul").strip()
     u = re.sub(r"\s*/\s*", "/", u)
+    u = re.sub(r"^ml/min(?:/|\s+per\s+)1\.73.*$", "ml/min/1.73m2", u)
     return _SPELLINGS.get(u, u)
 
 

@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import time
+import unicodedata
 from collections import OrderedDict
 from datetime import date, timedelta
 from typing import Any, Iterable, Optional
@@ -48,7 +49,7 @@ LIST_COLUMNS = (
 _LAB_FLAG_COLUMNS = ("id, connection_id, title, code, code_system, code_display, unit, value_num, value_text, effective_at, status, "
                      "interpretation, ref_text, dedup_key, source_name")
 SUMMARY_LABS = 2000
-SERIES_COLUMNS = ("id, connection_id, title, category, code, effective_at, status, value_num, value_text, unit, value_norm, unit_norm, "
+SERIES_COLUMNS = ("id, connection_id, title, category, code, code_system, effective_at, status, value_num, value_text, unit, value_norm, unit_norm, "
                   "ref_low, ref_high, interpretation, details_json, dedup_key, source_name")
 
 
@@ -469,26 +470,55 @@ def _unnamed(rec: dict[str, Any]) -> bool:
     return rec.get("title") == "Observation" and not rec.get("code_display")
 
 
+def _no_name(name: Optional[str]) -> bool:
+    """A Patient with no name is stored as "Unknown", which is nobody's name."""
+    return not (name or "").strip() or (name or "").strip().lower() == "unknown"
+
+
 def _name_tokens(name: Optional[str]) -> set[str]:
-    return {t for t in re.split(r"[^a-z]+", (name or "").lower()) if len(t) > 1}
+    if _no_name(name):
+        return set()
+    plain = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower()   # José and Jose are one name
+    return {t for t in re.split(r"[^a-z]+", plain) if len(t) > 1}
 
 
 def distinct_people(idents: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Groups connected-record identities into people: same birth date and at least one shared name part.
-    More than one group means records for different people are mixed into this profile."""
+    More than one group means records for different people are mixed into this profile. What one row leaves out, another fills in:
+    a nameless row joins whoever it could be, and that person's name then decides who else belongs."""
     people: list[dict[str, Any]] = []
     for i in idents:
         tokens = _name_tokens(i.get("full_name"))
+        name = None if _no_name(i.get("full_name")) else i.get("full_name")
         for p in people:
             same_birth = not i.get("birth_date") or not p["birth_date"] or i["birth_date"] == p["birth_date"]
             same_name = not tokens or not p["tokens"] or bool(tokens & p["tokens"])
             if same_birth and same_name:
                 p["sources"].append(i["source_name"])
+                p["tokens"] |= tokens
+                p["full_name"] = p["full_name"] or name
+                p["birth_date"] = p["birth_date"] or i.get("birth_date")
                 break
         else:
-            people.append({"full_name": i.get("full_name"), "birth_date": i.get("birth_date"), "tokens": tokens,
+            people.append({"full_name": name, "birth_date": i.get("birth_date"), "tokens": tokens,
                            "sources": [i["source_name"]]})
     return [{k: v for k, v in p.items() if k != "tokens"} for p in people]
+
+
+def timeline_undated(profile_id: str, *, categories: Optional[list[str]] = None, q: Optional[str] = None) -> list[dict[str, Any]]:
+    """Vaccines and procedures dated only in words, like "as a child": they have no place in the order, so they follow everything that has."""
+    cats = [c for c in ("immunizations", "procedures") if not categories or c in categories]
+    if not cats:
+        return []
+    where = [f"category IN ({','.join('?' * len(cats))})", "profile_id = ?", "effective_at IS NULL", "json_extract(details_json, '$.date_text') IS NOT NULL",
+             "NOT (category = 'procedures' AND lower(coalesce(status, '')) = 'preparation')"]
+    params: list[Any] = [*cats, profile_id]
+    if q:
+        where.append("(lower(title) LIKE ? OR lower(coalesce(narrative,'')) LIKE ?)")
+        params.extend([f"%{q.lower()}%"] * 2)
+    with read() as conn:
+        rows = _load(conn.execute(f"SELECT {LIST_COLUMNS} FROM clinical_records WHERE {' AND '.join(where)} ORDER BY title LIMIT 500", params).fetchall())
+    return _dedupe(rows)
 
 
 def timeline(profile_id: str, *, categories: Optional[list[str]] = None, limit: int = 150,
@@ -594,16 +624,25 @@ def _test_rows(conn, profile_id: str, code: Optional[str], title: Optional[str],
     if titles:
         clauses.append(f"((code IS NULL OR code_system IS NULL OR code_system != '{lab_catalog.LOINC}') AND title IN ({','.join('?' * len(titles))}))")
         params += titles
-    return _load(conn.execute(
+    rows = _load(conn.execute(
         f"SELECT {SERIES_COLUMNS} FROM clinical_records WHERE profile_id = ? {in_category} AND ({' OR '.join(clauses)}) ORDER BY effective_at",
         (profile_id, *extra, *params)).fetchall())
+    # A title can be shared by a test it doesn't belong to: two local codes called "Glucose" are two tests.
+    return [r for r in rows if _row_key(r) == wanted or (code and r.get("code") == code)]
+
+
+def _range_fits_reported_unit(r: dict[str, Any]) -> bool:
+    """A range the lab gave in another unit than its result is only held in the canonical unit, with nothing to show beside the result as reported."""
+    if not units.converted(r.get("unit"), r.get("unit_norm")) or (r.get("ref_low") is None and r.get("ref_high") is None):
+        return True
+    return bool((r.get("details") or {}).get("source_range"))
 
 
 def _unit_series(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """One axis' worth of results. A lab's results all reported in one unit stay in it, with its range; a mix is shown in the canonical
     unit they were converted to, each still carrying what the lab reported. Vital signs are always canonical: they follow the chosen units."""
     reported = {units.unit_key(r.get("unit")) for r in rows}
-    as_reported = len(reported) == 1 and all(r.get("category") == "labs" for r in rows)
+    as_reported = len(reported) == 1 and all(r.get("category") == "labs" and _range_fits_reported_unit(r) for r in rows)
     points = []
     ref_low = ref_high = unit = None
     for r in rows:
@@ -665,7 +704,8 @@ def observation_series(profile_id: str, code: Optional[str] = None, category: Op
         main_key = named[0]
     main = _unit_series(groups[main_key]) if main_key in groups else {"unit": None, "ref_low": None, "ref_high": None, "points": []}
     return {
-        "code": code or (rows[-1].get("code") if rows else None), "title": rows[-1]["title"] if rows else (title or code),
+        "code": code or (rows[-1].get("code") if rows else None), "code_system": rows[-1].get("code_system") if rows else None,
+        "title": rows[-1]["title"] if rows else (title or code),
         "codes": list(dict.fromkeys(r["code"] for r in rows if r.get("code"))), **main, "components": list(components.values()),
         "other_units": [{**_unit_series(group), "count": len(group)} for key, group in reversed(groups.items()) if key != main_key],
         "text_results": text_results,
@@ -819,8 +859,10 @@ def summary(profile_id: str) -> dict[str, Any]:
     people = distinct_people(idents)
     soon = (today + timedelta(days=2)).isoformat()
     visits = list_records(profile_id, "encounters", limit=100)["items"]
-    upcoming = [e for e in visits if str(e.get("effective_at") or "") > soon]
-    happened = [e for e in visits if str(e.get("effective_at") or "") <= soon and (e.get("status") or "").lower() != "planned"]
+    # A planned visit counts from today. One whose day has passed never happened, as far as the record says: it's only in Records.
+    planned = lambda e: (e.get("status") or "").lower() == "planned"  # noqa: E731
+    upcoming = [e for e in visits if str(e.get("effective_at") or "") > soon or (planned(e) and str(e.get("effective_at") or "")[:10] >= today.isoformat())]
+    happened = [e for e in visits if str(e.get("effective_at") or "") <= soon and not planned(e)]
     vaccines = list_records(profile_id, "immunizations", limit=100)["items"]
     return {
         "counts": category_counts(profile_id),

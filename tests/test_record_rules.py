@@ -4,8 +4,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.services import sync
-from app.store import records
+from app.services import insights, sync
+from app.store import lab_catalog, records
 from tests.conftest import connect_institution
 
 LOINC = "http://loinc.org"
@@ -510,6 +510,198 @@ def test_a_procedure_not_yet_done_isnt_history(client, prof):
     load(prof, "A", {"resourceType": "Procedure", "id": "p", "status": "preparation", "code": {"text": "Colonoscopy"}, "performedDateTime": "2030-01-01"})
     assert client.get("/api/timeline").json()["items"] == []
     assert client.get("/api/records", params={"category": "procedures"}).json()["items"][0]["status"] == "preparation"
+
+
+# ---- F078: results that only share a name
+
+def local_lab(rid, code, title, when, value=None, unit=None, text=None, ranges=None):
+    res = lab(rid, value, unit, when, code=None, title=title, ranges=ranges)
+    res["code"] = {"coding": [{"system": "urn:example:lab", "code": code, "display": title}], "text": title} if code else {"text": title}
+    if text is not None:
+        del res["valueQuantity"]
+        res["valueString"] = text
+    return res
+
+
+def in_range(low, high, unit="mg/dL"):
+    return [{"low": {"value": low, "unit": unit}, "high": {"value": high, "unit": unit}}]
+
+
+def test_a_urine_result_titled_just_glucose_doesnt_hide_a_high_blood_glucose(prof):
+    load(prof, "A", lab("a", 300, "mg/dL", "2026-01-01", code="2345-7", title="Glucose", ranges=in_range(70, 99)),
+         local_lab("b", "UA-GLU", "Glucose", "2026-01-02", text="Negative"))
+    assert titles(records.summary(prof)["flagged_labs"]) == ["Glucose"]
+    assert titles(records.flagged_labs(prof)) == ["Glucose"]
+    assert records.observation_series(prof, "2345-7")["text_results"] == []
+    assert [t["text"] for t in records.observation_series(prof, "UA-GLU")["text_results"]] == ["Negative"]
+
+
+def test_a_24_hour_urine_creatinine_stays_off_the_blood_chart(prof):
+    load(prof, "A", lab("a", 1.0, "mg/dL", "2026-01-01", code="2160-0", title="Creatinine"), local_lab("b", "24U-CR", "Creatinine", "2026-01-02", 120, "mg/dL"))
+    assert [p["v"] for p in records.observation_series(prof, "2160-0")["points"]] == [1.0]
+    assert [p["v"] for p in records.observation_series(prof, "24U-CR")["points"]] == [120]
+    entries = {e["code"]: e for e in records.observation_catalog(prof, "labs")}
+    assert set(entries) == {"2160-0", "24U-CR"} and entries["2160-0"]["trend"] is None
+
+
+@pytest.mark.parametrize("title", ["Glucose", "Creatinine", "Bilirubin", "Calcium", "Albumin", "Protein, total", "Sodium", "Potassium", "Chloride", "Uric acid",
+                                   "Urea nitrogen", "Magnesium", "Cortisol", "WBC", "RBC", "Leukocytes", "White blood cells", "Hemoglobin"])
+def test_a_name_labs_also_use_for_urine_says_nothing_about_the_test(title):
+    assert lab_catalog.series_key("LOC", "urn:example:lab", title) == "LOC"
+    assert lab_catalog.series_key(None, None, title) == title.lower()
+
+
+@pytest.mark.parametrize("title, code", [("Glucose, Serum", "2345-7"), ("GLUCOSE,PLASMA", "2345-7"), ("Blood glucose", "2345-7"), ("Creatinine, Serum", "2160-0"),
+                                         ("Calcium (serum)", "17861-6"), ("BUN", "3094-0"), ("Hemoglobin A1c", "4548-4"), ("LDL", "13457-7"), ("TSH", "3016-3")])
+def test_a_name_that_can_only_be_blood_still_joins(title, code):
+    assert lab_catalog.series_key("LOC", "urn:example:lab", title) == lab_catalog.series_key(code, LOINC, None)
+
+
+@pytest.mark.parametrize("title", ["Glucose, Urine", "Urine Glucose", "Creatinine, 24 hr urine", "UA Glucose"])
+def test_a_name_that_says_urine_stays_apart(title):
+    assert lab_catalog.series_key("LOC", "urn:example:lab", title) == "LOC"
+
+
+def test_two_local_codes_with_one_title_are_two_tests(prof):
+    load(prof, "A", local_lab("a", "BMP-GLU", "Glucose", "2026-01-01", 300, "mg/dL", ranges=in_range(70, 99)),
+         local_lab("b", "UA-GLU", "Glucose", "2026-01-02", text="Negative"), local_lab("c", None, "Glucose", "2026-01-03", 90, "mg/dL"))
+    assert [p["v"] for p in records.observation_series(prof, "BMP-GLU")["points"]] == [300]
+    assert records.observation_series(prof, "BMP-GLU")["text_results"] == []
+    assert [p["v"] for p in records.observation_series(prof, title="Glucose")["points"]] == [90]
+    assert len(records.summary(prof)["recent_labs"]) == 3
+
+
+def test_a_text_only_result_says_what_its_code_is(prof):
+    res = local_lab("a", None, "HIV Ab", "2026-01-01", text="Reactive")
+    res["code"] = {"coding": [{"system": LOINC, "code": "7917-8", "display": "HIV Ab"}]}
+    load(prof, "A", res)
+    s = records.observation_series(prof, "7917-8", "labs")
+    assert s["code_system"] == LOINC and s["title"] == "HIV Ab" and s["text_results"][0]["text"] == "Reactive"
+
+
+# ---- F133: an appointment today or tomorrow
+
+def test_a_planned_visit_today_or_tomorrow_is_upcoming(client, prof):
+    today = date.today()
+    load(prof, "A", visit("Tomorrow", "planned", (today + timedelta(days=1)).isoformat()), visit("Today", "planned", today.isoformat()),
+         visit("Far", "planned", (today + timedelta(days=30)).isoformat()), visit("In the room", "in-progress", today.isoformat()),
+         visit("Stale", "planned", (today - timedelta(days=30)).isoformat()))
+    s = records.summary(prof)
+    assert titles(s["upcoming_encounters"]) == ["Today", "Tomorrow", "Far"]
+    assert titles(s["recent_encounters"]) == ["In the room"]
+    assert titles(client.get("/api/timeline").json()["items"]) == ["In the room"]
+
+
+# ---- F003: spellings of one unit
+
+def test_one_egfr_spelled_three_ways_is_one_chart(prof):
+    coded = lab("a", 61, None, "2024-01-01", code="98979-8", title="eGFR")
+    coded["valueQuantity"].update(code="mL/min/{1.73_m2}", system="http://unitsofmeasure.org")
+    load(prof, "A", coded, lab("b", 58, "mL/min/1.73m2", "2025-01-01", code="98979-8", title="eGFR"),
+         lab("c", 55, "mL/min/1.73 m2", "2026-01-01", code="98979-8", title="eGFR"))
+    s = records.observation_series(prof, "98979-8")
+    assert [p["v"] for p in s["points"]] == [61, 58, 55] and s["other_units"] == []
+    assert records.observation_catalog(prof, "labs")[0]["trend"] == "down"
+
+
+def test_one_white_cell_count_spelled_two_ways_is_one_chart(prof):
+    load(prof, "A", lab("a", 6.1, "K/uL", "2025-01-01", code="6690-2", title="WBC"), lab("b", 9, "K/mcL", "2026-01-01", code="6690-2", title="WBC"))
+    s = records.observation_series(prof, "6690-2")
+    assert [p["v"] for p in s["points"]] == [6.1, 9] and s["other_units"] == []
+    assert records.observation_catalog(prof, "labs")[0]["trend"] == "up"
+
+
+# ---- F008, F183: a range in another unit than its numbers
+
+def test_a_range_in_another_unit_isnt_labelled_with_the_values_unit(prof):
+    load(prof, "A", lab("a", 5.5, "mmol/L", "2026-01-01", code="2345-7", title="Glucose", ranges=in_range(70, 99)))
+    s = records.observation_series(prof, "2345-7")
+    assert (s["unit"], s["ref_low"], s["ref_high"]) == ("mg/dL", 70, 99)
+    assert s["points"][0]["v"] == pytest.approx(99.1) and s["points"][0]["converted"] and s["points"][0]["text"] == "5.5 mmol/L"
+
+
+def test_a_range_in_the_values_unit_keeps_the_results_as_reported(prof):
+    load(prof, "A", lab("a", 5.5, "mmol/L", "2026-01-01", code="2345-7", title="Glucose", ranges=in_range(3.9, 5.5, "mmol/L")))
+    s = records.observation_series(prof, "2345-7")
+    assert (s["unit"], s["ref_low"], s["ref_high"], s["points"][0]["v"]) == ("mmol/L", 3.9, 5.5, 5.5)
+
+
+def test_an_insight_gives_the_range_in_the_unit_of_its_numbers(prof):
+    load(prof, "A", lab("a", 120, "mg/dL", "2025-01-01", code="2345-7", title="Glucose", ranges=in_range(70, 99)),
+         lab("b", 8, "mmol/L", "2026-01-01", code="2345-7", title="Glucose", ranges=in_range(3.9, 5.5, "mmol/L")))
+    text = insights._lab_notes(prof)[0]["text"]
+    assert "144.1 mg/dL" in text and "120.0 mg/dL" in text and "(70.3–99.1 mg/dL)" in text and "3.9" not in text
+
+
+def test_an_insight_keeps_the_labs_own_words_when_its_numbers_are_as_reported(prof):
+    load(prof, "A", lab("a", 7, "mmol/L", "2025-01-01", code="2345-7", title="Glucose", ranges=in_range(3.9, 5.5, "mmol/L")),
+         lab("b", 8, "mmol/L", "2026-01-01", code="2345-7", title="Glucose", ranges=in_range(3.9, 5.5, "mmol/L")))
+    text = insights._lab_notes(prof)[0]["text"]
+    assert "8 mmol/L" in text and "(3.9–5.5)" in text
+
+
+# ---- F137: a Patient with no name isn't a second person
+
+JANE = {"resourceType": "Patient", "id": "p1", "name": [{"given": ["Jane"], "family": "Doe"}], "birthDate": "1980-01-01"}
+
+
+def test_a_nameless_patient_in_a_file_isnt_a_second_person(prof):
+    nameless = {"resourceType": "Patient", "id": "p2", "gender": "female"}
+    for patients in ([JANE, nameless], [nameless, JANE]):
+        assert sync.import_fhir_resources(prof, "File", [*patients, lab("a", 1, "mg/dL", "2026-01-01")])["records"] == 1
+
+
+def test_a_nameless_patient_doesnt_hide_two_named_people(prof):
+    john = {"resourceType": "Patient", "id": "p3", "name": [{"given": ["John"], "family": "Smith"}], "birthDate": "1970-05-05"}
+    with pytest.raises(ValueError, match="2 different people: Jane Doe .* and John Smith"):
+        sync.import_fhir_resources(prof, "File", [{"resourceType": "Patient", "id": "p2"}, JANE, john])
+
+
+def test_a_nameless_patient_born_on_another_day_is_named_for_what_it_is(prof):
+    with pytest.raises(ValueError, match=r"Jane Doe \(born 1980-01-01\) and an unnamed patient \(born 1990-02-02\)"):
+        sync.import_fhir_resources(prof, "File", [JANE, {"resourceType": "Patient", "id": "p2", "birthDate": "1990-02-02"}])
+
+
+def test_a_source_with_a_nameless_patient_isnt_flagged_as_someone_else():
+    people = records.distinct_people([{"full_name": "Unknown", "birth_date": None, "source_name": "A"},
+                                      {"full_name": "Jane Doe", "birth_date": "1980-01-01", "source_name": "B"},
+                                      {"full_name": "Unknown", "birth_date": "1980-01-01", "source_name": "C"}])
+    assert [(p["full_name"], p["birth_date"], p["sources"]) for p in people] == [("Jane Doe", "1980-01-01", ["A", "B", "C"])]
+
+
+def test_one_name_with_and_without_its_accents_is_one_person():
+    people = records.distinct_people([{"full_name": "José Pérez", "birth_date": "1980-01-01", "source_name": "A"},
+                                      {"full_name": "Jose Perez", "birth_date": "1980-01-01", "source_name": "B"}])
+    assert len(people) == 1
+
+
+# ---- F132: a date only in words
+
+def named_vaccine(title, **kw):
+    return vaccine(title, vaccineCode={"text": title}, **kw)
+
+
+def test_a_vaccine_dated_in_words_is_on_the_timeline_at_the_end(client, prof):
+    load(prof, "A", named_vaccine("MMR", when=None, occurrenceString="as a child"), named_vaccine("Flu"),
+         {"resourceType": "Procedure", "id": "p", "status": "completed", "code": {"text": "Tonsils out"}, "performedString": "as a teenager"},
+         {"resourceType": "Immunization", "id": "x", "status": "completed", "vaccineCode": {"text": "No date at all"}})
+    items = client.get("/api/timeline").json()["items"]
+    assert titles(items)[0] == "Flu" and sorted(titles(items)[1:]) == ["MMR", "Tonsils out"]
+    assert next(i for i in items if i["title"] == "MMR")["details"]["date_text"] == "as a child"
+    assert titles(client.get("/api/timeline", params={"categories": "immunizations"}).json()["items"]) == ["Flu", "MMR"]
+    assert titles(client.get("/api/timeline", params={"categories": "labs"}).json()["items"]) == []
+    assert titles(client.get("/api/timeline", params={"q": "tonsils"}).json()["items"]) == ["Tonsils out"]
+
+
+def test_words_for_a_date_come_once_after_the_last_page(client, prof):
+    load(prof, "A", named_vaccine("MMR", when=None, occurrenceString="as a child"), *(named_vaccine(f"V{i}", when=f"2024-01-{i + 1:02d}") for i in range(4)))
+    page = client.get("/api/timeline", params={"limit": 2}).json()
+    assert "MMR" not in titles(page["items"]) and page["next_before"]
+    seen = titles(page["items"])
+    while page["next_before"]:
+        page = client.get("/api/timeline", params={"limit": 2, "before": page["next_before"]}).json()
+        seen += titles(page["items"])
+    assert seen.count("MMR") == 1 and seen[-1] == "MMR"
 
 
 # ---- the simulated institution keeps working through all of it

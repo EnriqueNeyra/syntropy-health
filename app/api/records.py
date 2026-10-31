@@ -112,7 +112,8 @@ def timeline(profile: Optional[str] = None, before: Optional[str] = None, q: Opt
 
     items = collect(before, limit)
     if len(items) < limit:
-        return {"items": items, "next_before": None}
+        undated = records.timeline_undated(prof["id"], categories=clinical or None, q=q) if clinical or not cats else []
+        return {"items": items + undated, "next_before": None}
     # The next page starts strictly before this one's last moment, so everything at that moment comes on this page
     # (a lab panel's results share one): cut at the count alone, the rest of them were never shown.
     boundary = items[limit - 1].get("effective_at") or ""

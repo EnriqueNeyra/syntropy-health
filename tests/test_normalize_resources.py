@@ -326,7 +326,7 @@ def test_free_text_never_tops_the_timeline(client):
     prof = client.get("/api/profiles").json()["profiles"][0]["id"]
     sync.import_fhir_resources(prof, "F", [{"resourceType": "Procedure", "id": "a", "status": "completed", "performedString": "as a child", "code": {"text": "Appendectomy"}},
                                            {"resourceType": "Immunization", "id": "b", "status": "completed", "occurrenceDateTime": "2025-10-01", "vaccineCode": {"text": "Flu"}}])
-    assert [i["title"] for i in client.get("/api/timeline").json()["items"]] == ["Flu"]
+    assert [i["title"] for i in client.get("/api/timeline").json()["items"]] == ["Flu", "Appendectomy"]
     assert client.get("/api/records", params={"category": "procedures"}).json()["items"][0]["details"]["date_text"] == "as a child"
 
 

@@ -54,6 +54,13 @@ TEST_GROUPS = (
 _GROUP_OF = {code: group[0] for group in TEST_GROUPS for code in group}
 _MEMBERS = {group[0]: group for group in TEST_GROUPS}
 
+# Tests labs also run on urine or other fluids, under the same bare name: a urinalysis' "Glucose", a 24-hour "Creatinine", a microscopy's
+# "WBC". A name alone can't file a result under these tests' blood history, where a urine "Negative" would become the latest glucose and
+# clear a high one. It has to say so. Kept apart, the worst case is a second entry for one test.
+OTHER_SPECIMENS = {"718-7", "6690-2", "789-8", "2345-7", "3094-0", "3091-6", "2160-0", "2951-2", "2823-3", "2075-0", "17861-6", "2885-2", "1751-7",
+                   "1975-2", "3084-1", "19123-9", "2143-6"}
+_SAYS_BLOOD = re.compile(r"\b(?:serum|plasma|blood(?! cell)|bun)\b", re.I)
+
 
 @lru_cache(maxsize=1)
 def common_labs() -> list[dict]:
@@ -108,13 +115,13 @@ def matched_test(name: str) -> Optional[dict]:
 
 def series_key(code: Optional[str], code_system: Optional[str], title: Optional[str]) -> str:
     """What makes results one test's history. A standard code, grouped with its equivalents; for an institution's own code or none,
-    the common test its name means; otherwise that code, or that name, on its own."""
+    the common test its name means, if the name can only mean that one; otherwise that code, or that name, on its own."""
     if code in _GROUP_OF:
         return _GROUP_OF[code]
     if code and code_system == LOINC:
         return code
     codes = _codes_for(title) if title else ()
-    if codes:
+    if codes and (codes[0] not in OTHER_SPECIMENS or _SAYS_BLOOD.search(title or "")):
         return _GROUP_OF.get(codes[0], codes[0])
     return code or (title or "").lower()
 

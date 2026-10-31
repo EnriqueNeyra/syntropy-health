@@ -133,6 +133,31 @@ def test_different_units_stay_different(a, b):
     assert units.unit_key(a) != units.unit_key(b)
 
 
+@pytest.mark.parametrize("a, b", [
+    ("K/uL", "K/mcL"), ("10*3/uL", "10*3/mcL"), ("K/uL", "thou/mcL"), ("10*3/uL", "x10(3)/mcL"), ("10*6/uL", "M/mcL"), ("10*6/uL", "mill/uL"),
+    ("mL/min/1.73m²", "mL/min/1.73m2"), ("mL/min/1.73m²", "mL/min/1.73 m2"), ("mL/min/1.73m²", "mL/min/{1.73_m2}"), ("mL/min/1.73m²", "mL/min/1.73_m2"),
+    ("mL/min/1.73m²", "mL/min/1.73 m^2"), ("mL/min/1.73m²", "mL/min per 1.73 m2"), ("mL/min/1.73m²", "mL/min/1.73 sq m"), ("mm/hr", "mm/h"), ("U/L", "mIU/mL"),
+])
+def test_common_spellings_of_one_unit_are_one_unit(a, b):
+    assert units.unit_key(a) == units.unit_key(b)
+
+
+@pytest.mark.parametrize("a, b", [("mL/min/1.73m2", "mL/min"), ("K/uL", "/uL"), ("mcL", "mL"), ("mIU/L", "mIU/mL")])
+def test_units_that_only_look_alike_stay_different(a, b):
+    assert units.unit_key(a) != units.unit_key(b)
+
+
+# ---- F273: nothing blank
+
+def test_blood_pressure_with_no_values_says_so_rather_than_nothing():
+    systolic = {"code": {"coding": [{"system": "http://loinc.org", "code": "8480-6"}]}}
+    r = norm(code="85354-6", display="Blood pressure", component=[{**systolic, "dataAbsentReason": {"text": "Patient refused"}}])
+    assert r["value_text"] == "Systolic blood pressure: Patient refused" and r["unit"] is None
+    assert norm(code="85354-6", display="Blood pressure", component=[systolic])["value_text"] == "Systolic blood pressure: No value"
+    r = norm(code="85354-6", display="Blood pressure", component=[{**systolic, "valueQuantity": {"value": 120, "unit": "mmHg"}}])
+    assert r["value_text"] == "Systolic 120 mmHg" and r["unit"] == "mmHg"
+
+
 # ---- F008, F079: ranges
 
 def test_value_and_range_read_in_the_same_unit():
