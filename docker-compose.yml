@@ -2,7 +2,7 @@
 # Update:  docker compose pull && docker compose up -d
 # The published image (amd64 and arm64) is used; in a clone of the repository, `docker compose up -d --build` (or
 # ./run.sh docker) builds your checkout instead.
-# Back up while it runs:  docker exec syntropy-health syntropy-health backup /data/backups
+# Back up while it runs:  docker exec -it syntropy-health syntropy-health backup /data/backups
 # Forgotten password:     docker exec -it syntropy-health syntropy-health accounts reset-password NAME
 services:
   syntropy:

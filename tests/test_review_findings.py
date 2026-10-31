@@ -7,6 +7,7 @@ import json
 import sqlite3
 import time
 import zipfile
+from pathlib import Path
 
 from app.core import config, db, maintenance
 from app.services import imports, sync
@@ -125,3 +126,11 @@ def test_what_was_asked_about_stays_out_of_the_access_log():
     for word in ("psychiatry", "Sensitive", "HIV", "labs"):
         assert word not in cleaned
     assert _SECRET_PARAMS.sub(r"\1REDACTED", "/x?data=keep") == "/x?data=keep"
+
+
+def test_the_docker_smoke_test_can_take_the_backup_it_checks_for():
+    """docker exec without -it has no terminal: the backup would stop to ask for a passphrase, on a server with nothing to back up."""
+    root = Path(__file__).parent.parent
+    smoke = (root / "scripts" / "docker_smoke.sh").read_text()
+    assert smoke.index("/api/setup") < smoke.index("syntropy-health backup /data/backups --no-encrypt")
+    assert "docker exec -it syntropy-health syntropy-health backup" in (root / "README.md").read_text()

@@ -263,7 +263,7 @@ connection and AI access are tighter. Lines under each heading are what changed 
 - **Windows updates work again.** The app couldn't read its own signature, so it refused every new version. Updates no
   longer turn Open at Login back on, the installer requires Windows 10 or later, and the background server no longer
   stops after 72 hours or when a laptop is unplugged.
-- **Docker has the command.** `docker exec syntropy-health syntropy-health backup /data/backups` and `docker exec -it
+- **Docker has the command.** `docker exec -it syntropy-health syntropy-health backup /data/backups` and `docker exec -it
   syntropy-health syntropy-health accounts reset-password NAME` work, and files they write stay usable by the server. The
   container no longer crash-loops on files restored as root, `docker-compose.yml` works on older Compose versions, and
   the image is rebuilt weekly with security fixes (`docker compose pull`). Make the data folder first with `mkdir data`.

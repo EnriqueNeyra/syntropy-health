@@ -119,9 +119,12 @@ Settings also has Backup and Restore, and scheduled backups to a folder. `--no-e
 who gets the file can read. On Docker, run the same commands through the container:
 
 ```
-docker exec syntropy-health syntropy-health backup /data/backups
+docker exec -it syntropy-health syntropy-health backup /data/backups
 docker exec -it syntropy-health syntropy-health accounts reset-password NAME
 ```
+
+`-it` is what lets you type the backup's passphrase. For a scheduled job, where no one is there to type, use
+`--passphrase-file` with a file the container can read.
 
 Before upgrading its database, Syntropy Health keeps a copy in a pre-upgrade folder beside it, and won't upgrade if it
 can't. A lost encryption key can't be recovered: saved sign-ins stop opening and each source asks you to connect

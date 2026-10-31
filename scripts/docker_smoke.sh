@@ -35,7 +35,10 @@ docker exec "$NAME" sh -c 'grep -q "^CapEff:.*0000000000000000" /proc/1/status'
 # The command the app's messages name. docker exec starts as root; what it writes has to stay the folder's owner's.
 docker exec "$NAME" syntropy-health version
 docker exec "$NAME" syntropy-health accounts
-docker exec "$NAME" syntropy-health backup /data/backups
+# There's nothing to back up until setup is done, and no one here to type a passphrase.
+curl -fs -X POST localhost:8000/api/setup -H 'Content-Type: application/json' -H 'X-Requested-With: syntropy' \
+  -d '{"password":"smoke-test-password-1","profile_name":"Smoke"}' >/dev/null
+docker exec "$NAME" syntropy-health backup /data/backups --no-encrypt
 backup="$(find "$data/backups" -name 'syntropy-backup-*.zip')"
 test -n "$backup" && test "$(stat -c %u "$backup")" = "$(id -u)"
 docker exec -w /tmp "$NAME" syntropy-health version     # from any folder
