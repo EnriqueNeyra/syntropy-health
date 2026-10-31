@@ -3,12 +3,14 @@ two local sites standing in for the app and for a health system's sign-in page. 
 
 from __future__ import annotations
 
+import gc
 import http.server
 import json
 import os
 import sys
 import threading
 import time
+import weakref
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -555,6 +557,15 @@ def sign_in_sheet():
     on_main(mac.go_home)
     until(lambda: mac.sheet is None)
     sheet["home_command"] = mac.sheet is None
+
+    # A finished sheet lets go of its web view, or each sign-in would leave a page's process running.
+    open_sheet("/portal")
+    gone = weakref.ref(mac.sheet)
+    on_main(lambda: mac.sheet.cancel())
+    until(lambda: mac.sheet is None)
+    time.sleep(2.5)     # past the slide, and past the longest it waits for a page to paint
+    on_main(gc.collect)
+    sheet["let_go"] = gone() is None
 
     # Should a page go somewhere while the window can't show a sheet, it stays in the window, with the away chrome.
     on_main(lambda: mac.ns_window.orderOut_(None))

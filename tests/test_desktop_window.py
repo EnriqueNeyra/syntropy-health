@@ -192,6 +192,10 @@ def test_the_window_commands_end_the_sheet(seen):
     assert seen["sheet"]["home_command"] is True
 
 
+def test_a_finished_sheet_lets_go_of_its_web_view(seen):
+    assert seen["sheet"]["let_go"] is True
+
+
 def test_with_no_window_on_screen_the_away_chrome_is_still_there(seen):
     assert seen["sheet"]["no_window_on_screen"] == {"away": True, "sheet": True}
 

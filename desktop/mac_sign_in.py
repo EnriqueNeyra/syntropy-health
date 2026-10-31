@@ -156,6 +156,7 @@ class SignInSheet:
         self.window = _SheetWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             ((0, 0), (width, height)), AppKit.NSWindowStyleMaskTitled, AppKit.NSBackingStoreBuffered, False)
         self.window.sign_in = self
+        self.window.setTitle_("Sign in")         # not shown on a sheet, but VoiceOver and the like read it
         self.window.setReleasedWhenClosed_(False)
         self.match_appearance()
         self.webview = WebKit.WKWebView.alloc().initWithFrame_configuration_(((0, 0), (width, height - BAR_HEIGHT)), config)
@@ -328,8 +329,14 @@ class SignInSheet:
     # ----------------------------------------------------------------- opening and closing
     def open(self, request: Any) -> None:
         self._say_where(url_text(request.URL()))       # first: it's drawn as it slides in
-        self.parent.beginSheet_completionHandler_(self.window, None)
+        self.parent.beginSheet_completionHandler_(self.window, self._gone)
         self.load(request)
+
+    def _gone(self, _response: int) -> None:
+        # These hold each other through AppKit and WebKit, where Python can't see it, and a web view left over would keep
+        # that page's process running. By now it has slid away and nothing can be pressed.
+        self.webview.removeFromSuperview()
+        self.window.sign_in = self.events.sheet = self.page.sheet = None
 
     def load(self, request: Any) -> None:
         if not self.ever_committed:
