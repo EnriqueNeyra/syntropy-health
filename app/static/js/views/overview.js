@@ -1,4 +1,4 @@
-import { del, get, put } from "../api.js";
+import { api, del, get, put } from "../api.js";
 import { refreshAlerts } from "../alerts.js";
 import { haptic } from "../app.js";
 import { barChart, responsive, sparkline } from "../charts.js";
@@ -53,19 +53,33 @@ export function tile(m, extra = "", goal = null) {
 
 // ------------------------------------------------------------------ insights
 const TONE_ICON = { attention: "alert", good: "check", info: "lightbulb" };
+// Earlier versions kept what was hidden in each browser. The server keeps it now, so hiding something here hides it on
+// the phone too. Anything still in this browser is handed over once.
 const HIDDEN_KEY = "syntropy-insights-hidden";
-function hiddenInsights() { try { return new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]")); } catch { return new Set(); } }
-export function hideInsight(id) {
-  const ids = [...hiddenInsights(), id].slice(-200);
-  try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(ids)); } catch {}
+function takeOldHidden() {
+  try {
+    const ids = JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]");
+    localStorage.removeItem(HIDDEN_KEY);
+    return Array.isArray(ids) ? ids.filter((i) => typeof i === "string").slice(-200) : [];
+  } catch { return []; }
 }
+function hideOnServer(profileId, ids) {
+  return api("/api/insights/hidden", { method: "POST", query: { profile: profileId }, body: { ids } });
+}
+async function loadInsights(profileId) {
+  const old = takeOldHidden();
+  if (old.length) await hideOnServer(profileId, old).catch(() => {});
+  return get("/api/insights", { profile: profileId }, old.length ? { fresh: true } : {});
+}
+export function hideInsight(profileId, id) { return hideOnServer(profileId, [id]).catch(() => {}); }
 
 /** An insight's sentence. Ones about a measurement are written here, so the numbers are in the person's units. */
 export function insightText(i) {
   const d = i.data || {};
   const m = { metric: d.metric, unit: d.unit };
   const v = (x) => `${metricValue(m, x)}${metricUnit(m) ? ` ${metricUnit(m)}` : ""}`;
-  if (i.kind === "change") return `${i.title.split(" is ")[0]} averaged ${v(d.recent)} over the last ${d.days} days, ${d.recent > d.usual ? "up" : "down"} from your usual ${v(d.usual)}.`;
+  if (i.kind === "urgent" && d.metric && d.shown && d.metric !== "blood_pressure_systolic" && d.metric !== "blood_pressure_diastolic") return i.text.replace(d.shown, v(d.value));
+  if (i.kind === "change") return `${i.title.split(" is ")[0]} was typically ${v(d.recent)} over the last ${d.days} days, ${d.recent > d.usual ? "up" : "down"} from your usual ${v(d.usual)}.${d.note ? ` ${d.note}` : ""}`;
   if (i.kind === "sleep" && d.bedtime && d.spread_min != null) {
     // The usual bedtime in the reader's clock (8:57 PM, or 20:57), not the server's.
     const [h, min] = String(d.bedtime).split(":").map(Number);
@@ -73,19 +87,25 @@ export function insightText(i) {
       ? new Date(2000, 0, 1, h, min).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : d.bedtime;
     return `Your bedtime varied by about ±${d.spread_min} minutes over the last two weeks (usually around ${at}). A steadier schedule tends to make sleep more restful.`;
   }
-  if (i.kind === "medication") return `In the month after you started ${d.medication} (${fmtDate(d.started)}), this averaged ${v(d.after)}, against ${v(d.before)} the month before. Other things change too, so talk it over with whoever prescribed it rather than reading it as an effect.`;
+  if (i.kind === "medication") return `In the month after ${d.reported_taking ? `you started ${d.medication}` : `the first order on record for ${d.medication}`} (${fmtDate(d.started)}), this was typically ${v(d.after)}, against ${v(d.before)} the month before. Other things change too, so talk it over with whoever prescribed it rather than reading it as an effect.`;
   if (i.kind === "goal" && d.unit) return `You met this goal (${d.direction === "min" ? "at least" : "at most"} ${v(d.target)}) on ${d.met} of the last ${d.days} days${d.streak >= 3 ? `, ${d.streak} in a row` : ""}.`;
   return i.text;
 }
 
 export function insightItem(i, { hide = true } = {}) {
-  return html`<div class="insight ${i.tone}">
+  return html`<div class="insight ${i.tone} ${i.urgent ? "urgent" : ""}" ${i.urgent ? raw('role="alert"') : ""}>
     <span class="insight-icon">${icon(TONE_ICON[i.tone] || "lightbulb")}</span>
     <div class="grow" style="min-width:0"><div class="insight-title">${i.title}</div>
       <div class="small muted">${insightText(i)}</div>
       ${i.link ? html`<a class="small" href="${i.link}">${i.kind === "link" ? "Compare" : "See the chart"} ${icon("arrowRight")}</a>` : ""}</div>
     ${hide ? html`<button class="btn btn-ghost btn-icon btn-sm insight-hide" data-action="hide-insight" data-id="${i.id}" aria-label="Hide this" title="Hide">${icon("x")}</button>` : ""}
   </div>`;
+}
+
+/** How long ago, in the words of someone reading a result: "about 3 years ago". */
+function ageWords(when) {
+  const years = (Date.now() - new Date(when).getTime()) / (365.25 * 86400000);
+  return years >= 2 ? `about ${Math.round(years)} years ago` : `about ${Math.round(years * 12)} months ago`;
 }
 
 const LIST_MAX = 5;
@@ -114,13 +134,14 @@ export const WIDGETS = [
   { id: "insights", title: "What's changed", desc: "Changes from your normal and patterns across sleep, heart, training, labs and how you feel", size: "xl", on: true,
     needs: ["insights"], first: true,
     render: (d) => {
-      const hidden = hiddenInsights();
-      const items = (d.insights?.insights || []).filter((i) => !hidden.has(i.id));
+      const items = d.insights?.insights || [];
+      // What shouldn't wait is never folded away.
+      const shown = Math.max(6, items.filter((i) => i.urgent).length);
       return html`<div class="card widget-card">
         <div class="card-head"><h3>${icon("lightbulb")} What's changed</h3><span class="small muted">across all your sources</span></div>
-        ${items.length ? html`<div class="insights">${items.slice(0, 6).map((i) => insightItem(i))}</div>`
+        ${items.length ? html`<div class="insights">${items.slice(0, shown).map((i) => insightItem(i))}</div>`
           : html`<div class="list-item muted small">Nothing stands out right now. Insights appear as your devices, check-ins and records build up a picture of your normal.</div>`}
-        ${items.length > 6 ? html`<div class="card-foot muted small">${items.length - 6} more: ask about them in <a href="#/ask">Ask</a></div>` : ""}
+        ${items.length > shown ? html`<div class="card-foot muted small">${items.length - shown} more: ask about them in <a href="#/ask">Ask</a></div>` : ""}
       </div>`;
     } },
   { id: "goals", title: "Goals", desc: "Your daily goals and how many of the last 7 days met them", size: "m", on: true, needs: ["goals"],
@@ -162,8 +183,8 @@ export const WIDGETS = [
       </div>`, "No workouts in the last 30 days.", { href: "#/workouts", more: "All workouts" }) },
   { id: "labs", title: "Out-of-range results", desc: "Your latest lab results that are high or low", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Out of range", "flask", d.summary.flagged_labs, (l) => html`
-      <div class="list-item clickable" data-action="lab" data-code="${l.code || ""}" data-title="${l.title}">
-        <div class="grow"><div class="title">${l.title}</div><div class="meta">${fmtDate(l.effective_at)}${l.older_result ? " (older result)" : ""} · range ${l.ref_text || "—"}</div></div>
+      <div class="list-item clickable ${l.older ? "muted" : ""}" data-action="lab" data-code="${l.code || ""}" data-title="${l.title}">
+        <div class="grow"><div class="title">${l.title}</div><div class="meta">${fmtDate(l.effective_at)}${l.older ? ` · older result, ${ageWords(l.effective_at)}` : ""} · range ${l.ref_text || "—"}</div></div>
         <div class="value">${l.value_text}</div>${resultStatus(l.status)}${flagBadge(l.interpretation)}
       </div>`, "All of your most recent lab results are in range.", { href: "#/trends/labs", more: "Lab trends" }) },
   { id: "medications", title: "Medications", desc: "Medications your records list as current, and any that may be out of date", size: "m", on: true, needs: ["summary"], records: true,
@@ -256,7 +277,7 @@ export async function render({ el, state, navigate }) {
   const early = { summary: get("/api/summary", { profile: profile.id }), conns: get("/api/connections", { profile: profile.id }),
     bio: get("/api/biometrics/overview", { profile: profile.id, brief: true }),
     goals: get("/api/goals", { profile: profile.id }).catch(() => ({ progress: [] })),
-    insights: get("/api/insights", { profile: profile.id }).catch(() => ({ insights: [] })) };
+    insights: loadInsights(profile.id).catch(() => ({ insights: [] })) };
   const [saved, defaults] = await Promise.all([get(`/api/profiles/${profile.id}/overview`).catch(() => ({ widgets: null })), early.bio]);
   const defaultMetrics = () => defaults.headline.slice(0, DEFAULT_TILES).map((h) => h.metric);
   let layout = resolveLayout(saved.widgets, defaultMetrics());
@@ -409,7 +430,11 @@ export async function render({ el, state, navigate }) {
     vital: ({ code, title }) => navigate(`#/trends/vitals?${code ? `code=${encodeURIComponent(code)}` : `title=${encodeURIComponent(title)}`}`),
     metric: ({ metric }) => navigate(`#/trends?metric=${encodeURIComponent(metric)}`),
     workout: ({ id }) => openWorkout(profile, id),
-    "hide-insight": ({ id }) => { hideInsight(id); draw(); },
+    "hide-insight": async ({ id }) => {
+      await hideInsight(profile.id, id);
+      if (data.insights?.insights) data.insights.insights = data.insights.insights.filter((i) => i.id !== id);
+      draw();
+    },
     edit: () => { editing = true; draw(); },
     done: () => { editing = false; draw(); },
     resize: ({ id, size }) => apply(layout.map((w) => (w.id === id ? { ...w, size } : w))),

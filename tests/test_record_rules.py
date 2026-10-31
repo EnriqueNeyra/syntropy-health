@@ -185,7 +185,7 @@ def test_a_flagged_result_this_old_is_marked_as_older(prof):
     load(prof, "A", lab("a", 260, "mg/dL", "2016-01-01", code="2093-3", title="Cholesterol", ranges=[{"high": {"value": 200}}]),
          lab("b", 260, "mg/L", recent(), code="1-1", title="X", ranges=[{"high": {"value": 200}}]))
     flagged = {l["title"]: l for l in records.flagged_labs(prof)}
-    assert flagged["Cholesterol"]["older_result"] is True and "older_result" not in flagged["X"]
+    assert flagged["Cholesterol"]["older"] is True and "older" not in flagged["X"]
 
 
 def test_a_lab_with_no_code_has_a_chart(client, prof):

@@ -947,8 +947,8 @@ How to work:
 data. Use the reference range and flag the source reported; when the range is "not reported by the lab", say \
 so and don't give a typical range from memory. Never infer a finding (for example anemia or infection) the data \
 doesn't show.
-- For "anything out of range", use out_of_range_recent_labs and the flag on each result. A result marked older_result is years old: say \
-so rather than presenting it as current. A result_status of preliminary may still change.
+- For "anything out of range", use out_of_range_recent_labs and the flag on each result. Those in older_out_of_range_labs are over a year old and weren't repeated \
+since: say so rather than presenting them as current. A result_status of preliminary may still change.
 - A result written like "<0.5" is a limit, not a measurement: it says below 0.5, and never exactly 0.5.
 - Medications in current_medications are what the records list as current. Those in medications_to_check may be out of date, for the \
 reason given (med_reason): never state them as being taken. Those planned but not started aren't being taken.
@@ -995,7 +995,8 @@ def summary_context(profile_id: str, budget_chars: int) -> str:
     if s["identity_conflict"]:
         sections += [("identity_conflict", s["identity_conflict"]), ("patient_records_name", s["patient"])]
     sections += [
-        ("out_of_range_recent_labs", s["out_of_range_recent_labs"]), ("active_conditions", s["active_conditions"]),
+        ("out_of_range_recent_labs", s["out_of_range_recent_labs"]), ("older_out_of_range_labs", s["older_out_of_range_labs"]),
+        ("active_conditions", s["active_conditions"]),
         ("unconfirmed_conditions_not_facts", s["unconfirmed_conditions"]), ("conditions_status_not_stated", s["conditions_status_not_stated"]),
         ("current_medications", s["active_medications"]), ("medications_to_check_may_be_out_of_date", s["medications_to_check"]),
         ("medications_planned_not_started", s["medications_planned_not_started"]), ("allergies", s["allergies"]),

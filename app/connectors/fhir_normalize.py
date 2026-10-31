@@ -560,6 +560,13 @@ def _read_value(src: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def partial_pressure(systolic: Optional[float], diastolic: Optional[float]) -> str:
+    """"120/80 mmHg", or in words when a panel only has one of them: a lone reading isn't both numbers."""
+    if systolic is not None and diastolic is not None:
+        return f"{_fmt(systolic)}/{_fmt(diastolic)} mmHg"
+    return f"Systolic {_fmt(systolic)} mmHg" if systolic is not None else f"Diastolic {_fmt(diastolic)} mmHg"
+
+
 def _blood_pressure(comps: list[dict[str, Any]]) -> Optional[str]:
     """Systolic and diastolic by code, then by name, then by which is higher. Never by the order the source happened to list them in."""
     vals = [c for c in comps if c["value"] is not None]
@@ -567,12 +574,11 @@ def _blood_pressure(comps: list[dict[str, Any]]) -> Optional[str]:
     diastolic = next((c for c in vals if c["code"] == "8462-4"), None) or next((c for c in vals if re.search(r"\bdia", c["name"], re.I)), None)
     if not systolic and not diastolic and len(vals) == 2:
         systolic, diastolic = sorted(vals, key=lambda c: -c["value"])
-    if systolic and diastolic:
-        return f"{_fmt(systolic['value'])}/{_fmt(diastolic['value'])} mmHg"
-    if systolic:
-        return f"Systolic {_fmt(systolic['value'])} mmHg"
-    if diastolic:
-        return f"Diastolic {_fmt(diastolic['value'])} mmHg"
+    if len(vals) == 2 and bool(systolic) != bool(diastolic):      # one is known, so the other is the other
+        other = next(c for c in vals if c is not (systolic or diastolic))
+        systolic, diastolic = (systolic, other) if systolic else (other, diastolic)
+    if systolic or diastolic:
+        return partial_pressure(systolic["value"] if systolic else None, diastolic["value"] if diastolic else None)
     return None
 
 
@@ -931,7 +937,8 @@ def normalize_medication_request(res: dict[str, Any], resolve: Callable[[str], O
 
 def normalize_medication_statement(res: dict[str, Any], resolve: Callable[[str], Optional[dict[str, Any]]] = lambda r: None) -> Optional[dict[str, Any]]:
     shim = dict(res)
-    shim["authoredOn"] = res.get("dateAsserted") or _date((res.get("effectivePeriod") or {}).get("start"), res.get("effectiveDateTime"))
+    # When they began taking it, not when someone noted that they do.
+    shim["authoredOn"] = _date((res.get("effectivePeriod") or {}).get("start"), res.get("effectiveDateTime")) or res.get("dateAsserted")
     shim["dosageInstruction"] = res.get("dosage")
     shim["resourceType"] = "MedicationStatement"
     rec = normalize_medication_request(shim, resolve)

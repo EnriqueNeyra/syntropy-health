@@ -16,7 +16,7 @@ function niceTicks(min, max, count = 4) {
   const lo = Math.floor(min / step) * step;
   const hi = Math.ceil(max / step) * step;
   const ticks = [];
-  for (let v = lo; v <= hi + step / 2; v += step) ticks.push(Number(v.toFixed(10)));
+  for (let v = lo; v <= hi + step / 2; v += step) ticks.push(Number(v.toFixed(10)) || 0); // "|| 0": counting up to zero from below stops at -0, which would print "-0"
   return { lo, hi, ticks };
 }
 

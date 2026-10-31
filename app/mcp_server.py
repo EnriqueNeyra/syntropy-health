@@ -115,7 +115,8 @@ def t_health_summary(args: dict[str, Any]) -> Any:
         "medications_to_check": [_slim(m) for m in s["medications_to_check"]],
         "medications_planned_not_started": [_slim(m) for m in s["medications_planned"]],
         "allergies": [_slim(a) for a in s["allergies"]],
-        "out_of_range_recent_labs": [_lab_line(l) for l in s["flagged_labs"]],
+        "out_of_range_recent_labs": [_lab_line(l) for l in s["flagged_labs"] if not l.get("older")],
+        "older_out_of_range_labs": [_lab_line(l) for l in s["flagged_labs"] if l.get("older")],
         "recent_labs": [_lab_line(l) for l in s["recent_labs"]],
         "latest_vitals": [_lab_line(v) for v in s["latest_vitals"]],
         "recent_visits": [_slim(e) for e in s["recent_encounters"]],
@@ -164,7 +165,7 @@ def _lab_line(rec: dict[str, Any]) -> dict[str, Any]:
         "test": rec.get("title"), "date": (rec.get("effective_at") or "")[:10], "result": rec.get("value_text"),
         "flag": rec.get("interpretation"), "reference_range": _range(rec), "source": rec.get("source_name"),
         "result_status": rec.get("status") if (rec.get("status") or "").lower() not in ("final", "") else None,
-        "older_result": rec.get("older_result"),
+        "older_result": rec.get("older"),
     }.items() if v not in (None, "")}
 
 
@@ -267,10 +268,11 @@ def t_compare(args: dict[str, Any]) -> Any:
     prof = _profile(args)
     c = insights.compare(prof["id"], str(args["a"]), str(args["b"]), min(int(args.get("days", 90)), 3650),
                          int(args.get("lag", 0)))
-    return {**{k: c[k] for k in ("a", "b", "lag", "days", "n", "r", "strength", "split")},
+    return {**{k: c[k] for k in ("a", "b", "lag", "days", "n", "r", "interval", "strength", "split")},
             "pairs": c["pairs"][-120:],
-            "note": "r is the Pearson correlation of a with b (b taken lag days later; negative lag: earlier). Correlation is "
-                    "not causation."}
+            "note": "r is a rank correlation of a with b (b taken lag days later; negative lag: earlier), after taking out each "
+                    "measure's overall trend, so a correlation worked out from the raw pairs will differ: report r. interval is "
+                    "its 95% range, allowing for correlated days. Correlation is not causation."}
 
 
 def t_sleep_nights(args: dict[str, Any]) -> Any:

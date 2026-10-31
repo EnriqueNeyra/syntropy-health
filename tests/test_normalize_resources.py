@@ -337,8 +337,8 @@ def test_one_partial_medication_date_doesnt_stop_medication_insights(client, mon
     from app.services import insights
     prof = client.get("/api/profiles").json()["profiles"][0]["id"]
     with monkeypatch.context() as patch:
-        patch.setattr(insights, "markers", lambda *a, **k: [{"t": "2015-06", "kind": "medications", "label": "Started X", "record_id": "1"},
-                                                            {"t": "bad", "kind": "medications", "label": "Started Y", "record_id": "2"}])
+        patch.setattr(insights.records, "medication_orders", lambda p: [{"id": "1", "title": "X", "effective_at": "2015-06", "status": "active"},
+                                                                        {"id": "2", "title": "Y", "effective_at": "bad", "status": "active"}])
         assert insights._medication_notes(prof) == []
 
 

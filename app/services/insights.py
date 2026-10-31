@@ -4,20 +4,27 @@ the person's own normal, how sleep lines up with how they said they felt, what c
 a lab result moving further out of range, training load jumping, goals kept.
 
 Everything here is descriptive: "since", "on days when", never "because". Each insight carries plain text (for Ask
-and other AI apps) and the numbers behind it (so the apps can show them in the person's units).
+and other AI apps) and the numbers behind it (so the apps can show them in the person's units). A claim only appears
+when the numbers support it (insight_stats), one device is only compared with itself, and a reading past a published
+limit (health_limits) comes first, with what to do about it.
 """
 
 from __future__ import annotations
 
-import math
+import logging
 import re
 import statistics
-from collections import defaultdict
+import traceback
+from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any, Iterable, Optional
 
+from app.services import health_limits, insight_stats
 from app.store import activity, biometrics, goals, records, sleep, training
 from app.store.biometrics import METRICS, _tz, local_day
+
+log = logging.getLogger("syntropy.insights")
 
 # ---------------------------------------------------------------------------
 # Daily series from any source: wearables, the Journal, workouts
@@ -43,8 +50,12 @@ def _soft(label: str) -> str:
     return label[0].lower() + label[1:] if re.match(r"[A-Z][a-z]+(\s|$)", label) else label
 
 
+def _today() -> date:
+    return datetime.now(_tz()).date()
+
+
 def _window(days: int, end: Optional[date] = None) -> tuple[date, date]:
-    end = end or datetime.now(_tz()).date()
+    end = end or _today()
     return end - timedelta(days=days - 1), end
 
 
@@ -121,28 +132,22 @@ def comparable(profile_id: str) -> list[dict[str, Any]]:
     return out
 
 
-def _pearson(xs: list[float], ys: list[float]) -> Optional[float]:
-    n = len(xs)
-    if n < 3:
-        return None
-    mx, my = sum(xs) / n, sum(ys) / n
-    sx = math.sqrt(sum((x - mx) ** 2 for x in xs))
-    sy = math.sqrt(sum((y - my) ** 2 for y in ys))
-    if not sx or not sy:
-        return None
-    return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / (sx * sy)
+# Fewer than this and a correlation can't be told from chance: a 30-day window has 28 or 29 once today is left out.
+MIN_COMPARE_PAIRS = 28
 
 
-def strength(r: Optional[float], n: int) -> str:
-    if r is None or n < 7:
-        return "not enough data"
-    a = abs(r)
-    return "no clear link" if a < 0.1 else "weak" if a < 0.3 else "moderate" if a < 0.5 else "strong"
+def strength(link: Optional[dict[str, float]], n: int) -> str:
+    if n < MIN_COMPARE_PAIRS:
+        return "not enough days to tell"
+    if not link or not link["clear"]:
+        return "no clear link"
+    a = abs(link["r"])
+    return "weak" if a < 0.3 else "moderate" if a < 0.5 else "strong"
 
 
 def compare(profile_id: str, a: str, b: str, days: int = 90, lag: int = 0) -> dict[str, Any]:
     """Pairs ``a`` on each day with ``b`` on the same day, or ``lag`` days later (negative: earlier; HRV against the
-    day before's training is lag -1), the correlation, and ``b`` on ``a``'s higher and lower days."""
+    day before's training is lag -1), how they move together, and ``b`` on ``a``'s higher and lower days."""
     lag = max(-7, min(int(lag), 7))
     sa = series(profile_id, a, days)
     sb = series(profile_id, b, days + abs(lag), end=_window(1)[1])
@@ -152,7 +157,7 @@ def compare(profile_id: str, a: str, b: str, days: int = 90, lag: int = 0) -> di
         if other in sb["values"]:
             pairs.append({"day": day, "x": round(x, 3), "y": round(sb["values"][other], 3)})
     xs, ys = [p["x"] for p in pairs], [p["y"] for p in pairs]
-    r = _pearson(xs, ys)
+    link = insight_stats.association([date.fromisoformat(p["day"]).toordinal() for p in pairs], xs, ys) if len(pairs) >= 4 else None
     split = None
     if len(pairs) >= 10:
         cut = statistics.median(xs)
@@ -163,23 +168,204 @@ def compare(profile_id: str, a: str, b: str, days: int = 90, lag: int = 0) -> di
                      "n_above": len(hi), "n_below": len(lo)}
     meta = lambda s: {k: s[k] for k in ("key", "label", "unit", "about")}   # noqa: E731
     return {"a": meta(sa), "b": meta(sb), "lag": lag, "days": days, "pairs": pairs, "n": len(pairs),
-            "r": round(r, 2) if r is not None else None, "strength": strength(r, len(pairs)), "split": split}
+            "r": round(link["r"], 2) if link else None, "strength": strength(link, len(pairs)), "split": split,
+            "interval": {"low": round(link["low"], 2), "high": round(link["high"], 2)} if link else None}
 
 
 # ---------------------------------------------------------------------------
 # Events from health records, for charts
 # ---------------------------------------------------------------------------
 
-def markers(profile_id: str, start: Optional[str] = None, end: Optional[str] = None) -> list[dict[str, Any]]:
-    """Medications started and conditions diagnosed, with dates, newest first."""
+# "intended" is a statement that the person hasn't begun it yet.
+NOT_TAKEN_STATUSES = {"draft", "cancelled", "entered-in-error", "not-taken", "intended"}
+NOT_AN_ORDER_INTENTS = {"proposal", "plan", "option"}
+# What's on record doesn't say whether these were taken, so they never support a before and after.
+UNSURE_STATUSES = {"unknown", "on-hold"}
+NOT_A_DIAGNOSIS_STATUSES = {"entered-in-error", "refuted"}
+
+
+def _iso_day(value: Optional[str]) -> Optional[str]:
+    """The date in a stored timestamp, when it has a whole one: free-text and partial dates exist."""
+    try:
+        return date.fromisoformat((value or "")[:10]).isoformat()
+    except ValueError:
+        return None
+
+
+def medication_timeline(profile_id: str) -> list[dict[str, Any]]:
+    """Each drug's history from every order on record. The list of records keeps only the newest order of each, which
+    is right for the current dose but says nothing about when it began: a renewal's date isn't a start. Orders that
+    never happened are left out first, so a cancelled one can't move or erase a real first date."""
+    by_drug: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in records.medication_orders(profile_id):
+        day = _iso_day(r.get("effective_at"))
+        if not day or (r.get("status") or "").lower() in NOT_TAKEN_STATUSES:
+            continue
+        if ((r.get("details") or {}).get("intent") or "").lower() in NOT_AN_ORDER_INTENTS:
+            continue
+        by_drug[r.get("dedup_key") or r["id"]].append({**r, "day": day})
     out = []
-    for cat, verb in (("medications", "Started"), ("conditions", "Diagnosed")):
-        for r in records.list_records(profile_id, cat, since=start, until=end, limit=300)["items"]:
-            if not r.get("effective_at"):
-                continue
-            out.append({"t": r["effective_at"][:10], "label": f"{verb} {r['title']}", "kind": cat, "record_id": r["id"],
-                        "status": r.get("status")})
+    for rows in by_drug.values():
+        rows.sort(key=lambda r: r["day"])
+        oldest, newest = rows[0], rows[-1]
+        sure = not {(r.get("status") or "").lower() for r in (oldest, newest)} & UNSURE_STATUSES
+        first_sure = (oldest.get("status") or "").lower() not in UNSURE_STATUSES
+        out.append({"name": newest["title"], "first": oldest["day"], "last_ordered": newest["day"],
+                    "orders": len({r["day"] for r in rows}), "record_id": newest["id"], "status": newest.get("status"), "sure": sure,
+                    # Only a statement says the person took it, and only with a status that says so. An order is proof of an order.
+                    "reported_taking": oldest.get("resource_type") == "MedicationStatement" and first_sure})
+    return out
+
+
+def markers(profile_id: str, start: Optional[str] = None, end: Optional[str] = None) -> list[dict[str, Any]]:
+    """The first order on record for each medication and conditions diagnosed, with dates, newest first."""
+    out = []
+    for med in medication_timeline(profile_id):
+        if (start and med["first"] < start) or (end and med["first"] > end[:10]):
+            continue
+        verb = "Started" if med["reported_taking"] else "Ordered"
+        out.append({"t": med["first"], "label": f"{verb} {med['name']}", "kind": "medications", "record_id": med["record_id"],
+                    "status": med["status"], "name": med["name"], "event": verb.lower(), "last_ordered": med["last_ordered"],
+                    "orders": med["orders"]})
+    for r in records.list_records(profile_id, "conditions", since=start, until=end, limit=300)["items"]:
+        if not r.get("effective_at") or (r.get("status") or "").lower() in NOT_A_DIAGNOSIS_STATUSES:
+            continue
+        out.append({"t": r["effective_at"][:10], "label": f"Diagnosed {r['title']}", "kind": "conditions", "record_id": r["id"],
+                    "status": r.get("status"), "name": r["title"], "event": "diagnosed"})
     return sorted(out, key=lambda m: m["t"], reverse=True)
+
+
+# ---------------------------------------------------------------------------
+# One device at a time, and the person's own normal
+# ---------------------------------------------------------------------------
+
+BASELINE_DAYS = 60
+MIN_BASELINE_VALUES = 14
+BASELINE_SPREAD = 2.0        # how many robust standard deviations either side counts as "your usual"
+DEVICE_RUN_BEFORE, DEVICE_RUN_AFTER = 5, 3
+DEVICE_NOTE_DAYS = 30
+WHOLE_DAY_SOURCES = ("oura", "whoop", "google health")
+# A deviation from the person's own temperature is below zero about half the time. Everything else stops at zero.
+SIGNED_METRICS = {"body_temperature_deviation"}
+
+
+def _complete(points: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Today's running total of steps or energy isn't a day's figure yet."""
+    return [p for p in points if not p.get("partial")]
+
+
+def _main_source(points: Iterable[dict[str, Any]]) -> Optional[str]:
+    counts = Counter(p["source"] for p in points)
+    return counts.most_common(1)[0][0] if counts else None
+
+
+def _merges_into(source: Optional[str]) -> bool:
+    """Whether the merged row carries on from this source. It's a wearable's own numbers with the phone filling the gaps,
+    so from a wearable nothing has changed. From the phone alone a wearable now sets the numbers, and accounts that send
+    whole days aren't part of what's merged."""
+    name = (source or "").lower()
+    return biometrics.source_kind(source) != "phone" and not any(n in name for n in WHOLE_DAY_SOURCES)
+
+
+def _device_name(source: str) -> str:
+    return "your devices together" if source == biometrics.MERGED_SOURCE else source
+
+
+def device_changes(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The days a measure moved from one device to another for good. Which device wins can flick back and forth from
+    day to day when two record it, and a day or two of that isn't a change. Nor is a wearable being joined by the phone."""
+    runs: list[list[Any]] = []
+    for p in points:
+        if runs and runs[-1][0] == p["source"]:
+            runs[-1][2] += 1
+        else:
+            runs.append([p["source"], p["day"], 1])
+    while True:
+        short = [i for i, r in enumerate(runs) if r[2] < DEVICE_RUN_AFTER]
+        if not short:
+            break
+        i = short[0]
+        if i > 0:
+            runs[i - 1][2] += runs[i][2]
+        elif len(runs) > 1:
+            runs[1][1], runs[1][2] = runs[0][1], runs[1][2] + runs[0][2]
+        else:
+            break
+        del runs[i]
+        merged = []
+        for r in runs:
+            if merged and merged[-1][0] == r[0]:
+                merged[-1][2] += r[2]
+            else:
+                merged.append(r)
+        runs = merged
+    devices: list[list[Any]] = []
+    for r in runs:
+        last = devices[-1] if devices else None
+        if last and last[0] == biometrics.MERGED_SOURCE and _merges_into(r[0]):
+            last[0], last[2] = r[0], last[2] + r[2]
+        elif last and (last[0] == r[0] or (r[0] == biometrics.MERGED_SOURCE and _merges_into(last[0]))):
+            last[2] += r[2]
+        else:
+            devices.append(r)
+    return [{"day": b[1], "from": a[0], "to": b[0]} for a, b in zip(devices, devices[1:]) if a[2] >= DEVICE_RUN_BEFORE]
+
+
+def _device_names(points: list[dict[str, Any]], source: Optional[str]) -> set[Optional[str]]:
+    """What one device's numbers are stored under: its own name and the merged row, which stands in for it on the days
+    the phone also recorded."""
+    if source == biometrics.MERGED_SOURCE:
+        return {source} | {p["source"] for p in points if _merges_into(p["source"])}
+    return {source, biometrics.MERGED_SOURCE} if _merges_into(source) else {source}
+
+
+def _same_device(profile_id: str, metric: str, points: list[dict[str, Any]], source: Optional[str], days: int,
+                 end: Optional[date] = None) -> list[dict[str, Any]]:
+    """Only ``source``'s days, including those another device outranked it on."""
+    names = _device_names(points, source)
+    if all(p["source"] in names for p in points):
+        return points
+    by_day: dict[str, dict[str, Any]] = {}
+    for name in sorted(names, key=lambda n: n == biometrics.MERGED_SOURCE):
+        for p in _complete(biometrics.daily_series(profile_id, metric, days=days, source=name, end=end)["points"]):
+            by_day[p["day"]] = p
+    return [by_day[day] for day in sorted(by_day)]
+
+
+def _usual_range(metric: str, values: list[float]) -> Optional[dict[str, float]]:
+    if len(values) < MIN_BASELINE_VALUES:
+        return None
+    mid, spread = insight_stats.robust_center(values)
+    low = mid - BASELINE_SPREAD * spread
+    return {"median": mid, "low": low if metric in SIGNED_METRICS else max(0.0, low), "high": mid + BASELINE_SPREAD * spread}
+
+
+def personal_range(profile_id: str, metric: str, days: int = 90, source: Optional[str] = None) -> dict[str, Any]:
+    """The person's own normal for a measure from one device, as a median and a band that a wild reading can't move:
+    now, for each stretch of the last ``days``, and the times the device changed, since numbers before a change aren't
+    comparable with those after it."""
+    if metric not in METRICS:
+        raise ValueError("Unknown measure.")
+    label, unit, _, _ = METRICS[metric]
+    today = _today()
+    span = days + BASELINE_DAYS
+    points = _complete(biometrics.daily_series(profile_id, metric, days=span, source=source)["points"])
+    chosen = source or _main_source(points[-RECENT_DAYS:])
+    mine = _same_device(profile_id, metric, points, chosen, span)
+    # The last week is left out, so a change that's under way doesn't pull "usual" along with it.
+    settled = [p["value"] for p in mine if p["day"] < (today - timedelta(days=RECENT_DAYS - 1)).isoformat()][-BASELINE_DAYS:]
+    now = _usual_range(metric, settled)
+    rolling = []
+    step = max(1, days // 60)
+    for back in range(days - 1, -1, -step):
+        day = (today - timedelta(days=back)).isoformat()
+        since = (today - timedelta(days=back + BASELINE_DAYS)).isoformat()
+        band = _usual_range(metric, [p["value"] for p in mine if since <= p["day"] < day])
+        if band:
+            rolling.append({"day": day, **{k: round(v, 2) for k, v in band.items()}})
+    return {"metric": metric, "label": label, "unit": unit, "source": chosen, "window_days": BASELINE_DAYS, "n": len(settled),
+            "enough": bool(now), "median": round(now["median"], 2) if now else None, "low": round(now["low"], 2) if now else None,
+            "high": round(now["high"], 2) if now else None, "rolling": rolling, "device_changes": device_changes(points)}
 
 
 # ---------------------------------------------------------------------------
@@ -195,15 +381,28 @@ WATCH = [
     ("sleep_duration", "up", 0.5, None),
     ("step_count", "up", None, 0.25),
     ("respiratory_rate", "down", 1.0, None),
-    ("oxygen_saturation", "up", 0.015, None),
+    ("oxygen_saturation", "up", 1.5, None),
     ("body_mass", None, 1.5, None),
     ("walking_heart_rate_average", "down", 4.0, None),
     ("vo2_max", "up", 2.0, None),
 ]
-RECENT_DAYS, BASELINE_DAYS = 7, 60
-# Health-record measurements worth checking before and after a medication started.
+RECENT_DAYS = 7
+MIN_RECENT, MIN_BASELINE = 4, 20
+# Weighed or estimated every week or so, so a week and two months would hold too few values to say anything.
+SPARSE_METRICS = {"body_mass", "vo2_max"}
+SPARSE_RECENT_DAYS, SPARSE_BASELINE_DAYS = 21, 120
+SPARSE_MIN_RECENT, SPARSE_MIN_BASELINE = 2, 5
+STALE_DAYS, SPARSE_STALE_DAYS = 3, 14
+# A change has to clear this on its own and again across everything watched, on two days running, with most of the
+# days behind it. Together these keep pure noise below 5% of runs across all ten measures (tests/test_insight_noise.py).
+CHANGE_ALPHA, CHANGE_FDR = 0.01, 0.05
+MOST_DAYS = 0.7
+WORTH_MENTIONING = "A change this size is worth mentioning to your clinician."
+# Health-record measurements worth checking before and after a medication's first order.
 MED_EFFECT_METRICS = ["resting_heart_rate", "blood_pressure_systolic", "blood_glucose", "body_mass", "hrv_rmssd",
                       "sleep_duration"]
+MED_ALPHA, MED_FDR = 0.01, 0.05
+MED_MIN_DAYS = 14
 
 
 def _fmt(metric: str, v: float) -> str:
@@ -214,53 +413,102 @@ def _fmt(metric: str, v: float) -> str:
         if m == 60:
             h, m = h + 1, 0
         return f"{h}h {m:02d}m"
-    if metric in biometrics.FRACTION_METRICS:
-        return f"{v * 100:.1f}%"
+    # Stored as percent already: normalize_sample turns a 0-1 fraction into 0-100.
+    if unit == "%":
+        return f"{v:.1f}%"
     if unit in ("steps", "kcal"):
         return f"{v:,.0f} {unit}"
     return f"{v:.1f} {unit}".strip() if abs(v) < 100 else f"{v:,.0f} {unit}".strip()
 
 
+def _split(points: list[dict[str, Any]], last: date, recent_days: int, base_days: int) -> tuple[list[float], list[float]]:
+    cut = last - timedelta(days=recent_days - 1)
+    first = cut - timedelta(days=base_days)
+    recent = [p["value"] for p in points if cut.isoformat() <= p["day"] <= last.isoformat()]
+    base = [p["value"] for p in points if first.isoformat() <= p["day"] < cut.isoformat()]
+    return recent, base
+
+
+def _matters(delta: float, usual: float, min_abs: Optional[float], min_rel: Optional[float]) -> bool:
+    if min_abs is not None and abs(delta) < min_abs:
+        return False
+    return min_rel is None or abs(delta) >= min_rel * abs(usual)
+
+
 def _changes(profile_id: str) -> list[dict[str, Any]]:
-    out = []
+    today = _today()
     have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
+    found: list[tuple[Optional[dict[str, Any]], float]] = []
+    moved: dict[tuple[str, str], dict[str, Any]] = {}
     for metric, better, min_abs, min_rel in WATCH:
         if metric not in have:
             continue
-        pts = [p for p in biometrics.daily_series(profile_id, metric, days=RECENT_DAYS + BASELINE_DAYS)["points"]
-               if not p.get("partial")]
+        sparse = metric in SPARSE_METRICS
+        recent_days, base_days = (SPARSE_RECENT_DAYS, SPARSE_BASELINE_DAYS) if sparse else (RECENT_DAYS, BASELINE_DAYS)
+        min_recent, min_base = (SPARSE_MIN_RECENT, SPARSE_MIN_BASELINE) if sparse else (MIN_RECENT, MIN_BASELINE)
+        span = recent_days + base_days + 1      # one more, to look again as of the day before
+        pts = _complete(biometrics.daily_series(profile_id, metric, days=span)["points"])
         if not pts:
             continue
         last = date.fromisoformat(pts[-1]["day"])
-        if (datetime.now(_tz()).date() - last).days > 3:
+        if (today - last).days > (SPARSE_STALE_DAYS if sparse else STALE_DAYS):
             continue      # nothing recent to speak of
-        cut = (last - timedelta(days=RECENT_DAYS - 1)).isoformat()
-        recent = [p["value"] for p in pts if p["day"] >= cut]
-        base = [p["value"] for p in pts if p["day"] < cut]
-        if len(recent) < 4 or len(base) < 20:
+        cut = (last - timedelta(days=recent_days - 1)).isoformat()
+        source = _main_source(p for p in pts if p["day"] >= cut)
+        mine = _same_device(profile_id, metric, pts, source, span)
+        recent, base = _split(mine, last, recent_days, base_days)
+        if len(recent) < min_recent or len(base) < min_base:
+            # Too little from this device to compare it with itself. If that's because it's new, say so.
+            for change in device_changes(pts)[-1:]:
+                if change["to"] in _device_names(pts, source) and change["day"] >= (today - timedelta(days=DEVICE_NOTE_DAYS)).isoformat():
+                    note = moved.setdefault((change["from"], change["to"]), {**change, "metrics": []})
+                    note["day"] = min(note["day"], change["day"])
+                    note["metrics"].append(metric)
             continue
-        r_mean, b_mean = sum(recent) / len(recent), sum(base) / len(base)
-        sd = statistics.pstdev(base) or 1e-9
-        delta = r_mean - b_mean
-        if min_abs is not None and abs(delta) < min_abs:
+        p = insight_stats.shift_p(recent, base)
+        usual, spread = insight_stats.robust_center(base)
+        typical = statistics.median(recent)
+        delta = typical - usual
+        before = _split(mine, last - timedelta(days=1), recent_days, base_days)
+        steady = (len(before[0]) >= min_recent and len(before[1]) >= min_base
+                  and insight_stats.shift_p(*before) <= CHANGE_ALPHA)
+        most = sum(1 for v in recent if (v > usual) == (delta > 0)) >= MOST_DAYS * len(recent)
+        if p > CHANGE_ALPHA or not steady or not most or not delta or not _matters(delta, usual, min_abs, min_rel):
+            found.append((None, p))
             continue
-        if min_rel is not None and abs(delta) < min_rel * abs(b_mean):
-            continue
-        if abs(delta) / (sd / math.sqrt(len(recent))) < 2.5:
-            continue      # within the normal day-to-day swing
+        tone, mention = health_limits.tone_for_move(metric, usual, typical, better)
         up = delta > 0
-        tone = "info" if better is None else "good" if (better == "up") == up else "attention"
         label = METRICS[metric][0]
-        out.append({
+        band = _usual_range(metric, base)
+        note = WORTH_MENTIONING if mention else None
+        found.append(({
             "id": f"change:{metric}:{last.isoformat()}", "kind": "change", "tone": tone, "metric": metric,
             "title": f"{label} is {'up' if up else 'down'}",
-            "text": (f"{label} averaged {_fmt(metric, r_mean)} over the last {RECENT_DAYS} days, "
-                     f"{'up' if up else 'down'} from your usual {_fmt(metric, b_mean)} (the {BASELINE_DAYS} days before)."),
-            "data": {"metric": metric, "unit": METRICS[metric][1], "recent": round(r_mean, 3), "usual": round(b_mean, 3),
-                     "days": RECENT_DAYS},
+            "text": (f"{label} was typically {_fmt(metric, typical)} over the last {recent_days} days, "
+                     f"{'up' if up else 'down'} from your usual {_fmt(metric, usual)} (the {base_days} days before)."
+                     + (f" {note}" if note else "")),
+            "data": {"metric": metric, "unit": METRICS[metric][1], "recent": round(typical, 3), "usual": round(usual, 3),
+                     "days": recent_days, "low": round(band["low"], 3), "high": round(band["high"], 3), "source": source,
+                     **({"note": note} if note else {})},
             "link": f"#/trends?metric={metric}",
-        })
-    return out
+        }, p))
+    keep = insight_stats.false_discoveries_removed([p for _, p in found], CHANGE_FDR)
+    out = [item for (item, _), kept in zip(found, keep) if item and kept]
+    return out + [_device_note(change) for change in moved.values()]
+
+
+def _device_note(change: dict[str, Any]) -> dict[str, Any]:
+    labels = [_soft(METRICS[m][0]) for m in change["metrics"]]
+    named = labels[0] if len(labels) == 1 else ", ".join(labels[:-1]) + f" and {labels[-1]}"
+    return {
+        "id": f"device:{change['to']}:{change['day']}", "kind": "device", "tone": "info",
+        "title": f"Now measured by {_device_name(change['to'])}",
+        "text": (f"Since {_day(change['day'])}, the numbers for {named} come from {_device_name(change['to'])}, instead of "
+                 f"{_device_name(change['from'])}. Devices measure these differently, so earlier numbers aren't comparable. "
+                 "Changes will be looked for again once there are enough days from the new one."),
+        "data": {"from": change["from"], "to": change["to"], "day": change["day"], "metrics": change["metrics"]},
+        "link": f"#/trends?metric={change['metrics'][0]}",
+    }
 
 
 def _sleep_notes(profile_id: str) -> list[dict[str, Any]]:
@@ -298,49 +546,69 @@ def _day(iso: str) -> str:
     return f"{d:%b} {d.day}, {d.year}"
 
 
-def _feeling_links(profile_id: str, days: int = 90) -> list[dict[str, Any]]:
-    """How check-ins line up with sleep the night before and with training the day before."""
-    out = []
+# What a link needs before it's a claim at all: days with both, and days on each side.
+MIN_LINK_PAIRS = 30
+MIN_LINK_GROUP = 8
+MIN_SYMPTOM_DAYS = 8
+MIN_SYMPTOM_OTHER_DAYS = 20
+LINK_ALPHA, LINK_FDR = 0.01, 0.05
+LINK_PERMUTATIONS = 499
+MIN_SLEEP_GAP_H = 0.5
+MIN_HRV_GAP = 0.08
+MAX_SYMPTOM_LINKS = 2
+COINCIDENCE = "This could be coincidence, and it doesn't show that one causes the other."
+
+Candidate = tuple[Optional[dict[str, Any]], float]
+
+
+def _feeling_links(profile_id: str, days: int = 90) -> list[Candidate]:
+    """How check-ins line up with sleep the night before, with how likely each is by chance alone."""
+    out: list[Candidate] = []
     start, end = _window(days)
     feel = journal_daily(profile_id, start, end)
-    if not any(len(v) >= 10 for v in feel.values()):
+    if not any(len(v) >= MIN_LINK_PAIRS for v in feel.values()):
         return out
     sleep_h = {p["day"]: p["value"] for p in biometrics.daily_series(profile_id, "sleep_duration", days=days)["points"]}
     for key, words, better in (("mood", MOOD_WORDS, "up"), ("energy", ENERGY_WORDS, "up"), ("stress", STRESS_WORDS, "down")):
-        pairs = [(sleep_h[d], v) for d, v in feel[key].items() if d in sleep_h]
-        if len(pairs) < 10:
+        pairs = [(sleep_h[d], feel[key][d]) for d in sorted(feel[key]) if d in sleep_h]
+        if len(pairs) < MIN_LINK_PAIRS:
             continue
         cut = statistics.median(h for h, _ in pairs)
-        more = [v for h, v in pairs if h > cut]
-        less = [v for h, v in pairs if h <= cut]
-        if len(more) < 4 or len(less) < 4:
+        longer = [h > cut for h, _ in pairs]
+        values = [v for _, v in pairs]
+        more = [v for v, flag in zip(values, longer) if flag]
+        less = [v for v, flag in zip(values, longer) if not flag]
+        if len(more) < MIN_LINK_GROUP or len(less) < MIN_LINK_GROUP:
             continue
         a, b = sum(more) / len(more), sum(less) / len(less)
         gap = a - b
         if abs(gap) < (0.25 if key == "mood" else 0.4):
+            out.append((None, 1.0))
             continue
+        margin = insight_stats.gap_margin(more, less)
+        points = _five(key, a) - _five(key, b)
         good = (gap > 0) == (better == "up")
         label = {"mood": "Mood", "energy": "Energy", "stress": "Stress"}[key]
-        h = int(cut)
-        m = round((cut - h) * 60)
-        out.append({
+        out.append(({
             "id": f"link:sleep-{key}", "kind": "link", "tone": "info",
             "title": f"{label} and sleep",
-            "text": (f"After nights over {h}h {m:02d}m you rated your {key} {_five(key, a):.1f} out of 5 on average "
+            "text": (f"After nights over {_fmt('sleep_duration', cut)} you rated your {key} {_five(key, a):.1f} out of 5 on average "
                      f"({_word(words, key, a)}), against {_five(key, b):.1f} ({_word(words, key, b)}) after shorter ones, "
-                     f"over {len(pairs)} days with both."
-                     + (" More sleep lines up with feeling better for you." if good
-                        else " Longer nights haven't lined up with feeling better so far.")),
+                     f"over {len(pairs)} days with both. That's a gap of {abs(points):.1f}, give or take "
+                     f"{margin * (2 if key == 'mood' else 1):.1f}. "
+                     + ("So far, longer nights have gone with feeling better. " if good
+                        else "So far, longer nights haven't gone with feeling better. ")
+                     + COINCIDENCE),
             "data": {"a": "sleep_duration", "b": f"journal:{key}", "cut": round(cut, 2), "above": round(a, 2),
-                     "below": round(b, 2), "n": len(pairs)},
+                     "below": round(b, 2), "n": len(pairs), "margin": round(margin, 2)},
             "link": f"#/trends?metric=sleep_duration&compare=journal:{key}",
-        })
+        }, insight_stats.group_gap_p(values, longer, f"sleep-{key}", LINK_PERMUTATIONS)))
     return out
 
 
-def _symptom_links(profile_id: str, days: int = 120) -> list[dict[str, Any]]:
-    """Symptoms logged on several days, against sleep the night before."""
-    out = []
+def _symptom_links(profile_id: str, days: int = 120) -> list[Candidate]:
+    """Symptoms logged on many days, against sleep the night before on the days without them."""
+    out: list[Candidate] = []
     tz = _tz()
     events = activity.list_events(profile_id, days, category="symptoms", limit=5000)
     by_name: dict[str, set[str]] = defaultdict(set)
@@ -349,150 +617,290 @@ def _symptom_links(profile_id: str, days: int = 120) -> list[dict[str, Any]]:
     if not by_name:
         return out
     sleep_h = {p["day"]: p["value"] for p in biometrics.daily_series(profile_id, "sleep_duration", days=days)["points"]}
-    if len(sleep_h) < 20:
+    if len(sleep_h) < MIN_LINK_PAIRS:
         return out
-    usual = sum(sleep_h.values()) / len(sleep_h)
+    ordered = sorted(sleep_h)
+    values = [sleep_h[d] for d in ordered]
     for name, days_logged in sorted(by_name.items(), key=lambda kv: -len(kv[1])):
-        on = [sleep_h[d] for d in days_logged if d in sleep_h]
-        if len(on) < 3:
+        flags = [d in days_logged for d in ordered]
+        on = [v for v, flag in zip(values, flags) if flag]
+        off = [v for v, flag in zip(values, flags) if not flag]
+        if len(on) < MIN_SYMPTOM_DAYS or len(off) < MIN_SYMPTOM_OTHER_DAYS:
             continue
-        gap = sum(on) / len(on) - usual
-        if abs(gap) < 0.5:
+        gap = sum(on) / len(on) - sum(off) / len(off)
+        if abs(gap) < MIN_SLEEP_GAP_H:
+            out.append((None, 1.0))
             continue
-        mins = round(abs(gap) * 60)
-        out.append({
+        margin = insight_stats.gap_margin(on, off)
+        out.append(({
             "id": f"link:symptom-{name}", "kind": "link", "tone": "info", "title": f"{name} and sleep",
-            "text": (f"On the {len(on)} days you logged {name.lower()}, you'd slept {mins} minutes "
-                     f"{'less' if gap < 0 else 'more'} than usual the night before."),
-            "data": {"symptom": name, "days": len(on), "gap_h": round(gap, 2)},
+            "text": (f"On the {len(on)} days you logged {name.lower()}, you'd slept {round(abs(gap) * 60)} minutes "
+                     f"{'less' if gap < 0 else 'more'} the night before than on days you didn't, give or take "
+                     f"{round(margin * 60)} minutes. {COINCIDENCE}"),
+            "data": {"symptom": name, "days": len(on), "gap_h": round(gap, 2), "margin": round(margin, 2)},
             "link": "#/journal",
-        })
-        if len(out) >= 2:
-            break
+        }, insight_stats.group_gap_p(values, flags, f"symptom-{name}", LINK_PERMUTATIONS)))
+    return out
+
+
+def _hard_day_links(profile_id: str) -> list[Candidate]:
+    """The top quarter of workout days, against rest days, by the next morning's HRV."""
+    for metric in ("hrv_rmssd", "hrv_sdnn"):
+        hrv = {p["day"]: p["value"] for p in biometrics.daily_series(profile_id, metric, days=90)["points"]}
+        if len(hrv) < MIN_LINK_PAIRS:
+            continue
+        start, end = _window(90)
+        load = workout_daily(profile_id, start, end)["load"]
+        trained = sorted(v for v in load.values() if v > 0)
+        if not trained:
+            return []
+        cut = trained[int(len(trained) * 0.75)]
+        days = [d for d in sorted(load) if (date.fromisoformat(d) + timedelta(days=1)).isoformat() in hrv and (load[d] >= cut or load[d] == 0)]
+        values = [hrv[(date.fromisoformat(d) + timedelta(days=1)).isoformat()] for d in days]
+        flags = [load[d] > 0 for d in days]
+        hard = [v for v, flag in zip(values, flags) if flag]
+        rest = [v for v, flag in zip(values, flags) if not flag]
+        if len(hard) < MIN_LINK_GROUP or len(rest) < MIN_LINK_GROUP:
+            return []
+        a, b = sum(hard) / len(hard), sum(rest) / len(rest)
+        if abs(a - b) < MIN_HRV_GAP * b:
+            return [(None, 1.0)]
+        margin = insight_stats.gap_margin(hard, rest)
+        return [({"id": f"link:load-{metric}", "kind": "link", "tone": "info", "title": "Hard days and recovery",
+                  "text": (f"The morning after your hardest training days your HRV averaged {a:.0f} ms, against "
+                           f"{b:.0f} ms after rest days, a gap of {abs(a - b):.0f} ms give or take {margin:.0f}. {COINCIDENCE}"),
+                  "data": {"after_hard": round(a, 1), "after_rest": round(b, 1), "metric": metric, "margin": round(margin, 1)},
+                  "link": f"#/trends?metric={metric}&compare=workouts:load&lag=-1"},
+                 insight_stats.group_gap_p(values, flags, f"load-{metric}", LINK_PERMUTATIONS))]
+    return []
+
+
+def _links(profile_id: str) -> list[dict[str, Any]]:
+    """Patterns across sleep, how the person felt and training. They're judged together: looking at many pairs is how a
+    coincidence gets found, so what counts as striking depends on how many were looked at."""
+    found = _feeling_links(profile_id) + _symptom_links(profile_id) + _hard_day_links(profile_id)
+    keep = insight_stats.false_discoveries_removed([p for _, p in found], LINK_FDR)
+    out, symptoms = [], 0
+    for (item, p), kept in sorted(zip(found, keep), key=lambda pair: pair[0][1]):
+        if not item or not kept or p > LINK_ALPHA:
+            continue
+        if item["id"].startswith("link:symptom-"):
+            symptoms += 1
+            if symptoms > MAX_SYMPTOM_LINKS:
+                continue
+        out.append(item)
     return out
 
 
 def _training_notes(profile_id: str) -> list[dict[str, Any]]:
-    out = []
     t = training.summary(profile_id, 5)
     load = t["load"]
-    if load["status"] == "spike":
-        out.append({"id": f"load:{t['weeks'][-1]['week']}", "kind": "training", "tone": "attention",
-                    "title": "Training load jumped",
-                    "text": (f"Your training load over the last 7 days is {round((load['ratio'] - 1) * 100)}% above your "
-                             "weekly average for the four weeks before. Big jumps raise the risk of injury; build up gradually."),
-                    "data": load, "link": "#/workouts"})
-    # Workouts and next morning's HRV.
-    start, end = _window(90)
-    w = workout_daily(profile_id, start, end)["load"]
-    for metric in ("hrv_rmssd", "hrv_sdnn"):
-        hrv = {p["day"]: p["value"] for p in biometrics.daily_series(profile_id, metric, days=90)["points"]}
-        if len(hrv) < 30:
-            continue
-        cut = sorted(w.values())[int(len(w) * 0.75)] if w else 0
-        hard = [hrv[(date.fromisoformat(d) + timedelta(days=1)).isoformat()] for d, v in w.items()
-                if v > 0 and v >= cut and (date.fromisoformat(d) + timedelta(days=1)).isoformat() in hrv]
-        rest = [hrv[(date.fromisoformat(d) + timedelta(days=1)).isoformat()] for d, v in w.items()
-                if v == 0 and (date.fromisoformat(d) + timedelta(days=1)).isoformat() in hrv]
-        if len(hard) >= 5 and len(rest) >= 5:
-            a, b = sum(hard) / len(hard), sum(rest) / len(rest)
-            if abs(a - b) >= 0.08 * b:
-                out.append({"id": f"link:load-{metric}", "kind": "link", "tone": "info", "title": "Hard days and recovery",
-                            "text": (f"The morning after your hardest training days your HRV averaged {a:.0f} ms, against "
-                                     f"{b:.0f} ms after rest days."),
-                            "data": {"after_hard": round(a, 1), "after_rest": round(b, 1), "metric": metric},
-                            "link": f"#/trends?metric={metric}&compare=workouts:load&lag=-1"})
-        break
-    return out
+    if load["status"] != "spike":
+        return []
+    return [{"id": f"load:{t['weeks'][-1]['week']}", "kind": "training", "tone": "info",
+             "title": "Training load jumped",
+             "text": (f"Your training load over the last 7 days is much more than your recent weeks, about "
+                      f"{round((load['ratio'] - 1) * 100)}% above your weekly average for the four weeks before. "
+                      "Increasing gradually is a common approach."),
+             "data": load, "link": "#/workouts"}]
 
 
 def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
-    """What changed in wearable measurements since a medication started in the last year (at least three weeks of
-    data on each side)."""
-    out = []
-    today = datetime.now(_tz()).date()
+    """What differed in wearable measurements around the first order on record for a medication in the last year, from
+    one device, with at least two weeks of data on each side. A renewal isn't a beginning, and the first order here may
+    not be the true start either, since portals don't always keep old history; the wording says which it is."""
+    today = _today()
     have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
-    for m in markers(profile_id, start=(today - timedelta(days=365)).isoformat()):
-        if m["kind"] != "medications":
+    found: list[tuple[dict[str, Any], float]] = []
+    gates = {metric: (min_abs, min_rel) for metric, _, min_abs, min_rel in WATCH}
+    for med in medication_timeline(profile_id):
+        started = date.fromisoformat(med["first"])
+        if not 21 <= (today - started).days <= 365 or not med["sure"]:
             continue
-        try:
-            started = date.fromisoformat(m["t"])
-        except ValueError:      # known only to the year or month: too rough to compare the weeks around it
-            continue
-        if (today - started).days < 21:
-            continue
-        name = m["label"].removeprefix("Started ")
+        day = med["first"]
+        end = started + timedelta(days=30)
+        phrase = f"you started {med['name']}" if med["reported_taking"] else f"the first order on record for {med['name']}"
         for metric in MED_EFFECT_METRICS:
             if metric not in have:
                 continue
-            pts = biometrics.daily_series(profile_id, metric, days=60, end=started + timedelta(days=30))["points"]
-            before = [p["value"] for p in pts if p["day"] < m["t"] and not p.get("partial")]
-            after = [p["value"] for p in pts if p["day"] > m["t"] and not p.get("partial")]
-            if len(before) < 14 or len(after) < 14:
+            pts = _complete(biometrics.daily_series(profile_id, metric, days=60, end=end)["points"])
+            source = _main_source(p for p in pts if p["day"] > day)
+            mine = _same_device(profile_id, metric, pts, source, 60, end)
+            before = [p["value"] for p in mine if p["day"] < day]
+            after = [p["value"] for p in mine if p["day"] > day]
+            if len(before) < MED_MIN_DAYS or len(after) < MED_MIN_DAYS:
                 continue
-            b, a = sum(before) / len(before), sum(after) / len(after)
-            sd = statistics.pstdev(before + after) or 1e-9
-            if abs(a - b) < 0.5 * sd:
-                continue
+            b, a = statistics.median(before), statistics.median(after)
+            min_abs, min_rel = gates.get(metric, (None, None))
+            p = insight_stats.shift_p(after, before)
+            if not a - b or not _matters(a - b, b, min_abs, min_rel):
+                p = 1.0
             label = METRICS[metric][0]
-            out.append({
-                "id": f"med:{m['record_id']}:{metric}", "kind": "medication", "tone": "info",
-                "title": f"{label} since {name}",
-                "text": (f"In the month after you started {name} ({_day(m['t'])}), your {_soft(label)} averaged "
+            found.append(({
+                "id": f"med:{med['record_id']}:{metric}", "kind": "medication", "tone": "info",
+                "title": f"{label} since {med['name']}",
+                "text": (f"In the month after {phrase} ({_day(day)}), your {_soft(label)} was typically "
                          f"{_fmt(metric, a)}, against {_fmt(metric, b)} the month before. Other things change too, "
                          "so it's worth discussing with whoever prescribed it rather than reading it as an effect."),
                 "data": {"metric": metric, "unit": METRICS[metric][1], "before": round(b, 3), "after": round(a, 3),
-                         "started": m["t"], "medication": name},
+                         "started": day, "medication": med["name"], "reported_taking": med["reported_taking"], "source": source},
                 "link": f"#/trends?metric={metric}",
-            })
-    return out[:3]
+            }, p))
+    keep = insight_stats.false_discoveries_removed([p for _, p in found], MED_FDR)
+    chosen = [(item, p) for (item, p), kept in zip(found, keep) if kept and p <= MED_ALPHA]
+    return [item for item, _ in sorted(chosen, key=lambda pair: pair[1])][:3]
+
+
+# A lab result has to move this far to be called a change: a share of the last result, or of the width of the range for
+# tests with a narrow one (sodium), since ordinary variation is smaller than the range.
+LAB_MIN_CHANGE, LAB_MIN_RANGE_SHARE = 0.05, 0.25
+DRIFT_MIN_RESULTS, DRIFT_MIN_DAYS = 3, 365
+DRIFT_MIN_TAU, DRIFT_MIN_CHANGE = 0.6, 0.1
+BACK_IN_RANGE_DAYS = 180
+MAX_LAB_NOTES, MAX_GOOD_LAB_NOTES = 3, 2
+MAX_RECENT_NORMAL_CODES = 40
+
+
+def _range_side(v: float, low: Optional[float], high: Optional[float]) -> Optional[str]:
+    if high is not None and v > high:
+        return "high"
+    if low is not None and v < low:
+        return "low"
+    return None
+
+
+def _flag_side(interpretation: Optional[str], v: float, low: Optional[float], high: Optional[float]) -> Optional[str]:
+    """Which side of the range a result is on. The lab's own high or low wins; a bare "abnormal" says nothing about
+    direction, so that comes from the value against the range, or not at all."""
+    word = interpretation or ""
+    if "high" in word:
+        return "high"
+    if "low" in word:
+        return "low"
+    return None if word == "normal" else _range_side(v, low, high)
+
+
+def _ref_words(lab_ref: Optional[str], s: dict[str, Any]) -> str:
+    low, high = s.get("ref_low"), s.get("ref_high")
+    text = lab_ref or (f"{low:g}–{high:g}" if low is not None and high is not None else None)
+    return f" ({text})" if text else ""
+
+
+def _ordinal(iso: str) -> int:
+    return date.fromisoformat(iso[:10]).toordinal()
+
+
+def _span_words(days: int) -> str:
+    years = round(days / 365.25)
+    return f"about {years} years" if years >= 2 else f"about {round(days / 30.4)} months"
+
+
+def _lab_note(lab: dict[str, Any], s: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """What's worth saying about a flagged result, from its history in the same test."""
+    pts, low, high = s["points"], s["ref_low"], s["ref_high"]
+    if len(pts) < 2 or not _iso_day(pts[-1]["t"]) or not _iso_day(pts[-2]["t"]):
+        return None
+    last, prev = pts[-1], pts[-2]
+    if last.get("comparator") or prev.get("comparator"):
+        return None     # a limit like "<5" isn't a level to have moved from
+    # A newer result with only words can be what's flagged: the last number is then an older result's, not this one's.
+    if (lab.get("effective_at") or "")[:10] != last["t"][:10]:
+        return None
+    side = _flag_side(lab.get("interpretation"), last["v"], low, high)
+    if not side:
+        return None
+    code, unit = lab["code"], s.get("unit") or ""
+    # As many decimals as the lab reports anywhere in the series: 6.0 %, not 6 %, next to 6.1 %.
+    places = min(3, max(len(f"{float(p['v']):.6f}".rstrip("0").split(".")[1]) for p in pts))
+    num = lambda v: f"{v:.{places}f}"  # noqa: E731
+    out_word = "above" if side == "high" else "below"
+    ref = _range_words(lab, s, last)
+    moved = last["v"] - prev["v"]
+    outward = (moved > 0) == (side == "high")
+    big = abs(moved) >= (min(LAB_MIN_CHANGE * abs(prev["v"]), LAB_MIN_RANGE_SHARE * (high - low))
+                         if low is not None and high is not None else LAB_MIN_CHANGE * abs(prev["v"]))
+    base = {"data": {"code": code, "latest": last["v"], "previous": prev["v"], "unit": unit, "side": side},
+            "link": f"#/trends?code={code}", "kind": "lab"}
+    sentence = (f"{s['title']} was {num(last['v'])} {unit} on {_day(last['t'])}, {'up' if moved > 0 else 'down'} from "
+                f"{num(prev['v'])} {unit} on {_day(prev['t'])}").replace("  ", " ")
+    if big and not outward:
+        # Closer isn't good news while the lab still calls it critical.
+        if lab.get("interpretation") in records.CRITICAL:
+            return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention", "title": f"{s['title']} still flagged critical",
+                    "text": (f"{sentence}, and still {out_word} the reference range{ref}. The lab marked it critical, so go over it "
+                             "with your care team if you haven't already.")}
+        return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "good", "title": f"{s['title']} closer to the range",
+                "text": f"{sentence}, and still {out_word} the reference range{ref}."}
+    dated = [p for p in pts if _iso_day(p["t"]) and not p.get("comparator")]
+    if len(dated) >= DRIFT_MIN_RESULTS and _ordinal(last["t"]) - _ordinal(dated[0]["t"]) >= DRIFT_MIN_DAYS:
+        ts = [float(_ordinal(p["t"])) for p in dated]
+        slope, tau = insight_stats.theil_sen(ts, [p["v"] for p in dated])
+        span = int(ts[-1] - ts[0])
+        if (slope > 0) == (side == "high") and abs(tau) >= DRIFT_MIN_TAU and abs(slope * span) >= DRIFT_MIN_CHANGE * abs(dated[0]["v"]):
+            crossed = None
+            for a, b in zip(dated, dated[1:]):
+                if _flag_side(b.get("interpretation"), b["v"], low, high) == side and _flag_side(a.get("interpretation"), a["v"], low, high) != side:
+                    crossed = b["t"]
+            d = date.fromisoformat(crossed[:10]) if crossed else None
+            return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention",
+                    "title": f"{s['title']} has been {'rising' if side == 'high' else 'falling'}",
+                    "text": (f"{s['title']} has gone from {num(dated[0]['v'])} to {num(last['v'])} {unit} over {_span_words(span)}, and "
+                             + (f"has been {out_word} the reference range{ref} since {d:%b} {d.year}." if d
+                                else f"is {out_word} the reference range{ref}.")).replace("  ", " ")}
+    if not big or not outward:
+        return None
+    if _flag_side(prev.get("interpretation"), prev["v"], low, high) == side:
+        return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention", "title": f"{s['title']} moving further out of range",
+                "text": f"{sentence}, and {out_word} the reference range{ref}."}
+    first = not any(_flag_side(p.get("interpretation"), p["v"], low, high) == side for p in pts[:-1])
+    return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention", "title": f"{s['title']} moved out of range",
+            "text": f"{sentence}, which is {out_word} the reference range{ref}" + (", for the first time on record." if first else ".")}
 
 
 def _range_words(lab: dict[str, Any], series: dict[str, Any], last: dict[str, Any]) -> str:
     """The reference range beside a series' numbers, in their unit. The lab's own words only fit a result shown as the lab reported it."""
     if not last.get("converted"):
-        return lab.get("ref_text") or "as reported"
+        return _ref_words(lab.get("ref_text"), series)
     low, high, unit = series.get("ref_low"), series.get("ref_high"), series.get("unit") or ""
     if low is not None and high is not None:
-        return f"{low:g}–{high:g} {unit}".strip()
+        return f" ({low:g}–{high:g} {unit})".replace(" )", ")")
     if low is not None or high is not None:
-        return f"{'≥' if low is not None else '≤'} {low if low is not None else high:g} {unit}".strip()
+        return f" ({'≥' if low is not None else '≤'} {low if low is not None else high:g} {unit})".replace(" )", ")")
     text, reported = lab.get("ref_text"), lab.get("unit") or ""
-    return f"{text} {reported}".strip() if text and reported not in text else text or "as reported"
+    text = f"{text} {reported}".strip() if text and reported not in text else text
+    return f" ({text})" if text else ""
 
 
 def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
-    """Out-of-range lab results that moved further from the range since the previous result."""
-    out = []
+    """Out-of-range lab results that moved meaningfully, drifted over years or came back: the numbers, and which side of
+    the range they're on when the record can say."""
+    found = []
     for lab in records.flagged_labs(profile_id):
-        code = lab.get("code")
-        if not code:
-            continue
+        # An old result stays on the out-of-range list, marked as older. It isn't news.
+        if lab.get("code") and not lab.get("older"):
+            note = _lab_note(lab, records.observation_series(profile_id, lab["code"], "labs"))
+            if note:
+                found.append(note)
+    since = (_today() - timedelta(days=BACK_IN_RANGE_DAYS)).isoformat()
+    for code in records.recently_normal_lab_codes(profile_id, since, MAX_RECENT_NORMAL_CODES):
         s = records.observation_series(profile_id, code, "labs")
-        pts = s["points"]
-        if len(pts) < 2:
+        pts, low, high = s["points"], s["ref_low"], s["ref_high"]
+        if len(pts) < 2 or pts[-1]["t"][:10] < since or not _iso_day(pts[-2]["t"]) or not _iso_day(pts[-1]["t"]):
             continue
         last, prev = pts[-1], pts[-2]
         if last.get("comparator") or prev.get("comparator"):
             continue        # a limit like "<5" isn't a level to have moved from
-        high = "high" in (lab.get("interpretation") or "")
-        worse = last["v"] > prev["v"] if high else last["v"] < prev["v"]
-        if not worse or last["v"] == prev["v"]:
+        if _flag_side(last.get("interpretation"), last["v"], low, high) or not _flag_side(prev.get("interpretation"), prev["v"], low, high):
             continue
         unit = s.get("unit") or ""
-        # As many decimals as the lab reports anywhere in the series: 6.0 %, not 6 %, next to 6.1 %.
-        places = min(3, max(len(f"{float(p['v']):.6f}".rstrip("0").split(".")[1]) for p in pts))
-        num = lambda v: f"{v:.{places}f}"  # noqa: E731
-        out.append({
-            "id": f"lab:{code}:{last['t'][:10]}", "kind": "lab", "tone": "attention",
-            "title": f"{s['title']} moving further out of range",
-            "text": (f"{s['title']} was {num(last['v'])} {unit} on {_day(last['t'])}, {'up' if high else 'down'} from "
-                     f"{num(prev['v'])} {unit} on {_day(prev['t'])}, and {'above' if high else 'below'} the reference range "
-                     f"({_range_words(lab, s, last)})."),
-            "data": {"code": code, "latest": last["v"], "previous": prev["v"], "unit": unit},
-            "link": f"#/trends?code={code}",
-        })
-    return out[:3]
+        found.append({"id": f"lab:{code}:{last['t'][:10]}", "kind": "lab", "tone": "good", "title": f"{s['title']} back in range",
+                      "text": (f"{s['title']} was {last['v']:g} {unit} on {_day(last['t'])}, back within the reference range"
+                               f"{_ref_words(None, s)} from {prev['v']:g} {unit} on {_day(prev['t'])}.").replace("  ", " "),
+                      "data": {"code": code, "latest": last["v"], "previous": prev["v"], "unit": unit},
+                      "link": f"#/trends?code={code}"})
+    found.sort(key=lambda n: n["id"].rsplit(":", 1)[1], reverse=True)
+    return ([n for n in found if n["tone"] != "good"][:MAX_LAB_NOTES]
+            + [n for n in found if n["tone"] == "good"][:MAX_GOOD_LAB_NOTES])
 
 
 def _goal_notes(profile_id: str) -> list[dict[str, Any]]:
@@ -513,18 +921,156 @@ def _goal_notes(profile_id: str) -> list[dict[str, Any]]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# What shouldn't wait
+# ---------------------------------------------------------------------------
+
+URGENT_WORDS = "Talk to your care team, or call emergency services if you feel unwell."
+READING_FRESH_DAYS = 3
+LAB_FRESH_DAYS = 30
+NOTIFICATION_FRESH_DAYS = 14
+WATCH_NOTIFICATIONS = {
+    "irregular_heart_rhythm_event": "an irregular rhythm",
+    "high_heart_rate_event": "a high heart rate",
+    "low_heart_rate_event": "a low heart rate",
+}
+
+
+def _when(day: str, today: date) -> str:
+    ago = (today - date.fromisoformat(day)).days
+    return "today" if ago == 0 else "yesterday" if ago == 1 else f"on {_day(day)}"
+
+
+def _reading_breach(profile_id: str, metric: str, today: date) -> dict[str, Any]:
+    """Past which limits the newest reading of a measure is, if it's recent, real and not this person's everyday
+    number. A later ordinary reading stands down an earlier alarming one."""
+    pts = [p for p in biometrics.daily_series(profile_id, metric, days=READING_FRESH_DAYS)["points"]
+           if "(simulated)" not in (p.get("source") or "")]
+    if not pts:
+        return {}
+    p = pts[-1]
+    out = {}
+    for limit in health_limits.URGENT:
+        if limit.metric != metric:
+            continue
+        figure = p["value"] if limit.reading == "value" else p.get(limit.reading)
+        figure = p["value"] if figure is None else figure
+        if not health_limits.is_plausible(metric, figure) or not health_limits.breaches(limit, figure):
+            continue
+        if limit.own_usual_counts:
+            history = _complete(biometrics.daily_series(profile_id, metric, days=BASELINE_DAYS, source=p["source"])["points"])
+            usual = _usual_range(metric, [h["value"] for h in history if h["day"] < p["day"]])
+            if usual and (figure >= usual["low"] if limit.side == "low" else figure <= usual["high"]):
+                continue
+        out[limit.side] = {"value": figure, "day": p["day"], "source": p["source"]}
+    return out
+
+
+def _urgent_readings(profile_id: str) -> list[dict[str, Any]]:
+    today = _today()
+    have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
+    out = []
+
+    def note(key: str, title: str, side: str, shown: str, hit: dict[str, Any], metric: str) -> None:
+        how = ("Measure it again after a few minutes." if key == "blood_pressure" else "Device readings can be wrong, so check it again if you can.")
+        out.append({
+            "id": f"urgent:{key}:{side}:{hit['day']}", "kind": "urgent", "tone": "attention", "urgent": True,
+            "title": f"{title} reading is unusually {side}",
+            "text": f"Your {_soft(title)} read {shown} {_when(hit['day'], today)}. {how} {URGENT_WORDS}",
+            "data": {"metric": metric, "unit": METRICS[metric][1], "value": round(hit["value"], 2), "side": side, "day": hit["day"],
+                     "source": hit["source"], "shown": shown, "limits_version": health_limits.LIMITS_VERSION},
+            "link": f"#/trends?metric={metric}",
+        })
+
+    for metric in dict.fromkeys(limit.metric for limit in health_limits.URGENT):
+        if metric not in have or metric.startswith("blood_pressure_"):
+            continue
+        for side, hit in _reading_breach(profile_id, metric, today).items():
+            note(metric, METRICS[metric][0], side, _fmt(metric, hit["value"]), hit, metric)
+    systolic = _reading_breach(profile_id, "blood_pressure_systolic", today) if "blood_pressure_systolic" in have else {}
+    diastolic = _reading_breach(profile_id, "blood_pressure_diastolic", today) if "blood_pressure_diastolic" in have else {}
+    for side in ("high", "low"):
+        hit = systolic.get(side) or diastolic.get(side)
+        if not hit:
+            continue
+        # Both numbers of the same day, whichever of them is past its limit.
+        pick = "max" if side == "high" else "min"
+        def paired(metric: str) -> Optional[float]:
+            pts = [p for p in biometrics.daily_series(profile_id, metric, days=READING_FRESH_DAYS)["points"] if p["day"] == hit["day"]]
+            return (pts[0].get(pick) or pts[0]["value"]) if pts else None
+        sys_, dia = paired("blood_pressure_systolic"), paired("blood_pressure_diastolic")
+        shown = f"{sys_:.0f}/{dia:.0f} mmHg" if sys_ is not None and dia is not None else f"{hit['value']:.0f} mmHg"
+        note("blood_pressure", "Blood pressure", side, shown, hit,
+             "blood_pressure_systolic" if systolic.get(side) else "blood_pressure_diastolic")
+    return out
+
+
+def _urgent_labs(profile_id: str) -> list[dict[str, Any]]:
+    today = _today()
+    since = (today - timedelta(days=LAB_FRESH_DAYS)).isoformat()
+    out = []
+    for lab in records.flagged_labs(profile_id):
+        day = _iso_day(lab.get("effective_at"))
+        if not (lab.get("interpretation") or "").startswith("critical") or not day or day < since:
+            continue
+        reference = f" (range {lab['ref_text']})" if lab.get("ref_text") else ""
+        value = lab.get("value_text") or "out of range"
+        out.append({
+            "id": f"urgent:lab:{lab.get('code') or lab['title']}:{day}", "kind": "urgent", "tone": "attention", "urgent": True,
+            "title": f"{lab['title']} was flagged critical by the lab",
+            "text": f"{lab['title']} was {value}{reference} {_when(day, today)}, and the lab marked it critical. {URGENT_WORDS}",
+            "data": {"code": lab.get("code"), "value_text": lab.get("value_text"), "interpretation": lab["interpretation"], "day": day},
+            "link": f"#/trends/labs?code={lab.get('code') or ''}",
+        })
+    return out
+
+
+def _urgent_notifications(profile_id: str) -> list[dict[str, Any]]:
+    today = _today()
+    tz = _tz()
+    latest: dict[str, tuple[str, int]] = {}
+    for e in activity.list_events(profile_id, NOTIFICATION_FRESH_DAYS, category="events", limit=500):
+        if e["event_type"] in WATCH_NOTIFICATIONS and "(simulated)" not in (e.get("source_name") or ""):
+            day = local_day(e["start_date"], tz)
+            seen, count = latest.get(e["event_type"], (day, 0))
+            latest[e["event_type"]] = (max(seen, day), count + 1)
+    return [{
+        "id": f"urgent:watch:{kind}:{day}", "kind": "urgent", "tone": "attention", "urgent": True,
+        "title": f"Your watch noticed {WATCH_NOTIFICATIONS[kind]}",
+        "text": (f"Your watch sent this notification {_when(day, today)}" + (f", {count} times in the last two weeks" if count > 1 else "")
+                 + f". A watch can be wrong, but it's worth following up. {URGENT_WORDS}"),
+        "data": {"event_type": kind, "day": day, "count": count},
+        "link": f"#/trends?event={kind}",
+    } for kind, (day, count) in latest.items()]
+
+
+def urgent(profile_id: str) -> list[dict[str, Any]]:
+    """What shouldn't wait: results the lab marked critical, readings past a published limit, and the watch's own
+    warnings. Worded calmly and with no diagnosis, since a device can be wrong and only a clinician can tell."""
+    return _guarded((_urgent_labs, _urgent_readings, _urgent_notifications), profile_id)
+
+
 TONE_ORDER = {"attention": 0, "info": 1, "good": 2}
-KIND_ORDER = {"lab": 0, "change": 1, "training": 2, "sleep": 3, "medication": 4, "link": 5, "goal": 6}
+KIND_ORDER = {"urgent": -1, "lab": 0, "change": 1, "device": 2, "training": 3, "sleep": 4, "medication": 5, "link": 6, "goal": 7}
+
+
+def _guarded(generators: Iterable[Any], profile_id: str) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = []
+    for fn in generators:
+        try:
+            found += fn(profile_id)
+        except Exception as exc:  # noqa: BLE001 - one broken source never hides the rest
+            # Where and what kind only: an exception's message can carry a person's numbers, and logs get shared.
+            frame = traceback.extract_tb(exc.__traceback__)[-1]
+            log.error("Insights: %s failed with %s at %s:%d", fn.__name__, type(exc).__name__, Path(frame.filename).name, frame.lineno)
+    return found
 
 
 def insights(profile_id: str, limit: int = 12) -> list[dict[str, Any]]:
     """What's worth knowing right now across every source, most pressing first."""
-    found: list[dict[str, Any]] = []
-    for fn in (_lab_notes, _changes, _training_notes, _sleep_notes, _medication_notes, _feeling_links, _symptom_links,
-               _goal_notes):
-        try:
-            found += fn(profile_id)
-        except Exception:  # noqa: BLE001 - one broken source never hides the rest
-            continue
+    found = _guarded((urgent, _lab_notes, _changes, _training_notes, _sleep_notes, _medication_notes, _links, _goal_notes), profile_id)
+    # A critical result says everything a note about the same test would.
+    critical = {i["data"]["code"] for i in found if i["kind"] == "urgent" and i["data"].get("code")}
+    found = [i for i in found if not (i["kind"] == "lab" and i["data"].get("code") in critical)]
     found.sort(key=lambda i: (TONE_ORDER[i["tone"]], KIND_ORDER.get(i["kind"], 9)))
     return found[:limit]

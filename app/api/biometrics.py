@@ -325,6 +325,19 @@ def workout_detail(workout_id: str, profile: Optional[str] = None, split: str = 
     return training.detail(prof["id"], w, 1609.344 if split == "mi" else 1000.0)
 
 
+class MaxHeartRateIn(BaseModel):
+    bpm: Optional[float] = None       # None goes back to working it out from workouts and age
+
+
+@router.put("/api/biometrics/training/max-heart-rate", dependencies=[user])
+def set_max_heart_rate(req: MaxHeartRateIn, profile: Optional[str] = None) -> dict:
+    prof = resolve_profile(profile, "manage")
+    try:
+        return training.set_max_heart_rate(prof["id"], req.bpm)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 @router.get("/api/biometrics/training", dependencies=[user])
 def training_summary(profile: Optional[str] = None, weeks: int = Query(12, ge=1, le=260),
                      type: Optional[str] = Query(None, max_length=120)) -> dict:

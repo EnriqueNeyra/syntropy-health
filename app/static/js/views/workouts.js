@@ -3,10 +3,10 @@
 // and for one kind of workout how pace and heart rate are changing and what your best efforts are. Daily activity
 // charts are in Trends.
 
-import { get } from "../api.js";
+import { api, get } from "../api.js";
 import { appBridge, nativeNav } from "../app.js";
 import { barChart, lineChart, responsive } from "../charts.js";
-import { emptyState, esc, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, plural, raw } from "../ui.js";
+import { emptyState, esc, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, plural, raw, toast } from "../ui.js";
 import { convert, displayUnit, fmtMeasure, unitSystem } from "../units.js";
 import { rangeHash, rangeLabel, rangePicker, rangeQuery, readRange, saveRange, wireRange } from "../range.js";
 
@@ -55,12 +55,42 @@ function paceValue(name, secPerKm) {
 }
 const paceUnit = (name) => (isRide(name) ? (unitSystem() === "us" ? "mph" : "km/h") : unitSystem() === "us" ? "min/mi" : "min/km");
 
+/** A maximum heart rate from a test or a clinician beats anything worked out from workouts or age. */
+function openMaxHeartRate(profile, current, onSaved) {
+  const m = modal({
+    title: "Maximum heart rate",
+    body: html`<form id="max-hr-form" class="stack">
+      <label class="field"><span class="label">Beats per minute</span>
+        <input class="input" name="bpm" type="number" inputmode="numeric" min="100" max="240" step="1" required value="${current.bpm}" style="max-width:200px"></label>
+      <p class="small muted" style="margin:0">Heart-rate zones and training load are worked out from this. Set it if you know yours from a test or your clinician. Now: ${current.bpm} bpm, ${current.basis}.</p>
+    </form>`,
+    footer: html`${current.set_by_person ? html`<button class="btn btn-ghost" data-remove style="margin-right:auto">Work it out for me</button>` : ""}
+      <button class="btn" data-cancel>Cancel</button><button class="btn btn-primary" data-save>Save</button>`,
+  });
+  const save = async (bpm) => {
+    try {
+      await api("/api/biometrics/training/max-heart-rate", { method: "PUT", query: { profile: profile.id }, body: { bpm } });
+      m.close();
+      onSaved();
+    } catch (err) { toast(err.message, "bad"); }
+  };
+  m.el.querySelector("[data-cancel]").addEventListener("click", () => m.close());
+  m.el.querySelector("[data-remove]")?.addEventListener("click", () => save(null));
+  m.el.querySelector("[data-save]").addEventListener("click", () => {
+    const v = Number(m.el.querySelector("[name=bpm]").value);
+    if (!(v >= 100 && v <= 240)) { toast("Enter a number from 100 to 240.", "bad"); return; }
+    save(v);
+  });
+  m.el.querySelector("#max-hr-form").addEventListener("submit", (e) => { e.preventDefault(); m.el.querySelector("[data-save]").click(); });
+}
+
 const LOAD_WORDS = {
-  spike: ["Big jump", "attention", "This week's load is well above your usual. Jumps like this raise the risk of injury: build up over a few weeks."],
+  spike: ["Big jump", "attention", "This week's load is much more than your recent weeks. Increasing gradually is a common approach."],
   building: ["Building", "info", "A bit more than your usual. A steady build like this is how fitness grows."],
   steady: ["Steady", "good", "In line with your last four weeks."],
   easing: ["Easing off", "info", "Lighter than your usual: good for recovery, or a sign you've been busy."],
   new: ["Getting started", "info", "Not enough recent weeks to compare with yet."],
+  learning: ["Still learning", "info", "There aren't enough workouts in the last four weeks yet to say what a usual week looks like for you."],
   none: ["No training yet", "info", "Workouts from the last five weeks will show here."],
 };
 
@@ -131,16 +161,17 @@ export async function render({ el, params, state }) {
             ${tr.load.ratio ? html`<span class="small muted">${fmtNum(tr.load.ratio, 2)}× your usual week</span>` : ""}</div>
           <div class="wk-load-nums">
             <div><span>This week</span><b>${fmtNum(tr.load.acute, 0)}</b></div>
-            <div><span>Usual week</span><b>${tr.load.chronic ? fmtNum(tr.load.chronic, 0) : "—"}</b></div>
+            <div><span>Usual week</span><b>${tr.load.ratio ? fmtNum(tr.load.chronic, 0) : "—"}</b></div>
           </div>
-          ${tr.load.chronic ? html`<div class="wk-meter" role="img" aria-label="This week's load against your usual">
+          ${tr.load.ratio ? html`<div class="wk-meter" role="img" aria-label="This week's load against your usual">
             <span class="wk-meter-fill ${loadTone}" style="width:${Math.min(100, (tr.load.acute / (tr.load.chronic * 2)) * 100)}%"></span>
             <span class="wk-meter-usual" style="left:50%" title="Your usual week"></span></div>` : ""}
           <p class="small muted" style="margin:10px 0 0">${loadText}</p>
           ${zoneTotal ? html`<div class="wk-zones-title small">Heart-rate zones this week</div>
             <div class="zone-bar" role="img" aria-label="Minutes in each heart-rate zone this week">${thisWeek.zones.map((m, i) => (m ? html`<span class="z${i + 1}" style="flex:${m}" title="${tr.zones[i].name}: ${Math.round(m)} min"></span>` : ""))}</div>
             <div class="zone-legend tiny">${tr.zones.map((z, i) => html`<span><i class="z${i + 1}"></i>${z.name} ${Math.round(thisWeek.zones[i])} min</span>`)}</div>` : ""}
-          <p class="tiny faint" style="margin:8px 0 0">Load is workout minutes weighted by heart-rate zone (max ${tr.max_hr.bpm} bpm, ${tr.max_hr.basis}).</p>
+          <p class="tiny faint" style="margin:8px 0 0">Load is workout minutes weighted by heart-rate zone (max ${tr.max_hr.bpm} bpm, ${tr.max_hr.basis}).
+            <button class="link-btn tiny" data-action="max-hr">Change</button></p>
         </div>
         <div class="card card-pad">
           <div class="card-head flush"><h3>${icon("activity")} Weekly volume${type ? ` · ${type}` : ""}</h3><span class="small muted">last 12 weeks</span></div>
@@ -240,6 +271,7 @@ export async function render({ el, params, state }) {
     more: () => { limit += PAGE; return reload(); },
     workout: ({ id }) => openWorkout(profile, id),
     progress: ({ by }) => { progressBy = by; draw(); },
+    "max-hr": () => openMaxHeartRate(profile, tr.max_hr, reload),
   });
   return () => { off(); stops.forEach((f) => f()); };
 }

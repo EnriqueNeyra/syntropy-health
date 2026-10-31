@@ -12,6 +12,8 @@ from datetime import date, timedelta
 from typing import Any, Iterable, Optional
 
 from app.connectors import units
+from app.connectors.fhir_normalize import partial_pressure
+from app.core import data_fixes
 from app.core.db import audit, db, read, dumps, row_to_dict, rows_to_dicts, write_in_batches
 from app.store import lab_catalog
 
@@ -38,7 +40,9 @@ UNCONFIRMED_VERIFICATION = ("unconfirmed", "provisional", "differential")
 INACTIVE_ALLERGY_STATUSES = ("resolved", "inactive", "entered-in-error")
 NOT_ALLERGIES = ("no-known-allergies", "not-asked")
 ABNORMAL = ("high", "low", "critical_high", "critical_low", "abnormal")
-OLDER_RESULT_DAYS = 730   # a flagged result this old is shown as an older result rather than a current problem
+CRITICAL = ("critical_high", "critical_low")
+# A flagged result this old is shown as older and left out of alerts: longer than the gap between yearly check-ups.
+OLDER_RESULT_DAYS = 548
 
 LIST_COLUMNS = (
     "id, profile_id, connection_id, resource_type, resource_id, category, title, code_system, code, "
@@ -56,6 +60,9 @@ SHRINK_FLOOR = 3                # up to this many records can go at once: the so
 SHRINK_FRACTION = 0.25          # more than this share of a category vanishing looks like the source's trouble, not corrections
 SHRINK_WAIT_DAYS = 14           # how long such a loss has to last before it's believed
 REMOVED_KEEP_DAYS = 365         # how long a removed record stays available to put back
+
+
+_DOUBLED_PRESSURE = re.compile(r"^([\d.]+)/\1 mmHg$")
 
 
 def record_id(connection_id: str, resource_type: str, resource_id: str) -> str:
@@ -294,6 +301,26 @@ def restore_removed(record_id_: str, actor: str = "user") -> bool:
         conn.execute("DELETE FROM clinical_records_removed WHERE id = ?", (record_id_,))
         audit(conn, actor, "record.restored", {"record": record_id_, "title": row["title"]}, row["profile_id"])
     return True
+
+
+def _fix_partial_blood_pressure(conn: Any, cursor: Any, size: int) -> Any:
+    """A panel with one reading was stored as "95/95 mmHg", an invented pressure. Sync only rewrites what it fetches
+    again, and one-time imports never do. Filtered here rather than in SQL, so a step is ``size`` rows at most."""
+    rows = conn.execute("SELECT rowid, value_text, CASE WHEN category = 'vitals' THEN details_json END FROM clinical_records "
+                        "WHERE rowid > ? ORDER BY rowid LIMIT ?", (cursor or 0, size)).fetchall()
+    for rowid, text, details in rows:
+        match = _DOUBLED_PRESSURE.match(text or "") if details else None
+        if not match:
+            continue
+        readings = [c for c in (json.loads(details).get("components") or []) if c.get("value") is not None]
+        if len(readings) == 1 and float(match[1]) == float(readings[0]["value"]):
+            value = readings[0]["value"]
+            fixed = partial_pressure(value, None) if readings[0].get("code") == "8480-6" else partial_pressure(None, value)
+            conn.execute("UPDATE clinical_records SET value_text = ? WHERE rowid = ?", (fixed, rowid))
+    return rows[-1][0] if rows else None
+
+
+data_fixes.register("partial-blood-pressure-text", _fix_partial_blood_pressure)
 
 
 def delete_record(record_id_: str) -> None:
@@ -897,12 +924,14 @@ def _latest_labs(labs: list[dict[str, Any]]) -> "OrderedDict[str, dict[str, Any]
 
 
 def _out_of_range(latest_by_code: dict[str, dict[str, Any]], today: Optional[date] = None) -> list[dict[str, Any]]:
+    """Latest results that are flagged: critical first, then recent ones, then those old enough to be marked ``older``.
+    Each group stays newest first."""
     cutoff = ((today or date.today()) - timedelta(days=OLDER_RESULT_DAYS)).isoformat()
     flagged = [l for l in latest_by_code.values() if (l.get("interpretation") or "") in ABNORMAL]
-    for l in flagged:
-        if str(l.get("effective_at") or "")[:10] < cutoff:
-            l["older_result"] = True
-    return flagged
+    for lab in flagged:
+        if str(lab.get("effective_at") or "")[:10] < cutoff:
+            lab["older"] = True
+    return sorted(flagged, key=lambda l: 2 if l.get("older") else 0 if l["interpretation"] in CRITICAL else 1)
 
 
 def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
@@ -915,6 +944,22 @@ def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
     return _out_of_range(_latest_labs(_dedupe(rows)[:SUMMARY_LABS]))
 
 
+def recently_normal_lab_codes(profile_id: str, since: str, limit: int) -> list[str]:
+    """Tests with an in-range result since a date, newest first."""
+    with read() as conn:
+        return [r[0] for r in conn.execute(
+            "SELECT code FROM clinical_records WHERE profile_id = ? AND category = 'labs' AND code IS NOT NULL "
+            "AND effective_at >= ? AND interpretation = 'normal' GROUP BY code ORDER BY MAX(effective_at) DESC LIMIT ?",
+            (profile_id, since, limit)).fetchall()]
+
+
+def medication_orders(profile_id: str) -> list[dict[str, Any]]:
+    """Every medication row, with no folding: each renewal is a row of its own, which is what a drug's history is made
+    of (see insights.medication_timeline). The list of records keeps only the newest of each."""
+    with read() as conn:
+        return _load(conn.execute(
+            "SELECT id, resource_type, title, effective_at, status, details_json, dedup_key, source_name FROM clinical_records "
+            "WHERE profile_id = ? AND category = 'medications'", (profile_id,)).fetchall())
 _STRENGTH = re.compile(r"\d[\d,.]*\s*(?:mg|mcg|ug|µg|g|ml|l|meq|mmol|unt|units?|iu|%|hr|h)\b(?:\s*/\s*(?:\d[\d.]*\s*)?(?:ml|l|hr|h|actuat|dose|mg)\b)?", re.I)
 _DOSE_FORM = {"oral", "tablet", "tablets", "tab", "tabs", "capsule", "capsules", "cap", "caps", "solution", "suspension", "injection", "injectable",
               "inhaler", "inhalation", "cream", "ointment", "gel", "patch", "topical", "transdermal", "spray", "nasal", "drops", "ophthalmic",

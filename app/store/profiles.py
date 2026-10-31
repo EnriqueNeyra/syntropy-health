@@ -98,7 +98,8 @@ def delete_profile(profile_id: str) -> None:
         conn.execute("UPDATE agent_tokens SET revoked_at = ? WHERE revoked_at IS NULL AND (profile_id = ? OR account_id IN "
                      "(SELECT id FROM accounts WHERE profile_id = ?))", (time.time(), profile_id, profile_id))
         conn.execute("DELETE FROM devices WHERE account_id IN (SELECT id FROM accounts WHERE profile_id = ?)", (profile_id,))
-        for prefix in (f"overview.layout.{profile_id}", f"alerts.seen.{profile_id}", f"alerts.dismissed.{profile_id}", f"goals.{profile_id}"):
+        for prefix in (f"overview.layout.{profile_id}", f"alerts.seen.{profile_id}", f"alerts.dismissed.{profile_id}", f"goals.{profile_id}",
+                       f"insights.hidden.{profile_id}", f"training.max_hr.{profile_id}"):
             settings.delete_prefix_in(conn, prefix)
         conn.execute("DELETE FROM profiles WHERE id = ?", (profile_id,))
         remaining = conn.execute("SELECT id FROM profiles ORDER BY created_at LIMIT 1").fetchone()

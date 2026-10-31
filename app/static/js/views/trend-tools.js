@@ -147,7 +147,7 @@ export async function loadMarkers(profileId) {
 const MARKERS_KEY = "syntropy-trends-markers";
 export function markersOn() { try { return localStorage.getItem(MARKERS_KEY) !== "0"; } catch { return true; } }
 export function setMarkersOn(on) { try { localStorage.setItem(MARKERS_KEY, on ? "1" : "0"); } catch {} }
-export const markerToggle = (count, on) => (count ? html`<label class="check small" title="Mark when medications started and conditions were diagnosed">
+export const markerToggle = (count, on) => (count ? html`<label class="check small" title="Mark each medication's first order and when conditions were diagnosed">
   <input type="checkbox" data-markers ${on ? "checked" : ""}> <span>Medications & diagnoses <span class="faint">(${count})</span></span></label>` : "");
 export const markerList = (list) => (list.length ? html`<div class="marker-list small">${list.slice(0, 6).map((m) =>
   html`<span><span class="marker-dot"></span>${fmtDate(m.t)} · ${m.label}</span>`)}${list.length > 6 ? html`<span class="faint">and ${list.length - 6} more</span>` : ""}</div>` : "");
@@ -166,11 +166,11 @@ const lagWords = (lag) => (lag === 1 ? "the next day" : lag === -1 ? "the day be
 function describe(res) {
   const fa = measureFormat(res.a), fb = measureFormat(res.b);
   const when = lagWords(res.lag);
-  if (res.n < 7) return res.n ? `Only ${plural(res.n, "day has", "days have")} both, not enough to compare yet.`
+  if (res.strength === "not enough days to tell") return res.n ? `Only ${plural(res.n, "day has", "days have")} both. It takes about four weeks to tell whether two things move together.`
     : "No days have both yet, so there's nothing to compare.";
   const a = soft(res.a.label), b = soft(res.b.label);
   const lead = res.strength === "no clear link" ? `No clear link between ${a} and ${b} ${when}`
-    : `A ${res.strength} ${res.r > 0 ? "positive" : "negative"} link (r = ${fmtNum(res.r, 2)}): ${res.r > 0 ? "higher" : "lower"} ${b} ${res.lag ? when : ""} tended to go with higher ${a}`;
+    : `A ${res.strength} ${res.r > 0 ? "positive" : "negative"} link (r = ${fmtNum(res.r, 2)}${res.interval ? `, likely between ${fmtNum(res.interval.low, 2)} and ${fmtNum(res.interval.high, 2)}` : ""}): ${res.r > 0 ? "higher" : "lower"} ${b} ${res.lag ? when : ""} tended to go with higher ${a}`;
   const split = res.split ? ` On days with ${a} above ${fa.text(res.split.cut)}, ${b} ${res.lag ? when : ""} averaged ${fb.text(res.split.above)}, against ${fb.text(res.split.below)} otherwise.` : "";
   return `${lead}, over ${res.n} days.${split}`.replace(/\s+/g, " ");
 }

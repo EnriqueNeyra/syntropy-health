@@ -128,6 +128,24 @@ function wearableSection(m, topic) {
 }
 
 function isFlagged(interp) { return interp && interp !== "normal"; }
+function deviceName(source) { return source === "Combined" ? "your devices together" : source; }
+
+/** A row per result of a panel (blood pressure), by the record each number came from, so a result with one number
+ *  can't shift the rest of the history. Systolic first, and a dash where a number is missing. */
+export function componentRows(components) {
+  const ordered = [...components].sort((a, b) => /systolic/i.test(b.name) - /systolic/i.test(a.name));
+  const byResult = new Map();
+  ordered.forEach((c, i) => c.points.forEach((p) => {
+    const key = p.record_id || p.t;
+    if (!byResult.has(key)) byResult.set(key, { t: p.t, record_id: p.record_id, source: p.source_name, values: [] });
+    byResult.get(key).values[i] = p.v;
+  }));
+  const unit = ordered[0]?.unit || "";
+  return [...byResult.values()].sort((a, b) => String(a.t).localeCompare(String(b.t))).map((r) => ({
+    t: r.t, record_id: r.record_id, source: r.source,
+    text: `${ordered.map((_, i) => (r.values[i] != null ? fmtNum(r.values[i]) : "—")).join(" / ")} ${unit}`.trim(),
+  }));
+}
 
 // Body measurements from health records (weight, height, temperature) follow the chosen units; lab results don't.
 const BODY_UNITS = new Set(["kg", "lb", "[lb_av]", "cm", "in", "[in_i]", "°C", "Cel", "°F", "[degF]"]);
@@ -346,9 +364,7 @@ export async function render({ el, parts, params, state, navigate }) {
     const measured = pts.filter((p) => !p.comparator);
     const change = measured.length > 1 ? measured[measured.length - 1].v - measured[0].v : null;
     const bound = (p) => (p.comparator ? p.comparator.replace("<=", "≤").replace(">=", "≥") : "");
-    const rows = hasComponents
-      ? s.components[0].points.map((p, i) => ({ t: p.t, record_id: p.record_id, source: p.source_name,
-          text: s.components.map((c) => fmtNum(c.points[i]?.v)).join(" / ") + " " + (s.components[0].unit || "") }))
+    const rows = hasComponents ? componentRows(s.components)
       : [...pts.map((p) => ({ t: p.t, record_id: p.record_id, text: body ? `${bound(p)}${text(p.raw)}` : p.text || `${bound(p)}${text(p.raw)}`,
             standard: p.converted ? `${bound(p)}${text(p.raw)}` : null, status: p.status, interpretation: p.interpretation, source: p.source_name })),
          ...(all.text_results || []).map((p) => ({ t: p.t, record_id: p.record_id, text: p.text, status: p.status, interpretation: p.interpretation, source: p.source_name }))]
@@ -439,7 +455,10 @@ export async function render({ el, parts, params, state, navigate }) {
       await drawCompare(detail, it, seq);
       return;
     }
-    const s = await get("/api/biometrics/daily", { profile: profile.id, metric: it.metric, days, source: source || undefined });
+    const [s, usual] = await Promise.all([
+      get("/api/biometrics/daily", { profile: profile.id, metric: it.metric, days, source: source || undefined }),
+      get("/api/insights/baseline", { profile: profile.id, metric: it.metric, days: Math.max(7, Math.min(days, 3650)), source: source || undefined }).catch(() => null),
+    ]);
     if (seq !== drawSeq) return;
     const m = { metric: it.metric, unit: s.unit };
     const unit = metricUnit(m);
@@ -454,7 +473,13 @@ export async function render({ el, parts, params, state, navigate }) {
     const inRange = markers.filter((mk) => mk.t >= firstDay && mk.t <= s.end).length;
     const complete = s.points.filter((p) => !p.partial);
     const met = goal ? complete.filter((p) => meets(goal, p.value)).length : null;
-    const eyebrow = bucketWord(size) || (s.aggregation === "sum" ? "Daily total" : s.aggregation === "last" ? "Daily value" : "Daily average");
+    // The big number is one day's, whatever the chart's bars or points are averaged over.
+    const word = bucketWord(size);
+    const eyebrow = word ? "Latest day" : s.aggregation === "sum" ? "Daily total" : s.aggregation === "last" ? "Daily value" : "Daily average";
+    const usualBand = usual?.enough ? { low: cv(usual.low), high: cv(usual.high) } : null;
+    const outside = usual?.enough && last && !last.partial && (last.value < usual.low || last.value > usual.high);
+    const switches = (usual?.device_changes || []).filter((c) => c.day >= firstDay && c.day <= s.end)
+      .map((c) => ({ t: c.day, label: `Device changed from ${deviceName(c.from)} to ${deviceName(c.to)}: earlier numbers aren't comparable` }));
     mount(detail, html`
       ${backBar()}
       <div class="card card-pad">
@@ -466,6 +491,9 @@ export async function render({ el, parts, params, state, navigate }) {
         ${controls(it, s.sources, goal)}
         ${inRange ? html`<div class="row wrap" style="justify-content:flex-end;margin:-4px 0 6px">${markerToggle(inRange, showMarkers)}</div>` : ""}
         <div id="tr-chart"></div>
+        ${word ? html`<p class="tiny faint" style="margin:4px 0 0">The chart shows each period's ${word.toLowerCase().replace(/^\w+ /, "")}.</p>` : ""}
+        ${usualBand ? html`<p class="small muted" style="margin:8px 0 0">Your usual range${usual.source ? ` from ${deviceName(usual.source)}` : ""} is ${metricValue(m, usual.low)} to ${metricValue(m, usual.high)} ${unit}, from the ${usual.window_days} days before the last week.${outside ? " The latest day is outside it." : ""}</p>`
+          : usual && !usual.enough && s.points.length ? html`<p class="tiny faint" style="margin:8px 0 0">Your usual range appears after two weeks of readings from one device.</p>` : ""}
         <div class="stat-row">
           <div><span>Average</span><b>${metricValue(m, s.stats.mean)}</b></div>
           <div><span>Low</span><b>${metricValue(m, s.stats.min)}</b></div>
@@ -473,7 +501,7 @@ export async function render({ el, parts, params, state, navigate }) {
           ${goal ? html`<div><span>Goal met</span><b>${met} of ${complete.length} days</b></div>` : html`<div><span>Days</span><b>${s.stats.count}</b></div>`}
         </div>
         ${goal ? html`<p class="small muted" style="margin:10px 0 0">Goal: ${goalText(goal, { key: it.metric, unit: s.unit })} a day.</p>` : ""}
-        ${markerList(marks)}
+        ${markerList([...switches, ...marks])}
         ${s.left_out ? html`<p class="small muted" style="margin:10px 0 0">${plural(s.left_out, "reading")} left out because ${s.left_out === 1 ? "it can't" : "they can't"} be right.
           <button class="link-btn" data-action="left-out">See ${s.left_out === 1 ? "it" : "them"}</button></p>` : ""}
       </div>
@@ -484,10 +512,10 @@ export async function render({ el, parts, params, state, navigate }) {
     const goalLine = goal ? cv(goal.target) : null;
     const draw = () => {
       const digits = s.unit === "h" ? 1 : convert(1, s.unit, it.metric).digits ?? 0;
-      if (s.aggregation === "sum") barChart(chartEl, points, { unit: chartUnit, avg: cv(s.stats.mean), label: s.label, digits, goal: goalLine, markers: marks,
+      if (s.aggregation === "sum") barChart(chartEl, points, { unit: chartUnit, avg: cv(s.stats.mean), label: s.label, digits, goal: goalLine, markers: [...switches, ...marks],
         format: s.unit === "h" ? (v) => metricValue(m, v) : undefined });
       else lineChart(chartEl, [{ name: s.label, points: points.map((p) => ({ t: p.day, v: p.value, label: p.tipLabel || p.source })) }],
-        { unit: chartUnit, label: s.label, goal: goalLine, markers: marks, digits });
+        { unit: chartUnit, label: s.label, goal: goalLine, markers: [...switches, ...marks], digits, band: usualBand || undefined });
     };
     stopResize = responsive(chartEl, draw);
     await drawCompare(detail, it, seq);
