@@ -136,7 +136,7 @@ def test_two_real_visits_on_one_day_stay_two():
     dated = fhir_normalize.normalize_encounter({**ENCOUNTER, "period": {"start": "2024-03-01"}})
     assert dated["dedup_key"] is None
     known = fhir_normalize.normalize_encounter({**ENCOUNTER, "identifier": [{"system": "urn:h", "value": "V1"}]})
-    assert known["dedup_key"] == "enc|urn:h|V1"
+    assert known["dedup_key"] == "enc|urn:h|V1|office visit|2024-03-01T10:15"
     bare = fhir_normalize.normalize_encounter({**ENCOUNTER, "identifier": [{"value": "V1"}]})
     assert bare["dedup_key"] == a["dedup_key"]
 
@@ -223,3 +223,85 @@ def test_old_rows_get_their_dedup_keys(client):
 def test_both_fixes_are_registered():
     assert imports._fold_apple_health_records in data_fixes._fixes.values()
     assert imports._fill_missing_dedup_keys in data_fixes._fixes.values()
+
+
+# ---------------------------------------------------------------------------
+# A key says it's the same record, so it has to be the same record (F039)
+# ---------------------------------------------------------------------------
+
+def _visit(i, day, **extra):
+    return {"resourceType": "Encounter", "id": f"e{i}", "status": "finished", "class": {"code": "AMB"},
+            "identifier": [{"system": "urn:hospital:account", "value": "HAR-1"}], "type": [{"text": "Physical therapy"}],
+            "period": {"start": f"2024-01-{day:02d}T09:00:00Z"}, **extra}
+
+
+def test_visits_sharing_an_account_number_all_stay_visible(client):
+    profile = client.get("/api/connections").json()["profile_id"]
+    upload(client, bundle(*[_visit(i, i + 1) for i in range(6)]))
+    assert records.list_records(profile, "encounters", limit=50)["total"] == 6
+    assert counts(client)["encounters"] == 6
+
+
+def test_the_same_visit_from_a_file_and_elsewhere_is_still_one(client):
+    profile = client.get("/api/connections").json()["profile_id"]
+    upload(client, bundle(_visit(1, 1)), "a.json")
+    upload(client, bundle({**_visit(2, 1), "status": "in-progress"}), "b.json")
+    assert records.list_records(profile, "encounters", limit=50)["total"] == 1
+
+
+def test_a_visit_with_an_identifier_but_no_time_isnt_collapsed():
+    dated = fhir_normalize.normalize_encounter({**_visit(1, 1), "period": {"start": "2024-01-01"}})
+    undated = fhir_normalize.normalize_encounter({**_visit(1, 1), "period": {}})
+    assert dated["dedup_key"] is None and undated["dedup_key"] is None
+
+
+def test_two_kinds_of_visit_at_one_time_on_one_account_stay_two():
+    a = fhir_normalize.normalize_encounter(_visit(1, 1))
+    b = fhir_normalize.normalize_encounter({**_visit(2, 1), "type": [{"text": "Occupational therapy"}]})
+    assert a["dedup_key"] != b["dedup_key"]
+
+
+def _plan(i, description, **extra):
+    return {"resourceType": "CarePlan", "id": f"p{i}", "status": "active", "intent": "plan", "period": {"start": "2024-01-01"},
+            "description": description, "category": [{"text": "Assessment and Plan"}], **extra}
+
+
+def test_different_plans_with_the_same_title_and_date_both_stay_visible(client):
+    profile = client.get("/api/connections").json()["profile_id"]
+    upload(client, bundle(_plan(1, "Physical therapy three times a week"), _plan(2, "Stop metformin and recheck kidney function")))
+    shown = records.list_records(profile, "care_plans", limit=50)
+    assert shown["total"] == 2
+    assert {r["narrative"] for r in shown["items"]} == {"Physical therapy three times a week", "Stop metformin and recheck kidney function"}
+
+
+def test_plans_that_differ_only_in_their_activities_both_stay_visible():
+    def activity(text):
+        return {"resourceType": "CarePlan", "id": "p", "status": "active", "title": "Plan", "period": {"start": "2024-01-01"},
+                "activity": [{"detail": {"description": text}}]}
+    a = fhir_normalize.normalize_care_plan(activity("Walk daily"))
+    b = fhir_normalize.normalize_care_plan(activity("Stop metformin"))
+    assert a["dedup_key"] != b["dedup_key"]
+
+
+def test_the_same_plan_from_two_files_is_still_one(client):
+    profile = client.get("/api/connections").json()["profile_id"]
+    upload(client, bundle(_plan(1, "Walk daily")), "a.json")
+    upload(client, bundle(_plan(2, "Walk daily")), "b.json")
+    assert records.list_records(profile, "care_plans", limit=50)["total"] == 1
+
+
+def test_teams_with_the_same_people_under_different_names_stay_two():
+    def team(name):
+        return {"resourceType": "CareTeam", "id": name, "status": "active", "name": name,
+                "participant": [{"member": {"display": "Dr. Ada"}}]}
+    assert fhir_normalize.normalize_care_team(team("Diabetes"))["dedup_key"] != fhir_normalize.normalize_care_team(team("Heart"))["dedup_key"]
+
+
+def test_filling_in_keys_for_old_rows_doesnt_hide_anything(client):
+    profile = client.get("/api/connections").json()["profile_id"]
+    upload(client, bundle(*[_visit(i, i + 1) for i in range(3)], _plan(1, "Walk daily"), _plan(2, "Stop metformin")))
+    with db() as c:
+        c.execute("UPDATE clinical_records SET dedup_key = NULL WHERE category IN ('encounters', 'care_plans')")
+    _run_fix("keys-again", imports._fill_missing_dedup_keys)
+    assert records.list_records(profile, "encounters", limit=50)["total"] == 3
+    assert records.list_records(profile, "care_plans", limit=50)["total"] == 2

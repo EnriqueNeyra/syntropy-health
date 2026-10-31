@@ -476,13 +476,12 @@ def normalize_encounter(res: dict[str, Any]) -> Optional[dict[str, Any]]:
     rec["details"] = {"class": class_label, "class_code": klass.get("code"), "reasons": reasons,
                       "clinicians": clinicians, "locations": locations,
                       "provider": ref_display(res.get("serviceProvider"))}
-    # The same visit from a file and a live connection. Without a time there's no telling two visits on one day apart.
+    # The same visit from a file and a live connection. Without a time there's no telling two visits on one day apart,
+    # and an identifier doesn't do that alone: an account or a series number can cover many visits.
     start = str(period.get("start") or "")
-    known = _system_value(*(res.get("identifier") or []))
-    if known:
-        rec["dedup_key"] = f"enc|{known}"
-    elif len(start) > 10:
-        rec["dedup_key"] = f"enc|{klass.get('code') or ''}|{_norm_name(title)}|{start[:16]}"
+    if len(start) > 10:
+        known = _system_value(*(res.get("identifier") or [])) or klass.get("code") or ""
+        rec["dedup_key"] = f"enc|{known}|{_norm_name(title)}|{start[:16]}"
     return rec
 
 
@@ -583,7 +582,7 @@ def normalize_care_team(res: dict[str, Any]) -> Optional[dict[str, Any]]:
                 effective_at=(res.get("period") or {}).get("start"),
                 narrative=", ".join(f"{m['name']} ({m['role']})" for m in members))
     rec["details"] = {"members": members}
-    together = "|".join(sorted(f"{_norm_name(m['name'])}:{_norm_name(m['role'])}" for m in members))
+    together = "|".join([_norm_name(res.get("name") or ""), *sorted(f"{_norm_name(m['name'])}:{_norm_name(m['role'])}" for m in members)])
     rec["dedup_key"] = f"team|{res.get('status') or ''}|{hashlib.sha1(together.encode()).hexdigest()[:16]}"
     return rec
 
@@ -604,7 +603,10 @@ def normalize_care_plan(res: dict[str, Any]) -> Optional[dict[str, Any]]:
     rec["details"] = {"activities": activities, "addresses": [ref_display(a) for a in res.get("addresses") or [] if ref_display(a)]}
     period = res.get("period") or {}
     if res.get("title") or period.get("start"):     # a plan with neither is only "Care plan": that says nothing
-        rec["dedup_key"] = f"plan|{_norm_name(title)}|{period.get('start') or ''}|{period.get('end') or ''}"
+        # What it says is part of which plan it is: many plans share a heading like "Assessment and Plan", and a date.
+        says = "|".join([str(rec["narrative"] or ""), *sorted(str(a["description"]) for a in activities)])
+        rec["dedup_key"] = (f"plan|{_norm_name(title)}|{period.get('start') or ''}|{period.get('end') or ''}"
+                            f"|{hashlib.sha1(says.encode()).hexdigest()[:16]}")
     return rec
 
 
