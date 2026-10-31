@@ -44,7 +44,7 @@ jobs:
       - name: The relay answers with this commit
         if: env.HAS_TOKEN == 'true'
         run: |
-          for i in $(seq 1 20); do
+          for _ in $(seq 1 20); do
             curl -fs https://syntropy-auth-relay.syntropylabs.workers.dev/health | grep -q "$GITHUB_SHA" && exit 0
             sleep 3
           done

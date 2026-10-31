@@ -12,6 +12,8 @@ from app.core.config import APP_VERSION  # noqa: E402
 DESKTOP = ROOT / "desktop"
 
 datas = [
+    (str(ROOT / "LICENSE"), "."),
+    (str(ROOT / "NOTICE"), "."),
     (str(ROOT / "app" / "static"), "app/static"),
     (str(ROOT / "app" / "core" / "migrations"), "app/core/migrations"),
     (str(ROOT / "app" / "data"), "app/data"),

@@ -1,0 +1,236 @@
+"""What releases are built from: fixed versions, checked downloads, and a Compose file every Compose can read."""
+
+from __future__ import annotations
+
+import re
+import tomllib
+from pathlib import Path
+
+import pytest
+import yaml
+
+from app.core import settings
+
+ROOT = Path(__file__).resolve().parent.parent
+WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+
+
+def _read(name: str) -> str:
+    return (ROOT / name).read_text(encoding="utf-8")
+
+
+def _compose() -> dict:
+    return yaml.safe_load(_read("docker-compose.yml"))["services"]["syntropy"]
+
+
+# ---------------------------------------------------------------------------
+# One set of versions
+# ---------------------------------------------------------------------------
+
+def test_the_lock_file_matches_pyproject_and_has_hashes():
+    project = tomllib.loads(_read("pyproject.toml"))["project"]
+    lock = tomllib.loads(_read("uv.lock"))
+    packages = {p["name"]: p for p in lock["package"]}
+    ours = packages["syntropy-health"]
+    locked = {f"{d['name']}{('[' + ','.join(d['extras']) + ']') if d.get('extras') else ''}{d.get('specifier', '')}"
+              for d in ours["metadata"]["requires-dist"] if not d.get("marker") and "extra" not in d.get("marker", "")}
+    wanted = {re.sub(r"\s", "", d).lower() for d in project["dependencies"]}
+    assert wanted <= {d.lower() for d in locked}, "run uv lock"
+    for package in lock["package"]:
+        if package["name"] != "syntropy-health":
+            files = [*package.get("wheels", []), *([package["sdist"]] if "sdist" in package else [])]
+            assert files and all(f["hash"].startswith("sha256:") for f in files), package["name"]
+
+
+@pytest.mark.parametrize("name, floor", [("pillow", (13, 0, 0)), ("pypdf", (6, 21, 2))])
+def test_upload_parsers_are_past_their_published_problems(name, floor):
+    """Both the floor anyone can resolve to, and what ships."""
+    lock = {p["name"]: p.get("version") for p in tomllib.loads(_read("uv.lock"))["package"]}
+    assert tuple(int(n) for n in lock[name].split(".")[:3]) >= floor
+    dependencies = tomllib.loads(_read("pyproject.toml"))["project"]["dependencies"]
+    spec = next(d for d in dependencies if d.lower().startswith(name))
+    assert tuple(int(n) for n in spec.split(">=")[1].split(".")) >= floor
+
+
+def test_every_place_that_uses_uv_uses_the_same_version():
+    found = set(re.findall(r"astral-sh/uv:(\d+\.\d+\.\d+)@", _read("Dockerfile")))
+    found |= set(re.findall(r"^UV_VERSION=(\S+)", _read("scripts/install.sh"), re.M))
+    found |= set(re.findall(r'^\$UvVersion = "(\S+)"', _read("scripts/install.ps1"), re.M))
+    assert len(found) == 1, found
+    for workflow in WORKFLOWS:
+        for job in yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"].values():
+            for step in job.get("steps", []):
+                if "setup-uv" in step.get("uses", ""):
+                    assert step.get("with", {}).get("version") in found, f"{workflow.name}: setup-uv needs its version"
+
+
+def test_the_windows_installer_stops_the_server_before_replacing_its_files():
+    script = _read("scripts/install.ps1")
+    assert script.index("Invoke-Quiet $Command service stop") < script.index("uv tool install --quiet")
+
+
+def test_nothing_in_the_windows_installer_redirects_stderr_outside_its_helper():
+    """Windows PowerShell stops the script at a redirected line of stderr, and uv reports its progress there."""
+    lines = [line for line in _read("scripts/install.ps1").splitlines() if "2>$null" in line]
+    assert len(lines) == 1 and "& $program @args" in lines[0]
+
+
+def test_ci_runs_the_windows_installer_in_windows_powershell():
+    steps = yaml.safe_load(_read(".github/workflows/ci.yml"))["jobs"]["windows-install"]["steps"]
+    runs = [s for s in steps if "install.ps1 -Server" in s.get("run", "")]
+    assert runs and all(s["shell"] == "powershell" for s in runs)
+
+
+def test_the_installers_fetch_a_fixed_uv():
+    assert "astral.sh/uv/$UV_VERSION/install.sh" in _read("scripts/install.sh")
+    assert "astral.sh/uv/$UvVersion/install.ps1" in _read("scripts/install.ps1")
+    assert "astral.sh/uv/install." not in _read("scripts/install.sh") + _read("scripts/install.ps1")
+
+
+def test_the_image_is_built_from_fixed_digests_and_the_lock():
+    dockerfile = _read("Dockerfile")
+    bases = re.findall(r"^FROM (\S+)", dockerfile, re.M)
+    assert bases and all(re.search(r"@sha256:[0-9a-f]{64}$", base) for base in bases), bases
+    assert "uv export --frozen" in dockerfile and "pip install --require-hashes --no-deps" in dockerfile
+    assert "tomllib" not in dockerfile
+
+
+def test_builds_install_from_the_lock():
+    apps = _read(".github/workflows/apps.yml")
+    assert "--require-hashes" in apps and 'pip install -e ".[desktop]"' not in apps
+    assert "--version=" in apps.split("choco install innosetup")[1].splitlines()[0]
+    for workflow in WORKFLOWS:
+        for line in workflow.read_text(encoding="utf-8").splitlines():
+            assert not re.search(r"pip install (-e|--group|-U)\b", line), f"{workflow.name}: {line.strip()}"
+
+
+def test_actions_are_pinned_to_commits():
+    for workflow in WORKFLOWS:
+        for use in re.findall(r"^\s*(?:- )?uses:\s*(\S+)", workflow.read_text(encoding="utf-8"), re.M):
+            if not use.startswith("./"):
+                assert re.search(r"@[0-9a-f]{40}$", use), f"{workflow.name}: {use}"
+
+
+def test_dependabot_moves_the_lock_and_the_base_image():
+    updates = yaml.safe_load(_read(".github/dependabot.yml"))["updates"]
+    ecosystems = {u["package-ecosystem"]: u for u in updates}
+    assert ecosystems["uv"]["versioning-strategy"] == "lockfile-only" and "docker" in ecosystems and "pip" not in ecosystems
+
+
+def test_a_stale_lock_or_a_known_problem_fails_ci():
+    jobs = yaml.safe_load(_read(".github/workflows/ci.yml"))["jobs"]
+    assert any("uv lock --check" in step.get("run", "") for step in jobs["lint"]["steps"])
+    assert any("pip-audit" in step.get("run", "") for step in jobs["audit"]["steps"])
+    assert "audit" in jobs["ci-passed"]["needs"]
+
+
+def test_nothing_goes_unwatched_between_releases():
+    for name in ("docker-refresh.yml", "supply-chain.yml"):
+        workflow = yaml.safe_load(_read(f".github/workflows/{name}"))
+        assert workflow[True]["schedule"], name      # (YAML reads `on:` as true)
+    refresh = yaml.safe_load(_read(".github/workflows/docker-refresh.yml"))
+    tags = next(s for s in refresh["jobs"]["publish"]["steps"] if s.get("id") == "tags")["run"]
+    assert "$IMAGE:latest" in tags and "$IMAGE:$version\"" not in tags      # a version number keeps meaning one thing
+    assert "--ignore=tests/test_deployment_files.py" in _read(".github/workflows/docker-refresh.yml")
+
+
+def test_what_runs_pull_requests_has_no_write_permissions():
+    workflow = yaml.safe_load(_read(".github/workflows/docker.yml"))
+    assert workflow["permissions"] == {"contents": "read"}
+    jobs = workflow["jobs"]
+    assert "image" in jobs, "main requires a check by this name"
+    assert "permissions" not in jobs["image"] and "permissions" not in jobs["scan"]
+    assert jobs["publish"]["if"] == "github.event_name != 'pull_request'" and jobs["publish"]["needs"] == "image"
+    assert "secrets." not in str(jobs["image"])
+
+
+def test_arm64_really_runs_before_it_is_published():
+    steps = yaml.safe_load(_read(".github/workflows/docker.yml"))["jobs"]["publish"]["steps"]
+    names = [s.get("name") for s in steps]
+    assert names.index("Smoke test on arm64") < names.index("Build and publish (amd64 and arm64)")
+    assert "linux/arm64" in next(s for s in steps if s.get("name") == "Smoke test on arm64")["run"]
+
+
+def test_a_release_publishes_its_own_dependency_list_sboms_and_installers():
+    release = _read(".github/workflows/desktop.yml")
+    from app.services import updates
+    for expected in (updates.REQUIREMENTS_ASSET, "cyclonedx1.5", "scripts/install.sh scripts/install.ps1 dist/"):
+        assert expected in release
+    assert "cp artifacts/wheel/* release/" in release
+
+
+# ---------------------------------------------------------------------------
+# Docker
+# ---------------------------------------------------------------------------
+
+def test_the_image_only_copies_what_docker_is_sent():
+    allowed = {line[1:].rstrip("/") for line in _read(".dockerignore").splitlines() if line.startswith("!")}
+    for sources in re.findall(r"^COPY (?!--from)(.+) \S+$", _read("Dockerfile"), re.M):
+        for source in sources.split():
+            assert source.rstrip("/") in allowed, source
+
+
+def test_the_image_carries_the_licence_and_the_command():
+    dockerfile = _read("Dockerfile")
+    assert re.search(r"^COPY LICENSE NOTICE ", dockerfile, re.M)
+    assert "COPY scripts/docker-syntropy-health.sh /usr/local/bin/syntropy-health" in dockerfile
+    assert (ROOT / "scripts" / "docker-syntropy-health.sh").stat().st_mode & 0o111
+    assert (ROOT / "scripts" / "docker-entrypoint.sh").stat().st_mode & 0o111
+
+
+def test_the_apps_carry_the_licence():
+    spec = _read("desktop/syntropy-health.spec")
+    assert '(str(ROOT / "LICENSE"), ".")' in spec and '(str(ROOT / "NOTICE"), ".")' in spec
+
+
+def test_compose_has_no_syntax_older_composes_refuse():
+    """env_file's path and required came with Compose 2.24, and some NAS systems ship older."""
+    assert "env_file" not in _compose()
+
+
+def test_settings_in_a_dot_env_file_still_reach_the_server():
+    listed = {entry.split("=")[0] for entry in _compose()["environment"]}
+    names = {"SYNTROPY_DB_PATH", "SYNTROPY_SECRET_KEY", "SYNTROPY_ALLOWED_HOSTS", "SYNTROPY_ALLOW_NO_PASSWORD", "SYNTROPY_UPDATE_CHECK",
+             "SYNTROPY_SCHEDULER", "SYNTROPY_MDNS", "SYNTROPY_RELAY_KEY", "TZ", "FORWARDED_ALLOW_IPS"}
+    for platform in settings.EHR_PLATFORMS.values():
+        names |= {platform["env"], platform["sandbox_env"]} - {""}
+    for wearable in settings.WEARABLES.values():
+        names |= {wearable["id_env"], wearable["secret_env"]}
+    assert names <= listed, names - listed
+
+
+def test_compose_limits_the_container_and_its_logs():
+    service = _compose()
+    assert service["cap_drop"] == ["ALL"] and set(service["cap_add"]) == {"CHOWN", "DAC_READ_SEARCH", "SETUID", "SETGID"}
+    assert "no-new-privileges:true" in service["security_opt"]
+    assert service["logging"]["options"]["max-size"] and service["logging"]["options"]["max-file"]
+
+
+def test_the_smoke_test_runs_with_the_same_limits_as_compose():
+    smoke = _read("scripts/docker_smoke.sh")
+    for capability in _compose()["cap_add"]:
+        assert f"--cap-add {capability}" in smoke
+    assert "--cap-drop ALL" in smoke and "--security-opt no-new-privileges" in smoke
+
+
+# ---------------------------------------------------------------------------
+# The relay key
+# ---------------------------------------------------------------------------
+
+def test_a_release_without_the_relay_key_says_who_can_fix_it(monkeypatch, capsys):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("release_key_script", ROOT / "scripts" / "release_key.py")
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    monkeypatch.delenv("SYNTROPY_RELAY_KEY", raising=False)
+    monkeypatch.setenv("GITHUB_REPOSITORY", script.UPSTREAM)
+    assert script.main() == 1
+    out = capsys.readouterr().out
+    assert "SYNTROPY_RELAY_KEY" in out and "owner" in out and "Secrets and variables" in out and out.startswith("::error::")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "someone/their-fork")
+    assert script.main() == 0      # a fork's build uses its own registrations
+
+
+def test_every_workflow_that_builds_for_people_runs_the_key_step():
+    for name in ("docker.yml", "docker-refresh.yml", "apps.yml", "desktop.yml"):
+        assert "scripts/release_key.py" in _read(f".github/workflows/{name}"), name

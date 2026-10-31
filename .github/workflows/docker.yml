@@ -3,7 +3,8 @@ name: Docker image
 # Publishes ghcr.io/enriqueneyra/syntropy-health for amd64 and arm64 (Raspberry Pi, ARM NAS boxes):
 #   :latest, :1.2.3 and :1.2   for a release (the Release workflow starts this on the release's tag)
 #   :main                      on every push to main, for trying what's next
-# Pull requests build the image and run it, without publishing.
+# Pull requests build the image and run it, without publishing, and with no permission to. docker-refresh.yml brings
+# :latest and :1.2 up to date each week.
 # The first publish creates the package under the account's Packages. Its visibility is set there (Package settings),
 # separately from the repository's.
 # Published images carry an SBOM and build provenance:
@@ -16,6 +17,9 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: docker-${{ github.ref }}
   cancel-in-progress: true
@@ -24,7 +28,54 @@ env:
   IMAGE: ghcr.io/enriqueneyra/syntropy-health     # registry names are lowercase
 
 jobs:
+  # "image" is a check main requires, by this name.
   image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build for the smoke test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: syntropy-health:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test
+        run: sh scripts/docker_smoke.sh syntropy-health:test
+      # Compose 2.21, which some NAS systems ship.
+      - name: docker-compose.yml works on an older Compose
+        run: docker run --rm -v "$PWD:/w:ro" -w /w docker:24.0.5-cli docker compose config -q
+
+  # Not a required check: a newly published problem in the base image shouldn't hold up unrelated work, and the weekly
+  # scan (supply-chain.yml) opens an issue about what's published. Fresh, so the fixes a rebuild would pick up count.
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          no-cache: true
+          tags: syntropy-health:scan
+      - name: Known problems that have a fix
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: syntropy-health:scan
+          severity-cutoff: high
+          only-fixed: "true"
+          output-format: table
+
+  publish:
+    needs: image
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,46 +103,52 @@ jobs:
             org.opencontainers.image.url=https://health.syntropylabs.io
             org.opencontainers.image.licenses=AGPL-3.0-only
 
-      # Published images carry the relay key (scripts/release_key.py); a pull request's test image doesn't need it.
+      # Published images carry the relay key (scripts/release_key.py). A missing key stops here, and says what to do.
       - name: The relay key (scripts/release_key.py)
-        if: github.event_name != 'pull_request'
         run: python3 scripts/release_key.py
         env:
           SYNTROPY_RELAY_KEY: ${{ secrets.SYNTROPY_RELAY_KEY }}
-      - name: Build for the smoke test
+      # A release starts from nothing cached, so it has the distribution's fixes of today.
+      - name: Build for the checks
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           load: true
+          no-cache: ${{ startsWith(github.ref, 'refs/tags/v') }}
           tags: syntropy-health:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Smoke test
-        run: |
-          data="$RUNNER_TEMP/data" && mkdir "$data"
-          docker run -d --name smoke -p 8000:8000 -v "$data:/data" syntropy-health:test
-          for i in $(seq 1 60); do curl -fs localhost:8000/health && break; sleep 1; done
-          curl -fs localhost:8000/health || { docker logs smoke; exit 1; }
-          # The server runs as the data folder's owner (this runner's user), not root.
-          test "$(stat -c %u "$data/syntropy.db")" = "$(id -u)"
       - name: The published image carries the relay key
-        if: github.event_name != 'pull_request' && github.repository == 'EnriqueNeyra/syntropy-health'
+        if: github.repository == 'EnriqueNeyra/syntropy-health'
         run: docker run --rm syntropy-health:test python -c 'from app.core import config; assert config.official_build()'
       - name: The release's tag matches the version in the code
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           version="$(docker run --rm syntropy-health:test python -c 'from app.core.config import APP_VERSION; print(APP_VERSION)')"
           [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "The tag is $GITHUB_REF_NAME but APP_VERSION is $version"; exit 1; }
+      # Raspberry Pis get an image that has really run. Slow under emulation, so for releases only.
+      - name: Build for arm64
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          no-cache: true
+          tags: syntropy-health:arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test on arm64
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: sh scripts/docker_smoke.sh syntropy-health:arm64 linux/arm64
 
-      - if: github.event_name != 'pull_request'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and publish (amd64 and arm64)
         id: publish
-        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -103,8 +160,7 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: mode=max
           sbom: true
-      - if: github.event_name != 'pull_request'
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.publish.outputs.digest }}

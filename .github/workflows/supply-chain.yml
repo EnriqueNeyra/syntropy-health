@@ -1,0 +1,75 @@
+name: Supply chain
+
+# Dependabot only reports a problem when a version range can't get past it, and the ranges here are lower bounds, so it
+# stays quiet about what's locked and what's already published. Each week this checks them, and tries the suite against
+# the newest versions of everything, for early warning. Anything wrong opens one issue, with the run's link.
+on:
+  schedule:
+    - cron: "41 5 * * 3"      # the day after docker-refresh.yml, so the image it scans has had that week's fixes
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  locked-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"
+      - run: uv export --frozen --no-dev --extra desktop --no-emit-project --no-header -o "$RUNNER_TEMP/locked.txt"
+      - run: uvx --from pip-audit==2.10.1 pip-audit --require-hashes --disable-pip -r "$RUNNER_TEMP/locked.txt"
+
+  published-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: ghcr.io/enriqueneyra/syntropy-health:latest
+          severity-cutoff: high
+          only-fixed: "true"
+          output-format: table
+
+  newest-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
+      - run: uv lock --upgrade          # for this run only: nothing is committed
+      - run: uv sync --locked --python 3.12 --group dev
+      - run: uv run --locked --no-sync python -m pytest -q tests
+
+  report:
+    needs: [locked-versions, published-image, newest-versions]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RESULTS: "locked versions: ${{ needs.locked-versions.result }}; published image: ${{ needs.published-image.result }}; newest versions: ${{ needs.newest-versions.result }}"
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="The weekly supply chain check found something"
+          body="$RESULTS
+
+          $RUN has the details. Locked versions: uv lock --upgrade-package NAME, then a release. Published image: run Docker image refresh, or make a release. Newest versions: a dependency's next version doesn't work with the app yet, and nothing is broken until uv.lock moves to it."
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi
