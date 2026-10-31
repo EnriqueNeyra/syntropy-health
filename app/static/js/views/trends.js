@@ -492,7 +492,7 @@ export async function render({ el, parts, params, state, navigate }) {
         ${inRange ? html`<div class="row wrap" style="justify-content:flex-end;margin:-4px 0 6px">${markerToggle(inRange, showMarkers)}</div>` : ""}
         <div id="tr-chart"></div>
         ${word ? html`<p class="tiny faint" style="margin:4px 0 0">The chart shows each period's ${word.toLowerCase().replace(/^\w+ /, "")}.</p>` : ""}
-        ${usualBand ? html`<p class="small muted" style="margin:8px 0 0">Your usual range${usual.source ? ` from ${deviceName(usual.source)}` : ""} is ${metricValue(m, usual.low)} to ${metricValue(m, usual.high)} ${unit}, from the ${usual.window_days} days before the last week.${outside ? " The latest day is outside it." : ""}</p>`
+        ${usualBand ? html`<p class="small muted" style="margin:8px 0 0">Your usual range${usual.source ? ` from ${deviceName(usual.source)}` : ""} is ${metricValue(m, usual.low)} to ${metricValue(m, usual.high)}${unit ? ` ${unit}` : ""}, from the ${usual.window_days} days before the last week.${outside ? " The latest day is outside it." : ""}</p>`
           : usual && !usual.enough && s.points.length ? html`<p class="tiny faint" style="margin:8px 0 0">Your usual range appears after two weeks of readings from one device.</p>` : ""}
         <div class="stat-row">
           <div><span>Average</span><b>${metricValue(m, s.stats.mean)}</b></div>
