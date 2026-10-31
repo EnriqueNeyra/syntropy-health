@@ -121,7 +121,7 @@ def test_a_change_from_normal_is_an_insight(client):
     found = client.get("/api/insights").json()["insights"]
     change = next(i for i in found if i["kind"] == "change")
     assert change["data"]["metric"] == "resting_heart_rate"
-    assert change["tone"] == "attention" and change["data"]["recent"] > change["data"]["usual"] + 5
+    assert change["tone"] == "info" and change["data"]["recent"] > change["data"]["usual"] + 5
     assert "up from your usual" in change["text"]
 
 

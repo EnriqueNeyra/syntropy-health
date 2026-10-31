@@ -10,7 +10,7 @@
     },
     {
      "kind": "lab",
-     "tone": "good",
+     "tone": "info",
      "title": "LDL cholesterol (calculated) closer to the range",
      "text": "LDL cholesterol (calculated) was 109 mg/dL on <date>, down from 118 mg/dL on <date>, and still above the reference range (<100)."
     },
@@ -145,7 +145,7 @@
  "wearables": [
   {
    "kind": "change",
-   "tone": "attention",
+   "tone": "info",
    "title": "Resting heart rate is up",
    "text": "Resting heart rate was typically 65.6 bpm over the last 7 days, up from your usual 58.1 bpm (the 60 days before)."
   },

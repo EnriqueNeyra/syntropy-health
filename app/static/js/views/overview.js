@@ -139,7 +139,7 @@ export const WIDGETS = [
       return html`<div class="card widget-card">
         <div class="card-head"><h3>${icon("lightbulb")} What's changed</h3><span class="small muted">across all your sources</span></div>
         ${items.length ? html`<div class="insights">${items.slice(0, shown).map((i) => insightItem(i))}</div>`
-          : html`<div class="list-item muted small">Nothing stands out right now. Insights appear as your devices, check-ins and records build up a picture of your normal.</div>`}
+          : html`<div class="list-item muted small">No changes to show right now. Insights appear as your devices, check-ins and records build up a picture of your normal.</div>`}
         ${items.length > shown ? html`<div class="card-foot muted small">${items.length - shown} more: ask about them in <a href="#/ask">Ask</a></div>` : ""}
       </div>`;
     } },
@@ -190,7 +190,7 @@ export const WIDGETS = [
     render: (d) => listCard("Medications", "pill", [...d.summary.active_medications, ...(d.summary.medications_to_check || [])], (m) => html`
       <div class="list-item clickable" data-action="record" data-id="${m.id}">
         <div class="grow"><div class="title truncate">${m.title}</div><div class="meta truncate">${[m.med_reason || m.value_text, m.group_note].filter(Boolean).join(" · ")}</div></div>
-        ${m.med_tier === "check" ? html`<span class="badge warn">Check</span>` : ""}
+        ${m.med_tier === "check" ? html`<span class="badge">May be out of date</span>` : ""}
         ${m.details?.as_needed ? html`<span class="badge">As needed</span>` : ""}
       </div>`, "No active medications.", { href: "#/records/medications" }) },
   { id: "conditions", title: "Active conditions", desc: "Diagnoses from your health records", size: "m", on: true, needs: ["summary"], records: true,

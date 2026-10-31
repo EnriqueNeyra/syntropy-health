@@ -379,19 +379,19 @@ def personal_range(profile_id: str, metric: str, days: int = 90, source: Optiona
 # Insights
 # ---------------------------------------------------------------------------
 
-# What to watch for a change from the person's own normal: the direction that's better (None: neither), and the
-# smallest change worth mentioning, absolute or relative.
+# What to watch for a change from the person's own normal, and the smallest change to report, absolute or relative. A
+# change is reported the same way in either direction: which way is better isn't for this app to say.
 WATCH = [
-    ("resting_heart_rate", "down", 3.0, None),
-    ("hrv_rmssd", "up", None, 0.12),
-    ("hrv_sdnn", "up", None, 0.12),
-    ("sleep_duration", "up", 0.5, None),
-    ("step_count", "up", None, 0.25),
-    ("respiratory_rate", "down", 1.0, None),
-    ("oxygen_saturation", "up", 1.5, None),
-    ("body_mass", None, 1.5, None),
-    ("walking_heart_rate_average", "down", 4.0, None),
-    ("vo2_max", "up", 2.0, None),
+    ("resting_heart_rate", 3.0, None),
+    ("hrv_rmssd", None, 0.12),
+    ("hrv_sdnn", None, 0.12),
+    ("sleep_duration", 0.5, None),
+    ("step_count", None, 0.25),
+    ("respiratory_rate", 1.0, None),
+    ("oxygen_saturation", 1.5, None),
+    ("body_mass", 1.5, None),
+    ("walking_heart_rate_average", 4.0, None),
+    ("vo2_max", 2.0, None),
 ]
 RECENT_DAYS = 7
 MIN_RECENT, MIN_BASELINE = 4, 20
@@ -446,7 +446,7 @@ def _changes(profile_id: str) -> list[dict[str, Any]]:
     have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
     found: list[tuple[Optional[dict[str, Any]], float]] = []
     moved: dict[tuple[str, str], dict[str, Any]] = {}
-    for metric, better, min_abs, min_rel in WATCH:
+    for metric, min_abs, min_rel in WATCH:
         if metric not in have:
             continue
         sparse = metric in SPARSE_METRICS
@@ -487,7 +487,7 @@ def _changes(profile_id: str) -> list[dict[str, Any]]:
         band = _usual_range(metric, base)
         found.append(({
             "id": f"change:{metric}:{last.isoformat()}", "kind": "change", "metric": metric,
-            "tone": reading_bounds.tone_for_move(metric, usual, typical, better),
+            "tone": "info",
             "title": f"{label} is {'up' if up else 'down'}",
             "text": (f"{label} was typically {_fmt(metric, typical)} over the last {recent_days} days, "
                      f"{'up' if up else 'down'} from your usual {_fmt(metric, usual)} (the {base_days} days before)."),
@@ -714,7 +714,7 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
     today = _today(profile_id)
     have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
     found: list[tuple[dict[str, Any], float]] = []
-    gates = {metric: (min_abs, min_rel) for metric, _, min_abs, min_rel in WATCH}
+    gates = {metric: (min_abs, min_rel) for metric, min_abs, min_rel in WATCH}
     for med in medication_timeline(profile_id):
         started = date.fromisoformat(med["first"])
         if not 21 <= (today - started).days <= 365 or not med["sure"]:
@@ -759,7 +759,7 @@ LAB_MIN_CHANGE, LAB_MIN_RANGE_SHARE = 0.05, 0.25
 DRIFT_MIN_RESULTS, DRIFT_MIN_DAYS = 3, 365
 DRIFT_MIN_TAU, DRIFT_MIN_CHANGE = 0.6, 0.1
 BACK_IN_RANGE_DAYS = 180
-MAX_LAB_NOTES, MAX_GOOD_LAB_NOTES = 3, 2
+MAX_LAB_NOTES, MAX_CLOSER_LAB_NOTES = 3, 2
 MAX_RECENT_NORMAL_CODES = 40
 
 
@@ -826,11 +826,10 @@ def _lab_note(lab: dict[str, Any], s: dict[str, Any]) -> Optional[dict[str, Any]
     sentence = (f"{s['title']} was {num(last['v'])} {unit} on {_day(last['t'])}, {'up' if moved > 0 else 'down'} from "
                 f"{num(prev['v'])} {unit} on {_day(prev['t'])}").replace("  ", " ")
     if big and not outward:
-        # Closer isn't good news while the lab still calls it critical.
         if lab.get("interpretation") in records.CRITICAL:
             return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention", "title": f"{s['title']} still flagged critical",
                     "text": f"{sentence}, and still {out_word} the reference range{ref}. The lab marked this critical."}
-        return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "good", "title": f"{s['title']} closer to the range",
+        return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "info", "title": f"{s['title']} closer to the range",
                 "text": f"{sentence}, and still {out_word} the reference range{ref}."}
     dated = [p for p in pts if _iso_day(p["t"]) and not p.get("comparator")]
     if len(dated) >= DRIFT_MIN_RESULTS and _ordinal(last["t"]) - _ordinal(dated[0]["t"]) >= DRIFT_MIN_DAYS:
@@ -900,8 +899,8 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
                       "data": {"code": code, "latest": last["v"], "previous": prev["v"], "unit": unit},
                       "link": f"#/trends?code={code}"})
     found.sort(key=lambda n: n["id"].rsplit(":", 1)[1], reverse=True)
-    return ([n for n in found if n["tone"] != "good"][:MAX_LAB_NOTES]
-            + [n for n in found if n["tone"] == "good"][:MAX_GOOD_LAB_NOTES])
+    return ([n for n in found if n["tone"] == "attention"][:MAX_LAB_NOTES]
+            + [n for n in found if n["tone"] != "attention"][:MAX_CLOSER_LAB_NOTES])
 
 
 def _goal_notes(profile_id: str) -> list[dict[str, Any]]:

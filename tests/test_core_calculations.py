@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.connectors import units
-from app.services import insight_stats, insights, reading_bounds, sync
+from app.services import insight_stats, insights, sync
 from app.simulator.generator import build_chart
 from app.simulator.personas import PERSONAS
 from app.store import activity, biometrics, goals, profiles, sleep
@@ -179,35 +179,6 @@ def test_association_removes_a_shared_trend():
     flipped = insight_stats.association(ts, xs, [-x for x in xs])
     assert flipped["clear"] is True and flipped["r"] < -0.99
     assert insight_stats.association(ts, xs, [1.0] * 60) is None
-
-
-# ---------------------------------------------------------------------------
-# Tone, one row at a time
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("metric,usual,now,better,tone", [
-    ("resting_heart_rate", 66, 60, "down", "good"),
-    ("resting_heart_rate", 60, 66, "down", "attention"),
-    ("resting_heart_rate", 55, 47, "down", "info"),             # past the standard range
-    ("resting_heart_rate", 55, 40, "down", "info"),
-    ("resting_heart_rate", 80, 112, "down", "info"),
-    ("resting_heart_rate", 110, 95, "down", "good"),            # heading back, though not there yet
-    ("respiratory_rate", 20, 13, "down", "info"),               # large, so it isn't called good news
-    ("respiratory_rate", 15, 8, "down", "info"),
-    ("oxygen_saturation", 94, 97, "up", "good"),
-    ("oxygen_saturation", 97, 93, "up", "info"),
-    ("sleep_duration", 6.5, 7.5, "up", "good"),
-    ("sleep_duration", 7.5, 6.5, "up", "attention"),
-    ("sleep_duration", 8.5, 9.5, "up", "info"),
-    ("sleep_duration", 8, 11, "up", "info"),
-    ("sleep_duration", 8, 5, "up", "info"),
-    ("hrv_rmssd", 40, 44, "up", "good"),
-    ("hrv_rmssd", 40, 60, "up", "info"),
-    ("hrv_rmssd", 40, 20, "up", "info"),
-    ("body_mass", 80, 76, None, "info"),
-])
-def test_tone_for_a_move(metric, usual, now, better, tone):
-    assert reading_bounds.tone_for_move(metric, usual, now, better) == tone
 
 
 # ---------------------------------------------------------------------------

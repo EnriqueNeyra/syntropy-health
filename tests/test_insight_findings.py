@@ -172,13 +172,13 @@ def test_slow_drift_over_years_is_described_with_when_it_crossed(client):
     assert f"{crossed:%b} {crossed.year}" in notes[0]["text"]
 
 
-def test_moving_toward_the_range_is_mentioned_in_a_good_tone(client):
+def test_moving_toward_the_range_is_stated_without_a_verdict(client):
     pid = _prof()
     src = _source(pid)
     _lab(pid, src, 1, _ago(100), 8.0, "high", code="4548-4", title="A1c", unit="%", high=5.6)
     _lab(pid, src, 2, _ago(10), 7.0, "high", code="4548-4", title="A1c", unit="%", high=5.6)
     notes = insights._lab_notes(pid)
-    assert [(n["title"], n["tone"]) for n in notes] == [("A1c closer to the range", "good")]
+    assert [(n["title"], n["tone"]) for n in notes] == [("A1c closer to the range", "info")]
     assert "still above" in notes[0]["text"]
 
 
@@ -404,18 +404,11 @@ def test_twelve_hours_of_sleep_is_not_good_news(client):
     assert item["metric"] == "sleep_duration" and item["tone"] == "info"
 
 
-def test_a_moderate_healthy_move_stays_good(client):
+def test_a_move_in_either_direction_is_neutral(client):
     pid = _prof()
     _daily(pid, "resting_heart_rate", _noisy(66, 0.8, 60) + _noisy(60, 0.8, 7), unit="bpm")
     item = next(i for i in insights._changes(pid) if i["kind"] == "change")
-    assert item["tone"] == "good" and "clinician" not in item["text"]
-
-
-def test_a_large_move_in_a_good_direction_is_neutral(client):
-    pid = _prof()
-    _daily(pid, "hrv_rmssd", _noisy(30, 1.5, 60) + _noisy(48, 1.5, 7), unit="ms")
-    item = next(i for i in insights._changes(pid) if i["kind"] == "change")
-    assert item["tone"] == "info"
+    assert item["tone"] == "info" and "clinician" not in item["text"]
 
 
 def test_change_text_uses_typical_values_and_never_claims_a_cause(client):
@@ -700,13 +693,13 @@ def test_a_result_still_flagged_critical_never_gets_a_good_tone(client):
     assert note["text"].endswith("The lab marked this critical.") and "closer" not in note["text"]
 
 
-def test_coming_down_from_critical_to_merely_high_can_be_good(client):
+def test_coming_down_from_critical_to_merely_high_is_stated(client):
     pid = _prof()
     src = _source(pid)
     _lab(pid, src, 1, _ago(100), 7.5, "critical_high", code="2160-0", title="Creatinine", unit="mg/dL", low=0.6, high=1.2)
     _lab(pid, src, 2, _ago(45), 2.0, "high", code="2160-0", title="Creatinine", unit="mg/dL", low=0.6, high=1.2)
     note = next(i for i in insights.insights(pid) if i["kind"] == "lab")
-    assert note["tone"] == "good" and note["title"] == "Creatinine closer to the range"
+    assert note["tone"] == "info" and note["title"] == "Creatinine closer to the range"
 
 
 # ---------------------------------------------------------------------------

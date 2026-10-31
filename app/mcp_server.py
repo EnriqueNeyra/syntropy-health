@@ -712,7 +712,7 @@ PROMPTS: dict[str, tuple[str, str, str]] = {
     "prepare_for_visit": ("Prepare for a visit", "Questions and a short summary to take to an upcoming appointment.",
                           "Help me prepare for an upcoming medical visit. Read my health summary, then my recent results, visits "
                           "and medications. Write a short summary I could hand to the clinician, what has changed lately, and "
-                          "the questions worth asking. Cite dates and sources."),
+                          "questions I could ask. Cite dates and sources."),
     "explain_latest_labs": ("Explain my latest labs", "What each recent test measures and how it compares with the lab's range.",
                             "Explain my most recent lab results in plain language: what each test measures, how my result compares "
                             "with the lab's range, and how it has changed over time."),
