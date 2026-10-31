@@ -268,7 +268,8 @@ def scenario():
     time.sleep(0.3)     # nothing more should follow it
     results["home_requests"] = [m["type"] for m in requests[before:]]
 
-    # A page that can't load is reported.
+    # A page that can't load is reported. (With the window on screen, another site would open in the sign-in sheet.)
+    on_main(lambda: mac.ns_window.orderOut_(None))
     window.load_url("http://127.0.0.1:9/")
     until(lambda: any("127.0.0.1:9" in str(f[0]) for f in failures))
     results["failures"] = [[str(a) for a in f] for f in failures]

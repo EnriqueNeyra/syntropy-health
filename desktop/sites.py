@@ -134,3 +134,52 @@ def _scheme_only(url: Any) -> str:
 def drop_bridge_call(*_args: Any, **_kwargs: Any) -> None:
     """In place of pywebview's js_bridge_call, which every page can reach and which moves the window. The app doesn't
     use that bridge: its Content-Security-Policy stops it working, and the app has its own (mac_window.py)."""
+
+
+# ---------------------------------------------------------------------------
+# The Mac's sign-in sheet (mac_sign_in.py)
+# ---------------------------------------------------------------------------
+
+def belongs_in_sheet(url: Optional[str], home: set[Origin]) -> bool:
+    """Whether the window, going to this address, would be leaving Syntropy Health. With no home known nothing can be
+    called another site, and only web addresses can be opened at all."""
+    here = origin(url)
+    return bool(home) and here is not None and here not in home
+
+
+def sheet_may(url: Optional[str]) -> str:
+    """What a page in the sheet may do with this address: "load" it there, "leave" for the default mail app (which also
+    takes a person's click), or "refuse". Pages with no origin of their own load, and the bar says they have no address."""
+    scheme = urllib.parse.urlsplit(url or "").scheme.lower()
+    if scheme in ("http", "https", "about", "blob", "data"):
+        return "load"
+    return "leave" if scheme in EXTERNAL_SCHEMES else "refuse"
+
+
+def sign_in_ended(url: Optional[str], home: set[Origin]) -> Optional[str]:
+    """Where a sign-in came back to: the app's page, as the hash to show ("" if the address names none). None while it's
+    still going, which is anywhere that isn't one of this server's own pages, whatever its address says after the #, and
+    any other page of this server's (the callback, or the page that asks whose records these are)."""
+    if origin(url) not in home:
+        return None
+    parts = urllib.parse.urlsplit(url or "")
+    if parts.fragment.startswith("/"):
+        return f"#{parts.fragment}"
+    return "" if parts.path in ("", "/") else None
+
+
+def sign_in_page_shows(url: Optional[str]) -> bool:
+    """Whether one of this server's own pages, reached during a sign-in, is for the person to read. The callback's only
+    job is to pass tokens on and go to the app; the page after it asks whose records these are, so it has to be seen."""
+    return urllib.parse.urlsplit(url or "").path != "/callback"
+
+
+def sheet_bar(url: Optional[str], home: set[Origin]) -> tuple[str, str]:
+    """What the sheet's bar says about this address: the name, and "lock" for https, "open" for plain http, "" where a
+    lock would mean nothing (this server's own pages, and pages with no address)."""
+    here = origin(url)
+    if here is None:
+        return site_name(url), ""
+    if here in home:
+        return "Syntropy Health", ""
+    return here[1], "lock" if here[0] == "https" else "open"
