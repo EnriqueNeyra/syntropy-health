@@ -90,7 +90,7 @@ const LOAD_WORDS = {
   steady: ["Steady", "good", "In line with your last four weeks."],
   easing: ["Easing off", "info", "Lighter than your usual: good for recovery, or a sign you've been busy."],
   new: ["Getting started", "info", "Not enough recent weeks to compare with yet."],
-  learning: ["Still learning", "info", "It takes about four weeks of workouts to know what a usual week looks like for you."],
+  learning: ["Still learning", "info", "There aren't enough workouts in the last four weeks yet to say what a usual week looks like for you."],
   none: ["No training yet", "info", "Workouts from the last five weeks will show here."],
 };
 

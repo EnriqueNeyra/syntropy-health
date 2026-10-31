@@ -74,6 +74,34 @@ def test_a_real_jump_is_worded_without_an_injury_claim(client):
     assert "injury" not in note["text"] and "233%" in note["text"]
 
 
+def _a_year_of_workouts(skip):
+    return [_w(i, i, minutes=30) for i in range(7, 365, 3) if not skip[0] <= i <= skip[1]]
+
+
+def test_a_week_off_a_month_ago_does_not_make_a_regular_look_new(client):
+    pid = _prof()
+    activity.insert_workouts(pid, None, _a_year_of_workouts((26, 35)) + [_w(1000 + i, i, minutes=120) for i in range(1, 7)])
+    load = _load(pid)
+    assert load["status"] == "spike" and load["ratio"] and load["ratio"] > 1.5
+    assert insights._training_notes(pid)[0]["title"] == "Training load jumped"
+
+
+def test_coming_back_after_a_long_break_is_still_not_a_spike(client):
+    # Years of history, but most of the last four weeks are empty, so they can't say what a usual week is.
+    pid = _prof()
+    activity.insert_workouts(pid, None, _a_year_of_workouts((0, 80)) + [_w(1000 + i, i, minutes=40) for i in range(1, 13)])
+    load = _load(pid)
+    assert load["status"] == "learning" and load["ratio"] is None
+    assert insights._training_notes(pid) == []
+
+
+def test_a_usual_week_after_one_empty_week_cannot_read_as_a_jump(client):
+    pid = _prof()
+    activity.insert_workouts(pid, None, [_w(i, i, minutes=30) for i in range(365) if not 14 <= i <= 20])
+    load = _load(pid)
+    assert load["ratio"] == pytest.approx(4 / 3, abs=0.02) and load["status"] == "building"
+
+
 # ---------------------------------------------------------------------------
 # F179: maximum heart rate
 # ---------------------------------------------------------------------------
@@ -93,6 +121,21 @@ def test_a_glitch_within_the_age_limit_does_not_set_it_either(client):
     pid = _prof()
     activity.insert_workouts(pid, None, [_w(i, 2 + i, minutes=30, avg_hr=120, max_hr=175) for i in range(5)] + [_w(50, 1, minutes=1, max_hr=225)])
     assert training.max_heart_rate(pid)["bpm"] == 175
+
+
+def test_a_glitch_two_sources_recorded_counts_once(client):
+    pid = _prof()
+    glitch = [{**_w(50, 1, minutes=30, max_hr=226), "id": f"g-{source}", "source_name": source} for source in ("Apple Watch", "Health Auto Export")]
+    activity.insert_workouts(pid, None, [_w(i, 2 + i, minutes=30, avg_hr=120, max_hr=172) for i in range(16)] + glitch)
+    assert len([w for w in activity.list_workouts(pid, 30) if w["max_hr"] == 226]) == 1
+    assert training.max_heart_rate(pid) == {"bpm": 172, "basis": "from your hardest workouts"}
+
+
+def test_two_separate_sessions_at_the_same_peak_still_count_twice(client):
+    pid = _prof()
+    activity.insert_workouts(pid, None, [_w(i, 2 + i, minutes=30, max_hr=170) for i in range(5)]
+                             + [_w(50, 1, minutes=30, max_hr=191), _w(51, 40, minutes=30, max_hr=191)])
+    assert training.max_heart_rate(pid)["bpm"] == 191
 
 
 def test_peaks_far_above_the_age_estimate_do_not_count_even_twice(client):

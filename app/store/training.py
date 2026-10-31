@@ -15,7 +15,7 @@ import json
 import math
 import statistics
 from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
 from app.core import settings
@@ -39,6 +39,9 @@ HR_POINT_MAX_MINUTES = 5.0
 # al., Sports Medicine, 2021), so there's no "usual" to compare with yet.
 LOAD_HISTORY_DAYS = 28
 MIN_USUAL_WEEK_LOAD = 60
+# With fewer of the four usual weeks trained than this, an ordinary week back reads as a jump: 4/3 is under the 1.5 for a
+# spike, 4/2 is over it.
+MIN_USUAL_WEEKS_TRAINED = 3
 
 
 def _age(birth: Optional[str]) -> Optional[int]:
@@ -66,14 +69,13 @@ def max_heart_rate(profile_id: str) -> dict[str, Any]:
     chosen = settings.get(_max_hr_key(profile_id))
     if chosen:
         return {"bpm": chosen, "basis": "set by you", "set_by_person": True}
-    since = (datetime.now(timezone.utc) - timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    with read() as conn:
-        rows = conn.execute("SELECT max_hr FROM workouts WHERE profile_id = ? AND start_date >= ? AND max_hr < 230 "
-                            "ORDER BY max_hr DESC LIMIT 50", (profile_id, since)).fetchall()
+    rows = activity.list_workouts(profile_id, 365, limit=100_000, dedupe=False)
+    # Folded first, since a workout two sources recorded is still one workout, whichever of them has the peak.
+    recorded = activity.dedupe_workouts([w for w in rows if w["max_hr"] and w["max_hr"] < 230])
     age = _age((profiles.get_profile(profile_id) or {}).get("birth_date"))
     estimate = 220 - age if age else None
     # An optical sensor spike lasts one workout, so the second-highest peak is the highest that happened twice.
-    peaks = [r[0] for r in rows if estimate is None or r[0] <= estimate + MAX_HR_ABOVE_ESTIMATE]
+    peaks = sorted((w["max_hr"] for w in recorded if estimate is None or w["max_hr"] <= estimate + MAX_HR_ABOVE_ESTIMATE), reverse=True)
     seen = peaks[1] if len(peaks) > 1 else None
     if seen and seen >= 150 and (estimate is None or seen >= estimate - 15):
         return {"bpm": round(seen), "basis": "from your hardest workouts"}
@@ -156,6 +158,12 @@ def _week_start(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
+def _days_of_history(profile_id: str, today: date, tz: Any) -> int:
+    with read() as conn:
+        first = conn.execute("SELECT MIN(start_date) FROM workouts WHERE profile_id = ?", (profile_id,)).fetchone()[0]
+    return (today - datetime.fromtimestamp(parse_ts(first).timestamp(), tz).date()).days if first else 0
+
+
 def summary(profile_id: str, weeks: int = 12, name: Optional[str] = None) -> dict[str, Any]:
     """Weekly volume and load for the last ``weeks`` weeks (this week included), this week's load against the four
     before it, and, for one kind of workout, each session's pace and heart rate and the best efforts."""
@@ -192,8 +200,9 @@ def summary(profile_id: str, weeks: int = 12, name: Optional[str] = None) -> dic
 
     acute = sum(v for d, v in daily_load.items() if (today - d).days < 7)
     chronic = sum(v for d, v in daily_load.items() if 7 <= (today - d).days < 35) / 4
-    history = max(((today - d).days for d in daily_load if (today - d).days < 35), default=0)
-    learning = bool(chronic) and (history < LOAD_HISTORY_DAYS or chronic < MIN_USUAL_WEEK_LOAD)
+    trained = {((today - d).days - 7) // 7 for d, v in daily_load.items() if v and 7 <= (today - d).days < 35}
+    learning = bool(chronic) and (_days_of_history(profile_id, today, tz) < LOAD_HISTORY_DAYS
+                                  or len(trained) < MIN_USUAL_WEEKS_TRAINED or chronic < MIN_USUAL_WEEK_LOAD)
     ratio = acute / chronic if chronic and not learning else None
     status = ("none" if not acute and not chronic else "new" if not chronic else "learning" if learning
               else "spike" if ratio > 1.5 else "building" if ratio > 1.2 else "easing" if ratio < 0.8 else "steady")
