@@ -36,6 +36,11 @@ function saveState(change) {
 
 const STALE_PHONE_DAYS = 3;
 const UPDATE_REMINDER_DAYS = 30;
+const STALE_DAYS = { ehr: 7, wearable: 3 };
+
+/** A connected source that hasn't synced for longer than it should have. */
+export const isStale = (c) => !c.access_ended && STALE_DAYS[c.kind] && c.last_sync_at
+  && ["active", "error"].includes(c.status) && Date.now() / 1000 - c.last_sync_at > STALE_DAYS[c.kind] * 86400;
 const ADULT_REMINDER_MONTHS = 6;
 
 /** Someone looked after who is nearly an adult (or is one): their record could be theirs. A reminder for whoever manages
@@ -95,6 +100,13 @@ function collect({ profile, summary, connections, status }) {
                  title: `No ${store} data since ${fmtDate(c.last_sync_at)}`,
                  text: `${c.display_name} hasn't sent anything in ${Math.floor((Date.now() / 1000 - c.last_sync_at) / 86400)} days. Open the Syntropy Health app on it to catch up.`,
                  href: "#/sources", action: "Open Sources" });
+    } else if (isStale(c)) {
+      out.push({ id: `conn:${c.id}:old:${Math.floor(c.last_sync_at / 86400)}`, level: "info", icon: "sources", title: `${c.display_name} last synced ${fmtDate(c.last_sync_at)}`,
+                 text: `Nothing has come in from it for ${Math.floor((Date.now() / 1000 - c.last_sync_at) / 86400)} days.`, href: "#/sources", action: "Open Sources" });
+    }
+    if (!c.access_ended && c.last_sync_status === "partial" && c.status === "active" && c.last_warnings?.length) {
+      out.push({ id: `conn:${c.id}:partial:${Math.floor(c.last_sync_at)}`, level: "info", icon: "sources", title: `${c.display_name} synced in part`,
+                 text: c.last_warnings.join(" "), href: "#/sources", action: "Open Sources" });
     }
   }
   for (const p of status?.problems || []) {

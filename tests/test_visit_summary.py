@@ -116,3 +116,39 @@ def test_ai_apps_get_the_counts(pid):
     from app import mcp_server
     _lab(pid, _source(pid), "k", 7.2)
     assert mcp_server.t_health_summary({})["lab_status"]["not_assessed"] == 1
+
+
+# ---------------------------------------------------------------------------
+# F125
+# ---------------------------------------------------------------------------
+
+def test_the_report_states_how_old_each_source_is_and_what_it_could_not_fetch(client, pid):
+    src = _source(pid, "Sutter")
+    _lab(pid, src, "a", 1, "normal", day="2026-01-05")
+    _lab(pid, src, "b", 1, "normal", day="2026-03-05")
+    run = connections.start_run(src, "manual")
+    connections.finish_run(run, src, "partial", {"warnings": ["Medications: this source didn't allow them to be read."]})
+    status = next(s for s in client.get("/api/report", params={"profile": pid}).json()["source_status"] if s["name"] == "Sutter")
+    assert status["newest_record_at"].startswith("2026-03-05") and status["last_sync_status"] == "partial" and status["last_sync_at"]
+    assert status["not_fetched"] == ["Medications: this source didn't allow them to be read."]
+
+
+def test_a_later_clean_sync_clears_what_could_not_be_fetched(client, pid):
+    src = _source(pid, "Sutter")
+    connections.finish_run(connections.start_run(src, "manual"), src, "partial", {"warnings": ["Medications: refused."]})
+    with db.db() as conn:
+        conn.execute("UPDATE sync_runs SET started_at = 1")
+    connections.finish_run(connections.start_run(src, "manual"), src, "success", {"warnings": []})
+    assert connections.source_status(pid)[0]["not_fetched"] == []
+
+
+def test_connections_list_carries_the_last_warnings_for_alerts(client, pid):
+    src = _source(pid, "Sutter")
+    connections.finish_run(connections.start_run(src, "manual"), src, "partial", {"warnings": ["Labs: refused."]})
+    found = client.get("/api/connections", params={"profile": pid}).json()["connections"]
+    assert next(c for c in found if c["id"] == src)["last_warnings"] == ["Labs: refused."]
+
+
+def test_stale_sources_are_flagged_by_kind_in_alerts():
+    text = (STATIC / "alerts.js").read_text(encoding="utf-8")
+    assert "ehr: 7, wearable: 3" in text and "synced in part" in text

@@ -106,6 +106,10 @@ export async function render({ el, state }) {
       ${r.coverage.length ? html`<section><h2>Insurance</h2>${table(["Plan", "Member ID", "Status"],
         r.coverage.map((c) => [c.title, c.details?.subscriber_id || "—", capitalize(c.status) || "—"]))}</section>` : ""}
 
+      ${r.source_status?.length ? html`<section><h2>Sources and how old they are</h2>${table(["Source", "Last synced", "Newest record"],
+        r.source_status.map((s) => [s.name, s.last_sync_at ? `${s.one_time ? "Imported " : ""}${fmtDate(s.last_sync_at)}` : "—", s.newest_record_at ? fmtDate(s.newest_record_at) : "—"]))}
+        ${r.source_status.filter((s) => s.not_fetched?.length).map((s) => html`<p class="small muted" style="margin-top:6px">${s.name}: ${s.not_fetched.join(" ")}</p>`)}</section>` : ""}
+
       <p class="disclaimer">Compiled by Syntropy Health from ${sources.length ? sources.join(", ") : "connected sources"}.
         Patient-assembled record for informational purposes; verify against the original source records. Not a medical device and not medical advice.</p>
     </article>`);

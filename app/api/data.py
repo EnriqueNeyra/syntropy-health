@@ -19,7 +19,7 @@ from app.api.deps import check_access, resolve_profile
 from app.core import auth, context
 from app.core.db import audit, db, new_id
 from app.services import exports, imports
-from app.store import accounts, biometrics, profiles, records
+from app.store import accounts, biometrics, connections, profiles, records
 
 router = APIRouter(prefix="/api", tags=["data"], dependencies=[Depends(auth.require_user)])
 
@@ -174,5 +174,6 @@ def visit_report(profile: Optional[str] = None) -> dict:
             # A summary for clinicians never shows demo data as if it were measured.
             "biometrics": [h for h in biometrics.headline(prof["id"])
                            if "(simulated)" not in ((h.get("latest") or {}).get("source") or "")],
+            "source_status": connections.source_status(prof["id"]),
             "care_team": records.list_records(prof["id"], "care_team", limit=20)["items"],
             "coverage": records.list_records(prof["id"], "coverage", limit=10)["items"]}

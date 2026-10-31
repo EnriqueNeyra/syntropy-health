@@ -1,5 +1,5 @@
 import { api, del, get, put } from "../api.js";
-import { refreshAlerts } from "../alerts.js";
+import { isStale, refreshAlerts } from "../alerts.js";
 import { haptic } from "../app.js";
 import { barChart, responsive, sparkline } from "../charts.js";
 import { openRecord } from "./record-detail.js";
@@ -373,6 +373,8 @@ export async function render({ el, state, navigate }) {
     const issues = connections.filter((c) => !c.access_ended && (c.status === "needs_reauth" || c.status === "error"));
     const syncing = connections.some((c) => c.syncing);
     const lastSync = connections.map((c) => c.last_sync_at).filter(Boolean).sort().pop();
+    const oldest = connections.filter(isStale).sort((a, b) => a.last_sync_at - b.last_sync_at)[0];
+    const partly = connections.filter((c) => !c.access_ended && c.last_sync_status === "partial" && c.status === "active");
     const items = layout.filter((w) => w.visible).map((w) => ({ w, out: content(w) })).filter((x) => x.out);
     mount(el, html`
       <div class="page-head">
@@ -382,8 +384,10 @@ export async function render({ el, state, navigate }) {
           ${editing ? html`<button class="btn btn-sm btn-ghost" data-action="reset">Reset</button>
               <button class="btn btn-sm" data-action="add">${icon("plus")} Add</button>
               <button class="btn btn-sm btn-primary" data-action="done">${icon("check")} Done</button>`
-            : html`<a class="sync-pill" href="#/sources"><span class="dot ${syncing ? "info pulse" : issues.length ? "warn" : "good"}"></span>
+            : html`<a class="sync-pill" href="#/sources"><span class="dot ${syncing ? "info pulse" : issues.length || oldest || partly.length ? "warn" : "good"}"></span>
               ${syncing ? "Syncing…" : issues.length ? `${plural(issues.length, "source")} need${issues.length === 1 ? "s" : ""} attention`
+                : oldest ? `${oldest.display_name} last synced ${fmtAgo(oldest.last_sync_at)}`
+                : partly.length ? `${partly[0].display_name} synced in part`
                 : `${plural(connections.length, "source")}${lastSync ? ` · synced ${fmtAgo(lastSync)}` : ""}`}</a>
               <button class="btn btn-sm" data-action="edit">${icon("sliders")} Edit</button>`}
         </div>
