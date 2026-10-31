@@ -134,3 +134,15 @@ def test_the_docker_smoke_test_can_take_the_backup_it_checks_for():
     smoke = (root / "scripts" / "docker_smoke.sh").read_text()
     assert smoke.index("/api/setup") < smoke.index("syntropy-health backup /data/backups --no-encrypt")
     assert "docker exec -it syntropy-health syntropy-health backup" in (root / "README.md").read_text()
+
+
+def test_a_flag_with_no_range_on_record_is_worded_as_the_labs_flag(client):
+    from app.services import insights
+    from tests.test_insight_findings import _ago, _lab, _prof, _source
+
+    pid = _prof()
+    src = _source(pid)
+    _lab(pid, src, 1, _ago(100), 96, "normal", code="13457-7", title="LDL", unit="mg/dL")
+    _lab(pid, src, 2, _ago(5), 106, "high", code="13457-7", title="LDL", unit="mg/dL")
+    words = " ".join(n["text"] for n in insights._lab_notes(pid))
+    assert "flagged high by the lab" in words and "reference range" not in words

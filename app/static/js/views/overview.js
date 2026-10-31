@@ -168,7 +168,7 @@ export const WIDGETS = [
       return html`<div class="card widget-card">
         <div class="card-head"><h3>${icon("bell")} New since you last looked</h3><button class="btn btn-sm btn-ghost" data-action="seen-new">Mark as seen</button></div>
         <div class="list">
-          ${n.imported.map((i) => html`<div class="list-item"><span class="grow">Imported ${plural(i.count, "record")} from ${i.source}</span></div>`)}
+          ${n.imported.map((i) => html`<div class="list-item"><span class="grow">Imported ${plural(i.count, "record")} from ${String(i.source).replace(/^Imported · /, "")}</span></div>`)}
           ${n.groups.map((g) => html`<div class="list-item" style="display:block"><div class="title">${g.label} <span class="badge">${g.count}</span></div>
             ${g.items.map((r) => html`<div class="meta clickable" data-action="record" data-id="${r.id}" role="link" tabindex="0">${r.title}${r.value_text ? ` ${r.value_text}` : ""} · ${fmtDate(r.effective_at)} · ${r.source_name || ""}</div>`)}
             ${g.count > g.items.length ? html`<div class="meta">and ${g.count - g.items.length} more</div>` : ""}</div>`)}

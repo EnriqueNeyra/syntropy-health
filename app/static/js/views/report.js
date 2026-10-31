@@ -126,7 +126,8 @@ export async function render({ el, state }) {
         ${r.visit_diagnoses?.length ? html`<h3>Diagnoses recorded at visits</h3>${table(["Condition", "ICD-10", "Date", "Source"],
           r.visit_diagnoses.slice(0, 10).map((c) => [html`${c.title}${saidOf(c)}`, c.details?.icd10 || "—", fmtDate(c.effective_at), sourcesOf(c)]))}${more(r.visit_diagnoses.length - 10)}` : ""}`)}
 
-      ${section("medications", "Current medications", html`${table(["Medication", "Instructions", "Prescriber", "Last prescribed and source"], r.active_medications.map(medRow))}
+      ${section("medications", "Current medications", html`${table(["Medication", "Instructions", "Prescriber", "Last prescribed and source"], r.active_medications.map(medRow),
+          r.medications_to_check?.length ? "None listed as current." : "None on record.")}
         ${r.medications_to_check?.length ? html`<h3>May be out of date</h3>${table(["Medication", "Why", "Last prescribed and source"],
           r.medications_to_check.map((m) => [html`${m.title}${saidOf(m)}`, m.med_reason || "—", dated(fmtDate(m.last_prescribed), m)]))}` : ""}
         ${r.medications_planned?.length ? html`<h3>Planned or proposed, not started</h3>${table(["Medication", "Date and source"],
