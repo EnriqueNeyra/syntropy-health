@@ -9,13 +9,13 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-from app.core.sqlite import sqlite3
 import time
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Optional
 
 from app.core import db
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.desktop")
 

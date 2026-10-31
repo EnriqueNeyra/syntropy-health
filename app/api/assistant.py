@@ -47,7 +47,7 @@ async def get_choices() -> dict:
 
 
 @router.put("/api/ai/config")
-async def put_config(req: AIConfig, principal: auth.Principal = Depends(auth.require_user)) -> dict:
+async def put_config(req: AIConfig, principal: auth.Principal = Depends(auth.require_whole_account)) -> dict:
     if not principal.owner and (req.api_key or req.base_url or req.allow_public_http or req.label
                                 or not ai.is_set_up(req.provider, req.agent)):
         raise HTTPException(403, "Only the server's owner can set up an AI. You can choose between the ones set up.")

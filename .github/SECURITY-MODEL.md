@@ -98,7 +98,8 @@ In order of how much is brought back:
    asks for it, or run `syntropy-health key recover`. Everything is back.
 2. **You have any backup made since this version, and its passphrase:** `syntropy-health restore BACKUP --key-only` takes
    just the key from it, and today's database opens, with nothing lost. On a new computer, restore the whole backup instead.
-3. **You kept a copy of the key** (`syntropy-health key export FILE`): put it back as `secret.key` in the data folder.
+3. **You kept a copy of the key** (`syntropy-health key export FILE`): put it back as `secret.key` in the data folder. If
+   nothing here opens the database with it, nothing changes.
 4. **Otherwise the records can't be read by anyone**, and no support request can change that. Keep a backup somewhere else
    (Settings → Your data), and keep its passphrase somewhere you won't lose.
 

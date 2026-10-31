@@ -17,12 +17,12 @@ from __future__ import annotations
 
 import json
 import logging
-from app.core.sqlite import sqlite3
 import time
 from typing import Any, Optional
 
 from app.core import security
 from app.core.db import audit, db, new_id, read, rows_to_dicts
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.accounts")
 

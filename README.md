@@ -61,9 +61,10 @@ standard range for a result and whether it's outside it, and changes from your o
   or the AI apps you already use through the built-in [Model Context Protocol](https://modelcontextprotocol.io) server.
   Access is read-only and every lookup is logged.
 - **No Syntropy cloud.** Your data lives in one SQLite database on your own hardware, behind a password, and Syntropy
-  Labs never receives it. Saved sign-ins are encrypted. **The records themselves are not encrypted by Syntropy Health:
-  turn on FileVault (Mac) or BitLocker (Windows)**, and treat the data folder and your backups as the record. Export
-  to FHIR R4 or CSV any time.
+  Labs never receives it. **It's encrypted on disk** with SQLCipher, using a key kept in your Mac's Keychain or Windows'
+  protected storage. On Linux and Docker the key stays beside the data unless you put it elsewhere. That protects a copy
+  of the files, not a running computer: keep FileVault or BitLocker on as well, and read
+  [what this protects and what it can't](.github/SECURITY-MODEL.md). Export to FHIR R4 or CSV any time.
 - **Oura and WHOOP sign-ins pass through a small open-source relay** ([cloudflare-worker](cloudflare-worker)) that
   holds the app secret. It doesn't store tokens or read your data. Use your own Oura or WHOOP app to skip it.
 - **For the people you care for.** Keep records for a partner, a child or a parent, and share access within your
@@ -105,14 +106,19 @@ that can't be read in detail stays readable under Clinical notes, and the origin
 
 ## Backups, restoring and upgrades
 
-Everything lives in one data folder: the database, the encryption key (`secret.key`) and uploads. Back it up, and
-keep backups somewhere only you can reach.
+Everything lives in one data folder, and the database is encrypted. On a Mac or Windows PC the key isn't in that folder,
+so a copy of the folder won't open on another computer: **use a backup to move your data**. An encrypted backup holds
+everything, including the key, so its passphrase is all a new computer needs. Keep backups somewhere only you can reach.
 
 ```
 syntropy-health backup /path/to/folder            # one encrypted file, protected by a passphrase you choose
 syntropy-health restore FILE --check              # test a backup and say what's in it; changes nothing
 syntropy-health restore FILE                      # stop the server first; what it replaces is kept beside the data
 syntropy-health restore FILE --key-only           # take only the encryption key from a backup, for a lost key
+syntropy-health key status                        # what's encrypted, and where the key is
+syntropy-health key recover                       # bring back a lost key with the password of an owner of this server
+syntropy-health key export FILE                   # a copy of the key to keep somewhere apart from the data
+syntropy-health database decrypt FILE             # an unencrypted copy, to go back to an earlier version or use other tools
 ```
 
 Settings also has Backup and Restore, and scheduled backups to a folder. `--no-encrypt` makes a plain zip that anyone
@@ -127,8 +133,17 @@ docker exec -it syntropy-health syntropy-health accounts reset-password NAME
 `--passphrase-file` with a file the container can read.
 
 Before upgrading its database, Syntropy Health keeps a copy in a pre-upgrade folder beside it, and won't upgrade if it
-can't. A lost encryption key can't be recovered: saved sign-ins stop opening and each source asks you to connect
-again. `syntropy-health key new` makes a fresh key once you've decided the old one is gone.
+can't.
+
+**Without the key, your records can't be read by anyone, and nobody can recover them for you.** If it's lost (resetting a
+forgotten Mac password can do it, for example), it comes back from any of these: the password of an owner of this server,
+which the start page asks for on a Mac or Windows PC; `restore FILE --key-only` with any backup made by this version; or a
+copy you made with `key export`, put back as `secret.key` in the data folder. So keep a backup somewhere else. `key new`
+only helps a database that isn't encrypted, or one that opens but whose saved sign-ins don't.
+
+To keep the key apart from the data on Linux or Docker, set `SYNTROPY_KEY_FILE` to a file elsewhere, such as a Docker secret.
+AI apps that start the MCP server themselves need that setting too. `SYNTROPY_SECRET_KEY` holds the key itself, so it isn't
+copied into their settings: with that one, AI apps connect to the server's `/mcp` address instead.
 
 ## Accounts and remote access
 

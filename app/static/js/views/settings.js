@@ -257,7 +257,7 @@ export async function render({ el, parts, state, navigate }) {
       ${section("How your data is protected", "", html`<ul class="check-list">
           <li>Everything lives ${settings.data_dir ? html`in <code>${settings.data_dir}</code> on this machine` : "on the computer this server runs on"}.</li>
           ${isOwner() ? "" : html`<li>${ownerName()} runs this server, so can reach the file it's all kept in, and its backups. Your access log shows each backup.</li>`}
-          <li>Sign-in tokens and secrets are encrypted at rest (key in <code>secret.key</code> or <code>SYNTROPY_SECRET_KEY</code>).</li>
+          <li>Sign-in tokens and secrets are encrypted a second time inside the database, so they stay locked in a backup you chose not to encrypt.</li>
           <li>Health record connections use PKCE; the relay only ever sees a one-time code.</li>
           <li>Phones and AI apps use individual tokens you can revoke.</li>
           <li>Every sign-in, sync and export is recorded in the <a href="#/settings/log">access log</a>.</li></ul>`)}
@@ -320,7 +320,7 @@ export async function render({ el, parts, state, navigate }) {
           html`<label class="btn btn-sm">${icon("upload")} Choose file<input type="file" id="ar-file" accept=".zip"></label>`)}<div id="ar-status" style="padding:0 16px"></div>` : ""}`)}
       ${!owner ? "" : section("Backup", "", html`
         ${failing ? html`<div class="banner bad" style="margin:12px 16px"><div class="grow"><p><b>The last scheduled backup failed.</b> ${failing}</p></div></div>` : ""}
-        ${row("Download a backup", html`Everyone's data in one encrypted file, including anyone who hasn't shared with you, with the encryption key that opens saved sign-ins, so it restores on any computer. ${household() ? "Everyone here sees it in their access log when one is made." : ""}
+        ${row("Download a backup", html`Everyone's data in one encrypted file, including anyone who hasn't shared with you, with the encryption key that opens it all, so it restores on any computer with only its passphrase. It's also how to get the key back if this computer loses it. ${household() ? "Everyone here sees it in their access log when one is made." : ""}
           ${last ? html`<br>Last backup: ${fmtDateTime(last.created_at)}${last.encrypted ? "" : " (not encrypted)"}.` : html`<br><b>No backup has been made yet.</b>`}`,
           html`<button class="btn btn-sm btn-primary" data-action="backup">${icon("download")} Back up…</button>`)}
         ${row("Scheduled backups", html`${scheduleText(backup.schedule)}

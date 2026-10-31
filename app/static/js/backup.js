@@ -36,7 +36,7 @@ export function openBackupDialog(info, onDone) {
     body: html`
       <p class="muted" style="margin-bottom:14px">One file with everything here, for everyone: records, wearable data, saved sign-ins, and the
         encryption key that opens them, so it restores on any computer. It's encrypted with a passphrase you choose.
-        ${info.key_source === "setting" ? html`<b>Your encryption key comes from the SYNTROPY_SECRET_KEY setting, so it isn't in the file: keep that value safe too.</b>` : ""}</p>
+        <b>That key opens your records, so the passphrase is what protects this file.</b> Without the passphrase, nobody can open it.</p>
       <div id="bk-fields">${passphraseFields(info.min_passphrase)}</div>
       ${info.needs_password ? html`<div class="field"><label class="label" for="bk-password">Your password</label>
         <input class="input" type="password" id="bk-password" autocomplete="current-password" required>
@@ -64,7 +64,7 @@ export function openBackupDialog(info, onDone) {
       done = busyButton(e.currentTarget, "Making it…");
       const made = await api("/api/backups", { method: "POST", body, keepCache: true });
       m.setBody(html`<div class="banner info">${icon("check")}<div class="grow"><p>Your backup is ready: ${fmtSize(made.size_bytes)}, holding ${made.holds}.</p></div></div>
-        ${made.key === "setting" ? html`<p class="small" style="margin-top:12px">The encryption key isn't in it. Keep your SYNTROPY_SECRET_KEY value with your backups.</p>` : ""}
+        ${made.key === "setting" ? html`<p class="small" style="margin-top:12px">The key for saved sign-ins isn't in it. Keep your SYNTROPY_SECRET_KEY value with your backups. Records in it can be read without one, by anyone who has the file.</p>` : ""}
         <p class="small" style="margin-top:12px;overflow-wrap:anywhere">The file is called ${made.filename}.</p>
         <p class="small muted" style="margin-top:12px">Store it somewhere other than this computer. It keeps anything you delete later, so remove older backups you no longer need.</p>`);
       mount($(".modal-foot", m.el), html`<button class="btn" data-cancel>Close</button>
@@ -101,7 +101,7 @@ export function openScheduleDialog(info, onDone) {
       ${passphraseFields(info.min_passphrase, { optional: s.enabled })}
       <div class="banner info">${icon("shield")}<div class="grow"><p><b>What the passphrase protects.</b> It isn't saved. A key made from it is kept in this server's
         database, protected by this server's encryption key, so backups can run with nobody here. These backups are safe if the drive or folder they're in is lost or shared.
-        They aren't safe from someone who has this computer's data folder, who could open them without the passphrase. To restore one you'll need the passphrase, so keep it somewhere else.</p></div></div>`,
+        They aren't safe from someone who can use this computer as you, or where the key is kept beside the data, from someone with a copy of that folder: they could open them without the passphrase. To restore one you'll need the passphrase, so keep it somewhere else.</p></div></div>`,
     footer: html`${s.enabled ? html`<button class="btn btn-danger" data-off>Turn off</button><span class="grow"></span>` : ""}
       <button class="btn" data-cancel>Cancel</button><button class="btn btn-primary" data-save>Save and back up now</button>`,
   });

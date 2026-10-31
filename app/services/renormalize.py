@@ -14,13 +14,13 @@ source itself says was a mistake, which is also what the next sync of a live con
 from __future__ import annotations
 
 import json
-from app.core.sqlite import sqlite3
 import time
 from typing import Any, Optional
 
 from app.connectors import fhir_normalize
 from app.core import data_fixes
 from app.core.db import audit, dumps
+from app.core.sqlite import sqlite3
 
 NAME = "records-renormalize-2"
 

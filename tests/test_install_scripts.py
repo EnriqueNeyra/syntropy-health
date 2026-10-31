@@ -381,6 +381,21 @@ def test_uninstalling_on_a_mac_takes_out_only_the_lines_it_added(mac):
     assert profile.read_text() == 'export MINE=1\n\nexport ALSO_MINE=2\n'
 
 
+def test_deleting_everything_takes_the_key_from_the_keychain_too(mac):
+    """Only the key that opened this data, named in key.json. A stand-in for the tool: this must never reach a real keychain."""
+    calls = mac.root / "security-calls"
+    tool = mac.stubs / "security"
+    tool.write_text(f'#!/bin/sh\necho "$@" >> "{calls}"\n')
+    tool.chmod(0o755)
+    data = mac.home / "Library/Application Support/Syntropy Health"
+    data.mkdir(parents=True, exist_ok=True)
+    (data / "key.json").write_text(json.dumps({"store": "keychain", "account": "abc123"}, indent=1))
+    assert mac.run("--uninstall", env=mac.mac_env).returncode == 0
+    assert not calls.exists() and data.exists()     # keeping the data keeps its key
+    assert mac.run("--uninstall", "--purge", env=mac.mac_env).returncode == 0
+    assert "delete-generic-password" in calls.read_text() and "abc123" in calls.read_text() and not data.exists()
+
+
 def test_uninstalling_leaves_a_path_line_someone_wrote_themselves(mac):
     profile = mac.home / ".zprofile"
     profile.write_text('export PATH="$HOME/.local/bin:$PATH"\n')

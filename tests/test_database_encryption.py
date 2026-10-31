@@ -869,6 +869,29 @@ def test_backups_still_report_damage(tmp_path):
     assert maintenance.check_integrity(path)["ok"] is False
 
 
+def test_the_desktop_app_can_put_back_a_copy_it_kept_and_refuses_one_it_can_not_open(tmp_path):
+    sys.path.insert(0, str(config.REPO_ROOT / "desktop"))
+    import recovery
+    with _start() as c:
+        _set_up(c)
+        _with_record()
+    path = config.db_path()
+    db.close_readers()
+    copy = tmp_path / "kept.db"
+    db.snapshot(copy)
+    aside = recovery.restore(copy, path)
+    assert (aside / "syntropy.db").exists()
+    db.reset_migration_cache()
+    with db.read() as conn:
+        assert conn.execute("SELECT narrative FROM clinical_records").fetchone()[0] == f"{MARKER} notes"
+    (tmp_path / "secret.key").rename(tmp_path / "moved")
+    (tmp_path / "secret.key").write_bytes(base64.urlsafe_b64encode(os.urandom(32)))
+    security.forget_key()
+    with pytest.raises(recovery.RestoreRefused):
+        recovery.restore(copy, path)
+    assert db.is_encrypted(path)
+
+
 # ---------------------------------------------------------------------------
 # Who can read the folder
 # ---------------------------------------------------------------------------
@@ -890,6 +913,24 @@ def test_everything_in_the_data_folder_is_private_even_what_was_not_before(tmp_p
     assert stat.S_IMODE(tmp_path.stat().st_mode) == 0o700
     for f in tmp_path.rglob("*"):
         assert stat.S_IMODE(f.stat().st_mode) == (0o700 if f.is_dir() else 0o600), f
+
+
+@pytest.mark.skipif(os.name == "nt", reason="file permissions")
+def test_a_program_kept_in_the_folder_stays_a_program_and_an_update_on_its_way_is_left_alone(tmp_path):
+    with _start():
+        pass
+    script = tmp_path / "pre-restore" / "tool"
+    script.parent.mkdir()
+    script.write_text("#!/bin/sh\n")
+    script.chmod(0o755)
+    update = tmp_path / "updates" / "installer"
+    update.parent.mkdir()
+    update.write_text("x")
+    update.chmod(0o755)
+    encryption.make_private(config.db_path())
+    assert stat.S_IMODE(script.stat().st_mode) == 0o700
+    assert stat.S_IMODE(update.stat().st_mode) == 0o755
+    assert stat.S_IMODE(update.parent.stat().st_mode) == 0o700 or stat.S_IMODE(update.parent.stat().st_mode) == 0o755
 
 
 def test_windows_gets_an_access_list_for_a_folder_outside_the_profile(tmp_path, monkeypatch):
@@ -924,6 +965,18 @@ def test_windows_acl_really_limits_the_folder(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # What Settings is told
 # ---------------------------------------------------------------------------
+
+def test_settings_says_how_it_is_and_only_the_owner_sees_where(tmp_path):
+    from tests.test_accounts import MARIA_PASSWORD, _join, _person, _signed_in_owner
+    with _start() as c:
+        client = _signed_in_owner(c)
+        said = client.get("/api/settings/encryption").json()
+        assert said["encrypted"] and said["key_kind"] == "file" and said["key_file"].endswith("secret.key")
+        maria, _ = _join(client, _person(client, "Maria", "partner"))
+        theirs = maria.get("/api/settings/encryption").json()
+        assert theirs["encrypted"] and theirs["key_where"] and theirs["key_file"] is None and theirs["plain_copies"] == []
+        assert "accounts" not in theirs["password_recovery"] and MARIA_PASSWORD
+
 
 def test_status_says_how_it_is(tmp_path):
     with _start() as c:

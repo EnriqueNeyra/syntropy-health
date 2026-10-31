@@ -21,7 +21,6 @@ import difflib
 import json
 import logging
 import re
-from app.core.sqlite import sqlite3
 import sys
 import time
 from dataclasses import dataclass, field
@@ -35,6 +34,7 @@ from app.core import config, settings
 from app.core.db import audit, close_readers, db, ensure_migrated, finite, is_busy, read
 from app.services import insights
 from app.store import activity, biometrics, connections, goals, lab_catalog, profiles, records, search, sleep, training
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.mcp")
 

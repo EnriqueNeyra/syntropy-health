@@ -19,7 +19,6 @@ import hmac
 import json
 import os
 import secrets
-from app.core.sqlite import sqlite3
 import threading
 import time
 from pathlib import Path
@@ -28,6 +27,7 @@ from typing import Any, Optional
 from cryptography.fernet import Fernet, InvalidToken
 
 from app.core import config, db, keystore
+from app.core.sqlite import sqlite3
 
 _key_lock = threading.RLock()
 _key_cache: dict[str, bytes] = {}

@@ -208,6 +208,11 @@ mac_main() {
     if [ "$PURGE" = 1 ]; then
       # The app's window keeps its own sign-in cookies, cache and window position under its bundle identifier.
       for kept in WebKit Caches HTTPStorages; do rm -rf "$HOME/Library/$kept/io.syntropyhealth.desktop"; done
+      # The key that opened the data, from the Keychain. key.json names it.
+      account="$(sed -n 's/.*"account": "\([0-9a-f]*\)".*/\1/p' "$DATA/key.json" 2>/dev/null || true)"
+      if [ -n "$account" ]; then
+        security delete-generic-password -s "Syntropy Health encryption key" -a "$account" >/dev/null 2>&1 || true
+      fi
       rm -rf "$DATA" "$HOME/Library/HTTPStorages/io.syntropyhealth.desktop.binarycookies" \
         "$HOME/Library/Saved Application State/io.syntropyhealth.desktop.savedState"
       defaults delete io.syntropyhealth.desktop >/dev/null 2>&1 || true

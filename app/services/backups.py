@@ -21,7 +21,6 @@ import logging
 import os
 import secrets
 import shutil
-from app.core.sqlite import sqlite3
 import tempfile
 import threading
 import time
@@ -34,6 +33,7 @@ from typing import Any, Callable, Optional
 from app.core import config, db, encryption, keystore, maintenance, security, settings
 from app.services import backup_file
 from app.services.backup_file import BackupFileError, Damaged, SealKey
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.backups")
 

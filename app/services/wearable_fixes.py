@@ -6,7 +6,6 @@ this order, and the daily numbers are worked out again last, from what the other
 from __future__ import annotations
 
 import json
-from app.core.sqlite import sqlite3
 import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
@@ -16,6 +15,7 @@ from app.services.sync import WEARABLE_INITIAL_DAYS
 from app.store import biometrics, sample_counts
 from app.store.biometrics import FLAG_UNIT, SLEEP_MAP, _stored_day, device_kind, reading_flag
 from app.store.metric_registry import METRICS, to_canonical
+from app.core.sqlite import sqlite3
 
 
 def _fix_samples(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:

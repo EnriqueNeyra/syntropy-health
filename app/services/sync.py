@@ -12,7 +12,6 @@ import asyncio
 import hashlib
 import json
 import logging
-from app.core.sqlite import sqlite3
 import time
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -26,6 +25,7 @@ from app.connectors.smart import SmartError
 from app.services import connect
 from app.core.db import audit, db, dumps, read
 from app.store import activity, biometrics, connections, record_files, record_overrides, records
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.sync")
 

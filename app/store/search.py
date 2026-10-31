@@ -17,13 +17,13 @@ from __future__ import annotations
 import contextlib
 import logging
 import re
-from app.core.sqlite import sqlite3
 from functools import lru_cache
 from typing import Any, Optional
 
 from app.core import data_fixes
 from app.core.db import db, read
 from app.store import lab_catalog
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.search")
 

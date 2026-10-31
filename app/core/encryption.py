@@ -83,10 +83,13 @@ def enabled() -> bool:
 # Keeping files private
 # ---------------------------------------------------------------------------
 
-def _chmod(target: Path, mode: int) -> None:
+def _chmod(target: Path, most: int = 0o777) -> None:
+    """Nothing for anyone but this account, whatever else the file's mode says: a program among what's kept stays one."""
     try:
-        if stat.S_IMODE(target.stat().st_mode) != mode:
-            target.chmod(mode)
+        current = stat.S_IMODE(target.lstat().st_mode)
+        wanted = current & 0o700 & most
+        if not target.is_symlink() and current != wanted:
+            target.chmod(wanted)
     except OSError as exc:        # e.g. a folder mounted in Docker that belongs to someone else
         log.warning("Couldn't make %s private: %s", target, exc)
 
@@ -109,30 +112,24 @@ def _windows_acl(folder: Path) -> None:
 
 
 def make_private(path: Path) -> None:
-    """The database and, when it's in the usual data folder, that folder and everything in it: logs, keys and the copies kept
-    of the database. SQLite gives the -wal and -shm files the database's own permissions. Files are made private as they're
-    created; this covers what an earlier version, or a restore done by hand, left open."""
-    data = config.data_dir()
-    in_data_folder = path.parent == data
+    """The database and, when it's in the usual data folder, that folder and what's in it: logs, keys and the copies kept of
+    the database. SQLite gives the -wal and -shm files the database's own permissions. Files are made private as they're
+    created; this covers what an earlier version, or a restore done by hand, left open. ``updates/`` holds an installer on its
+    way, which is nobody's health data and is run from there. For Windows, see at_start_up."""
     if os.name == "nt":
-        if in_data_folder:
-            _windows_acl(data)
         return
+    data = config.data_dir()
     _chmod(path, 0o600)
-    if not in_data_folder:
+    if path.parent != data:
         return
-    _chmod(data, 0o700)
+    _chmod(data)
     try:
         for entry in data.iterdir():
-            if entry.is_symlink():
-                continue
-            _chmod(entry, 0o700 if entry.is_dir() else 0o600)
-            if entry.is_dir():
+            _chmod(entry)
+            if entry.is_dir() and not entry.is_symlink() and entry.name != "updates":
                 for inner, folders, files in os.walk(entry):
-                    for name in folders:
-                        _chmod(Path(inner) / name, 0o700)
-                    for name in files:
-                        _chmod(Path(inner) / name, 0o600)
+                    for name in (*folders, *files):
+                        _chmod(Path(inner) / name)
     except OSError as exc:
         log.warning("Couldn't check who can read %s: %s", data, exc)
 
@@ -412,6 +409,8 @@ def at_start_up() -> None:
     path = config.db_path()
     db.close_readers()
     _postponed.pop(str(path), None)
+    if os.name == "nt" and path.parent == config.data_dir():
+        _windows_acl(path.parent)       # here only: it takes a moment, and the MCP server starts many times
     try:
         _keep_key_in_store()
         if not path.exists() or not path.stat().st_size or db.is_encrypted(path) or not enabled():

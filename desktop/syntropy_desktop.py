@@ -649,7 +649,7 @@ class DesktopApp:
         recovers from a start-up problem only from the page saying so, which the app wrote itself."""
         kind = msg.get("type")
         if msg.get("_own_page") and kind in ("problem-retry", "problem-restore", "problem-fresh", "problem-folder",
-                                             "problem-latest", "problem-quit", "go-home"):
+                                             "problem-latest", "problem-quit", "problem-unlock", "go-home"):
             return self.on_own_page_request(kind)
         own = msg.get("_origin", "").rstrip("/") in (f"http://localhost:{self.server.port}", f"http://127.0.0.1:{self.server.port}")
         if kind == "join" and own and not self.joined and isinstance(msg.get("url"), str):

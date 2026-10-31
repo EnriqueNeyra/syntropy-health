@@ -15,7 +15,6 @@ import hashlib
 import json
 import logging
 import shutil
-from app.core.sqlite import sqlite3
 import threading
 import time
 from pathlib import Path
@@ -29,6 +28,7 @@ from app.core import config, data_fixes, private_files
 from app.core.db import db, dumps, new_id, read, rows_to_dicts
 from app.services import ccda, sync
 from app.store import activity, biometrics, connections, record_files, records
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.imports")
 

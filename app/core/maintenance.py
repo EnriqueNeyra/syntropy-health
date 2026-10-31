@@ -17,13 +17,13 @@ from __future__ import annotations
 
 import logging
 import shutil
-from app.core.sqlite import sqlite3
 import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
 
 from app.core import config, db, security, settings
+from app.core.sqlite import sqlite3
 
 log = logging.getLogger("syntropy.maintenance")
 

@@ -10,7 +10,6 @@ import asyncio
 import html
 import logging
 import re
-from app.core.sqlite import sqlite3
 import threading
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
@@ -28,6 +27,7 @@ from app.core.uploads import DecompressUploads
 from app.services import backups as backups_service, imports, network, renormalize, scheduler, updates, wearable_fixes  # noqa: F401 - renormalize and wearable_fixes register data fixes
 from app.store import biometrics as biometric_store, profiles as profile_store, sample_counts, search
 from app.simulator import server as simulator
+from app.core.sqlite import sqlite3
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
