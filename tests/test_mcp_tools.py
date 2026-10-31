@@ -8,9 +8,11 @@ from datetime import date, timedelta
 import pytest
 
 from app import mcp_server
+from app.connectors import fhir_normalize
+from app.core import data_fixes, settings
 from app.core.db import db
 from app.services import ai
-from app.store import profiles, records
+from app.store import activity, profiles, records
 from tests.conftest import connect_institution
 
 
@@ -388,3 +390,178 @@ def test_descriptions_match_what_the_tools_do(chart):
 def test_compare_with_nothing_in_common_says_why(chart):
     result = ok("compare_measures", a="hrv_sdnn", b="step_count")
     assert result["n"] == 0 and "No day" in result["note"] and "step_count" in result["note"]
+
+
+# ---------------------------------------------------------------------------
+# Workouts several sources recorded, and what their totals cover
+# ---------------------------------------------------------------------------
+
+def _same_sessions(sources, count):
+    profile = _person_id()
+    start = date(2026, 10, 1)
+    with db() as conn:
+        for i in range(count):
+            day = (start - timedelta(days=i)).isoformat()
+            for source in sources:
+                conn.execute("INSERT INTO workouts(id, profile_id, activity_type, name, start_date, end_date, duration_s, distance_m, source_name, avg_hr, created_at) "
+                             "VALUES (?, ?, 'running', 'Running', ?, ?, 1800, 5000, ?, 150, 1)",
+                             (f"w{source}{i}", profile, f"{day}T10:00:00Z", f"{day}T10:30:00Z", source))
+
+
+@pytest.mark.parametrize("sources", [["Apple Watch", "WHOOP", "Oura"], ["Apple Watch", "WHOOP", "Oura", "Garmin", "Polar", "Fitbit"]])
+def test_every_workout_is_reachable_however_many_sources_recorded_it(client, sources):
+    _same_sessions(sources, 150)
+    seen, cursor = [], None
+    for _ in range(200):
+        out = ok("list_workouts", days=36500, **({"cursor": cursor} if cursor else {}))
+        seen += out["workouts"]
+        assert out["workouts"], out
+        cursor = out.get("next_cursor")
+        if not cursor:
+            break
+    assert out["truncated"] is False and "rows_omitted" not in out
+    assert out["summary"]["count"] == 150
+    assert len({w["start_date"] for w in seen}) == 150 and len(seen) == 150
+    assert all(len(w["also_recorded_by"]) == len(sources) - 1 for w in seen)
+
+
+def test_a_session_at_the_limit_keeps_all_its_sources(client):
+    _same_sessions(["Apple Watch", "WHOOP", "Oura", "Garmin"], 10)
+    for limit in range(1, 11):
+        rows = activity.list_workouts(_person_id(), None, limit)
+        assert len(rows) == limit and all(len(w["also_recorded_by"]) == 3 for w in rows)
+
+
+def test_a_page_with_nothing_on_it_doesnt_promise_more(client, monkeypatch):
+    _same_sessions(["Apple Watch"], 3)
+    monkeypatch.setattr(activity, "list_workouts", lambda *a, **k: [])
+    out = ok("list_workouts", days=36500)
+    assert out["workouts"] == [] and out["truncated"] is False and "next_cursor" not in out
+
+
+def test_workout_totals_say_which_period_they_cover(client):
+    _same_sessions(["Apple Watch"], 400)
+    out = ok("list_workouts", start="2026-01-01", end="2026-06-30")
+    assert out["summary"]["days"] == 181 and out["summary"]["count"] == 181
+    assert out["summary"]["start"] == "2026-01-01" and out["summary"]["end"] == "2026-06-30"
+    out = ok("list_workouts", end="2026-06-30", days=10)
+    assert out["summary"]["days"] == 10 and out["summary"]["start"] == "2026-06-21" and out["summary"]["end"] == "2026-06-30"
+    assert ok("list_workouts", days=30)["summary"]["days"] == 30
+
+
+def test_the_workouts_page_gets_totals_for_its_window_too(client):
+    _same_sessions(["Apple Watch"], 40)
+    body = client.get("/api/biometrics/workouts", params={"start": "2026-09-01", "end": "2026-09-30"}).json()
+    assert body["summary"]["days"] == 30 and body["summary"]["count"] == 30
+    assert client.get("/api/biometrics/workouts", params={"days": 7}).json()["summary"]["days"] == 7
+
+
+# ---------------------------------------------------------------------------
+# Dates at the ends of the calendar
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(params=["UTC", "Asia/Tokyo", "America/Los_Angeles"])
+def anywhere(request, chart):
+    settings.set("display.timezone", request.param)
+    return chart
+
+
+@pytest.mark.parametrize("args", [{"until": "9999-12-31"}, {"since": "0001-01-01"}, {"since": "0001-01-01", "until": "9999-12-31"},
+                                  {"until": "0001-01-01"}, {"since": "9999-12-31"}, {"since": "0001-01-01T00:00:00+14:00"},
+                                  {"until": "9999-12-31T23:59:59-12:00"}, {"until": "9999-12-31T23:59:59Z"}])
+def test_records_with_a_date_at_the_edge_of_the_calendar(anywhere, args):
+    r = anywhere.get("/api/records", params=args)
+    assert r.status_code == 200, r.text
+    assert ok("search_records", **args)["total_matches"] == r.json()["total"]
+
+
+def test_no_upper_or_lower_bound_finds_everything(anywhere):
+    everything = ok("search_records")["total_matches"]
+    assert everything
+    out = ok("search_records", until="9999-12-31", since="0001-01-01")
+    assert out["total_matches"] == everything and out["adjusted"]["until"] and out["adjusted"]["since"]
+    assert anywhere.get("/api/records", params={"until": "9999-12-31", "since": "0001-01-01"}).json()["total"] == everything
+    assert ok("search_records", since="9999-12-31")["total_matches"] == 0
+    assert ok("search_records", until="0001-01-01")["total_matches"] == 0
+
+
+@pytest.mark.parametrize("tool, extra", [("get_sleep_nights", {}), ("get_daily_metric", {"metric": "step_count"}), ("list_workouts", {}),
+                                         ("get_health_journal", {})])
+@pytest.mark.parametrize("period", [{"end": "0001-01-01"}, {"end": "9999-12-31"}, {"end": "0001-01-01", "days": 30}, {"start": "0001-01-01"},
+                                    {"start": "9999-12-31"}, {"start": "0001-01-01", "end": "9999-12-31"}, {"start": "0001-01-01", "end": "0001-01-02"},
+                                    {"start": "9999-12-30", "end": "9999-12-31"}, {"end": "9999-12-31T23:59:59-12:00"}, {"end": "0001-01-01T00:00:00+14:00"}])
+def test_a_period_at_the_edge_of_the_calendar_gets_an_answer_or_a_reason(anywhere, tool, extra, period):
+    result = call(tool, **extra, **period)
+    if result["isError"]:
+        assert json.loads(result["content"][0]["text"])["code"] in ("period_too_long", "bad_range")
+
+
+def test_an_end_with_no_limit_means_up_to_today(chart):
+    today = ok("get_sleep_nights", days=30)
+    far = ok("get_sleep_nights", days=30, end="9999-12-31")
+    assert far["adjusted"]["end"] == today["end"] and far["nights"] == today["nights"] and today["nights"]
+
+
+def test_a_start_after_today_is_said_to_be(chart):
+    assert fails("get_sleep_nights", start="2200-01-01")["code"] == "bad_range"
+
+
+@pytest.mark.parametrize("params", [{"start": "0001-01-01"}, {"end": "9999-12-31"}, {"start": "0001-01-01", "end": "9999-12-31"},
+                                    {"end": "9999-12-31T23:59:59-12:00"}, {"start": "0001-01-01T00:00:00+14:00"}])
+def test_the_workouts_and_journal_pages_take_edge_dates(anywhere, params):
+    assert anywhere.get("/api/biometrics/workouts", params=params).status_code == 200
+    assert anywhere.get("/api/biometrics/events", params=params).status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Numbers that aren't numbers
+# ---------------------------------------------------------------------------
+
+def _make_infinite(field="value_num"):
+    with db() as conn:
+        row = conn.execute("SELECT id FROM clinical_records WHERE category = 'labs' AND value_num IS NOT NULL LIMIT 1").fetchone()
+        conn.execute(f"UPDATE clinical_records SET {field} = 9e999 WHERE id = ?", (row["id"],))
+    return row["id"]
+
+
+def test_an_infinite_value_doesnt_break_a_call(chart):
+    record = _make_infinite()
+    token = chart.post("/api/agents/tokens", json={"name": "t"}).json()["token"]
+    r = chart.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "get_record", "arguments": {"record_id": record}}},
+                   headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+    result = r.json()["result"]
+    assert result["isError"] is False
+    assert result["structuredContent"] == json.loads(result["content"][0]["text"])
+    assert result["structuredContent"].get("value_num") is None
+
+
+def test_the_result_is_valid_json_both_ways(chart):
+    _make_infinite()
+    reply = mcp_server.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "search_records", "arguments": {"category": "labs", "limit": 100}}})
+    json.dumps(reply, allow_nan=False)
+
+
+def test_an_infinite_value_isnt_shown_as_a_result(chart):
+    rec = records.get_record(_make_infinite())
+    rec["value_text"] = None
+    assert "inf" not in str(mcp_server._lab_line(rec).get("result", ""))
+    assert "inf" not in mcp_server._range({"ref_low": float("inf"), "ref_high": 5.0, "unit": "mg/dL"})
+
+
+def test_a_portal_cant_store_an_infinite_value(client):
+    assert fhir_normalize._num("1e999") is None and fhir_normalize._num(float("inf")) is None
+    assert fhir_normalize._num(float("nan")) is None and fhir_normalize._num("5.5") == 5.5
+
+
+def test_infinite_values_already_stored_are_cleared(chart):
+    with db() as conn:
+        conn.execute("DELETE FROM data_fixes WHERE name = ?", (records.NO_INFINITY_FIX,))
+    record = _make_infinite()
+    other = _make_infinite("ref_high")
+    _make_infinite("value_norm")
+    data_fixes.run_pending()
+    assert records.get_record(record)["value_num"] is None and records.get_record(other)["ref_high"] is None
+    with db() as conn:
+        assert not conn.execute("SELECT 1 FROM clinical_records WHERE abs(value_norm) = 9e999 OR abs(ref_low) = 9e999").fetchone()
+    assert chart.get("/api/records", params={"category": "labs", "limit": 1000}).status_code == 200

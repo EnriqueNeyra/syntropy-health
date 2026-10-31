@@ -313,3 +313,116 @@ def test_a_search_for_someone_elses_note_finds_nothing(raw_client):
                           headers={"Authorization": f"Bearer {token}"})
     assert json.loads(r.json()["result"]["content"][0]["text"])["total_matches"] == 0
 
+
+# ---------------------------------------------------------------------------
+# A word inside a longer word, and text that isn't quite words
+# ---------------------------------------------------------------------------
+
+def test_a_word_inside_a_longer_word_is_found(searchable):
+    _add("p", "Prediabetes", category="conditions")
+    _add("h", "Hyperlipidemia", category="conditions")
+    _add("s", "Atorvastatin 20 MG Oral Tablet", category="medications")
+    _add("l", "HbA1c-like thing", category="labs")
+    assert _titles("diabetes") == ["Prediabetes"]
+    assert _titles("lipidemia") == ["Hyperlipidemia"]
+    assert _titles("statin") == ["Atorvastatin 20 MG Oral Tablet"]
+    assert _titles("statins") == ["Atorvastatin 20 MG Oral Tablet"]
+    assert _titles("a1c-like") == ["HbA1c-like thing"]
+    assert _titles("tension lisinopril") == ["Essential hypertension"]
+
+
+def test_results_dont_change_when_the_index_finishes(client, monkeypatch):
+    _add("p", "Prediabetes", narrative="Discussed metformin and hemoglobin", category="conditions")
+    _add("m", "O'Brien follow-up", details={"authors": ["Dr. Smith-Jones"]})
+    _add("c", "Blood count", code="718-7", value="13.2 g/dL", category="labs")
+    queries = ("diabetes", "formin", "globin met", "brien", "o'brien", "smith-jones", "ith-jon", "718-7", "18-7", "3.2", "nothing here")
+    with monkeypatch.context() as scan:
+        scan.setattr(search, "ready", lambda: False)
+        expected = {q: _titles(q) for q in queries}
+    _build_index()
+    assert {q: _titles(q) for q in queries} == expected
+    assert expected["diabetes"] == ["Prediabetes"] and expected["ith-jon"] == ["O'Brien follow-up"]
+
+
+def test_a_real_looking_chart_answers_the_same_with_and_without_the_index(client, monkeypatch):
+    connect_institution(client, "epic-stanford-health-care")
+    _build_index()
+    person = profiles.default_profile()["id"]
+    conditions = [r["title"] for r in records.list_records(person, "conditions", limit=100)["items"]]
+    assert "Prediabetes" in conditions and "Hyperlipidemia" in conditions
+
+    def answer(query):
+        return json.loads(mcp_server.call_tool("search_records", {"query": query, "limit": 100})[0])["total_matches"]
+    queries = ("diabetes", "lipidemia", "statin", "glycemia", "tension", "pressure", "metformin", "a1c", "nothingatall")
+    indexed = {q: answer(q) for q in queries}
+    monkeypatch.setattr(search, "ready", lambda: False)
+    assert {q: answer(q) for q in queries} == indexed
+    assert indexed["diabetes"] and indexed["lipidemia"] and not indexed["nothingatall"]
+
+
+def test_a_word_inside_a_longer_word_shows_where_it_matched(client):
+    _build_index()
+    _add("p", "Visit", narrative="Long history of prediabetes managed with diet", category="notes")
+    found = search.snippets("diabetes", [records.record_id("con_s", "DocumentReference", "p")])
+    assert "prediabetes" in next(iter(found.values()))
+
+
+def test_punctuation_around_a_word_doesnt_hide_it(searchable):
+    assert _titles("hypertension?") == ["Essential hypertension"]
+    assert _titles("(hypertension)") == ["Essential hypertension"]
+    assert _titles("essential, hypertension.") == ["Essential hypertension"]
+
+
+def test_accents_inside_a_longer_word(client):
+    _build_index()
+    _add("n", "Visit", details={"authors": ["Dr. Peñaloza"]})
+    assert _titles("peñal") == ["Visit"]
+    assert _titles("naloza") == ["Visit"]
+
+
+def test_a_word_inside_too_many_longer_words_still_gets_its_answer(client, monkeypatch):
+    _build_index()
+    _add("t", "Visit", narrative="abcde abcdf abcdg abcdh")
+    _add("u", "Other")
+    monkeypatch.setattr(search, "MAX_TERMS", 2)
+    assert _titles("abcd") == ["Visit"]
+    assert search.snippets("abcd", [records.record_id("con_s", "DocumentReference", "t")]) == {}
+
+
+def test_a_lab_name_still_counts_when_no_text_holds_the_word(client):
+    _build_index()
+    _add("c", "Glycated hemoglobin", category="labs", code="4548-4", value="6.1 %")
+    assert _titles("HbA1c") == ["Glycated hemoglobin"]
+
+
+@pytest.mark.parametrize("query", ["a\x00b", "\x00", "hypertension\x00", "essential\x00hypertension"])
+def test_a_nul_character_cant_break_a_search(searchable, query):
+    client = searchable
+    assert client.get("/api/records", params={"q": query}).status_code == 200
+    assert client.get("/api/timeline", params={"q": query}).status_code == 200
+
+
+def test_a_nul_character_separates_words(searchable):
+    assert _titles("essential\x00hypertension") == ["Essential hypertension"]
+
+
+def test_a_nul_character_over_mcp_isnt_called_busy(client):
+    _build_index()
+    _add("a", "Essential hypertension")
+    text, failed = mcp_server.call_tool("search_records", {"query": "a\x00hypertension"})
+    assert failed is False and json.loads(text)["total_matches"] == 1
+
+
+def test_only_a_really_busy_database_is_called_busy(client, monkeypatch):
+    def broken(*a, **k):
+        raise sqlite3.OperationalError('fts5: syntax error near ""')
+    monkeypatch.setattr(records, "list_records", broken)
+    text, failed = mcp_server.call_tool("search_records", {"query": "x"})
+    assert failed and json.loads(text)["code"] == "internal_error"
+
+    def locked(*a, **k):
+        raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(records, "list_records", locked)
+    text, failed = mcp_server.call_tool("search_records", {"query": "x"})
+    assert failed and json.loads(text)["code"] == "busy"
+

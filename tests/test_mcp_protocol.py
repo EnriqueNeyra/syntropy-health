@@ -501,3 +501,76 @@ def test_only_the_offered_expiry_choices_are_accepted(client):
 
 def test_the_body_limit_is_far_above_any_real_call():
     assert agents_api.MAX_BODY_BYTES >= 100_000
+
+
+# ---------------------------------------------------------------------------
+# Text that JSON can spell but isn't text
+# ---------------------------------------------------------------------------
+
+LONE = '"\\ud800"'
+
+
+def _raw(method, msg_id="1", **params):
+    return ('{"jsonrpc":"2.0","id":%s,"method":"%s","params":{%s}}' % (msg_id, method, ",".join(f'"{k}":{v}' for k, v in params.items()))).encode()
+
+
+def test_a_lone_surrogate_doesnt_end_the_stdio_server(isolated_data):
+    lines = [_raw("ping"), _raw("tools/call", "2", name=LONE), _raw("ping", LONE), _raw("prompts/get", "4", name=LONE),
+             _raw("tools/call", "5", name='"search_records"', arguments='{"query":%s}' % LONE),
+             _raw("ping", "6")]
+    out = _stdio(isolated_data, b"\n".join(lines) + b"\n")
+    assert out.returncode == 0, out.stderr.decode()[-500:]
+    replies = [json.loads(line) for line in out.stdout.decode().splitlines()]
+    assert len(replies) == 6 and replies[-1]["id"] == 6 and replies[-1]["result"] == {}
+    assert replies[1]["error"]["code"] == -32602
+    assert replies[4]["result"]["isError"] is False
+
+
+@pytest.mark.parametrize("body", [
+    _raw("tools/call", name=LONE),
+    _raw("ping", LONE),
+    _raw("prompts/get", name=LONE),
+    _raw("tools/call", name='"get_daily_metric"', arguments='{"metric":%s}' % LONE),
+    _raw("tools/call", name='"search_records"', arguments='{"since":%s}' % LONE),
+    _raw("tools/call", name='"search_records"', arguments='{"query":%s}' % LONE),
+    _raw("tools/call", name='"get_lab_trend"', arguments='{"test":%s}' % LONE),
+    _raw("tools/call", name='"get_record"', arguments='{"record_id":%s}' % LONE),
+    _raw("tools/call", name='"get_goals"', arguments='{"profile":%s}' % LONE),
+    _raw("tools/call", name='"get_goals"', arguments='{%s:1}' % LONE),
+    _raw(r"\ud800"),
+])
+def test_a_lone_surrogate_over_http_gets_a_proper_answer(api, body):
+    r = api.post("/mcp", content=body, headers={"Content-Type": "application/json"})
+    assert r.status_code == 200, r.text
+    reply = r.json()
+    assert "error" in reply or "result" in reply
+
+
+def test_a_lone_surrogate_where_a_header_has_to_match_gets_a_proper_answer(api):
+    body = _raw("tools/call", name=LONE, _meta=json.dumps(META))
+    r = api.post("/mcp", content=body, headers=_modern_headers("tools/call", "x"))
+    assert r.status_code == 400 and r.json()["error"]["code"] == -32020
+
+
+def test_real_characters_outside_the_basic_plane_survive(api):
+    body = _raw("tools/call", name='"get_goals"', arguments='{"profile":"\\ud83d\\ude00"}')
+    r = api.post("/mcp", content=body, headers={"Content-Type": "application/json"})
+    assert "\U0001F600" in json.loads(r.json()["result"]["content"][0]["text"])["message"]
+
+
+@pytest.mark.parametrize("meta", ["x", 5, 0, "", [], True, ["a"]])
+def test_discover_with_meta_that_isnt_an_object_is_refused_in_words(api, meta):
+    r = api.post("/mcp", json=_msg("server/discover", _meta=meta), headers=_modern_headers("server/discover"))
+    assert r.status_code == 400 and r.json()["error"]["code"] == -32602
+
+
+@pytest.mark.parametrize("params", ["x", 5, ["a"]])
+def test_discover_with_params_that_arent_an_object_is_refused_in_words(api, params):
+    r = api.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": params}, headers=_modern_headers("server/discover"))
+    assert r.status_code == 400 and r.json()["error"]["code"] in (-32602, -32020)
+
+
+@pytest.mark.parametrize("name", [["a"], {"a": 1}, 5])
+def test_a_prompt_name_that_isnt_text_is_refused_in_words(api, name):
+    r = api.post("/mcp", json=_msg("prompts/get", name=name))
+    assert r.status_code == 200 and r.json()["error"]["code"] == -32602

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import binascii
-import json
 from pathlib import Path
 from typing import Any, Literal, Optional
 from urllib.parse import urlsplit
@@ -149,7 +148,10 @@ def _header_mismatch(request: Request, message: dict[str, Any]) -> Optional[str]
     """What's wrong with a 2026-07-28 request's headers, which have to say the same as its body so nothing in between can
     be told one thing while this server does another."""
     method, params = message.get("method"), message.get("params") or {}
-    version = (params.get("_meta") or {}).get(mcp_server.META_VERSION) if isinstance(params, dict) else None
+    meta = params.get("_meta") if isinstance(params, dict) else None
+    if meta is not None and not isinstance(meta, dict):
+        return None      # no version to compare: handling the request refuses this, and says why
+    version = (meta or {}).get(mcp_server.META_VERSION)
     sent = request.headers.get("mcp-protocol-version")
     if sent is None:
         return "The MCP-Protocol-Version header is missing."
@@ -186,7 +188,7 @@ async def mcp(request: Request) -> Response:
     if raw is None:
         return _rpc_failure(413, -32600, "This request is too large.")
     try:
-        body = json.loads(raw)
+        body = mcp_server.parse_message(raw)
     except (ValueError, RecursionError):
         return _rpc_failure(400, -32700, "Parse error")
     version = request.headers.get("mcp-protocol-version")

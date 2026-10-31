@@ -20,6 +20,7 @@ import base64
 import difflib
 import json
 import logging
+import re
 import sqlite3
 import sys
 import time
@@ -31,7 +32,7 @@ from typing import Any, Callable, Optional
 from zoneinfo import ZoneInfo
 
 from app.core import config, settings
-from app.core.db import audit, db, ensure_migrated, finite, read
+from app.core.db import audit, db, ensure_migrated, finite, is_busy, read
 from app.services import insights
 from app.store import activity, biometrics, connections, goals, lab_catalog, profiles, records, search, sleep, training
 
@@ -248,7 +249,7 @@ NO_RANGE = "not reported by the lab"
 def _range(rec: dict[str, Any]) -> str:
     if rec.get("ref_text"):
         return rec["ref_text"]
-    lo, hi = rec.get("ref_low"), rec.get("ref_high")
+    lo, hi = finite(rec.get("ref_low")), finite(rec.get("ref_high"))
     if lo is None and hi is None:
         return NO_RANGE
     return f"{'' if lo is None else f'{lo:g}'}–{'' if hi is None else f'{hi:g}'} {rec.get('unit') or ''}".strip()
@@ -256,7 +257,7 @@ def _range(rec: dict[str, Any]) -> str:
 
 def _lab_line(rec: dict[str, Any]) -> dict[str, Any]:
     result = rec.get("value_text")
-    if result in (None, "") and rec.get("value_num") is not None:
+    if result in (None, "") and finite(rec.get("value_num")) is not None:
         result = f"{rec['value_num']:g} {rec.get('unit') or ''}".strip()
     return {k: v for k, v in {
         "test": rec.get("title"), "date": (rec.get("effective_at") or "")[:10], "result": result,
@@ -375,6 +376,8 @@ def _period(args: dict[str, Any], default_days: int, maximum: int) -> tuple[int,
     if not args.get("start"):
         return args.get("days", default_days), end
     days = (end - date.fromisoformat(args["start"][:10])).days + 1
+    if days < 1:
+        raise ToolError("bad_range", f"start ({args['start']}) is after the last day of the period ({end}).")
     if days > maximum:
         raise ToolError("period_too_long", f"That period is {days} days. This tool reads up to {maximum} days at once.",
                         hint="Use a shorter start and end, and read the next period after.")
@@ -521,6 +524,7 @@ PERIOD_ARGS = {"start": {"type": "string", "description": "First day to read, YY
                "end": {"type": "string", "description": "Last day to read, included, YYYY-MM-DD. Defaults to today."}}
 # Arguments that hold a date, checked and put in one form before a tool sees them.
 DATE_ARGS = ("since", "until", "start", "end")
+FIRST_DATE, LAST_DATE = date(1800, 1, 1), date(2200, 12, 31)
 
 TOOLS: dict[str, tuple[Callable[[dict[str, Any]], Any], str, dict[str, Any], list[str]]] = {
     "list_profiles": (t_list_profiles, "List the people this connection can read. 'you' marks the person whose connection this is.", {}, []),
@@ -532,7 +536,8 @@ TOOLS: dict[str, tuple[Callable[[dict[str, Any]], Any], str, dict[str, Any], lis
                        "first part: use get_record to read all of it.", {
         **PROFILE_ARG,
         "query": {"type": "string", "description": "Words to find. A record has to hold all of them, in any order, in its title, "
-                                                   "code, value, note or report text, clinicians or anything else in its details."},
+                                                   "code, value, note or report text, clinicians or anything else in its details. "
+                                                   "Part of a longer word counts: diabetes finds Prediabetes."},
         "category": {"type": "string", "enum": CATEGORY_ENUM},
         "since": {"type": "string", "description": "First day, included, as YYYY-MM-DD (or a full ISO date and time)."},
         "until": {"type": "string", "description": "Last day, included, as YYYY-MM-DD (or a full ISO date and time)."},
@@ -713,16 +718,24 @@ def _read_cursor(tool: str, cursor: Any) -> int:
                     hint="Pass next_cursor exactly as the previous result of this tool gave it, or leave it out to start over.")
 
 
-def _check_date(name: str, value: str) -> str:
+def _check_date(name: str, value: str, adjusted: dict[str, Any]) -> Optional[str]:
+    """A date in one form. Working out days from the very ends of the calendar would run off them, so one nothing can be
+    recorded on moves to the nearest that can. Or goes, when it can only mean "no limit", like an until of 9999-12-31."""
     plain = len(value) == 10
     try:
-        if plain:
-            date.fromisoformat(value)
-            return value
-        return biometrics.to_utc_iso(datetime.fromisoformat(value.replace("Z", "+00:00")).isoformat())
+        when = date.fromisoformat(value) if plain else datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         raise ToolError("bad_date", f"{name} has to be a date like 2026-08-05 (or a full ISO date and time), not '{value[:40]}'.",
                         hint="Work out dates yourself: as_of in any result gives today's.") from None
+    day = when if plain else when.date()
+    if FIRST_DATE <= day <= LAST_DATE:
+        return value if plain else biometrics.to_utc_iso(when.isoformat())
+    if (name == "since" and day < FIRST_DATE) or (name == "until" and day > LAST_DATE):
+        adjusted[name] = "no limit"
+        return None
+    moved = datetime.now(biometrics._tz()).date() if name == "end" and day > LAST_DATE else min(max(day, FIRST_DATE), LAST_DATE)
+    adjusted[name] = moved.isoformat()
+    return adjusted[name]
 
 
 def _check_integer(name: str, value: Any, schema: dict[str, Any], adjusted: dict[str, Any]) -> int:
@@ -785,7 +798,9 @@ def _check_arguments(tool: str, args: Any, props: dict[str, Any], required: list
                                 closest=_closest(value, list(schema["enum"])))
             value = match
         if name in DATE_ARGS:
-            value = _check_date(name, value)
+            value = _check_date(name, value, adjusted)
+            if value is None:
+                continue
         if len(value) > MAX_TEXT_ARGUMENT:
             value = value[:MAX_TEXT_ARGUMENT]
             adjusted[name] = f"its first {MAX_TEXT_ARGUMENT} characters"
@@ -875,7 +890,8 @@ def _finish(tool: str, payload: dict[str, Any], args: dict[str, Any], adjusted: 
             payload[page["rows"]] = shown
         end = end_of_page if end_of_page is not None else offset + kept
         total = page["total"]
-        more = page["more"] or (rows is not None and kept < len(rows)) or (total is not None and end < total)
+        # An empty page has nothing after it, whatever the count says: a cursor from here would only come back here.
+        more = page["more"] or (rows is not None and kept < len(rows)) or (total is not None and end < total and (rows is None or kept > 0))
         head["truncated"] = bool(more)
         if more:
             head["next_cursor"] = _cursor(tool, end)
@@ -904,19 +920,20 @@ def _run(tool: str, raw_args: Any, budget: int = RESULT_BUDGET) -> _Outcome:
     try:
         args, adjusted = _check_arguments(tool, raw_args, props, required)
         out.args = args
-        payload = _finish(tool, fn(args), args, adjusted, budget)
-        out.text, out.is_error, out.payload = json.dumps(finite(payload), default=str, ensure_ascii=False), False, payload
+        out.text = json.dumps(finite(_finish(tool, fn(args), args, adjusted, budget)), default=str, ensure_ascii=False)
+        out.is_error, out.payload = False, json.loads(out.text)     # the same in both forms, and always valid JSON
     except ToolError as exc:
         out.text, out.code = json.dumps(exc.body, ensure_ascii=False), exc.code
-    except sqlite3.OperationalError:
-        log.warning("An MCP tool couldn't read the database", exc_info=True)
-        out.code = "busy"
-        out.text = json.dumps({"code": "busy", "message": "The database is busy with a long task. Try again in a minute."})
-    except Exception:  # noqa: BLE001 - a bug here is logged, and the caller gets a sentence rather than internals
-        log.exception("MCP tool %s failed", tool)
-        out.code = "internal_error"
-        out.text = json.dumps({"code": "internal_error", "message": "Something went wrong reading this. Try again; if it keeps "
-                                                                    "happening, the server log has the details."})
+    except Exception as exc:  # noqa: BLE001 - a bug here is logged, and the caller gets a sentence rather than internals
+        if isinstance(exc, sqlite3.OperationalError) and (is_busy(exc) or "locked" in str(exc)):
+            log.warning("An MCP tool couldn't read the database", exc_info=True)
+            out.code = "busy"
+            out.text = json.dumps({"code": "busy", "message": "The database is busy with a long task. Try again in a minute."})
+        else:
+            log.exception("MCP tool %s failed", tool)
+            out.code = "internal_error"
+            out.text = json.dumps({"code": "internal_error", "message": "Something went wrong reading this. Try again; if it keeps "
+                                                                        "happening, the server log has the details."})
     finally:
         read_person = _READ_PERSON.get()
         out.person_id = read_person["id"] if read_person else None
@@ -930,7 +947,7 @@ def call_tool(name: str, args: dict[str, Any], budget: int = RESULT_BUDGET) -> t
     """Runs one tool. Returns the JSON result, or an error (also JSON) the model can act on, and whether it failed."""
     if name not in TOOLS:
         return json.dumps({"code": "unknown_tool", "message": f"Unknown tool: {name}", "valid": list(TOOLS)}), True
-    out = _run(name, args, budget)
+    out = _run(name, _whole_text(args), budget)
     return out.text, out.is_error
 
 
@@ -974,6 +991,25 @@ def _server_info() -> dict[str, Any]:
     return {"name": "syntropy-health", "title": "Syntropy Health", "version": config.APP_VERSION}
 
 
+_LONE_SURROGATE = re.compile("[\ud800-\udfff]")
+
+
+def _whole_text(value: Any) -> Any:
+    """JSON can spell half of a character ("\\ud800"), which can't be written out as UTF-8 or given to SQLite."""
+    if isinstance(value, str):
+        return _LONE_SURROGATE.sub("�", value)
+    if isinstance(value, list):
+        return [_whole_text(v) for v in value]
+    if isinstance(value, dict):
+        return {_whole_text(k): _whole_text(v) for k, v in value.items()}
+    return value
+
+
+def parse_message(raw: str | bytes) -> Any:
+    """What a client sent. Raises ValueError or RecursionError for what isn't JSON, or is nested too deep to read."""
+    return _whole_text(json.loads(raw))
+
+
 def _error(msg_id: Any, code: int, message: str, data: Any = None) -> dict[str, Any]:
     error: dict[str, Any] = {"code": code, "message": message}
     if data is not None:
@@ -995,7 +1031,7 @@ def is_modern(message: Any) -> bool:
 
 
 def _prompt(name: Any, args: Any) -> Optional[dict[str, Any]]:
-    if name not in PROMPTS:
+    if not isinstance(name, str) or name not in PROMPTS:
         return None
     title, description, text = PROMPTS[name]
     person = args.get("profile") if isinstance(args, dict) else None
@@ -1122,7 +1158,7 @@ def _one_person(ref: str) -> str:
 
 def _reply_line(line: str) -> Optional[str]:
     try:
-        message = json.loads(line)
+        message = parse_message(line)
     except (ValueError, RecursionError):
         return json.dumps({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}})
     if isinstance(message, list):
@@ -1135,8 +1171,9 @@ def _reply_line(line: str) -> Optional[str]:
 def main(profile: Optional[str] = None) -> None:
     ensure_migrated()     # here, so an unusable database is explained rather than failing every call
     # MCP is UTF-8 whatever the computer's own language setting is. Windows would otherwise read a client's "María" in the
-    # system's code page, and find no one by that name. A line that isn't UTF-8 gets a parse error, not a crash.
-    for stream, errors in ((sys.stdin, "replace"), (sys.stdout, "strict")):
+    # system's code page, and find no one by that name. A line that isn't UTF-8 gets a parse error, not a crash. Should
+    # half a character ever get as far as a reply, its backslash form is still valid JSON, and the server carries on.
+    for stream, errors in ((sys.stdin, "replace"), (sys.stdout, "backslashreplace")):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors=errors, newline="\n")
     # Set by stdio_command for agents started by the built-in assistant, or chosen for an app in its setup: one person's

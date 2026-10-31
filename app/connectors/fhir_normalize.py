@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import html as html_lib
+import math
 import re
 from typing import Any, Callable, Optional
 
@@ -113,9 +114,10 @@ def _date(*values: Any) -> Optional[str]:
 
 def _num(v: Any) -> Optional[float]:
     try:
-        return float(v) if v is not None and v != "" else None
+        number = float(v) if v is not None and v != "" else None
     except (TypeError, ValueError):
         return None
+    return number if number is not None and math.isfinite(number) else None      # 1e999 is no measurement
 
 
 def strip_html(text: str) -> str:

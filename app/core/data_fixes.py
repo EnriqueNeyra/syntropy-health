@@ -83,6 +83,8 @@ def _run_fix(name: str, step: Step) -> None:
     def one_step(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
         # Read again here: this write lock is what keeps a second server on this file from repeating a step.
         current = _load_state(conn, name)
+        if current and current["state"] == "done":      # finished by the other: no cursor would mean starting over
+            return None
         saved = json.loads(current["cursor_json"]) if current and current["cursor_json"] else None
         next_cursor = step(conn, saved, size)
         if next_cursor is not None and next_cursor == saved:

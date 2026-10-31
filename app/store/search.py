@@ -1,7 +1,9 @@
 """
 Finding words in clinical records: titles, note and report text, clinicians, places, anything else a record's details hold.
 
-A search matches records holding every word, in any order. Nothing leaves this file: it's all in the one SQLite database.
+A search matches records holding every word, in any order, a word inside a longer one included: "diabetes" has to find
+Prediabetes, and "statin" Atorvastatin, or a model reports that they aren't on record. Nothing leaves this file: it's all
+in the one SQLite database.
 
 With SQLite's FTS5 (nearly every build has it) the words are looked up in an index, kept right by triggers on
 clinical_records, so every way of writing or deleting a record is covered, foreign key cascades included. The index is
@@ -12,7 +14,9 @@ reading the person's records one by one: slower, with the same meaning. Triggers
 
 from __future__ import annotations
 
+import contextlib
 import logging
+import re
 import sqlite3
 from functools import lru_cache
 from typing import Any, Optional
@@ -25,10 +29,15 @@ log = logging.getLogger("syntropy.search")
 
 FIX = "record-search-index"
 _TABLE = "record_search_fts"
+_TERMS = "record_search_terms"
+_TOKENIZER = "unicode61 remove_diacritics 2"
 _TRIGGERS = ("record_search_inserted", "record_search_updated", "record_search_deleted")
 MAX_WORDS = 12
+# More terms holding a word than are worth asking the index about: a word this short is quicker read record by record.
+MAX_TERMS = 2000
 # Words that only make a search miss. Both languages the app is most used in.
 _NOISE = {"a", "an", "and", "the", "of", "for", "in", "on", "with", "my", "to", "y", "de", "del", "la", "el", "los", "las"}
+_EDGE_PUNCTUATION = re.compile(r"^[\W_]+|[\W_]+$")
 
 
 @lru_cache(maxsize=1)
@@ -42,9 +51,10 @@ def fts5_available() -> bool:
 
 
 def words(query: Optional[str]) -> list[str]:
-    """The words to look for: lower case, without a plural's s, without words that only make a search miss. A query of
-    nothing but those keeps them."""
-    found = [w.lower() for w in (query or "").split() if any(c.isalnum() for c in w)]
+    """The words to look for: lower case, without the punctuation around them or a plural's s, without words that only
+    make a search miss. A query of nothing but those keeps them."""
+    bare = (_EDGE_PUNCTUATION.sub("", w).lower() for w in (query or "").replace("\x00", " ").split())
+    found = [w for w in bare if w]
     kept = [w for w in found if w not in _NOISE] or found
     singular = [w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith(("ss", "us", "is")) else w for w in kept]
     return list(dict.fromkeys(singular))[:MAX_WORDS]
@@ -73,7 +83,8 @@ def _create_index(conn: sqlite3.Connection) -> None:
         conn.execute(f"DELETE FROM {_TABLE}")
         conn.execute("DELETE FROM record_search_ids")
     else:
-        conn.execute(f"CREATE VIRTUAL TABLE {_TABLE} USING fts5(title, body, tokenize = 'unicode61 remove_diacritics 2')")
+        conn.execute(f"CREATE VIRTUAL TABLE {_TABLE} USING fts5(title, body, tokenize = '{_TOKENIZER}')")
+    conn.execute(f"CREATE VIRTUAL TABLE IF NOT EXISTS {_TERMS} USING fts5vocab({_TABLE}, row)")
     inserted, updated, deleted = _TRIGGERS
     conn.execute(f"CREATE TRIGGER IF NOT EXISTS {inserted} AFTER INSERT ON clinical_records BEGIN {_write_document('new')} END")
     conn.execute(f"CREATE TRIGGER IF NOT EXISTS {updated} AFTER UPDATE OF title, code_display, code, value_text, narrative, "
@@ -110,7 +121,7 @@ def ready() -> bool:
     with read() as conn:
         state = conn.execute("SELECT state FROM data_fixes WHERE name = ?", (FIX,)).fetchone()
         return bool(state and state["state"] == "done"
-                    and conn.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (_TABLE,)).fetchone())
+                    and conn.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (_TERMS,)).fetchone())
 
 
 def at_start_up() -> None:
@@ -131,8 +142,40 @@ def _like(word: str) -> str:
     return "%" + word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
-def _fts_query(found: list[str]) -> str:
-    return " ".join('"' + w.replace('"', '""') + '"*' for w in found)
+def _tokens(found: list[str]) -> list[list[str]]:
+    """Each word as the index holds it, by the index's own tokenizer: "Núñez-Ortiz" is the two terms nunez and ortiz."""
+    held: list[list[str]] = [[] for _ in found]
+    with contextlib.closing(sqlite3.connect(":memory:")) as conn:
+        conn.execute(f"CREATE VIRTUAL TABLE t USING fts5(x, tokenize = '{_TOKENIZER}')")
+        conn.execute("CREATE VIRTUAL TABLE terms USING fts5vocab(t, instance)")
+        conn.executemany("INSERT INTO t(rowid, x) VALUES (?, ?)", list(enumerate(found)))
+        for doc, term in conn.execute("SELECT doc, term FROM terms ORDER BY doc, offset"):
+            held[doc].append(term)
+    return held
+
+
+def _fts_query(found: list[str]) -> Optional[str]:
+    """What to ask the index for these words, "" if no record can hold them all, None if only reading the records can say.
+
+    The index finds a term from its start, not from its middle, so the terms holding each word are looked up first and
+    asked for by name. A word with punctuation inside is several terms in a row: its first may end a longer term ("a1c-like"
+    in HbA1c-like), and its last may start one."""
+    tokens = _tokens(found)
+    if not all(tokens):
+        return None
+    holds = " OR ".join("instr(term, ?) > 0" for _ in tokens)
+    with read() as conn:
+        terms = [r[0] for r in conn.execute(f"SELECT term FROM {_TERMS} WHERE {holds}", [t[0] for t in tokens])]
+    if len(terms) > MAX_TERMS:
+        return None
+    asked = []
+    for first, *rest in tokens:
+        tail = " " + " ".join(rest) + '"*' if rest else '"'
+        phrases = ['"' + term + tail for term in terms if (term.endswith(first) if rest else first in term)]
+        if not phrases:
+            return ""
+        asked.append("(" + " OR ".join(phrases) + ")")
+    return " AND ".join(asked)
 
 
 def where(query: str, profile_id: str) -> tuple[str, list[Any]]:
@@ -144,9 +187,12 @@ def where(query: str, profile_id: str) -> tuple[str, list[Any]]:
     # Test names and abbreviations ("HbA1c") the source lab may have titled differently.
     codes = lab_catalog.loinc_codes(query)
     also, also_params = (f" OR code IN ({','.join('?' * len(codes))})", codes) if codes else ("", [])
-    if ready():
+    asked = _fts_query(found) if ready() else None
+    if asked == "":
+        return f"(0{also})", also_params
+    if asked:
         return (f"(id IN (SELECT i.record_id FROM record_search_ids i WHERE i.n IN "
-                f"(SELECT rowid FROM {_TABLE} WHERE {_TABLE} MATCH ?)){also})", [_fts_query(found), *also_params])
+                f"(SELECT rowid FROM {_TABLE} WHERE {_TABLE} MATCH ?)){also})", [asked, *also_params])
     matches = " AND ".join("t LIKE ? ESCAPE '\\'" for _ in found)
     return (f"(id IN (SELECT id FROM (SELECT r.id, lower(r.title || ' ' || {_text_of('r')}) AS t FROM clinical_records r "
             f"WHERE r.profile_id = ?) WHERE {matches}){also})", [profile_id, *[_like(w) for w in found], *also_params])
@@ -157,9 +203,12 @@ def snippets(query: str, record_ids: list[str]) -> dict[str, str]:
     found = words(query)
     if not found or not record_ids or not ready():
         return {}
+    asked = _fts_query(found)
+    if not asked:
+        return {}
     marks = ",".join("?" * len(record_ids))
     with read() as conn:
         rows = conn.execute(
             f"SELECT i.record_id, snippet({_TABLE}, -1, '', '', '…', 24) AS text FROM {_TABLE} JOIN record_search_ids i ON i.n = {_TABLE}.rowid "
-            f"WHERE {_TABLE} MATCH ? AND i.record_id IN ({marks})", (_fts_query(found), *record_ids)).fetchall()
+            f"WHERE {_TABLE} MATCH ? AND i.record_id IN ({marks})", (asked, *record_ids)).fetchall()
     return {r["record_id"]: r["text"] for r in rows if r["text"]}

@@ -63,6 +63,21 @@ def test_a_fix_runs_to_the_end_once():
     assert len(calls) == taken        # never again on this database
 
 
+def test_a_fix_another_runner_finished_isnt_started_over(monkeypatch):
+    _rows(10)
+    calls = []
+    data_fixes.register("double", _doubler(lambda rows: calls.append(len(rows))))
+    real = db.write_in_batches
+
+    def finished_elsewhere_first(step, **kw):
+        with db.db() as conn:
+            conn.execute("UPDATE data_fixes SET state = 'done', cursor_json = NULL WHERE name = 'double'")
+        return real(step, **kw)
+    monkeypatch.setattr(db, "write_in_batches", finished_elsewhere_first)
+    data_fixes.run_pending()
+    assert calls == [] and _state("double")["state"] == "done"
+
+
 def test_a_restart_carries_on_where_it_stopped():
     _rows(3000)
     seen: list[str] = []

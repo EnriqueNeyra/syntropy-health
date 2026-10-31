@@ -36,11 +36,14 @@ def _since(days: Optional[int]) -> Optional[str]:
 
 def _window(days: Optional[int], start: Optional[str], end: Optional[str]) -> tuple[Optional[str], Optional[str]]:
     """The UTC bounds for a list: an explicit start/end (dates or times) wins over "the last N days". Plain dates are
-    whole days in the instance's time zone."""
-    def bound(value: str, clock: str) -> str:
-        if len(value) == 10:
-            return datetime.fromisoformat(f"{value}T{clock}").replace(tzinfo=local_tz()).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        return to_utc_iso(value)
+    whole days in the instance's time zone. A bound at the very end of the calendar limits nothing."""
+    def bound(value: str, clock: str) -> Optional[str]:
+        try:
+            if len(value) == 10:
+                return datetime.fromisoformat(f"{value}T{clock}").replace(tzinfo=local_tz()).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            return to_utc_iso(value)
+        except OverflowError:
+            return None
     return (bound(start, "00:00:00") if start else _since(days)), (bound(end, "23:59:59") if end else None)
 
 
@@ -141,14 +144,21 @@ def list_workouts(profile_id: str, days: Optional[int] = 90, limit: int = 200, d
         q.append("AND name = ?")
         params.append(name)
     q.append("ORDER BY start_date DESC LIMIT ?")
-    params.append(limit * 2 if dedupe else limit)   # headroom for duplicates folded away below
-    with read() as conn:
-        rows = rows_to_dicts(conn.execute(" ".join(q), params).fetchall())
-    for r in rows:
-        r["has_route"] = bool(r["has_route"])
-        r["has_heart_rate"] = bool(r["has_heart_rate"])
-        r["indoor"] = None if r["indoor"] is None else bool(r["indoor"])
-    return (dedupe_workouts(rows) if dedupe else rows)[:limit]
+    fetched = limit * 2 if dedupe else limit   # headroom for duplicates folded away below
+    while True:
+        with read() as conn:
+            rows = rows_to_dicts(conn.execute(" ".join(q), [*params, fetched]).fetchall())
+        for r in rows:
+            r["has_route"] = bool(r["has_route"])
+            r["has_heart_rate"] = bool(r["has_heart_rate"])
+            r["indoor"] = None if r["indoor"] is None else bool(r["indoor"])
+        if not dedupe:
+            return rows
+        sessions = dedupe_workouts(rows)
+        # However many sources recorded each session. One more than asked for, as the last may be missing some of its sources.
+        if len(rows) < fetched or len(sessions) > limit:
+            return sessions[:limit]
+        fetched *= 2
 
 
 # A Watch run that WHOOP also auto-detected is one session: fold workouts from different sources that overlap by at
@@ -221,8 +231,12 @@ def workout_summary(profile_id: str, days: Optional[int] = 30, start: Optional[s
         t["energy_kcal"] += w["active_energy_kcal"] if w["active_energy_kcal"] is not None else (w["total_energy_kcal"] or 0)
         t["distance_m"] += w["distance_m"] or 0
     rows = sorted(by_name.values(), key=lambda t: -t["count"])
+    if start:      # an explicit start wins over days, so that's what these totals cover
+        last = parse_ts(end) if end else datetime.now(timezone.utc)
+        days = (last.date() - parse_ts(start).date()).days + 1
     return {
         "days": days,
+        **{k: v for k, v in (("start", start), ("end", end)) if v},
         "count": sum(r["count"] for r in rows),
         "duration_s": sum(r["duration_s"] or 0 for r in rows),
         "energy_kcal": sum(r["energy_kcal"] or 0 for r in rows),

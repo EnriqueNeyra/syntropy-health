@@ -11,8 +11,8 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 from zoneinfo import ZoneInfo
 
-from app.core import settings
-from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
+from app.core import data_fixes, settings
+from app.core.db import db, finite, read, dumps, row_to_dict, rows_to_dicts
 from app.store import search
 
 CATEGORIES = [
@@ -84,9 +84,9 @@ def upsert_records(profile_id: str, connection_id: str, source_name: str, record
             values = (
                 profile_id, connection_id, r["resource_type"], r["resource_id"], r["category"],
                 (r.get("title") or "Untitled")[:500], r.get("code_system"), r.get("code"), r.get("code_display"),
-                r.get("effective_at"), r.get("effective_end"), r.get("status"), r.get("value_num"),
-                r.get("value_text"), r.get("unit"), r.get("value_norm"), r.get("unit_norm"),
-                r.get("ref_low"), r.get("ref_high"), r.get("ref_text"), r.get("interpretation"),
+                r.get("effective_at"), r.get("effective_end"), r.get("status"), finite(r.get("value_num")),
+                r.get("value_text"), r.get("unit"), finite(r.get("value_norm")), r.get("unit_norm"),
+                finite(r.get("ref_low")), finite(r.get("ref_high")), r.get("ref_text"), r.get("interpretation"),
                 dumps(r.get("details") or {}), r.get("narrative"), r.get("dedup_key"), source_name,
                 dumps(r.get("raw")), now,
             )
@@ -152,6 +152,25 @@ def _load(rows) -> list[dict[str, Any]]:
     return rows_to_dicts(rows, ["details_json"])
 
 
+NO_INFINITY_FIX = "records-no-infinity"
+_NUMBERS = ("value_num", "value_norm", "ref_low", "ref_high")
+
+
+def _clear_infinities(conn: Any, cursor: Any, size: int) -> Any:
+    """A portal's 1e999 used to be kept, as infinity: no measurement, and it can't be sent as JSON, so whatever held the
+    record failed to load."""
+    rows = conn.execute("SELECT id FROM clinical_records WHERE id > ? ORDER BY id LIMIT ?", (cursor or "", size)).fetchall()
+    if not rows:
+        return None
+    last = rows[-1]["id"]
+    conn.execute(f"UPDATE clinical_records SET {', '.join(f'{c} = CASE WHEN abs({c}) = 9e999 THEN NULL ELSE {c} END' for c in _NUMBERS)} "
+                 f"WHERE id > ? AND id <= ? AND ({' OR '.join(f'abs({c}) = 9e999' for c in _NUMBERS)})", (cursor or "", last))
+    return last
+
+
+data_fixes.register(NO_INFINITY_FIX, _clear_infinities)
+
+
 def _dedupe(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Collapses records describing the same fact from multiple sources, keeping the newest."""
     groups: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
@@ -173,7 +192,7 @@ def _local_midnight_utc(day: date) -> str:
         tz = ZoneInfo(settings.timezone_name())
     except Exception:  # noqa: BLE001
         tz = ZoneInfo("UTC")
-    return datetime(day.year, day.month, day.day, tzinfo=tz).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime(day.year, day.month, day.day, tzinfo=tz).astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _parse_bound(value: Optional[str]) -> tuple[Optional[date], bool]:
@@ -194,22 +213,24 @@ _DATE_ONLY = "length(effective_at) <= 10"
 
 
 def _since_clause(since: Optional[str]) -> tuple[str, list[Any]]:
-    """A plain date is a whole day where the person is."""
+    """A plain date is a whole day where the person is. The calendar's first year is how to say "no limit" (it can't be
+    worked with: midnight there can be before the calendar starts)."""
     day, plain = _parse_bound(since)
     if since and not day:
         return "effective_at >= ?", [since]
-    if not day:
+    if not day or day.year == date.min.year:
         return "", []
     return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at >= ? ELSE {_WHEN} >= datetime(?) END)",
             [day.isoformat(), _local_midnight_utc(day) if plain else since])
 
 
 def _until_clause(until: Optional[str]) -> tuple[str, list[Any]]:
-    """Inclusive, so a plain date runs to the end of that day: '2026-08-05T08:05:00Z' <= '2026-08-05' isn't true as text."""
+    """Inclusive, so a plain date runs to the end of that day: '2026-08-05T08:05:00Z' <= '2026-08-05' isn't true as text.
+    The calendar's last year is how to say "no limit": 9999-12-31 is common, and has no next day."""
     day, plain = _parse_bound(until)
     if until and not day:
         return "effective_at <= ?", [until]
-    if not day:
+    if not day or day.year == date.max.year:
         return "", []
     if plain:
         return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? ELSE {_WHEN} < datetime(?) END)",

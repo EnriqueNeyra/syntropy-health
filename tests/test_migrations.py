@@ -182,7 +182,8 @@ def test_every_old_schema_upgrades_with_its_data(version):
         from app.core import data_fixes
         from app.store import agents, records, search
         data_fixes.run_pending()
-        assert search.ready() and records.list_records("prf_a", q="a1c")["total"] == 1
+        assert search.ready(), data_fixes.status()
+        assert records.list_records("prf_a", q="a1c")["total"] == 1
         if version >= 3:
             assert [t["expires_at"] for t in agents.list_tokens()] == [None]
         if version >= 9:      # from here the seed has no account: the password came from the settings above
