@@ -522,7 +522,7 @@ def t_health_journal(args: dict[str, Any]) -> Any:
 def t_insights(args: dict[str, Any]) -> Any:
     prof = _profile(args)
     return {"insights": [{k: i[k] for k in ("kind", "tone", "title", "text")} for i in insights.insights(prof["id"], 20)],
-            "note": "Patterns and changes found across the person's sources. They describe what lined up, not causes."}
+            "note": "What changed across the person's sources. These state what changed, not why."}
 
 
 def _check_measure(prof_id: str, key: str) -> None:
@@ -541,7 +541,7 @@ def t_compare(args: dict[str, Any]) -> Any:
     _check_measure(prof["id"], args["b"])
     c = insights.compare(prof["id"], args["a"], args["b"], args.get("days", 90), args.get("lag", 0))
     pairs = c["pairs"][::-1]
-    out = {**{k: c[k] for k in ("a", "b", "lag", "days", "n", "r", "interval", "strength", "split")},
+    out = {**{k: c[k] for k in ("a", "b", "lag", "days", "n", "r", "interval", "split")},
            "pairs": pairs[args.get("_offset", 0):], "_page": _page("pairs", len(pairs)),
            "note": "r is a rank correlation of a with b (b taken lag days later; negative lag: earlier), after taking out each "
                    "measure's overall trend, so a correlation worked out from the raw pairs will differ: report r. interval is "
@@ -647,9 +647,9 @@ TOOLS: dict[str, tuple[Callable[[dict[str, Any]], Any], str, dict[str, Any], lis
         "event_type": {"type": "string", "description": "e.g. 'headache', 'menstrual_flow', 'ecg', 'state_of_mind'."},
         "search": {"type": "string", "description": "Text to find in an entry's name, value or note."},
         "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 100}, **CURSOR_ARG}, []),
-    "get_insights": (t_insights, "Patterns across every source: wearable numbers moving away from the person's normal, how "
-                     "sleep lines up with check-in mood, energy and stress, symptoms against sleep, training load jumps, "
-                     "labs moving further out of range, changes after a medication started, goals kept.", dict(PROFILE_ARG), []),
+    "get_insights": (t_insights, "What's changed across every source: wearable numbers moving away from the person's normal, "
+                     "training load jumps, labs moving out of range or back in range, sleep notes, goals kept. Each states what "
+                     "changed, and none says why or connects it to anything else.", dict(PROFILE_ARG), []),
     "compare_measures": (t_compare, "Compare two daily measures day by day, newest first, with their correlation. Use lag=1 to pair "
                          "a day with the next (e.g. training load and the next morning's HRV).", {
         **PROFILE_ARG,
@@ -718,11 +718,11 @@ _MEASURED_TOOLS = {"list_wearable_metrics", "get_daily_metric", "list_workouts",
 
 INSTRUCTIONS = (
     "Syntropy Health holds a person's own medical records (from their patient portals) and wearable data, stored locally. "
-    "Use get_health_summary first (and get_insights for patterns across sources), then search_records / get_lab_trend / "
+    "Use get_health_summary first (and get_insights for what's changed), then search_records / get_lab_trend / "
     "get_daily_metric / get_sleep_nights / list_workouts / get_training_summary / get_health_journal / compare_measures "
     "for detail. Values carry reference "
-    "ranges and interpretation flags from the source lab. State what's in the record: explain and summarize it, cite dates "
-    "and sources, and don't diagnose or give medical advice. Only state values "
+    "ranges and interpretation flags from the source lab. Answer what the person asks, citing dates and sources. You aren't "
+    "their doctor: don't diagnose or give medical advice, and say so when an answer goes beyond what's in the record. Only state values "
     "that appear in tool results; if identity_conflict is non-empty, the clinical records belong to more than one "
     "person, so say which person each result belongs to. A result marked simulated is demo data, not real measurements. "
     "When truncated is true there is more: next_cursor gets it. A result's shortened_text lists fields cut short, ending in …: "

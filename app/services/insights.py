@@ -1,12 +1,13 @@
 """
-Insights across sources: the things only visible with everything in one place. A wearable number moving away from
-the person's own normal, how sleep lines up with how they said they felt, what changed after a medication started,
-a lab result moving further out of range, training load jumping, goals kept.
+What's changed across sources, with everything in one place: a wearable number moving away from the person's own normal,
+a lab result moving out of range or back into it, training load jumping, goals kept.
 
-Everything here is descriptive: "since", "on days when", never "because". Each insight carries plain text (for Ask
-and other AI apps) and the numbers behind it (so the apps can show them in the person's units). A claim only appears
-when the numbers support it (insight_stats) and one device is only compared with itself. Nothing here advises or says
-what a number means for someone's health: a result the lab marked critical comes first, as what the lab reported.
+Everything here states what happened. It doesn't connect one thing to another or say why: what goes with what is the
+person's to work out, and Compare and Before and after put any two side by side for them. Each insight carries plain
+text (for Ask and other AI apps) and the numbers behind it (so the apps can show them in the person's units). A change
+only appears when the numbers support it (insight_stats) and one device is only compared with itself. Nothing here
+advises or says what a number means for someone's health: a result the lab marked critical comes first, as what the lab
+reported.
 """
 
 from __future__ import annotations
@@ -39,9 +40,6 @@ WORKOUT_SERIES = {
     "workouts:minutes": ("Workout time", "min", "Minutes of workouts each day."),
     "workouts:load": ("Training load", "load", "Heart-rate-weighted workout minutes each day."),
 }
-MOOD_WORDS = ["very unpleasant", "unpleasant", "neutral", "pleasant", "very pleasant"]
-ENERGY_WORDS = ["drained", "low", "okay", "good", "energized"]
-STRESS_WORDS = ["calm", "a little", "some", "high", "very high"]
 
 
 def _soft(label: str) -> str:
@@ -181,21 +179,11 @@ def before_after_date(profile_id: str, key: str, day: str, window_days: int = 30
 
 
 # Fewer than this and a correlation can't be told from chance: a 30-day window has 28 or 29 once today is left out.
-MIN_COMPARE_PAIRS = 28
-
-
-def strength(link: Optional[dict[str, float]], n: int) -> str:
-    if n < MIN_COMPARE_PAIRS:
-        return "not enough days to tell"
-    if not link or not link["clear"]:
-        return "no clear link"
-    a = abs(link["r"])
-    return "weak" if a < 0.3 else "moderate" if a < 0.5 else "strong"
 
 
 def compare(profile_id: str, a: str, b: str, days: int = 90, lag: int = 0) -> dict[str, Any]:
     """Pairs ``a`` on each day with ``b`` on the same day, or ``lag`` days later (negative: earlier; HRV against the
-    day before's training is lag -1), how they move together, and ``b`` on ``a``'s higher and lower days."""
+    day before's training is lag -1), and ``b`` on ``a``'s higher and lower days. It says what the days held: what to make of them is the person's."""
     lag = max(-7, min(int(lag), 7))
     sa = series(profile_id, a, days)
     sb = series(profile_id, b, days + abs(lag), end=_window(1, profile_id=profile_id)[1])
@@ -223,7 +211,7 @@ def compare(profile_id: str, a: str, b: str, days: int = 90, lag: int = 0) -> di
         with_without = {"item": (sa if a.startswith(LOGGED_PREFIX) else sb)["label"], "days_with": len(on), "days_without": len(off),
                         "avg_with": round(sum(on) / len(on), 3) if on else None, "avg_without": round(sum(off) / len(off), 3) if off else None}
     return {"a": meta(sa), "b": meta(sb), "lag": lag, "days": days, "pairs": pairs, "n": len(pairs), "with_without": with_without,
-            "r": round(link["r"], 2) if link else None, "strength": strength(link, len(pairs)), "split": split,
+            "r": round(link["r"], 2) if link else None, "split": split,
             "interval": {"low": round(link["low"], 2), "high": round(link["high"], 2)} if link else None}
 
 
@@ -603,164 +591,9 @@ def _sleep_notes(profile_id: str) -> list[dict[str, Any]]:
     return out
 
 
-def _five(key: str, v: float) -> float:
-    """A check-in measure on its 1-5 scale (mood is stored from -1 to 1)."""
-    return (v + 1) * 2 + 1 if key == "mood" else v
-
-
-def _word(words: list[str], key: str, v: float) -> str:
-    return words[max(0, min(len(words) - 1, round(_five(key, v)) - 1))]
-
-
 def _day(iso: str) -> str:
     d = date.fromisoformat(iso[:10])
     return f"{d:%b} {d.day}, {d.year}"
-
-
-# What a link needs before it's a claim at all: days with both, and days on each side.
-MIN_LINK_PAIRS = 30
-MIN_LINK_GROUP = 8
-MIN_SYMPTOM_DAYS = 8
-MIN_SYMPTOM_OTHER_DAYS = 20
-LINK_ALPHA, LINK_FDR = 0.01, 0.05
-LINK_PERMUTATIONS = 499
-MIN_SLEEP_GAP_H = 0.5
-MIN_HRV_GAP = 0.08
-MAX_SYMPTOM_LINKS = 2
-COINCIDENCE = "This could be coincidence, and it doesn't show that one causes the other."
-
-Candidate = tuple[Optional[dict[str, Any]], float]
-
-
-def _feeling_links(profile_id: str, days: int = 90) -> list[Candidate]:
-    """How check-ins line up with sleep the night before, with how likely each is by chance alone."""
-    out: list[Candidate] = []
-    start, end = _window(days, profile_id=profile_id)
-    feel = journal_daily(profile_id, start, end)
-    if not any(len(v) >= MIN_LINK_PAIRS for v in feel.values()):
-        return out
-    sleep_h = {p["day"]: p["value"] for p in biometrics.daily_series(profile_id, "sleep_duration", days=days)["points"]}
-    for key, words, better in (("mood", MOOD_WORDS, "up"), ("energy", ENERGY_WORDS, "up"), ("stress", STRESS_WORDS, "down")):
-        pairs = [(sleep_h[d], feel[key][d]) for d in sorted(feel[key]) if d in sleep_h]
-        if len(pairs) < MIN_LINK_PAIRS:
-            continue
-        cut = statistics.median(h for h, _ in pairs)
-        longer = [h > cut for h, _ in pairs]
-        values = [v for _, v in pairs]
-        more = [v for v, flag in zip(values, longer) if flag]
-        less = [v for v, flag in zip(values, longer) if not flag]
-        if len(more) < MIN_LINK_GROUP or len(less) < MIN_LINK_GROUP:
-            continue
-        a, b = sum(more) / len(more), sum(less) / len(less)
-        gap = a - b
-        if abs(gap) < (0.25 if key == "mood" else 0.4):
-            out.append((None, 1.0))
-            continue
-        margin = insight_stats.gap_margin(more, less)
-        points = _five(key, a) - _five(key, b)
-        good = (gap > 0) == (better == "up")
-        label = {"mood": "Mood", "energy": "Energy", "stress": "Stress"}[key]
-        out.append(({
-            "id": f"link:sleep-{key}", "kind": "link", "tone": "info",
-            "title": f"{label} and sleep",
-            "text": (f"After nights over {_fmt('sleep_duration', cut)} you rated your {key} {_five(key, a):.1f} out of 5 on average "
-                     f"({_word(words, key, a)}), against {_five(key, b):.1f} ({_word(words, key, b)}) after shorter ones, "
-                     f"over {len(pairs)} days with both. That's a gap of {abs(points):.1f}, give or take "
-                     f"{margin * (2 if key == 'mood' else 1):.1f}. "
-                     + ("So far, longer nights have gone with feeling better. " if good
-                        else "So far, longer nights haven't gone with feeling better. ")
-                     + COINCIDENCE),
-            "data": {"a": "sleep_duration", "b": f"journal:{key}", "cut": round(cut, 2), "above": round(a, 2),
-                     "below": round(b, 2), "n": len(pairs), "margin": round(margin, 2)},
-            "link": f"#/trends?metric=sleep_duration&compare=journal:{key}",
-        }, insight_stats.group_gap_p(values, longer, f"sleep-{key}", LINK_PERMUTATIONS)))
-    return out
-
-
-def _symptom_links(profile_id: str, days: int = 120) -> list[Candidate]:
-    """Symptoms logged on many days, against sleep the night before on the days without them."""
-    out: list[Candidate] = []
-    tz = _tz(profile_id)
-    events = activity.list_events(profile_id, days, category="symptoms", limit=5000)
-    by_name: dict[str, set[str]] = defaultdict(set)
-    for e in events:
-        by_name[e["name"]].add(local_day(e["start_date"], tz))
-    if not by_name:
-        return out
-    sleep_h = {p["day"]: p["value"] for p in biometrics.daily_series(profile_id, "sleep_duration", days=days)["points"]}
-    if len(sleep_h) < MIN_LINK_PAIRS:
-        return out
-    ordered = sorted(sleep_h)
-    values = [sleep_h[d] for d in ordered]
-    for name, days_logged in sorted(by_name.items(), key=lambda kv: -len(kv[1])):
-        flags = [d in days_logged for d in ordered]
-        on = [v for v, flag in zip(values, flags) if flag]
-        off = [v for v, flag in zip(values, flags) if not flag]
-        if len(on) < MIN_SYMPTOM_DAYS or len(off) < MIN_SYMPTOM_OTHER_DAYS:
-            continue
-        gap = sum(on) / len(on) - sum(off) / len(off)
-        if abs(gap) < MIN_SLEEP_GAP_H:
-            out.append((None, 1.0))
-            continue
-        margin = insight_stats.gap_margin(on, off)
-        out.append(({
-            "id": f"link:symptom-{name}", "kind": "link", "tone": "info", "title": f"{name} and sleep",
-            "text": (f"On the {len(on)} days you logged {name.lower()}, you'd slept {round(abs(gap) * 60)} minutes "
-                     f"{'less' if gap < 0 else 'more'} the night before than on days you didn't, give or take "
-                     f"{round(margin * 60)} minutes. {COINCIDENCE}"),
-            "data": {"symptom": name, "days": len(on), "gap_h": round(gap, 2), "margin": round(margin, 2)},
-            "link": "#/journal",
-        }, insight_stats.group_gap_p(values, flags, f"symptom-{name}", LINK_PERMUTATIONS)))
-    return out
-
-
-def _hard_day_links(profile_id: str) -> list[Candidate]:
-    """The top quarter of workout days, against rest days, by the next morning's HRV."""
-    for metric in ("hrv_rmssd", "hrv_sdnn"):
-        hrv = {p["day"]: p["value"] for p in biometrics.daily_series(profile_id, metric, days=90)["points"]}
-        if len(hrv) < MIN_LINK_PAIRS:
-            continue
-        start, end = _window(90, profile_id=profile_id)
-        load = workout_daily(profile_id, start, end)["load"]
-        trained = sorted(v for v in load.values() if v > 0)
-        if not trained:
-            return []
-        cut = trained[int(len(trained) * 0.75)]
-        days = [d for d in sorted(load) if (date.fromisoformat(d) + timedelta(days=1)).isoformat() in hrv and (load[d] >= cut or load[d] == 0)]
-        values = [hrv[(date.fromisoformat(d) + timedelta(days=1)).isoformat()] for d in days]
-        flags = [load[d] > 0 for d in days]
-        hard = [v for v, flag in zip(values, flags) if flag]
-        rest = [v for v, flag in zip(values, flags) if not flag]
-        if len(hard) < MIN_LINK_GROUP or len(rest) < MIN_LINK_GROUP:
-            return []
-        a, b = sum(hard) / len(hard), sum(rest) / len(rest)
-        if abs(a - b) < MIN_HRV_GAP * b:
-            return [(None, 1.0)]
-        margin = insight_stats.gap_margin(hard, rest)
-        return [({"id": f"link:load-{metric}", "kind": "link", "tone": "info", "title": "Hard days and HRV",
-                  "text": (f"The morning after your hardest training days your HRV averaged {a:.0f} ms, against "
-                           f"{b:.0f} ms after rest days, a gap of {abs(a - b):.0f} ms give or take {margin:.0f}. {COINCIDENCE}"),
-                  "data": {"after_hard": round(a, 1), "after_rest": round(b, 1), "metric": metric, "margin": round(margin, 1)},
-                  "link": f"#/trends?metric={metric}&compare=workouts:load&lag=-1"},
-                 insight_stats.group_gap_p(values, flags, f"load-{metric}", LINK_PERMUTATIONS))]
-    return []
-
-
-def _links(profile_id: str) -> list[dict[str, Any]]:
-    """Patterns across sleep, how the person felt and training. They're judged together: looking at many pairs is how a
-    coincidence gets found, so what counts as striking depends on how many were looked at."""
-    found = _feeling_links(profile_id) + _symptom_links(profile_id) + _hard_day_links(profile_id)
-    keep = insight_stats.false_discoveries_removed([p for _, p in found], LINK_FDR)
-    out, symptoms = [], 0
-    for (item, p), kept in sorted(zip(found, keep), key=lambda pair: pair[0][1]):
-        if not item or not kept or p > LINK_ALPHA:
-            continue
-        if item["id"].startswith("link:symptom-"):
-            symptoms += 1
-            if symptoms > MAX_SYMPTOM_LINKS:
-                continue
-        out.append(item)
-    return out
 
 
 def _training_notes(profile_id: str) -> list[dict[str, Any]]:
@@ -773,52 +606,6 @@ def _training_notes(profile_id: str) -> list[dict[str, Any]]:
              "text": (f"Your training load over the last 7 days is much more than your recent weeks, about "
                       f"{round((load['ratio'] - 1) * 100)}% above your weekly average for the four weeks before."),
              "data": load, "link": "#/workouts"}]
-
-
-def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
-    """What differed in wearable measurements around the first order on record for a medication in the last year, from
-    one device, with at least two weeks of data on each side. A renewal isn't a beginning, and the first order here may
-    not be the true start either, since portals don't always keep old history; the wording says which it is."""
-    today = _today(profile_id)
-    have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
-    found: list[tuple[dict[str, Any], float]] = []
-    gates = {metric: (min_abs, min_rel) for metric, min_abs, min_rel in WATCH}
-    for med in medication_timeline(profile_id):
-        started = date.fromisoformat(med["first"])
-        if not 21 <= (today - started).days <= 365 or not med["sure"]:
-            continue
-        day = med["first"]
-        end = started + timedelta(days=30)
-        phrase = f"you started {med['name']}" if med["reported_taking"] else f"the first order on record for {med['name']}"
-        for metric in MED_EFFECT_METRICS:
-            if metric not in have:
-                continue
-            pts = _complete(biometrics.daily_series(profile_id, metric, days=60, end=end)["points"])
-            source = _main_source(p for p in pts if p["day"] > day)
-            mine = _possible(metric, _same_device(profile_id, metric, pts, source, 60, end))
-            before = [p["value"] for p in mine if p["day"] < day]
-            after = [p["value"] for p in mine if p["day"] > day]
-            if len(before) < MED_MIN_DAYS or len(after) < MED_MIN_DAYS:
-                continue
-            b, a = statistics.median(before), statistics.median(after)
-            min_abs, min_rel = gates.get(metric, (None, None))
-            p = insight_stats.shift_p(after, before)
-            if not a - b or not _matters(a - b, b, min_abs, min_rel):
-                p = 1.0
-            label = METRICS[metric][0]
-            found.append(({
-                "id": f"med:{med['record_id']}:{metric}", "kind": "medication", "tone": "info",
-                "title": f"{label} since {med['name']}",
-                "text": (f"In the month after {phrase} ({_day(day)}), your {_soft(label)} was typically "
-                         f"{_fmt(metric, a)}, against {_fmt(metric, b)} the month before. Other things change too, "
-                         "so this doesn't show an effect."),
-                "data": {"metric": metric, "unit": METRICS[metric][1], "before": round(b, 3), "after": round(a, 3),
-                         "started": day, "medication": med["name"], "reported_taking": med["reported_taking"], "source": source},
-                "link": f"#/trends?metric={metric}",
-            }, p))
-    keep = insight_stats.false_discoveries_removed([p for _, p in found], MED_FDR)
-    chosen = [(item, p) for (item, p), kept in zip(found, keep) if kept and p <= MED_ALPHA]
-    return [item for item, _ in sorted(chosen, key=lambda pair: pair[1])][:3]
 
 
 # A lab result has to move this far to be called a change: a share of the last result, or of the width of the range for
@@ -963,7 +750,7 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
         if _flag_side(last.get("interpretation"), last["v"], low, high) or not _flag_side(prev.get("interpretation"), prev["v"], low, high):
             continue
         unit = s.get("unit") or ""
-        found.append({"id": f"lab:{code}:{last['t'][:10]}", "kind": "lab", "tone": "good", "title": f"{s['title']} back in range",
+        found.append({"id": f"lab:{code}:{last['t'][:10]}", "kind": "lab", "tone": "info", "title": f"{s['title']} back in range",
                       "text": (f"{s['title']} was {last['v']:g} {unit} on {_day(last['t'])}, back within the reference range"
                                f"{_ref_words(None, s)} from {prev['v']:g} {unit} on {_day(prev['t'])}.").replace("  ", " "),
                       "data": {"code": code, "latest": last["v"], "previous": prev["v"], "unit": unit},
@@ -1025,7 +812,7 @@ def _critical_labs(profile_id: str) -> list[dict[str, Any]]:
 
 
 TONE_ORDER = {"attention": 0, "info": 1, "good": 2}
-KIND_ORDER = {"critical": -1, "lab": 0, "change": 1, "device": 2, "training": 3, "sleep": 4, "medication": 5, "link": 6, "goal": 7}
+KIND_ORDER = {"critical": -1, "lab": 0, "change": 1, "device": 2, "training": 3, "sleep": 4, "goal": 5}
 
 
 def _guarded(generators: Iterable[Any], profile_id: str) -> list[dict[str, Any]]:
@@ -1042,7 +829,7 @@ def _guarded(generators: Iterable[Any], profile_id: str) -> list[dict[str, Any]]
 
 def insights(profile_id: str, limit: int = 12) -> list[dict[str, Any]]:
     """What's worth knowing right now across every source, what the lab marked critical first."""
-    found = _guarded((_critical_labs, _lab_notes, _changes, _training_notes, _sleep_notes, _medication_notes, _links, _goal_notes), profile_id)
+    found = _guarded((_critical_labs, _lab_notes, _changes, _training_notes, _sleep_notes, _goal_notes), profile_id)
     # A critical result says everything a note about the same test would.
     critical = {i["data"]["code"] for i in found if i["kind"] == "critical" and i["data"].get("code")}
     found = [i for i in found if not (i["kind"] == "lab" and i["data"].get("code") in critical)]

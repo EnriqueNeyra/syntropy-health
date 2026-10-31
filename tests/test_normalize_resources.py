@@ -333,13 +333,13 @@ def test_free_text_never_tops_the_timeline(client):
     assert client.get("/api/records", params={"category": "procedures"}).json()["items"][0]["details"]["date_text"] == "as a child"
 
 
-def test_one_partial_medication_date_doesnt_stop_medication_insights(client, monkeypatch):
+def test_one_partial_medication_date_doesnt_stop_the_medication_timeline(client, monkeypatch):
     from app.services import insights
     prof = client.get("/api/profiles").json()["profiles"][0]["id"]
     with monkeypatch.context() as patch:
         patch.setattr(insights.records, "medication_orders", lambda p: [{"id": "1", "title": "X", "effective_at": "2015-06", "status": "active"},
                                                                         {"id": "2", "title": "Y", "effective_at": "bad", "status": "active"}])
-        assert insights._medication_notes(prof) == []
+        assert insights.medication_timeline(prof) == []
 
 
 # ---- F134: what the resources said

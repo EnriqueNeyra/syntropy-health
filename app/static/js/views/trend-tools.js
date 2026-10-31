@@ -174,21 +174,17 @@ function withWithout(res) {
 }
 
 function describe(res) {
-  const fa = measureFormat(res.a), fb = measureFormat(res.b);
-  const when = lagWords(res.lag);
   if (res.with_without) return withWithout(res);
-  if (res.strength === "not enough days to tell") return res.n ? `Only ${plural(res.n, "day has", "days have")} both. It takes about four weeks to tell whether two things move together.`
-    : "No days have both yet, so there's nothing to compare.";
+  if (!res.n) return "No days have both yet, so there's nothing to compare.";
+  const fa = measureFormat(res.a), fb = measureFormat(res.b);
   const a = soft(res.a.label), b = soft(res.b.label);
-  const lead = res.strength === "no clear link" ? `No clear link between ${a} and ${b} ${when}`
-    : `A ${res.strength} ${res.r > 0 ? "positive" : "negative"} link (r = ${fmtNum(res.r, 2)}${res.interval ? `, likely between ${fmtNum(res.interval.low, 2)} and ${fmtNum(res.interval.high, 2)}` : ""}): ${res.r > 0 ? "higher" : "lower"} ${b} ${res.lag ? when : ""} tended to go with higher ${a}`;
-  const split = res.split ? ` On days with ${a} above ${fa.text(res.split.cut)}, ${b} ${res.lag ? when : ""} averaged ${fb.text(res.split.above)}, against ${fb.text(res.split.below)} otherwise.` : "";
-  return `${lead}, over ${res.n} days.${split}`.replace(/\s+/g, " ");
+  const split = res.split ? ` On days with ${a} above ${fa.text(res.split.cut)}, ${b} ${res.lag ? lagWords(res.lag) : ""} averaged ${fb.text(res.split.above)}, against ${fb.text(res.split.below)} otherwise.` : "";
+  return `${plural(res.n, "day has", "days have")} both.${split}`.replace(/\s+/g, " ");
 }
 
 /**
- * The Compare card under a chart: pick another measure, see it over the same days, the two against each other, and a
- * sentence on how they line up. `state` = { b, lag }; `onChange(state)` keeps it in the address.
+ * The Compare card under a chart: pick another measure, see it over the same days, the two against each other, and
+ * what the numbers were. What to make of them is the person's. `state` = { b, lag }; `onChange(state)` keeps it in the address.
  */
 export async function compareCard(host, profile, a, days, state, onChange) {
   const list = await comparable(profile.id);
@@ -208,7 +204,7 @@ export async function compareCard(host, profile, a, days, state, onChange) {
     const mine = gen;
     mount(host, html`<div class="card card-pad compare-card">
       <div class="row wrap between" style="gap:10px">
-        <div><h3 style="margin:0">${icon("compare")} Compare</h3><div class="small muted">See how ${soft(a.label)} lines up with anything else you track.</div></div>
+        <div><h3 style="margin:0">${icon("compare")} Compare</h3><div class="small muted">See ${soft(a.label)} beside anything else you track, over the same days.</div></div>
         <div class="row wrap" style="gap:8px">
           <select class="input input-sm" data-compare aria-label="Compare with" style="width:auto;max-width:240px">
             <option value="">Compare with…</option>
@@ -238,8 +234,7 @@ export async function compareCard(host, profile, a, days, state, onChange) {
       <div class="compare-grid">
         <div><div class="small muted compare-label">${res.b.label}${res.lag ? ` (${lagWords(res.lag)})` : ""} over the same days</div><div data-chart-b></div></div>
         <div><div class="small muted compare-label">Each day, ${soft(res.a.label)} against ${soft(res.b.label)}</div><div data-chart-xy></div></div>
-      </div>
-      <p class="tiny faint" style="margin:8px 0 0">A link here is something that lined up in your own data, not proof that one causes the other.</p>`);
+      </div>`);
     const bEl = body.querySelector("[data-chart-b]"), xyEl = body.querySelector("[data-chart-xy]");
     const bPoints = res.pairs.map((p) => ({ t: p.day, v: fb.conv(p.y) }));
     const bars = res.b.key.startsWith("workouts:");

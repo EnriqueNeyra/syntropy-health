@@ -1,5 +1,5 @@
 """
-Syntropy Health for Mac and Windows.
+Syntropy Health for Mac and Windows. AGPL-3.0-only, with the additional terms in the NOTICE file.
 
 The app runs the same server as a home-server install, on this computer, and shows it in a native window (WebKit on a
 Mac, Edge WebView2 on Windows). Closing the window keeps the server running, with a menu bar (Mac) or tray (Windows)

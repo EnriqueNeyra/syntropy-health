@@ -16,7 +16,7 @@
     },
     {
      "kind": "lab",
-     "tone": "good",
+     "tone": "info",
      "title": "Triglycerides back in range",
      "text": "Triglycerides was 147 mg/dL on <date>, back within the reference range from 162 mg/dL on <date>."
     }
@@ -56,7 +56,7 @@
     },
     {
      "kind": "lab",
-     "tone": "good",
+     "tone": "info",
      "title": "Vitamin D, 25-hydroxy back in range",
      "text": "Vitamin D, 25-hydroxy was 30 ng/mL on <date>, back within the reference range (30–100) from 26 ng/mL on <date>."
     }
@@ -148,12 +148,6 @@
    "tone": "info",
    "title": "Resting heart rate is up",
    "text": "Resting heart rate was typically 65.6 bpm over the last 7 days, up from your usual 58.1 bpm (the 60 days before)."
-  },
-  {
-   "kind": "link",
-   "tone": "info",
-   "title": "Mood and sleep",
-   "text": "After nights over 7h 12m you rated your mood 3.6 out of 5 on average (pleasant), against 2.3 (unpleasant) after shorter ones, over 70 days with both. That's a gap of 1.2, give or take 0.3. So far, longer nights have gone with feeling better. This could be coincidence, and it doesn't show that one causes the other."
   },
   {
    "kind": "goal",

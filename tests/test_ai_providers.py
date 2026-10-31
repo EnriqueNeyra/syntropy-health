@@ -881,6 +881,7 @@ def test_the_prompt_says_the_date_units_age_and_who_is_asking(client, vendor):
     assert "This is Sam's record" in prompt and "age 1" in prompt and "US units" in prompt
     assert "The person asking isn't Sam" in prompt and "Alex" not in prompt and "time zone" in prompt
     assert ai.datetime.now().strftime("%Y") in prompt
+    assert "nothing you say is medical advice" in prompt and "The person can ask you anything" in prompt
 
 
 def test_no_who_is_asking_line_about_your_own_record(client, vendor):

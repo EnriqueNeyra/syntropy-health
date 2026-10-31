@@ -60,7 +60,7 @@ def _everything_a_generator_can_say(pid):
 
 def test_generated_insights_never_advise(client):
     found = _everything_a_generator_can_say(_prof())
-    assert {i["kind"] for i in found} >= {"critical", "lab", "change", "training", "sleep", "medication", "link", "goal"}
+    assert {i["kind"] for i in found} >= {"critical", "lab", "change", "training", "sleep", "goal"}
     for i in found:
         assert not ADVICE.search(f"{i['title']} {i['text']}"), i
         assert "note" not in i["data"]
@@ -68,7 +68,7 @@ def test_generated_insights_never_advise(client):
     # A colour or a tick is a verdict too. Only a lab's flag, the reference range and a person's own goal can set the tone.
     for i in found:
         assert i["tone"] == "info" or i["kind"] in ("critical", "lab", "goal"), i
-        assert i["tone"] != "good" or i["kind"] == "goal" or "back in range" in i["title"], i
+        assert i["tone"] != "good" or i["kind"] == "goal", i
 
 
 def test_the_phrase_check_would_catch_what_used_to_be_said():
@@ -190,3 +190,40 @@ def test_a_reading_no_living_person_could_have_is_not_a_change(client):
     _daily(pid, "resting_heart_rate", _noisy(60, 0.5, 60) + [400] * 7, unit="bpm")
     assert insights._changes(pid) == []
     assert reading_bounds.is_plausible("resting_heart_rate", 60) and not reading_bounds.is_plausible("resting_heart_rate", 400)
+
+
+CONCLUSIONS = re.compile(r"coincidence|gone with|causes the other|(positive|negative|clear|weak|strong|moderate) link|\bPatterns\b|patterns with|lines up with", re.I)
+
+
+@pytest.mark.parametrize("name", ["services/insights.py", "mcp_server.py", "services/ai.py", "static/js/views/overview.js",
+                                  "static/js/views/journal.js", "static/js/views/trend-tools.js"])
+def test_the_app_connects_nothing_for_the_person(name):
+    """What goes with what is the person's to work out: the app shows the numbers side by side and draws no conclusion."""
+    assert not CONCLUSIONS.search((APP / name).read_text())
+
+
+def test_a_change_after_a_new_medication_is_not_connected_to_it(client):
+    pid = _prof()
+    _med(pid, _source(pid, "Clinic"), "new", _ago(45), title="Metformin 500 mg", key="med|860975")
+    _daily(pid, "resting_heart_rate", _noisy(60, 0.8, 45) + _noisy(52, 0.8, 45, seed=8), unit="bpm")
+    found = insights.insights(pid, 50)
+    assert not {i["kind"] for i in found} & {"medication", "link"}
+    assert not any("Metformin" in f"{i['title']} {i['text']}" for i in found)
+
+
+def test_comparing_two_measures_gives_numbers_and_no_verdict(client):
+    assert "strength" not in insights.compare(_prof(), "sleep_duration", "hrv_rmssd")
+
+
+def test_ask_is_told_it_isnt_medical_advice_and_may_be_asked_anything():
+    source = (APP / "services" / "ai.py").read_text()
+    assert "nothing you say is medical advice" in source and "The person can ask you anything" in source
+    assert "including questions about their health" in source
+    assert (APP / "static/js/views/ask.js").read_text().count("doesn't give medical advice") >= 2      # the footer, in either view of a chat
+
+
+def test_the_program_says_it_isnt_medical_advice_without_making_that_a_condition_of_the_license():
+    notice = (APP.parent / "NOTICE").read_text()
+    assert "doesn't diagnose, treat or prevent any condition or give medical\nadvice" in notice
+    assert "sections 7(a) and 7(b)" in notice and "You don't have to accept these terms to receive or run this program." in notice
+    assert "not a condition of the open-source" in (APP / "static/js/consent.js").read_text()

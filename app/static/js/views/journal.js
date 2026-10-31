@@ -194,22 +194,7 @@ export async function render({ el, params, state }) {
           <div><span>Stress</span><b>${stressAvg == null ? "—" : STRESS[Math.round(stressAvg) - 1][1]}</b></div>
         </div>` : ""}
         ${top.length ? html`<div class="small muted">Most logged symptoms: ${top.map(([n, c]) => `${n} (${c})`).join(", ")}</div>` : ""}
-      </div>
-      <div id="jr-patterns"></div>`);
-    drawPatterns(logged);
-  };
-
-  // How check-ins and symptoms line up with sleep and training, from the same insights as the Overview.
-  let patterns = null;
-  const drawPatterns = async (logged) => {
-    if (!patterns) patterns = get("/api/insights", { profile: profile.id }).then((r) => r.insights.filter((i) => i.kind === "link")).catch(() => []);
-    const list = await patterns;
-    const box = $("#jr-patterns", el);
-    if (!box) return;
-    mount(box, list.length ? html`<div class="jr-patterns"><div class="label">Patterns</div>
-      ${list.slice(0, 3).map((i) => html`<div class="jr-pattern"><b>${i.title}</b><span class="small muted">${i.text}</span>
-        ${i.link ? html`<a class="small" href="${i.link}">Compare ${icon("arrowRight")}</a>` : ""}</div>`)}</div>`
-      : logged >= 5 ? "" : html`<div class="jr-patterns"><div class="small muted">Check in on a few more days and patterns with your sleep and training will show here.</div></div>`);
+      </div>`);
   };
 
   // ------------------------------------------------------------------ everything logged

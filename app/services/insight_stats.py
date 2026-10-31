@@ -8,9 +8,7 @@ Everything here allows for that, because treating them as independent is what ma
 from __future__ import annotations
 
 import math
-import random
 import statistics
-import zlib
 from typing import Any, Optional, Sequence
 
 MAD_TO_SD = 1.4826      # scales the median absolute deviation to a standard deviation on normal data
@@ -99,50 +97,6 @@ def false_discoveries_removed(p_values: Sequence[float], q: float = 0.05) -> lis
     for rank, i in enumerate(order, 1):
         keep[i] = rank <= cut
     return keep
-
-
-def _block_order(n: int, size: int, rng: random.Random) -> list[int]:
-    """The positions 0..n-1 cut at a random point into runs of ``size`` and shuffled, so neighbours stay neighbours."""
-    start = rng.randrange(size)
-    blocks = [list(range(0, start))] if start else []
-    blocks += [list(range(i, min(i + size, n))) for i in range(start, n, size)]
-    rng.shuffle(blocks)
-    return [i for b in blocks for i in b]
-
-
-def group_gap_p(values: Sequence[float], in_group: Sequence[bool], key: str, permutations: int = 499) -> float:
-    """How often shuffling the days would give a gap between the group's mean and the others' at least as big as the
-    real one. ``values`` are in date order. Runs of days are shuffled together, so that correlated days aren't
-    counted as independent. Seeded from ``key``: the same data always gets the same answer, so an insight doesn't
-    come and go between one page load and the next."""
-    n = len(values)
-    k = sum(in_group)
-    if not k or k == n:
-        return 1.0
-    total = sum(values)
-
-    def gap(picks: Sequence[int]) -> float:
-        inside = sum(values[i] for i in picks)
-        return abs(inside / k - (total - inside) / (n - k))
-
-    members = [i for i, flag in enumerate(in_group) if flag]
-    real = gap(members)
-    rho = max(lag1(values), lag1([1.0 if f else 0.0 for f in in_group]))
-    size = max(1, min(n // 5, round((1 + rho) / (1 - rho))))
-    rng = random.Random(zlib.crc32(f"{key}|{n}|{k}".encode()))
-    hits = 0
-    for _ in range(permutations):
-        order = _block_order(n, size, rng)
-        if gap([order[i] for i in members]) >= real - 1e-12:
-            hits += 1
-    return (hits + 1) / (permutations + 1)
-
-
-def gap_margin(on: Sequence[float], off: Sequence[float]) -> float:
-    """About how far a gap between two group means could be off (a 95% margin), allowing for correlated days."""
-    def part(xs: Sequence[float]) -> float:
-        return statistics.pvariance(xs) / effective_n(len(xs), lag1(xs))
-    return 1.96 * math.sqrt(part(on) + part(off))
 
 
 def _ranks(values: Sequence[float]) -> list[float]:

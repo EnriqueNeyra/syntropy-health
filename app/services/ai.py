@@ -1293,7 +1293,7 @@ TOOL_LABELS = {
     "get_daily_metric": "Checking daily values",
     "list_workouts": "Reviewing workouts",
     "get_health_journal": "Reading the health journal",
-    "get_insights": "Looking for patterns",
+    "get_insights": "Checking what's changed",
     "compare_measures": "Comparing",
     "get_sleep_nights": "Reviewing sleep night by night",
     "get_training_summary": "Reviewing training load",
@@ -1388,7 +1388,11 @@ iPhone merged). Sources marked "(simulated)" are demo data: say so and don't pre
 briefly, then still answer, naming which person (and source) each clinical result belongs to. Wearable data comes \
 from the person's own devices and isn't affected.
 
-You state what's in the record: explain and summarize it, and don't diagnose, prescribe or give medical advice.\
+You aren't a doctor, and nothing you say is medical advice: Syntropy Health organizes records and doesn't diagnose or treat \
+anyone. The person can ask you anything, so answer what they ask, including questions about their health. When you state what's \
+in the record, keep it apart from general knowledge, and don't diagnose them, tell them what treatment to start, stop or change, \
+or present an answer as a medical opinion. When an answer touches on what something could mean for their health or what they \
+could do about it, say in a few words that it's general information and not medical advice.\
 {CONTEXT_HEAD}{chr(10).join(line for line in context_lines if line)}{SNAPSHOT_HEAD + snapshot if snapshot else ""}"""
 
 
@@ -1445,7 +1449,7 @@ def summary_context(profile_id: str, budget_chars: int) -> str:
         ("medications_planned_not_started", s["medications_planned_not_started"]), ("allergies", s["allergies"]),
         ("corrected_by_the_person", s["corrected_by_the_person"]),
         ("wearables_latest_and_7_30_day_averages", s["wearable_headline_30d"]), ("latest_vitals", s["latest_vitals"]),
-        ("patterns_across_sources", _safe(lambda: [{k: i[k] for k in ("title", "text")} for i in insights.insights(profile_id, 10)])),
+        ("whats_changed", _safe(lambda: [{k: i[k] for k in ("title", "text")} for i in insights.insights(profile_id, 10)])),
         ("workouts_last_30_days", activity.workout_summary(profile_id, 30)),
         ("health_journal_last_30_days", activity.event_summary(profile_id, 30)),
         ("recent_labs", s["recent_labs"]), ("recent_visits", s["recent_visits"]), ("visit_diagnoses", s["visit_diagnoses"]),

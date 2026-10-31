@@ -153,15 +153,6 @@ def test_false_discovery_control_by_hand():
     assert insight_stats.false_discoveries_removed([], 0.05) == []
 
 
-def test_permutation_is_repeatable_and_tells_real_from_chance():
-    rng = random.Random(2)
-    flags = [i % 3 == 0 for i in range(60)]
-    real = [rng.gauss(0, 1) + (3 if f else 0) for f in flags]
-    assert insight_stats.group_gap_p(real, flags, "k") < 0.01
-    assert insight_stats.group_gap_p(real, flags, "k") == insight_stats.group_gap_p(real, flags, "k")
-    assert insight_stats.group_gap_p(real, [True] * 60, "k") == 1.0
-
-
 def test_theil_sen_ignores_one_odd_result():
     slope, tau = insight_stats.theil_sen([0, 1, 2, 3, 4], [0, 1, 200, 3, 4])
     assert slope == pytest.approx(1.0) and tau == pytest.approx(0.6)
@@ -234,30 +225,6 @@ def test_a_change_has_to_hold_on_the_day_before_too(client):
     assert len(insights._changes(pid2)) == 1
 
 
-def test_one_striking_link_among_many_candidates_does_not_count(client, monkeypatch):
-    def item(name):
-        return {"id": f"link:{name}", "kind": "link", "tone": "info", "title": name, "text": name, "data": {}}
-    with monkeypatch.context() as patch:
-        patch.setattr(insights, "_feeling_links", lambda _p: [(item("a"), 0.008)] + [(None, 1.0)] * 11)
-        patch.setattr(insights, "_symptom_links", lambda _p: [])
-        patch.setattr(insights, "_hard_day_links", lambda _p: [])
-        assert insights._links("p") == []
-        patch.setattr(insights, "_feeling_links", lambda _p: [(item("a"), 0.008), (None, 1.0)])
-        assert [i["id"] for i in insights._links("p")] == ["link:a"]
-        patch.setattr(insights, "_feeling_links", lambda _p: [(item("a"), 0.02), (None, 1.0)])
-        assert insights._links("p") == []   # past the bar on its own, even with few candidates
-
-
-def test_at_most_two_symptom_links_appear(client, monkeypatch):
-    def item(name):
-        return {"id": f"link:symptom-{name}", "kind": "link", "tone": "info", "title": name, "text": name, "data": {}}
-    with monkeypatch.context() as patch:
-        patch.setattr(insights, "_feeling_links", lambda _p: [])
-        patch.setattr(insights, "_hard_day_links", lambda _p: [])
-        patch.setattr(insights, "_symptom_links", lambda _p: [(item(n), p) for n, p in (("a", 0.004), ("b", 0.002), ("c", 0.006))])
-        assert [i["id"] for i in insights._links("p")] == ["link:symptom-b", "link:symptom-a"]
-
-
 def test_too_few_days_on_either_side_say_nothing(client):
     pid = _prof()
     _daily(pid, "resting_heart_rate", _noisy(55, 0.3, 19) + [70] * 7, unit="bpm")
@@ -307,13 +274,11 @@ def test_order_is_what_the_lab_marked_critical_then_attention_then_the_rest(clie
     with monkeypatch.context() as patch:
         patch.setattr(insights, "_critical_labs", fake("critical", "attention"))
         patch.setattr(insights, "_goal_notes", fake("goal", "good"))
-        patch.setattr(insights, "_links", fake("link", "info"))
         patch.setattr(insights, "_lab_notes", fake("lab", "attention"))
         patch.setattr(insights, "_sleep_notes", fake("sleep", "info"))
         patch.setattr(insights, "_changes", fake("change", "good"))
         patch.setattr(insights, "_training_notes", fake("training", "info"))
-        patch.setattr(insights, "_medication_notes", fake("medication", "info"))
-        assert [i["kind"] for i in insights.insights("p")] == ["critical", "lab", "training", "sleep", "medication", "link", "change", "goal"]
+        assert [i["kind"] for i in insights.insights("p")] == ["critical", "lab", "training", "sleep", "change", "goal"]
         assert [i["kind"] for i in insights.insights("p", 2)] == ["critical", "lab"]
 
 

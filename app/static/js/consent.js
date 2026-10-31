@@ -1,4 +1,4 @@
-// What the person agrees to, kept short: their records live on their own computer and are theirs to secure; an AI
+// What the person acknowledges, kept short: their records live on their own computer and are theirs to secure; an AI
 // outside their network sees what it's asked about; none of it is medical advice. Full text on the website.
 import { post } from "./api.js";
 import { confirmDialog, html } from "./ui.js";
@@ -8,11 +8,12 @@ export const PRIVACY_URL = "https://health.syntropylabs.io/privacy/";
 // Under the AGPL, a changed version that others use over a network must offer them its source: point this at yours.
 export const SOURCE_URL = "https://github.com/EnriqueNeyra/syntropy-health";
 
-/** The agreement checkbox for setup and the password screen. */
+/** The acknowledgment checkbox for setup and the password screen. */
 export function termsCheckbox(id = "s-terms") {
   return html`<label class="checkbox small terms-check"><input type="checkbox" id="${id}" required>
     <span>I understand that my health records are stored on this computer, that keeping it secure and backed up is up to
-      me, and that Syntropy Health isn't medical advice.
+      me, and that Syntropy Health isn't medical advice. This is an acknowledgment, not a condition of the open-source
+      license. The Terms cover Syntropy's website and sign-in relay.
       <span class="nowrap"><a href="${TERMS_URL}" target="_blank" rel="noopener">Terms</a> · <a href="${PRIVACY_URL}" target="_blank" rel="noopener">Privacy</a></span></span></label>`;
 }
 

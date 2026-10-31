@@ -131,7 +131,7 @@ def test_compare_pairs_days_and_finds_the_link(client):
     _daily(pid, "step_count", steps)
     _daily(pid, "active_energy", [s / 20 for s in steps], unit="kcal")
     res = client.get("/api/insights/compare", params={"a": "step_count", "b": "active_energy", "days": 30}).json()
-    assert res["n"] >= 28 and res["r"] > 0.95 and res["strength"] == "strong"
+    assert res["n"] >= 28 and res["r"] > 0.95 and "strength" not in res
     assert res["split"]["above"] > res["split"]["below"]
     lagged = client.get("/api/insights/compare", params={"a": "step_count", "b": "active_energy", "days": 30, "lag": -1}).json()
     assert lagged["lag"] == -1 and lagged["n"] >= 28 and lagged["r"] < res["r"]
@@ -197,7 +197,7 @@ def test_new_tools_for_ai_apps(client):
         text, err = mcp_server.call_tool(name, {})
         assert not err, text
     text, err = mcp_server.call_tool("compare_measures", {"a": "step_count", "b": "workouts:minutes", "days": 14})
-    assert not err and '"strength"' in text
+    assert not err and '"strength"' not in text and '"pairs"' in text
 
 
 def test_labels_inside_sentences_keep_their_capitals():

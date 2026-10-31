@@ -188,7 +188,7 @@ def test_back_in_range_is_mentioned(client):
     _lab(pid, src, 1, _ago(100), 6.4, "high", code="4548-4", title="A1c", unit="%", high=5.6)
     _lab(pid, src, 2, _ago(10), 5.4, "normal", code="4548-4", title="A1c", unit="%", high=5.6)
     notes = insights._lab_notes(pid)
-    assert [(n["title"], n["tone"]) for n in notes] == [("A1c back in range", "good")]
+    assert [(n["title"], n["tone"]) for n in notes] == [("A1c back in range", "info")]
 
 
 # ---------------------------------------------------------------------------
@@ -254,30 +254,6 @@ def test_a_statement_of_taking_it_says_started(client):
     pid = _prof()
     _med(pid, _source(pid, "Clinic"), "m1", _ago(100), resource="MedicationStatement")
     assert insights.markers(pid)[0]["label"] == "Started Lisinopril 10 mg"
-
-
-def test_medication_note_only_follows_a_first_order_and_says_so(client):
-    pid = _prof()
-    src = _source(pid, "Clinic")
-    _med(pid, src, "old1", "2019-01-15", title="Lisinopril 10 mg")
-    _med(pid, src, "old2", _ago(45), title="Lisinopril 10 mg")
-    _med(pid, src, "new", _ago(45), title="Metformin 500 mg", key="med|860975")
-    _med(pid, src, "unknown", _ago(45), title="Atenolol", key="med|197381", status="unknown")
-    # Sixty days around that date, with a large plain step in resting heart rate.
-    rhr = _noisy(60, 0.8, 45) + _noisy(52, 0.8, 45, seed=8)
-    _daily(pid, "resting_heart_rate", rhr, unit="bpm")
-    notes = insights._medication_notes(pid)
-    assert [n["data"]["medication"] for n in notes] == ["Metformin 500 mg"]
-    assert "first order on record for Metformin 500 mg" in notes[0]["text"] and "you started" not in notes[0]["text"]
-
-
-def test_medication_note_compares_one_device_with_itself(client):
-    pid = _prof()
-    src = _source(pid, "Clinic")
-    _med(pid, src, "new", _ago(45), title="Metformin 500 mg", key="med|860975")
-    _daily(pid, "resting_heart_rate", _noisy(60, 0.8, 45), source="Apple Watch", unit="bpm", end_days_ago=45)
-    _daily(pid, "resting_heart_rate", _noisy(52, 0.8, 45), source="Oura Ring", unit="bpm")
-    assert insights._medication_notes(pid) == []
 
 
 def test_medication_statement_date_is_when_it_began_not_when_it_was_noted():
@@ -438,69 +414,6 @@ def _sleep_daily(pid, hours):
     biometrics.insert_samples(pid, None, samples)
 
 
-def test_a_real_sleep_and_mood_link_is_found_with_its_uncertainty_and_a_caution(client):
-    pid = _prof()
-    rng = random.Random(3)
-    hours = [rng.gauss(7, 1) for _ in range(60)]
-    _sleep_daily(pid, hours)
-    _checkins(pid, [max(-1, min(1, (h - 7) * 0.5 + rng.gauss(0, 0.1))) for h in hours])
-    link = next(i for i in insights._links(pid) if i["id"] == "link:sleep-mood")
-    assert "give or take" in link["text"] and "coincidence" in link["text"] and "for you" not in link["text"]
-    assert link["data"]["n"] >= 55 and "margin" in link["data"]
-
-
-def test_too_few_days_never_become_a_link(client):
-    pid = _prof()
-    hours = [7 + 2 * (i % 2) for i in range(25)]
-    _sleep_daily(pid, hours)
-    _checkins(pid, [(h - 8) * 0.9 for h in hours])
-    assert [i for i in insights._links(pid) if i["id"].startswith("link:sleep")] == []
-
-
-def test_sleep_cut_never_prints_sixty_minutes(client):
-    pid = _prof()
-    hours = [6.5 + 1.0 * (i % 2) - 0.01 * (i % 2 == 0) for i in range(60)]
-    rng = random.Random(5)
-    hours = [6.99 if i % 2 else 7.0 for i in range(30)] + [5.5 + rng.random() for _ in range(15)] + [8 + rng.random() for _ in range(15)]
-    rng.shuffle(hours)
-    _sleep_daily(pid, hours)
-    _checkins(pid, [(1 if h >= 7.0 else -1) * 0.8 for h in hours])
-    links = [i for i in insights._links(pid) if i["id"] == "link:sleep-mood"]
-    assert links and "60m" not in links[0]["text"]
-
-
-def test_symptom_days_are_compared_with_the_days_without_it(client):
-    pid = _prof()
-    rng = random.Random(4)
-    hours = [rng.gauss(7.5, 0.4) for _ in range(80)]
-    on = set(range(0, 80, 6))
-    for i in on:
-        hours[i] -= 1.5
-    _sleep_daily(pid, hours)
-    activity.insert_events(pid, None, [
-        {"id": f"h{i}", "event_type": "headache", "category": "symptoms", "name": "Headache",
-         "start": _noon(79 - i).isoformat(), "end": _noon(79 - i).isoformat(), "source_name": "Syntropy"} for i in on])
-    link = next(i for i in insights._links(pid) if i["id"] == "link:symptom-Headache")
-    assert f"On the {len(on)} days you logged headache" in link["text"] and "less" in link["text"]
-    assert "days you didn't" in link["text"] and "give or take" in link["text"] and "coincidence" in link["text"]
-    # The gap is against the other days: about 90 minutes here, where all days together would give about 75.
-    assert 75 <= abs(link["data"]["gap_h"]) * 60 <= 105
-
-
-def test_few_symptom_days_are_not_a_pattern(client):
-    pid = _prof()
-    rng = random.Random(4)
-    hours = [rng.gauss(7.5, 0.3) for _ in range(60)]
-    on = {3, 13, 23, 33, 43}
-    for i in on:
-        hours[i] -= 2
-    _sleep_daily(pid, hours)
-    activity.insert_events(pid, None, [
-        {"id": f"h{i}", "event_type": "headache", "category": "symptoms", "name": "Headache",
-         "start": _noon(59 - i).isoformat(), "end": _noon(59 - i).isoformat(), "source_name": "Syntropy"} for i in on])
-    assert insights._links(pid) == []
-
-
 # ---------------------------------------------------------------------------
 # F300, F184
 # ---------------------------------------------------------------------------
@@ -521,28 +434,6 @@ def test_a_partial_day_counts_toward_an_at_least_goal_only_once_met(client):
     goals.set_goal(pid, "step_count", 9800, "min")
     p = goals.progress(pid, 7)[0]
     assert p["met"] == 0 and p["days"] == 1
-
-
-def test_hardest_days_are_the_hardest_of_the_workout_days(client, monkeypatch):
-    # 40 workout days in 90: only the top quarter count as hardest, and lighter sessions aren't among them.
-    start, end = insights._window(90)
-    days = [(start + timedelta(days=i)).isoformat() for i in range(90)]
-    load = {d: 0.0 for d in days}
-    rng = random.Random(9)
-    picked = rng.sample(days[:-1], 40)
-    for i, d in enumerate(sorted(picked)):
-        load[d] = 300.0 if i % 4 == 0 else 50.0
-    hrv = {}
-    for i, d in enumerate(days):
-        prev = load[days[i - 1]] if i else 0
-        hrv[d] = (30.0 if prev == 300.0 else 50.0) + rng.gauss(0, 1)
-    pid = _prof()
-    with monkeypatch.context() as patch:
-        patch.setattr(insights, "workout_daily", lambda *_: {"load": load, "minutes": load})
-        patch.setattr(biometrics, "daily_series", lambda _p, m, days=0, **_: {
-            "points": [{"day": d, "value": v, "source": "Apple Watch"} for d, v in hrv.items()] if m == "hrv_rmssd" else []})
-        candidates = insights._hard_day_links(pid)
-    assert candidates and candidates[0][0]["data"]["after_hard"] == pytest.approx(30, abs=1.5)
 
 
 def test_a_broken_generator_is_logged_without_health_values_and_hides_nothing(client, monkeypatch, caplog):
@@ -740,30 +631,6 @@ def test_a_drug_intended_first_and_taken_later_starts_when_it_was_taken(client):
     _statement(pid, src, "active", _ago(40), "Metformin")
     marker = insights.markers(pid)[0]
     assert marker["label"] == "Started Metformin" and marker["t"] == _ago(40)
-
-
-@pytest.mark.parametrize("status", ["intended", "unknown", "on-hold"])
-def test_no_before_and_after_for_a_statement_that_does_not_say_it_was_taken(client, status):
-    pid = _prof()
-    _daily(pid, "resting_heart_rate", _noisy(60, 1, 50) + _noisy(68, 1, 40), unit="bpm")
-    _statement(pid, _source(pid, "Clinic"), status, name="Vitamin D")
-    assert insights._medication_notes(pid) == []
-
-
-def test_no_before_and_after_when_only_the_first_row_of_a_drug_is_unsure(client):
-    pid = _prof()
-    src = _source(pid, "Clinic")
-    _daily(pid, "resting_heart_rate", _noisy(60, 1, 50) + _noisy(68, 1, 40), unit="bpm")
-    _statement(pid, src, "unknown", _ago(40), "Vitamin D")
-    _statement(pid, src, "active", _ago(5), "Vitamin D")
-    assert insights._medication_notes(pid) == []
-
-
-def test_a_statement_of_taking_a_drug_still_gets_its_before_and_after(client):
-    pid = _prof()
-    _daily(pid, "resting_heart_rate", _noisy(60, 1, 50) + _noisy(68, 1, 40), unit="bpm")
-    _statement(pid, _source(pid, "Clinic"), "active", name="Vitamin D")
-    assert "you started Vitamin D" in insights._medication_notes(pid)[0]["text"]
 
 
 # ---------------------------------------------------------------------------

@@ -86,7 +86,6 @@ export function insightText(i) {
       ? new Date(2000, 0, 1, h, min).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : d.bedtime;
     return `Your bedtime varied by about ±${d.spread_min} minutes over the last two weeks (usually around ${at}).`;
   }
-  if (i.kind === "medication") return `In the month after ${d.reported_taking ? `you started ${d.medication}` : `the first order on record for ${d.medication}`} (${fmtDate(d.started)}), this was typically ${v(d.after)}, against ${v(d.before)} the month before. Other things change too, so this doesn't show an effect.`;
   if (i.kind === "goal" && d.unit) return `You met this goal (${d.direction === "min" ? "at least" : "at most"} ${v(d.target)}) on ${d.met} of the last ${d.days} days${d.streak >= 3 ? `, ${d.streak} in a row` : ""}.`;
   return i.text;
 }
@@ -96,7 +95,7 @@ export function insightItem(i, { hide = true } = {}) {
     <span class="insight-icon">${icon(TONE_ICON[i.tone] || "lightbulb")}</span>
     <div class="grow" style="min-width:0"><div class="insight-title">${i.title}</div>
       <div class="small muted">${insightText(i)}</div>
-      ${i.link ? html`<a class="small" href="${i.link}">${i.kind === "link" ? "Compare" : "See the chart"} ${icon("arrowRight")}</a>` : ""}</div>
+      ${i.link ? html`<a class="small" href="${i.link}">See the chart ${icon("arrowRight")}</a>` : ""}</div>
     ${hide ? html`<button class="btn btn-ghost btn-icon btn-sm insight-hide" data-action="hide-insight" data-id="${i.id}" aria-label="Hide this" title="Hide">${icon("x")}</button>` : ""}
   </div>`;
 }
@@ -138,7 +137,7 @@ function sourcesLabel(r) {
 // records draw from medical records, and stay out of the way until there are some. Single numbers (steps, sleep, HRV…)
 // are items of their own, "m:<metric>".
 export const WIDGETS = [
-  { id: "insights", title: "What's changed", desc: "Changes from your normal and patterns across sleep, heart, training, labs and how you feel", size: "xl", on: true,
+  { id: "insights", title: "What's changed", desc: "What's changed from your normal across sleep, heart, training and labs", size: "xl", on: true,
     needs: ["insights"], first: true,
     render: (d) => {
       const items = d.insights?.insights || [];

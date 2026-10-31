@@ -115,14 +115,15 @@ def _account_summary(account: Optional[dict], principal: auth.Principal) -> Opti
             "owner_name": next((a["name"] for a in everyone if a["role"] == "owner"), None)}
 
 
-# What the person agrees to at setup (and once more when this changes): their records are on their own computer and
-# theirs to secure and back up; AI providers they choose see what they ask about; it isn't medical advice. The full
-# text is on health.syntropylabs.io/terms. Bump the version when that summary changes in substance.
+# What the person acknowledges at setup (and once more when this changes): their records are on their own computer and
+# theirs to secure and back up; AI providers they choose see what they ask about; it isn't medical advice. It's notice,
+# not a condition of the AGPL (sections 2 and 9): the terms on health.syntropylabs.io/terms bind that site and the relay,
+# and NOTICE carries the program's own section 7 terms. Bump the version when that summary changes in substance.
 TERMS_VERSION = 1
 
 
 def terms_accepted(account: Optional[dict]) -> bool:
-    """Each person agrees for themselves (with no account, only while developing, the agreement isn't asked)."""
+    """Each person acknowledges it for themselves (with no account, only while developing, it isn't asked)."""
     return account is None or account.get("terms_version") == TERMS_VERSION
 
 

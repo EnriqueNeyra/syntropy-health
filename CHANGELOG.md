@@ -8,6 +8,10 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 A large release: records import and sync more completely, backups and upgrades are safer, and accounts, the phone
 connection and AI access are tighter. Lines under each heading are what changed for someone upgrading from 1.6.0.
 
+**The disclaimer is clearer about what it is.** Syntropy Health isn't medical advice, and that's now also stated in
+`NOTICE` as additional terms under section 7 of the license. The first-run checkbox is an acknowledgment, not a condition
+of the license, and the Terms on the website cover the website and sign-in relay.
+
 ### Records and portals
 
 - **Tidier names from imports and reports.** A lab read from a PDF or photo is saved under the name the dialog shows
@@ -109,16 +113,18 @@ connection and AI access are tighter. Lines under each heading are what changed 
 
 ### Insights and trends
 
-- **What's changed is quieter and more careful.** A change, or a link between sleep, mood and symptoms, only appears
-  when the numbers support it, and links say how sure they are and that they could be coincidence. Slow, sustained
+- **What's changed states facts and connects nothing.** Notes that set sleep against mood or symptoms, hard training
+  against HRV, or a measure against a medication's start are gone, and so is the Journal's Patterns list. Compare and
+  *Before and after* still put any two things side by side, with the numbers and no verdict, for you to judge.
+- **What's changed is quieter and more careful.** A change only appears when the numbers support it. Slow, sustained
   changes, such as weight moving steadily over two months, show again. Lab notes give the right direction, ignore tiny
   changes, describe slow drift over years, and mention when a result moves closer to its range or comes back in range.
   Old lab results stay on the out-of-range list marked with their age but no longer lead *What's changed*.
 - **A new watch or ring isn't a change in you.** Syntropy Health says the device changed and compares each device only
   with itself. Adding your phone to your watch's steps doesn't count as a new device.
 - **Trends shows your usual range** and marks when your device changed. On long ranges the big number is labeled as
-  the latest day, and blood pressure with only one number shows a dash instead of an invented pair. Compare says how
-  sure it is and waits for about four weeks of days before naming a link.
+  the latest day, and blood pressure with only one number shows a dash instead of an invented pair. Compare shows the
+  numbers on the days that have both, with no verdict.
 - **Training load** waits for four weeks of history before comparing, one glitched heart rate can't change your zones, a
   week off no longer makes a regular exerciser look new to training, and you can set your own maximum heart rate.
 - Medications are marked on charts at their first order on record, not each renewal, and only say *Started* when the

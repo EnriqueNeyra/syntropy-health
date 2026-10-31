@@ -5,7 +5,7 @@
 # Syntropy Health
 
 **The open-source, self-hosted personal health record.**
-Medical records from your patient portals, Apple Health and wearable data, and insights across all of it, on a computer you control.
+Medical records from your patient portals, Apple Health and wearable data, all in one place, on a computer you control.
 
 [![CI](https://github.com/EnriqueNeyra/syntropy-health/actions/workflows/ci.yml/badge.svg)](https://github.com/EnriqueNeyra/syntropy-health/actions/workflows/ci.yml)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
@@ -17,7 +17,7 @@ Medical records from your patient portals, Apple Health and wearable data, and i
 
 </div>
 
-<p align="center"><img src=".github/images/overview.png" alt="The Syntropy Health Overview: changes and patterns across lab results, wearables, workouts and check-ins" width="900"></p>
+<p align="center"><img src=".github/images/overview.png" alt="The Syntropy Health Overview: what's changed across lab results and wearables, with medications, conditions and allergies" width="900"></p>
 
 ## Works today / Coming
 
@@ -179,10 +179,12 @@ problems go to [SECURITY.md](.github/SECURITY.md), not a public issue. Everyone 
 ## Disclaimer
 
 Syntropy Health organizes information you're entitled to under the 21st Century Cures Act. It is not a medical device
-and doesn't give medical advice or diagnose anything. It shows what your records and devices report.
+and doesn't give medical advice: check anything important with your care team.
 
 ## License
 
 Free and open source under the [GNU Affero General Public License v3.0 only](LICENSE). You can use, study, change and
 share it; if you share a changed version, or run one that other people use over a network, offer them its source under
-the same license. The Syntropy Health name, logo and icons aren't covered: see [NOTICE](NOTICE).
+the same license. The Syntropy Health name, logo and icons aren't covered, and the program carries a short not-medical-advice
+notice as additional terms under section 7: see [NOTICE](NOTICE). The [Terms](https://health.syntropylabs.io/terms/) cover
+Syntropy's website and sign-in relay, and aren't a condition of the license.
