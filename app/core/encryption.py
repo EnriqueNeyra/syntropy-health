@@ -357,6 +357,8 @@ def _keep_original(path: Path, version: int) -> Path:
 
 def _encrypt_in_place(path: Path) -> None:
     key = security.database_key()
+    # Finding out whether a key was needed may have read the database, and a connection kept for reuse holds it open.
+    db.close_readers()
     _step("key-ready")
     if not db.opens(path, None):
         raise _NotNow("The database can't be read, so it hasn't been encrypted.")

@@ -4,6 +4,7 @@ temporary folder. CI's install jobs run them for real on Linux and Mac."""
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import stat
 import subprocess

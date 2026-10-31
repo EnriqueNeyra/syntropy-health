@@ -167,6 +167,15 @@ def test_starting_this_version_encrypts_an_existing_database_and_everything_is_s
         assert search.ready() is not None
 
 
+def test_a_database_with_no_key_yet_is_encrypted_too(tmp_path):
+    """One that never saved a secret has no key file. Deciding to make one reads the database, which mustn't get in the way."""
+    path = config.db_path()
+    _plaintext_database(path, version_only=True)
+    (tmp_path / "secret.key").unlink(missing_ok=True)
+    with _start():
+        assert db.is_encrypted(path) and (tmp_path / "secret.key").exists()
+
+
 def test_the_original_stays_until_this_version_has_shown_it_runs_then_goes(tmp_path):
     path = config.db_path()
     _plaintext_database(path)
