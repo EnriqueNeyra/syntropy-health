@@ -176,6 +176,24 @@ def test_a_failed_search_can_be_tried_again(session):
     page.wait_for_selector(".page-error", state="detached")
 
 
+def test_a_dialog_with_typing_in_it_waits_behind_the_sign_in_screen(browser, fresh_server):
+    seed(fresh_server, simulated=False).close()
+    s = Session(browser, fresh_server)
+    page = s.open("#/journal")
+    page.locator("[data-action=new]").first.click()
+    page.locator("#jr-note").fill("A long note")
+    s.ctx.clear_cookies()
+    page.locator(".modal [data-save]").click()
+    page.wait_for_selector("#login-form")
+    assert not page.locator("#jr-note").is_visible()
+    page.locator("#l-pass").fill("correct horse battery")
+    page.locator("#login-form button[type=submit]").click()
+    page.wait_for_selector("#jr-note")
+    assert page.locator("#jr-note").input_value() == "A long note"
+    assert page.evaluate("document.getElementById('root').inert")
+    s.close()
+
+
 def test_a_session_that_ran_out_keeps_the_note_and_says_why(browser, fresh_server):
     seed(fresh_server, simulated=False).close()
     s = Session(browser, fresh_server)

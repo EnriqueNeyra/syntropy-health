@@ -264,11 +264,12 @@ export async function render({ el, params, state }) {
   const reloadAll = async () => {
     [res, recent] = await Promise.all([load(), loadRecent()]);
     draft = null;
+    dropDraft();
     drawCheckin(); drawMonth(); draw();
   };
   const onRange = wireRange(el, () => range, (r) => { range = r; limit = PAGE; saveRange(range, RANGE_KEY); drawControls(); return reload(); });
   $("#jr-q", el).addEventListener("input", debounce((e) => { q = e.target.value.trim(); limit = PAGE; reload(); }, 250));
-  el.addEventListener("input", (e) => { if (e.target.id === "jr-quick-note" && draft) draft.note = e.target.value; });
+  el.addEventListener("input", (e) => { if (e.target.id === "jr-quick-note" && draft) { draft.note = e.target.value; keepDraft(); } });
   const byId = (id) => res.events.find((e) => e.id === id);
 
   return onAction(el, {

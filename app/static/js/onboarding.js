@@ -30,7 +30,7 @@ export function renderSetup(status, onDone) {
     screen(null, html`
       <h1>Welcome to Syntropy Health</h1>
       <p class="muted onboard-lede">Your household keeps its health records on one computer, the server. Each person signs in as
-        themselves, from any computer or iPhone.</p>
+        themselves, from any computer or phone.</p>
       <div id="ob-found"></div>
       <div class="onboard-tiles">
         <button class="onboard-tile" type="button" data-action="join"><span class="ev-icon">${icon("users")}</span>

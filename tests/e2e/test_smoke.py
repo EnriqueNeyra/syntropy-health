@@ -213,6 +213,9 @@ def test_long_names_dont_widen_the_page(browser, fresh_server):
           .slice(-4).map((e) => e.localName + '.' + e.className).join(' ')""")
         wide = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
         assert wide <= 1, f"{hash_}: {widest}"
+    page.set_viewport_size({"width": 320, "height": 700})
+    _no_overflow(s.open("#/settings/general"))
+    _no_overflow(s.open("#/report"))
     c.close()
     s.close()
 

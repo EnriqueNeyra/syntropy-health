@@ -80,7 +80,7 @@ export async function render({ el, parts, state, navigate }) {
         ${embedded ? "" : row("Theme", "System follows your device's light or dark setting.",
           html`<div class="segmented" role="group" aria-label="Theme">${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([k, name]) =>
             html`<button class="${k === pref ? "active" : ""}" data-action="theme" data-theme="${k}" aria-pressed="${k === pref}">${name}</button>`)}</div>`)}
-        ${row("Accent color", "Buttons, highlights and charts, on every device: here, the desktop app and the iPhone app.",
+        ${row("Accent color", "Buttons, highlights and charts, on every device: here, the desktop app and the phone apps.",
           html`<div class="swatches" role="radiogroup" aria-label="Accent color">${ACCENTS.map(([k, name, light, dark]) => html`
             <button class="swatch ${k === currentAccent() ? "active" : ""}" role="radio" aria-checked="${k === currentAccent()}" data-action="accent"
               data-accent="${k}" title="${name}" aria-label="${name}" style="--sw:${light};--sw-dark:${dark}"></button>`)}</div>`)}`)}
@@ -711,7 +711,7 @@ async function openInvite(p, redraw) {
   m.el.querySelector("[data-close-invite]").addEventListener("click", () => { m.close(); redraw(); });
   const intro = () => html`
     <p style="margin-bottom:10px">${p.name} will choose their own password and sign in as themselves, on this computer, another one, or
-      the iPhone app.</p>
+      a phone app.</p>
     <div class="banner info">${icon("users")}<div class="grow"><p><b>Once ${p.name} joins, their data is theirs.</b> You'll stop
       seeing it unless they share it with you. Phones you paired for them stop until they pair them again with their own sign-in, and your
       conversations with an AI about them are deleted. Sources you connected keep running, and they're shown what's there.

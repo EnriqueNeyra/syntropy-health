@@ -42,6 +42,8 @@ export function mount(el, content) {
   el.innerHTML = render(content);
   // Cards sit directly under the page's heading, whatever tag they're drawn with.
   for (const h of el.querySelectorAll(".card-head h3")) h.setAttribute("aria-level", "2");
+  // A table wider than a phone scrolls in its own box, which the keyboard has to be able to reach.
+  for (const t of el.querySelectorAll(".table-wrap")) t.tabIndex = 0;
   // Keyboard users stay where they were when a control redraws the section it's in.
   if (key) el.querySelector(key)?.focus({ preventScroll: true });
   return el;
@@ -448,7 +450,7 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
     onClose && onClose();
   };
   // Escape closes the dialog on top (a confirmation over an editor closes alone).
-  const onKey = (e) => { if (e.key === "Escape" && [...openDialogs].at(-1) === close) askClose(); };
+  const onKey = (e) => { if (e.key === "Escape" && !dialogsHeld && [...openDialogs].at(-1) === close) askClose(); };
   const unsaved = () => (typeof dirty === "function" ? dirty() : dirty && fieldsChanged(overlay));
   let asking = false;
   const askClose = async () => {
