@@ -245,6 +245,7 @@ def test_removing_someone_is_logged_and_their_entries_lose_their_details(raw_cli
     from app.core import config
     client = _signed_in_owner(raw_client)
     leo = _person(client, "Leo", "child")
+    assert client.put("/api/settings/developer", json={"enabled": True}).status_code == 200
     assert client.post("/api/connections/wearable", json={"provider": "oura", "mode": "simulated", "profile_id": leo}).status_code == 200
     _journal(client, leo)
     assert client.delete(f"/api/profiles/{leo}").status_code == 200

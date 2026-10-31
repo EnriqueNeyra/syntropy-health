@@ -536,8 +536,6 @@ function focusPage() {
 // How far down each address was, for coming Back to it.
 const scrollMemo = new Map();
 let shownHash = null;
-let cameBack = false;
-window.addEventListener("popstate", () => { cameBack = true; });
 
 /** Draws the current address. `keepScroll` redraws in place (fresh data) without going back to the top. */
 async function route(opts) {
@@ -571,8 +569,9 @@ async function route(opts) {
   drawSimulatedNote(name);
   if (shownHash && shownHash !== location.hash) scrollMemo.set(shownHash, pageScroller().scrollTop);
   shownHash = location.hash;
-  const restoreTo = cameBack ? scrollMemo.get(location.hash) : undefined;
-  cameBack = false;
+  // A new entry in the browser's history has no state yet: one that does was reached with Back or Forward.
+  const restoreTo = history.state?.seen ? scrollMemo.get(location.hash) : undefined;
+  if (!history.state?.seen) history.replaceState({ ...history.state, seen: true }, "");
   const newSection = name !== shownRoute && shownRoute !== null;
   document.title = name === "overview" ? "Syntropy Health" : `${def.label} — Syntropy Health`;
   desktopBridge({ type: "title", title: document.title });

@@ -184,14 +184,19 @@ def test_overview_layout_is_saved_when_leaving_straight_away(browser, server):
 
 def test_back_returns_to_where_the_page_was_scrolled(browser, server):
     s = Session(browser, server, width="phone")
-    page = s.open("#/records")
-    page.evaluate("document.getElementById('view').style.minHeight = '4000px'; window.scrollTo(0, 900)")
+    page = s.open("#/sources")
+    page.evaluate("window.scrollTo(0, 300)")
+    assert page.evaluate("window.scrollY") == 300
     s.open("#/journal")
     assert page.evaluate("window.scrollY") == 0
     page.go_back()
-    page.wait_for_selector("#view:not([aria-busy])")
-    assert page.evaluate("document.documentElement.scrollHeight") > 0
-    assert page.evaluate("history.length") > 1
+    page.wait_for_selector("#imp-status", state="attached")
+    s.settle()
+    assert page.evaluate("window.scrollY") == 300
+    # Going there afresh starts at the top.
+    s.open("#/journal")
+    s.open("#/sources")
+    assert page.evaluate("window.scrollY") == 0
     s.close()
 
 
