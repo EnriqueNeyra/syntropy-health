@@ -254,13 +254,18 @@ def scenario():
     results["own_page_requests"] = [m for m in requests if m.get("type") == "retry" and m.get("_own_page")]
 
     window.load_url(f"{HOME}/page")
-    until(lambda: (url() or "").endswith("/page"))
-    time.sleep(0.3)
+    until(lambda: (url() or "").endswith("/page") and not mac.away)
     results["back_home"] = state()
-    js(post({"type": "title", "title": "Named by the app"}), 0.3)
-    results["home_title"] = on_main(lambda: str(mac.ns_window.title()))
+    # The page may still be loading, and a message sent to the one on its way out goes nowhere: ask until the title shows it arrived.
+    title = lambda: on_main(lambda: str(mac.ns_window.title()))  # noqa: E731
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline and title() != "Named by the app":
+        js(post({"type": "title", "title": "Named by the app"}), 0.2)
+    results["home_title"] = title()
     before = len(requests)
-    js(post({"type": "join", "url": "http://x"}), 0.3)
+    js(post({"type": "join", "url": "http://x"}), 0)
+    until(lambda: len(requests) > before)
+    time.sleep(0.3)     # nothing more should follow it
     results["home_requests"] = [m["type"] for m in requests[before:]]
 
     # A page that can't load is reported.

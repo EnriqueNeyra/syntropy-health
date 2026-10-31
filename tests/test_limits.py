@@ -345,6 +345,15 @@ def _uploads():
     return list(folder.iterdir()) if folder.exists() else []
 
 
+def _uploads_when_gone():
+    """A job is marked finished just before it deletes its upload, so a look straight after can catch the file on its way out."""
+    for _ in range(200):
+        if not _uploads():
+            break
+        time.sleep(0.05)
+    return _uploads()
+
+
 def test_an_import_says_what_it_left_out_closes_the_file_and_deletes_it(client, monkeypatch, tmp_path):
     opened = []
     real = apple_health.ExportArchive.close
@@ -368,7 +377,7 @@ def test_a_bombed_upload_ends_as_an_error_with_no_file_left(client, tmp_path):
         job_id = client.post("/api/imports/apple-health", files={"file": ("export.zip", fh, "application/zip")}).json()["job_id"]
     job = _wait(client, job_id)
     assert job["status"] == "error" and "Nothing was imported" in job["error"]
-    assert _uploads() == []
+    assert _uploads_when_gone() == []
 
 
 def test_an_export_with_one_enormous_part_ends_as_an_error_in_words(client, tmp_path, monkeypatch):
@@ -382,7 +391,7 @@ def test_an_export_with_one_enormous_part_ends_as_an_error_in_words(client, tmp_
         job_id = client.post("/api/imports/apple-health", files={"file": ("export.zip", fh, "application/zip")}).json()["job_id"]
     job = _wait(client, job_id)
     assert job["status"] == "error" and "stopped there" in job["error"]
-    assert _uploads() == []
+    assert _uploads_when_gone() == []
 
 
 def test_a_leftover_upload_goes_at_the_next_start(isolated_data):

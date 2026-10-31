@@ -564,6 +564,11 @@ def test_something_that_is_not_an_archive_is_refused_in_words(client):
         r = client.post("/api/imports/archive", files={"file": ("x.zip", raw, "application/zip")})
         job = _wait(client, r.json()["job_id"])
         assert job["status"] == "error" and "isn't an archive" in job["error"]
+    # A job is marked finished just before it deletes its upload.
+    for _ in range(200):
+        if not list(imports.upload_dir().iterdir()):
+            break
+        time.sleep(0.05)
     assert not list(imports.upload_dir().iterdir())
 
 
