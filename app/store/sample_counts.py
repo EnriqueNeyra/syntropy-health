@@ -7,11 +7,15 @@ every few minutes so they never drift far. Deleting samples drops them, so the n
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 import threading
 import time
 from typing import Optional
 
 from app.core.db import read
+
+log = logging.getLogger("syntropy.sample_counts")
 
 RECOUNT_AFTER_S = 600
 
@@ -44,7 +48,12 @@ def _count() -> tuple[dict[Optional[str], int], dict[str, int]]:
 
 def warm() -> None:
     """Counts in the background when the server starts, so no request waits for it."""
-    threading.Thread(target=_ensure, name="sample-count", daemon=True).start()
+    def count() -> None:
+        try:
+            _ensure()
+        except sqlite3.DatabaseError as exc:
+            log.warning("Couldn't count samples at start-up: %s", exc)      # the next request asks again, and says what's wrong
+    threading.Thread(target=count, name="sample-count", daemon=True).start()
 
 
 def _store(by_connection: dict[Optional[str], int], by_profile: dict[str, int]) -> None:

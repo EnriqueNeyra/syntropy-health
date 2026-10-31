@@ -139,3 +139,16 @@ def test_journal_keeps_feelings_and_trends_gets_device_signals(client):
             "value_label": "Neutral", "details": {"energy": 2}}
     assert client.put(f"/api/journal/{checkin['id']}", json=body).json()["metadata"] == {"energy": 2}
     assert client.put(f"/api/journal/{checkin['id']}", json={**body, "details": {"energy": 9}}).status_code == 422
+
+
+def test_a_database_problem_while_counting_at_start_up_is_noted_not_a_crash(client, monkeypatch, caplog):
+    import sqlite3
+    import threading
+    from app.store import sample_counts
+    sample_counts.forget()
+    monkeypatch.setattr(sample_counts, "_count", lambda: (_ for _ in ()).throw(sqlite3.DatabaseError("database disk image is malformed")))
+    before = set(threading.enumerate())
+    sample_counts.warm()
+    for t in set(threading.enumerate()) - before:
+        t.join(5)
+    assert "Couldn't count samples" in caplog.text
