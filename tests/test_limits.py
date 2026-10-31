@@ -217,6 +217,112 @@ def test_large_siblings_dont_pile_up_in_memory():
     assert peak < 40 * SMALL, peak
 
 
+def _peak_memory(work) -> tuple:
+    tracemalloc.start()
+    try:
+        result = work()
+        return result, tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+
+
+def _route_zip(path: Path, gpx: bytes) -> Path:
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("apple_health_export/workout-routes/route.gpx", gpx)
+    return path
+
+
+def test_a_route_can_be_read_once(tmp_path):
+    export = apple_health.ExportArchive(_route_zip(tmp_path / "x.zip", b"<gpx/>"))
+    read = export.route_reader()
+    assert read("/workout-routes/route.gpx") == b"<gpx/>"
+    assert read("/workout-routes/route.gpx") is None and read("workout-routes/route.gpx") is None
+    export.close()
+
+
+def test_a_route_stops_at_its_limit(monkeypatch):
+    monkeypatch.setattr(apple_health, "MAX_ROUTE_POINTS", 1000, raising=False)
+    gpx = b"<gpx><trk><trkseg>" + b'<trkpt lat="1" lon="2"/>' * 5000 + b"</trkseg></trk></gpx>"
+    assert len(apple_health.parse_gpx(gpx)) == 1000
+    refs = b'<WorkoutRoute><FileReference path="/a.gpx"/><FileReference path="/b.gpx"/></WorkoutRoute>'
+    workout = (b'<Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="30" durationUnit="min" '
+               b'startDate="2026-01-02 08:00:00 +0000" endDate="2026-01-02 08:30:00 +0000">' + refs + b"</Workout>")
+    items = list(apple_health.iter_items(io.BytesIO(b"<HealthData>" + workout + b"</HealthData>"), lambda ref: gpx))
+    assert len(items[0][1]["route"]) == 1000
+
+
+@pytest.mark.parametrize("gpx", [
+    b"<gpx>" + b"<a/>" * 500000 + b"</gpx>",
+    b"<gpx><trk><trkseg>" + b"<a/>" * 500000 + b"</trkseg></trk></gpx>",
+    b'<gpx><trk><trkseg><trkpt lat="1" lon="2">' + b"<a/>" * 500000 + b"</trkpt></trkseg></trk></gpx>",
+    b'<gpx><trk><trkseg><trkpt lat="1" lon="2">' + b"<ele>1</ele>" * 200000 + b"</trkpt></trkseg></trk></gpx>",
+    b"<gpx>" + b"<a>" * 500000,
+], ids=["in-file", "in-segment", "in-point", "known-in-point", "deep"])
+def test_whats_not_a_route_doesnt_pile_up_while_one_is_read(gpx):
+    _, peak = _peak_memory(lambda: apple_health.parse_gpx(gpx))
+    assert peak < 3 * len(gpx), peak
+
+
+def test_a_real_route_reads_as_before():
+    point = (b'<trkpt lon="-122.4" lat="37.7"><ele>12.5</ele><time>2026-01-02T08:00:00Z</time>'
+             b"<extensions><speed>2.5</speed><course>10</course><hAcc>3</hAcc><vAcc>2</vAcc></extensions></trkpt>")
+    gpx = b'<?xml version="1.0"?><gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><name>Route</name><trkseg>' + point * 3 + b"</trkseg></trk></gpx>"
+    assert apple_health.parse_gpx(gpx) == [{"lat": 37.7, "lon": -122.4, "alt": 12.5, "t": "2026-01-02T08:00:00Z", "speed": 2.5}] * 3
+
+
+def test_many_routes_arent_all_held_until_their_workouts_are_saved(client, tmp_path, monkeypatch):
+    from app.services import imports
+    from app.store import activity
+    monkeypatch.setattr(imports, "ROUTE_POINTS_HELD", 5, raising=False)
+    gpx = b'<gpx><trk><trkseg>' + b'<trkpt lat="1" lon="2"/>' * 3 + b"</trkseg></trk></gpx>"
+    workouts = b"".join(
+        b'<Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="30" durationUnit="min" '
+        b'startDate="2026-01-0%d 08:00:00 +0000" endDate="2026-01-0%d 08:30:00 +0000"><WorkoutRoute>'
+        b'<FileReference path="/workout-routes/%d.gpx"/></WorkoutRoute></Workout>' % (i, i, i) for i in range(1, 7))
+    path = tmp_path / "x.zip"
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("apple_health_export/export.xml", b"<HealthData>" + workouts + b"</HealthData>")
+        for i in range(1, 7):
+            z.writestr(f"apple_health_export/workout-routes/{i}.gpx", gpx)
+    sizes = []
+    real = activity.insert_workouts
+
+    def spy(profile_id, connection_id, items):
+        sizes.append(len(items))
+        return real(profile_id, connection_id, items)
+    monkeypatch.setattr(activity, "insert_workouts", spy)
+    with open(path, "rb") as fh:
+        job_id = client.post("/api/imports/apple-health", files={"file": ("export.zip", fh, "application/zip")}).json()["job_id"]
+    job = _wait(client, job_id)
+    assert job["status"] == "completed" and job["result"]["workouts"] == 6, job
+    assert max(sizes) == 2, sizes
+
+
+def test_clinical_records_built_to_fill_memory_are_left_out(tmp_path, monkeypatch):
+    monkeypatch.setattr(apple_health, "MAX_CLINICAL_PARTS", 1000, raising=False)
+    path = tmp_path / "x.zip"
+    good = {"resourceType": "Condition", "id": "1", "code": {"text": "Asthma, mild"}}
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("a/clinical-records/good.json", json.dumps(good))
+        z.writestr("a/clinical-records/dicts.json", b'{"resourceType":"X","a":[' + b"{}," * 2000 + b"{}]}")
+        z.writestr("a/clinical-records/numbers.json", b'{"resourceType":"X","a":[' + b"1000," * 2000 + b"1]}")
+        z.writestr("a/clinical-records/after.json", json.dumps({**good, "id": "2"}))
+    export = apple_health.ExportArchive(path)
+    assert [r["id"] for r in export.clinical_records() if r.get("id")] == ["1", "2"]
+    assert export.skipped == ["dicts.json", "numbers.json"]
+    export.close()
+
+
+def test_a_clinical_record_nested_too_deep_is_only_that_record_lost(tmp_path):
+    path = tmp_path / "x.zip"
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("a/clinical-records/deep.json", b"[" * 500000)
+        z.writestr("a/clinical-records/good.json", json.dumps({"resourceType": "Condition", "id": "1"}))
+    export = apple_health.ExportArchive(path)
+    assert [r["id"] for r in export.clinical_records()] == ["1"]
+    export.close()
+
+
 def test_entities_built_to_expand_are_refused():
     laughs = b'<!DOCTYPE HealthData [<!ENTITY a "' + b"A" * 1000 + b'">' + b"".join(
         b'<!ENTITY %c "%s">' % (98 + i, b"&%c;" % (97 + i) * 10) for i in range(9)) + b"]><HealthData><Note>&j;</Note></HealthData>"

@@ -26,6 +26,7 @@ from app.store import activity, biometrics, connections
 log = logging.getLogger("syntropy.imports")
 
 BATCH = 5000
+ROUTE_POINTS_HELD = 200_000      # workouts waiting to be saved: a few hundred bytes of memory each
 _jobs: dict[str, dict[str, Any]] = {}
 _jobs_lock = threading.Lock()
 
@@ -117,18 +118,21 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
             processed = inserted = workouts = events = 0
             batch: list[dict[str, Any]] = []
             others: dict[str, list[dict[str, Any]]] = {"workout": [], "event": []}
+            route_points = 0
 
             def flush_others() -> None:
-                nonlocal workouts, events
+                nonlocal workouts, events, route_points
                 workouts += activity.insert_workouts(profile_id, conn["id"], others["workout"])
                 events += activity.insert_events(profile_id, conn["id"], others["event"])
                 others["workout"], others["event"] = [], []
+                route_points = 0
 
             with opener() as stream:
                 for kind, item in apple_health.iter_items(stream, export.route_reader()):
                     if kind != "sample":
                         others[kind].append(item)
-                        if len(others[kind]) >= 200:
+                        route_points += len(item.get("route") or ())
+                        if len(others[kind]) >= 200 or route_points >= ROUTE_POINTS_HELD:
                             flush_others()
                         continue
                     batch.append(item)

@@ -216,11 +216,30 @@ def _float(value: Optional[str]) -> Optional[float]:
         return None
 
 
-def parse_gpx(data: bytes) -> list[dict[str, Any]]:
+def parse_gpx(data: bytes, room: Optional[int] = None) -> list[dict[str, Any]]:
+    """Up to ``room`` points. Only the point being read is kept while reading, so what the file holds besides doesn't add up."""
+    room = MAX_ROUTE_POINTS if room is None else room
     points: list[dict[str, Any]] = []
+    within: list[Any] = []
+    current = None
+    parts = 0
     try:
-        for _event, el in iterparse(io.BytesIO(data), events=("end",)):
-            if el.tag.endswith("trkpt"):
+        for event, el in iterparse(io.BytesIO(data), events=("start", "end")):
+            if event == "start":
+                within.append(el)
+                if len(within) > MAX_XML_DEPTH:
+                    break
+                if current is None and el.tag.endswith("trkpt"):
+                    current = el
+                continue
+            within.pop()
+            if current is not None and el is not current:
+                parts += 1
+                if parts > MAX_POINT_PARTS:
+                    break
+                continue
+            if el is current:
+                current, parts = None, 0
                 lat, lon = _float(el.get("lat")), _float(el.get("lon"))
                 if lat is not None and lon is not None:
                     point: dict[str, Any] = {"lat": lat, "lon": lon, "alt": None, "t": None, "speed": None}
@@ -233,7 +252,11 @@ def parse_gpx(data: bytes) -> list[dict[str, Any]]:
                         elif tag == "speed":
                             point["speed"] = _float(child.text)
                     points.append(point)
+                    if len(points) >= room:
+                        break
                 el.clear()
+            if within:
+                within[-1].remove(el)
     except Exception:  # noqa: BLE001 - a damaged route file shouldn't fail the import
         return points
     return points
@@ -283,9 +306,11 @@ def _workout(elem: Any, start: str, end: str, source: str, read_file: Optional[C
     route: list[dict[str, Any]] = []
     if read_file:
         for path in route_paths:
+            if len(route) >= MAX_ROUTE_POINTS:
+                break
             data = read_file(path)
             if data:
-                route += parse_gpx(data)
+                route += parse_gpx(data, MAX_ROUTE_POINTS - len(route))
     indoor = meta.get("HKIndoorWorkout")
     return {
         "id": _sample_id("workout", source, start, end),
@@ -372,7 +397,10 @@ def iter_items(xml_stream: io.BufferedIOBase,
 # is built to fill memory.
 MAX_CLINICAL_FILE = 50 * 1024 * 1024
 MAX_CLINICAL_TOTAL = 256 * 1024 * 1024        # all kept in memory until they're imported
+MAX_CLINICAL_PARTS = 5_000_000                # the same, in what memory goes on: tens of thousands of real records
 MAX_ROUTE_FILE = 100 * 1024 * 1024
+MAX_ROUTE_POINTS = 500_000                    # for one workout: nearly six days, second by second
+MAX_POINT_PARTS = 100
 MAX_XML = 64 * 1024 ** 3
 MAX_XML_ELEMENT = 64 * 1024 * 1024            # one Record or Workout, with all it holds and the text after it
 MAX_XML_PARTS = 1_000_000                     # the same, in elements: a second-by-second route of 11 days
@@ -439,20 +467,26 @@ class ExportArchive:
         if not self.zip:
             return []
         out: list[dict[str, Any]] = []
-        total = 0
+        total = parts = 0
         for info in self.zip.infolist():
             name = info.filename
             if "/clinical-records/" not in name or not name.endswith(".json"):
                 continue
-            total += info.file_size
-            if info.file_size > MAX_CLINICAL_FILE or total > MAX_CLINICAL_TOTAL or _implausible(info):
-                self.skipped.append(name.rsplit("/", 1)[-1][:100])
-                total -= info.file_size
+            noted = name.rsplit("/", 1)[-1][:100]
+            if info.file_size > MAX_CLINICAL_FILE or total + info.file_size > MAX_CLINICAL_TOTAL or _implausible(info):
+                self.skipped.append(noted)
                 continue
             try:
-                res = json.loads(self.zip.read(info))
-            except (ValueError, zipfile.BadZipFile):
+                raw = self.zip.read(info)
+                held = raw.count(b",") + raw.count(b"{") + raw.count(b"[")
+                if parts + held > MAX_CLINICAL_PARTS:
+                    self.skipped.append(noted)
+                    continue
+                res = json.loads(raw)
+            except (ValueError, RecursionError, zipfile.BadZipFile):
                 continue
+            total += info.file_size
+            parts += held
             if isinstance(res, dict) and res.get("resourceType"):
                 out.append(res)
         return out
@@ -462,12 +496,15 @@ class ExportArchive:
         if not self.zip:
             return None
         infos = self.zip.infolist()
+        read_already: set[str] = set()
 
         def read(ref: str) -> Optional[bytes]:
             ref = ref.lstrip("/")
             info = next((i for i in infos if i.filename == ref or i.filename.endswith("/" + ref)), None)
-            if not info:
+            # A route is one workout's: read for every mention, one small file could fill any amount of memory and disk.
+            if not info or info.filename in read_already:
                 return None
+            read_already.add(info.filename)
             if info.file_size > MAX_ROUTE_FILE or _implausible(info):
                 self.skipped.append(info.filename.rsplit("/", 1)[-1][:100])
                 return None
