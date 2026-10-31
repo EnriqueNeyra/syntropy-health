@@ -195,7 +195,7 @@ export const WIDGETS = [
       <a class="card-foot" href="#/trends?metric=sleep_duration">Sleep trends ${icon("arrowRight")}</a></div>`,
     draw: (el, d, item) => {
       const box = el.querySelector("[data-chart=sleep]");
-      return box && responsive(box, () => barChart(box, d.sleep.points, { unit: "h", avg: d.sleep.stats.mean, label: "Sleep", digits: 1, noTable: true,
+      return box && responsive(box, () => barChart(box, d.sleep.points, { unit: "h", avg: d.sleep.stats.mean, label: "Sleep", digits: 1, noTable: true, tick: (v) => `${v}h`,
         height: item.rows ? Math.max(120, box.clientHeight) : 150, format: (v) => metricValue({ unit: "h" }, v) }), { tall: Boolean(item.rows) });
     } },
   { id: "journal", title: "How you've been feeling", desc: "Your latest check-ins, moods and symptoms from the Journal", size: "m", on: true, needs: ["events"],
