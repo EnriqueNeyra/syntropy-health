@@ -283,6 +283,9 @@ const P = {
   sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
   grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
   more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  pin: '<path d="M12 17v5"/><path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2v.8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9a2 2 0 0 1-1.1-1.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
+  pencil: '<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/><path d="m15 5 4 4"/>',
+  sidebar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   scale: '<path d="M16 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM2 16l3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1zM7 21h10M12 3v18M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
 };
 export function icon(name, cls = "") {
@@ -657,10 +660,11 @@ function runItem(item) {
 
 /**
  * A small menu under `button`: items are { label, icon, run, href, danger } or "-" for a divider. Closes on a choice,
- * a click elsewhere, Escape or scrolling the page. Opening it again from the same button closes it.
+ * a click elsewhere, Escape or scrolling the page. Opening it again from the same button closes it. With `at` ({ x, y }, a
+ * right-click) it opens there instead, still belonging to the button.
  */
 let openMenu = null;
-export function dropdown(button, items) {
+export function dropdown(button, items, at = null) {
   if (appMenu(items, button)) return;
   const same = openMenu?.button === button;
   openMenu?.close();
@@ -683,13 +687,17 @@ export function dropdown(button, items) {
     el.style.left = `${Math.max(8, r.left)}px`;
     el.style.right = "auto";
   }
+  if (at) {
+    el.style.left = `${Math.max(8, Math.min(at.x, window.innerWidth - el.offsetWidth - 8))}px`;
+    el.style.right = el.style.bottom = "auto";
+    el.style.top = `${Math.max(8, Math.min(at.y, window.innerHeight - el.offsetHeight - 8))}px`;
+  }
   button.setAttribute("aria-expanded", "true");
   button.setAttribute("aria-haspopup", "menu");
   const entries = [...el.querySelectorAll(".menu-item")];
   entries.forEach((it, i) => { it.tabIndex = i ? -1 : 0; });
   entries[0]?.focus({ preventScroll: true });
-  const scroller = pageScroller();
-  const startY = scroller.scrollTop;
+  const startY = button.getBoundingClientRect().top;
   const close = () => {
     closeAnimated(el);
     button.setAttribute("aria-expanded", "false");
@@ -710,8 +718,9 @@ export function dropdown(button, items) {
     e.stopPropagation();
     entries[(to + entries.length) % entries.length]?.focus();
   };
-  // The menu is pinned to the screen, so it goes once the page has really moved (not a nudge while tapping).
-  const scrolled = () => { if (Math.abs(scroller.scrollTop - startY) > 30) close(); };
+  // The menu is pinned to the screen, so it goes once its button has really moved, with the page or a list inside it
+  // (not a nudge while tapping).
+  const scrolled = () => { if (Math.abs(button.getBoundingClientRect().top - startY) > 30) close(); };
   el.addEventListener("click", (e) => {
     const b = e.target.closest("[data-i], a");
     if (!b) return;

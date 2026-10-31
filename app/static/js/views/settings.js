@@ -476,6 +476,7 @@ const AUDIT_ACTIONS = {
   "connection.removed": "Source removed with its data", "sync.completed": "Synced", "device.paired": "Phone paired",
   "device.revoked": "Phone unpaired", "labs.entered": "Lab results entered", "labs.report_read": "Lab report read",
   "export.fhir": "Exported a FHIR file", "export.ips": "Exported a patient summary", "export.archive": "Exported everything for one person",
+  "export.chat": "Exported a conversation",
   "export.backup": "Made a backup", "backup.restored": "Restored from a backup", "backup.schedule_set": "Scheduled backups changed",
   "backup.schedule_off": "Scheduled backups turned off", "profile.data_deleted": "Deleted all data",
   "network.enabled": "Other devices allowed", "network.disabled": "This computer only", "updates.settings": "Update settings changed",

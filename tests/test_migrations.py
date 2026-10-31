@@ -137,6 +137,9 @@ def _seed(conn: sqlite3.Connection, version: int, stored_hash: str) -> None:
                      "VALUES ('e1', 'prf_a', 'con_ph1', 'headache', 'symptoms', 'Headache', '2025-01-01T10:00:00Z', '2025-01-01T10:00:00Z', 1)")
     if "agent_tokens" in _tables(conn):
         conn.execute("INSERT INTO agent_tokens(id, name, token_hash, created_at) VALUES ('ag', 'claude', 'th', 1)")
+    if "chats" in _tables(conn):
+        conn.execute("INSERT INTO chats(id, profile_id, title, messages_json, created_at, updated_at) "
+                     "VALUES ('c_old', 'prf_a', 'How did I sleep?', '[{\"role\":\"user\",\"content\":\"x\"}]', 1, 2)")
 
 
 def _shipped_versions() -> list[int]:
@@ -169,6 +172,8 @@ def test_every_old_schema_upgrades_with_its_data(version):
     assert c.execute("SELECT COUNT(*) FROM fhir_references").fetchone()[0] == 0     # what a sync brings next fills it
     assert c.execute("SELECT COUNT(*) FROM record_files").fetchone()[0] == 0
     assert c.execute("SELECT COUNT(*) FROM record_overrides").fetchone()[0] == 0
+    if 10 <= version < 62:
+        assert tuple(c.execute("SELECT title, pinned, title_set FROM chats WHERE id = 'c_old'").fetchone()) == ("How did I sleep?", 0, 0)
     if version < 9:
         accounts = c.execute("SELECT * FROM accounts").fetchall()
         assert len(accounts) == 1 and accounts[0]["role"] == "owner" and accounts[0]["password_hash"]

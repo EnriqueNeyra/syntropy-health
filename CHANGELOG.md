@@ -151,6 +151,14 @@ of the license, and the Terms on the website cover the website and sign-in relay
 
 ### Ask and AI apps
 
+- **Conversations have a panel of their own.** It sits beside the chat and folds away (⌘B or Ctrl+B), or slides over on a
+  narrow window, with Pinned first, then Today, Yesterday and on back by month. Search looks through titles and what was
+  said (⌘K or Ctrl+K). Rename, pin, export as Markdown or delete from each one's ⋯ or by right-clicking; a name you chose
+  stays through later answers, and a pinned conversation is never the one the limit removes. In the phone app, Rename and
+  Pin are in its Conversations menu.
+- **More you can do with an answer.** Copy any answer, code block or table, regenerate the last answer, edit your last
+  question and send it again, and jump back to the latest message after scrolling up. You can read another conversation
+  while one is being answered, and what you were typing stays with its conversation.
 - **Ask checks where your question is going.** If the AI changed in another window, nothing is sent and you can try
   again, and each answer names the AI that wrote it. Agreeing to send data outside your network is per company (or per
   server for an address you typed), asks again for a new one, and can be taken back in Settings → AI. A model that can't

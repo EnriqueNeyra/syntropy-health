@@ -1158,20 +1158,141 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .order-list .btn:disabled { visibility: hidden; }
 
 /* Ask (assistant chat) */
-.chat { display: flex; flex-direction: column; height: calc(100vh - 210px); min-height: 420px; overflow: hidden; }
-/* Pages that fill the window and scroll inside themselves (Ask): the page never scrolls, so there's one scrollbar. */
+/* One card holding the conversations and the conversation: its outer edges never move when the panel opens or closes. */
+.ask-split { --ask-col: 720px; --ask-side: 264px; position: relative; display: flex; overflow: hidden; }
+.chat { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+/* Pages that fill the window and scroll inside themselves (Ask): the page never scrolls, so there's one scrollbar. A window
+   too short to hold it all (a phone on its side) is the exception: the message field must still be reachable. */
 .main:has(> .content.page-fill) { height: 100vh; height: 100dvh; overflow: hidden; }
-.content.page-fill { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; }
+.content.page-fill { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; overflow-y: auto; }
 .content.page-fill > .page-head, .content.page-fill > .chat-foot { flex: none; }
-.content.page-fill > .chat { flex: 1; height: auto; min-height: 280px; }
+.content.page-fill > .ask-split { flex: 1; min-height: 280px; }
 .chat-foot { margin-top: 8px; }
 @media (min-width: 1081px) { .content.page-fill { padding-bottom: 18px; } }
-.chat-log { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 18px; display: flex; flex-direction: column; gap: 14px; scrollbar-gutter: stable; }
-.chat-input { display: flex; gap: 8px; align-items: flex-end; padding: 12px; border-top: 1px solid var(--border); }
-.chat-input textarea { resize: none; min-height: 40px; max-height: 200px; line-height: 1.45; }
+.chat-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 14px; scrollbar-gutter: stable both-edges; }
+.chat-thread { flex: 1 0 auto; display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: var(--ask-col); margin-inline: auto; }
+.chat-input { position: relative; flex: none; display: flex; gap: 6px; align-items: flex-end; width: min(calc(100% - 28px), var(--ask-col)); margin: 0 auto 12px; padding: 6px; }
+.chat-input-bg { position: absolute; inset: 0; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface); transform-origin: 0 50%; pointer-events: none; transition: border-color .15s ease, box-shadow .15s ease; }
+.chat-input:focus-within .chat-input-bg { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-2); }
+.chat-input textarea.input { position: relative; flex: 1; min-width: 0; min-height: 34px; max-height: 200px; resize: none; line-height: 1.45; padding: 6px 8px; border: 0; background: none; box-shadow: none; }
+.chat-input .btn { position: relative; flex: none; width: 34px; height: 34px; padding: 0; border-radius: 10px; }
 .msg { max-width: min(760px, 92%); line-height: 1.55; overflow-wrap: anywhere; }
 .msg-user { align-self: flex-end; background: var(--accent-fill); color: var(--on-accent); padding: 9px 14px; border-radius: 16px 16px 4px 16px; white-space: pre-wrap; }
 .msg-ai { align-self: flex-start; }
+.chat-thread .msg-ai { align-self: stretch; max-width: 100%; }
+/* A question and its buttons, which sit beside it so showing them moves nothing. */
+.msg-q { position: relative; align-self: flex-end; display: flex; flex-direction: column; align-items: flex-end; max-width: min(620px, 85%); }
+.msg-q .msg-user { max-width: 100%; }
+.msg-q .msg-tools { position: absolute; right: 100%; bottom: 0; margin-right: 4px; }
+.msg-q.editing { align-self: stretch; max-width: 100%; }
+.msg-q.editing > :not(.msg-edit) { display: none; }
+.msg-edit { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.msg-edit textarea { resize: none; max-height: 240px; line-height: 1.45; }
+.msg-edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
+/* The row under an answer keeps its height while the answer is written: finishing doesn't push anything. */
+.msg-note { margin-top: 6px; }
+.msg-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; min-height: 28px; margin-top: 4px; }
+.msg-foot:not(.ready) .msg-tools { visibility: hidden; }
+.msg-tools { display: inline-flex; gap: 2px; opacity: 0; transition: opacity .12s ease; }
+.msg-tools .btn { padding: 4px; color: var(--text-3); }
+.msg-tools .btn svg { width: 14px; height: 14px; }
+.msg-tools .btn.did { color: var(--good); }
+.msg-ai.last .msg-tools, .msg-tools:focus-within { opacity: 1; }
+@media (hover: hover) { .msg-ai:hover .msg-tools, .msg-q:hover .msg-tools { opacity: 1; } }
+/* Touch screens have no hover, and no room beside a long question: the last question's buttons go under it. */
+@media (hover: none) {
+  .msg-tools { opacity: 1; }
+  .msg-q .msg-tools { position: static; margin: 2px 0 0; }
+  .msg-q:not(.last) .msg-tools { display: none; }
+  .msg-q.last .msg-tools .btn { padding: 7px; }
+}
+/* Copying a code block or table, in its corner. */
+.md-block { position: relative; }
+.md-copy { position: absolute; top: 4px; right: 4px; opacity: 0; background: var(--surface); transition: opacity .12s ease; }
+.md-copy.did { color: var(--good); }
+.md-block:hover .md-copy, .md-copy:focus-visible { opacity: 1; }
+@media (hover: none) { .md-copy { opacity: 1; } }
+.chat-latest-wrap { position: relative; z-index: 1; flex: none; height: 0; display: flex; align-items: flex-end; justify-content: center; }
+.chat-latest { width: 32px; height: 32px; padding: 0; margin-bottom: 10px; border-radius: 50%; box-shadow: var(--shadow-lg); opacity: 0; visibility: hidden; transform: translateY(6px);
+  transition: opacity .16s ease, transform .16s ease, visibility 0s linear .16s, background-color .15s ease; }
+.chat-latest.on { opacity: 1; visibility: visible; transform: none; transition: opacity .16s ease, transform .16s ease, background-color .15s ease; }
+/* The conversation's title. It's the page's second heading, and takes a click to rename in place. */
+.ask-bar { flex: none; display: flex; align-items: center; gap: 2px; min-height: 50px; padding: 8px 10px 6px 18px; }
+.ask-split[data-side="closed"] .ask-bar { padding-left: 52px; }
+.ask-title { flex: 1; min-width: 0; font-size: 14.5px; }
+.ask-title-btn { display: block; max-width: 100%; padding: 4px 8px; margin-left: -8px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; font-weight: 650; text-align: left; cursor: text; }
+.ask-title-btn:disabled { color: var(--text-3); cursor: default; }
+@media (hover: hover) { .ask-title-btn:not(:disabled):hover { background: var(--surface-2); } }
+.ask-bar-new { display: none; }
+.ask-split[data-side="closed"] .ask-bar-new { display: inline-flex; }
+.ask-rename { padding: 3px 7px; font-size: inherit; font-weight: inherit; }
+.ask-bar .ask-rename { flex: 1; margin-left: -8px; }
+/* The panel of conversations. */
+/* Stays put as the panel slides under it. */
+.ask-toggle { position: absolute; top: 10px; left: 10px; z-index: 3; background: var(--surface); }
+.ask-side { position: relative; z-index: 2; flex: none; width: var(--ask-side); min-height: 0; display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--border); }
+.ask-split[data-side="closed"] .ask-side { display: none; }
+.ask-split.side-leaving .ask-side { display: flex; position: absolute; inset: 0 auto 0 0; }
+/* Opening, the conversation starts out to the left of where it'll be clipped: its box reaches under the panel until it's there. */
+.ask-split[data-side="open"].side-gliding .chat-log { margin-left: calc(-1 * var(--ask-side)); padding-left: calc(var(--ask-side) + 14px); }
+.ask-scrim { display: none; }
+.ask-side-head { flex: none; display: flex; gap: 6px; padding: 10px 10px 8px 52px; }
+.ask-side-new { flex: 1; min-width: 0; justify-content: flex-start; height: 34px; }
+.ask-side-close { display: none; }
+.ask-search { flex: none; margin: 0 10px 6px; }
+.ask-search .input { height: 34px; padding-top: 0; padding-bottom: 0; padding-right: 44px; background: var(--surface-2); border-color: transparent; }
+.ask-search .input:focus { background: var(--surface); border-color: var(--accent); }
+.ask-kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font: 11px var(--font-body); color: var(--text-4); pointer-events: none; }
+.ask-search .input:focus ~ .ask-kbd, .ask-search .input:not(:placeholder-shown) ~ .ask-kbd { display: none; }
+@media (hover: none) { .ask-kbd { display: none; } }
+.ask-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 4px 10px 10px; scrollbar-gutter: stable; }
+.ask-group { padding: 12px 8px 4px; font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-4); }
+.ask-none { padding: 14px 8px; }
+.ask-item { position: relative; display: flex; border-radius: var(--radius-sm); }
+.ask-item + .ask-item { margin-top: 1px; }
+.ask-item-open { flex: 1; min-width: 0; display: block; padding: 7px 8px; border: 0; border-radius: inherit; background: none; color: var(--text-2); font: inherit; font-size: 13.5px; font-weight: 500; line-height: 20px; text-align: left; cursor: pointer; }
+.ask-item-open:focus-visible { outline-offset: -2px; }
+.ask-item-title { display: block; }
+.ask-item-snippet { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: 1px; font-size: 12px; line-height: 16px; font-weight: 400; color: var(--text-3); overflow-wrap: anywhere; }
+.ask-item-snippet mark { border-radius: 3px; background: var(--accent-2); color: inherit; font-weight: 600; }
+.ask-item.current .ask-item-open { background: var(--surface-2); color: var(--text); font-weight: 600; }
+.ask-item.renaming .ask-item-more { display: none; }
+.ask-item .ask-rename { width: 100%; height: 34px; }
+/* A dot beside the one being answered, when you're reading another. */
+.ask-item.live:not(.current) .ask-item-title { padding-right: 16px; }
+.ask-item.live:not(.current)::after { content: ""; position: absolute; right: 9px; top: 15px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: blink 1.2s infinite ease-in-out; pointer-events: none; }
+/* Its menu floats over the end of the title, which fades under it: the title itself doesn't move. */
+.ask-item-more { position: absolute; right: 2px; top: 3px; width: 28px; height: 28px; padding: 0; background: var(--surface-2); opacity: 0; transition: opacity .1s ease, background-color .15s ease; }
+.ask-item-more::before { content: ""; position: absolute; right: 100%; top: 0; bottom: 0; width: 16px; background: linear-gradient(to right, transparent, var(--surface-2)); pointer-events: none; }
+.ask-item:focus-within .ask-item-more, .ask-item.current .ask-item-more, .ask-item-more[aria-expanded="true"] { opacity: 1; }
+@media (hover: hover) {
+  .ask-item:hover .ask-item-open { background: var(--surface-2); color: var(--text); }
+  .ask-item:hover .ask-item-more { opacity: 1; }
+  .ask-item-more:hover { background: var(--surface-3); }
+}
+/* Without a pointer its menu is always there, with room beside the title, and rows are big enough for a finger. */
+@media (hover: none) {
+  .ask-item-more { top: 6px; opacity: 1; background: none; }
+  .ask-item-more::before { display: none; }
+  .ask-item-open { padding: 10px 34px 10px 8px; }
+  .ask-item .ask-rename { height: 40px; }
+}
+:root[data-shell] .ask-group { -webkit-user-select: none; user-select: none; }
+:root[data-shell="mac"] .ask-group { text-transform: none; letter-spacing: 0; color: var(--text-3); }
+/* Too narrow for it to sit beside the conversation: it slides over everything, and is closed until asked for. */
+@media (max-width: 1023px) {
+  .ask-side { position: fixed; inset: 0 auto 0 0; z-index: 45; width: min(320px, 86vw); padding-bottom: env(safe-area-inset-bottom); box-shadow: var(--shadow-lg); border-right: 0;
+    transform: translateX(calc(-100% - 40px)); transition: transform .24s cubic-bezier(.2, .8, .2, 1); }
+  .ask-split[data-side="closed"] .ask-side { display: flex; }
+  .ask-split[data-side="open"] .ask-side { transform: none; }
+  .ask-scrim { display: block; position: fixed; inset: 0; z-index: 44; background: rgba(8, 8, 12, .55); opacity: 0; pointer-events: none; transition: opacity .24s ease; }
+  .ask-split[data-side="open"] .ask-scrim { opacity: 1; pointer-events: auto; }
+  .ask-split .ask-bar { padding-left: 52px; }
+  .ask-split .ask-bar-new { display: inline-flex; }
+  .ask-side-head { padding-left: 10px; }
+  .ask-side-close { display: inline-flex; }
+  :root[data-shell="mac"] .ask-side { padding-top: var(--titlebar); }
+}
 .msg-ai p { margin: 0 0 8px; }
 .msg-ai p:last-child { margin-bottom: 0; }
 .msg-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -1192,11 +1313,20 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .chat-empty .chips { justify-content: center; }
 .chat-empty-icon { display: inline-flex; padding: 12px; border-radius: 14px; background: var(--accent-2); color: var(--accent); }
 .chat-empty-icon .ic { width: 22px; height: 22px; }
-@media (max-width: 760px) { .chat { height: calc(100dvh - 330px); min-height: 340px; } .chat-log { padding: 12px; } }
+@media (max-width: 760px) {
+  .chat-log { padding: 4px 12px 12px; }
+  .chat-input { width: calc(100% - 16px); margin-bottom: 8px; }
+  /* The heading and the AI in use share a line on a phone, so the conversation gets the room. */
+  .ask-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; margin-bottom: 10px; }
+  .ask-head > :first-child { display: contents; }
+  .ask-head .ask-privacy { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+  /* An iPhone zooms the page in on any smaller field, and doesn't zoom back. */
+  :is(.chat-input textarea.input, .ask-search .input, .ask-rename, .msg-edit textarea) { font-size: 16px; }
+}
 
 /* Messages ease in; the answer shows a caret while it's being written. */
-.msg.enter { animation: msg-in .32s cubic-bezier(.2, .8, .2, 1) both; }
-.msg-user.enter { transform-origin: 100% 100%; animation-name: msg-in-user; }
+.msg.enter, .msg-q.enter { animation: msg-in .32s cubic-bezier(.2, .8, .2, 1) both; }
+.msg-user.enter, .msg-q.enter { transform-origin: 100% 100%; animation-name: msg-in-user; }
 .msg-steps span.enter { animation: fade-up .24s ease-out both; }
 .chat-empty.enter { animation: fade-up .3s ease-out both; }
 .msg-by { animation: fade-in .3s ease-out both; }
@@ -1459,7 +1589,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .model-manage { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-2); flex: none; }
 .model-manage svg { width: 14px; height: 14px; }
 @media (hover: hover) { .model-manage:hover { color: var(--text); text-decoration: none; background: var(--surface-2); } }
-.msg-by { margin-top: 8px; font-size: 11.5px; color: var(--text-4); }
+.msg-by { font-size: 11.5px; color: var(--text-4); }
 
 /* ---------- Desktop apps (theme.js sets data-shell) ----------
    App behaviour rather than web page behaviour: an arrow cursor on controls and no selecting the interface's labels. */
@@ -1619,14 +1749,6 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .goal-dots i.open { background: transparent; box-shadow: inset 0 0 0 1.5px var(--border-strong); }
 .jr-med-chips { margin-top: 8px; align-items: center; min-height: 28px; }
 .jr-med-chips .chip svg { width: 12px; height: 12px; }
-.chat-history { position: fixed; z-index: 60; padding: 6px; max-height: min(480px, 70vh); display: flex; flex-direction: column; }
-.chat-history-head { display: flex; align-items: baseline; gap: 8px; padding: 8px 10px 6px; }
-.chat-history-list { overflow-y: auto; }
-.chat-history-item { display: flex; align-items: center; gap: 4px; border-radius: var(--radius-sm); }
-.chat-history-item.current { background: var(--surface-2); }
-@media (hover: hover) { .chat-history-item:hover { background: var(--surface-2); } }
-.chat-history-open { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 8px 10px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.chat-history-open .truncate { max-width: 100%; font-weight: 550; }
 
 
 /* ---------- Ask, before an AI is connected ---------- */

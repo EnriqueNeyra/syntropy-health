@@ -540,7 +540,7 @@ def _journal_rows(profile_id: str) -> Iterator[dict[str, Any]]:
 
 
 def _chat_rows(profile_id: str, account_id: Optional[str]) -> Iterator[dict[str, Any]]:
-    for chat in chats.list_chats(profile_id, account_id, limit=chats.MAX_CHATS):
+    for chat in chats.list_chats(profile_id, account_id):
         full = chats.get_chat(profile_id, account_id, chat["id"])
         if full:
             yield full
@@ -769,11 +769,13 @@ def _bring_in_chat(profile_id: str, account_id: Optional[str], chat: dict[str, A
     title, messages = str(chat.get("title") or "Conversation")[:200], chat.get("messages") or []
     updated = _time_or(chat.get("updated_at"), time.time())
     dates = (_time_or(chat.get("created_at"), updated), updated)
+    # An archive from before these existed has neither: nothing was pinned, and its titles came from the first question.
+    marks = {"pinned": chat.get("pinned") is True, "title_set": chat.get("title_set") is True}
     try:
         try:
-            added = chats.add_chat(profile_id, account_id, original, title, messages, *dates)
+            added = chats.add_chat(profile_id, account_id, original, title, messages, *dates, **marks)
         except PermissionError:
-            added = chats.add_chat(profile_id, account_id, theirs, title, messages, *dates)
+            added = chats.add_chat(profile_id, account_id, theirs, title, messages, *dates, **marks)
     except (ValueError, TypeError):      # longer than a conversation can be
         return "chats_skipped"
     return "chats" if added else "chats_skipped"
