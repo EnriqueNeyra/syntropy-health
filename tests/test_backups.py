@@ -747,6 +747,18 @@ def test_the_old_address_explains_itself(client):
     assert client.get("/api/export/backup").status_code == 410
 
 
+def test_a_running_import_stops_before_a_restore_in_the_server(client, monkeypatch):
+    from app.services import imports
+    _owner_data(client)
+    raw = client.get(client.post("/api/backups", json={"passphrase": SECRET}).json()["download"]).content
+    order = []
+    real_pause = db.pause
+    monkeypatch.setattr(imports, "stop_running", lambda: order.append("imports stopped"))
+    monkeypatch.setattr(db, "pause", lambda text: (order.append("paused"), real_pause(text)))
+    assert client.post("/api/restore/apply", json={"id": _check(client, raw).json()["id"]}).status_code == 200
+    assert order[:2] == ["imports stopped", "paused"]
+
+
 def test_restoring_in_the_running_server(client, tmp_path):
     made = _owner_data(client)
     raw = client.get(client.post("/api/backups", json={"passphrase": SECRET}).json()["download"]).content

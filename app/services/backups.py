@@ -763,10 +763,12 @@ def restore_in_server(app: Any, item: Staged, accept_key_problem: bool = False) 
     nothing is touching the database does the swap happen. If that can't be had, nothing has changed."""
     from app import main
     from app.core import data_fixes
+    from app.services import imports
 
     if not item.report["key"]["ok"] and not accept_key_problem:
         raise BackupProblem(item.report["key"]["message"])
     app.state.problem = RESTORING_TEXT
+    imports.stop_running()      # before the pause, which an import's next batch would wait out and then write to what's restored
     db.pause(RESTORING_TEXT)
     try:
         data_fixes.stop()
