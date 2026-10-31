@@ -112,6 +112,8 @@ async def refresh_tokens(token_url: str, provider: str, credentials: dict[str, A
                                          headers={config.RELAY_KEY_HEADER: key} if key else None)
         except httpx.HTTPError as exc:
             raise SmartError(f"Could not refresh {provider.title()} access: {exc}", "network") from exc
+    if resp.status_code >= 500 or resp.status_code == 429:
+        raise SmartError(f"{provider.title()} isn't answering right now. The connection is fine, and it will be tried again at the next sync.", "network")
     if resp.status_code == 403 and not creds["client_secret"]:
         raise SmartError(f"Syntropy Labs' sign-in relay only serves up-to-date Syntropy Health releases. Update to the latest "
                          f"version, or add your own {provider.title()} app in Settings → Wearables.", "auth")

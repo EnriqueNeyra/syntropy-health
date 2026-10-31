@@ -237,6 +237,26 @@ def test_tokens_with_an_empty_lifetime_still_connect(client, monkeypatch):
     assert r.json()["created"] is True
 
 
+@pytest.mark.parametrize("status", [429, 500, 502, 503])
+@pytest.mark.parametrize("own_app", [False, True])
+def test_a_provider_thats_down_isnt_a_reason_to_reconnect(monkeypatch, status, own_app):
+    # The relay answers 502 when Oura or WHOOP is down or limiting it, and a provider asked directly can say the same.
+    if own_app:
+        _own_app("oura")
+    _capture(monkeypatch, httpx.Response(status, json={"error": "provider_unavailable"}))
+    with pytest.raises(SmartError) as err:
+        asyncio.run(wc.refresh_tokens(oura.TOKEN_URL, "oura", {"refresh_token": "RT"}))
+    assert err.value.kind == "network"
+    assert "Reconnect" not in str(err.value)
+
+
+def test_a_provider_that_refuses_still_asks_to_reconnect(monkeypatch):
+    _capture(monkeypatch, httpx.Response(400, json={"error": "refresh_failed"}))
+    with pytest.raises(SmartError, match="Reconnect") as err:
+        asyncio.run(wc.refresh_tokens(oura.TOKEN_URL, "oura", {"refresh_token": "RT"}))
+    assert err.value.kind == "auth"
+
+
 def test_state_still_routes_for_the_relay():
     state = smart.decode_state(smart.make_state("oura", ORIGIN))
     assert state["d"] == ORIGIN and state["p"] == "oura"
