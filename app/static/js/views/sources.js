@@ -1,7 +1,7 @@
 import { api, del, get, post } from "../api.js";
 import {
-  $, confirmDialog, debounce, dropdown, emptyState, fmtAgo, fmtDate, fmtDateTime, html, icon, initials, loading, modal, modeBadge, mount,
-  onAction, plural, toast,
+  $, EASE_OUT, confirmDialog, debounce, dropdown, emptyState, fmtAgo, fmtDate, fmtDateTime, html, icon, initials, loading, modal, modeBadge, mount,
+  onAction, plural, prefersStill, toast,
 } from "../ui.js";
 import { embedded, nativeNav, setToolbar } from "../app.js";
 import { networkStatus, renderNetworkPanel } from "../network.js";
@@ -524,6 +524,29 @@ export async function render({ el, params, state }) {
   let pollTimer = null;
   let gone = false;                       // the page was left: an answer still on its way draws nothing
   let shown = { all: [], devices: [] };   // what the page is showing, for the "⋯" menus
+  const removing = new Map();             // sources on their way out, and what's being done, kept when the page is drawn again
+  const showRemoving = () => {
+    for (const [id, word] of removing) {
+      const row = el.querySelector(`#conn-${CSS.escape(id)}`);
+      if (!row) continue;
+      row.classList.add("is-going");
+      row.inert = true;
+      const line = row.querySelector(".src-line");
+      if (line) mount(line, html`<span class="src-status"><span class="spinner"></span> ${word}…</span>`);
+    }
+  };
+  const setRemoving = (id, word) => {
+    if (word) removing.set(id, word); else removing.delete(id);
+    showRemoving();
+  };
+  /** A source that's really gone folds away before the list is drawn without it. */
+  const slideAway = async (id, deleted) => {
+    const row = el.querySelector(`#conn-${CSS.escape(id)}`);
+    if (!deleted || !row || !row.animate || prefersStill()) return;
+    const height = row.offsetHeight;
+    row.style.overflow = "hidden";
+    await row.animate([{ height: `${height}px`, opacity: 1 }, { height: "0px", opacity: 0, paddingTop: 0, paddingBottom: 0 }], { duration: 180, easing: EASE_OUT, fill: "forwards" }).finished.catch(() => {});
+  };
 
   const refresh = async (fresh = false) => {
     const [conns, devs, dir] = await Promise.all([
@@ -584,6 +607,7 @@ export async function render({ el, params, state }) {
       ${group("Files", "One-off imports of an Apple Health export or a record file from a portal. Drop a file on a box, or click to choose one.", "",
         html`${importZones()}${files.length ? html`<div class="src-rows">${files.map((c) => sourceRow(c))}</div>` : ""}`)}
     `);
+    showRemoving();
     wireUploads();
     resumeImport();
     renderBanner();
@@ -797,9 +821,13 @@ export async function render({ el, params, state }) {
       });
       const run = async (query, done) => {
         m.close();
-        try { await del(`/api/connections/${id}`, query); } catch (err) { toast(err.message, "bad"); return; }
+        // Deleting a phone's years of samples can take minutes. The row says so at once, rather than looking as if nothing happened.
+        setRemoving(id, query ? "Removing" : "Disconnecting");
+        try { await del(`/api/connections/${id}`, query); } catch (err) { setRemoving(id, null); toast(err.message, "bad"); return; }
+        setRemoving(id, null);
         toast(done);
-        refresh();
+        await slideAway(id, query);
+        if (!gone) refresh(true);
       };
       m.el.querySelector("[data-cancel]")?.addEventListener("click", () => m.close());
       m.el.querySelector("[data-keep]")?.addEventListener("click", () => run(undefined, phone ? "Unpaired. Its data is kept." : "Disconnected. Its data is kept."));
@@ -814,10 +842,14 @@ export async function render({ el, params, state }) {
     pair: async () => { await openPairing(profile); },
     unpair: async ({ id, name }) => {
       if (!(await confirmDialog(`Unpair ${name}?`, "The phone stops sending data until it's paired again. What it already sent is kept.", { confirmLabel: "Unpair", danger: true }))) return;
-      const devices = (await get("/api/devices", { profile: profile.id }, { fresh: true })).devices.filter((d) => d.connection_id === id);
-      await Promise.all(devices.map((d) => del(`/api/devices/${d.id}`)));
-      toast("Unpaired");
-      refresh();
+      setRemoving(id, "Unpairing");
+      try {
+        const devices = (await get("/api/devices", { profile: profile.id }, { fresh: true })).devices.filter((d) => d.connection_id === id);
+        await Promise.all(devices.map((d) => del(`/api/devices/${d.id}`)));
+        toast("Unpaired");
+      } catch (err) { toast(err.message, "bad"); }
+      setRemoving(id, null);
+      if (!gone) refresh(true);
     },
   };
   const off = onAction(el, handlers);

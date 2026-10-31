@@ -741,6 +741,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .src-row + .src-row { border-top: 1px solid var(--border); }
 .src-row.is-off { background: var(--surface-2); }
 .src-row.is-off .src-name { color: var(--text-2); }
+.src-row.is-going { opacity: .6; transition: opacity .15s ease; }
 .src-main { min-width: 0; }
 .src-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .src-title .badge { font-size: 11px; padding: 1px 7px; flex: none; }
