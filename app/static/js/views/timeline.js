@@ -123,7 +123,8 @@ export async function render({ el, state, navigate }) {
             <div class="grow"><div>${describe(e)}</div><div class="small muted">${metaOf(e)}</div></div></div>`)}
           ${labs.length > 3 && !expanded.has(day) ? html`<div class="ev" data-action="labs" data-day="${day}"><span class="ev-icon">${icon("flask")}</span>
               <div class="grow"><div><b>${labs.length} lab results</b>${flagged.length ? html` · <span class="flag-high">${flagged.length} out of range</span>` : ""}</div>
-              <div class="small muted">${labs.slice(0, 5).map((l) => l.title).join(", ")}${labs.length > 5 ? "…" : ""}</div></div></div>`
+              <div class="small muted">${labs.slice(0, 5).map((l) => l.title).join(", ")}${labs.length > 5 ? "…" : ""}</div>
+              ${labs.filter((l) => l.override).map((l) => html`<div class="small muted">${l.title} · You said: ${l.override.text}</div>`)}</div></div>`
             : labs.map((e) => html`<div class="ev" data-action="open" data-id="${e.id}"><span class="ev-icon">${icon("flask")}</span>
               <div class="grow"><div>${describe(e)}</div><div class="small muted">${metaOf(e)}</div></div></div>`)}
         </div></div>`;

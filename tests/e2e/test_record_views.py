@@ -181,3 +181,17 @@ def test_a_lab_read_from_a_report_is_saved_under_the_name_the_dialog_promised(br
     assert s.errors == []
     s.close()
     c.close()
+
+
+def test_a_folded_day_of_labs_shows_what_you_said_about_one_of_them(browser, fresh_server):
+    c = seed(fresh_server, simulated=False)
+    r = c.post("/api/labs", json={"collected": "2026-03-04", "results": [{"test": f"Test {i}", "value": i, "unit": "U/L"} for i in range(5)]})
+    assert r.status_code == 200, r.text
+    rid = next(x["id"] for x in c.get("/api/records", params={"category": "labs"}).json()["items"] if x["title"] == "Test 2")
+    assert c.put(f"/api/records/{rid}/override", json={"note": "Drawn after a meal"}).status_code == 200
+    s = Session(browser, fresh_server)
+    page = s.open("#/timeline")
+    assert "Test 2 · You said: Drawn after a meal" in page.locator("[data-action=labs]").first.inner_text()
+    assert s.errors == []
+    s.close()
+    c.close()
