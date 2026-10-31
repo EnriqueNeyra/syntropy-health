@@ -12,8 +12,25 @@ connection and AI access are tighter. Lines under each heading are what changed 
 `NOTICE` as additional terms under section 7 of the license. The first-run checkbox is an acknowledgment, not a condition
 of the license, and the Terms on the website cover the website and sign-in relay.
 
+### How it feels to use
+
+- **Trends charts are cleaner and easier to read.** The pointer only has to be near a value: mouse, finger and arrow keys
+  all snap to the closest one, with its details beside it rather than over it. Axes follow the calendar. Medications and
+  diagnoses are off until you turn them on, and sit in a row above the plot instead of across it. A new range or test keeps
+  the chart on screen until the next one is ready.
+- **Arrange the Overview by hand.** In Edit, pick a card up from anywhere, or drag any corner to snap it through the
+  grid's widths and heights. Everything around it moves out of the way as it goes. Done saves at once.
+- **Nothing jumps.** Journal's new-entry dialog keeps one size between kinds, first-run steps and other dialogs ease to
+  their new size, filters keep what's on screen until the new answer arrives, and pages are laid out before they appear.
+- **Overview's small charts are coloured again, with round dots.**
+- **Swiping no longer drags the whole Mac window.** ⌘[ and ⌘] go back and forward.
+- **Search shows records as you type,** and the arrow keys and Enter choose one.
+- **Removing a source says so straight away,** rather than looking as if nothing happened while a phone's years of samples are deleted.
+
 ### Records and portals
 
+- **Documents are dated by the visit they document.** A portal's Encounter Summary carries the day it was generated, so a
+  first download put years of visits on one day on the Timeline. Records already stored are corrected without another sync.
 - **Tidier names from imports and reports.** A lab read from a PDF or photo is saved under the name the dialog shows
   ("Glucose", not "GLUCOSE"), and the visit summary names the clinic that keeps an imported file where the file says.
 - **Health systems are easier to find.** Search works by whatever you call the place: the name on your bill, the portal
@@ -102,9 +119,8 @@ of the license, and the Terms on the website cover the website and sign-in relay
 - **Overview starts with your medical record:** out-of-range results, medications, conditions and allergies come before
   wearable numbers. An Overview you've already arranged stays as it is. Timeline has year headings that stay on screen,
   Records is broken up by month, and a record that gives only a year sits under that year.
-- Charts have a period control and medication markers on blood pressure, home readings appear on the clinic blood
-  pressure chart, and *Before and after* shows values and counts on each side of a medication's first order or a date.
-  Ages under 2 show in months, every vaccine is listed, and symptoms and doses you've logged can be compared with any
+- Charts have a period control, home readings appear on the clinic blood pressure chart, and medications and diagnoses can
+  be marked on any chart. Ages under 2 show in months, every vaccine is listed, and symptoms and doses you've logged can be compared with any
   measure, by days with and without them.
 - Prepare for a visit now includes other records and documents kept with a record, and shows your own words beside an entry.
 - An entry you marked as wrong or not you no longer counts as new, and in Prepare for a visit it is listed apart from the facts.
@@ -114,8 +130,8 @@ of the license, and the Terms on the website cover the website and sign-in relay
 ### Insights and trends
 
 - **What's changed states facts and connects nothing.** Notes that set sleep against mood or symptoms, hard training
-  against HRV, or a measure against a medication's start are gone, and so is the Journal's Patterns list. Compare and
-  *Before and after* still put any two things side by side, with the numbers and no verdict, for you to judge.
+  against HRV, or a measure against a medication's start are gone, and so is the Journal's Patterns list. Compare still
+  puts any two things side by side, with the numbers and no verdict, for you to judge.
 - **What's changed is quieter and more careful.** A change only appears when the numbers support it. Slow, sustained
   changes, such as weight moving steadily over two months, show again. Lab notes give the right direction, ignore tiny
   changes, describe slow drift over years, and mention when a result moves closer to its range or comes back in range.
