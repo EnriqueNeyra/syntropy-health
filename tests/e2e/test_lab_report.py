@@ -129,7 +129,7 @@ def test_results_already_on_file_are_pointed_out_and_left_out(browser, fresh_ser
     # Changing the day asks again: on another day, nothing's on file.
     page.locator("#lab-date").fill("2026-09-11")
     page.locator("#lab-date").press("Tab")
-    page.wait_for_function("!document.querySelector('[data-on-file]')")
+    page.locator("[data-on-file]").first.wait_for(state="detached")
     assert page.locator("[data-save]").inner_text() == "Save 4 results"
     assert s.errors == []
     s.close()

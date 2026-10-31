@@ -63,11 +63,11 @@ def file_type(data: bytes, content_type: str, filename: str) -> Optional[str]:
             ".heic": "image/heic", ".heif": "image/heic"}.get(os.path.splitext(name)[1])
 
 
-def _flatten(img: Any) -> Any:
+def _flatten(img: Any, reach: int = 15, blur: int = 25) -> Any:
     """Evens out shadows and uneven light: subtracts a blurred copy of the paper, leaving dark text on white."""
     from PIL import ImageChops, ImageFilter, ImageOps
 
-    paper = img.filter(ImageFilter.MaxFilter(15)).filter(ImageFilter.GaussianBlur(25))
+    paper = img.filter(ImageFilter.MaxFilter(reach)).filter(ImageFilter.GaussianBlur(blur))
     return ImageOps.autocontrast(ImageOps.invert(ImageChops.subtract(paper, img)), cutoff=1)
 
 
@@ -98,7 +98,7 @@ def _prepare(image: Any, used: Optional[str]) -> tuple[Any, float]:
     # Reads best at print resolution: enlarge small images, shrink huge ones so it stays quick.
     if img.width < 1800 or img.width > 4000:
         img = at_width(img, 1800 if img.width < 1800 else 4000)
-    angle = _skew(_flatten(at_width(img, 1200)))
+    angle = _skew(_flatten(at_width(img, 1200), 7, 12))     # the filters scaled with the page: unscaled, a page's angle came out 0.6° off
     # Tesseract needs a blurred photo sharpened and its shadows gone. Vision needs the opposite: on the flattened page it found 5 values
     # of 22, where the page as it was gave all 22. So it (and Windows' OCR, also made for camera images) gets the page as it was.
     if used == "tesseract":
