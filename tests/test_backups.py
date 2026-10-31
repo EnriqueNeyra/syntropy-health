@@ -4,6 +4,7 @@ including sign-ins and passwords. Older backups still work or say why not, and n
 from __future__ import annotations
 
 import base64
+import errno
 import io
 import json
 import os
@@ -935,6 +936,176 @@ def test_as_root_the_service_account_makes_it_and_root_hands_it_over(client, tmp
     assert "--passphrase-file" in calls[0][0] and "-" in calls[0][0]
     assert any(p.endswith("syntropy-backup-x.syntropy") and u == os.getuid() for p, u, g in owners)
     assert not [f for f in config.data_dir().iterdir() if f.name.startswith(".backup-work")]
+
+
+def _as_root(monkeypatch, tmp_path) -> tuple[list[str], Path]:
+    """The installer's command, with runuser making a backup: what's tested is root's part."""
+    import pwd
+    import subprocess
+
+    monkeypatch.setattr(cli, "_systemd_system", lambda: True)
+
+    def fake_run(cmd, **kwargs):
+        if "backup" in cmd:
+            (Path(cmd[cmd.index("backup") + 1]) / "syntropy-backup-x.syntropy").write_bytes(_MADE)
+        return subprocess.CompletedProcess(cmd, 0)
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+    pw = tmp_path / "pw"
+    pw.write_text(SECRET)
+    return ["--service-account", pwd.getpwuid(os.getuid()).pw_name], pw
+
+
+_MADE = b"made by the service account" * 1000
+_linux_command = pytest.mark.skipif(os.name == "nt", reason="the Linux installer's command")
+
+
+def _no_work_folders() -> bool:
+    return not [f for f in config.data_dir().iterdir() if f.name.startswith(".backup-work")]
+
+
+@_linux_command
+@pytest.mark.skipif(os.name != "nt" and os.getuid() == 0, reason="root can write anywhere")
+def test_as_root_a_folder_it_can_not_write_to_is_said_before_any_work(client, tmp_path, monkeypatch):
+    service, pw = _as_root(monkeypatch, tmp_path)
+    target = tmp_path / "nas"
+    target.mkdir()
+    target.chmod(0o500)
+    made = []
+    monkeypatch.setattr(cli.subprocess, "run", lambda *a, **k: made.append(a))
+    try:
+        with pytest.raises(SystemExit) as stopped:
+            cli.main([*service, "backup", str(target), "--passphrase-file", str(pw)])
+    finally:
+        target.chmod(0o700)
+    assert "Nothing was backed up" in str(stopped.value.code) and str(target) in str(stopped.value.code)
+    assert not made and _no_work_folders()
+
+
+@_linux_command
+def test_as_root_a_folder_that_can_not_be_made_is_said(client, tmp_path, monkeypatch):
+    service, pw = _as_root(monkeypatch, tmp_path)
+    (tmp_path / "a-file").write_text("x")
+    with pytest.raises(SystemExit) as stopped:
+        cli.main([*service, "backup", str(tmp_path / "a-file" / "below"), "--passphrase-file", str(pw)])
+    assert "Nothing was backed up" in str(stopped.value.code)
+
+
+@_linux_command
+def test_as_root_a_finished_backup_that_can_not_be_handed_over_is_kept(client, tmp_path, monkeypatch):
+    """The drive filled up or was unplugged. Making it again may not be possible, so it stays where it's safe."""
+    service, pw = _as_root(monkeypatch, tmp_path)
+    target = tmp_path / "drive"
+    real = os.replace
+
+    def refuse(src, dst):
+        if str(dst).startswith(str(target)):
+            raise OSError(errno.ENOSPC, "No space left on device")
+        return real(src, dst)
+    monkeypatch.setattr(cli.os, "replace", refuse)
+    with pytest.raises(SystemExit) as stopped:
+        cli.main([*service, "backup", str(target), "--passphrase-file", str(pw)])
+    said = str(stopped.value.code)
+    kept = config.data_dir() / "syntropy-backup-x.syntropy"
+    assert kept.read_bytes() == _MADE and str(kept) in said and "No space left" in said and str(target) in said
+    assert stat.S_IMODE(kept.stat().st_mode) == 0o600
+    assert not list(target.iterdir()) and _no_work_folders()
+
+
+@_linux_command
+def test_as_root_a_copy_to_another_drive_has_its_real_name_only_once_complete(client, tmp_path, monkeypatch):
+    service, pw = _as_root(monkeypatch, tmp_path)
+    target = tmp_path / "drive"
+    real = os.replace
+    seen = []
+
+    def across_drives(src, dst):
+        if ".backup-work" in str(src):
+            raise OSError(errno.EXDEV, "Invalid cross-device link")
+        seen.append(sorted(f.name for f in target.iterdir()))
+        return real(src, dst)
+    monkeypatch.setattr(cli.os, "replace", across_drives)
+    cli.main([*service, "backup", str(target), "--passphrase-file", str(pw)])
+    assert seen == [["syntropy-backup-x.syntropy.partial"]]
+    final = target / "syntropy-backup-x.syntropy"
+    assert final.read_bytes() == _MADE
+    assert stat.S_IMODE(final.stat().st_mode) == 0o600 and _no_work_folders()
+
+
+@_linux_command
+def test_as_root_a_copy_cut_short_leaves_no_file_with_a_real_name(client, tmp_path, monkeypatch):
+    service, pw = _as_root(monkeypatch, tmp_path)
+    target = tmp_path / "drive"
+    real = os.replace
+
+    def across_drives(src, dst):
+        if ".backup-work" in str(src) and str(dst).startswith(str(target)):
+            raise OSError(errno.EXDEV, "Invalid cross-device link")
+        return real(src, dst)
+
+    def cut_short(src, dst, *a):
+        dst.write(b"half")
+        raise OSError(errno.ENOSPC, "No space left on device")
+    monkeypatch.setattr(cli.os, "replace", across_drives)
+    monkeypatch.setattr(cli.shutil, "copyfileobj", cut_short)
+    with pytest.raises(SystemExit):
+        cli.main([*service, "backup", str(target), "--passphrase-file", str(pw)])
+    assert not list(target.iterdir())
+    assert (config.data_dir() / "syntropy-backup-x.syntropy").read_bytes() == _MADE
+
+
+@_linux_command
+def test_as_root_a_drive_without_owners_still_gets_the_backup(client, tmp_path, monkeypatch, capsys):
+    """exFAT, or a NAS that maps root to nobody: the file is there, and it says who can read it isn't settled."""
+    service, pw = _as_root(monkeypatch, tmp_path)
+    monkeypatch.setenv("SUDO_UID", str(os.getuid()))
+    monkeypatch.setenv("SUDO_GID", str(os.getgid()))
+    target = tmp_path / "drive"
+    real = os.chown
+
+    def refuse(path, uid, gid):
+        if str(path).startswith(str(target)):
+            raise PermissionError(errno.EPERM, "Operation not permitted")
+        return real(path, uid, gid)
+    monkeypatch.setattr(cli.os, "chown", refuse)
+    cli.main([*service, "backup", str(target), "--passphrase-file", str(pw)])
+    assert (target / "syntropy-backup-x.syntropy").exists()
+    out = capsys.readouterr().out
+    assert "only you can read" not in out and "who can read" in out
+
+
+@_linux_command
+def test_as_root_a_mistyped_file_to_restore_is_said_in_words(client, tmp_path, monkeypatch):
+    service, _ = _as_root(monkeypatch, tmp_path)
+    with pytest.raises(SystemExit) as stopped:
+        cli.main([*service, "restore", str(tmp_path / "typo.syntropy")])
+    assert "There's no file at" in str(stopped.value.code) and _no_work_folders()
+    real = tmp_path / "real.syntropy"
+    real.write_bytes(b"x")
+    with pytest.raises(SystemExit) as stopped:
+        cli.main([*service, "restore", str(real), "--key-file", str(tmp_path / "typo.key")])
+    assert "There's no file at" in str(stopped.value.code) and _no_work_folders()
+
+
+@_linux_command
+def test_as_root_a_file_that_can_not_be_copied_for_restoring_is_said_in_words(client, tmp_path, monkeypatch):
+    service, _ = _as_root(monkeypatch, tmp_path)
+    real = tmp_path / "real.syntropy"
+    real.write_bytes(b"x")
+
+    def full(*a, **k):
+        raise OSError(errno.ENOSPC, "No space left on device")
+    monkeypatch.setattr(cli.shutil, "copyfile", full)
+    with pytest.raises(SystemExit) as stopped:
+        cli.main([*service, "restore", str(real)])
+    assert "No space left" in str(stopped.value.code) and _no_work_folders()
+
+
+def test_the_ready_dialog_fits_a_phone():
+    """A file name in the button pushed Close off a 390 pixel screen, with no way to reach it."""
+    script = (config.REPO_ROOT / "app" / "static" / "js" / "backup.js").read_text()
+    css = (config.REPO_ROOT / "app" / "static" / "css" / "app.css").read_text()
+    assert "Download ${made.filename}" not in script and "The file is called ${made.filename}" in script
+    assert "flex-wrap: wrap" in next(line for line in css.splitlines() if line.startswith(".modal-foot "))
 
 
 def test_the_linux_wrapper_goes_through_root_for_backup_and_restore():

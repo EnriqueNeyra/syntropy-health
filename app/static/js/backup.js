@@ -60,9 +60,10 @@ export function openBackupDialog(info, onDone) {
       const made = await api("/api/backups", { method: "POST", body, keepCache: true });
       m.setBody(html`<div class="banner info">${icon("check")}<div class="grow"><p>Your backup is ready: ${fmtSize(made.size_bytes)}, holding ${made.holds}.</p></div></div>
         ${made.key === "setting" ? html`<p class="small" style="margin-top:12px">The encryption key isn't in it. Keep your SYNTROPY_SECRET_KEY value with your backups.</p>` : ""}
+        <p class="small" style="margin-top:12px;overflow-wrap:anywhere">The file is called ${made.filename}.</p>
         <p class="small muted" style="margin-top:12px">Store it somewhere other than this computer. It keeps anything you delete later, so remove older backups you no longer need.</p>`);
       mount($(".modal-foot", m.el), html`<button class="btn" data-cancel>Close</button>
-        <a class="btn btn-primary" href="${made.download}" download="${made.filename}">${icon("download")} Download ${made.filename}</a>`);
+        <a class="btn btn-primary" href="${made.download}" download="${made.filename}">${icon("download")} Download</a>`);
       $("[data-cancel]", m.el).addEventListener("click", m.close);
       finished = true;
     } catch (err) { toast(err.message, "bad"); done?.(); }
@@ -233,7 +234,8 @@ export async function importArchive(file, profileId, status, onDone) {
         const kept = (r.clinical?.kept_both || 0);
         mount(status, html`<div class="banner info" style="margin-top:8px">${icon("check")}<div class="grow"><p>Added ${plural(records, "record")}, ${plural(r.samples, "sample")},
           ${plural(r.workouts, "workout")}, ${plural(r.journal, "journal entry", "journal entries")}, ${plural(r.goals, "goal")} and ${plural(r.chats, "conversation")}.
-          What was already here was left as it was.${kept ? ` ${plural(kept, "record")} differed from what's here, so both were kept.` : ""}</p></div></div>`);
+          What was already here was left as it was.${kept ? ` ${plural(kept, "record")} differed from what's here, so both were kept.` : ""}
+          ${r.chats_skipped ? ` ${plural(r.chats_skipped, "older conversation")} didn't come in, because this person already has as many as can be kept. Delete some and import again to bring those in too.` : ""}</p></div></div>`);
         onDone?.();
         return;
       }

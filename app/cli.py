@@ -24,6 +24,7 @@ The same code runs from a clone (``./run.sh``), a pip or uv install, the Linux i
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import os
 import shlex
@@ -163,6 +164,45 @@ def backup(dest: Optional[str], *, no_encrypt: bool = False, passphrase_file: Op
     return Path(result["path"])
 
 
+def _hand_over(made: Path, target: Path) -> None:
+    """Into its folder, which may be on another drive. There a move is a copy, so like any backup it has its real name only
+    once it's all there."""
+    from app.services import backups
+
+    try:
+        os.replace(made, target)
+    except OSError as exc:
+        if exc.errno != errno.EXDEV:
+            raise
+        partial = target.with_name(target.name + ".partial")
+        try:
+            fd = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "wb") as out, made.open("rb") as source:
+                shutil.copyfileobj(source, out, 1024 * 1024)
+                out.flush()
+                os.fsync(out.fileno())
+            os.replace(partial, target)
+        except BaseException:
+            partial.unlink(missing_ok=True)
+            raise
+    try:
+        backups._sync_folder(target.parent)
+    except OSError:     # not every drive can; the file is there either way
+        pass
+
+
+def _give_to_caller(path: Path) -> bool:
+    """Theirs, so they can move it without sudo, and private to them. Some drives (exFAT, a NAS that maps root to nobody)
+    don't keep this."""
+    uid, gid = os.environ.get("SUDO_UID"), os.environ.get("SUDO_GID")
+    try:
+        path.chmod(0o600)
+        os.chown(path, int(uid) if uid and gid else 0, int(gid) if uid and gid else 0)
+    except OSError:
+        return False
+    return True
+
+
 def _as_service_account(account: str, args: argparse.Namespace) -> None:
     """Run as root by the Linux installer's command. The data belongs to the service's account, and the folder or file
     named on the command line usually doesn't: that account makes the backup or reads the file in a private folder of its
@@ -171,15 +211,23 @@ def _as_service_account(account: str, args: argparse.Namespace) -> None:
 
     entry = pwd.getpwnam(account)
     child = ["runuser", "-u", account, "--", sys.argv[0]]
-    work = Path(tempfile.mkdtemp(dir=config.data_dir(), prefix=".backup-work-"))
-    os.chown(work, entry.pw_uid, entry.pw_gid)
     given = None
     if getattr(args, "passphrase_file", None):
         given = _read_passphrase_file(args.passphrase_file)
-    try:
-        if args.command == "backup":
-            folder = Path(args.folder).expanduser() if args.folder else Path.cwd()
+    folder = None
+    if args.command == "backup":
+        folder = Path(args.folder).expanduser() if args.folder else Path.cwd()
+        try:
             folder.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryFile(dir=folder):
+                pass
+        except OSError as exc:
+            sys.exit(f"Couldn't write to {folder}: {exc.strerror or exc}. Nothing was backed up. Choose a folder that can be written to.")
+    work = None
+    try:
+        work = Path(tempfile.mkdtemp(dir=config.data_dir(), prefix=".backup-work-"))
+        os.chown(work, entry.pw_uid, entry.pw_gid)
+        if folder:
             cmd = [*child, "backup", str(work)]
             if args.no_encrypt:
                 cmd.append("--no-encrypt")
@@ -188,17 +236,24 @@ def _as_service_account(account: str, args: argparse.Namespace) -> None:
             done = subprocess.run(cmd, input=given, text=True if given is not None else None)
             if done.returncode:
                 sys.exit(done.returncode)
-            caller = os.environ.get("SUDO_UID"), os.environ.get("SUDO_GID")
             for made in work.iterdir():
                 target = folder / made.name
-                shutil.move(str(made), target)
-                if caller[0] and caller[1]:      # theirs, so they can move it without sudo; still private to them
-                    os.chown(target, int(caller[0]), int(caller[1]))
+                try:
+                    _hand_over(made, target)
+                except OSError as exc:
+                    kept = config.data_dir() / made.name
+                    os.replace(made, kept)
+                    kept.chmod(0o600)
+                    sys.exit(f"The backup was made, but it couldn't be put in {folder}: {exc.strerror or exc}. It's at {kept} for now, where "
+                             f"only an administrator can read it. Make room or choose another folder, then move it with: sudo mv {kept} {folder}/")
+                if _give_to_caller(target):
+                    print(f"Moved it to {target}, which only you can read.")
                 else:
-                    os.chown(target, 0, 0)
-                target.chmod(0o600)
-                print(f"Moved it to {target}, which only you can read.")
+                    print(f"Moved it to {target}. That drive doesn't keep who can read a file, so it's up to you to keep the drive private.")
             return
+        for given_path in (args.file, args.key_file):
+            if given_path and not Path(given_path).expanduser().is_file():
+                sys.exit(f"There's no file at {given_path}.")
         source = work / Path(args.file).name
         shutil.copyfile(Path(args.file).expanduser(), source)
         os.chown(source, entry.pw_uid, entry.pw_gid)
@@ -219,8 +274,11 @@ def _as_service_account(account: str, args: argparse.Namespace) -> None:
         done = subprocess.run(cmd, input=given, text=True if given is not None else None)
         if done.returncode:
             sys.exit(done.returncode)
+    except OSError as exc:
+        sys.exit(f"Syntropy Health couldn't do that, and nothing was changed: {exc}")
     finally:
-        shutil.rmtree(work, ignore_errors=True)
+        if work:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 def _stop_first() -> Optional[str]:
