@@ -194,6 +194,8 @@ def set_role(account_id: str, role: str, step_down: Optional[str] = None) -> Non
             audit(conn, "user", "account.role", {"account": step_down, "role": "member"})
         if not conn.execute("SELECT 1 FROM accounts WHERE role = 'owner' LIMIT 1").fetchone():
             raise ValueError("The server needs at least one owner.")
+        for changed in {account_id, step_down} - {None}:
+            _end_phones_out_of_reach(conn, "account_id", changed)
 
 
 def touch_login(account_id: str) -> None:
@@ -226,18 +228,36 @@ def set_flags(account_id: str, *, terms_version: Optional[int] = None, onboardin
 
 def access_for(account: dict[str, Any]) -> dict[str, str]:
     """{profile_id: 'view' | 'manage'} for everyone this account can see, itself included."""
-    access = {account["profile_id"]: "manage"}
     with read() as conn:
-        for r in conn.execute("SELECT profile_id, level FROM profile_access WHERE account_id = ?", (account["id"],)):
-            if access.get(r["profile_id"]) != "manage":
-                access[r["profile_id"]] = r["level"]
-        if account["role"] == "owner":
-            # People nobody can reach (their manager left): the owners look after them.
-            for r in conn.execute("SELECT id FROM profiles p WHERE NOT EXISTS (SELECT 1 FROM accounts a WHERE a.profile_id = p.id) "
-                                  "AND NOT EXISTS (SELECT 1 FROM profile_access g JOIN accounts a ON a.id = g.account_id "
-                                  "WHERE g.profile_id = p.id AND g.level = 'manage')"):
-                access.setdefault(r["id"], "manage")
+        return _access_in(conn, account)
+
+
+def _access_in(conn: Any, account: Any) -> dict[str, str]:
+    access = {account["profile_id"]: "manage"}
+    for r in conn.execute("SELECT profile_id, level FROM profile_access WHERE account_id = ?", (account["id"],)):
+        if access.get(r["profile_id"]) != "manage":
+            access[r["profile_id"]] = r["level"]
+    if account["role"] == "owner":
+        # People nobody can reach (their manager left): the owners look after them.
+        for r in conn.execute("SELECT id FROM profiles p WHERE NOT EXISTS (SELECT 1 FROM accounts a WHERE a.profile_id = p.id) "
+                              "AND NOT EXISTS (SELECT 1 FROM profile_access g JOIN accounts a ON a.id = g.account_id "
+                              "WHERE g.profile_id = p.id AND g.level = 'manage')"):
+            access.setdefault(r["id"], "manage")
     return access
+
+
+def _end_phones_out_of_reach(conn: Any, column: str, value: str) -> None:
+    """Inside the caller's transaction: a phone sends for a person only while whoever paired it may manage them. What an
+    owner reached by being an owner ends with that, or when someone else comes to manage the person."""
+    from app.store import devices
+
+    paired = conn.execute(f"SELECT account_id, profile_id FROM devices WHERE {column} = ? AND account_id IS NOT NULL UNION "
+                          f"SELECT account_id, profile_id FROM pairing_codes WHERE {column} = ? AND account_id IS NOT NULL",
+                          (value, value)).fetchall()
+    for row in paired:
+        account = conn.execute("SELECT id, profile_id, role FROM accounts WHERE id = ?", (row["account_id"],)).fetchone()
+        if account and _access_in(conn, account).get(row["profile_id"]) != "manage":
+            devices.revoke_paired_in(conn, row["profile_id"], row["account_id"])
 
 
 def grant(account_id: str, profile_id: str, level: str) -> None:
@@ -255,6 +275,7 @@ def grant(account_id: str, profile_id: str, level: str) -> None:
         audit(conn, "user", "access.granted", {"account": account_id, "level": level}, profile_id)
         if level != "manage":       # someone who may only read can't keep sending numbers into the record
             devices.revoke_paired_in(conn, profile_id, account_id)
+        _end_phones_out_of_reach(conn, "profile_id", profile_id)
 
 
 def revoke_access(account_id: str, profile_id: str) -> None:

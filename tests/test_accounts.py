@@ -292,3 +292,80 @@ def test_profile_changes_are_checked_and_birth_date_can_be_cleared(client):
         assert client.patch(f"/api/profiles/{pid}", json=bad).status_code == 422, bad
     assert client.post("/api/profiles", json={"name": "Kim", "birth_date": "yesterday"}).status_code == 422
     assert client.patch(f"/api/profiles/{pid}", json={"name": " Sammy "}).json()["name"] == "Sammy"
+
+
+def _fallen_to_the_owner(client):
+    """Kid was added by Maria, who then left: nobody manages Kid, so the owners look after them."""
+    maria_client, _ = _join(client, _person(client, "Maria"))
+    kid = _person(maria_client, "Kid", "child")
+    assert maria_client.post("/api/accounts/me/delete", json={"password": MARIA_PASSWORD}).status_code == 200
+    assert kid in [p["id"] for p in client.get("/api/profiles").json()["profiles"]]
+    sam_client, _ = _join(client, _person(client, "Sam"))
+    return kid, sam_client, sam_client.get("/api/status").json()["account"]["id"]
+
+
+_HEARTBEAT = {"device_id": "ios-1", "device_name": "iPhone", "samples": [
+    {"id": "s1", "metric_type": "heart_rate", "value": 60, "unit": "count/min",
+     "start_date": "2026-01-02T08:00:00Z", "end_date": "2026-01-02T08:00:00Z"}]}
+
+
+def test_handing_over_ends_phones_for_people_only_the_owner_could_reach(raw_client):
+    client = _signed_in_owner(raw_client)
+    alex = _ids(client)["Alex"]["id"]
+    kid, _, sam = _fallen_to_the_owner(client)
+    _, anon, auth, screens = _phone(client, kid)
+    _, own_anon, own_auth, _ = _phone(client, alex)
+    waiting = client.post("/api/devices/pairing-code", json={"profile_id": kid}).json()["code"]
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 200
+
+    r = client.put(f"/api/accounts/{sam}/role", json={"role": "owner", "step_down": True, "password": PASSPHRASE})
+    assert r.status_code == 200, r.text
+    assert kid not in [p["id"] for p in client.get("/api/profiles").json()["profiles"]]
+
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 401
+    assert screens.get("/api/status").json().get("authenticated") is False
+    assert anon.post("/api/devices/pair", json={"code": waiting, "device_name": "iPhone"}).status_code != 200
+    # Their own phone is still theirs.
+    assert own_anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=own_auth).status_code == 200
+
+
+def test_being_removed_as_owner_ends_those_phones_too(raw_client):
+    client = _signed_in_owner(raw_client)
+    alex = client.get("/api/status").json()["account"]["id"]
+    kid, sam_client, sam = _fallen_to_the_owner(client)
+    assert client.put(f"/api/accounts/{sam}/role", json={"role": "owner", "password": PASSPHRASE}).status_code == 200
+    _, anon, auth, _ = _phone(client, kid)
+    _, sam_anon, sam_auth, _ = _phone(sam_client, kid)
+    r = sam_client.put(f"/api/accounts/{alex}/role", json={"role": "member", "password": MARIA_PASSWORD})
+    assert r.status_code == 200, r.text
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 401
+    assert sam_anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=sam_auth).status_code == 200     # still an owner
+
+
+def test_stepping_down_keeps_phones_for_people_given_to_you(raw_client):
+    client = _signed_in_owner(raw_client)
+    leo = _person(client, "Leo", "child")       # Alex added Leo, and manages Leo by right of that, not of being an owner
+    _, sam_client, sam = _fallen_to_the_owner(client)
+    _, anon, auth, _ = _phone(client, leo)
+    assert client.put(f"/api/accounts/{sam}/role", json={"role": "owner", "step_down": True, "password": PASSPHRASE}).status_code == 200
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 200
+
+
+def test_a_refused_step_down_changes_no_phones(raw_client):
+    client = _signed_in_owner(raw_client)
+    alex = client.get("/api/status").json()["account"]["id"]
+    kid, _, _ = _fallen_to_the_owner(client)
+    _, anon, auth, _ = _phone(client, kid)
+    assert client.put(f"/api/accounts/{alex}/role", json={"role": "member", "password": PASSPHRASE}).status_code == 400
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 200
+
+
+def test_giving_someone_a_person_only_the_owner_reached_ends_the_owners_phone(raw_client):
+    client = _signed_in_owner(raw_client)
+    kid, sam_client, sam = _fallen_to_the_owner(client)
+    _, anon, auth, _ = _phone(client, kid)
+    r = client.put(f"/api/profiles/{kid}/access", json={"account_id": sam, "level": "manage"})
+    assert r.status_code == 200, r.text
+    assert kid not in [p["id"] for p in client.get("/api/profiles").json()["profiles"]]     # someone manages Kid now
+    assert kid in [p["id"] for p in sam_client.get("/api/profiles").json()["profiles"]]
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 401

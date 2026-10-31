@@ -303,18 +303,27 @@ def _workout(elem: Any, start: str, end: str, source: str, read_file: Optional[C
 
 def iter_items(xml_stream: io.BufferedIOBase,
                read_file: Optional[Callable[[str], Optional[bytes]]] = None) -> Iterator[tuple[str, dict[str, Any]]]:
-    """Yields ("sample" | "workout" | "event", item) from export.xml in constant memory."""
+    """Yields ("sample" | "workout" | "event", item) from export.xml in constant memory. What's held at any moment is one
+    of its top-level elements, so what that can be is limited; past that, TooBig (what came before it has been yielded)."""
+    stream = _CountedRead(xml_stream)
     root = None
-    handled = 0
-    for event, elem in iterparse(xml_stream, events=("start", "end")):
+    depth = parts = 0
+    for event, elem in iterparse(stream, events=("start", "end")):
         if event == "start":
             if root is None:
                 root = elem
+            depth += 1
+            if depth > MAX_XML_DEPTH:
+                raise _element_too_big()
             continue
-        handled += 1
-        if root is not None and handled % 2000 == 0:
+        depth -= 1
+        parts += 1
+        if parts > MAX_XML_PARTS:
+            raise _element_too_big()
+        if depth == 1:
             # Cleared elements stay attached to the root; drop them or millions of records add up to gigabytes.
             root.clear()
+            stream.since_element = parts = 0
         tag = elem.tag
         if tag not in ("Record", "Workout"):
             if tag in ("ActivitySummary", "Correlation"):
@@ -365,12 +374,35 @@ MAX_CLINICAL_FILE = 50 * 1024 * 1024
 MAX_CLINICAL_TOTAL = 256 * 1024 * 1024        # all kept in memory until they're imported
 MAX_ROUTE_FILE = 100 * 1024 * 1024
 MAX_XML = 64 * 1024 ** 3
+MAX_XML_ELEMENT = 64 * 1024 * 1024            # one Record or Workout, with all it holds and the text after it
+MAX_XML_PARTS = 1_000_000                     # the same, in elements: a second-by-second route of 11 days
+MAX_XML_DEPTH = 32                            # real exports go 4 deep
 MAX_RATIO = 200
 _RATIO_FROM = 1024 * 1024                     # tiny files can shrink by any amount
 
 
 class TooBig(ValueError):
     pass
+
+
+def _element_too_big() -> TooBig:
+    return TooBig("This file doesn't look like an Apple Health export: part of its export.xml is far larger than any "
+                  "health record. The import stopped there.")
+
+
+class _CountedRead:
+    """The parser hands nothing back while it's inside one long text or value, and holds all of it: this is what notices."""
+
+    def __init__(self, stream: io.BufferedIOBase):
+        self.stream = stream
+        self.since_element = 0
+
+    def read(self, size: int = -1) -> bytes:
+        data = self.stream.read(size)
+        self.since_element += len(data)
+        if self.since_element > MAX_XML_ELEMENT:
+            raise _element_too_big()
+        return data
 
 
 def _implausible(info: zipfile.ZipInfo) -> bool:

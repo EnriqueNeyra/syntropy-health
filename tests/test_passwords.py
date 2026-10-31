@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.core import auth, security
 from tests.conftest import BASE, CSRF, LOCAL_CLIENT, PASSPHRASE
@@ -223,3 +224,68 @@ def test_names_are_only_listed_to_a_name_of_this_server(raw_client, monkeypatch)
     assert rebinding.status_code == 200 and "accounts" not in rebinding.json()
     monkeypatch.setenv("SYNTROPY_ALLOWED_HOSTS", "health.example.com")
     assert "accounts" in near.get("/api/status", headers={"Host": "health.example.com"}).json()
+
+
+def test_a_refused_password_doesnt_use_up_the_setup_code(raw_client):
+    far = TestClient(raw_client.app, base_url=BASE, client=("8.8.8.8", 5000))
+    code = auth.setup_code()
+    body = {"profile_name": "Alex", "setup_code": code, "accept_terms": True}
+    assert far.post("/api/setup", json={**body, "password": "password123"}, headers=CSRF).status_code == 400
+    assert far.post("/api/setup", json={**body, "password": "short"}, headers=CSRF).status_code == 400
+    r = far.post("/api/setup", json={**body, "password": PASSPHRASE}, headers=CSRF)
+    assert r.status_code == 200, r.text
+    assert not auth.setup_code_matches(code)      # once
+
+
+def test_a_refused_first_password_doesnt_use_up_the_code_either(raw_client, monkeypatch):
+    _no_password_yet(raw_client, monkeypatch)
+    far = TestClient(raw_client.app, base_url=BASE, client=("8.8.8.8", 5000))
+    far.headers.update(CSRF)
+    code = auth.setup_code()
+    for weak in ("password123", "short", None):
+        assert far.post("/api/auth/password", json={"new": weak, "setup_code": code}).status_code == 400
+    assert auth.password_missing()
+    r = far.post("/api/auth/password", json={"new": "a long new password", "setup_code": code, "accept_terms": True})
+    assert r.status_code == 200, r.text
+    assert not auth.setup_code_matches(code)      # once
+
+
+def test_a_wrong_setup_code_still_counts_as_a_guess(raw_client):
+    far = TestClient(raw_client.app, base_url=BASE, client=("8.8.8.8", 5000))
+    auth.setup_code()
+    body = {"password": PASSPHRASE, "profile_name": "Alex", "setup_code": "ZZZZ-ZZZZ"}
+    codes = [far.post("/api/setup", json=body, headers=CSRF).status_code for _ in range(auth.LOGIN_MAX_FAILURES + 1)]
+    assert codes[:-1] == [403] * auth.LOGIN_MAX_FAILURES and codes[-1] == 429
+
+
+@pytest.mark.parametrize("forwarded", [
+    "172.18.0.2, 8.8.8.8",              # nginx adds the visitor to what the visitor sent
+    "8.8.8.8, 172.18.0.2, 8.8.8.8",
+    [("X-Forwarded-For", "172.18.0.2"), ("X-Forwarded-For", "8.8.8.8")],     # HAProxy adds a line of its own
+])
+def test_saying_youre_the_proxy_doesnt_make_you_nearby(raw_client, forwarded):
+    proxy = TestClient(raw_client.app, base_url=BASE, client=("172.18.0.2", 5000))
+    headers = [*forwarded, *CSRF.items()] if isinstance(forwarded, list) else {**CSRF, "X-Forwarded-For": forwarded}
+    assert proxy.get("/api/status", headers=headers).json()["setup_code_needed"]
+    r = proxy.post("/api/setup", json={"password": PASSPHRASE, "profile_name": "Alex"}, headers=headers)
+    assert r.status_code == 403, r.text
+    assert not auth.is_setup_complete()
+
+
+@pytest.mark.parametrize("allowed, forwarded, visitor, near", [
+    ("127.0.0.1", "192.168.1.9", "192.168.1.9", True),
+    ("127.0.0.1", "8.8.8.8", "8.8.8.8", False),
+    ("127.0.0.1", "192.168.1.9, 8.8.8.8", "8.8.8.8", False),        # the proxy added 8.8.8.8; the rest is what they sent
+    ("*", "192.168.1.9", "192.168.1.9", True),
+    ("*", "192.168.1.9, 8.8.8.8", "192.168.1.9", False),            # trusting anyone, uvicorn believes the first address
+])
+def test_behind_a_trusted_proxy_it_is_the_visitors_address_that_counts(raw_client, allowed, forwarded, visitor, near):
+    seen = {}
+
+    async def spy(scope, receive, send):
+        seen["client"] = (scope.get("client") or ("",))[0]
+        await raw_client.app(scope, receive, send)
+    proxied = TestClient(ProxyHeadersMiddleware(spy, trusted_hosts=allowed), base_url=BASE, client=("127.0.0.1", 5000))
+    status = proxied.get("/api/status", headers={"X-Forwarded-For": forwarded}).json()
+    assert seen["client"] == visitor
+    assert ("setup_code_needed" not in status) == near

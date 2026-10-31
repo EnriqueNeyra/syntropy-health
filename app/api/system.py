@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import date
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -138,19 +138,31 @@ def accept_terms(principal: auth.Principal = Depends(auth.require_user_to_set_pa
     return {"ok": True}
 
 
+def _visitor(request: Request) -> Optional[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]]:
+    """Who's asking, when that can be known."""
+    host = request.client.host if request.client else ""
+    # A proxy puts who it heard from last; anything before that is only what the visitor sent. One this server was told to
+    # trust (FORWARDED_ALLOW_IPS) has already put that same address in ``client``. Any other address there is a proxy's own,
+    # and says nothing about who's behind it.
+    forwarded = request.headers.getlist("x-forwarded-for")
+    if forwarded and forwarded[-1].rsplit(",", 1)[-1].strip() != host:
+        return None
+    try:
+        return ipaddress.ip_address(host.split("%")[0])
+    except ValueError:
+        return None
+
+
 def _nearby(request: Request) -> bool:
     """A request from this computer, the home network or Tailscale (not the internet)."""
-    host = request.client.host if request.client else ""
-    # A proxy this server wasn't told to trust (FORWARDED_ALLOW_IPS): the address is the proxy's, and says nothing about
-    # who's behind it. One it trusts has already put the visitor's own address in ``client``.
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded and host not in [part.strip() for part in forwarded.split(",")]:
-        return False
-    try:
-        ip = ipaddress.ip_address(host.split("%")[0])
-    except ValueError:
-        return False
-    return ip.is_loopback or ip.is_private or ip.is_link_local or ip in network.TAILSCALE_NET
+    ip = _visitor(request)
+    return bool(ip) and (ip.is_loopback or ip.is_private or ip.is_link_local or ip in network.TAILSCALE_NET)
+
+
+def _on_this_computer(request: Request) -> bool:
+    """The server's own computer, asked for by name: a web page can point its own address here too."""
+    ip = _visitor(request)
+    return bool(ip) and ip.is_loopback and network.is_local_name(request.headers.get("host", ""))
 
 
 def _may_claim(request: Request, code: Optional[str]) -> None:
@@ -250,6 +262,7 @@ def setup(req: SetupRequest, request: Request, response: Response) -> dict:
     if req.timezone and _known_zone(req.timezone):
         settings.set("display.timezone", req.timezone)
     owner = auth.complete_setup(password, prof["id"])
+    auth.setup_code_used()
     accounts.set_flags(owner["id"], onboarding=True)     # the rest of first-run: other devices, data, AI
     if req.accept_terms:
         _accept_terms(owner["id"])
@@ -422,11 +435,13 @@ def accept_invite(req: JoinRequest, request: Request, response: Response) -> dic
 @router.get("/api/auth/recovery")
 def recovery(request: Request) -> dict:
     """How a forgotten password gets reset: on the computer this runs on, by someone who could read the file anyway. NAME
-    is for the page to fill in. The exact path to the program is only for someone nearby: it can name who owns the computer."""
-    return {"command": _reset_command(_nearby(request))}
+    is for the page to fill in. The exact path to the program is only for that computer: it can name who owns it, and it's
+    the only place the command can run. ``run_there``: the page there shows the path this one left out."""
+    here = _on_this_computer(request)
+    return {"command": _reset_command(here), "run_there": updates.method()["kind"] == "app" and not here}
 
 
-def _reset_command(nearby: bool) -> str:
+def _reset_command(here: bool) -> str:
     kind = updates.method()["kind"]
     args = 'accounts reset-password "NAME"'
     if kind == "docker":     # the entry point runs it as whoever owns the data, as it does the server
@@ -435,7 +450,7 @@ def _reset_command(nearby: bool) -> str:
         return f"python -m app.cli {args}"
     if kind == "linux":
         return f"sudo syntropy-health {args}"
-    if kind == "app" and nearby and getattr(sys, "frozen", False):
+    if kind == "app" and here and getattr(sys, "frozen", False):
         exe = Path(sys.executable)
         console = exe.with_name("syntropy-health.exe")      # Windows: the console build next to the app
         return f'"{console if console.exists() else exe}" {args}'
@@ -463,9 +478,12 @@ def change_password(req: PasswordRequest, request: Request, response: Response,
     auth.refuse_if_limited(principal)
     if not principal.account_id:
         raise HTTPException(400, "No account to change the password of.")
-    if auth.password_missing():
+    claiming = auth.password_missing()
+    if claiming:
         _may_claim(request, req.setup_code)
     auth.change_password(request, principal.account_id, req.current, req.new)
+    if claiming:
+        auth.setup_code_used()
     if req.accept_terms:
         _accept_terms(principal.account_id)
     if req.new:

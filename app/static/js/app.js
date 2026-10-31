@@ -741,8 +741,8 @@ function renderLogin() {
 async function openPasswordHelp(name) {
   const m = modal({ title: "Forgot your password?", body: loading(2), footer: html`<button class="btn btn-primary" data-ok>OK</button>` });
   m.el.querySelector("[data-ok]").addEventListener("click", m.close);
-  let command = 'syntropy-health accounts reset-password "NAME"';
-  try { ({ command } = await get("/api/auth/recovery", undefined, { fresh: true })); } catch {}
+  let command = 'syntropy-health accounts reset-password "NAME"', run_there = false;
+  try { ({ command, run_there } = await get("/api/auth/recovery", undefined, { fresh: true })); } catch {}
   command = command.replace('"NAME"', `"${(name || "Your name").replaceAll('"', "")}"`);
   m.setBody(html`
     <p style="margin-bottom:10px">Your records aren't lost, and nothing needs reinstalling. Syntropy Labs can't reset it, because your
@@ -750,6 +750,7 @@ async function openPasswordHelp(name) {
       If that's you, open Terminal (Command Prompt on Windows) there and run:</p>
     <div class="row" style="margin-bottom:10px"><code class="grow" style="overflow-wrap:anywhere">${command}</code>
       <button class="btn btn-sm" data-copy>${icon("copy")} Copy</button></div>
+    ${run_there ? html`<p class="small muted" style="margin-bottom:10px">If that computer says the command isn't found, open this page there. It shows the full command.</p>` : ""}
     <p class="small muted">It asks for the new password twice, then signs that person's browsers out. Everyone else, and all the records, stay as they are.
       If someone else runs this server, ask them to do this for you.</p>`);
   m.body.addEventListener("click", async (e) => {

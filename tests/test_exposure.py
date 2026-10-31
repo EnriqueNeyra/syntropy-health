@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import BASE, CSRF, LOCAL_CLIENT, PASSPHRASE, connect_institution
@@ -101,6 +102,34 @@ def test_the_sign_in_screen_can_say_how_to_reset_a_password(raw_client, monkeypa
     assert "/Users/alex" in raw_client.get("/api/auth/recovery").json()["command"]
     far = TestClient(raw_client.app, base_url=BASE, client=("8.8.8.8", 5000))
     assert "/Users/alex" not in far.get("/api/auth/recovery").json()["command"]
+
+
+@pytest.mark.parametrize("client, headers", [
+    (("192.168.1.77", 5000), {}),                                   # someone else on the home network
+    (("100.64.0.9", 5000), {}),                                     # Tailscale
+    (("127.0.0.1", 5000), {"X-Forwarded-For": "192.168.1.77"}),     # a proxy on this computer
+    (("127.0.0.1", 5000), {"Host": "evil.example.com"}),            # a web page that points its own name here
+])
+def test_the_path_to_the_program_stays_on_this_computer(raw_client, monkeypatch, client, headers):
+    from app.services import updates
+    _signed_in_owner(raw_client)
+    monkeypatch.setattr(updates, "method", lambda: {"kind": "app"})
+    monkeypatch.setattr("sys.frozen", True, raising=False)
+    monkeypatch.setattr("sys.executable", "C:/Users/alex/AppData/Local/Programs/Syntropy Health/Syntropy Health.exe")
+    assert "alex" in raw_client.get("/api/auth/recovery").json()["command"]
+    reply = TestClient(raw_client.app, base_url=BASE, client=client).get("/api/auth/recovery", headers=headers).json()
+    assert reply["command"] == 'syntropy-health accounts reset-password "NAME"' and reply["run_there"]
+
+
+def test_recovery_says_to_go_to_the_computer_only_for_the_apps(raw_client, monkeypatch):
+    from app.services import updates
+    near = TestClient(raw_client.app, base_url=BASE, client=("192.168.1.77", 5000))
+    for kind in ("docker", "linux", "source"):
+        monkeypatch.setattr(updates, "method", lambda kind=kind: {"kind": kind})
+        assert not near.get("/api/auth/recovery").json().get("run_there")
+    monkeypatch.setattr(updates, "method", lambda: {"kind": "app"})
+    monkeypatch.setattr("sys.frozen", True, raising=False)
+    assert not raw_client.get("/api/auth/recovery").json().get("run_there")
 
 
 def test_the_age_for_suggesting_a_sign_in_is_the_owners_to_set(raw_client):

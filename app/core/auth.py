@@ -108,10 +108,12 @@ def setup_code() -> str:
 def setup_code_matches(code: Optional[str]) -> bool:
     wanted = _setup_code.get("code")
     given = security.normalize_pairing_code(code or "")
-    if not wanted or not given or not hmac.compare_digest(given.encode(), wanted.encode()):
-        return False
-    _setup_code.pop("code", None)     # once
-    return True
+    return bool(wanted and given and hmac.compare_digest(given.encode(), wanted.encode()))
+
+
+def setup_code_used() -> None:
+    """It works once, counted from when the password it let someone choose was accepted: only a restart makes another."""
+    _setup_code.pop("code", None)
 
 
 def _password_needed() -> None:

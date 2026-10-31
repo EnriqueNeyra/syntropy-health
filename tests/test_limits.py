@@ -5,10 +5,13 @@ from __future__ import annotations
 import gzip
 import io
 import json
+import secrets
 import sqlite3
 import time
+import tracemalloc
 import zipfile
 from pathlib import Path
+from xml.etree.ElementTree import ParseError
 
 import pytest
 from fastapi.testclient import TestClient
@@ -151,6 +154,76 @@ def test_an_export_xml_built_to_expand_is_refused(tmp_path):
     export.close()
 
 
+SMALL = 1024 * 1024
+_RECORD = (b'<Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Watch" unit="count/min" value="60" '
+           b'startDate="2026-01-02 08:00:00 +0000" endDate="2026-01-02 08:00:00 +0000"/>')
+
+
+def _items(xml: bytes) -> list:
+    return list(apple_health.iter_items(io.BytesIO(xml)))
+
+
+@pytest.mark.parametrize("xml", [
+    b"<HealthData><Note>" + b"A" * (2 * SMALL) + b"</Note></HealthData>",                   # one text
+    b'<HealthData><Note value="' + b"A" * (2 * SMALL) + b'"/></HealthData>',                # one value
+    b"<HealthData>" + b"A" * (2 * SMALL) + b"</HealthData>",                                # between elements
+    b"<HealthData><Note/>" + b"A" * (2 * SMALL) + b"<Note/></HealthData>",
+    b"<HealthData>" + b"<a>" * 1000 + b"</a>" * 1000 + b"</HealthData>",                    # nested
+    b"<HealthData><Group>" + b"<a/>" * 1100 + b"</Group></HealthData>",                     # inside one that never ends
+    b"<HealthData><Workout>" + b"<a/>" * 1100 + b"</Workout></HealthData>",
+    b"<HealthData><Group>" + (b'<a v="' + b"A" * 1000 + b'"/>') * 1000 + b"</Group></HealthData>",
+], ids=["text", "value", "text-in-root", "text-after", "deep", "parts", "parts-in-workout", "parts-with-values"])
+def test_one_enormous_part_of_export_xml_stops_the_import(monkeypatch, xml):
+    monkeypatch.setattr(apple_health, "MAX_XML_ELEMENT", SMALL, raising=False)
+    monkeypatch.setattr(apple_health, "MAX_XML_PARTS", 1000, raising=False)
+    with pytest.raises(apple_health.TooBig):
+        _items(xml)
+
+
+def test_what_came_before_the_trouble_was_read(monkeypatch):
+    monkeypatch.setattr(apple_health, "MAX_XML_ELEMENT", SMALL, raising=False)
+    found = []
+    with pytest.raises(apple_health.TooBig):
+        for item in apple_health.iter_items(io.BytesIO(b"<HealthData>" + _RECORD + b"<Note>" + b"A" * (2 * SMALL) + b"</Note></HealthData>")):
+            found.append(item)
+    assert len(found) == 1
+
+
+def test_the_limits_are_for_each_element_not_the_whole_export(monkeypatch):
+    monkeypatch.setattr(apple_health, "MAX_XML_ELEMENT", SMALL, raising=False)
+    monkeypatch.setattr(apple_health, "MAX_XML_PARTS", 1000, raising=False)
+    entry = b'<MetadataEntry key="HKMetadataKeyHeartRateMotionContext" value="0"/>'
+    record = _RECORD[:-2] + b">" + entry * 3 + b"</Record>"
+    correlation = b'<Correlation type="x" startDate="2026-01-02 08:00:00 +0000" endDate="2026-01-02 08:00:00 +0000">' + record + b"</Correlation>"
+    workout = (b'<Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="30" durationUnit="min" '
+               b'startDate="2026-01-02 08:00:00 +0000" endDate="2026-01-02 08:30:00 +0000">' + entry * 900 + b"</Workout>")
+    xml = b"<?xml version='1.0'?>\n<!DOCTYPE HealthData [\n<!ELEMENT HealthData (Record*)>\n]>\n<HealthData>\n <ExportDate value='x'/>\n"
+    xml += (record + b"\n ") * 20000 + correlation * 500 + (workout + b"\n") * 3 + b"</HealthData>"
+    assert len(xml) > 5 * SMALL
+    items = _items(xml)
+    assert sum(kind == "sample" for kind, _ in items) == 20500 and sum(kind == "workout" for kind, _ in items) == 3
+    assert len(next(i for kind, i in items if kind == "workout")["metadata"]) == 1
+
+
+def test_large_siblings_dont_pile_up_in_memory():
+    """Each is allowed. They were kept until 2,000 had gone by."""
+    xml = b"<HealthData>" + (b'<Note value="' + b"A" * SMALL + b'"/>') * 200 + b"</HealthData>"
+    tracemalloc.start()
+    try:
+        assert _items(xml) == []
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert peak < 40 * SMALL, peak
+
+
+def test_entities_built_to_expand_are_refused():
+    laughs = b'<!DOCTYPE HealthData [<!ENTITY a "' + b"A" * 1000 + b'">' + b"".join(
+        b'<!ENTITY %c "%s">' % (98 + i, b"&%c;" % (97 + i) * 10) for i in range(9)) + b"]><HealthData><Note>&j;</Note></HealthData>"
+    with pytest.raises(ParseError):
+        _items(laughs)
+
+
 def _wait(client, job_id):
     for _ in range(200):
         job = client.get(f"/api/imports/{job_id}").json()
@@ -189,6 +262,20 @@ def test_a_bombed_upload_ends_as_an_error_with_no_file_left(client, tmp_path):
         job_id = client.post("/api/imports/apple-health", files={"file": ("export.zip", fh, "application/zip")}).json()["job_id"]
     job = _wait(client, job_id)
     assert job["status"] == "error" and "Nothing was imported" in job["error"]
+    assert _uploads() == []
+
+
+def test_an_export_with_one_enormous_part_ends_as_an_error_in_words(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(apple_health, "MAX_XML_ELEMENT", SMALL, raising=False)
+    path = tmp_path / "x.zip"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z, z.open("apple_health_export/export.xml", "w") as out:
+        out.write(b"<HealthData>" + _RECORD + b"<Note>")
+        for _ in range(3):
+            out.write(secrets.token_hex(SMALL // 2).encode())
+    with open(path, "rb") as fh:
+        job_id = client.post("/api/imports/apple-health", files={"file": ("export.zip", fh, "application/zip")}).json()["job_id"]
+    job = _wait(client, job_id)
+    assert job["status"] == "error" and "stopped there" in job["error"]
     assert _uploads() == []
 
 
