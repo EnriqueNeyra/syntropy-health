@@ -8,70 +8,23 @@ import { barChart, lineChart, responsive } from "../charts.js";
 import { metricUnit, metricValue } from "./overview.js";
 import { drawSleep } from "./sleep-view.js";
 import {
-  bucket, bucketWord, compareCard, goalText, loadGoals, loadMarkers, markerList, markerToggle, markersOn, measureFormat, meets, openGoal,
+  bucket, bucketWord, chartNotes, compareCard, goalText, loadGoals, loadMarkers, markerList, markerToggle, markersOn, meets, openGoal,
   rangeButtons, saveDays, savedDays, setMarkersOn,
 } from "./trend-tools.js";
 import { convert, displayUnit, fmtMeasure, recordValue } from "../units.js";
 import { openRecord } from "./record-detail.js";
 import {
   scrollToTop,
-  $, confirmDialog, emptyState, flagBadge, fmtDate, fmtNum, html, icon, loading, modal, mount, onAction, plural, resultStatus, toast,
+  $, $$, confirmDialog, emptyState, flagBadge, fmtDate, fmtNum, html, icon, loading, modal, mount, onAction, plural, resultStatus, toast,
 } from "../ui.js";
 
 const LEFT_OUT_REASON = { range: "Outside what's possible", unit: "In a unit Syntropy Health doesn't know", date: "The date can't be right" };
 
 const READINGS_SHOWN = 500;
+const CHART_HEIGHT = 280;
 const CLINICAL_PERIODS = [[0, "All"], [1825, "5 years"], [365, "1 year"], [180, "6 months"]];
 const BP_PANEL_CODE = "85354-6";
 const HOME_PRESSURE = [["blood_pressure_systolic", "Home systolic"], ["blood_pressure_diastolic", "Home diastolic"]];
-const BEFORE_AFTER_WINDOWS = [[0, "All on record"], [90, "90 days each side"], [180, "180 days each side"], [365, "1 year each side"]];
-
-/** A measure's daily values on each side of a chosen date. Nothing about why. */
-function beforeAfterDate(host, { profile, it, medications }) {
-  mount(host, html`<h3 style="margin-bottom:8px">Before and after a date</h3>
-    <div class="row wrap" style="gap:8px;margin-bottom:8px">
-      <input class="input input-sm" type="date" data-bd="date" aria-label="Date" style="width:auto">
-      ${medications.length ? html`<select class="input input-sm" data-bd="med" aria-label="A medication's first order" style="width:auto"><option value="">Or a medication</option>
-        ${medications.map((m) => html`<option value="${m.t}">${m.name} · ${fmtDate(m.t)}</option>`)}</select>` : ""}
-      <select class="input input-sm" data-bd="window" aria-label="How far either side" style="width:auto">${[[30, "30 days each side"], [90, "90 days each side"], [180, "180 days each side"]].map(([d, label]) => html`<option value="${d}">${label}</option>`)}</select></div>
-    <div data-bd-out></div>`);
-  const out = host.querySelector("[data-bd-out]");
-  const dateBox = host.querySelector('[data-bd="date"]');
-  const show = async () => {
-    if (!dateBox.value) { mount(out, ""); return; }
-    const d = await get("/api/insights/before-after", { profile: profile.id, measure: it.metric, date: dateBox.value, window: Number(host.querySelector('[data-bd="window"]').value) });
-    const f = measureFormat(d);
-    const cell = (x) => (x.days ? html`${f.text(x.avg)} average<div class="small muted">${plural(x.days, "day")}, ${f.text(x.low)} to ${f.text(x.high)}</div>` : "No days");
-    mount(out, html`<div class="table-wrap"><table class="table"><thead><tr><th>Before ${fmtDate(d.date)}</th><th>After ${fmtDate(d.date)}</th></tr></thead>
-      <tbody><tr><td>${cell(d.before)}</td><td>${cell(d.after)}</td></tr></tbody></table></div>
-      <p class="small muted" style="margin-top:6px">The values on each side of this date. They don't show why any values differ.</p>`);
-  };
-  host.querySelector('[data-bd="med"]')?.addEventListener("change", (e) => { if (e.target.value) { dateBox.value = e.target.value; show().catch((err) => toast(err.message, "bad")); } });
-  host.querySelectorAll('[data-bd="date"], [data-bd="window"]').forEach((c) => c.addEventListener("change", () => show().catch((err) => toast(err.message, "bad"))));
-}
-
-/** A test's values on each side of a medication's first order on record: what they were, and how many. Nothing about why. */
-function beforeAfterCard(host, { profile, it, medications }) {
-  mount(host, html`<h3 style="margin-bottom:8px">Before and after</h3>
-    <div class="row wrap" style="gap:8px;margin-bottom:8px">
-      <select class="input input-sm" data-ba="med" aria-label="Medication" style="width:auto"><option value="">Choose a medication</option>
-        ${medications.map((m) => html`<option value="${m.t}">${m.name} · ${m.event} ${fmtDate(m.t)}</option>`)}</select>
-      <select class="input input-sm" data-ba="window" aria-label="How far either side" style="width:auto">${BEFORE_AFTER_WINDOWS.map(([d, label]) => html`<option value="${d}">${label}</option>`)}</select></div>
-    <div data-ba-out></div>`);
-  const out = host.querySelector("[data-ba-out]");
-  const side = (x, unit) => (x.count ? html`${fmtNum(x.avg)} ${unit || ""} average<div class="small muted">${plural(x.count, "result")}, ${fmtNum(x.low)} to ${fmtNum(x.high)}, ${fmtDate(x.first_at)} to ${fmtDate(x.last_at)}</div>` : "No results");
-  const show = async () => {
-    const start = host.querySelector('[data-ba="med"]').value;
-    if (!start) { mount(out, ""); return; }
-    const window = Number(host.querySelector('[data-ba="window"]').value) || undefined;
-    const d = await get("/api/observations/before-after", { profile: profile.id, start, code: it.code || undefined, title: it.code ? undefined : it.title, category: it.category, window });
-    mount(out, html`<div class="table-wrap"><table class="table"><thead><tr><th>Measure</th><th>Before ${fmtDate(d.start)}</th><th>After ${fmtDate(d.start)}</th></tr></thead>
-      <tbody>${d.lines.map((l) => html`<tr><td>${l.name}</td><td>${side(l.before, l.unit)}</td><td>${side(l.after, l.unit)}</td></tr>`)}</tbody></table></div>
-      <p class="small muted" style="margin-top:6px">The values on each side of this date, from the first order on record. They don't show why any values differ, and the record may not show when it was actually started or stopped.</p>`);
-  };
-  host.querySelectorAll("[data-ba]").forEach((c) => c.addEventListener("change", () => show().catch((err) => toast(err.message, "bad"))));
-}
-
 const readingText = (s) => {
   const m = { metric: s.metric_type, unit: s.shown_unit };
   return `${metricValue(m, s.shown_value)} ${metricUnit(m)}`.trim();
@@ -443,12 +396,12 @@ export async function render({ el, parts, params, state, navigate }) {
         ${unitSets.length > 1 ? html`<div class="chips" style="margin-bottom:8px">${unitSets.map((u, i) => html`<button class="chip ${u === shownSet ? "active" : ""}" data-action="unit" data-index="${i}">
           ${u.unit || "No unit"} <span class="n">${u.points.length}</span></button>`)}</div>
           <p class="small muted" style="margin:0 0 8px">Some results are in a unit that can't be converted to the others, so they have their own chart rather than sharing an axis.</p>` : ""}
-        <div class="row wrap between" style="gap:4px 14px;margin-bottom:6px">
-          ${hasComponents ? html`<div class="legend">${s.components.map((c, i) => html`<span class="${i ? "alt" : ""}">${c.name}</span>`)}</div>`
-            : ref ? html`<div class="legend"><span class="band">Reference range</span></div>` : html`<span></span>`}
-          ${pts.length > 1 || hasComponents ? markerToggle(clinicalMarks().length, showMarkers) : ""}
-        </div>
-        ${pts.length > 1 || hasComponents ? html`<div class="chips chips-strip" style="margin-bottom:4px">${CLINICAL_PERIODS.map(([d, label]) => html`<button class="chip ${clinicalDays === d ? "active" : ""}" data-action="clinical-period" data-days="${d}">${label}</button>`)}</div>` : ""}
+        ${pts.length > 1 || hasComponents ? html`<div class="row wrap between trend-controls">
+          <div class="segmented" role="group" aria-label="Period">${CLINICAL_PERIODS.map(([d, label]) => html`<button class="${clinicalDays === d ? "active" : ""}" data-action="clinical-period" data-days="${d}" aria-pressed="${clinicalDays === d}">${label}</button>`)}</div>
+          ${markerToggle(clinicalMarks().length, showMarkers)}
+        </div>` : ""}
+        ${hasComponents ? html`<div class="legend chart-legend">${s.components.map((c, i) => html`<span class="${i ? "alt" : ""}">${c.name}</span>`)}</div>`
+          : ref || shownPts.some((p) => isFlagged(p.interpretation)) ? html`<div class="legend chart-legend">${ref ? html`<span class="band">Reference range</span>` : ""}${shownPts.some((p) => isFlagged(p.interpretation)) ? html`<span class="flagged">Out of range</span>` : ""}</div>` : ""}
         ${wordsOnly ? html`<p class="small muted" style="margin:0">No chart, because these results are words rather than numbers. Every result is listed below.</p>` : html`<div id="tr-chart"></div>`}
         ${markerList(showMarkers ? clinicalMarks() : [])}
         ${change !== null ? html`<p class="small muted" style="margin-top:8px">${Math.abs(change) < 1e-9 ? "Same as on" : `${change > 0 ? "Up" : "Down"} ${body ? fmtNum(Math.abs(change), 1) : num(Math.abs(change))} ${unit} since`}
@@ -461,13 +414,6 @@ export async function render({ el, parts, params, state, navigate }) {
         <tbody>${rows.slice().reverse().map((r) => html`<tr class="clickable" data-action="open" data-id="${r.record_id}">
           <td>${fmtDate(r.t)}</td><td class="num">${r.text}${r.standard ? html`<div class="small muted">${r.standard}</div>` : ""}</td><td>${resultStatus(r.status)}${flagBadge(r.interpretation)}</td><td class="small muted">${r.source || ""}</td></tr>`)}</tbody></table></div></div>`);
     wireDetail(detail);
-    const medications = markers.filter((m) => m.kind === "medications");
-    if (medications.length && (measured.length || hasComponents)) {
-      const host = document.createElement("div");
-      host.className = "card card-pad";
-      detail.insertBefore(host, detail.lastElementChild);
-      beforeAfterCard(host, { profile, it, medications });
-    }
     if (wordsOnly) return;
     const chartEl = $("#tr-chart", detail);
     // Home readings beside the clinic's, on the same axis: the same measurement, taken elsewhere.
@@ -479,11 +425,11 @@ export async function render({ el, parts, params, state, navigate }) {
     const draw = () => {
       if (hasComponents) {
         lineChart(chartEl, [...shownComponents.slice(0, 2).map((c, i) => ({ name: c.name, alt: i === 1, points: c.points })), ...home],
-          { unit: s.components[0].unit, label: s.title, markers: showMarkers ? clinicalMarks() : [] });
+          { unit: s.components[0].unit, label: s.title, height: CHART_HEIGHT, markers: showMarkers ? clinicalMarks() : [] });
       } else {
         lineChart(chartEl, [{ name: s.title, points: shownPts.map((p) => ({ t: p.t, v: p.v, flag: isFlagged(p.interpretation), bound: Boolean(p.comparator),
             prefix: bound(p), label: p.source_name })) }],
-          { unit, band: { low: s.ref_low, high: s.ref_high }, label: s.title, markers: showMarkers ? clinicalMarks() : [],
+          { unit, band: { low: s.ref_low, high: s.ref_high }, label: s.title, height: CHART_HEIGHT, markers: showMarkers ? clinicalMarks() : [],
             onPointClick: (p) => openRecord(pts.find((q) => q.t === p.t)?.record_id) });
       }
     };
@@ -573,7 +519,8 @@ export async function render({ el, parts, params, state, navigate }) {
           ${goal ? html`<div><span>Goal met</span><b>${met} of ${complete.length} days</b></div>` : html`<div><span>Days</span><b>${s.stats.count}</b></div>`}
         </div>
         ${goal ? html`<p class="small muted" style="margin:10px 0 0">Goal: ${goalText(goal, { key: it.metric, unit: s.unit })} a day.</p>` : ""}
-        ${markerList([...switches, ...marks])}
+        ${chartNotes(switches)}
+        ${markerList(marks)}
         ${s.left_out ? html`<p class="small muted" style="margin:10px 0 0">${plural(s.left_out, "reading")} left out because ${s.left_out === 1 ? "it can't" : "they can't"} be right.
           <button class="link-btn" data-action="left-out">See ${s.left_out === 1 ? "it" : "them"}</button></p>` : ""}
       </div>
@@ -584,19 +531,13 @@ export async function render({ el, parts, params, state, navigate }) {
     const goalLine = goal ? cv(goal.target) : null;
     const draw = () => {
       const digits = s.unit === "h" ? 1 : convert(1, s.unit, it.metric).digits ?? 0;
-      if (s.aggregation === "sum") barChart(chartEl, points, { unit: chartUnit, avg: cv(s.stats.mean), label: s.label, digits, goal: goalLine, markers: [...switches, ...marks],
+      if (s.aggregation === "sum") barChart(chartEl, points, { unit: chartUnit, avg: cv(s.stats.mean), label: s.label, digits, goal: goalLine, height: CHART_HEIGHT, markers: [...switches, ...marks],
         format: s.unit === "h" ? (v) => metricValue(m, v) : undefined });
       else lineChart(chartEl, [{ name: s.label, points: points.map((p) => ({ t: p.day, v: p.value, label: p.tipLabel || p.source })) }],
-        { unit: chartUnit, label: s.label, goal: goalLine, markers: [...switches, ...marks], digits, band: usualBand || undefined });
+        { unit: chartUnit, label: s.label, goal: goalLine, markers: [...switches, ...marks], digits, height: CHART_HEIGHT, band: usualBand || undefined });
     };
     stopResize = responsive(chartEl, draw);
     await drawCompare(detail, it, seq);
-    if (seq === drawSeq) {
-      const host = document.createElement("div");
-      host.className = "card card-pad";
-      detail.appendChild(host);
-      beforeAfterDate(host, { profile, it, medications: markers.filter((m) => m.kind === "medications") });
-    }
   };
 
   // An ECG or a notification: every time it happened, newest first, with what the device reported.
@@ -628,7 +569,11 @@ export async function render({ el, parts, params, state, navigate }) {
     const seq = ++drawSeq;
     if (stopResize) { stopResize(); stopResize = null; }
     if (!selected) { mount(detail, ""); return; }
-    mount(detail, html`${backBar()}${loading(2)}`);
+    // What's on screen stays, dimmed, until the next chart is ready, and that chart fades over rather than drawing itself in.
+    if (detail.childElementCount) {
+      detail.classList.add("refreshing");
+      document.documentElement.classList.add("no-intro");
+    } else mount(detail, html`${backBar()}${loading(2)}`);
     // One chart that can't be read costs its own pane, not the whole page.
     try {
       if (selected.kind === "wearable") await drawWearable(detail, selected, seq);
@@ -638,9 +583,15 @@ export async function render({ el, parts, params, state, navigate }) {
       if (seq === drawSeq) mount(detail, html`${backBar()}<div class="card card-pad" role="alert"><p class="muted">${selected.title} couldn't be shown: ${err.message}</p>
         <button class="btn" style="margin-top:10px" data-action="retry-detail">${icon("sync")} Try again</button></div>`);
     }
+    if (seq === drawSeq) detail.classList.remove("refreshing");
   };
 
   const narrow = () => window.matchMedia(NARROW).matches;
+  // A period button answers the moment it's pressed, whatever the chart is still waiting for.
+  const pressed = (btn) => $$("button", btn.parentElement).forEach((b) => {
+    b.classList.toggle("active", b === btn);
+    b.setAttribute("aria-pressed", String(b === btn));
+  });
 
   drawTabs();
   drawList();
@@ -686,9 +637,9 @@ export async function render({ el, parts, params, state, navigate }) {
       if (chartPushed) { chartPushed = false; history.back(); return; }
       showDetail = false; layout(); scrollToTop();
     },
-    range: ({ days: d }) => { days = Number(d); saveDays(days); return drawDetail(); },
+    range: ({ days: d }, btn) => { days = Number(d); saveDays(days); pressed(btn); return drawDetail(); },
     unit: ({ index }) => { unitChoice = Number(index) || 0; return drawDetail(); },
-    "clinical-period": ({ days: d }) => { clinicalDays = Number(d) || 0; return drawDetail(); },
+    "clinical-period": ({ days: d }, btn) => { clinicalDays = Number(d) || 0; pressed(btn); return drawDetail(); },
     goal: () => {
       if (selected?.kind !== "wearable") return;
       const g = goalsNow?.goals?.[selected.metric];

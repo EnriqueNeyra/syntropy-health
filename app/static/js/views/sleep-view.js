@@ -99,7 +99,7 @@ export async function drawSleep(detail, ctx, seq, current) {
   const nightsEl = detail.querySelector("[data-chart=nights]");
   stops.push(responsive(nightsEl, () => barChart(nightsEl, points, {
     unit: "", label: "Sleep each night", stack: staged ? stages : null, format: hoursText, tick: (v) => `${v}h`,
-    avg: st.asleep_h, goal: ctx.goal?.target, markers: marks,
+    avg: st.asleep_h, goal: ctx.goal?.target, markers: marks, height: 280,
   })));
   const schedEl = detail.querySelector("[data-chart=schedule]");
   if (schedEl) {

@@ -388,6 +388,25 @@ export function toast(message, kind = "") {
 }
 
 /** Removes an element after its closing animation (`.closing` in app.css), or straight away without one. */
+const prefersStill = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const EASE_OUT = "cubic-bezier(.2, .8, .2, 1)";
+
+/** Runs `change`, which alters what's in `el`, and eases `el` from its old height to its new one instead of letting it jump. */
+export function easeHeight(el, change) {
+  if (!el?.isConnected || prefersStill() || !el.animate) return change();
+  el.getAnimations().filter((a) => a.id === "ease-height").forEach((a) => a.cancel());
+  const from = el.getBoundingClientRect().height;
+  const out = change();
+  const to = el.getBoundingClientRect().height;
+  if (Math.abs(from - to) < 2) return out;
+  const overflow = el.style.overflow;
+  el.style.overflow = "hidden";
+  const run = el.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: 200, easing: EASE_OUT, id: "ease-height" });
+  const done = () => { el.style.overflow = overflow; };
+  run.finished.then(done, done);
+  return out;
+}
+
 export function closeAnimated(el, done) {
   if (!el?.isConnected) { done?.(); return; }
   el.classList.add("closing");
@@ -516,7 +535,8 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
     }
   });
   return { el: panel, body: panel.querySelector(".modal-body"), close,
-           setBody: (content) => mount(panel.querySelector(".modal-body"), content) };
+           // Keeps the dialog from jumping when its contents change: a dialog that's already open eases to its new size.
+           setBody: (content) => easeHeight(panel, () => mount(panel.querySelector(".modal-body"), content)) };
 }
 
 // In the iPhone app's companion mode, confirmations are the system's own alerts (with a red button for deleting).
@@ -582,8 +602,12 @@ export async function busy(button, fn) {
 export function loadInto(el, draw, { lines = 3 } = {}) {
   const seq = String(Number(el.dataset.loadSeq || 0) + 1);
   el.dataset.loadSeq = seq;
-  mount(el, loading(lines));
-  return Promise.resolve().then(draw).catch((err) => {
+  // What's there stays, dimmed, until the new answer is ready: dropping to a placeholder for a moment makes the page jump.
+  if (el.childElementCount && !el.querySelector(":scope > .stack > .skeleton, :scope > .page-error")) el.classList.add("refreshing");
+  else mount(el, loading(lines));
+  const settled = () => { if (el.dataset.loadSeq === seq) el.classList.remove("refreshing"); };
+  return Promise.resolve().then(draw).then(settled, (err) => {
+    settled();
     if (err?.name === "AbortError" || el.dataset.loadSeq !== seq) return;
     mount(el, html`<div class="empty page-error" role="alert">${icon("alert")}<h3>This couldn't be loaded</h3>
       <p>${err?.message || String(err)}</p><button class="btn" type="button" data-retry>${icon("sync")}<span>Try again</span></button></div>`);

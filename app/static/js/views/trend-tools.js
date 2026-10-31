@@ -145,13 +145,17 @@ export function openGoal(profile, meta, current, suggested, onSaved) {
 export async function loadMarkers(profileId) {
   return (await get("/api/insights/markers", { profile: profileId }).catch(() => ({ markers: [] }))).markers;
 }
-const MARKERS_KEY = "syntropy-trends-markers";
-export function markersOn() { try { return localStorage.getItem(MARKERS_KEY) !== "0"; } catch { return true; } }
+// Off until the person turns it on. The key is new, so it's off for everyone who had the earlier default.
+const MARKERS_KEY = "syntropy-trends-show-events";
+export function markersOn() { try { return localStorage.getItem(MARKERS_KEY) === "1"; } catch { return false; } }
 export function setMarkersOn(on) { try { localStorage.setItem(MARKERS_KEY, on ? "1" : "0"); } catch {} }
 export const markerToggle = (count, on) => (count ? html`<label class="check small" title="Mark each medication's first order and when conditions were diagnosed">
   <input type="checkbox" data-markers ${on ? "checked" : ""}> <span>Medications & diagnoses <span class="faint">(${count})</span></span></label>` : "");
-export const markerList = (list) => (list.length ? html`<div class="marker-list small">${list.slice(0, 6).map((m) =>
-  html`<span><span class="marker-dot"></span>${fmtDate(m.t)} · ${m.label}</span>`)}${list.length > 6 ? html`<span class="faint">and ${list.length - 6} more</span>` : ""}</div>` : "");
+/** What the marks above a chart are, for anyone who can't or doesn't want to point at each one. */
+export const markerList = (list) => (list.length ? html`<details class="marker-details small"><summary class="muted">${plural(list.length, "medication or diagnosis", "medications and diagnoses")} on this chart</summary>
+  <ul class="marker-list">${list.map((m) => html`<li><span class="muted">${fmtDate(m.t)}</span> ${m.label}</li>`)}</ul></details>` : "");
+/** What changes how a chart should be read (a different device) is said outright, not folded away. */
+export const chartNotes = (list) => (list.length ? html`<p class="small muted" style="margin:10px 0 0">${list.map((m) => html`${fmtDate(m.t)}: ${m.label}. `)}</p>` : "");
 
 // ------------------------------------------------------------------ compare
 async function comparable(profileId) {
@@ -242,7 +246,7 @@ export async function compareCard(host, profile, a, days, state, onChange) {
       ? barChart(bEl, res.pairs.map((p) => ({ day: p.day, value: fb.conv(p.y) })), { unit: fb.unit, label: res.b.label, height: 200, format: fb.text })
       : lineChart(bEl, [{ name: res.b.label, points: bPoints }], { unit: fb.unit, label: res.b.label, height: 200 }))));
     stops.push(responsive(xyEl, () => scatterChart(xyEl, res.pairs.map((p) => ({ x: fa.conv(p.x), y: fb.conv(p.y), day: p.day })),
-      { xLabel: res.a.label, yLabel: res.b.label, fx: (v) => fmtNum(v), fy: (v) => fmtNum(v), height: 200 })));
+      { xLabel: res.a.label, yLabel: res.b.label, fx: (v) => fmtNum(v), fy: (v) => fmtNum(v), height: 240 })));
   };
   await draw();
   return stop;
