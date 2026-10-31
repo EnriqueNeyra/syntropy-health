@@ -215,7 +215,7 @@ export function renderTermsGate(onDone) {
       <ul class="check-list onboard-points">
         <li>Your health records are stored on this computer, not with us. Keeping it secure, updated and backed up is up to you.</li>
         <li>If you connect an AI provider, it sees your questions and the records it looks up to answer them.</li>
-        <li>Syntropy Health organizes your information; it isn't medical advice. Check anything important with your care team.</li></ul>
+        <li>Syntropy Health organizes your records and doesn't give medical advice.</li></ul>
       <form id="terms-form"><div class="field">${termsCheckbox("t-terms")}</div>
         <button class="btn btn-primary onboard-next" type="submit">Continue</button></form></div></div>`);
   $("#terms-form").addEventListener("submit", async (e) => {

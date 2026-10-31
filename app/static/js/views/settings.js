@@ -104,7 +104,7 @@ export async function render({ el, parts, state, navigate }) {
         ${row("Version", "", html`<span class="mono">${settings.version}</span>`)}
         ${row("Source code", "Free and open source under the GNU AGPL-3.0.",
           html`<a href="${SOURCE_URL}" target="_blank" rel="noopener">View on GitHub</a>`)}
-        ${row("Your responsibility", "Your records are stored only on this computer and in your backups, not with Syntropy Labs. Keeping them secure and backed up is up to you. Syntropy Health isn't medical advice.",
+        ${row("Your responsibility", "Your records are stored only on this computer and in your backups, not with Syntropy Labs. Keeping them secure and backed up is up to you. Syntropy Health organizes records and doesn't give medical advice.",
           html`<span class="row" style="gap:12px"><a href="${TERMS_URL}" target="_blank" rel="noopener">Terms</a><a href="${PRIVACY_URL}" target="_blank" rel="noopener">Privacy</a></span>`)}
         ${isOwner() ? row("Data folder", "Make backups from Your data. A copy of this folder taken while Syntropy Health is running may not be complete.", html`<code>${settings.data_dir}</code>`) : ""}`)}
     </div>`);

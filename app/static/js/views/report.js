@@ -67,7 +67,7 @@ export async function render({ el, state }) {
 
       <section><h2>Current medications</h2>${table(["Medication", "Instructions", "Prescriber", "Last prescribed", "Source"],
         r.active_medications.map(medRow))}
-        ${r.medications_to_check?.length ? html`<h3>Check with your doctor: these may be out of date</h3>${table(["Medication", "Why", "Last prescribed", "Source"],
+        ${r.medications_to_check?.length ? html`<h3>May be out of date</h3>${table(["Medication", "Why", "Last prescribed", "Source"],
           r.medications_to_check.map((m) => [m.title, m.med_reason || "—", fmtDate(m.last_prescribed), sourcesOf(m)]))}` : ""}
         ${r.medications_planned?.length ? html`<h3>Planned or proposed, not started</h3>${table(["Medication", "Date", "Source"],
           r.medications_planned.map((m) => [m.title, fmtDate(m.last_prescribed), sourcesOf(m)]))}` : ""}

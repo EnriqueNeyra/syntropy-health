@@ -537,8 +537,8 @@ export async function render({ el, parts, params, state, navigate }) {
         <div class="grow"><div class="eyebrow">${it.eventType === "ecg" ? "Recordings" : "From your devices"}</div><h2>${it.title}</h2>
           <div class="small muted">${plural(events.length, "time")} · latest ${fmtDate(events[0]?.start_date)}</div></div></div>
         <p class="small muted" style="margin:0">${it.eventType === "ecg"
-          ? "ECGs taken on your watch. The classification is the watch's own and isn't a diagnosis; share anything unexpected with your care team."
-          : "Notifications your watch or iPhone sent. They're a prompt to pay attention, not a diagnosis."}</p></div>
+          ? "ECGs taken on your watch. The classification is the watch's own and isn't a diagnosis."
+          : "Notifications your watch or iPhone sent. They aren't a diagnosis."}</p></div>
       <div class="card"><div class="card-head"><h3>History</h3><span class="badge">${events.length}</span></div>
         <div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Details</th><th>Source</th></tr></thead>
         <tbody>${events.map((e) => html`<tr><td>${new Date(e.start_date).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</td>

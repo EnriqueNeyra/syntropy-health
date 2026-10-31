@@ -1085,7 +1085,7 @@ def medication_tier(med: dict[str, Any], today: Optional[date] = None) -> tuple[
     reported = details.get("reported") or med.get("resource_type") == "MedicationStatement"
     if intent == "plan":
         # US Core files reported home medications this way, so a plan may well be being taken. It can't be presented as prescribed.
-        return "check", ("Reported rather than prescribed. Confirm it's still being taken." if reported
+        return "check", ("Reported rather than prescribed. The record doesn't say whether it's still being taken." if reported
                          else "Listed as a plan, not a prescription.")
     if "inpatient" in (details.get("category_codes") or []):
         return "check", "Ordered during a hospital stay."
