@@ -4,14 +4,14 @@ import { openLabEntry } from "./lab-entry.js";
 import { openRecord } from "./record-detail.js";
 import { recordValue } from "../units.js";
 import {
-  $, CATEGORY_ICON, debounce, emptyState, flagBadge, fmtDate, html, icon, loading, mount, onAction, resultStatus, statusBadge,
+  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loading, mount, onAction, recordDate, resultStatus, statusBadge,
 } from "../ui.js";
 
 const PAGE = 100;
 
 function rowMeta(r) {
   const d = r.details || {};
-  const bits = [r.effective_at || !d.date_text ? fmtDate(r.effective_at) : d.date_text];
+  const bits = [recordDate(r)];
   if (r.category === "medications" && r.value_text) bits.push(r.value_text);
   else if (r.category === "encounters") bits.push(...(d.clinicians || []).slice(0, 1), ...(d.reasons || []).slice(0, 1));
   else if (r.category === "allergies" && r.narrative) bits.push(r.narrative);

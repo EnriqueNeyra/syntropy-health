@@ -70,6 +70,8 @@ export function fmtDate(value) {
   if (d && typeof value === "string" && /^\d{4}-\d{2}$/.test(value)) return MONTH_FMT.format(d);
   return d ? DATE_FMT.format(d) : (value ? String(value) : "—");
 }
+/** When a record happened: its date, or what the source wrote where a date belongs ("as a child"). */
+export function recordDate(r) { return r.effective_at || !r.details?.date_text ? fmtDate(r.effective_at) : r.details.date_text; }
 export function fmtShortDate(value) { const d = parseDate(value); return d ? DATE_SHORT.format(d) : "—"; }
 export function fmtDateTime(value) { const d = parseDate(value); return d ? DATETIME_FMT.format(d) : "—"; }
 export function fmtAgo(value) {

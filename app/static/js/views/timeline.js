@@ -19,6 +19,7 @@ const JOURNAL_ICONS = { symptoms: "stethoscope", medication: "pill", notes: "not
 
 // The local day (a check-in at 10:48 PM belongs to that evening, not to the next day in UTC).
 function dayKey(r) {
+  if (!r.effective_at && r.details?.date_text) return `words:${r.details.date_text}`;
   if (/^\d{4}(-\d{2})?$/.test(r.effective_at || "")) return r.effective_at;     // known only to the month or year: no day to invent
   const d = parseDate(r.effective_at);
   return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : "unknown";
@@ -94,13 +95,14 @@ export async function render({ el, state, navigate }) {
     }
     // Within a day show the visit first, then labs collapsed.
     mount(body, html`${[...groups.entries()].map(([day, evs]) => {
-      const d = parseDate(day);
+      const words = day.startsWith("words:") ? day.slice(6) : null;     // as the source wrote it: "age 5" would parse as a year
+      const d = words ? null : parseDate(day);
       const labs = evs.filter((e) => e.category === "labs");
       const other = evs.filter((e) => e.category !== "labs");
       const flagged = labs.filter((l) => l.interpretation && l.interpretation !== "normal");
       return html`<div class="timeline-day">
-        <div class="timeline-date">${!d ? "Unknown" : /^\d{4}$/.test(day) ? day : /^\d{4}-\d{2}$/.test(day) ? d.toLocaleDateString(undefined, { month: "short" })
-          : d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+        <div class="timeline-date">${words || (!d ? "Unknown" : /^\d{4}$/.test(day) ? day : /^\d{4}-\d{2}$/.test(day) ? d.toLocaleDateString(undefined, { month: "short" })
+          : d.toLocaleDateString(undefined, { month: "short", day: "numeric" }))}
           <small>${d && !/^\d{4}$/.test(day) ? d.getFullYear() : ""}</small></div>
         <div>
           ${other.map((e) => html`<div class="ev ${e.kind ? `ev-${e.kind}` : ""}" data-action="open" data-id="${e.id}" data-kind="${e.kind || "record"}" data-type="${e.event_type || ""}">

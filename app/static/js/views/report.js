@@ -2,7 +2,7 @@ import { get } from "../api.js";
 import { appBridge, nativeNav, setToolbar } from "../app.js";
 import { metricUnit, metricValue } from "./overview.js";
 import { recordValue } from "../units.js";
-import { age, capitalize, fmtDate, fmtDateTime, html, icon, loading, mount, resultStatus } from "../ui.js";
+import { age, capitalize, fmtDate, fmtDateTime, html, icon, loading, mount, recordDate, resultStatus } from "../ui.js";
 
 function table(headers, rows, empty = "None on record.") {
   if (!rows.length) return html`<p class="muted small">${empty}</p>`;
@@ -41,7 +41,7 @@ export async function render({ el, state }) {
         ${appPrint ? "" : html`<button class="btn btn-primary" id="print-btn">${icon("printer")} Print or save PDF</button>`}</div></div>
     <article class="report card card-pad">
       <div class="report-head">
-        <div><h1>${identity.full_name || r.profile.name}</h1>
+        <div><h1>${(identity.full_name !== "Unknown" && identity.full_name) || r.profile.name}</h1>
           <div class="muted">${[dob ? `Born ${fmtDate(dob)}${years != null ? ` (${years})` : ""}` : null, identity.gender ? capitalize(identity.gender) : null,
             identity.mrn ? `MRN ${identity.mrn}` : null].filter(Boolean).join(" · ")}</div></div>
         <div class="small muted" style="text-align:right">Health summary<br>Generated ${fmtDateTime(r.generated_at)}</div>
@@ -84,10 +84,10 @@ export async function render({ el, state }) {
         r.biometrics.map((m) => [m.label, `${metricValue(m, m.latest.value)} ${metricUnit(m)}`,
           metricValue(m, m.avg_7d), metricValue(m, m.avg_30d)]))}</section>` : ""}
 
-      <section><h2>Immunizations</h2>${table(["Vaccine", "Date"], vaccines.slice(0, 15).map((i) => [i.title, fmtDate(i.effective_at)]))}
-        ${flu.length ? html`<p class="small muted" style="margin-top:6px">Most recent influenza vaccine: ${fmtDate(flu[0].effective_at)}</p>` : ""}
+      <section><h2>Immunizations</h2>${table(["Vaccine", "Date"], vaccines.slice(0, 15).map((i) => [i.title, recordDate(i)]))}
+        ${flu.length ? html`<p class="small muted" style="margin-top:6px">Most recent influenza vaccine: ${recordDate(flu[0])}</p>` : ""}
         ${r.immunizations_not_given?.length ? html`<p class="small muted" style="margin-top:6px">Not given: ${r.immunizations_not_given.slice(0, 5).map((i) =>
-          `${i.title} (${fmtDate(i.effective_at)}${i.details?.status_reason ? `, ${i.details.status_reason}` : ""})`).join("; ")}</p>` : ""}</section>
+          `${i.title} (${recordDate(i)}${i.details?.status_reason ? `, ${i.details.status_reason}` : ""})`).join("; ")}</p>` : ""}</section>
 
       <section><h2>Recent visits</h2>${table(["Date", "Visit", "Clinician", "Where"],
         r.recent_encounters.map((e) => [fmtDate(e.effective_at), e.title, (e.details?.clinicians || [])[0] || "—", e.details?.provider || e.source_name || "—"]))}

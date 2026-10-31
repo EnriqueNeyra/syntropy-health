@@ -7,7 +7,7 @@ import { moodLabel } from "./journal.js";
 import { duration, openWorkout } from "./workouts.js";
 import {
   pageScroller, $, $$, age, capitalize, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw,
-  plural, resultStatus, toast,
+  plural, recordDate, resultStatus, toast,
 } from "../ui.js";
 import { displayUnit, fmtMeasure, recordValue, unitSystem } from "../units.js";
 
@@ -202,7 +202,7 @@ export const WIDGETS = [
   { id: "immunizations", title: "Immunizations", desc: "Vaccines on record, newest first", size: "m", on: false, needs: ["summary"], records: true,
     render: (d) => listCard("Immunizations", "syringe", d.summary.immunizations || [], (i) => html`
       <div class="list-item clickable" data-action="record" data-id="${i.id}">
-        <div class="grow"><div class="title truncate">${i.title}</div><div class="meta">${fmtDate(i.effective_at)}</div></div></div>`,
+        <div class="grow"><div class="title truncate">${i.title}</div><div class="meta">${recordDate(i)}</div></div></div>`,
       "No immunizations on record.", { href: "#/records/immunizations" }) },
   { id: "sources", title: "Sources", desc: "Each connected source and when it last synced", size: "m", on: false, needs: ["conns"],
     render: (d) => listCard("Sources", "sources", d.connections, (c) => html`

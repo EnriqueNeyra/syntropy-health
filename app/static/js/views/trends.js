@@ -115,6 +115,20 @@ function buildItems(labs, vitals, metrics, signals) {
   return items;
 }
 
+/** A result that's words, like "Reactive", has nothing to chart and isn't in the list, but its flag on the Overview and in the bell still links to it. */
+async function resultWithoutNumber(profileId, code, title, category) {
+  const s = await get("/api/observations/series", { profile: profileId, code: code || undefined, title: code ? undefined : title, category }).catch(() => null);
+  const last = s?.text_results?.[s.text_results.length - 1];
+  if (!last) return null;
+  const item = { code: s.code, title: s.title };
+  return {
+    key: item.code ? `c:${item.code}` : `t:${item.title}`, kind: "clinical", category, code: item.code, codes: s.codes || [], codeSystem: s.code_system,
+    topic: clinicalTopic(item, category), title: item.title, section: category === "labs" ? "Other tests" : "From health records",
+    value: last.text, interpretation: last.interpretation, status: last.status, trend: null,
+    meta: `${fmtDate(last.t)} · ${plural(s.text_results.length, "result")}`,
+  };
+}
+
 export async function render({ el, parts, params, state, navigate }) {
   const profile = state.profile;
   mount(el, loading(3));
@@ -125,6 +139,16 @@ export async function render({ el, parts, params, state, navigate }) {
     get("/api/biometrics/events", { profile: profile.id, view: "signals", days: 0, limit: 1 }).then((r) => r.summary),
   ]);
   const items = buildItems(labs, vitals, metrics, signals);
+  const wanted = params.get("metric") ? `m:${params.get("metric")}` : params.get("code") ? `c:${params.get("code")}`
+    : params.get("title") ? `t:${params.get("title")}` : params.get("event") ? `e:${params.get("event")}` : null;
+  // A link can name any code of a test, or a test by its name; the list has one entry for all of them.
+  const linked = () => items.find((i) => i.key === wanted)
+    || (params.get("code") ? items.find((i) => i.codes?.includes(params.get("code"))) : null)
+    || (params.get("title") ? items.find((i) => i.kind === "clinical" && i.title === params.get("title")) : null) || null;
+  if (wanted && !linked() && (params.get("code") || params.get("title"))) {
+    const item = await resultWithoutNumber(profile.id, params.get("code"), params.get("title"), parts[0] === "vitals" ? "vitals" : "labs");
+    if (item) items.push(item);
+  }
   const METRIC_UNITS = new Map(metrics.map((m) => [m.metric, m.unit]));
   const topics = TOPICS.filter(([k]) => items.some((i) => i.topic === k));
 
@@ -139,19 +163,15 @@ export async function render({ el, parts, params, state, navigate }) {
 
   // What to show: an explicit test or metric wins (and picks its topic), then the topic in the address, then the
   // first out-of-range lab, then the first topic with data.
-  const wanted = params.get("metric") ? `m:${params.get("metric")}` : params.get("code") ? `c:${params.get("code")}`
-    : params.get("title") ? `t:${params.get("title")}` : params.get("event") ? `e:${params.get("event")}` : null;
-  // A link can name any code of a test, or a test by its name; the list has one entry for all of them.
-  let selected = items.find((i) => i.key === wanted)
-    || (params.get("code") ? items.find((i) => i.codes?.includes(params.get("code"))) : null)
-    || (params.get("title") ? items.find((i) => i.kind === "clinical" && i.title === params.get("title")) : null) || null;
+  let selected = linked();
+  // On a phone the list and the chart take turns; a link to one test goes straight to it. A link to something that's no longer
+  // here stays on the list, rather than opening whichever chart would be chosen by default.
+  let showDetail = Boolean(selected);
   let topic = selected?.topic || (topics.some(([k]) => k === parts[0]) ? parts[0] : topics[0][0]);
   if (!selected) {
     const inTopic = items.filter((i) => i.topic === topic);
     selected = inTopic.find((i) => isFlagged(i.interpretation)) || inTopic[0];
   }
-  // On a phone the list and the chart take turns; opening a link to one test goes straight to its chart.
-  let showDetail = Boolean(wanted && selected);
   let filter = "";
   let days = savedDays();
   let source = "";
@@ -266,8 +286,9 @@ export async function render({ el, parts, params, state, navigate }) {
             standard: p.converted ? `${bound(p)}${text(p.raw)}` : null, status: p.status, interpretation: p.interpretation, source: p.source_name })),
          ...(all.text_results || []).map((p) => ({ t: p.t, record_id: p.record_id, text: p.text, status: p.status, interpretation: p.interpretation, source: p.source_name }))]
         .sort((a, b) => String(a.t).localeCompare(String(b.t)));
-    const lastRow = latest && rows.find((r) => r.record_id === latest.record_id);
-    const latestText = hasComponents ? rows[rows.length - 1]?.text
+    const wordsOnly = !hasComponents && !pts.length && rows.length > 0;
+    const lastRow = wordsOnly ? rows[rows.length - 1] : latest && rows.find((r) => r.record_id === latest.record_id);
+    const latestText = hasComponents || wordsOnly ? rows[rows.length - 1]?.text
       : latest ? (body && hint && unit === "in" ? `${bound(latest)}${text(latest.raw)}` : html`${bound(latest)}${body ? fmtNum(latest.v, 1) : num(latest.v)}<small>${unit}</small>`) : "";
     const refNum = (v) => (body ? fmtNum(v) : fmtFixed(v, Math.max(places, decimals(v))));
     const ref = s.ref_low != null || s.ref_high != null
@@ -279,7 +300,7 @@ export async function render({ el, parts, params, state, navigate }) {
           <div class="grow"><div class="eyebrow">${it.category === "labs" ? "Lab result" : "Measured at visits"}</div><h2>${s.title}</h2>
             <div class="small muted">${[ref, codeLabel(it, all.codes)].filter(Boolean).join(" · ")}</div></div>
           ${latestText ? html`<div class="detail-value"><div class="v">${latestText}</div>
-            <div class="small muted">${fmtDate(hasComponents ? rows[rows.length - 1]?.t : lastRow?.t)} ${resultStatus(latest?.status)} ${flagBadge(latest?.interpretation)}</div></div>` : ""}
+            <div class="small muted">${fmtDate(hasComponents ? rows[rows.length - 1]?.t : lastRow?.t)} ${resultStatus(wordsOnly ? lastRow.status : latest?.status)} ${flagBadge(wordsOnly ? lastRow.interpretation : latest?.interpretation)}</div></div>` : ""}
         </div>
         ${unitSets.length > 1 ? html`<div class="chips" style="margin-bottom:8px">${unitSets.map((u, i) => html`<button class="chip ${u === shownSet ? "active" : ""}" data-action="unit" data-index="${i}">
           ${u.unit || "No unit"} <span class="n">${u.points.length}</span></button>`)}</div>
@@ -287,7 +308,7 @@ export async function render({ el, parts, params, state, navigate }) {
         ${hasComponents ? html`<div class="legend" style="margin-bottom:6px">${s.components.map((c, i) => html`<span class="${i ? "alt" : ""}">${c.name}</span>`)}</div>`
           : ref ? html`<div class="legend" style="margin-bottom:6px"><span class="band">Reference range</span></div>` : ""}
         ${pts.length > 1 ? html`<div class="row wrap" style="justify-content:flex-end;margin-bottom:4px">${markerToggle(clinicalMarks().length, showMarkers)}</div>` : ""}
-        <div id="tr-chart"></div>
+        ${wordsOnly ? html`<p class="small muted" style="margin:0">No chart, because these results are words rather than numbers. Every result is listed below.</p>` : html`<div id="tr-chart"></div>`}
         ${markerList(showMarkers ? clinicalMarks() : [])}
         ${change !== null ? html`<p class="small muted" style="margin-top:8px">${Math.abs(change) < 1e-9 ? "Unchanged" : `${change > 0 ? "Up" : "Down"} ${body ? fmtNum(Math.abs(change), 1) : num(Math.abs(change))} ${unit}`}
           since ${fmtDate(measured[0].t)} (${plural(measured.length, "measured result")}).</p>` : ""}
@@ -299,6 +320,7 @@ export async function render({ el, parts, params, state, navigate }) {
         <tbody>${rows.slice().reverse().map((r) => html`<tr class="clickable" data-action="open" data-id="${r.record_id}">
           <td>${fmtDate(r.t)}</td><td class="num">${r.text}${r.standard ? html`<div class="small muted">${r.standard}</div>` : ""}</td><td>${resultStatus(r.status)}${flagBadge(r.interpretation)}</td><td class="small muted">${r.source || ""}</td></tr>`)}</tbody></table></div></div>`);
     wireDetail(detail);
+    if (wordsOnly) return;
     const chartEl = $("#tr-chart", detail);
     const draw = () => {
       if (hasComponents) {
