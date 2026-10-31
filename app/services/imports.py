@@ -27,8 +27,8 @@ from fastapi import HTTPException
 from app.connectors import apple_health, fhir_normalize
 from app.core import config, data_fixes
 from app.core.db import db, dumps, new_id, read, rows_to_dicts
-from app.services import sync
-from app.store import activity, biometrics, connections, records
+from app.services import ccda, sync
+from app.store import activity, biometrics, connections, record_files, records
 
 log = logging.getLogger("syntropy.imports")
 
@@ -195,9 +195,10 @@ def _source_keys(resources: list[dict[str, Any]], bundles: list[dict[str, Any]])
 
 def import_fhir_file(profile_id: str, filename: str, raw: bytes) -> dict[str, Any]:
     bundles: list[dict[str, Any]] = []
-    resources = parse_fhir_payload(raw, bundles)
+    summary = ccda.read_upload(raw, filename) if ccda.looks_like(raw) else None
+    resources = summary.resources if summary else parse_fhir_payload(raw, bundles)
     if not resources:
-        raise ValueError("The file does not contain FHIR JSON resources.")
+        raise ValueError("This file couldn't be read. Syntropy Health takes a health summary (C-CDA, CCD or XDM) or a FHIR file (.json or .ndjson).")
     digest = hashlib.sha256(raw).hexdigest()
     keys = _source_keys(resources, bundles)
     earlier = [c for c in connections.list_for_profile(profile_id, "import") if c["provider"] == "fhir_file"]
@@ -209,10 +210,26 @@ def import_fhir_file(profile_id: str, filename: str, raw: bytes) -> dict[str, An
                 "already_imported": True}
     reuse = next((c for c in earlier if keys and set(keys) & set((c.get("metadata") or {}).get("source_keys") or [])), None)
     known = (reuse.get("metadata") or {}) if reuse else {}
-    return sync.import_fhir_resources(profile_id, f"Imported · {filename}", resources, reuse=reuse, metadata={
+    result = sync.import_fhir_resources(profile_id, f"Imported · {filename}", resources, reuse=reuse, metadata={
         "file_hashes": [*(known.get("file_hashes") or []), digest][-KEEP_FILE_HASHES:],
         "source_keys": sorted({*keys, *(known.get("source_keys") or [])}),
     })
+    if summary:
+        _keep_originals(profile_id, result, summary)
+        result["warnings"] = [*result.get("warnings", []), *summary.warnings]
+    return result
+
+
+def _keep_originals(profile_id: str, result: dict[str, Any], summary: ccda.Summary) -> None:
+    """Each document as it came, on the record that stands for it in whichever source the import put it."""
+    made = [s["connection_id"] for s in result.get("sources") or []]
+    for original in summary.originals:
+        with read() as conn:
+            row = conn.execute(f"SELECT connection_id FROM clinical_records WHERE resource_type = 'DocumentReference' AND resource_id = ? "
+                               f"AND connection_id IN ({','.join('?' * len(made))})", (original["resource_id"], *made)).fetchone()
+        if row:
+            record_files.save(profile_id, row["connection_id"], "DocumentReference", original["resource_id"], original["name"],
+                              original["content_type"], original["data"])
 
 
 def _start_thread(target: Any, *args: Any) -> None:

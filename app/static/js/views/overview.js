@@ -350,7 +350,7 @@ export async function render({ el, state, navigate }) {
           ${[
             ["watch", "Wearables and phones", "Pair the Syntropy iPhone or Android app for Apple Health or Health Connect, or link Oura, WHOOP or Google Health for sleep, recovery, HRV and training.", "#/sources", "Connect a device"],
             ["building", "Medical records", "Bring in labs, medications, conditions and visits from patient portals like Epic MyChart, Oracle Health, athenahealth and healow.", "#/sources?add=ehr", "Find my health system"],
-            ["upload", "Import files", "Drop in an Apple Health export or any FHIR record file you downloaded from a portal.", "#/sources?add=import", "Import a file"],
+            ["upload", "Import files", "Drop in an Apple Health export, or a health summary or FHIR file you downloaded from a portal.", "#/sources?add=import", "Import a file"],
             ["shieldCheck", "Private by design", "No cloud account. Tokens are encrypted at rest and every access is recorded in your access log.", "#/settings/security", "Review security"],
           ].map(([ic, t, text, href, cta]) => html`
             <div class="card card-pad stack" style="gap:10px">

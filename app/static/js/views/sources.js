@@ -214,7 +214,7 @@ function modeExplainer(inst) {
     return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Not available yet.</b> Syntropy Health isn't registered with
       ${inst.platform_label} yet, so ${inst.name} can't be connected directly.</p>
       <p>You can still bring in your records: download them from its ${inst.portal || "patient portal"} (look for a health summary or
-      "download my record" option) and import the file. If it has no portal, ask for them with a records request letter.</p></div></div>`;
+      "download my record" option) and import the file. A health summary (C-CDA, CCD or XDM) or a FHIR file both work. If it has no portal, ask for them with a records request letter.</p></div></div>`;
   }
   if (inst.mode === "simulated") {
     return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Simulated sign-in.</b> Developer mode connects ${inst.platform_label} through
@@ -445,8 +445,8 @@ function importZones() {
         ${icon("upload")}<div><b>Apple Health export</b><div class="small muted">Health app → your photo → Export All Health Data → <code>export.zip</code>. Includes Health Records if present.</div></div>
         <input type="file" id="imp-apple" accept=".zip,.xml" hidden></label>`}
       <label class="drop-zone" data-drop="fhir">
-        ${icon("records")}<div><b>FHIR record file</b><div class="small muted">A FHIR R4 Bundle (.json) or bulk-data NDJSON downloaded from a portal or app.</div></div>
-        <input type="file" id="imp-fhir" accept=".json,.ndjson,application/json" hidden></label>
+        ${icon("records")}<div><b>Record file</b><div class="small muted">A health summary downloaded from a patient portal (C-CDA, CCD or XDM: .xml or .zip) or a FHIR file (.json or .ndjson).</div></div>
+        <input type="file" id="imp-fhir" accept=".xml,.zip,.json,.ndjson,application/json" hidden></label>
     </div>
     <div id="imp-status" class="src-drop-status"></div>`;
 }

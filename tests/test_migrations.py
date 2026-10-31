@@ -43,6 +43,7 @@ MIGRATION_HASHES = {
     "040_phones_paired_by_others.sql": "c2f08699dd8d015be4aea8ed37e529ddcce5a42bae76111ef356029b4b7b3bd5",
     "041_cleared_what_no_one_can_reach.sql": "7165e2d472680397ea6d05e91ddca84c3163ddabdcb3a430c318c81afcd517bb",
     "045_fhir_references.sql": "47c03487e3b28ce143b31f8cc4cbfe28a44ff248bf1e6f4ea65880cc2b29a152",
+    "060_record_files.sql": "0a2e8a85f18030230d77d8b5c1cb0916643e3981b56282ca1699258183b9de31",
 }
 
 

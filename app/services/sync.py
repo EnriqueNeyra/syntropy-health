@@ -25,7 +25,7 @@ from app.connectors import wearable_common as wc
 from app.connectors.smart import SmartError
 from app.services import connect
 from app.core.db import audit, db, dumps, read
-from app.store import activity, biometrics, connections, records
+from app.store import activity, biometrics, connections, record_files, records
 
 log = logging.getLogger("syntropy.sync")
 
@@ -715,6 +715,7 @@ def import_fhir_resources(profile_id: str, display_name: str, resources: list[di
             records.upsert_identity(conn["id"], profile_id, patient)
         if not reuse:
             total["kept_both"] += _keep_both(conn["id"], recs)
+        record_files.take_inline(profile_id, conn["id"], recs)
         write = records.upsert_records(profile_id, conn["id"], conn["display_name"], recs)
         records.upsert_references(conn["id"], fhir_normalize.referenced_resources(group["resources"]))
         warnings = [f"{rtype}: {n} couldn't be read" for rtype, n in _unread_by_type(problems).items()]
