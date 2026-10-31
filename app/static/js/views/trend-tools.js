@@ -222,7 +222,8 @@ export async function compareCard(host, profile, a, days, state, onChange) {
             <button class="btn btn-ghost btn-sm btn-icon" data-clear aria-label="Stop comparing">${icon("x")}</button>` : ""}
         </div></div>
       <div data-compare-body></div></div>`);
-    host.querySelector("[data-compare]").addEventListener("change", (e) => { state.b = e.target.value || null; onChange(state); draw(); });
+    // The menu lets go first: on a phone, one drawn away while it's still open stays on screen.
+    host.querySelector("[data-compare]").addEventListener("change", (e) => { e.target.blur(); state.b = e.target.value || null; onChange(state); draw(); });
     host.querySelector("[data-lag]")?.addEventListener("change", (e) => { state.lag = Number(e.target.value); onChange(state); draw(); });
     host.querySelector("[data-clear]")?.addEventListener("click", () => { state.b = null; state.lag = 0; onChange(state); draw(); });
     if (!state.b) return;

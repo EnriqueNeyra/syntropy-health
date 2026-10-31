@@ -410,7 +410,7 @@ label.btn:has(input[type="file"]):focus-within { outline: 2px solid var(--accent
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 .card-pad { padding: 18px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
-.card-head h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.card-head h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; overflow-wrap: break-word; min-width: 0; }
 .card-head h3 svg { color: var(--text-3); flex: none; }
 .card-body { padding: 14px 18px; }
 .muted { color: var(--text-3); }
@@ -470,6 +470,8 @@ label.btn:has(input[type="file"]):focus-within { outline: 2px solid var(--accent
 @media (hover: hover) { .dash-corner:hover::before { border-color: var(--accent); } }
 .dash-corner:focus-visible { outline: 0; }
 .dash-corner:focus-visible::before { border-color: var(--accent); }
+/* On a phone the screen's edge belongs to the system's back gesture: corners stay clear of it while editing. */
+@media (pointer: coarse) { .dash.editing { padding-inline: 14px; } }
 @media (pointer: coarse) { .dash-corner { width: 44px; height: 44px; } .dash-corner.tl { top: -14px; left: -14px; } .dash-corner.tr { top: -14px; right: -14px; }
   .dash-corner.bl { bottom: -14px; left: -14px; } .dash-corner.br { bottom: -14px; right: -14px; }
   .dash-corner.tl::before { top: 12px; left: 12px; } .dash-corner.tr::before { top: 12px; right: 12px; } .dash-corner.bl::before { bottom: 12px; left: 12px; } .dash-corner.br::before { bottom: 12px; right: 12px; } }
@@ -652,6 +654,9 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .banner.warn { background: var(--warn-bg); border-color: transparent; }
 .banner.bad { background: var(--bad-bg); border-color: transparent; }
 .banner .grow p + p { margin-top: 4px; }
+/* Its buttons go underneath when there's no room, rather than squeezing the words into a thin column. */
+.banner { flex-wrap: wrap; }
+.banner > .grow { flex-basis: min(100%, 240px); }
 
 /* ---------- Modal / drawer / toast ---------- */
 .overlay { position: fixed; inset: 0; background: rgba(8, 8, 12, .55); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; animation: fade .15s ease; }
@@ -1397,6 +1402,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
   --border: #38383a; --border-strong: #48484a; }
 [data-native-nav] .topbar, [data-native-nav] .head-tools { display: none !important; }
 [data-native-nav] .split-back { display: none !important; }     /* the app's back button instead */
+[data-native-nav] .timeline-year { position: static; }           /* stuck to the top, it would sit under the app's title bar */
 [data-native-nav] .content { padding: 4px 16px 28px; }
 [data-native-nav] .page-head > :first-child { padding-right: 0; }
 [data-native-nav] .page-head > :first-child > h1, [data-native-nav] .page-head > :first-child > p:not([id]) { display: none; }
