@@ -1,10 +1,11 @@
 // Everyone this account looks after, on one page: what's new, what's out of range, and how their sources are.
 import { get } from "../api.js";
 import { setProfile } from "../app.js";
-import { $, html, icon, loading, mount, plural } from "../ui.js";
+import { $, fmtDate, html, icon, loading, mount, plural } from "../ui.js";
 
 function facts(p) {
-  const bits = [p.new_records ? `${plural(p.new_records, "new record")}` : "Nothing new", p.flagged_labs ? `${plural(p.flagged_labs, "recent result")} out of range` : null,
+  const arrived = p.new_records == null ? "New records are counted from today" : p.new_records ? `${plural(p.new_records, "new record")} since ${fmtDate(p.new_since)}` : `Nothing new since ${fmtDate(p.new_since)}`;
+  const bits = [arrived, p.flagged_labs ? `${plural(p.flagged_labs, "recent result")} out of range` : null,
     `${plural(p.sources, "source")}`, p.sources_need_signing_in ? `${p.sources_need_signing_in} needs signing in again` : null,
     p.sources_failed ? `${p.sources_failed} failed to sync` : null, p.sources_not_synced_lately ? `${p.sources_not_synced_lately} not synced lately` : null];
   return bits.filter(Boolean).join(" · ");

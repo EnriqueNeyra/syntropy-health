@@ -1,11 +1,12 @@
 """The visit summary and the Overview say only what the record can back up."""
 
+import re
 from pathlib import Path
 
 import pytest
 
 from app.connectors import fhir_normalize as fn
-from app.core import db
+from app.core import db, settings
 from app.services import renormalize
 from app.store import connections, profiles, records
 
@@ -526,7 +527,7 @@ def test_people_at_a_glance_covers_everyone_this_account_can_see(client, pid):
         conn.execute("UPDATE connections SET status = 'needs_reauth' WHERE id = ?", (src,))
     people = {p["name"]: p for p in client.get("/api/profiles/at-a-glance").json()["people"]}
     assert people["Riley"]["flagged_labs"] == 1 and people["Riley"]["new_records"] == 2 and people["Riley"]["sources_need_signing_in"] == 1
-    assert people["Alex"]["new_records"] == 0 and people["Alex"]["flagged_labs"] == 0
+    assert people["Alex"]["new_records"] is None and people["Alex"]["flagged_labs"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -574,3 +575,125 @@ def test_comparison_wording_stays_with_counts():
     words = text[start:text.index("function describe", start)].lower()
     for word in ("because", "caused", "triggers", "effect", "improved"):
         assert word not in words
+
+
+# ---------------------------------------------------------------------------
+# What a reviewer found: statements these pages made that weren't true
+# ---------------------------------------------------------------------------
+
+def test_the_visit_summarys_page_footer_goes_when_the_page_does():
+    text = (STATIC / "views/report.js").read_text(encoding="utf-8")
+    assert re.search(r"return \(\) => page\.remove\(\);\s*}\s*$", text), "the footer with a person's name has to leave with the page, or it prints on whatever is printed next"
+
+
+@pytest.mark.parametrize("status", ["preparation", "on-hold", "stopped", "in-progress", "unknown"])
+def test_a_procedure_not_marked_completed_stays_out_of_past_procedures(client, pid, status):
+    src = _source(pid)
+    _rec(pid, src, "done", "procedures", "Appendectomy", day="2026-02-01", status="completed")
+    _rec(pid, src, "none", "procedures", "Mole removal", day="2026-02-02")
+    _rec(pid, src, "p", "procedures", "Total knee replacement", day="2026-09-01", status=status)
+    report = client.get("/api/report", params={"profile": pid}).json()
+    assert {p["title"] for p in report["procedures"]} == {"Appendectomy", "Mole removal"}
+    assert [(p["title"], p["status"]) for p in report["procedures_unfinished"]] == [("Total knee replacement", status)]
+    d = client.get("/api/visit-prep", params={"profile": pid, "since": "2026-01-01"}).json()
+    assert {p["title"] for p in d["procedures"]} == {"Appendectomy", "Mole removal"}
+    assert [(p["title"], p["status"]) for p in d["procedures_unfinished"]] == [("Total knee replacement", status)]
+
+
+def test_visit_prep_keeps_visits_that_havent_happened_apart(client, pid):
+    from datetime import date, timedelta
+    src = _source(pid)
+    ahead = (date.today() + timedelta(days=40)).isoformat()
+    _rec(pid, src, "gone", "encounters", "Last visit", day=(date.today() - timedelta(days=3)).isoformat(), status="finished")
+    _rec(pid, src, "booked", "encounters", "Booked", day=ahead, status="booked")
+    _rec(pid, src, "plan", "encounters", "Planned", day=ahead, status="planned")
+    _rec(pid, src, "missed", "encounters", "Planned and past", day=(date.today() - timedelta(days=5)).isoformat(), status="planned")
+    d = client.get("/api/visit-prep", params={"profile": pid, "since": "2020-01-01"}).json()
+    assert [v["title"] for v in d["visits"]] == ["Last visit"]
+    assert {v["title"] for v in d["upcoming"]} == {"Booked", "Planned"}
+
+
+def test_visit_prep_leaves_out_no_kind_of_dated_record(client, pid):
+    src = _source(pid)
+    _rec(pid, src, "al", "allergies", "Penicillin", day="2026-09-01", resource_type="AllergyIntolerance")
+    _rec(pid, src, "im", "immunizations", "Tdap", day="2026-09-01", resource_type="Immunization", status="completed")
+    _rec(pid, src, "vi", "vitals", "Weight", day="2026-09-01", code="29463-7", value_num=80, value_text="80", unit="kg")
+    _rec(pid, src, "vi0", "vitals", "Weight", day="2025-09-01", code="29463-7", value_num=78, value_text="78", unit="kg")
+    _rec(pid, src, "pa", "reports", "Pathology: biopsy", day="2026-09-01", details={"kind": "other"})
+    _rec(pid, src, "ct", "reports", "CT chest", day="2026-09-01", details={"kind": "imaging"})
+    _rec(pid, src, "cp", "care_plans", "Plan", day="2026-09-01")
+    _rec(pid, src, "dv", "devices", "Pacemaker", day="2026-09-01")
+    d = client.get("/api/visit-prep", params={"profile": pid, "since": "2026-01-01"}).json()
+    assert [r["title"] for r in d["allergies"]] == ["Penicillin"]
+    assert [r["title"] for r in d["immunizations"]] == ["Tdap"]
+    assert [r["title"] for r in d["vitals"]] == ["Weight"] and d["vitals"][0]["before"]["value_text"] == "78"
+    assert [r["title"] for r in d["reports"]] == ["Pathology: biopsy"] and [r["title"] for r in d["imaging"]] == ["CT chest"]
+    assert {(r["title"], r["category_label"]) for r in d["other"]} == {("Plan", "Care plans"), ("Pacemaker", "Devices")}
+    assert all(d["counts"][k] for k in ("allergies", "immunizations", "vitals", "reports", "other"))
+
+
+def test_visit_prep_says_how_many_records_have_no_date(client, pid):
+    src = _source(pid)
+    records.upsert_records(pid, src, "Clinic", [{"resource_type": "AllergyIntolerance", "resource_id": "a", "category": "allergies", "title": "Latex", "dedup_key": "a"}])
+    d = client.get("/api/visit-prep", params={"profile": pid, "since": "2026-01-01"}).json()
+    assert d["undated"] == [{"label": "Allergies", "count": 1}] and d["counts"]["allergies"] == 0
+    text = (STATIC / "views/prepare.js").read_text(encoding="utf-8")
+    assert "Everything on record dated" not in text and "Nothing on record is dated" not in text
+
+
+def test_a_medication_already_stopped_isnt_newly_stopped_when_something_else_about_it_changes(client, pid):
+    src = _source(pid)
+    _age_connection(src)
+    _rec(pid, src, "w", "medications", "Warfarin 5 MG", day="2019-01-01", status="completed", raw={"meta": {"lastUpdated": "a"}})
+    _new(client, pid)
+    _rec(pid, src, "w", "medications", "Warfarin 5 MG", day="2019-01-01", status="completed", raw={"meta": {"lastUpdated": "b"}})
+    assert _new(client, pid)["groups"] == []
+    # One ended status to another says nothing new either. It counts again only if it was restarted and then stopped.
+    _rec(pid, src, "w", "medications", "Warfarin 5 MG", day="2019-01-01", status="stopped")
+    assert _new(client, pid)["groups"] == []
+    _rec(pid, src, "w", "medications", "Warfarin 5 MG", day="2019-01-01", status="active")
+    assert _new(client, pid)["groups"] == []
+    _rec(pid, src, "w", "medications", "Warfarin 5 MG", day="2019-01-01", status="stopped")
+    assert [g["key"] for g in _new(client, pid)["groups"]] == ["medications_stopped"]
+
+
+def test_a_stopped_medication_counts_only_after_the_look_it_happened_after_and_leaves_with_the_person(client, pid):
+    src = _source(pid)
+    _age_connection(src)
+    _rec(pid, src, "m", "medications", "Lisinopril", status="active")
+    _rec(pid, src, "m", "medications", "Lisinopril", status="stopped")
+    _new(client, pid)
+    assert _new(client, pid)["groups"] == []
+    profile = client.post("/api/profiles", json={"name": "Riley", "relationship": "child"}).json()["id"]
+    other = _source(profile)
+    _rec(profile, other, "m", "medications", "Lisinopril", status="active")
+    _rec(profile, other, "m", "medications", "Lisinopril", status="stopped")
+    assert settings.get(f"records.stopped.{profile}")
+    client.delete(f"/api/profiles/{profile}")
+    assert settings.get(f"records.stopped.{profile}") is None
+
+
+def test_your_people_starts_counting_for_someone_never_opened_and_doesnt_claim_nothing_new(client, pid):
+    from datetime import date
+    glance = lambda: next(p for p in client.get("/api/profiles/at-a-glance").json()["people"] if p["id"] == pid)  # noqa: E731
+    src = _source(pid)
+    _age_connection(src)
+    first = glance()
+    assert first["new_records"] is None and first["new_since"] is None
+    _lab(pid, src, "k", 5, "normal", day=date.today().isoformat())
+    second = glance()
+    assert second["new_records"] == 1 and second["new_since"]
+    assert '"Nothing new"' not in (STATIC / "views/people.js").read_text(encoding="utf-8")
+    assert "(p.new_records || 0)" in (STATIC / "app.js").read_text(encoding="utf-8")
+
+
+def test_a_partial_syncs_alert_depends_on_what_it_says_not_when_it_ran():
+    text = (STATIC / "alerts.js").read_text(encoding="utf-8")
+    assert ":partial:${Math.floor(" not in text
+    assert ":partial:${textKey(c.last_warnings" in text
+
+
+def test_imaging_text_says_when_it_continues():
+    text = (STATIC / "views/report.js").read_text(encoding="utf-8")
+    assert '(p.narrative || "—").slice(0, 300)' not in text
+    assert "conclusion(p)" in text and "continues" in text

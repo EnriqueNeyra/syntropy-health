@@ -342,8 +342,8 @@ function openProfileMenu(button, placement = {}) {
   if (menu && state.profiles.length > 1) {
     get("/api/profiles/at-a-glance").then(({ people }) => people.forEach((p) => {
       const badge = menu.querySelector(`[data-person-count="${p.id}"]`);
-      const n = p.new_records + p.flagged_labs;
-      if (badge && n) { badge.textContent = n; badge.hidden = false; badge.title = `${p.new_records} new, ${p.flagged_labs} out of range`; }
+      const n = (p.new_records || 0) + p.flagged_labs;
+      if (badge && n) { badge.textContent = n; badge.hidden = false; badge.title = p.new_records == null ? `${p.flagged_labs} out of range` : `${p.new_records} new, ${p.flagged_labs} out of range`; }
     })).catch(() => {});
   }
 }

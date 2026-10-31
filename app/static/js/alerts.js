@@ -61,6 +61,13 @@ function growingUp(profile, status) {
 }
 
 /** Builds the alert list from the profile's summary and connections. */
+// A source that always refuses the same thing says so at every sync: dismissing that holds until it says something else.
+function textKey(lines) {
+  let key = 0;
+  for (const ch of [...lines].sort().join("\n")) key = (Math.imul(31, key) + ch.codePointAt(0)) | 0;
+  return (key >>> 0).toString(36);
+}
+
 function collect({ profile, summary, connections, status }) {
   const out = [];
   const grown = growingUp(profile, status);
@@ -105,7 +112,7 @@ function collect({ profile, summary, connections, status }) {
                  text: `Nothing has come in from it for ${Math.floor((Date.now() / 1000 - c.last_sync_at) / 86400)} days.`, href: "#/sources", action: "Open Sources" });
     }
     if (!c.access_ended && c.last_sync_status === "partial" && c.status === "active" && c.last_warnings?.length) {
-      out.push({ id: `conn:${c.id}:partial:${Math.floor(c.last_sync_at)}`, level: "info", icon: "sources", title: `${c.display_name} synced in part`,
+      out.push({ id: `conn:${c.id}:partial:${textKey(c.last_warnings)}`, level: "info", icon: "sources", title: `${c.display_name} synced in part`,
                  text: c.last_warnings.join(" "), href: "#/sources", action: "Open Sources" });
     }
   }

@@ -1,10 +1,21 @@
 // Getting ready for a visit, without AI: what's on record since a visit or a date, and the person's own questions.
 import { get, put } from "../api.js";
 import { appBridge, nativeNav, setToolbar } from "../app.js";
-import { $, emptyState, flagBadge, fmtDate, html, icon, loading, mount, plural, toast } from "../ui.js";
+import { recordValue } from "../units.js";
+import { $, capitalize, emptyState, flagBadge, fmtDate, html, icon, loading, mount, plural, toast } from "../ui.js";
+
+// Said on the row only when it changes how the row reads: a visit that was cancelled, an allergy that's resolved.
+const UNREMARKABLE = new Set(["", "active", "completed", "finished", "final", "amended", "corrected", "current"]);
+const statusWord = (r) => (UNREMARKABLE.has(String(r.status || "").toLowerCase()) ? null : capitalize(r.status.replace(/-/g, " ")));
 
 const row = (r, extra = "") => html`<div class="list-item"><div class="grow" style="min-width:0"><div class="title">${r.title}</div>
-  <div class="meta">${[fmtDate(r.effective_at), r.source_name].filter(Boolean).join(" · ")}</div></div>${extra}</div>`;
+  <div class="meta">${[statusWord(r), r.category_label, fmtDate(r.effective_at), r.source_name].filter(Boolean).join(" · ")}</div></div>${extra}</div>`;
+
+const visitRow = (v) => row(v, v.clinician ? html`<span class="small muted">${v.clinician}</span>` : "");
+const resultRow = (r) => html`<div class="list-item"><div class="grow" style="min-width:0"><div class="title">${r.title}</div>
+  <div class="meta">${[fmtDate(r.effective_at), r.source_name, r.count > 1 ? plural(r.count, "result") : null].filter(Boolean).join(" · ")}</div>
+  <div class="meta">${r.before ? `Before this period: ${recordValue(r.before)} on ${fmtDate(r.before.effective_at)}` : "No earlier result on record"}${r.ref_text ? ` · Range ${r.ref_text}` : ""}</div></div>
+  <div class="value">${r.value_num != null || r.value_text ? recordValue(r) : ""}</div>${flagBadge(r.interpretation)}</div>`;
 
 function block(title, count, items, draw) {
   if (!items.length) return "";
@@ -15,19 +26,23 @@ function block(title, count, items, draw) {
 function digest(d) {
   const n = d.counts;
   const total = Object.values(n).reduce((a, b) => a + b, 0);
-  if (!total) return emptyState("Nothing since then", `Nothing on record is dated on or after ${fmtDate(d.since)}.`);
+  if (!total) return emptyState("Nothing since then", `Nothing in the records or the journal is dated on or after ${fmtDate(d.since)}.`);
   return html`
-    ${block("Visits", n.visits, d.visits, (v) => row(v, v.clinician ? html`<span class="small muted">${v.clinician}</span>` : ""))}
-    ${block("Results", n.results, d.results, (r) => html`<div class="list-item"><div class="grow" style="min-width:0"><div class="title">${r.title}</div>
-      <div class="meta">${[fmtDate(r.effective_at), r.source_name, r.count > 1 ? plural(r.count, "result") : null].filter(Boolean).join(" · ")}</div>
-      <div class="meta">${r.before ? `Before this period: ${r.before.value_text || "—"} on ${fmtDate(r.before.effective_at)}` : "No earlier result on record"}${r.ref_text ? ` · Range ${r.ref_text}` : ""}</div></div>
-      <div class="value">${r.value_text || ""}</div>${flagBadge(r.interpretation)}</div>`)}
+    ${block("Visits", n.visits, d.visits, visitRow)}
+    ${block("Upcoming visits", n.upcoming, d.upcoming, visitRow)}
+    ${block("Allergies", n.allergies, d.allergies, (a) => row(a))}
+    ${block("Results", n.results, d.results, resultRow)}
+    ${block("Vital signs", n.vitals, d.vitals, resultRow)}
     ${block("Medications first ordered", n.medications_started, d.medications_started, (m) => row(m))}
     ${block("Medications marked stopped", n.medications_stopped, d.medications_stopped, (m) => row(m))}
     ${block("Diagnoses", n.diagnoses, d.diagnoses, (c) => row(c))}
     ${block("Procedures", n.procedures, d.procedures, (p) => row(p))}
+    ${block("Procedures not marked completed", n.procedures_unfinished, d.procedures_unfinished, (p) => row(p))}
     ${block("Imaging", n.imaging, d.imaging, (p) => row(p))}
+    ${block("Other reports", n.reports, d.reports, (p) => row(p))}
     ${block("Notes", n.notes, d.notes, (p) => row(p))}
+    ${block("Immunizations", n.immunizations, d.immunizations, (p) => row(p))}
+    ${block("Other records", n.other, d.other, (p) => row(p))}
     ${block("Logged in the journal", n.journal, d.journal, (j) => html`<div class="list-item"><div class="grow"><div class="title">${j.name}</div>
       <div class="meta">${plural(j.count, "time")} · last ${fmtDate(j.last_at)}</div></div></div>`)}`;
 }
@@ -91,7 +106,9 @@ export async function render({ el, state }) {
     mount(box, loading(3));
     try {
       const d = await get("/api/visit-prep", { profile: pid, since });
-      mount(box, html`<p class="small muted" style="margin:12px 0">Everything on record dated ${fmtDate(d.since)} or later.</p>${digest(d)}`);
+      const undated = d.undated.map((u) => `${u.label} ${u.count}`).join(", ");
+      mount(box, html`<p class="small muted" style="margin:12px 0">Records and journal entries dated ${fmtDate(d.since)} or later. Measures from wearables and apps are in Trends.
+        ${undated ? `Records with no date can't be placed before or after this, so they aren't listed here. They're in Records: ${undated}.` : ""}</p>${digest(d)}`);
     } catch (err) { mount(box, html`<div class="banner bad"><div class="grow">${err.message}</div></div>`); }
   };
   $("#prep-visit", el).addEventListener("change", (e) => { $("#prep-date", el).value = ""; show(e.target.value); });

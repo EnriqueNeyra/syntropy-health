@@ -21,6 +21,13 @@ const flagWord = (interp) => (interp && interp !== "normal" ? capitalize(interp.
 const assessedWord = (interp) => (interp === "normal" ? "In range" : flagWord(interp) || "Not assessed");
 const sourcesOf = (m) => (m.sources || []).map((s) => s.source_name).filter(Boolean).join(", ") || m.source_name || "—";
 /** A date with where it came from, on two lines so a table stays narrow. */
+const CONCLUSION_SHOWN = 300;
+function conclusion(p) {
+  const text = p.narrative || "—";
+  if (text.length <= CONCLUSION_SHOWN) return text;
+  const space = text.lastIndexOf(" ", CONCLUSION_SHOWN);
+  return html`${text.slice(0, space > 200 ? space : CONCLUSION_SHOWN)}… <span class="small muted">This text continues. The whole report is in Records, under <a href="#/records/reports">Diagnostic reports</a>.</span>`;
+}
 const dated = (date, r) => html`${date}<div class="small muted">${sourcesOf(r)}</div>`;
 const previous = (l) => (l.previous ? html`${l.previous.value_text}<div class="small muted">${fmtDate(l.previous.effective_at)}</div>` : "—");
 const flaggedRow = (l) => [l.title, l.value_text, flagWord(l.interpretation), l.ref_text || "—", previous(l), dated(fmtDate(l.effective_at), l)];
@@ -146,11 +153,13 @@ export async function render({ el, state }) {
           html`${fmtDate(m.latest.day)}<div class="small muted">${m.latest.source || "—"}</div>`]), "Nothing in the last two weeks.")}
         ${oldMeasures.length ? html`<p class="small muted" style="margin-top:6px">Not shown, nothing recent: ${oldMeasures.join(", ")}.</p>` : ""}`) : ""}
 
-      ${r.procedures?.length ? section("procedures", "Procedures and surgery", html`${table(["Procedure", "Date and source"],
-        r.procedures.map((p) => [p.title, dated(recordDate(p), p)]))}${more(r.procedures_more)}`) : ""}
+      ${r.procedures?.length || r.procedures_unfinished?.length ? section("procedures", "Procedures and surgery", html`${r.procedures.length ? table(["Procedure", "Date and source"],
+        r.procedures.map((p) => [p.title, dated(recordDate(p), p)])) : ""}${more(r.procedures_more)}
+        ${r.procedures_unfinished?.length ? html`<h3>Not marked completed</h3>${table(["Procedure", "Status", "Date and source"],
+          r.procedures_unfinished.map((p) => [p.title, capitalize(p.status.replace(/-/g, " ")), dated(recordDate(p), p)]))}` : ""}`) : ""}
 
       ${r.imaging?.length ? section("imaging", "Recent imaging", html`${table(["Study", "Conclusion", "Date and source"],
-        r.imaging.map((p) => [p.title, (p.narrative || "—").slice(0, 300), dated(fmtDate(p.effective_at), p)]))}${more(r.imaging_more)}`) : ""}
+        r.imaging.map((p) => [p.title, conclusion(p), dated(fmtDate(p.effective_at), p)]))}${more(r.imaging_more)}`) : ""}
 
       ${r.smoking ? section("smoking", "Smoking status", html`<p class="small">${r.smoking.value_text || "—"} · ${fmtDate(r.smoking.effective_at)} · ${sourcesOf(r.smoking)}</p>`) : ""}
 
@@ -194,4 +203,5 @@ export async function render({ el, state }) {
   // Each printed page carries the patient's name and a page number, where the browser can do it.
   const page = document.getElementById("report-page-style") || document.head.appendChild(Object.assign(document.createElement("style"), { id: "report-page-style" }));
   page.textContent = `@media print { @page { margin: 14mm 12mm; @bottom-left { content: ${JSON.stringify(name)}; font-size: 9pt; } @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 9pt; } } }`;
+  return () => page.remove();
 }

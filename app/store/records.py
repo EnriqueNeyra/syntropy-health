@@ -131,6 +131,7 @@ def upsert_records(profile_id: str, connection_id: str, source_name: str, record
 def _upsert_batch(conn: Any, profile_id: str, connection_id: str, source_name: str, records: list[dict[str, Any]],
                   now: float) -> tuple[int, int]:
     inserted = updated = 0
+    stopped: list[str] = []
     for r in records:
         rid = record_id(connection_id, r["resource_type"], r["resource_id"])
         existing = conn.execute(f"SELECT {_COMPARED} FROM clinical_records WHERE id = ?", (rid,)).fetchone()
@@ -146,6 +147,9 @@ def _upsert_batch(conn: Any, profile_id: str, connection_id: str, source_name: s
         if existing and tuple(existing) == values[:-1]:
             continue   # unchanged: keep updated_at meaningful and the sync stats honest
         if existing:
+            if r["category"] == "medications" and (r.get("status") or "").lower() in ENDED_MED_STATUSES \
+                    and (existing["status"] or "").lower() not in ENDED_MED_STATUSES:
+                stopped.append(rid)
             conn.execute(
                 """UPDATE clinical_records SET profile_id=?, connection_id=?, resource_type=?, resource_id=?,
                        category=?, title=?, code_system=?, code=?, code_display=?, effective_at=?, effective_end=?,
@@ -170,7 +174,19 @@ def _upsert_batch(conn: Any, profile_id: str, connection_id: str, source_name: s
             if back:
                 conn.execute("DELETE FROM clinical_records_removed WHERE id = ?", (rid,))
             inserted += 1
+    if stopped:
+        _note_stopped(conn, profile_id, stopped, now)
     return inserted, updated
+
+
+def _note_stopped(conn: Any, profile_id: str, ids: list[str], now: float) -> None:
+    """When a medication went from going to ended, written down as it happens: updated_at moves for any change to a row at all."""
+    key = stopped_key(profile_id)
+    row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    log = (json.loads(row["value"]) if row else []) + [[rid, now] for rid in ids]
+    conn.execute("INSERT INTO app_settings(key, value, updated_at) VALUES (?, ?, ?) "
+                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+                 (key, json.dumps(log[-STOPPED_LOG_MOST:]), now))
 
 
 def _set_aside(conn: Any, ids: list[str], reason: str, now: float) -> None:
@@ -783,12 +799,17 @@ def visit_links(rec: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def stopped_key(profile_id: str) -> str:
+    return f"records.stopped.{profile_id}"
+
+
 def seen_key(profile_id: str, account_id: Optional[str]) -> str:
     """Each account's own mark: one person looking doesn't mark it for others looking after the same person."""
     return f"records.seen.{profile_id}.{account_id or ''}"
 
 
 NEW_ITEMS_SHOWN = 5
+STOPPED_LOG_MOST = 1000
 NEW_OLD_HISTORY_DAYS = 90       # a record dated this long before the last look is old history that has just arrived, not news
 NEW_GROUPS = [("encounters", "New visits"), ("conditions", "New diagnoses"), ("medications", "New medications"), ("allergies", "New allergies"),
               ("notes", "New notes"), ("labs", "New results"), ("reports", "New reports"), ("procedures", "New procedures"),
@@ -799,6 +820,7 @@ def new_since(profile_id: str, mark: float) -> dict[str, Any]:
     """What arrived after a moment: counts, titles and dates by kind. A source's first import is one line rather than years of history,
     and a record another source had already sent isn't new."""
     columns = "r.id, r.category, r.title, r.effective_at, r.value_text, r.interpretation, r.source_name, r.connection_id, r.status"
+    stopped_ids = sorted({rid for rid, at in settings.get(stopped_key(profile_id)) or [] if at > mark})
     with read() as conn:
         first_time = {r[0] for r in conn.execute("SELECT id FROM connections WHERE profile_id = ? AND created_at > ?", (profile_id, mark)).fetchall()}
         rows = rows_to_dicts(conn.execute(
@@ -806,9 +828,9 @@ def new_since(profile_id: str, mark: float) -> dict[str, Any]:
             "(SELECT 1 FROM clinical_records o WHERE o.profile_id = r.profile_id AND o.dedup_key = r.dedup_key AND o.first_seen_at <= ?) "
             "ORDER BY coalesce(r.effective_at, '') DESC", (profile_id, mark, mark)).fetchall())
         stopped = rows_to_dicts(conn.execute(
-            f"SELECT {columns} FROM clinical_records r WHERE r.profile_id = ? AND r.category = 'medications' AND r.updated_at > ? AND r.first_seen_at <= ? "
+            f"SELECT {columns} FROM clinical_records r WHERE r.profile_id = ? AND r.id IN ({','.join('?' * len(stopped_ids))}) AND r.first_seen_at <= ? "
             f"AND lower(coalesce(r.status, '')) IN ({','.join('?' * len(ENDED_MED_STATUSES))}) ORDER BY coalesce(r.effective_at, '') DESC",
-            (profile_id, mark, mark, *ENDED_MED_STATUSES)).fetchall())
+            (profile_id, *stopped_ids, mark, *ENDED_MED_STATUSES)).fetchall())
     imported: dict[str, dict[str, Any]] = {}
     by_category: dict[str, list[dict[str, Any]]] = {}
     older = 0
@@ -850,6 +872,15 @@ def category_counts(profile_id: str) -> dict[str, int]:
             if n:
                 counts[category] = n
     return counts
+
+
+def undated_counts(profile_id: str) -> list[dict[str, Any]]:
+    """Records with no date, by kind: what a list of things since a date can't place."""
+    with read() as conn:
+        found = {r[0]: r[1] for r in conn.execute(
+            "SELECT category, COUNT(DISTINCT coalesce(dedup_key, id)) FROM clinical_records WHERE profile_id = ? AND coalesce(effective_at, '') = '' GROUP BY category",
+            (profile_id,)).fetchall()}
+    return [{"label": CATEGORY_LABELS[c], "count": found[c]} for c in CATEGORIES if found.get(c)]
 
 
 def identities(profile_id: str) -> list[dict[str, Any]]:
@@ -1211,12 +1242,19 @@ def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
     return _out_of_range(_latest_labs(_dedupe(rows)[:SUMMARY_LABS]))
 
 
+def procedures_by_finished(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Procedures that were done, and those whose source doesn't say so: planned, under way, on hold, stopped or not known.
+    A source that states no status at all is taken at its word that this is a procedure on the person's history."""
+    done = [r for r in rows if (r.get("status") or "completed").lower() == "completed"]
+    return done, [r for r in rows if (r.get("status") or "completed").lower() != "completed"]
+
+
 def report_history(profile_id: str) -> dict[str, Any]:
     """What a visit summary adds to the Overview's summary: surgery, imaging and smoking status."""
-    procedures = list_records(profile_id, "procedures", limit=10)
+    finished, unfinished = procedures_by_finished(list_records(profile_id, "procedures", limit=1000)["items"])
     imaging = [r for r in list_records(profile_id, "reports", limit=500)["items"] if (r.get("details") or {}).get("kind") == "imaging"]
     smoking = list_records(profile_id, code=SMOKING_STATUS_CODE, limit=1)["items"]
-    return {"procedures": procedures["items"], "procedures_more": max(0, procedures["total"] - len(procedures["items"])),
+    return {"procedures": finished[:10], "procedures_more": max(0, len(finished) - 10), "procedures_unfinished": unfinished,
             "imaging": imaging[:5], "imaging_more": max(0, len(imaging) - 5), "smoking": smoking[0] if smoking else None}
 
 

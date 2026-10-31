@@ -87,14 +87,18 @@ def list_profiles() -> dict:
 def _person_at_a_glance(prof: dict[str, Any]) -> dict[str, Any]:
     pid = prof["id"]
     principal = context.principal()
-    mark = settings.get(records.seen_key(pid, principal.account_id if principal else None))
+    key = records.seen_key(pid, principal.account_id if principal else None)
+    mark = settings.get(key)
+    if mark is None:    # counting starts here, or someone never opened would go on looking as if nothing had arrived
+        settings.set(key, time.time())
     arrived = records.new_since(pid, float(mark)) if mark is not None else None
     flagged = [l for l in records.flagged_labs(pid) if not l.get("older")]
     now = time.time()
     sources = connections.list_for_profile(pid)
     stale = {"ehr": 7, "wearable": 3}
     return {"id": pid, "name": prof["name"], "access": prof.get("access"),
-            "new_records": (sum(g["count"] for g in arrived["groups"]) + sum(i["count"] for i in arrived["imported"]) + arrived["older"]) if arrived else 0,
+            "new_records": (sum(g["count"] for g in arrived["groups"]) + sum(i["count"] for i in arrived["imported"]) + arrived["older"]) if arrived else None,
+            "new_since": mark,
             "flagged_labs": len(flagged),
             "sources": len(sources),
             "sources_need_signing_in": sum(1 for c in sources if c["status"] == "needs_reauth" and not c.get("access_ended")),
