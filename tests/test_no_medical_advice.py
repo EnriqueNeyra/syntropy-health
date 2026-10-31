@@ -110,6 +110,15 @@ def test_what_a_correction_says_only_repeats_what_the_person_said():
         assert not ADVICE.search(words), words
 
 
+def test_what_ask_itself_says_about_an_answer_gives_no_advice():
+    cfg = {"label": "Claude"}
+    said = [ai.NOT_CHECKED, ai.LEFT_OUT_OF_CONVERSATION, ai.SUMMARY_ACK_NEEDED, ai.CLOUD_ACK_NEEDED]
+    for ending, text in (("refused", ""), ("cut", ""), (None, ""), ("cut", "Part of it")):
+        said += [e.get("message") or e.get("text") or "" for e in ai._closing(cfg, ai.Reply(text=text, ending=ending))]
+    for text in said:
+        assert not ADVICE.search(text.replace("Part of it", "")), text
+
+
 def test_the_urgent_route_is_gone():
     assert "/api/insights/urgent" not in {getattr(r, "path", None) for r in fastapi_app.routes}
 

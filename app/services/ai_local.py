@@ -176,19 +176,31 @@ async def check(base_url: str, key: Optional[str] = None) -> dict[str, Any]:
 
 async def context_tokens(base_url: str, model: str, key: Optional[str] = None) -> int:
     """The context window the server will actually give this model, when it says; otherwise a cautious guess."""
+    return (await context_info(base_url, model, key))["tokens"]
+
+
+async def context_info(base_url: str, model: str, key: Optional[str] = None) -> dict[str, Any]:
+    """{"tokens", "server": "ollama" | "lmstudio" | None, "measured": whether a loaded model reported it}."""
     root = root_url(base_url)
     async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=2.0)) as client:
-        # Ollama: num_ctx when the model sets one, otherwise Ollama's default (smaller than most models allow).
+        # Ollama: what the loaded model really has (it depends on the server's settings and the computer's memory, and can
+        # change on a reload), else num_ctx when the model sets one, else Ollama's small default.
         try:
+            resp = await client.get(f"{root}/api/ps")
+            if resp.status_code == 200:
+                for loaded in resp.json().get("models") or []:
+                    n = loaded.get("context_length")
+                    if model in (loaded.get("name"), loaded.get("model"), str(loaded.get("name")).removesuffix(":latest")) and isinstance(n, int) and n > 0:
+                        return {"tokens": n, "server": "ollama", "measured": True}
             resp = await client.post(f"{root}/api/show", json={"model": model})
             if resp.status_code == 200:
                 params = resp.json().get("parameters") or ""
                 for line in params.splitlines():
                     bits = line.split()
                     if len(bits) == 2 and bits[0] == "num_ctx" and bits[1].isdigit():
-                        return int(bits[1])
-                return OLLAMA_DEFAULT_CONTEXT
-        except (httpx.HTTPError, ValueError):
+                        return {"tokens": int(bits[1]), "server": "ollama", "measured": False}
+                return {"tokens": OLLAMA_DEFAULT_CONTEXT, "server": "ollama", "measured": False}
+        except (httpx.HTTPError, ValueError, AttributeError, TypeError):
             pass
         # LM Studio: the loaded context length.
         try:
@@ -197,7 +209,7 @@ async def context_tokens(base_url: str, model: str, key: Optional[str] = None) -
                 info = resp.json()
                 n = info.get("loaded_context_length") or info.get("max_context_length")
                 if isinstance(n, int) and n > 0:
-                    return n
-        except (httpx.HTTPError, ValueError):
+                    return {"tokens": n, "server": "lmstudio", "measured": bool(info.get("loaded_context_length"))}
+        except (httpx.HTTPError, ValueError, AttributeError):
             pass
-    return DEFAULT_CONTEXT_TOKENS
+    return {"tokens": DEFAULT_CONTEXT_TOKENS, "server": None, "measured": False}

@@ -327,7 +327,7 @@ def test_the_owners_own_token_and_stdio_lookups_stay_visible_to_them(household):
     assert {"lisinopril", "metformin"} <= words
 
 
-def test_an_ai_agent_started_by_the_app_logs_its_person_and_no_words(household):
+def test_an_ai_agent_started_by_the_app_logs_its_person_and_shows_its_words_only_to_who_asked(household):
     token = mcp_server.ACTOR.set("agent:claude")
     scope = mcp_server.SCOPED_PROFILE.set(household["maria"])
     try:
@@ -336,10 +336,11 @@ def test_an_ai_agent_started_by_the_app_logs_its_person_and_no_words(household):
     finally:
         mcp_server.ACTOR.reset(token)
         mcp_server.SCOPED_PROFILE.reset(scope)
-    # The app doesn't know who asked (it could be someone Maria shared with), so the words aren't kept.
+    # The words are kept, and Maria, who didn't ask, learns that her record was read, not what for.
     row = _rows("mcp.search_records")[-1]
-    assert row["profile_id"] == household["maria"] and "hiv" not in row["detail"]
-    assert [e["who"] for e in _log(household["maria_client"], "mcp.search_records")] == ["agent:claude"]
+    assert row["profile_id"] == household["maria"] and "hiv" in row["detail"]
+    shown = _log(household["maria_client"], "mcp.search_records")
+    assert [e["who"] for e in shown] == ["agent:claude"] and "hiv" not in json.dumps(shown)
 
 
 def test_logged_arguments_are_capped(household):

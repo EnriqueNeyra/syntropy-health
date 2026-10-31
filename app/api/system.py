@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from app import directory
 from app.core import auth, config, context, data_fixes, maintenance, security, settings
 from app.core.db import audit, db, read, rows_to_dicts
-from app.services import backup_schedule, network, scheduler, updates
+from app.services import ai_agents, backup_schedule, network, scheduler, updates
 from app.store import accounts, agents, profiles
 
 router = APIRouter(tags=["system"])
@@ -535,8 +535,10 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
     visible = list(principal.access)
     marks = ",".join("?" * len(visible)) or "NULL"
     own_apps = agents.log_actors(principal.account_id, principal.owner)
+    # What this account asked through Ask, or through an AI app the assistant started for them.
+    own_apps |= {f"ask:{principal.account_id}", *(f"agent:{a}:{principal.account_id}" for a in ai_agents.AGENTS)}
     if principal.owner:
-        own_apps.add("mcp")     # the connection on the computer holding the data
+        own_apps.update(("mcp", "ask"))     # the connection on the computer holding the data, and asking before accounts
     apps = ",".join("?" * len(own_apps)) or "NULL"
     where = f"(a.profile_id IN ({marks})"
     params: list = [*visible]
@@ -562,7 +564,9 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
     for e in events:
         kind, _, ref = (e["actor"] or "").partition(":")
         e["who"] = (names.get(ref) if kind == "user" else devices.get(ref) if kind == "device" else
-                    (known["app"].get(ref) or ref or "AI app on this computer") if kind == "mcp" else None) or e["actor"]
+                    (known["app"].get(ref) or ref or "AI app on this computer") if kind == "mcp" else
+                    "Ask" if kind == "ask" else
+                    ai_agents.AGENTS.get(ref.partition(":")[0], {}).get("label") if kind == "agent" and ":" in ref else None) or e["actor"]
         detail = _ai_lookup_detail(e["detail"], e["actor"] in own_apps) if (e["action"] or "").startswith("mcp.") else e["detail"]
         e["detail"] = _readable_detail(e["action"], detail, known)
     return {"events": events}

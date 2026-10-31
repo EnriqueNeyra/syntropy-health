@@ -1,9 +1,9 @@
 // Ask: chat about your health data with the AI chosen in Settings — a local model, your own key, or an agent on this
 // computer (read-only tools, one person at a time).
-import { del, get, put, unreachableMessage } from "../api.js";
+import { del, get, put, signedOut, unreachableMessage } from "../api.js";
 import { appCan, appScroll, setComposer, setToolbar } from "../app.js";
 import { $, confirmDialog, emptyState, fmtAgo, html, icon, loading, markdown, mount, plural, toast } from "../ui.js";
-import { confirmAiProvider } from "../consent.js";
+import { confirmAiProvider, confirmAiSummary } from "../consent.js";
 import { logo, logoId } from "../ai-logos.js";
 import { openModelPicker, sameChoice } from "../model-picker.js";
 
@@ -22,13 +22,22 @@ const titleOf = (messages) => {
   const first = messages.find((m) => m.role === "user")?.content || "New chat";
   return first.length > 70 ? `${first.slice(0, 67).trim()}…` : first;
 };
-const stored = (messages) => messages.filter((m) => !m.pending && !m.error && (m.content || m.role === "user"))
-  .map(({ role, content, steps, note, by }) => ({ role, content, ...(steps?.length ? { steps } : {}), ...(note ? { note } : {}), ...(by ? { by } : {}) }));
+// What the server accepts for one saved message, and for a question.
+const MAX_SAVED_CHARS = 60000, MAX_SAVED_STEPS = 40, MAX_SAVED_MESSAGES = 200, MAX_QUESTION_CHARS = 40000, MAX_HISTORY = 200;
+const stored = (messages) => messages.filter((m) => !m.pending && !m.error && (m.content || m.role === "user")).slice(-MAX_SAVED_MESSAGES)
+  .map(({ role, content, steps, note, by, stopped, cut }) => ({ role, content: content.slice(0, MAX_SAVED_CHARS),
+    ...(steps?.length ? { steps: steps.slice(-MAX_SAVED_STEPS) } : {}), ...(note ? { note } : {}), ...(by ? { by } : {}),
+    ...(stopped ? { stopped } : {}), ...(cut ? { cut } : {}) }));
+// The conversation so far, for the model: a stopped answer is said to be one, and a turn too long to send is left out.
+const historyFor = (messages, question) => [...messages.filter((m) => !m.error && m.content)
+  .map(({ role, content, stopped }) => ({ role, content: stopped ? `${content}\n\n[This answer was stopped before it finished.]` : content }))
+  .filter((m) => m.content.length <= MAX_QUESTION_CHARS).slice(-(MAX_HISTORY - 1)), { role: "user", content: question }];
+const errorDetail = (body, status) => (Array.isArray(body.detail) ? body.detail.map((d) => d.msg).join("; ") : body.detail) || `Request failed (${status})`;
 
 export async function render({ el, state, params, navigate }) {
   const profile = state.profile;
   mount(el, loading(2));
-  const cfg = await get("/api/ai/config");
+  const cfg = await get("/api/ai/config", { chat: true }, { fresh: true });
   if (!cfg.configured) {
     mount(el, html`
       <div class="page-head"><div><h1>Ask</h1><p>Questions and trends from your own data, with the AI you choose.</p></div></div>
@@ -99,7 +108,9 @@ export async function render({ el, state, params, navigate }) {
       ? html`${icon("globe")}<span>Runs through ${c.label} on your ${c.plan} plan. Your questions and what it looks up go to ${c.vendor}.</span>`
       : c.kind === "local"
         ? html`${icon(c.address?.private ? "shieldCheck" : "globe")}<span>${c.address?.private ? "Runs on your own hardware. Nothing leaves your network." : `Runs on ${c.label}, a server you chose.`}${c.tools === false ? " It answers from a summary of your data." : ""}</span>`
-        : html`${icon("globe")}<span>Your questions and only the data it looks up go to ${c.label}.</span>`);
+        : c.tools === false
+          ? html`${icon("globe")}<span>This model can't look things up, so your questions and a summary of your data go to ${c.label}.</span>`
+          : html`${icon("globe")}<span>Your questions and only the data it looks up go to ${c.label}.</span>`);
     $("#ask-privacy", el).classList.toggle("private", c.kind === "local" && !!c.address?.private);
     if (!modelBtn) return drawToolbar();
     mount(modelBtn, html`<span class="model-btn-kind">${logo(logoId({ provider: c.provider, agent: c.agent_id, label: c.label }), c.label, "", c.kind === "local" ? "monitor" : "globe")}</span>
@@ -107,12 +118,13 @@ export async function render({ el, state, params, navigate }) {
     modelBtn.setAttribute("aria-label", `AI: ${byline(c)}. Choose another`);
   };
 
-  // The model menu: every AI that's connected. Choosing one switches Ask to it (and makes it the default, as in Settings).
+  // The model menu: every AI that's connected. Choosing one switches Ask to it. For the owner that's the default, as in
+  // Settings; for anyone else it's only for their own questions.
   const pickModel = async (o, g) => {
     if (busy) return toast("Wait for the current answer first.");
-    if ((g.kind !== "local" || !g.private) && !current.cloud_ack) {
-      if (!(await confirmAiProvider(g.kind === "agent" ? g.vendor : g.label))) return;
-      current = { ...current, cloud_ack: true };
+    if ((g.kind !== "local" || !g.private) && !g.cloud_ack) {
+      if (!(await confirmAiProvider(g.vendor_name, g.vendor_key))) return;
+      g.cloud_ack = true;
     }
     try {
       current = await put("/api/ai/config", o.provider === "agent" ? { provider: "agent", agent: o.agent, model: o.model }
@@ -172,8 +184,22 @@ export async function render({ el, state, params, navigate }) {
     steps.hidden = !(m.steps || []).length;
     const body = $(".msg-body", node);
     const shown = m.pending ? (m.reveal?.text || "") : m.content;
-    if (m.error) mount(body, html`<div class="banner bad small"><div class="grow">${m.error}</div></div>`);
-    else if (body.dataset.shown !== shown) { mount(body, markdown(m.pending ? partialMarkdown(shown) : shown)); body.dataset.shown = shown; }
+    if (m.error) {
+      mount(body, html`<div class="banner bad small"><div class="grow">${m.error}</div>${m === messages.at(-1) && !m.stopped ? html`<button class="btn btn-sm" type="button" data-retry>Try again</button>` : ""}</div>`);
+      delete body.dataset.shown;
+    } else {
+      // What's rendered, not the raw text: a table's last row is held back while it's being written, and must appear once it's finished.
+      const source = m.pending ? partialMarkdown(shown) : shown;
+      if (body.dataset.shown !== source) { mount(body, markdown(source)); body.dataset.shown = source; }
+    }
+    if (m.cut && !m.pending && !m.error && m === messages.at(-1) && !busy && !$("[data-continue]", node)) {
+      const more = document.createElement("button");
+      more.className = "btn btn-sm";
+      more.type = "button";
+      more.dataset.continue = "";
+      more.textContent = "Continue";
+      body.after(more);
+    }
     node.classList.toggle("streaming", !!(m.pending && shown));
     $(".typing", node).hidden = !(m.pending && !shown);
     const by = $(".msg-by", node);
@@ -254,20 +280,31 @@ export async function render({ el, state, params, navigate }) {
     send.type = on ? "button" : "submit";
   };
 
-  // An AI outside this network: confirmed once (Settings asks too, when it's chosen there).
+  // An AI outside this network: confirmed once for each (Settings asks too, when it's chosen there).
   const consented = async () => {
-    if (!current.sends_elsewhere || current.cloud_ack) return true;
-    if (!(await confirmAiProvider(current.kind === "agent" ? current.vendor : current.label))) return false;
-    current = { ...current, cloud_ack: true };
+    if (!current.sends_elsewhere) return true;
+    if (!current.cloud_ack) {
+      if (!(await confirmAiProvider(current.vendor_name, current.vendor_key))) return false;
+      current = { ...current, cloud_ack: true };
+    }
+    if (current.tools === false && !current.summary_ack) {
+      if (!(await confirmAiSummary(current.vendor_name, current.vendor_key))) return false;
+      current = { ...current, summary_ack: true };
+    }
     return true;
   };
+  // The AI this page says it's sending to: the server sends nothing if that's no longer the one in use.
+  const expected = () => (current.kind === "agent"
+    ? { provider: "agent", agent: current.agent_id, model: current.agent_model || "", vendor: current.vendor_key }
+    : { provider: current.provider, model: current.model, vendor: current.vendor_key });
 
   async function ask(question) {
     if (busy || !question.trim()) return;
+    if (question.trim().length > MAX_QUESTION_CHARS) return toast(`That's too long to send: ${question.trim().length.toLocaleString()} characters, and the limit is ${MAX_QUESTION_CHARS.toLocaleString()}. Shorten it and send again.`, "bad");
     if (!(await consented())) return;
     setBusy(true);
-    const history = [...messages.filter((m) => !m.error && m.content), { role: "user", content: question.trim() }]
-      .map(({ role, content }) => ({ role, content }));
+    log.querySelectorAll("[data-retry], [data-continue]").forEach((b) => b.remove());
+    const history = historyFor(messages, question.trim());
     const mine = { role: "user", content: question.trim() };
     const reply = { role: "assistant", content: "", steps: [], pending: true };
     messages.push(mine, reply);
@@ -282,9 +319,10 @@ export async function render({ el, state, params, navigate }) {
       const res = await fetch("/api/ai/chat", {
         method: "POST", credentials: "same-origin", signal: controller.signal,
         headers: { "Content-Type": "application/json", "X-Requested-With": "syntropy" },
-        body: JSON.stringify({ profile_id: profile.id, messages: history }),
+        body: JSON.stringify({ profile_id: profile.id, messages: history, expect: expected() }),
       });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `Request failed (${res.status})`);
+      if (res.status === 401) signedOut();
+      if (!res.ok) throw new Error(errorDetail(await res.json().catch(() => ({})), res.status));
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = "", draft = "";
@@ -298,13 +336,21 @@ export async function render({ el, state, params, navigate }) {
           buf = buf.slice(nl + 1);
           if (!line) continue;
           const ev = JSON.parse(line);
+          if (reply.waiting && ev.type !== "retry") { reply.waiting = false; reply.note = ""; patch(reply); }
           if (ev.type === "delta") { draft += ev.text; setTarget(reply, draft.trimStart()); }
           else if (ev.type === "reset") { draft = ""; setTarget(reply, ""); }
           else if (ev.type === "tool") { reply.steps.push(ev.label); patch(reply); }
-          else if (ev.type === "note") { reply.note = ev.text; patch(reply); }
-          else if (ev.type === "answer") { answer = ev.text || "(No answer.)"; setTarget(reply, answer); }
-          else if (ev.type === "error") reply.error = ev.message;
-          else if (ev.type === "done") reply.by = byline(current);
+          else if (ev.type === "note") { reply.note = reply.note ? `${reply.note} ${ev.text}` : ev.text; patch(reply); }
+          else if (ev.type === "retry") { reply.note = ev.text; reply.waiting = true; patch(reply); }
+          else if (ev.type === "cut_short") { reply.note = ev.text; reply.cut = true; patch(reply); }
+          else if (ev.type === "answer") { answer = ev.text; setTarget(reply, answer); }
+          else if (ev.type === "error") {
+            reply.error = ev.message;
+            // Asked again when the person retries: the AI in use has changed, or they haven't agreed to it yet.
+            if (ev.config) { current = ev.config; drawHeader(); choicesReady = loadChoices().then(() => drawToolbar(), () => null); }
+            if (ev.code === "cloud_ack") current = { ...current, cloud_ack: false };
+            if (ev.code === "summary_ack") current = { ...current, tools: false, summary_ack: false };
+          } else if (ev.type === "done") reply.by = ev.by || byline(current);
         }
       }
     } catch (err) {
@@ -323,6 +369,7 @@ export async function render({ el, state, params, navigate }) {
       const follow = nearBottom();
       patch(reply);
       if (follow) toBottom(true, true);
+      if (text && reply.error && !reply.stopped && !text.value.trim()) { text.value = question.trim(); autosize(); }
       if (!left) text?.focus();
       saveChat();
     }
@@ -331,7 +378,28 @@ export async function render({ el, state, params, navigate }) {
   log.addEventListener("click", (e) => {
     const chip = e.target.closest("[data-suggest]");
     if (chip) ask(chip.dataset.suggest);
+    if (e.target.closest("[data-continue]")) ask("Please continue from where you stopped.");
+    if (e.target.closest("[data-retry]") && !busy) {
+      const failed = messages.at(-1), question = messages.at(-2);
+      if (!failed?.error || question?.role !== "user") return;
+      nodes.get(failed)?.remove();
+      nodes.get(question)?.remove();
+      messages.splice(-2, 2);
+      if (text) { text.value = ""; autosize(); }
+      const before = messages.length;
+      // Declined the agreement: nothing was asked, so the question is left to edit or send later.
+      ask(question.content).then(() => { if (messages.length === before && text) { text.value = question.content; autosize(); } });
+    }
   });
+  // The AI can change in another window or on the phone: show the current one on coming back here.
+  const refreshAi = async () => {
+    if (busy || left || document.hidden) return;
+    try { current = await get("/api/ai/config", { chat: true }, { fresh: true }); } catch { return; }
+    if (!left && current.configured) drawHeader();
+  };
+  window.addEventListener("focus", refreshAi);
+  document.addEventListener("visibilitychange", refreshAi);
+  const stopRefreshing = () => { window.removeEventListener("focus", refreshAi); document.removeEventListener("visibilitychange", refreshAi); };
   const newChat = () => {
     if (busy) return toast("Wait for the current answer first.");
     chatId = newId(); messages = []; drawAll(); text?.focus();
@@ -399,7 +467,7 @@ export async function render({ el, state, params, navigate }) {
     showComposer();
     drawAll();
     choicesReady.then(() => drawToolbar());
-    return () => { left = true; controller?.abort(); };
+    return () => { left = true; stopRefreshing(); controller?.abort(); };
   }
 
   $("#chat-form", el).addEventListener("submit", (e) => { e.preventDefault(); ask(text.value); });
@@ -451,7 +519,7 @@ export async function render({ el, state, params, navigate }) {
   drawHeader();
   drawAll();
   text.focus();
-  return () => { left = true; closeMenu?.(); closeHistory?.(); controller?.abort(); };
+  return () => { left = true; stopRefreshing(); closeMenu?.(); closeHistory?.(); controller?.abort(); };
 }
 
 /** The model's readable name ("Claude Sonnet 4.5", "qwen3:8b", "Default model" for an app's own default). */

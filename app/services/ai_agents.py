@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Optional
 
 from app import mcp_server
+from app.core import context
 from app.services.ai_local import in_docker
 
 SERVER = "syntropy"          # the MCP server's name inside the agent
@@ -63,6 +64,14 @@ AGENTS: dict[str, dict[str, Any]] = {
 
 class AgentError(Exception):
     pass
+
+
+# A model name is passed on the tool's command line, and only a plain name may reach it: no flags, no shell characters.
+MODEL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+\[\]-]{0,100}$")
+
+
+def valid_model(name: str) -> bool:
+    return bool(MODEL_NAME.match(name))
 
 
 # ---------------------------------------------------------------------------
@@ -167,6 +176,13 @@ def last_detected() -> Optional[tuple[float, dict[str, Any]]]:
     return _detected[0], {"available": True, "agents": _detected[1]}
 
 
+def available(agent_id: str) -> bool:
+    """Whether this agent could answer here: known, installed, and not known to be signed out."""
+    if agent_id not in AGENTS or in_docker() or not find_binary(AGENTS[agent_id]["binary"]):
+        return False
+    return not any(a["id"] == agent_id and a.get("signed_in") is False for a in _detected[1])
+
+
 def detect(refresh: bool = False) -> dict[str, Any]:
     """The agents installed here, whether each is signed in, and what using it means."""
     global _detected
@@ -209,12 +225,18 @@ AGENT_NOTE = (f"\n\nYou're answering inside the Syntropy Health app. Your only t
               "this person's records; you have no shell, files or web. Reply with the answer only, in markdown.")
 
 
-def _claude(binary: str, work: Path, mcp: dict[str, Any], system: str, model: Optional[str]) -> list[str]:
+def _claude(binary: str, work: Path, mcp: dict[str, Any], system: str, model: Optional[str]) -> tuple[list[str], bool]:
+    """The command line, and whether it carries the instructions. They name the person, so they don't go on a command line
+    anyone on this computer can read: in a private file where the tool can read one, otherwise with the question."""
     help_text = _help(binary)
     (work / "mcp.json").write_text(json.dumps({"mcpServers": {SERVER: {"type": "stdio", **mcp}}}))
     args = [*_command(binary), "-p", "--output-format", "stream-json", "--verbose",
             "--strict-mcp-config", "--mcp-config", str(work / "mcp.json"),
-            "--allowedTools", f"mcp__{SERVER}", "--system-prompt", system + AGENT_NOTE]
+            "--allowedTools", f"mcp__{SERVER}"]
+    in_file = "--system-prompt-file" in help_text or "--system-prompt[-file]" in help_text
+    if in_file:
+        (work / "instructions.txt").write_text(system + AGENT_NOTE, encoding="utf-8")
+        args += ["--system-prompt-file", str(work / "instructions.txt")]
     if "--tools" in help_text:
         args += ["--tools", ""]          # none of Claude Code's own tools
     else:
@@ -227,7 +249,7 @@ def _claude(binary: str, work: Path, mcp: dict[str, Any], system: str, model: Op
         args.append("--include-partial-messages")  # the answer as it's written, shown in Ask while it streams
     if model:
         args += ["--model", model]
-    return args
+    return args, in_file
 
 
 def _toml(value: Any) -> str:
@@ -267,8 +289,11 @@ def _gemini(binary: str, work: Path, mcp: dict[str, Any], model: Optional[str]) 
     args = [*_command(binary), "-p", " ", "--output-format", "stream-json", "--allowed-mcp-server-names", SERVER]
     if "--skip-trust" in help_text:
         args.append("--skip-trust")
-    if "--policy" in help_text:
-        args += ["--policy", str(work / "policy.toml")]
+    # The policy is what limits it to Syntropy's read-only tools, so it doesn't run without one.
+    if "--policy" not in help_text:
+        raise AgentError("This version of Gemini CLI can't be limited to read-only lookups, so Ask won't run it. Update "
+                         f"Gemini CLI and try again. {AGENTS['gemini']['install']}")
+    args += ["--policy", str(work / "policy.toml")]
     if model:
         args += ["--model", model]
     return args
@@ -346,6 +371,8 @@ async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str,
     {"type": "reset"}) as the answer is written, where the tool reports that, then {"type": "answer"}."""
     if agent_id not in AGENTS:
         raise AgentError("Unknown agent.")
+    if model and not valid_model(model):
+        raise AgentError(f"The model saved for {AGENTS[agent_id]['label']} isn't a model name. Choose another in Ask's model menu.")
     if in_docker():
         raise AgentError(detect()["reason"])
     spec = AGENTS[agent_id]
@@ -353,13 +380,23 @@ async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str,
     if not binary:
         raise AgentError(f"{spec['label']} isn't installed on this computer. {spec['install']}")
     work = Path(tempfile.mkdtemp(prefix="syntropy-agent-"))
-    mcp = mcp_server.stdio_command(profile_id, actor=f"agent:{agent_id}")
-    if agent_id == "claude":
-        args, prompt = _claude(binary, work, mcp, system, model), _transcript(turns)
-    elif agent_id == "codex":
-        args, prompt = _codex(binary, work, mcp, model), system + AGENT_NOTE + "\n\n" + _transcript(turns)
-    else:
-        args, prompt = _gemini(binary, work, mcp, model), system + AGENT_NOTE + "\n\n" + _transcript(turns)
+    principal = context.principal()
+    # Named in the access log, so what was looked up shows to the account that asked.
+    actor = f"agent:{agent_id}:{principal.account_id}" if principal and principal.account_id else f"agent:{agent_id}"
+    mcp = mcp_server.stdio_command(profile_id, actor=actor)
+    prompt = system + AGENT_NOTE + "\n\n" + _transcript(turns)
+    try:
+        if agent_id == "claude":
+            args, in_file = _claude(binary, work, mcp, system, model)
+            if in_file:
+                prompt = _transcript(turns)
+        elif agent_id == "codex":
+            args = _codex(binary, work, mcp, model)
+        else:
+            args = _gemini(binary, work, mcp, model)
+    except (AgentError, OSError):
+        shutil.rmtree(work, ignore_errors=True)
+        raise
 
     # A thread reads the tool's output so this works on every event loop (Windows' default can't run subprocesses
     # under every server configuration).
