@@ -102,16 +102,20 @@ def insert_events(profile_id: str, connection_id: Optional[str], events: Iterabl
             except (ValueError, KeyError, TypeError, AttributeError):
                 continue
             source = e.get("source_name") or "Unknown"
+            # A device resends an event under a new id, so its type, time and source are what identify it. Entries typed
+            # into the journal have an id of their own, and two medications taken together share all of those.
+            typed_in = e.get("manual") and connection_id is None
+            not_here = "" if typed_in else """WHERE NOT EXISTS (SELECT 1 FROM health_events WHERE profile_id = ? AND event_type = ?
+                                     AND start_date = ? AND end_date = ? AND source_name = ?)"""
             insert = lambda event_id: conn.execute(
-                """INSERT OR IGNORE INTO health_events(id, profile_id, connection_id, event_type, category, name,
+                f"""INSERT OR IGNORE INTO health_events(id, profile_id, connection_id, event_type, category, name,
                        start_date, end_date, value, value_label, source_name, metadata_json, note, manual, created_at)
                    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                   WHERE NOT EXISTS (SELECT 1 FROM health_events WHERE profile_id = ? AND event_type = ?
-                                     AND start_date = ? AND end_date = ? AND source_name = ?)""",
+                   {not_here}""",
                 (event_id, profile_id, connection_id, e["event_type"][:80], (e.get("category") or "other")[:40],
                  (e.get("name") or e["event_type"])[:120], start, end, e.get("value"), e.get("value_label"), source,
                  dumps(e.get("metadata") or None), e.get("note"), 1 if e.get("manual") else 0, now,
-                 profile_id, e["event_type"][:80], start, end, source),
+                 *(() if typed_in else (profile_id, e["event_type"][:80], start, end, source))),
             )
             cur = insert(e["id"])
             if not cur.rowcount and (own := id_held_elsewhere(conn, "health_events", e["id"], profile_id)):
@@ -128,7 +132,8 @@ def insert_events(profile_id: str, connection_id: Optional[str], events: Iterabl
 def list_workouts(profile_id: str, days: Optional[int] = 90, limit: int = 200, dedupe: bool = True,
                   start: Optional[str] = None, end: Optional[str] = None, name: Optional[str] = None) -> list[dict[str, Any]]:
     q = ["SELECT id, activity_type, name, start_date, end_date, duration_s, active_energy_kcal, total_energy_kcal,",
-         "distance_m, step_count, avg_hr, max_hr, min_hr, elevation_ascent_m, indoor, source_name,",
+         "distance_m, step_count, avg_hr, max_hr, min_hr, elevation_ascent_m, elevation_descent_m, temperature_c, humidity_pct,",
+         "device_name, indoor, source_name,",
          "route_json IS NOT NULL AS has_route, heart_rate_json IS NOT NULL AS has_heart_rate",
          "FROM workouts WHERE profile_id = ?"]
     params: list[Any] = [profile_id]

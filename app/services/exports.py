@@ -13,10 +13,12 @@ from __future__ import annotations
 import base64
 import copy
 import csv
+import hashlib
 import html
 import io
 import json
 import logging
+import math
 import re
 import shutil
 import tempfile
@@ -36,6 +38,7 @@ log = logging.getLogger("syntropy.exports")
 ARCHIVE_FORMAT = "syntropy-person-archive"
 ARCHIVE_VERSION = 1
 _ID_BAD = re.compile(r"[^A-Za-z0-9\-.]")
+_ID_IN_REFERENCE = re.compile(r"^(.*/)?([A-Z][A-Za-z]+)/([^/]+)(/_history/[^/]+)?$")
 
 
 # ---------------------------------------------------------------------------
@@ -43,9 +46,31 @@ _ID_BAD = re.compile(r"[^A-Za-z0-9\-.]")
 # ---------------------------------------------------------------------------
 
 def _fhir_id(value: Any) -> str:
-    """A FHIR id holds letters, digits, - and . up to 64 long. Manual lab results were saved as man_..., which made a strict
-    reader refuse the whole file."""
-    return _ID_BAD.sub("-", str(value or ""))[:64] or "unknown"
+    """A FHIR id holds letters, digits, - and . up to 64 long. Manual lab results were saved as man_..., and some servers
+    send longer ones, which made a strict reader refuse the whole file. Two ids that differ stay different, or a reference
+    would find the wrong medication."""
+    text = str(value or "") or "unknown"
+    if len(text) <= 64 and not _ID_BAD.search(text):
+        return text
+    return f"{_ID_BAD.sub('-', text)[:51]}-{hashlib.sha1(text.encode()).hexdigest()[:12]}"
+
+
+def _with_valid_ids(value: Any) -> Any:
+    """A changed id has to change everywhere it's pointed to, or nothing in the file finds it."""
+    if isinstance(value, list):
+        return [_with_valid_ids(v) for v in value]
+    if not isinstance(value, dict):
+        return value
+    out = {k: _with_valid_ids(v) for k, v in value.items()}
+    ref = out.get("reference")
+    if isinstance(ref, str):
+        if ref.startswith("#"):
+            out["reference"] = "#" + _fhir_id(ref[1:])
+        elif match := _ID_IN_REFERENCE.match(ref):
+            out["reference"] = f"{match[1] or ''}{match[2]}/{_fhir_id(match[3])}{match[4] or ''}"
+    if isinstance(out.get("contained"), list):
+        out["contained"] = [{**c, "id": _fhir_id(c.get("id"))} if isinstance(c, dict) and c.get("id") else c for c in out["contained"]]
+    return out
 
 
 def _base_url(source: dict[str, Any]) -> str:
@@ -55,7 +80,7 @@ def _base_url(source: dict[str, Any]) -> str:
 
 
 def _tagged(res: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
-    out = dict(res)
+    out = _with_valid_ids(res)
     out["id"] = _fhir_id(res.get("id"))
     meta = dict(res.get("meta") or {})
     meta["tag"] = [t for t in meta.get("tag") or [] if t.get("system") != SOURCE_TAG] + [
@@ -319,10 +344,10 @@ def patient_summary(profile: dict[str, Any]) -> dict[str, Any]:
                         med = {**med, "id": _fhir_id(med.get("id"))}
                         med.pop("meta", None)
                         medications[(source, key)] = _urn(source, key)
-                        entries_out.append({"fullUrl": medications[(source, key)], "resource": _rewrite_references(med, patient_urn, {})})
+                        entries_out.append({"fullUrl": medications[(source, key)], "resource": _with_valid_ids(_rewrite_references(med, patient_urn, {}))})
                 if (source, key) in medications:
                     known[key] = medications[(source, key)]
-            res = _rewrite_references(_with_note_text(res, row.get("narrative")), patient_urn, known)
+            res = _with_valid_ids(_rewrite_references(_with_note_text(res, row.get("narrative")), patient_urn, known))
             res["id"] = _fhir_id(res.get("id"))
             res.pop("meta", None)
             subject = _SUBJECT.get(res["resourceType"], "subject")
@@ -591,7 +616,8 @@ def _by_source(rows: Iterator[dict[str, Any]], size: int) -> Iterator[tuple[Opti
 
 def import_archive(profile_id: str, account_id: Optional[str], path: Path, on_progress: Any = None) -> dict[str, Any]:
     """Safe to run twice: rows keep their ids, so what's already here is left alone, and nothing here is overwritten. A goal
-    or conversation that's already here stays as it is and is counted as kept."""
+    or conversation that's already here stays as it is and is counted as kept. Conversations that don't fit are counted as
+    skipped; the archive has the newest first, so those are the oldest."""
     from app.services import imports, sync
 
     try:
@@ -609,7 +635,7 @@ def import_archive(profile_id: str, account_id: Optional[str], path: Path, on_pr
             raise ValueError("This archive was made by a newer version of Syntropy Health. Install the latest version to import it.")
         sources = {s["id"]: s for s in manifest.get("sources") or [] if isinstance(s, dict) and s.get("id")}
         made: dict[Optional[str], str] = {}
-        out: dict[str, Any] = {"samples": 0, "workouts": 0, "journal": 0, "goals": 0, "goals_kept": 0, "chats": 0, "chats_kept": 0}
+        out: dict[str, Any] = {"samples": 0, "workouts": 0, "journal": 0, "goals": 0, "goals_kept": 0, "chats": 0, "chats_kept": 0, "chats_skipped": 0}
         if "fhir.json" in z.namelist():
             resources = imports.parse_fhir_payload(z.read("fhir.json"))
             if resources:
@@ -636,25 +662,32 @@ def import_archive(profile_id: str, account_id: Optional[str], path: Path, on_pr
                 except (ValueError, AttributeError, TypeError):
                     pass
         for chat in _lines(z, "chats.ndjson"):
-            out["chats" if _bring_in_chat(profile_id, account_id, chat) else "chats_kept"] += 1
+            out[_bring_in_chat(profile_id, account_id, chat)] += 1
     return out
 
 
-def _bring_in_chat(profile_id: str, account_id: Optional[str], chat: dict[str, Any]) -> bool:
-    """An id another person here already holds gets one of its own, the same one each time."""
+def _bring_in_chat(profile_id: str, account_id: Optional[str], chat: dict[str, Any]) -> str:
+    """Which count this conversation goes in. An id another person here already holds gets one of its own, the same one
+    each time."""
     original = str(chat.get("id") or db.new_id("chat"))
     theirs = activity.stable_id("chat", original, profile_id, account_id)
     if chats.get_chat(profile_id, account_id, original) or chats.get_chat(profile_id, account_id, theirs):
-        return False
+        return "chats_kept"
     title, messages = str(chat.get("title") or "Conversation")[:200], chat.get("messages") or []
+    updated = _time_or(chat.get("updated_at"), time.time())
+    dates = (_time_or(chat.get("created_at"), updated), updated)
     try:
         try:
-            chats.save_chat(profile_id, account_id, original, title, messages)
+            added = chats.add_chat(profile_id, account_id, original, title, messages, *dates)
         except PermissionError:
-            chats.save_chat(profile_id, account_id, theirs, title, messages)
+            added = chats.add_chat(profile_id, account_id, theirs, title, messages, *dates)
     except (ValueError, TypeError):      # longer than a conversation can be
-        return False
-    return True
+        return "chats_skipped"
+    return "chats" if added else "chats_skipped"
+
+
+def _time_or(value: Any, otherwise: float) -> float:
+    return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) else otherwise
 
 
 def _as_workout(row: dict[str, Any]) -> dict[str, Any]:

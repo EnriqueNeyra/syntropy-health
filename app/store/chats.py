@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 from app.core.db import db, note_deleted, read
 
-MAX_CHATS = 200           # per person and account; the oldest go first
+MAX_CHATS = 200           # per person and account; a new one pushes out the oldest, and an import stops here instead
 MAX_MESSAGES = 120
 MAX_CHARS = 600_000       # a whole conversation, as stored
 
@@ -41,12 +41,33 @@ def get_chat(profile_id: str, account_id: Optional[str], chat_id: str) -> Option
     return out
 
 
-def save_chat(profile_id: str, account_id: Optional[str], chat_id: str, title: str,
-              messages: list[dict[str, Any]]) -> dict[str, Any]:
-    """Creates or replaces a conversation. A conversation id already used by another person or account is refused."""
+def _stored(messages: list[dict[str, Any]]) -> str:
     body = json.dumps(messages[-MAX_MESSAGES:], ensure_ascii=False, separators=(",", ":"))
     if len(body) > MAX_CHARS:
         raise ValueError("This conversation is too long to save. Start a new chat.")
+    return body
+
+
+def add_chat(profile_id: str, account_id: Optional[str], chat_id: str, title: str, messages: list[dict[str, Any]],
+             created_at: float, updated_at: float) -> bool:
+    """A conversation from an import, with the dates it had. Nothing here makes way for it: False if this person already
+    has as many as are kept. An id already used by another person or account is refused."""
+    body = _stored(messages)
+    owner = _owner(account_id)
+    with db() as conn:
+        if conn.execute("SELECT 1 FROM chats WHERE id = ?", (chat_id,)).fetchone():
+            raise PermissionError("Not found")
+        if conn.execute("SELECT COUNT(*) FROM chats WHERE profile_id = ? AND account_id = ?", (profile_id, owner)).fetchone()[0] >= MAX_CHATS:
+            return False
+        conn.execute("INSERT INTO chats(id, profile_id, account_id, title, messages_json, created_at, updated_at) "
+                     "VALUES (?, ?, ?, ?, ?, ?, ?)", (chat_id, profile_id, owner, title, body, created_at, updated_at))
+    return True
+
+
+def save_chat(profile_id: str, account_id: Optional[str], chat_id: str, title: str,
+              messages: list[dict[str, Any]]) -> dict[str, Any]:
+    """Creates or replaces a conversation. A conversation id already used by another person or account is refused."""
+    body = _stored(messages)
     now = time.time()
     owner = _owner(account_id)
     with db() as conn:

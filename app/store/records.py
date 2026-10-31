@@ -64,6 +64,12 @@ def upsert_identity(connection_id: str, profile_id: str, patient: dict[str, Any]
         )
 
 
+def identity_of(connection_id: str) -> Optional[dict[str, Any]]:
+    with read() as conn:
+        row = conn.execute("SELECT full_name, birth_date FROM patient_identities WHERE connection_id = ?", (connection_id,)).fetchone()
+    return dict(row) if row else None
+
+
 def upsert_references(connection_id: str, resources: Iterable[dict[str, Any]]) -> None:
     now = time.time()
     with db() as conn:

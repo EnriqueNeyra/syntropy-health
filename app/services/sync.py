@@ -13,6 +13,7 @@ import hashlib
 import logging
 import sqlite3
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -299,11 +300,13 @@ def _group_by_source(resources: list[dict[str, Any]], display_name: str) -> list
             untagged.append(clean)
     patients = [r for r in untagged if r.get("resourceType") == "Patient"]
     if len(patients) > 1:
+        # A Medication or a prescriber belongs to nobody, and each person's records need it to be read.
+        shared = [r for r in untagged if r.get("resourceType") in fhir_normalize.REFERENCED_TYPES]
         for patient in patients:
             who = str(patient.get("id") or len(groups))
             mine = [r for r in untagged if r is patient or _patient_of(r) == who]
             origin = f"file:{display_name}#{who}"
-            groups[origin] = {"origin": origin, "name": display_name, "resources": mine}
+            groups[origin] = {"origin": origin, "name": display_name, "resources": mine + shared, "by_name": True}
         claimed = {id(r) for g in groups.values() for r in g["resources"]}
         rest = [r for r in untagged if id(r) not in claimed]
         if rest:
@@ -311,7 +314,7 @@ def _group_by_source(resources: list[dict[str, Any]], display_name: str) -> list
             first["resources"].extend(rest)
     elif untagged:
         origin = f"file:{display_name}"
-        groups[origin] = {"origin": origin, "name": display_name, "resources": untagged, "legacy_name": display_name}
+        groups[origin] = {"origin": origin, "name": display_name, "resources": untagged, "legacy_name": display_name, "by_name": True}
     return list(groups.values())
 
 
@@ -338,6 +341,47 @@ def _keep_both(connection_id: str, recs: list[dict[str, Any]]) -> int:
     return kept
 
 
+def _shares_a_record(connection_id: str, recs: list[dict[str, Any]]) -> bool:
+    """A corrected result keeps its id, so the id is what's compared. Different contents are kept beside it (_keep_both)."""
+    with read() as c:
+        stored = {(r[0], r[1]) for r in c.execute(
+            "SELECT resource_type, resource_id FROM clinical_records WHERE connection_id = ?", (connection_id,))}
+    return not stored or any((r["resource_type"], r["resource_id"]) in stored for r in recs)
+
+
+def _same_source(conn: dict[str, Any], patient: Optional[dict[str, Any]], resources: list[dict[str, Any]],
+                 recs: list[dict[str, Any]], named_by_file: bool) -> bool:
+    """Everyone's download is called export.json, so a name doesn't make a file the source already here under it. It has to
+    be about the same patient or, if one of them doesn't say who, to have a record in common. Otherwise a second person's
+    records would mix into the first's and their name replace the first's, and nothing would warn that these are two people."""
+    here = records.identity_of(conn["id"])
+    known = conn.get("patient_ref")
+    if patient and here:
+        if patient.get("id") and known and str(patient["id"]) != known:
+            return False
+        named = [{"full_name": None if p["name"] == "Unknown" else p["name"], "birth_date": p["birth_date"], "source_name": ""}
+                 for p in ({"name": here["full_name"], "birth_date": here["birth_date"]},
+                           {"name": patient.get("name"), "birth_date": patient.get("birth_date")})]
+        return len(records.distinct_people(named)) == 1
+    if not named_by_file:       # Apple Health Records: the one place these go, and they name no patient
+        return True
+    subjects = {s for s in map(_patient_of, resources) if s}
+    if subjects and known:
+        return known in subjects
+    return _shares_a_record(conn["id"], recs)
+
+
+def _source_of(profile_id: str, group: dict[str, Any], patient: Optional[dict[str, Any]], recs: list[dict[str, Any]],
+               provider: str) -> tuple[Optional[dict[str, Any]], str, bool]:
+    """The source this group goes in, if there's one already; the origin to save; and whether others share its name."""
+    origin = group["origin"]
+    candidates = connections.find_imports_named(profile_id, origin, group.get("legacy_name"))
+    for conn in candidates:
+        if not group.get("by_name") or _same_source(conn, patient, group["resources"], recs, provider == "fhir_file"):
+            return conn, (conn.get("metadata") or {}).get("origin") or origin, False
+    return None, f"{origin}~{uuid.uuid4().hex[:8]}" if candidates else origin, bool(candidates)
+
+
 def import_fhir_resources(profile_id: str, display_name: str, resources: list[dict[str, Any]],
                           provider: str = "fhir_file") -> dict[str, Any]:
     """Each source in the file becomes one source here, found again if the same file comes back, and the result says what
@@ -348,13 +392,17 @@ def import_fhir_resources(profile_id: str, display_name: str, resources: list[di
         patient, recs = fhir_normalize.normalize_resources(group["resources"])
         if not recs and not patient:
             continue
-        conn = connections.find_import(profile_id, group["origin"], group.get("legacy_name"))
-        metadata = {"imported_at": time.time(), "resource_count": len(group["resources"]), "origin": group["origin"]}
+        conn, origin, name_taken = _source_of(profile_id, group, patient, recs, provider)
+        metadata = {"imported_at": time.time(), "resource_count": len(group["resources"]), "origin": origin}
+        subjects = {s for s in map(_patient_of, group["resources"]) if s}
+        patient_ref = (patient or {}).get("id") or (next(iter(subjects)) if len(subjects) == 1 else None)
         if conn:
-            connections.update(conn["id"], metadata={**(conn.get("metadata") or {}), **metadata})
+            connections.update(conn["id"], metadata={**(conn.get("metadata") or {}), **metadata},
+                               **({"patient_ref": patient_ref} if patient_ref and not conn.get("patient_ref") else {}))
         else:
-            conn = connections.create(profile_id, "import", provider, group["name"], mode="live",
-                                      patient_ref=(patient or {}).get("id"), metadata=metadata)
+            who = (patient or {}).get("name")
+            name = f"{group['name']} ({who})" if name_taken and who and who != "Unknown" else group["name"]
+            conn = connections.create(profile_id, "import", provider, name, mode="live", patient_ref=patient_ref, metadata=metadata)
         run_id = connections.start_run(conn["id"], "import")
         if patient:
             records.upsert_identity(conn["id"], profile_id, patient)

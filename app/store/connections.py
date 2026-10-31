@@ -97,17 +97,18 @@ def find_existing(profile_id: str, provider: str, *, institution_id: Optional[st
     return _present(row_to_dict(row, ["metadata_json"])) if row else None
 
 
-def find_import(profile_id: str, origin: str, display_name: Optional[str] = None) -> Optional[dict[str, Any]]:
-    """The source an earlier import made for this origin, so importing the same thing again doesn't add another. One from
-    before origins were saved is recognised by its name."""
+def find_import(profile_id: str, origin: str) -> Optional[dict[str, Any]]:
+    """The source an earlier import made for this origin, so importing the same thing again doesn't add another."""
+    return next((c for c in list_for_profile(profile_id, "import") if (c.get("metadata") or {}).get("origin") == origin), None)
+
+
+def find_imports_named(profile_id: str, origin: str, display_name: Optional[str] = None) -> list[dict[str, Any]]:
+    """Every source that came from a file by this name: there can be several (origin~...), because the name alone doesn't
+    say whose it was. One from before origins were saved is recognised by its name."""
     found = list_for_profile(profile_id, "import")
-    for c in found:
-        if (c.get("metadata") or {}).get("origin") == origin:
-            return c
-    for c in found:
-        if display_name and c["display_name"] == display_name and not (c.get("metadata") or {}).get("origin"):
-            return c
-    return None
+    named = [c for c in found if ((c.get("metadata") or {}).get("origin") or "") == origin
+             or ((c.get("metadata") or {}).get("origin") or "").startswith(f"{origin}~")]
+    return named + [c for c in found if display_name and c["display_name"] == display_name and not (c.get("metadata") or {}).get("origin")]
 
 
 def get(connection_id: str, include_credentials: bool = False) -> Optional[dict[str, Any]]:
