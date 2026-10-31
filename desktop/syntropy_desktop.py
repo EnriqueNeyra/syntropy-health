@@ -897,7 +897,8 @@ class DesktopApp:
 
     def wait_for_server_to_finish(self) -> bool:
         """A long job can outlast Server.stop's wait. By then the server has closed its sockets and can't be called back, so
-        nothing answers until it ends, however long that takes, and only then can another start. Whether the window says so."""
+        nothing answers until it ends, however long that takes, and only then can another start. Returns whether the window
+        was told, and so needs sending back."""
         if self.server.stop():
             return False
         log.warning("The server is still finishing what it was doing; waiting for it")
