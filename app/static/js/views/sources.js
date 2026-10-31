@@ -252,7 +252,11 @@ async function openAddHealthSystem(profileId) {
     res.results.forEach((i) => byId.set(i.id, i));
     shown = res.results;
     const count = `${res.total.toLocaleString()} match${res.total === 1 ? "" : "es"}.`;
-    const label = [res.corrected ? `Showing results for "${res.corrected}".` : "", count,
+    const similar = res.total - res.as_typed;
+    const typedFirst = res.as_typed === undefined ? count
+      : `${res.as_typed ? `${res.as_typed.toLocaleString()} spelled as you typed, then ` : ""}${similar.toLocaleString()} with a similar spelling.`;
+    const label = [res.corrected ? `Showing results for "${res.corrected}".` : "", typedFirst,
+      res.no_state ? `${res.no_state.toLocaleString()} ${res.no_state === 1 ? "has" : "have"} no location listed, so ${res.no_state === 1 ? "it stays" : "they stay"} in the list.` : "",
       res.total > shown.length && !query.state ? "Add a city or state to narrow this." : ""].filter(Boolean).join(" ");
     const states = Object.keys(res.states || {}).filter((code) => STATE_LABELS[code]);
     mount(m.body.querySelector("#dir-narrow"), states.length > 1 ? html`<select class="input dir-state" id="dir-state" aria-label="Narrow by state"><option value="">All states</option>

@@ -168,6 +168,24 @@ def _host(url: str) -> Optional[str]:
         return None
 
 
+def _telling_parts(urls: list[str]) -> list[str]:
+    """How to tell addresses on one server apart: the end if that's where they differ, else the part of the path that does."""
+    paths = [url.rstrip("/").split("/") for url in urls]
+    shortest = min(len(path) for path in paths)
+    same_end = 0
+    while same_end < shortest and len({path[-1 - same_end] for path in paths}) == 1:
+        same_end += 1
+    if not same_end:
+        tail = 6
+        while len({url.rstrip("/")[-tail:] for url in urls}) < len(urls) and tail < max(map(len, urls)):
+            tail += 2
+        return [f"ending {url.rstrip('/')[-tail:]}" for url in urls]
+    same_start = 0
+    while same_start < shortest - same_end and len({path[same_start] for path in paths}) == 1:
+        same_start += 1
+    return ["/".join(path[same_start:len(path) - same_end]) or "/".join(path[3:]) for path in paths]
+
+
 def _hints(rows: list[dict[str, Any]]) -> None:
     """Rows that read the same in a list, on different servers, get something to tell them apart: a network, or the server."""
     same: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
@@ -177,13 +195,14 @@ def _hints(rows: list[dict[str, Any]]) -> None:
         if len(group) < 2:
             continue
         places = Counter(inst.get("location") for inst in group)
+        by_host: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for inst in group:
-            if inst.get("location") and places[inst["location"]] == 1:
-                continue
-            url = inst.get("fhir_base_url") or ""
-            host = _host(url)
-            shared_host = sum(_host(o.get("fhir_base_url") or "") == host for o in group) > 1
-            inst["hint"] = f"sign-in server ending {url.rstrip('/')[-6:]}" if shared_host else f"sign-in server {host}"
+            by_host[_host(inst.get("fhir_base_url") or "")].append(inst)
+        for host, on_host in by_host.items():
+            parts = _telling_parts([inst.get("fhir_base_url") or "" for inst in on_host]) if len(on_host) > 1 else [host]
+            for inst, part in zip(on_host, parts):
+                if part and (not inst.get("location") or places[inst["location"]] > 1):
+                    inst["hint"] = f"sign-in server {part}"
 
 
 @lru_cache(maxsize=1)
@@ -386,7 +405,8 @@ def search(q: Optional[str] = None, platform: Optional[str] = None, limit: int =
            available: Optional[set[str]] = None, hidden: frozenset[str] = frozenset(),
            state: Optional[str] = None, offset: int = 0) -> dict[str, Any]:
     """``available`` platforms rank ahead of the rest among equally good matches; ``hidden`` ones are left out. ``states``
-    in the answer counts the matches per state, to narrow a long list with; ``corrected`` is what a typo was taken for."""
+    in the answer counts the matches per state, to narrow a long list with; ``no_state``, how many kept by a chosen state have
+    no known state. ``corrected`` is what a typo was taken for; ``as_typed``, how many lead when similar spellings follow them."""
     index = _index()
     keep = index.rows_on(platform) if platform else None
     drop = index.rows_on_any(hidden)

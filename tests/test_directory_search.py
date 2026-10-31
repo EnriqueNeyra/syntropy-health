@@ -582,3 +582,150 @@ def test_a_printed_letter_does_not_stay_behind_for_the_next_print():
     picker = (STATIC / "sources.js").read_text()
     assert "export function clearPrintedLetter" in letter
     assert "onClose: clearPrintedLetter" in picker
+
+
+# ---------------------------------------------------------------------------
+# Words that are spelled right, or left out of the search
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("q, listed", [
+    ("uchicago", "UChicago Medicine"),
+    ("TempleHealth", "TempleHealth"),
+    ("Ovatient", "Ovatient"),
+    ("Advocare", "Advocare"),
+    ("HealthArc LLC", "HealthArc"),
+    ("Healthcore Clinic", "Healthcore Clinic"),
+    ("ZealthCare PLLC", "ZealthCare"),
+    ("leung", "Leung"),
+])
+def test_a_rare_name_spelled_as_listed_is_not_called_a_typo(q, listed):
+    found = find(q)
+    assert "corrected" not in found
+    assert listed.lower() in found["results"][0]["name"].lower(), [r["name"] for r in found["results"][:5]]
+
+
+def test_rows_spelled_as_typed_come_before_similar_spellings():
+    found = find("uchicago", limit=400)
+    typed = [i for i, r in enumerate(found["results"]) if "uchicago" in r["name"].lower().replace(" ", "")]
+    assert typed == list(range(len(typed)))
+    assert found["as_typed"] >= len(typed) > 0
+    assert found["total"] > found["as_typed"], "similar spellings stay reachable after them"
+    assert "as_typed" not in find("kaiser")
+
+
+def test_a_typo_the_vendors_share_still_finds_the_common_spelling():
+    found = find("helath")
+    assert "helath" in found["results"][0]["name"].lower() and "corrected" not in found
+    assert found["total"] > 1000 and any("health" in r["name"].lower() for r in found["results"])
+
+
+def test_a_name_spelled_as_typed_beats_a_similar_one_known_to_be_in_the_state():
+    found = find("uchicago", limit=200, state="TX")
+    listed = [r["name"] for r in found["results"]]
+    assert "UChicago Medicine" in listed[:found["as_typed"]]
+    assert found["total"] > found["as_typed"]
+
+
+def test_a_word_only_on_a_hidden_platform_is_still_corrected():
+    hidden = {r["platform"] for r in directory.search("zealthcare", limit=50)["results"] if "zealthcare" in r["name"].lower()}
+    found = directory.search("zealthcare", limit=5, hidden=frozenset(hidden))
+    assert found.get("corrected") and "as_typed" not in found
+
+
+def test_every_name_spelled_right_finds_itself_on_the_first_page():
+    rows = [r for r in directory._institutions() if r["platform"] in CONNECTABLE]
+    for row in rows[::37]:
+        found = find(row["name"])
+        assert "corrected" not in found, row["name"]
+        assert any(r["id"] == row["id"] or r["name"] == row["name"] for r in found["results"]), row["name"]
+
+
+@pytest.mark.parametrize("q, first", [
+    ("patient first", "Patient First"),
+    ("acute patient care", "Acute Patient Care"),
+])
+def test_a_name_with_a_noise_word_in_it_comes_first(q, first):
+    assert names(q)[0].lower().startswith(first.lower()), names(q)[:5]
+
+
+@pytest.mark.parametrize("q, first", [("mayo patient portal", "Mayo Clinic"), ("kaiser login", "Kaiser Permanente"), ("sutter online", "Sutter Health")])
+def test_noise_words_said_alongside_a_name_still_narrow_nothing(q, first):
+    assert first.lower() in names(q)[0].lower(), names(q)[:5]
+
+
+def test_a_noise_word_changes_only_the_order():
+    assert find("patient first")["total"] == find("first")["total"]
+
+
+def test_a_typo_beside_a_noise_word_still_finds_the_whole_name():
+    found = find("patient firsst")
+    assert found["corrected"] == "first"
+    assert found["results"][0]["name"].lower().startswith("patient first"), [r["name"] for r in found["results"][:5]]
+
+
+def known_first(found):
+    index = directory._index()
+    row_of = {r["id"]: i for i, r in enumerate(index.rows)}
+    return [bool(index.states[row_of[r["id"]]]) for r in found["results"]]
+
+
+@pytest.mark.parametrize("q, state, unplaced", [
+    ("mount sinai", "NY", "Mount Sinai Health System"),
+    ("upmc", "PA", "University of Pittsburgh Medical Center (UPMC)"),
+    ("northshore", "IL", "NorthShore University Health System"),
+    ("cedars", "CA", "Cedars-Sinai Health System"),
+])
+def test_a_listing_with_no_known_state_survives_narrowing(q, state, unplaced):
+    found = find(q, limit=200, state=state)
+    assert unplaced in [r["name"] for r in found["results"]]
+    known = known_first(found)
+    assert known == sorted(known, reverse=True), "those known to be there come first"
+    assert found["no_state"] == known.count(False) > 0
+
+
+def test_narrowing_still_removes_listings_known_to_be_elsewhere():
+    assert "Cleveland Clinic" not in names("cleveland clinic", limit=200, state="NY")
+
+
+def test_a_state_with_no_words_keeps_unplaced_listings_too():
+    found = directory.search(platform="epic", limit=5000, state="NY", available=CONNECTABLE)
+    known = known_first(found)
+    assert known[0] and not known[-1] and known == sorted(known, reverse=True)
+    assert found["no_state"] == known.count(False)
+
+
+def test_nothing_about_unknown_places_without_a_state_chosen():
+    assert "no_state" not in find("mount sinai")
+
+
+def test_the_api_says_how_many_have_no_location(client):
+    body = client.get("/api/directory", params={"q": "mount sinai", "state": "NY", "limit": 200}).json()
+    assert body["no_state"] >= 1 and any(r["name"] == "Mount Sinai Health System" for r in body["results"])
+    assert client.get("/api/directory", params={"q": "uchicago"}).json()["as_typed"] >= 1
+    picker = (STATIC / "sources.js").read_text()
+    assert "res.no_state" in picker and "res.as_typed" in picker
+
+
+def test_district_of_columbia_is_a_state():
+    word = next(w for w in directory._index()._parse("clinic district of columbia") if w.state)
+    assert ("dc",) in word.terms
+    spelled_out = {r["id"] for r in find("clinic district of columbia", limit=200)["results"]}
+    short = {r["id"] for r in find("clinic dc", limit=200)["results"]}
+    assert short == spelled_out and "Washington DC STD/TB Clinics" in names("clinic district of columbia", limit=200)
+
+
+def test_no_two_listings_read_the_same():
+    seen = {}
+    for row in directory._institutions():
+        key = (row["platform"], row["name"].lower(), row.get("location"), row.get("hint"))
+        assert key not in seen, (seen[key], row["id"])
+        seen[key] = row["id"]
+
+
+def test_a_hint_names_the_part_of_the_address_that_differs():
+    hints = {i["id"]: i["hint"] for i in directory._institutions() if i["id"].startswith("trubridge-athens-limestone-hospital")}
+    assert hints == {"trubridge-athens-limestone-hospital": "sign-in server athens", "trubridge-athens-limestone-hospital-2": "sign-in server athens_mcc"}
+    assert directory.get_institution("ecw-edafbd")["hint"] == "sign-in server ending EDAFBD"
+    same_tail = [{"platform": "x", "name": "Same", "fhir_base_url": f"https://a.example.com/r4/{tenant}"} for tenant in ("1-234567", "9-234567")]
+    directory._hints(same_tail)
+    assert same_tail[0]["hint"] != same_tail[1]["hint"]

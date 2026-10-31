@@ -42,8 +42,9 @@ def search(q: Optional[str] = Query(None, max_length=200), platform: Optional[st
                            state=state, offset=offset)
     out = {"total": res["total"], "results": [_decorate(i, cfgs) for i in res["results"]], "platforms": directory.stats(hidden),
            "states": res["states"], "problem": directory.problem_for_people()}
-    if res.get("corrected"):
-        out["corrected"] = res["corrected"]
+    for extra in ("corrected", "as_typed", "no_state"):
+        if extra in res:
+            out[extra] = res[extra]
     return out
 
 
