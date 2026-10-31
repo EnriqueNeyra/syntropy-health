@@ -258,3 +258,33 @@ def test_removing_a_source_says_so_while_its_data_is_deleted(session):
     held[0].continue_()
     page.unroute("**/api/connections/*?delete_data=true")
     page.locator(".src-name", has_text="Slow iPhone").wait_for(state="detached")
+
+
+def test_search_shows_records_as_you_type_and_the_keys_choose_one(session):
+    page = session.open("#/overview")
+    box = page.locator("#top-search input")
+    box.click()
+    box.type("gluc", delay=20)
+    page.wait_for_selector(".search-results .search-row")
+    assert "Glucose" in page.locator(".search-results").inner_text()
+    assert "Search" not in page.title()      # still on the same page
+    page.keyboard.press("ArrowDown")
+    assert page.locator(".search-row.active").count() == 1
+    page.keyboard.press("Enter")
+    page.wait_for_selector(".drawer")
+    assert "Glucose" in page.locator(".drawer").inner_text()
+    page.keyboard.press("Escape")
+    page.wait_for_selector(".drawer", state="detached")
+    box.click()
+    box.type("nothing like this", delay=5)
+    page.wait_for_selector(".search-results:has-text('Nothing on record')")
+    page.keyboard.press("Escape")
+    page.wait_for_selector(".search-results", state="detached")
+    assert box.input_value() == ""
+    box.click()
+    box.type("gluc", delay=20)
+    page.wait_for_selector(".search-row")
+    page.keyboard.press("Enter")
+    page.wait_for_selector("#rec-list .list-item")
+    assert "q=gluc" in page.url
+    assert session.errors == []

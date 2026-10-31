@@ -8,6 +8,7 @@ import {
 } from "./ui.js";
 import { renderOnboarding, renderPasswordGate, renderSetup, renderTermsGate } from "./onboarding.js";
 import { termsCheckbox } from "./consent.js";
+import { searchBox } from "./search-box.js";
 import { setUnitPreference } from "./units.js";
 
 // `symbol` is the section's icon in the iPhone app (an SF Symbol name), and `tab` puts it in the app's tab bar until the
@@ -455,13 +456,7 @@ function renderShell() {
       "head-profile": (_, btn) => openProfileMenu(btn, { align: "right" }),
     });
     onAction(root.querySelector("#mobile-nav"), { more: (_, btn) => openMore(btn) });
-    $("#top-search").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const q = e.target.q.value.trim();
-      e.target.q.value = "";
-      e.target.q.blur();
-      navigate(q ? `#/records?q=${encodeURIComponent(q)}` : "#/records");
-    });
+    searchBox($("#top-search"), { profileId: () => state.profile.id, navigate });
   }
   mount($("#nav"), NAV.map(([label, keys]) => html`<div class="nav-group">
     ${label ? html`<div class="nav-label">${label}</div>` : ""}${keys.map((k) => navLink(k, current))}</div>`));
