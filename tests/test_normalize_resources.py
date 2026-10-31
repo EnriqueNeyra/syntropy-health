@@ -468,3 +468,46 @@ def test_records_about_a_patient_the_file_doesnt_name_are_mentioned(client):
         {"resourceType": "Condition", "id": "c", "code": {"text": "Asthma"}, "subject": {"reference": "Patient/2"}})]}
     r = client.post("/api/imports/fhir", files={"file": ("f.json", json.dumps(bundle).encode(), "application/json")}).json()
     assert "another patient ID" in r["warnings"][0]
+
+
+# ---------------------------------------------------------------------------
+# When a document's care happened, rather than when the portal made the document
+# ---------------------------------------------------------------------------
+
+def summary_doc(rid="s", date="2026-10-03T12:00:00Z", **kw):
+    return {"resourceType": "DocumentReference", "id": rid, "status": "current", "date": date, "type": {"text": "Encounter Summary"},
+            "content": [{"attachment": {"contentType": "text/plain", "data": "aGk="}}], **kw}
+
+
+def test_a_summary_made_years_later_is_dated_by_the_visit_it_documents():
+    rec = fn.normalize_document_reference(summary_doc(context={"period": {"start": "2023-03-14T09:00:00Z", "end": "2023-03-14T10:00:00Z"}}))
+    assert rec["effective_at"] == "2023-03-14T09:00:00Z"
+
+
+def test_a_note_written_during_a_hospital_stay_keeps_its_own_day():
+    stay = {"period": {"start": "2023-03-14T09:00:00Z", "end": "2023-03-20T10:00:00Z"}}
+    assert fn.normalize_document_reference(summary_doc(date="2023-03-17T08:00:00Z", context=stay))["effective_at"] == "2023-03-17T08:00:00Z"
+
+
+def test_a_document_with_no_visit_dates_uses_a_date_in_its_name_before_when_it_was_made():
+    named = summary_doc(description="Encounter Summary (03/14/2023)")
+    assert fn.normalize_document_reference(named)["effective_at"] == "2023-03-14"
+    iso = summary_doc(description="Visit summary 2021-11-02")
+    assert fn.normalize_document_reference(iso)["effective_at"] == "2021-11-02"
+    assert fn.normalize_document_reference(summary_doc(description="Encounter Summary (13/45/2023)"))["effective_at"] == "2026-10-03T12:00:00Z"
+    assert fn.normalize_document_reference(summary_doc())["effective_at"] == "2026-10-03T12:00:00Z"
+
+
+def test_documents_that_only_point_at_their_visit_take_its_dates(client):
+    from app.services import renormalize
+    from app.store import records as store
+
+    cid = "c"
+    visit = {"resource_type": "Encounter", "resource_id": "e1", "effective_at": "2022-05-01T09:00:00Z", "effective_end": "2022-05-01T10:00:00Z"}
+    doc = summary_doc(context={"encounter": [{"reference": "Encounter/e1"}]})
+    rec = fn.normalize_document_reference(doc)
+    rec.update(resource_type="DocumentReference", resource_id="s", raw=doc)
+    store.date_documents_by_visit(cid, [visit, rec])
+    assert rec["effective_at"] == "2022-05-01T09:00:00Z"
+    assert fn.document_visit(summary_doc(context={"encounter": [{"reference": "Encounter/e1"}], "period": {"start": "2022-05-01"}})) is None
+    assert renormalize.NAME != "records-renormalize-1"       # records already stored are read again, so they're corrected too

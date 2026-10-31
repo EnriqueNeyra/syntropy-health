@@ -173,6 +173,7 @@ async def _sync_ehr(conn: dict[str, Any]) -> dict[str, Any]:
     unreadable: list[str] = []
     everything = ([fetched.patient] if fetched.patient else []) + fetched.resources
     patient, recs, problems = await asyncio.to_thread(fhir_normalize.normalize_report, everything, unreadable)
+    await asyncio.to_thread(records.date_documents_by_visit, conn["id"], recs)
     await asyncio.to_thread(record_files.take_inline, conn["profile_id"], conn["id"], recs)
     notes = await _fetch_note_bodies(conn, client, recs, simulated)
 

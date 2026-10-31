@@ -1114,6 +1114,51 @@ def normalize_diagnostic_report(res: dict[str, Any]) -> Optional[dict[str, Any]]
     return rec
 
 
+_DATE_IN_TITLE = re.compile(r"(?<!\d)(?:(\d{1,2})/(\d{1,2})/(\d{4})|(\d{4})-(\d{2})-(\d{2}))(?!\d)")
+
+
+def _date_in_title(title: Optional[str]) -> Optional[str]:
+    """A date written in a document's name, as in "Encounter Summary (03/14/2023)". US order, as patient portals write it."""
+    found = _DATE_IN_TITLE.search(title or "")
+    if not found:
+        return None
+    month, day, year = found.group(1, 2, 3) if found.group(1) else (found.group(5), found.group(6), found.group(4))
+    try:
+        return datetime(int(year), int(month), int(day)).strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def date_within_visit(made: Optional[str], start: str, end: Optional[str]) -> str:
+    """A document's date, given the visit it documents. Within the visit it's kept: each day of a hospital stay has its own
+    notes. Otherwise the document was made later, and the care happened at the visit."""
+    return made if made and end and start <= made <= end else start
+
+
+def _document_date(res: dict[str, Any], title: Optional[str], first: dict[str, Any]) -> Optional[str]:
+    """When a document's care happened. Its ``date`` only says when the document was made, and a portal can make a summary of
+    an old visit years later, or every one of them on the day they're first downloaded. So the visit's dates come first, then
+    a date in its name. A document that only points at its visit gets that visit's dates once they're known
+    (document_visit, below)."""
+    period = (res.get("context") or {}).get("period") or {}
+    made, start = _date(res.get("date")), _date(period.get("start"))
+    if start:
+        return date_within_visit(made, start, _date(period.get("end")))
+    return _date_in_title(title) or made or _date(first.get("creation"))
+
+
+def document_visit(res: dict[str, Any]) -> Optional[str]:
+    """The id of the Encounter a document points at, when it doesn't give that visit's dates itself."""
+    context = res.get("context") if isinstance(res.get("context"), dict) else {}
+    if res.get("resourceType") != "DocumentReference" or _date((context.get("period") or {}).get("start")):
+        return None
+    for link in context.get("encounter") or []:
+        ref = link.get("reference") if isinstance(link, dict) else None
+        if isinstance(ref, str) and "Encounter/" in ref:
+            return ref.rstrip("/").split("/")[-1]
+    return None
+
+
 def normalize_document_reference(res: dict[str, Any]) -> Optional[dict[str, Any]]:
     if _retracted(res.get("status"), res.get("docStatus")):
         return None
@@ -1127,7 +1172,7 @@ def normalize_document_reference(res: dict[str, Any]) -> Optional[dict[str, Any]
             break
     first = attachments[0] if attachments else {}
     context = res.get("context") or {}
-    when = _date(res.get("date"), (context.get("period") or {}).get("start"), first.get("creation"))
+    when = _document_date(res, title, first)
     # A replaced note can still say docStatus final: the badge says what became of it.
     shown_status = "superseded" if (res.get("status") or "").lower() == "superseded" else res.get("docStatus") or res.get("status")
     rec = _base(res, "notes", title, status=shown_status, effective_at=when,

@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 from zoneinfo import ZoneInfo
 
-from app.connectors import units
+from app.connectors import fhir_normalize, units
 from app.connectors.fhir_normalize import partial_pressure
 from app.core import data_fixes, settings
 from app.core.db import audit, db, finite, note_deleted, read, dumps, row_to_dict, rows_to_dicts, write_in_batches
@@ -109,6 +109,21 @@ def upsert_references(connection_id: str, resources: Iterable[dict[str, Any]]) -
 _COMPARED = ("profile_id, connection_id, resource_type, resource_id, category, title, code_system, code, code_display, "
              "effective_at, effective_end, status, value_num, value_text, unit, value_norm, unit_norm, ref_low, ref_high, "
              "ref_text, interpretation, details_json, narrative, dedup_key, source_name, raw_json")
+
+
+def date_documents_by_visit(connection_id: str, recs: list[dict[str, Any]]) -> None:
+    """Documents that only point at their visit take its dates, whether that visit came in this sync or an earlier one."""
+    visits = {r["resource_id"]: r for r in recs if r.get("resource_type") == "Encounter" and r.get("effective_at")}
+    with read() as conn:
+        for rec in recs:
+            visit_id = fhir_normalize.document_visit(rec.get("raw") or {})
+            if not visit_id:
+                continue
+            visit = visits.get(visit_id) or conn.execute(
+                "SELECT effective_at, effective_end FROM clinical_records WHERE connection_id = ? AND resource_type = 'Encounter' AND resource_id = ?",
+                (connection_id, visit_id)).fetchone()
+            if visit and visit["effective_at"]:
+                rec["effective_at"] = fhir_normalize.date_within_visit((rec["raw"] or {}).get("date"), visit["effective_at"], visit["effective_end"])
 
 
 def upsert_records(profile_id: str, connection_id: str, source_name: str, records: Iterable[dict[str, Any]]) -> dict[str, int]:

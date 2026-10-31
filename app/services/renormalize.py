@@ -22,7 +22,7 @@ from app.connectors import fhir_normalize
 from app.core import data_fixes
 from app.core.db import audit, dumps
 
-NAME = "records-renormalize-1"
+NAME = "records-renormalize-2"
 
 _DERIVED = ("category", "title", "code_system", "code", "code_display", "effective_at", "effective_end", "status", "value_num", "value_text",
             "unit", "value_norm", "unit_norm", "ref_low", "ref_high", "ref_text", "interpretation", "details_json", "narrative", "dedup_key")
@@ -77,6 +77,17 @@ def _person(conn: sqlite3.Connection, connection_id: str, known: dict[str, Any])
     return known[connection_id]
 
 
+def _date_by_visit(conn: sqlite3.Connection, row: dict[str, Any], fresh: dict[str, Any]) -> None:
+    """A document that only points at its visit takes that visit's dates, as it does during a sync."""
+    res = json.loads(row["raw_json"])
+    visit_id = fhir_normalize.document_visit(res)
+    visit = visit_id and conn.execute("SELECT effective_at, effective_end FROM clinical_records "
+                                      "WHERE connection_id = ? AND resource_type = 'Encounter' AND resource_id = ?",
+                                      (row["connection_id"], visit_id)).fetchone()
+    if visit and visit["effective_at"]:
+        fresh["effective_at"] = fhir_normalize.date_within_visit(res.get("date"), visit["effective_at"], visit["effective_end"])
+
+
 def step(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
     state = cursor or {"after": 0, "changed": 0, "removed": 0}
     rows = conn.execute(
@@ -92,6 +103,8 @@ def step(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
     for raw_row in rows:
         row = dict(raw_row)
         fresh = reread(row, _person(conn, row["connection_id"], people))
+        if isinstance(fresh, dict):
+            _date_by_visit(conn, row, fresh)
         if fresh == "remove":
             conn.execute("DELETE FROM clinical_records WHERE id = ?", (row["id"],))
             removed += 1
