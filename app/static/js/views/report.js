@@ -62,18 +62,18 @@ export async function render({ el, state }) {
       <section><h2>Active problems</h2>${table(["Condition", "ICD-10", "Since"],
         r.active_conditions.map((c) => [html`${conflicted(c)}${saidOf(c)}`, c.details?.icd10 || "—", c.details?.onset_text || fmtDate(c.effective_at)]))}
         ${r.unconfirmed_conditions?.length ? html`<h3>Unconfirmed, not established diagnoses</h3>${table(["Condition", "Status", "Since"],
-          r.unconfirmed_conditions.map((c) => [c.title, capitalize(c.details?.verification) || "Unconfirmed", fmtDate(c.effective_at)]))}` : ""}
+          r.unconfirmed_conditions.map((c) => [html`${c.title}${saidOf(c)}`, capitalize(c.details?.verification) || "Unconfirmed", fmtDate(c.effective_at)]))}` : ""}
         ${r.conditions_status_unknown?.length ? html`<h3>Status not stated</h3>${table(["Condition", "ICD-10", "Recorded"],
-          r.conditions_status_unknown.map((c) => [c.title, c.details?.icd10 || "—", fmtDate(c.effective_at)]))}` : ""}
+          r.conditions_status_unknown.map((c) => [html`${c.title}${saidOf(c)}`, c.details?.icd10 || "—", fmtDate(c.effective_at)]))}` : ""}
         ${r.visit_diagnoses?.length ? html`<h3>Diagnoses recorded at visits</h3>${table(["Condition", "ICD-10", "Date"],
-          r.visit_diagnoses.slice(0, 10).map((c) => [c.title, c.details?.icd10 || "—", fmtDate(c.effective_at)]))}` : ""}</section>
+          r.visit_diagnoses.slice(0, 10).map((c) => [html`${c.title}${saidOf(c)}`, c.details?.icd10 || "—", fmtDate(c.effective_at)]))}` : ""}</section>
 
       <section><h2>Current medications</h2>${table(["Medication", "Instructions", "Prescriber", "Last prescribed", "Source"],
         r.active_medications.map(medRow))}
         ${r.medications_to_check?.length ? html`<h3>May be out of date</h3>${table(["Medication", "Why", "Last prescribed", "Source"],
-          r.medications_to_check.map((m) => [m.title, m.med_reason || "—", fmtDate(m.last_prescribed), sourcesOf(m)]))}` : ""}
+          r.medications_to_check.map((m) => [html`${m.title}${saidOf(m)}`, m.med_reason || "—", fmtDate(m.last_prescribed), sourcesOf(m)]))}` : ""}
         ${r.medications_planned?.length ? html`<h3>Planned or proposed, not started</h3>${table(["Medication", "Date", "Source"],
-          r.medications_planned.map((m) => [m.title, fmtDate(m.last_prescribed), sourcesOf(m)]))}` : ""}
+          r.medications_planned.map((m) => [html`${m.title}${saidOf(m)}`, fmtDate(m.last_prescribed), sourcesOf(m)]))}` : ""}
         <p class="small muted" style="margin-top:6px">From records, not from what's actually being taken. Confirm this list with the patient.</p></section>
 
       ${corrected.length ? html`<section><h2>On record, and the patient says otherwise</h2>${table(["Entry", "The source says", "Patient-reported", "Source"],
@@ -81,7 +81,7 @@ export async function render({ el, state }) {
         <p class="small muted" style="margin-top:6px">Both are shown so they can be checked. The patient's words don't change the source's record.</p></section>` : ""}
 
       <section><h2>Latest vital signs</h2>${table(["Measure", "Value", "Date"],
-        r.latest_vitals.map((v) => [v.title, recordValue(v), fmtDate(v.effective_at)]))}</section>
+        r.latest_vitals.map((v) => [html`${v.title}${saidOf(v)}`, recordValue(v), fmtDate(v.effective_at)]))}</section>
 
       <section><h2>Out-of-range results (most recent)</h2>${table(["Test", "Result", "Flag", "Reference", "Date"],
         r.flagged_labs.filter((l) => !l.older).map(flaggedRow), "All recent lab results are within reference ranges.")}
@@ -95,15 +95,15 @@ export async function render({ el, state }) {
         r.biometrics.map((m) => [m.label, `${metricValue(m, m.latest.value)} ${metricUnit(m)}`,
           metricValue(m, m.avg_7d), metricValue(m, m.avg_30d)]))}</section>` : ""}
 
-      <section><h2>Immunizations</h2>${table(["Vaccine", "Date"], vaccines.slice(0, 15).map((i) => [i.title, recordDate(i)]))}
+      <section><h2>Immunizations</h2>${table(["Vaccine", "Date"], vaccines.slice(0, 15).map((i) => [html`${i.title}${saidOf(i)}`, recordDate(i)]))}
         ${flu.length ? html`<p class="small muted" style="margin-top:6px">Most recent influenza vaccine: ${recordDate(flu[0])}</p>` : ""}
         ${r.immunizations_not_given?.length ? html`<p class="small muted" style="margin-top:6px">Not given: ${r.immunizations_not_given.slice(0, 5).map((i) =>
           `${i.title} (${recordDate(i)}${i.details?.status_reason ? `, ${i.details.status_reason}` : ""})`).join("; ")}</p>` : ""}</section>
 
       <section><h2>Recent visits</h2>${table(["Date", "Visit", "Clinician", "Where"],
-        r.recent_encounters.map((e) => [fmtDate(e.effective_at), e.title, (e.details?.clinicians || [])[0] || "—", e.details?.provider || e.source_name || "—"]))}
+        r.recent_encounters.map((e) => [fmtDate(e.effective_at), html`${e.title}${saidOf(e)}`, (e.details?.clinicians || [])[0] || "—", e.details?.provider || e.source_name || "—"]))}
         ${r.upcoming_encounters?.length ? html`<h3>Upcoming</h3>${table(["Date", "Visit", "Clinician", "Where"],
-          r.upcoming_encounters.map((e) => [fmtDate(e.effective_at), e.title, (e.details?.clinicians || [])[0] || "—", e.details?.provider || e.source_name || "—"]))}` : ""}</section>
+          r.upcoming_encounters.map((e) => [fmtDate(e.effective_at), html`${e.title}${saidOf(e)}`, (e.details?.clinicians || [])[0] || "—", e.details?.provider || e.source_name || "—"]))}` : ""}</section>
 
       ${currentTeams.length ? html`<section><h2>Care team</h2>${table(["Name", "Role", "Source"],
         currentTeams.flatMap((t) => (t.details?.members || []).map((m) => [m.name, m.role, t.source_name])))}</section>` : ""}

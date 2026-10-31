@@ -102,8 +102,12 @@ function recordBody(r, text) {
     </div>`;
 }
 
+// The Mac, Windows and phone apps send a new window to the system browser, which isn't signed in: there, a document is downloaded.
+const inApp = document.documentElement.hasAttribute("data-shell") || document.documentElement.hasAttribute("data-embedded");
+const READ_IT = inApp ? "Download it to read it." : "Open it to read it.";
 const FILE_WORDS = {
-  scanned: "Scanned document, no text. Open it to read it.", unreadable: "This document's text couldn't be read. Open it to read it.",
+  scanned: `Scanned document, no text. ${READ_IT}`, unreadable: `This document's text couldn't be read. ${READ_IT}`,
+  read_later: `This document's text hasn't been read yet. ${READ_IT}`,
   too_large: "This document is too large to keep here. It's still at the source.",
 };
 
@@ -112,7 +116,7 @@ function filesBlock(r) {
   if (!r.files?.length) return "";
   return html`<div><div class="label">Documents</div><div class="list card">${r.files.map((f) => {
     const url = `/api/records/${encodeURIComponent(r.id)}/files/${encodeURIComponent(f.id)}`;
-    const canShow = ["application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"].includes(f.content_type);
+    const canShow = !inApp && ["application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"].includes(f.content_type);
     return html`<div class="list-item small"><div class="grow"><b>${f.name || (f.content_type === "application/pdf" ? "PDF document" : "Document")}</b>
       ${FILE_WORDS[f.state] ? html`<div class="muted">${FILE_WORDS[f.state]}</div>` : ""}</div>
       ${f.state === "too_large" ? "" : html`${canShow ? html`<a class="btn btn-sm" href="${url}" target="_blank" rel="noopener">Open</a>` : ""}

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -129,6 +131,8 @@ def add_self_reported(body: SelfReported) -> dict:
     """A medication, supplement or allergy the person says they have, which no source lists. Goes through the manual source and
     the normalizers, so it reaches the report, Ask and exports like the rest, with its source saying whose word it is."""
     prof = resolve_profile(body.profile_id, "manage")
+    if not body.name.strip():
+        raise HTTPException(400, "Enter a name.")
     if body.started:
         _check_date(body.started, "The date")
     _, recs = fhir_normalize.normalize_resources([_self_reported_resource(body)])
@@ -149,9 +153,12 @@ def get_record_file(record_id: str, file_id: str, download: bool = False) -> Res
     check_access(rec["profile_id"], "view")
     shown = found["content_type"] in record_files.SHOWN_INLINE and not download
     name = "".join(c for c in (found.get("name") or "document") if c.isalnum() or c in " ._-")[:120].strip() or "document"
+    # Headers are latin-1, so a name in another script goes in the form made for that, beside a plain one for anything older.
+    stem, suffix = os.path.splitext(name)
+    plain = (stem.encode("ascii", "ignore").decode().strip() or "document") + suffix.encode("ascii", "ignore").decode()
     return Response(found["data"], media_type=found["content_type"] if shown else "application/octet-stream", headers={
-        "Content-Disposition": f'{"inline" if shown else "attachment"}; filename="{name}"', "X-Content-Type-Options": "nosniff",
-        "Cache-Control": "private, no-store"})
+        "Content-Disposition": f"""{"inline" if shown else "attachment"}; filename="{plain}"; filename*=UTF-8''{quote(name)}""",
+        "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"})
 
 
 # Besides record categories, the timeline can show what was logged and measured day to day. "Everything" includes the

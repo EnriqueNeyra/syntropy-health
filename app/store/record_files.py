@@ -24,12 +24,16 @@ MAX_FILE = 32 * 1024 * 1024
 MAX_PAGES = 500
 MAX_TEXT = 200_000
 READ_SECONDS = 20.0
+FIX_READ_SECONDS = 1.0
 # Opened in the browser. Anything else is only ever downloaded: an HTML or SVG file from a source must not run on this page's address.
 SHOWN_INLINE = ("application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp")
 FILE_TYPES = ("application/pdf", "image/")
 _COLUMNS = "id, profile_id, connection_id, resource_type, resource_id, name, content_type, size, state, stored_at"
 
-HAS_TEXT, SCANNED, IMAGE, ORIGINAL, UNREADABLE, TOO_LARGE = "text", "scanned", "image", "original", "unreadable", "too_large"
+HAS_TEXT, SCANNED, IMAGE, ORIGINAL, UNREADABLE, TOO_LARGE, READ_LATER = "text", "scanned", "image", "original", "unreadable", "too_large", "read_later"
+# How much of a page's drawing instructions gets read per second allowed: parsing them is the one step that can't be stopped midway.
+STREAM_PER_SECOND = 1_000_000
+GENERIC_TYPES = ("", "application/octet-stream", "binary/octet-stream", "application/binary", "application/unknown")
 
 
 def media_type(content_type: Optional[str]) -> str:
@@ -40,50 +44,80 @@ def is_file_type(content_type: Optional[str]) -> bool:
     return media_type(content_type).startswith(FILE_TYPES)
 
 
-def pdf_text(data: bytes, seconds: float = READ_SECONDS) -> tuple[str, str]:
+def served_type(declared: Optional[str], served: Optional[str], data: bytes) -> str:
+    """What an attachment really is. Servers often send a PDF as generic bytes, and those must never become a note's text."""
+    if is_file_type(served):
+        return served or ""
+    if data[:1024].lstrip().startswith(b"%PDF-"):
+        return "application/pdf"
+    return (declared or "") if is_file_type(declared) and media_type(served) in GENERIC_TYPES else (served or "")
+
+
+class _OutOfTime(Exception):
+    pass
+
+
+def pdf_text(data: bytes, seconds: float = READ_SECONDS, later: bool = False) -> tuple[str, str]:
     """The text in a PDF and what became of reading it. A hostile PDF can't hold this up for long or fill the database: there's
-    a limit on pages, time and text, and what was read up to a limit is kept."""
+    a limit on pages, time and text, and what was read up to a limit is kept. With ``later``, a PDF that needs longer than this is
+    left to be read in full another time."""
     from pypdf import PdfReader
     from pypdf.errors import PyPdfError
 
     parts: list[str] = []
     size = 0
-    started = time.monotonic()
+    deadline = time.monotonic() + seconds
+    ran_out = False
+
+    def in_time(*_: Any) -> None:       # also called inside a page, for every instruction on it
+        if time.monotonic() > deadline:
+            raise _OutOfTime
+
     try:
         reader = PdfReader(io.BytesIO(data))
         if reader.is_encrypted:
             return "", UNREADABLE
         for page in reader.pages[:MAX_PAGES]:
-            found = page.extract_text() or ""
+            in_time()
+            contents = page.get_contents()
+            if contents is not None and len(contents.get_data()) > seconds * STREAM_PER_SECOND:
+                ran_out = True
+                continue
+            found = page.extract_text(visitor_operand_before=in_time) or ""
             parts.append(found)
             size += len(found)
-            if size >= MAX_TEXT or time.monotonic() - started > seconds:
+            if size >= MAX_TEXT:
                 break
+    except _OutOfTime:
+        ran_out = True
     except (PyPdfError, ValueError, TypeError, KeyError, AttributeError, IndexError, OSError, RecursionError, MemoryError, AssertionError,
             ZeroDivisionError, OverflowError, NotImplementedError) as exc:
         log.info("Couldn't read a PDF: %s", type(exc).__name__)
         if not "".join(parts).strip():
             return "", UNREADABLE
+    if ran_out and later:
+        return "", READ_LATER
     text = "\n\n".join(p.strip() for p in parts if p.strip())[:MAX_TEXT]
-    return text, HAS_TEXT if text else SCANNED
+    return text, HAS_TEXT if text else UNREADABLE if ran_out else SCANNED
 
 
-def _read_state(data: bytes, content_type: str, seconds: float = READ_SECONDS) -> tuple[str, str]:
+def _read_state(data: bytes, content_type: str, seconds: float = READ_SECONDS, later: bool = False) -> tuple[str, str]:
     if len(data) > MAX_FILE:
         return "", TOO_LARGE
     if media_type(content_type) == "application/pdf":
-        return pdf_text(data, seconds)
+        return pdf_text(data, seconds, later)
     return "", IMAGE if media_type(content_type).startswith("image/") else ORIGINAL
 
 
 def _write(conn: Any, profile_id: str, connection_id: str, resource_type: str, resource_id: str, name: Optional[str],
            content_type: str, data: bytes, text: str, state: str, fingerprint: Optional[str]) -> None:
     keep = state != TOO_LARGE
-    digest = hashlib.sha256(data).hexdigest() if keep else None
+    digest = hashlib.sha256(data).hexdigest()
     where = "connection_id = ? AND resource_type = ? AND resource_id = ?"
     key = (connection_id, resource_type, resource_id)
-    if digest and conn.execute(f"SELECT 1 FROM record_files WHERE {where} AND sha256 = ?", (*key, digest)).fetchone():
-        conn.execute(f"UPDATE record_files SET fingerprint = ?, state = ? WHERE {where} AND sha256 = ?", (fingerprint, state, *key, digest))
+    if conn.execute(f"SELECT 1 FROM record_files WHERE {where} AND sha256 = ?", (*key, digest)).fetchone():
+        conn.execute(f"UPDATE record_files SET fingerprint = coalesce(?, fingerprint), state = ?, text = ? WHERE {where} AND sha256 = ?",
+                     (fingerprint, state, text or None, *key, digest))
         return
     if fingerprint:     # the source changed this record: the file that was its earlier version goes
         conn.execute(f"DELETE FROM record_files WHERE {where} AND coalesce(fingerprint, '') != ?", (*key, fingerprint))
@@ -93,14 +127,18 @@ def _write(conn: Any, profile_id: str, connection_id: str, resource_type: str, r
                   fingerprint, state, text or None, time.time(), data if keep else None))
 
 
+def _known(conn: Any, connection_id: str, resource_type: str, resource_id: str, data: bytes) -> Any:
+    """This file, if it's here and has been read."""
+    return conn.execute("SELECT text, state FROM record_files WHERE connection_id = ? AND resource_type = ? AND resource_id = ? AND sha256 = ? AND state != ?",
+                        (connection_id, resource_type, resource_id, hashlib.sha256(data).hexdigest(), READ_LATER)).fetchone()
+
+
 def save(profile_id: str, connection_id: str, resource_type: str, resource_id: str, name: Optional[str], content_type: str,
          data: bytes, fingerprint: Optional[str] = None) -> tuple[str, str]:
     """Keeps a file, and returns the text in it and its state. A file already here isn't read again: a source sending a PDF inside
     a note sends it at every sync. The reading happens before the write lock is taken."""
-    digest = hashlib.sha256(data).hexdigest()
     with read() as conn:
-        known = conn.execute("SELECT text, state FROM record_files WHERE connection_id = ? AND resource_type = ? AND resource_id = ? AND sha256 = ?",
-                             (connection_id, resource_type, resource_id, digest)).fetchone()
+        known = _known(conn, connection_id, resource_type, resource_id, data)
     text, state = (known["text"] or "", known["state"]) if known else _read_state(data, content_type)
     with db() as conn:
         _write(conn, profile_id, connection_id, resource_type, resource_id, name, media_type(content_type), data, text, state, fingerprint)
@@ -149,20 +187,36 @@ def has_text(rec: dict[str, Any]) -> bool:
     return bool(rec.get("narrative"))
 
 
+def _drop_replaced(connection_id: str, resource_type: str, resource_id: str, current: set[str]) -> None:
+    """A record the source corrected comes with its corrected PDF, and the earlier one mustn't stay to be opened by mistake. Files
+    fetched from a link have a fingerprint, and go by that."""
+    where = "connection_id = ? AND resource_type = ? AND resource_id = ? AND fingerprint IS NULL"
+    with read() as conn:
+        stale = [r["id"] for r in conn.execute(f"SELECT id, sha256 FROM record_files WHERE {where}", (connection_id, resource_type, resource_id))
+                 if r["sha256"] not in current]
+    if stale:
+        with db() as conn:
+            conn.executemany("DELETE FROM record_files WHERE id = ?", [(i,) for i in stale])
+
+
 def take_inline(profile_id: str, connection_id: str, recs: Iterable[dict[str, Any]]) -> int:
     """From records about to be stored: keeps each PDF and image, and fills in the record's text from a PDF when it has none."""
     kept = 0
     for rec in recs:
         if rec.get("category") not in ("notes", "reports"):
             continue
+        current: set[str] = set()
         for att in inline_attachments(rec.get("raw")):
             data = _decode(att)
             if not data:
                 continue
             text, _ = save(profile_id, connection_id, rec["resource_type"], rec["resource_id"], att.get("title"), att.get("contentType"), data)
+            current.add(hashlib.sha256(data).hexdigest())
             kept += 1
             if text and not has_text(rec):
                 put_text(rec, text)
+        if current:
+            _drop_replaced(connection_id, rec["resource_type"], rec["resource_id"], current)
     return kept
 
 
@@ -198,11 +252,12 @@ def all_for_profile(profile_id: str) -> Iterable[dict[str, Any]]:
 
 def _keep_inline_files(conn: Any, cursor: Any, size: int) -> Any:
     """Notes and reports stored before files were kept: their PDFs and images are in their stored resources. Short reads, because
-    this runs in a transaction: a PDF needing longer is still kept, and its text is left for the next time it arrives."""
+    this runs in a transaction and others are waiting to write: a PDF needing longer is still kept, and it's read in full the next
+    time it arrives."""
     rows = conn.execute("""SELECT rowid, id, profile_id, connection_id, resource_type, resource_id, category, narrative, raw_json, details_json
                            FROM clinical_records WHERE rowid > ? AND category IN ('notes', 'reports') ORDER BY rowid LIMIT ?""",
                         (cursor or 0, min(size, 50))).fetchall()
-    spent = time.monotonic()
+    started = time.monotonic()
     last = None
     for row in rows:
         last = row["rowid"]
@@ -218,14 +273,16 @@ def _keep_inline_files(conn: Any, cursor: Any, size: int) -> Any:
             data = _decode(att)
             if not data:
                 continue
-            text, state = _read_state(data, att.get("contentType") or "", seconds=2.0)
+            known = _known(conn, row["connection_id"], row["resource_type"], row["resource_id"], data)
+            text, state = (known["text"] or "", known["state"]) if known else _read_state(
+                data, att.get("contentType") or "", seconds=max(0.0, FIX_READ_SECONDS - (time.monotonic() - started)), later=True)
             _write(conn, row["profile_id"], row["connection_id"], row["resource_type"], row["resource_id"], att.get("title"),
                    media_type(att.get("contentType")), data, text, state, None)
             if text and not has_text(rec):
                 put_text(rec, text)
                 conn.execute("UPDATE clinical_records SET narrative = ?, details_json = ? WHERE rowid = ?",
                              (rec["narrative"], json.dumps(rec["details"]), row["rowid"]))
-        if time.monotonic() - spent > 1.0:
+        if time.monotonic() - started > FIX_READ_SECONDS:
             break
     return last
 

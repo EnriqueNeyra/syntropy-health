@@ -760,7 +760,7 @@ class FhirClient:
                     raw = base64.b64decode(body["data"])
                     if len(raw) > max_bytes:
                         raise BinaryTooLarge(len(raw))
-                    return body.get("contentType") or "text/plain", raw
+                    return body.get("contentType") or "", raw
             except (ValueError, TypeError):
                 pass
             return None

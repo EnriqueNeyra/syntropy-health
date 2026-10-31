@@ -1172,6 +1172,14 @@ def medication_lists(rows: list[dict[str, Any]], today: Optional[date] = None) -
     return tiers
 
 
+def _no_known_note(rows: list[dict[str, Any]]) -> str:
+    """A source ruling out drug allergies hasn't ruled out food ones, so a statement about one kind stays in the source's words."""
+    said = [a for a in rows if (a.get("status") or "").lower() == "no-known-allergies"]
+    if any(a.get("code") == "716186003" for a in said):
+        return "No known allergies."
+    return " ".join(dict.fromkeys(f"{(a.get('title') or 'No known allergies').rstrip('.')}." for a in said))
+
+
 def summary(profile_id: str) -> dict[str, Any]:
     today = date.today()
     conds = list_records(profile_id, "conditions", limit=500)["items"]
@@ -1184,7 +1192,7 @@ def summary(profile_id: str) -> dict[str, Any]:
     allergies = [a for a in allergy_rows if _allergy_active(a)]
     inactive_allergies = [a for a in allergy_rows if (a.get("status") or "").lower() in INACTIVE_ALLERGY_STATUSES]
     allergy_note = (f"No active allergies. {len(inactive_allergies)} marked inactive." if inactive_allergies and not allergies
-                    else "No known allergies." if "no-known-allergies" in statements
+                    else _no_known_note(allergy_rows) if "no-known-allergies" in statements
                     else "Allergies haven't been recorded by your care team." if "not-asked" in statements else None)
     latest_by_code = _latest_labs(list_records(profile_id, "labs", limit=SUMMARY_LABS)["items"])
     flagged = _out_of_range(latest_by_code, today)

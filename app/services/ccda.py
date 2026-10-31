@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
+import json
 import re
 import xml.etree.ElementTree as ET
 import zipfile
@@ -67,6 +68,14 @@ SEVERITY = {"255604002": "mild", "6736007": "moderate", "24484000": "severe"}
 CRITICALITY = {"CRITL": "low", "CRITH": "high", "CRITU": "unable-to-assess"}
 PERIOD_UNITS = ("h", "d", "wk", "mo", "min", "a", "s")
 NO_KNOWN_ALLERGY = "716186003"
+# A statement can rule out one kind of allergy without ruling out the others, so each keeps what it covers.
+NO_KNOWN_BY_CATEGORY = {"medication": ("409137002", "No known drug allergies"), "food": ("429625007", "No known food allergies"),
+                        "environment": ("428607008", "No known environmental allergies")}
+NO_KNOWN_WORDS = {"no known allergies": None, "no known allergy": None, "nka": None, "no allergies known": None,
+                  "nkda": "medication", "nkma": "medication", "no known drug allergies": "medication", "no known drug allergy": "medication",
+                  "no known medication allergies": "medication", "no known medication allergy": "medication",
+                  "no known medicine allergies": "medication", "nkfa": "food", "no known food allergies": "food", "no known food allergy": "food",
+                  "no known environmental allergies": "environment", "no known environmental allergy": "environment"}
 SYSTOLIC, DIASTOLIC, PRESSURE_PANEL = "8480-6", "8462-4", "85354-9"
 OBSERVATION_CATEGORY = "http://terminology.hl7.org/CodeSystem/observation-category"
 TEXT_ID_SYSTEM = "urn:syntropy-health:ccda-text"
@@ -308,6 +317,20 @@ def _some(**fields: Any) -> dict[str, Any]:
 # Sections
 # ---------------------------------------------------------------------------
 
+def _keep(kept: dict[tuple[str, str], dict[str, Any]], res: dict[str, Any]) -> dict[str, Any]:
+    """Different entries can carry one id: an order id reused across a panel's results, or a bare root. Each stays, under an id
+    that's still the same when the document comes back. The same entry twice stays one."""
+    found = res
+    for tell_apart in (None, res.get("code"), res):
+        res_id = res["id"] if tell_apart is None else f"ccda-{_digest(res['id'], json.dumps(tell_apart, sort_keys=True))}"
+        found = kept.get((res["resourceType"], res_id))
+        if found is None:
+            return kept.setdefault((res["resourceType"], res_id), {**res, "id": res_id})
+        if {**found, "id": res["id"]} == res:
+            return found
+    return found
+
+
 class _Document:
     def __init__(self, root: ET.Element, digest: str) -> None:
         self.root = root
@@ -319,7 +342,7 @@ class _Document:
         self.missed = 0
 
     def add(self, res: dict[str, Any]) -> dict[str, Any]:
-        return self.resources.setdefault((res["resourceType"], res["id"]), res)
+        return _keep(self.resources, res)
 
     def subject(self) -> dict[str, Any]:
         return {"subject": {"reference": f"Patient/{self.patient_id}"}} if self.patient_id else {}
@@ -334,6 +357,11 @@ def _concern_observations(entry: ET.Element) -> tuple[Optional[ET.Element], list
     return act, [o for o in found if o is not None]
 
 
+def _no_known(category: Optional[str]) -> dict[str, Any]:
+    code, words = NO_KNOWN_BY_CATEGORY.get(category or "", (NO_KNOWN_ALLERGY, "No known allergies"))
+    return {"coding": [{"system": "http://snomed.info/sct", "code": code}], "text": words}
+
+
 def _allergy(ctx: _Document, sec: _Section, entry: ET.Element) -> list[dict[str, Any]]:
     act, observations = _concern_observations(entry)
     out = []
@@ -342,11 +370,11 @@ def _allergy(ctx: _Document, sec: _Section, entry: ET.Element) -> list[dict[str,
         substance = sec.concept(material.find("code")) if material is not None else None
         if not substance and material is not None and _clean(material.findtext("name")):
             substance = {"text": _clean(material.findtext("name"))}
-        named = ((substance or {}).get("text") or "").lower()
-        if (_negated(obs) and not (substance or {}).get("coding")) or named.startswith(("no known", "nka")):
-            substance = {"coding": [{"system": "http://snomed.info/sct", "code": NO_KNOWN_ALLERGY}], "text": "No known allergies"}
-        elif _negated(obs) or not substance:
-            ctx.missed += 1
+        named = " ".join(re.sub(r"[^a-z ]+", " ", ((substance or {}).get("text") or "").lower()).split())
+        if named in NO_KNOWN_WORDS or (_negated(obs) and not substance):
+            substance = _no_known(NO_KNOWN_WORDS[named] if named in NO_KNOWN_WORDS else ALLERGY_CATEGORY.get(_attr(obs, "value", "code")))
+        elif _negated(obs) or not substance or named.startswith(("no known", "no allerg")):
+            ctx.missed += 1     # ruling out one substance says nothing about any other, so it mustn't read as "no allergies"
             continue
         status = CONCERN_STATUS.get(_status_of(act)) if act is not None else None
         res: dict[str, Any] = {"resourceType": "AllergyIntolerance", "id": _resource_id("allergy", obs), "code": substance, **ctx.patient()}
@@ -648,8 +676,11 @@ def _read_section(ctx: _Document, el: ET.Element) -> None:
             found = reader(ctx, sec, entry)
         except (ValueError, TypeError, AttributeError, KeyError):
             found = []
+        results: list[dict[str, Any]] = []
         for res in found:
-            ctx.add(res)
+            if res["resourceType"] == "DiagnosticReport" and "result" in res:
+                res["result"] = [{"reference": f"Observation/{r['id']}"} for r in results]
+            results.append(ctx.add(res))
         if not found and ctx.missed == missed:
             ctx.missed += 1
     # What a section says stays readable when an entry couldn't be mapped, when it has no entries (often just "No known allergies"),
@@ -786,13 +817,29 @@ def read_upload(raw: bytes, filename: str) -> Summary:
         raise ValueError(NOT_SUMMARY_ZIP)
     out = Summary()
     seen: dict[tuple[str, str], dict[str, Any]] = {}
+    damaged: list[tuple[str, ValueError]] = []
     for name, body in documents:
-        one = read_document(body, name)
+        try:
+            one = read_document(body, name)
+        except ValueError as exc:
+            # A manifest can mention the word without being a document. One that can't be read mustn't cost the others.
+            if str(exc) != NOT_SUMMARY_XML:
+                damaged.append((name, exc))
+            continue
         for res in one.resources:
-            seen.setdefault((res["resourceType"], res["id"]), res)
+            if res["resourceType"] == "Patient":
+                seen.setdefault(("Patient", res["id"]), res)
+            else:
+                _keep(seen, res)
         out.originals.extend(one.originals)
         out.warnings.extend(one.warnings)
+    if not out.originals:
+        raise damaged[0][1] if damaged else ValueError(NOT_SUMMARY_ZIP)
     out.resources = list(seen.values())
+    if damaged:
+        names = [name for name, _ in damaged]
+        out.warnings.append(f"Couldn't be read, so not imported: {', '.join(names[:5])}{' and others' if len(names) > 5 else ''}. "
+                            "The other documents in this zip were imported.")
     if others:
         out.warnings.append(f"Not read from this zip: {', '.join(others[:5])}{' and others' if len(others) > 5 else ''}. "
                             "Only the health summary documents in it were imported.")

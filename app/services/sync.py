@@ -353,7 +353,8 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
                     done["problem"] = "Clinical notes: the text of some couldn't be downloaded this time. Syntropy will try again."
                     body = None
                 if body:
-                    content_type, raw = body
+                    raw = body[1]
+                    content_type = record_files.served_type(ctype, *body)
                     if record_files.is_file_type(content_type):
                         try:
                             text, _ = await asyncio.to_thread(record_files.save, conn["profile_id"], conn["id"], rec["resource_type"], rec["resource_id"],
