@@ -699,6 +699,26 @@ def test_when_nothing_fits_the_model_is_told_to_answer_from_what_it_has(client, 
     assert "tool" not in _kinds(events) and "no_room" in vendor.bodies[1]["messages"][-1]["content"]
 
 
+def test_a_long_history_is_trimmed_to_a_small_window_keeping_the_question(client, vendor, monkeypatch):
+    client.put("/api/ai/config", json={"provider": "local", "base_url": f"{vendor.url}/v1", "model": "m"})
+    _, info = _ollama(vendor, 4096)
+    monkeypatch.setattr(ai_local, "context_info", info)
+    vendor.script.append(_text("Fine."))
+    history = [{"role": r, "content": "x" * 5000} for r in ["user", "assistant"] * 4] + [{"role": "user", "content": "The question"}]
+    _events(client.post("/api/ai/chat", json={"messages": history}))
+    sent = vendor.bodies[0]
+    assert sent["messages"][-1]["content"] == "The question" and len(sent["tools"]) == len(ai.CORE_TOOLS)
+    assert sum(len(m["content"]) for m in sent["messages"][1:]) <= 4096 * ai.CHARS_PER_TOKEN // 4
+
+
+def test_settings_can_read_how_much_room_the_local_model_has(client, vendor, monkeypatch):
+    assert client.get("/api/ai/local/context").json() == {"tokens": None}
+    client.put("/api/ai/config", json={"provider": "local", "base_url": f"{vendor.url}/v1", "model": "m"})
+    _, info = _ollama(vendor, 4096)
+    monkeypatch.setattr(ai_local, "context_info", info)
+    assert client.get("/api/ai/local/context").json()["tokens"] == 4096
+
+
 def test_the_real_window_is_read_from_what_ollama_has_loaded(monkeypatch):
     import httpx
     import asyncio

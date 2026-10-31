@@ -190,7 +190,7 @@ async def context_info(base_url: str, model: str, key: Optional[str] = None) -> 
             if resp.status_code == 200:
                 for loaded in resp.json().get("models") or []:
                     n = loaded.get("context_length")
-                    if loaded.get("name") == model and isinstance(n, int) and n > 0:
+                    if model in (loaded.get("name"), loaded.get("model"), str(loaded.get("name")).removesuffix(":latest")) and isinstance(n, int) and n > 0:
                         return {"tokens": n, "server": "ollama", "measured": True}
             resp = await client.post(f"{root}/api/show", json={"model": model})
             if resp.status_code == 200:

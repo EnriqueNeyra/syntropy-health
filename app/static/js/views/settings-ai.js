@@ -291,7 +291,8 @@ export async function renderAiTab(body, { state, redraw }) {
         const r = await post("/api/ai/test");
         toast(cfg.kind === "agent" ? `Working: ${r.model} replied in ${r.seconds}s.`
           : r.tools ? `Working: ${r.model} can look things up (${r.seconds}s).`
-            : `Working: ${r.model} answers from a summary of your data (${r.seconds}s).`, "good");
+            : r.tools === false ? `Working: ${r.model} answers from a summary of your data (${r.seconds}s).`
+              : `Working: ${r.model} replied in ${r.seconds}s. This test couldn't tell whether it can look things up.`, "good");
         if (cfg.kind !== "agent" && r.tools !== cfg.tools) return redraw();
       } catch (err) { toast(err.message, "bad"); }
       btn.disabled = false;
@@ -437,7 +438,7 @@ async function afterConnect(label, isDefault) {
   try {
     const r = await post("/api/ai/test");
     toast(r.tools === false ? `${label} works. ${r.model} can't use tools, so it answers from a summary of your data.`
-      : `${label} works and can look things up (${r.seconds}s).`, "good");
+      : r.tools ? `${label} works and can look things up (${r.seconds}s).` : `${label} works (${r.seconds}s).`, "good");
   } catch (err) { toast(err.message, "bad"); }
 }
 

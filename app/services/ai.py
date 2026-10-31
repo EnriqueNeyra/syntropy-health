@@ -334,7 +334,9 @@ def _member_models(provider: str, agent: Optional[str]) -> set[str]:
             *(m["id"] for m in (local[1] if local else []))}
 
 
-def _save_member_choice(account_id: str, provider: str, agent: Optional[str], model: Optional[str]) -> dict[str, Any]:
+def _save_member_choice(account_id: Optional[str], provider: str, agent: Optional[str], model: Optional[str]) -> dict[str, Any]:
+    if not account_id:
+        raise AIError("Sign in with your account to choose an AI.")
     name = (model or "").strip()
     if name and name not in _member_models(provider, agent):
         raise AIError("Choose a model from the list.")
@@ -1324,8 +1326,8 @@ def system_prompt(profile: dict[str, Any], snapshot: Optional[str] = None) -> st
     units = settings.get("display.units")
     context_lines = [f"This is {who}'s record ({'; '.join(facts)}).", _who_is_asking(profile),
                      f"Today is {today:%A, %B} {today.day}, {today.year} ({today:%Y-%m-%d}, time zone {tz}). Training weeks start on Monday.",
-                     {"us": "They read US units (miles, pounds, Fahrenheit): show those, converting from the metric fields in the data and giving the value as recorded for lab results.",
-                      "metric": "They read metric units: show those."}.get(units, "")]
+                     {"us": "They read US units (miles, pounds, Fahrenheit). Where a result has a field in those units, use it. Lab results stay as recorded.",
+                      "metric": "They read metric units."}.get(units, "")]
     return f"""You are the health assistant inside Syntropy Health, a private, self-hosted personal health record. \
 You help people find and understand what's in the health data of the person described at the end: answering questions and \
 describing trends across their records, sleep, training and habits.
@@ -1488,16 +1490,20 @@ def _request_chars(system: str, tools: list[dict[str, Any]], messages: list[dict
     return len(system) + len(json.dumps(tools)) + sum(len(json.dumps(m, default=str)) for m in messages)
 
 
-async def _window(cfg: dict[str, Any]) -> Optional[int]:
-    """A local model's context window right now (it can change as models load), in tokens. Hosted models have room."""
+async def _window(cfg: dict[str, Any]) -> dict[str, Any]:
+    """A local model's context window right now (it can change as models load). Hosted models have room."""
     if cfg["provider"] != "local":
-        return None
-    return (await ai_local.context_info(cfg["base_url"], cfg["model"], cfg.get("key")))["tokens"]
+        return {"tokens": None, "measured": False}
+    return await ai_local.context_info(cfg["base_url"], cfg["model"], cfg.get("key"))
 
 
 async def _answer_with_tools(client: httpx.AsyncClient, cfg: dict[str, Any], system: str, turns: list[dict[str, Any]],
                              profile_id: str, used: list[str]) -> AsyncIterator[dict[str, Any]]:
-    tools = _tools()
+    # Before a model is loaded, its server can only guess, so its answer is only acted on once a model reports it.
+    start = await _window(cfg)
+    tools = _tools(core_only=start["measured"] and start["tokens"] < SMALL_WINDOW)
+    if start["tokens"]:
+        turns = _trim_for_small_context(turns, start["tokens"] * CHARS_PER_TOKEN // 4)
     messages: list[dict[str, Any]] = list(turns)
     for _ in range(MAX_TOOL_ROUNDS):
         reply, shown = None, False
@@ -1519,7 +1525,7 @@ async def _answer_with_tools(client: httpx.AsyncClient, cfg: dict[str, Any], sys
         if shown:
             yield {"type": "reset"}     # "Let me look that up…": the answer comes after the lookups
         messages.append({"role": "assistant", "raw": reply.raw})
-        window = await _window(cfg)
+        window = (await _window(cfg))["tokens"]
         if window is not None and window < SMALL_WINDOW:
             tools = _tools(core_only=True)
         # A result that overflowed a small window would push out the instructions and the question, which go first.
