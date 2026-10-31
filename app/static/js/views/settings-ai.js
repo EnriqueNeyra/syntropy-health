@@ -81,11 +81,12 @@ export async function renderAiTab(body, { state, redraw }) {
   const cfg = await get("/api/ai/config", { chat: true }, { fresh: true });
   // Connecting an AI is the owner's (it serves everyone); anyone switches between them and agrees for themselves.
   const owner = cfg.can_configure !== false;
-  const [{ tokens }, { profiles }, local, agentInfo] = await Promise.all([get("/api/agents/tokens"), get("/api/profiles"),
-    owner ? get("/api/agents/local-command") : null, owner ? get("/api/ai/agents", null, { fresh: true }) : { agents: [] }]);
+  const [{ tokens }, { profiles }, local] = await Promise.all([get("/api/agents/tokens"), get("/api/profiles"),
+    owner ? get("/api/agents/local-command") : null]);
   const url = `${location.origin}/mcp`;
   const providers = Object.fromEntries(cfg.providers.map((p) => [p.id, p]));
-  let agents = agentInfo;
+  // Finding AI apps means asking each one's own program, which can take seconds: the page doesn't wait for that.
+  let agents = { agents: [], available: owner, looking: owner };
   let detected = null;          // local AI servers found on this computer, once the scan finishes
   let scanning = true;
 
@@ -198,8 +199,8 @@ export async function renderAiTab(body, { state, redraw }) {
           <button class="link-btn small" data-action="scan" ${scanning ? "disabled" : ""}>${scanning ? "Looking…" : "Scan again"}</button></div>
         <div class="ai-tiles">${localTiles}</div></div>
       ${agents.available ? html`<div class="ai-add-group"><div class="ai-add-head">${icon("code")} AI apps you're signed in to <span>Uses your existing plan</span>
-          <button class="link-btn small" data-action="agents-refresh">Check again</button></div>
-        <div class="ai-tiles">${agentTiles}</div></div>` : ""}
+          <button class="link-btn small" data-action="agents-refresh" ${agents.looking ? "disabled" : ""}>${agents.looking ? "Looking…" : "Check again"}</button></div>
+        ${agents.looking ? html`<p class="small muted" style="margin:0">Looking for them on this computer…</p>` : html`<div class="ai-tiles">${agentTiles}</div>`}</div>` : ""}
       <div class="ai-add-group"><div class="ai-add-head">${icon("key")} With your own API key <span>Billed to your account</span></div>
         <div class="ai-tiles">${keyTiles}</div></div>
     </section>`;
@@ -246,7 +247,10 @@ export async function renderAiTab(body, { state, redraw }) {
     scanning = false;
     draw();
   };
-  if (owner) scan();
+  if (owner) {
+    scan();
+    get("/api/ai/agents", null, { fresh: true }).then((found) => { agents = found; }, () => { agents = { agents: [], available: false }; }).then(() => { if (body.isConnected) draw(); });
+  }
   if (cfg.provider === "local" && cfg.configured) get("/api/ai/local/context", null, { fresh: true }).then((r) => { context = r; draw(); }, () => {});
 
   /** Makes a connected AI the default for Ask. */
