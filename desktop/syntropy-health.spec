@@ -23,7 +23,8 @@ hidden = [*collect_submodules("app"), *collect_submodules("uvicorn"), *collect_s
 if sys.platform == "win32":
     hidden += ["pystray._win32", "webview.platforms.edgechromium", "webview.platforms.winforms", "windows_window"]
 elif sys.platform == "darwin":
-    hidden += ["webview.platforms.cocoa", "mac_window"]
+    # Vision reads photos and scans of lab reports; Quartz reads HEIC. Both are imported only when needed, so the packager can't see them.
+    hidden += ["webview.platforms.cocoa", "mac_window", *collect_submodules("Vision"), *collect_submodules("CoreML"), *collect_submodules("Quartz")]
 
 a = Analysis([str(DESKTOP / "syntropy_desktop.py")], pathex=[str(ROOT), str(DESKTOP)], datas=datas,
              hiddenimports=hidden, excludes=["tkinter", "pytest", "IPython"], noarchive=False)

@@ -148,7 +148,8 @@ def test_photo_without_tesseract_explains(client, monkeypatch):
     report_image().save(buf, "JPEG")
     r = client.post("/api/labs/extract", files={"file": ("photo.jpg", buf.getvalue(), "image/jpeg")})
     assert r.status_code == 400 and "Tesseract" in r.json()["detail"]
-    assert client.get("/api/labs/reader").json() == {"ocr": False, "install": lab_report.install_advice()}
+    reader = client.get("/api/labs/reader").json()
+    assert reader["ocr"] is False and reader["install"] == lab_report.install_advice()
 
 
 @pytest.mark.parametrize("platform,words", [("darwin", "brew install tesseract"), ("win32", "winget install"), ("linux", "apt install")])

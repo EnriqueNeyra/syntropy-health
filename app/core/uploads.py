@@ -37,7 +37,7 @@ RESTORE = "/api/restore/check"
 # Files, and only from someone signed in, asked before the first byte is read: anyone else would otherwise have the
 # server write them to its disk. Well above real files: a heavy Apple Health export is a couple of gigabytes.
 UPLOADS = (("/api/imports/apple-health", 16 * 1024 * MB), ("/api/imports/archive", 16 * 1024 * MB), ("/api/imports/fhir", 201 * MB),
-           ("/api/labs/extract", 16 * MB), (RESTORE, 64 * 1024 * MB))
+           ("/api/labs/extract", 16 * MB), ("/api/labs/report", 16 * MB), (RESTORE, 64 * 1024 * MB))
 # Room to leave on the disk when deciding whether a file fits.
 DISK_MARGIN = 256 * MB
 

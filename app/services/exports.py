@@ -564,7 +564,7 @@ def _write_documents(z: zipfile.ZipFile, profile_id: str) -> int:
     index = []
     for found in record_files.all_for_profile(profile_id):
         extension = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp",
-                     "image/tiff": ".tif", "application/xml": ".xml"}.get(found["content_type"], "")
+                     "image/tiff": ".tif", "image/heic": ".heic", "application/xml": ".xml"}.get(found["content_type"], "")
         path = f"documents/{found['id']}{extension}"
         z.writestr(path, found["data"])
         index.append({"path": path, **{k: found.get(k) for k in ("resource_type", "resource_id", "name", "content_type")}})

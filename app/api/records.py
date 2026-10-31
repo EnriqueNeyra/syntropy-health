@@ -15,7 +15,7 @@ from app.api.labs import _check_date, _manual_connection
 from app.connectors import fhir_normalize
 from app.core import auth, context, settings
 from app.core.db import audit, db, new_id
-from app.services import insights
+from app.services import insights, lab_report
 from app.store import activity, connections, record_files, record_overrides, records
 
 router = APIRouter(prefix="/api", tags=["records"], dependencies=[Depends(auth.require_user)])
@@ -73,6 +73,10 @@ def get_record(record_id: str) -> dict:
     conn = connections.get(rec["connection_id"])
     rec["editable"] = bool(conn and conn["provider"] == "manual")   # what the person typed in can be deleted
     rec["files"] = record_files.for_record(rec["connection_id"], rec["resource_type"], rec["resource_id"])
+    report = _report_read_from(rec)
+    if report:
+        rec["files"] += record_files.for_record(rec["connection_id"], "DiagnosticReport", report["resource_id"])
+        rec["from_report"] = {k: report[k] for k in ("id", "title", "effective_at")}
     if rec["category"] == "medications":
         rec["history"] = insights.medication_history(rec["profile_id"], rec)
     return {**rec, **records.visit_links(rec)}
@@ -177,14 +181,44 @@ def add_self_reported(body: SelfReported) -> dict:
     return {"connection_id": conn["id"], "record_id": records.record_id(conn["id"], recs[0]["resource_type"], recs[0]["resource_id"])}
 
 
-@router.get("/records/{record_id}/files/{file_id}")
-def get_record_file(record_id: str, file_id: str, download: bool = False) -> Response:
+def _report_read_from(rec: dict) -> Optional[dict]:
+    """The report a result was read from, which holds the original file. One file, however many results came from it."""
+    for link in (rec.get("raw") or {}).get("derivedFrom") or []:
+        ref = link.get("reference") if isinstance(link, dict) else None
+        if isinstance(ref, str) and ref.startswith("DiagnosticReport/"):
+            found = records.get_record(records.record_id(rec["connection_id"], "DiagnosticReport", ref.split("/", 1)[1]))
+            if found:
+                return found
+    return None
+
+
+def _file_of(record_id: str, file_id: str) -> tuple[dict, dict]:
+    """A file, if it belongs to this record or to the report this result was read from, and the person may see it."""
     rec = records.get_record(record_id)
     found = record_files.get(file_id)
-    if not rec or not found or not found.get("data") or (found["connection_id"], found["resource_type"], found["resource_id"]) != (
-            rec["connection_id"], rec["resource_type"], rec["resource_id"]):
+    if not rec or not found or not found.get("data"):
+        raise HTTPException(404, "Document not found")
+    owner = (found["connection_id"], found["resource_type"], found["resource_id"])
+    report = _report_read_from(rec) if owner != (rec["connection_id"], rec["resource_type"], rec["resource_id"]) else rec
+    if not report or owner != (report["connection_id"], report["resource_type"], report["resource_id"]):
         raise HTTPException(404, "Document not found")
     check_access(rec["profile_id"], "view")
+    return rec, found
+
+
+@router.get("/records/{record_id}/files/{file_id}/pages")
+def get_record_file_pages(record_id: str, file_id: str) -> dict:
+    """A file's pages as images: the phone apps and the Mac and Windows windows can't open a PDF or a HEIC, and every one can show these."""
+    _, found = _file_of(record_id, file_id)
+    try:
+        return {"pages": lab_report.page_previews(found["data"], found["content_type"], found.get("name") or "")}
+    except lab_report.ReportError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/records/{record_id}/files/{file_id}")
+def get_record_file(record_id: str, file_id: str, download: bool = False) -> Response:
+    _, found = _file_of(record_id, file_id)
     shown = found["content_type"] in record_files.SHOWN_INLINE and not download
     name = "".join(c for c in (found.get("name") or "document") if c.isalnum() or c in " ._-")[:120].strip() or "document"
     # Headers are latin-1, so a name in another script goes in the form made for that, beside a plain one for anything older.
