@@ -44,7 +44,9 @@ def test_simulated_wearables_populate_daily_metrics(client):
     after = client.get("/api/biometrics/overview").json()
     assert after["total_samples"] == total - whoop["sample_count"]
     assert client.post("/api/connections/wearable", json={"provider": "whoop", "mode": "simulated"}).status_code == 200
-    assert client.get("/api/biometrics/overview").json()["total_samples"] == total
+    # A new connection is simulated from its own id, so its workouts differ: the total follows what this one brought.
+    again = client.get("/api/connections").json()["connections"]
+    assert client.get("/api/biometrics/overview").json()["total_samples"] == sum(c["sample_count"] for c in again)
 
 
 def test_oura_normalization_uses_rmssd_and_day():
