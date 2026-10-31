@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import errno
+import io
 import json
 import logging
 import logging.handlers
@@ -272,6 +273,138 @@ def test_a_server_that_wont_finish_isnt_started_beside(monkeypatch):
     stuck.set()
 
 
+@pytest.fixture
+def stops_quickly(monkeypatch):
+    monkeypatch.setattr(syntropy_desktop, "STOP_WAIT", 0.05)
+    monkeypatch.setattr(syntropy_desktop.threading, "Timer", lambda *_: threading.Thread())     # the menu's later refresh
+
+
+def _until(condition, seconds: float = 10) -> None:
+    deadline = time.monotonic() + seconds
+    while not condition() and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert condition()
+
+
+def _in_the_background(fn, *args) -> threading.Thread:
+    thread = threading.Thread(target=fn, args=args, daemon=True)
+    thread.start()
+    return thread
+
+
+def _old_server_still_finishing(monkeypatch, app) -> tuple[threading.Event, list]:
+    """A server whose thread won't end until the Event is set; what's started after it is written down, not run."""
+    finish, started = threading.Event(), []
+    app.server.thread = threading.Thread(target=finish.wait, daemon=True)
+    app.server.thread.start()
+    monkeypatch.setattr(app.server, "start", lambda host, port: started.append(host) or setattr(app.server, "host", host))
+    return finish, started
+
+
+def test_switching_network_access_during_a_long_job_ends_with_a_server(real_server, desktop, stops_quickly):
+    # The old server's work outlasted the wait, and by then its sockets were closed: nothing started another, and the
+    # window, the phone and scheduled pulls stayed cut off until someone quit and reopened the app.
+    import asyncio
+
+    import app.main as server_main
+    from starlette.responses import PlainTextResponse
+
+    begun, job = threading.Event(), threading.Event()
+
+    async def long_job(_request):
+        begun.set()
+        await asyncio.to_thread(job.wait)      # like sync.py's to_thread(store): the server can't end until it has
+        return PlainTextResponse("done")
+
+    server_main.app.add_route("/job", long_job)
+    desktop.server.start("127.0.0.1", _free_port())
+    port = desktop.server.port
+    held = socket.create_connection(("127.0.0.1", port), timeout=3)
+    held.sendall(b"GET /job HTTP/1.0\r\nHost: localhost\r\n\r\n")
+    assert begun.wait(5)
+
+    try:
+        switching = _in_the_background(desktop.set_lan, True)
+        _until(lambda: desktop.window.pages)
+        assert "Still finishing" in desktop.window.pages[-1]
+        assert desktop.starting and desktop.server.running and "finishing" in desktop.menu_state()["port_note"]
+        assert desktop.prefs.get("lan") is None
+    finally:
+        job.set()
+    switching.join(20)
+    held.close()
+
+    assert not switching.is_alive()
+    assert desktop.lan and desktop.prefs.get("lan") is True and not desktop.starting
+    assert desktop.port_note() is None
+    assert b"hello" in _get("127.0.0.1", port)
+    assert desktop.window.loaded == [desktop.server.url]
+    desktop.server.stop()
+
+
+def test_a_switch_waiting_for_the_old_server_can_be_quit(monkeypatch, desktop, stops_quickly):
+    finish, started = _old_server_still_finishing(monkeypatch, desktop)
+    switching = _in_the_background(desktop.set_lan, True)
+    _until(lambda: desktop.window.pages)
+    desktop.quitting = True
+    switching.join(5)
+    finish.set()
+    assert not switching.is_alive() and not started and not desktop.window.loaded
+
+
+def test_a_switch_waiting_for_the_old_server_leaves_another_site_on_screen(monkeypatch, desktop, stops_quickly):
+    finish, started = _old_server_still_finishing(monkeypatch, desktop)
+    desktop.win = type("Away", (), {"away": True})()
+    switching = _in_the_background(desktop.set_lan, True)
+    _until(lambda: desktop.starting)
+    assert desktop.window.pages == []
+    finish.set()
+    switching.join(5)
+    assert started == ["0.0.0.0"] and desktop.window.loaded == []     # a portal's sign-in page stays as it was
+
+
+def test_waiting_for_the_old_server_in_the_browser_keeps_links_working(monkeypatch, desktop, stops_quickly):
+    # While starting, show() and open_browser() hand over to each other: with no window that wouldn't end.
+    opened = []
+    monkeypatch.setattr(syntropy_desktop.webbrowser, "open", opened.append)
+    desktop.window, desktop.browser_mode = None, True
+    finish, started = _old_server_still_finishing(monkeypatch, desktop)
+    switching = _in_the_background(desktop.set_lan, True)
+    _until(lambda: "finishing" in (desktop.port_note() or ""))
+    desktop.show()
+    assert opened == [desktop.server.url]
+    finish.set()
+    switching.join(5)
+    assert started == ["0.0.0.0"]
+
+
+def test_a_port_lost_during_the_switch_goes_back_as_it_was(monkeypatch, desktop, stops_quickly):
+    tried = []
+
+    def start(host, port):
+        tried.append(host)
+        desktop.server.host = host
+        if host == "0.0.0.0":
+            raise OSError(errno.EADDRINUSE, "taken")
+
+    monkeypatch.setattr(desktop.server, "start", start)
+    desktop.set_lan(True)
+    assert tried == ["0.0.0.0", "127.0.0.1"] and not desktop.lan and desktop.prefs.get("lan") is None
+    assert not desktop.window.pages
+
+
+def test_no_server_after_the_switch_is_said_in_the_window(monkeypatch, desktop, stops_quickly):
+    # Going back could fail too (another program took the port), which ended the thread with nothing said.
+    def start(host, port):
+        desktop.server.host = host
+        raise OSError(errno.EADDRINUSE, "taken")
+
+    monkeypatch.setattr(desktop.server, "start", start)
+    desktop.hidden = True
+    desktop.set_lan(True)
+    assert "taken by other programs" in desktop.window.pages[-1] and desktop.hidden is False
+
+
 def test_problem_reports_what_startup_found(monkeypatch):
     import app.main as server_main
     monkeypatch.setattr(server_main.app.state, "problem", "It's damaged", raising=False)
@@ -390,6 +523,82 @@ def test_output_after_the_log_rolls_over_still_reaches_the_log(tmp_path, monkeyp
         sys.stdout, sys.stderr = out, err
         logging.getLogger().handlers[:] = handlers
         logging.getLogger().setLevel(level)
+
+
+class _FullDisk(io.StringIO):
+    def write(self, _text):
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    def flush(self):
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    def tell(self):
+        return 1
+
+
+@pytest.fixture
+def full_disk(monkeypatch, tmp_path):
+    """setup_logging's own file, on a disk with no room for another line."""
+
+    class Handler(logging.handlers.RotatingFileHandler):
+        def _open(self):
+            return _FullDisk()
+
+    monkeypatch.setenv("SYNTROPY_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(syntropy_desktop, "RotatingFileHandler", Handler)
+    monkeypatch.setattr(logging, "raiseExceptions", logging.raiseExceptions)
+    out, err, handlers, level = sys.stdout, sys.stderr, logging.getLogger().handlers[:], logging.getLogger().level
+    try:
+        yield
+    finally:
+        sys.stdout, sys.stderr = out, err
+        logging.getLogger().handlers[:] = handlers
+        logging.getLogger().setLevel(level)
+
+
+@pytest.mark.parametrize("raising", [False, True])
+def test_a_log_that_cant_be_written_stops_nothing(monkeypatch, full_disk, raising):
+    # sys.stderr goes back through logging, and logging reports its own failures on sys.stderr: every log call ended in a
+    # RecursionError, which reached whatever was logging. `raising` is logging's own setting, turned back on.
+    syntropy_desktop.setup_logging()
+    if raising:
+        monkeypatch.setattr(logging, "raiseExceptions", True)
+    log = logging.getLogger("syntropy.desktop")
+    log.info("Serving")
+    try:
+        raise ValueError("boom")
+    except ValueError:
+        log.exception("The server didn't start")
+    print("printed")
+    sys.stderr.write("Traceback: boom\n")
+    sys.stderr.write("no line end")
+    sys.stderr.flush()
+
+
+def test_a_full_disk_at_start_is_still_explained(monkeypatch, full_disk):
+    shown = []
+    monkeypatch.setattr(syntropy_desktop, "alert", lambda title, text, offer=None: shown.append(text) or False)
+    monkeypatch.setattr(syntropy_desktop.sys, "argv", ["app"])
+
+    class NoRoom:
+        def __init__(self, background):
+            raise OSError(errno.ENOSPC, "No space left on device", "/d")
+
+    monkeypatch.setattr(syntropy_desktop, "DesktopApp", NoRoom)
+    with pytest.raises(SystemExit):
+        syntropy_desktop.main()
+    assert "disk is full" in shown[0]
+
+
+def test_a_full_disk_while_the_server_starts_is_said_in_the_window(monkeypatch, full_disk, desktop):
+    syntropy_desktop.setup_logging()
+
+    def no_room():
+        raise OSError(errno.ENOSPC, "No space left on device", "/d")
+
+    monkeypatch.setattr(desktop, "start_own_server", no_room)
+    desktop.bring_up_own_server()
+    assert "disk is full" in desktop.window.pages[-1] and not desktop.starting
 
 
 # ---------------------------------------------------------------------------

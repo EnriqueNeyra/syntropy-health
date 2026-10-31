@@ -476,6 +476,8 @@ class _LogWriter(io.TextIOBase):
     """sys.stdout and sys.stderr of a windowed app, which has no console. They go through logging rather than holding the
     log file, which is closed each time it rolls over: anything printed after that would raise an error."""
 
+    logging_now = threading.local()
+
     def __init__(self, level: int):
         super().__init__()
         self.level = level
@@ -484,17 +486,28 @@ class _LogWriter(io.TextIOBase):
     def writable(self) -> bool:
         return True
 
+    def _log(self, line: str) -> None:
+        # What logging itself prints when it can't write the log file (a full disk) comes back here, and would go round
+        # until a RecursionError reached whatever had called log.*, such as the code about to say what's wrong.
+        if getattr(self.logging_now, "yes", False):
+            return
+        self.logging_now.yes = True
+        try:
+            logging.getLogger("syntropy.desktop.output").log(self.level, "%s", line)
+        finally:
+            self.logging_now.yes = False
+
     def write(self, text: str) -> int:
         self.pending += text
         while "\n" in self.pending:
             line, self.pending = self.pending.split("\n", 1)
             if line.strip():
-                logging.getLogger("syntropy.desktop.output").log(self.level, "%s", line)
+                self._log(line)
         return len(text)
 
     def flush(self) -> None:
         if self.pending.strip():
-            logging.getLogger("syntropy.desktop.output").log(self.level, "%s", self.pending)
+            self._log(self.pending)
         self.pending = ""
 
 
@@ -507,6 +520,7 @@ def setup_logging() -> None:
         print(f"Couldn't open the log file: {exc}", file=sys.stderr or io.StringIO())
     else:
         sys.stdout, sys.stderr = _LogWriter(logging.INFO), _LogWriter(logging.ERROR)
+        logging.raiseExceptions = False     # a log file it can't write: nowhere to say so, and nothing else needs to stop
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root = logging.getLogger()
     root.handlers[:] = [handler]
@@ -556,6 +570,7 @@ class DesktopApp:
         self.switching = threading.Lock()
         self.recovering = threading.Lock()
         self.starting = False      # the window shows the starting page until the server answers
+        self.finishing = False     # waiting for the old server's last job, to start it again
         self.location = sites.Location(lambda: self.home_url, own_page=True)
         self.moved_from: Optional[int] = None    # the saved port, while another program holds it
         self.mac = None            # mac_window.MacWindow on a Mac
@@ -580,14 +595,19 @@ class DesktopApp:
         """The household server this Mac opens instead of running its own (None: it's the server)."""
         return self.prefs.get("server") if self.prefs.get("role") == "join" else None
 
+    @property
+    def away(self) -> bool:
+        return bool((self.mac or self.win) and (self.mac or self.win).away)
+
     def menu_state(self) -> dict[str, Any]:
-        away = bool((self.mac or self.win) and (self.mac or self.win).away)
         if self.joined:
-            return {"joined": self.prefs.get("server_name") or urllib.parse.urlsplit(self.joined).hostname, "away": away}
+            return {"joined": self.prefs.get("server_name") or urllib.parse.urlsplit(self.joined).hostname, "away": self.away}
         return {"lan": self.lan, "login": open_at_login(), "address": self.lan_address() if self.lan else None,
-                "away": away, "port_note": self.port_note()}
+                "away": self.away, "port_note": self.port_note()}
 
     def port_note(self) -> Optional[str]:
+        if self.finishing:
+            return "Still finishing a job, back when it's done"
         return f"Using port {self.server.port}: {self.moved_from} is busy" if self.moved_from else None
 
     @property
@@ -853,7 +873,7 @@ class DesktopApp:
             self.open_page("/#/settings/security")      # the page's CSP blocks evaluate_js
             return
         self.set_lan(not self.lan)
-        if self.window:
+        if self.window and self.server.running and not self.quitting:
             try:
                 self.window.load_url(self.window.get_current_url() or self.server.url)
             except Exception:  # noqa: BLE001
@@ -863,18 +883,54 @@ class DesktopApp:
         """Listen on the home network and Tailscale as well as this computer (restarts the server)."""
         with self.switching:        # the menu and Settings could both ask at once
             if on != self.lan:
-                try:
-                    self.server.restart("0.0.0.0" if on else "127.0.0.1")
-                except (RuntimeError, OSError):
-                    log.exception("Couldn't switch network access %s; staying as it was", "on" if on else "off")
-                    if not self.server.running:
-                        self.server.start("127.0.0.1" if on else "0.0.0.0", self.server.port)
-                    return self.refresh_menu()
-                self.prefs.set("lan", on)
-                log.info("Network access %s", "on" if on else "off")
+                said_so = self.wait_for_server_to_finish()
+                if self.quitting:
+                    return None
+                self.switch_network_access(on)
+                if self.finishing:
+                    self.finishing = self.starting = False
+                if said_so and self.server.running:     # otherwise the window is saying why not
+                    self.window.load_url(self.server.url)
         self.refresh_menu()
         # syntropyhealth.local is announced a few seconds after the server starts; show it in the menu then.
         threading.Timer(6, self.refresh_menu).start()
+
+    def wait_for_server_to_finish(self) -> bool:
+        """A long job can outlast Server.stop's wait. By then the server has closed its sockets and can't be called back, so
+        nothing answers until it ends, however long that takes, and only then can another start. Whether the window says so."""
+        if self.server.stop():
+            return False
+        log.warning("The server is still finishing what it was doing; waiting for it")
+        self.finishing = True
+        self.starting = not self.browser_mode       # (there, show() and open_browser() would hand over to each other)
+        self.refresh_menu()
+        said_so = bool(self.window and not self.browser_mode and not self.away)
+        if said_so:         # another site, such as a portal's sign-in, carries on undisturbed
+            self.show_own_page(own_pages.working_page(
+                "Still finishing a job…", f"{APP_NAME} changes who can connect as soon as the job it's working on is done. This "
+                f"usually takes a few minutes at most. If it doesn't come back, quit {APP_NAME} and open it again."))
+            self.show()
+        while self.server.running and not self.quitting:
+            self.server.thread.join(1)
+        return said_so
+
+    def switch_network_access(self, on: bool) -> None:
+        word = "on" if on else "off"
+        try:
+            self.server.restart("0.0.0.0" if on else "127.0.0.1")
+        except (RuntimeError, OSError):
+            log.exception("Couldn't switch network access %s; staying as it was", word)
+        else:
+            self.prefs.set("lan", on)
+            log.info("Network access %s", word)
+            return
+        if self.server.running:
+            return
+        try:
+            self.server.start("127.0.0.1" if on else "0.0.0.0", self.server.port)
+        except (RuntimeError, OSError) as exc:
+            log.exception("The server couldn't start again")
+            self.show_problem(*describe_failure(exc))
 
     def request_lan(self, on: bool) -> None:
         """From Settings or onboarding (a request to this server): switch after the answer has gone out."""
