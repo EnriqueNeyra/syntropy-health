@@ -39,6 +39,7 @@ MIGRATION_HASHES = {
     "038_agent_token_expiry.sql": "b0d3469439632f45c9c4d34b4e86794bb04fb1e18fc2f2bfa083dee54f2e1d94",
     "040_phones_paired_by_others.sql": "c2f08699dd8d015be4aea8ed37e529ddcce5a42bae76111ef356029b4b7b3bd5",
     "041_cleared_what_no_one_can_reach.sql": "7165e2d472680397ea6d05e91ddca84c3163ddabdcb3a430c318c81afcd517bb",
+    "045_fhir_references.sql": "47c03487e3b28ce143b31f8cc4cbfe28a44ff248bf1e6f4ea65880cc2b29a152",
 }
 
 
@@ -134,9 +135,8 @@ def _seed(conn: sqlite3.Connection, version: int, stored_hash: str) -> None:
 
 
 def _shipped_versions() -> list[int]:
-    """The newest has nothing to upgrade to, so nothing to test here."""
-    from app.core import db
-    return [v for v in (int(name.split("_", 1)[0]) for name in MIGRATION_HASHES) if v < db.newest_schema()]
+    """Every version a database can be at that still has an upgrade ahead of it."""
+    return [int(f.name.split("_", 1)[0]) for f in _migrations()][:-1]
 
 
 @pytest.mark.parametrize("version", _shipped_versions())
@@ -161,6 +161,7 @@ def test_every_old_schema_upgrades_with_its_data(version):
     assert c.execute("SELECT COUNT(*) FROM profiles").fetchone()[0] == 2
     assert c.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
     assert c.execute("PRAGMA foreign_key_check").fetchall() == []
+    assert c.execute("SELECT COUNT(*) FROM fhir_references").fetchone()[0] == 0     # what a sync brings next fills it
     if version < 9:
         accounts = c.execute("SELECT * FROM accounts").fetchall()
         assert len(accounts) == 1 and accounts[0]["role"] == "owner" and accounts[0]["password_hash"]

@@ -13,7 +13,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"   # lets the assistant reach Ollama or LM Studio on this machine (Linux)
     volumes:
-      - ./data:/data           # database, encryption key (secret.key) — back this directory up
+      - ./data:/data           # database, encryption key (secret.key). To back up: docker compose exec syntropy syntropy-health backup /data/backups
     env_file:
       - path: .env
         required: false

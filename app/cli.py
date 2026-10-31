@@ -4,7 +4,8 @@ The ``syntropy-health`` command: run the server, keep it running in the backgrou
     syntropy-health serve                 run in the foreground (http://localhost:8000)
     syntropy-health service install       start with the computer and restart if it stops
     syntropy-health service status|stop|start|uninstall
-    syntropy-health backup [folder]       database, encryption key and uploaded files, in one .zip
+    syntropy-health backup [folder]       everything, in one encrypted file
+    syntropy-health restore FILE          put a backup back (--check only tests it)
     syntropy-health update                install the latest release and restart the service
     syntropy-health info                  where the data is and the addresses to open
     syntropy-health mcp [--profile NAME]  the MCP server on stdio, for AI apps on this computer
@@ -12,12 +13,19 @@ The ``syntropy-health`` command: run the server, keep it running in the backgrou
                                           `accounts make-owner NAME` to hand the server over
     syntropy-health key new               replace a lost encryption key
 
+A backup restores on any computer, and asks for the passphrase it was made with:
+
+    Linux installer  sudo systemctl stop syntropy-health; sudo syntropy-health restore FILE; sudo systemctl start syntropy-health
+    Docker           docker compose stop; docker compose run --rm -v "$PWD/FILE:/FILE" syntropy syntropy-health restore /FILE; docker compose start
+    Mac and Windows  quit the app (or `syntropy-health service stop`), run restore, open it again; or use Settings → Your data
+
 The same code runs from a clone (``./run.sh``), a pip or uv install, the Linux installer and the Mac and Windows apps.
 """
 
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import os
 import shlex
@@ -28,7 +36,6 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
-import zipfile
 from pathlib import Path
 from typing import Optional
 
@@ -71,7 +78,7 @@ def info(port: Optional[int]) -> None:
 
     port = port or _running_port() or DEFAULT_PORT
     print(f"Syntropy Health {config.APP_VERSION}")
-    print(f"Data:     {config.data_dir()}  (back up this folder, or run: syntropy-health backup)")
+    print(f"Data:     {config.data_dir()}  (to back it up: syntropy-health backup. Copying the folder while it runs isn't reliable)")
     print(f"Program:  {sys.executable}")
     print(f"Open:     http://localhost:{port}")
     home, tailscale = network.home_addresses(), network.tailscale_addresses()
@@ -101,29 +108,295 @@ def _answers(host: str, port: int) -> bool:
         return s.connect_ex((host, port)) == 0
 
 
-def backup(dest: Optional[str]) -> Path:
-    """A consistent copy of the database (taken while the server runs) and the encryption key, zipped. Not the uploads
-    folder: all it ever holds is the file an import is working through, which goes when that's done."""
-    from app.core import db
+def _read_passphrase_file(name: str) -> str:
+    try:
+        raw = sys.stdin.read() if name == "-" else Path(name).expanduser().read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        sys.exit(f"Couldn't read the passphrase from {name}: {exc}")
+    return raw.rstrip("\r\n")
 
-    data = config.data_dir()
+
+def _choose_passphrase() -> str:
+    import getpass
+
+    if not (sys.stdin and sys.stdin.isatty()):
+        sys.exit("A backup is encrypted with a passphrase, and there's no one here to type one. Give it with "
+                 "--passphrase-file FILE, or choose --no-encrypt to leave the backup readable by anyone who gets the file.")
+    print("Choose a passphrase for this backup. Nobody can open the backup without it, and it can't be recovered.")
+    passphrase = getpass.getpass("Passphrase: ")
+    if getpass.getpass("Again: ") != passphrase:
+        sys.exit("The passphrases don't match. Nothing was backed up.")
+    return passphrase
+
+
+def backup(dest: Optional[str], *, no_encrypt: bool = False, passphrase_file: Optional[str] = None) -> Path:
+    """Everything in one file, taken while the server runs. Encrypted unless someone says otherwise, in so many words."""
+    from app.core import db
+    from app.services import backups
+
+    if no_encrypt and passphrase_file:
+        sys.exit("--no-encrypt and --passphrase-file can't be used together.")
     folder = Path(dest).expanduser() if dest else Path.cwd()
-    folder.mkdir(parents=True, exist_ok=True)
-    out = folder / f"syntropy-backup-{time.strftime('%Y%m%d-%H%M%S')}.zip"
-    with tempfile.TemporaryDirectory() as tmp:
-        snapshot = Path(tmp) / "syntropy.db"
-        db.snapshot(snapshot)
-        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-            z.write(snapshot, "syntropy.db")
-            if (data / "secret.key").exists():
-                z.write(data / "secret.key", "secret.key")      # without it, saved sign-ins and keys can't be read
-        with db.db() as conn:
-            db.audit(conn, "cli", "export.backup")
-    if os.name != "nt":
-        out.chmod(0o600)
-    print(f"Backed up to {out}")
-    print("It holds your health records and the key that unlocks saved sign-ins: keep it somewhere private.")
-    return out
+    db.open_connection(config.db_path()).close()      # before asking for a passphrase: this may be the wrong folder
+    passphrase = None
+    if not no_encrypt:
+        passphrase = _read_passphrase_file(passphrase_file) if passphrase_file else _choose_passphrase()
+    try:
+        result = backups.create(folder, passphrase=passphrase, unencrypted=no_encrypt, made_by="command")
+    except backups.BackupProblem as exc:
+        sys.exit(str(exc))
+    except PermissionError:
+        sys.exit(f"This account can't write to {folder}. Choose a folder it can write to.")
+    except OSError as exc:
+        sys.exit(f"Couldn't write the backup to {folder}: {exc}")
+    print(f"Backed up to {result['path']}")
+    print(f"It holds {result['holds']}.")
+    if result["key"] == "setting":
+        print("The encryption key isn't in it: it comes from the SYNTROPY_SECRET_KEY setting. Keep that value somewhere safe "
+              "too. Without it, nobody can sign in after a restore and saved sign-ins are lost.")
+    elif result["key"] == "included":
+        print("The encryption key that unlocks saved sign-ins is in it too.")
+    if no_encrypt:
+        print("WARNING: this backup isn't encrypted. Anyone who gets the file can read every record and use every saved sign-in. "
+              "Keep it somewhere only you can reach.")
+    else:
+        print("Keep the passphrase somewhere safe: without it this backup can't be opened by anyone. Older backups keep "
+              "anything you delete later, so remove those you no longer need.")
+    return Path(result["path"])
+
+
+def _hand_over(made: Path, target: Path) -> None:
+    """Into its folder, which may be on another drive. There a move is a copy, so like any backup it has its real name only
+    once it's all there."""
+    from app.services import backups
+
+    try:
+        os.replace(made, target)
+    except OSError as exc:
+        if exc.errno != errno.EXDEV:
+            raise
+        partial = target.with_name(target.name + ".partial")
+        try:
+            fd = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "wb") as out, made.open("rb") as source:
+                shutil.copyfileobj(source, out, 1024 * 1024)
+                out.flush()
+                os.fsync(out.fileno())
+            os.replace(partial, target)
+        except BaseException:
+            partial.unlink(missing_ok=True)
+            raise
+    try:
+        backups._sync_folder(target.parent)
+    except OSError:     # not every drive can; the file is there either way
+        pass
+
+
+def _give_to_caller(path: Path) -> bool:
+    """Theirs, so they can move it without sudo, and private to them. Some drives (exFAT, a NAS that maps root to nobody)
+    don't keep this."""
+    uid, gid = os.environ.get("SUDO_UID"), os.environ.get("SUDO_GID")
+    try:
+        path.chmod(0o600)
+        os.chown(path, int(uid) if uid and gid else 0, int(gid) if uid and gid else 0)
+    except OSError:
+        return False
+    return True
+
+
+def _as_service_account(account: str, args: argparse.Namespace) -> None:
+    """Run as root by the Linux installer's command. The data belongs to the service's account, and the folder or file
+    named on the command line usually doesn't: that account makes the backup or reads the file in a private folder of its
+    own, and root hands it over. Otherwise `sudo syntropy-health backup /some/folder` can't write there."""
+    import pwd
+
+    entry = pwd.getpwnam(account)
+    child = ["runuser", "-u", account, "--", sys.argv[0]]
+    given = None
+    if getattr(args, "passphrase_file", None):
+        given = _read_passphrase_file(args.passphrase_file)
+    folder = None
+    if args.command == "backup":
+        folder = Path(args.folder).expanduser() if args.folder else Path.cwd()
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryFile(dir=folder):
+                pass
+        except OSError as exc:
+            sys.exit(f"Couldn't write to {folder}: {exc.strerror or exc}. Nothing was backed up. Choose a folder that can be written to.")
+    work = None
+    try:
+        work = Path(tempfile.mkdtemp(dir=config.data_dir(), prefix=".backup-work-"))
+        os.chown(work, entry.pw_uid, entry.pw_gid)
+        if folder:
+            cmd = [*child, "backup", str(work)]
+            if args.no_encrypt:
+                cmd.append("--no-encrypt")
+            if given is not None:
+                cmd += ["--passphrase-file", "-"]
+            done = subprocess.run(cmd, input=given, text=True if given is not None else None)
+            if done.returncode:
+                sys.exit(done.returncode)
+            for made in work.iterdir():
+                target = folder / made.name
+                try:
+                    _hand_over(made, target)
+                except OSError as exc:
+                    kept = config.data_dir() / made.name
+                    os.replace(made, kept)
+                    kept.chmod(0o600)
+                    sys.exit(f"The backup was made, but it couldn't be put in {folder}: {exc.strerror or exc}. It's at {kept} for now, where "
+                             f"only an administrator can read it. Make room or choose another folder, then move it with: sudo mv {kept} {folder}/")
+                if _give_to_caller(target):
+                    print(f"Moved it to {target}, which only you can read.")
+                else:
+                    print(f"Moved it to {target}. That drive doesn't keep who can read a file, so it's up to you to keep the drive private.")
+            return
+        for given_path in (args.file, args.key_file):
+            if given_path and not Path(given_path).expanduser().is_file():
+                sys.exit(f"There's no file at {given_path}.")
+        source = work / Path(args.file).name
+        shutil.copyfile(Path(args.file).expanduser(), source)
+        os.chown(source, entry.pw_uid, entry.pw_gid)
+        source.chmod(0o600)
+        cmd = [*child, "restore", str(source)]
+        if args.key_file:
+            key = work / "given.key"
+            shutil.copyfile(Path(args.key_file).expanduser(), key)
+            os.chown(key, entry.pw_uid, entry.pw_gid)
+            key.chmod(0o600)
+            cmd += ["--key-file", str(key)]
+        for flag, value in (("--check", args.check), ("--key-only", args.key_only), ("--yes", args.yes),
+                            ("--without-key", args.without_key)):
+            if value:
+                cmd.append(flag)
+        if given is not None:
+            cmd += ["--passphrase-file", "-"]
+        done = subprocess.run(cmd, input=given, text=True if given is not None else None)
+        if done.returncode:
+            sys.exit(done.returncode)
+    except OSError as exc:
+        sys.exit(f"Syntropy Health couldn't do that, and nothing was changed: {exc}")
+    finally:
+        if work:
+            shutil.rmtree(work, ignore_errors=True)
+
+
+def _stop_first() -> Optional[str]:
+    """The server, if it's running, in words that say how to stop it here."""
+    from app.services import backups
+
+    port = _running_port()
+    running = bool(port and _answers("127.0.0.1", port))
+    other = backups.in_use_elsewhere()
+    if not running and not other:
+        return None
+    if getattr(sys, "frozen", False):
+        how = "Quit Syntropy Health from its menu bar or tray icon"
+    elif config.env("SYNTROPY_INSTALL") == "docker":
+        how = "Stop the container (docker compose stop), then run this with: docker compose run --rm syntropy syntropy-health restore …"
+    elif sys.platform.startswith("linux") and shutil.which("systemctl"):
+        how = f"Stop it with: sudo systemctl stop {SERVICE}"
+    else:
+        how = "Stop it first (syntropy-health service stop, or Ctrl-C where it's running)"
+    if running:
+        return f"Syntropy Health is running, so a backup can't be put back underneath it. {how}. Nothing was changed."
+    return f"{other} {how}, if it's running. Nothing was changed."
+
+
+def _print_report(report: dict) -> None:
+    made = f"made {report['created_at']}" if report.get("created_at") else "from an older version, with no date"
+    print(f"{report['file']}: {made}" + (f" by version {report['app_version']}" if report.get("app_version") else ""))
+    print(f"It holds {report['holds']}, and checks out as undamaged.")
+    if report["people"]:
+        print(f"People: {', '.join(report['people'])}")
+    if report["upgrade_needed"]:
+        print("It's from an older version: it's upgraded when restored, as any update would.")
+    print(report["key"]["message"])
+    if report["replaces"]:
+        print(f"It would replace what's here now: {report['replaces']['holds']}. That's kept in {db_folder_name()}.")
+    print(report["sign_in"])
+
+
+def db_folder_name() -> Path:
+    from app.core import db
+    return config.db_path().parent / db.PRE_RESTORE_DIR
+
+
+def restore(file: str, *, check_only: bool = False, key_only: bool = False, yes: bool = False, without_key: bool = False,
+            passphrase_file: Optional[str] = None, key_file: Optional[str] = None) -> None:
+    """Tests the file first, whatever was asked for. The server has to be stopped, since it holds the database open."""
+    import getpass
+
+    from app.core import db, security
+    from app.services import backups
+
+    path = Path(file).expanduser()
+    if not path.is_file():
+        sys.exit(f"There's no file at {path}.")
+    if not check_only and (problem := _stop_first()):
+        sys.exit(problem)
+    passphrase = _read_passphrase_file(passphrase_file) if passphrase_file else None
+    item = None
+    try:
+        while item is None:
+            try:
+                item = backups.check(path, passphrase, Path(key_file).expanduser() if key_file else None)
+            except (backups.backup_file.WrongPassphrase, backups.PassphraseNeeded) as exc:
+                if passphrase_file or not (sys.stdin and sys.stdin.isatty()):
+                    sys.exit(f"{exc} Give it with --passphrase-file FILE.")
+                if passphrase:
+                    print(exc)
+                passphrase = getpass.getpass("Passphrase: ")
+        report = item.report
+        _print_report(report)
+        if check_only:
+            print("Nothing was changed. This was only a check.")
+            return
+        if key_only:
+            staged_key = item.folder / "secret.key"
+            if not staged_key.exists():
+                sys.exit("This backup has no encryption key in it. Nothing was changed.")
+            target = config.data_dir() / "secret.key"
+            here = config.db_path()
+            if not here.exists() or not security.opens(here, security.key_from_file(staged_key.read_bytes())):
+                sys.exit("The key in this backup doesn't open what's saved in the database here. Nothing was changed.")
+            if target.exists():
+                os.replace(target, target.with_name(f"{target.name}.replaced-{time.strftime('%Y%m%d-%H%M%S')}"))
+            if os.name != "nt":
+                staged_key.chmod(0o600)
+            db.same_owner(staged_key, target.parent)
+            os.replace(staged_key, target)
+            print(f"The encryption key is back at {target}. Your records weren't touched.")
+            return
+        if not report["key"]["ok"] and not without_key:
+            sys.exit(f"{report['key']['message']}\nNothing was changed. To restore anyway, without passwords and saved sign-ins, "
+                     "add --without-key.")
+        if not yes:
+            if not (sys.stdin and sys.stdin.isatty()):
+                sys.exit("Say --yes to go ahead without being asked. Nothing was changed.")
+            if input("Type RESTORE to go ahead: ").strip() != "RESTORE":
+                sys.exit("Nothing was changed.")
+        try:
+            done = backups.apply(item, accept_key_problem=without_key)
+        except PermissionError as exc:
+            sys.exit(f"This account can't write to the data folder: {exc}. Nothing was changed.")
+        print(f"Restored: {done['holds']}.")
+        if done.get("safety_copy"):
+            print(f"What was here before is kept in {done['safety_copy']}.")
+        print(done["sign_in"])
+        print("Sources may ask you to sign in again if their sign-ins have changed since the backup, and phones paired since then "
+              "need pairing again. Start Syntropy Health when you're ready.")
+    except backups.BackupProblem as exc:
+        sys.exit(str(exc))
+    except backups.BackupFileError as exc:
+        sys.exit(f"{exc} Nothing was changed.")
+    except OSError as exc:
+        sys.exit(f"Couldn't restore: {exc}. Nothing was changed.")
+    finally:
+        if item:
+            backups.discard(item.id)
+        db.close_readers()
 
 
 # ---------------------------------------------------------------------------
@@ -589,6 +862,7 @@ def _command(argv: Optional[list[str]] = None) -> None:
     parser = argparse.ArgumentParser(prog="syntropy-health", description="Syntropy Health: your health records, on your own computer.")
     parser.add_argument("--data-dir", help="where the data lives (default: the usual place on this computer, which "
                                            "`syntropy-health info` shows)", default=None)
+    parser.add_argument("--service-account", help=argparse.SUPPRESS, default=None)     # the Linux installer's command, as root
     sub = parser.add_subparsers(dest="command")
     p = sub.add_parser("serve", help="run the server in the foreground")
     p.add_argument("--host", default="0.0.0.0", help="0.0.0.0 lets other devices connect; 127.0.0.1 keeps it to this computer")
@@ -599,8 +873,19 @@ def _command(argv: Optional[list[str]] = None) -> None:
     s.add_argument("--host", default="0.0.0.0")
     s.add_argument("--port", type=int, default=DEFAULT_PORT)
     s.add_argument("--user", help="Linux, as root: the account that runs the server")
-    b = sub.add_parser("backup", help="zip the database, encryption key and uploads")
-    b.add_argument("folder", nargs="?")
+    b = sub.add_parser("backup", help="everything in one encrypted file: the database, encryption key and uploads")
+    b.add_argument("folder", nargs="?", help="where to put it (default: this folder). A drive of its own survives a failed disk")
+    b.add_argument("--passphrase-file", help="read the passphrase from this file (- for standard input), for scripts")
+    b.add_argument("--no-encrypt", action="store_true", help="a plain zip. Anyone who gets the file can read every record and "
+                                                             "use every saved sign-in")
+    r = sub.add_parser("restore", help="put a backup back, keeping what it replaces. Stop the server first")
+    r.add_argument("file")
+    r.add_argument("--check", action="store_true", help="only test the file and say what's in it; change nothing")
+    r.add_argument("--passphrase-file", help="read the passphrase from this file (- for standard input), for scripts")
+    r.add_argument("--key-file", help="the secret.key that goes with an older backup that holds only the database")
+    r.add_argument("--key-only", action="store_true", help="take only the encryption key from the backup, for a key that was lost")
+    r.add_argument("--without-key", action="store_true", help="restore even though passwords and saved sign-ins won't open")
+    r.add_argument("--yes", action="store_true", help="don't ask before replacing what's here")
     u = sub.add_parser("update", help="install the latest release and restart the service")
     u.add_argument("--due", action="store_true", help=argparse.SUPPRESS)
     i = sub.add_parser("info", help="where the data is and which addresses to open")
@@ -631,8 +916,13 @@ def _command(argv: Optional[list[str]] = None) -> None:
             print(_service_state())
         else:
             service_control(args.action)
+    elif args.command in ("backup", "restore") and args.service_account and _systemd_system():
+        _as_service_account(args.service_account, args)
     elif args.command == "backup":
-        backup(args.folder)
+        backup(args.folder, no_encrypt=args.no_encrypt, passphrase_file=args.passphrase_file)
+    elif args.command == "restore":
+        restore(args.file, check_only=args.check, key_only=args.key_only, yes=args.yes, without_key=args.without_key,
+                passphrase_file=args.passphrase_file, key_file=args.key_file)
     elif args.command == "update":
         update_due() if args.due else update()
     elif args.command == "info":

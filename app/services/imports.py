@@ -193,10 +193,12 @@ def import_fhir_file(profile_id: str, filename: str, raw: bytes) -> dict[str, An
     digest = hashlib.sha256(raw).hexdigest()
     keys = _source_keys(resources, bundles)
     earlier = [c for c in connections.list_for_profile(profile_id, "import") if c["provider"] == "fhir_file"]
-    for conn in earlier:
-        if digest in ((conn.get("metadata") or {}).get("file_hashes") or []):
-            return {"connection_id": conn["id"], "resources": len(resources), "records": conn.get("record_count") or 0,
-                    "inserted": 0, "updated": 0, "unchanged": True}
+    same = [c for c in earlier if digest in ((c.get("metadata") or {}).get("file_hashes") or [])]
+    if same:
+        held = len(fhir_normalize.normalize_report(resources)[1])
+        return {"connection_id": same[0]["id"], "sources": [{"connection_id": c["id"], "name": c["display_name"]} for c in same],
+                "resources": len(resources), "records": held, "inserted": 0, "updated": 0, "unchanged": held, "kept_both": 0,
+                "already_imported": True}
     reuse = next((c for c in earlier if keys and set(keys) & set((c.get("metadata") or {}).get("source_keys") or [])), None)
     known = (reuse.get("metadata") or {}) if reuse else {}
     return sync.import_fhir_resources(profile_id, f"Imported · {filename}", resources, reuse=reuse, metadata={
@@ -216,6 +218,29 @@ async def start_apple_health_import(profile_id: str, path: Path, filename: str) 
 def _where(exc: ParseError) -> str:
     position = getattr(exc, "position", None)
     return f"line {position[0]:,}" if position else "an unreadable point"
+
+
+async def start_archive_import(profile_id: str, account_id: Optional[str], path: Path, filename: str) -> str:
+    job_id = await asyncio.to_thread(_new_job, "archive", filename, profile_id)
+    loop = asyncio.get_running_loop()
+    loop.run_in_executor(None, contextvars.copy_context().run, _run_archive, job_id, profile_id, account_id, path)
+    return job_id
+
+
+def _run_archive(job_id: str, profile_id: str, account_id: Optional[str], path: Path) -> None:
+    from app.services import exports
+
+    _update(job_id, status="running")
+    try:
+        result = exports.import_archive(profile_id, account_id, path, lambda n: _update(job_id, processed=n, inserted=n))
+        _update(job_id, status="completed", finished_at=time.time(), result=result)
+    except (ValueError, biometrics.SourceGone) as exc:
+        _update(job_id, status="error", finished_at=time.time(), error=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        log.exception("Archive import failed")
+        _update(job_id, status="error", finished_at=time.time(), error=str(exc))
+    finally:
+        path.unlink(missing_ok=True)
 
 
 def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -> None:
@@ -303,6 +328,8 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
         if export.skipped:
             result["skipped_files"] = export.skipped[:50]
         _update(job_id, status="completed", finished_at=time.time(), result=result)
+    except biometrics.SourceGone as exc:
+        _update(job_id, status="error", finished_at=time.time(), error=str(exc))
     except Exception as exc:  # noqa: BLE001
         log.exception("Apple Health import failed")
         _update(job_id, status="error", finished_at=time.time(), error=str(exc))

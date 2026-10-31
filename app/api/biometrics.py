@@ -241,6 +241,8 @@ def _store(profile_id: str, connection_id: Optional[str], samples: list[dict], w
         stored = activity.store_events(profile_id, connection_id, events)
         result.update(events_inserted=stored["inserted"], events_updated=stored["updated"], events_rejected=stored["rejected"])
         result["deleted"] = biometrics.delete_from_phone(profile_id, deleted)
+    except biometrics.SourceGone as exc:
+        raise HTTPException(410, str(exc)) from exc
     except (ValueError, KeyError) as exc:
         raise HTTPException(422, f"Invalid item: {exc}")
     if connection_id:

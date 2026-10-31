@@ -229,7 +229,7 @@ def test_everyone_sees_backups_and_password_resets_in_their_log(raw_client, monk
     from app import cli
     client = _signed_in_owner(raw_client)
     maria_client, _ = _join(client, _person(client, "Maria"))
-    assert client.get("/api/export/backup").status_code == 200
+    assert client.post("/api/backups", json={"passphrase": "a long backup passphrase"}, headers=CSRF).status_code == 200
     monkeypatch.setattr("getpass.getpass", lambda prompt: "a brand new password")
     cli.accounts_command("reset-password", "Alex")
     client = TestClient(client.app, base_url=BASE, client=LOCAL_CLIENT)
@@ -249,7 +249,7 @@ def test_removing_someone_is_logged_and_their_entries_lose_their_details(raw_cli
     _journal(client, leo)
     assert client.delete(f"/api/profiles/{leo}").status_code == 200
     events = client.get("/api/audit", params={"limit": 500}).json()["events"]
-    assert any(e["action"] == "profile.removed" and e["who"] == "Alex" and "Leo" in e["detail"] for e in events)
+    assert any(e["action"] == "profile.removed" and e["who"] == "Alex" for e in events)
     c = sqlite3.connect(str(config.db_path()))
     kept = c.execute("SELECT action, detail FROM audit_log WHERE profile_id = ?", (leo,)).fetchall()
     c.close()

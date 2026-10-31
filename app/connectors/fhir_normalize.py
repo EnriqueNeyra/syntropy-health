@@ -1252,6 +1252,12 @@ NORMALIZERS: dict[str, Callable[..., Optional[dict[str, Any]]]] = {
     "Coverage": normalize_coverage,
 }
 _OLD_NAMES = {"MedicationOrder": "MedicationRequest"}
+REFERENCED_TYPES = ("Medication", "Practitioner", "PractitionerRole", "Organization", "Location")
+
+
+def referenced_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """What came along with the records for them to point to. Not records themselves, but an export needs them."""
+    return [r for r in resources if r.get("resourceType") in REFERENCED_TYPES and r.get("id")]
 
 
 def _from_dstu2(res: dict[str, Any]) -> dict[str, Any]:
@@ -1333,6 +1339,7 @@ def normalize_report(resources: list[dict[str, Any]],
 
     def canonical_ref(ref: str) -> str:
         return aliases.get(ref) or "/".join(ref.rstrip("/").split("/")[-2:])
+
 
     def resolve(ref: str) -> Optional[dict[str, Any]]:
         if not ref or ref.startswith("#"):

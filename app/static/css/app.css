@@ -585,7 +585,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .modal.wide { max-width: 820px; }
 .modal-head { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .modal-body { padding: 18px; overflow-y: auto; }
-.modal-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+.modal-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .drawer-overlay { justify-content: flex-end; padding: 0; }
 .drawer { background: var(--surface); height: 100vh; width: min(620px, 100vw); border-left: 1px solid var(--border); display: flex; flex-direction: column; animation: slide .18s ease; }
 @keyframes slide { from { transform: translateX(30px); opacity: .5; } }

@@ -171,7 +171,8 @@ def test_each_apple_health_export_updates_one_source(client):
 def _old_apple_copies(profile):
     ids = []
     for i, extra in enumerate((ENCOUNTER, {**ENCOUNTER, "id": "e2", "period": {"start": "2024-06-01T09:00:00Z"}})):
-        res = sync.import_fhir_resources(profile, "Apple Health Records", [PATIENT, LAB, extra], provider="apple_health_records")
+        conn = connections.create(profile, "import", "apple_health_records", "Apple Health Records", mode="live")
+        res = sync.import_fhir_resources(profile, "Apple Health Records", [PATIENT, LAB, extra], provider="apple_health_records", reuse=conn)
         with db() as c:
             c.execute("UPDATE connections SET created_at = ? WHERE id = ?", (1000 + i, res["connection_id"]))
         ids.append(res["connection_id"])

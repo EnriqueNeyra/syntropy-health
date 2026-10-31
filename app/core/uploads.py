@@ -32,9 +32,12 @@ MB = 1024 * 1024
 MAX_BODY = 1 * MB
 # Routes that take more. A person's conversations with an AI, kept and sent whole; the rest are files.
 LARGER = (("/api/ai/", 16 * MB), ("/mcp", 4 * MB))
+# Before setup there's nobody to be signed in: a restore asks its own question.
+RESTORE = "/api/restore/check"
 # Files, and only from someone signed in, asked before the first byte is read: anyone else would otherwise have the
 # server write them to its disk. Well above real files: a heavy Apple Health export is a couple of gigabytes.
-UPLOADS = (("/api/imports/apple-health", 16 * 1024 * MB), ("/api/imports/fhir", 201 * MB), ("/api/labs/extract", 16 * MB))
+UPLOADS = (("/api/imports/apple-health", 16 * 1024 * MB), ("/api/imports/archive", 16 * 1024 * MB), ("/api/imports/fhir", 201 * MB),
+           ("/api/labs/extract", 16 * MB), (RESTORE, 64 * 1024 * MB))
 # Room to leave on the disk when deciding whether a file fits.
 DISK_MARGIN = 256 * MB
 
@@ -155,7 +158,11 @@ class DecompressUploads:
         if getattr(getattr(scope.get("app"), "state", None), "problem", None):
             return None
         try:
-            await run_in_threadpool(auth._signed_in, Request(scope))
+            if scope.get("path", "").startswith(RESTORE):
+                from app.api.backups import _may_restore
+                await _may_restore(Request(scope))
+            else:
+                await run_in_threadpool(auth._signed_in, Request(scope))
         except HTTPException as exc:
             return exc.status_code, json.dumps({"detail": exc.detail}).encode()
         length = next((v for k, v in headers if k == b"content-length"), b"")

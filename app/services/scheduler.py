@@ -15,7 +15,7 @@ from typing import Optional
 
 from app.core import settings
 from app.core.db import db
-from app.services import sync
+from app.services import backup_schedule, sync
 
 log = logging.getLogger("syntropy.scheduler")
 
@@ -52,6 +52,7 @@ async def run_once() -> list[str]:
                 log.exception("Scheduled sync failed for %s", conn["id"])
     await asyncio.gather(*(one(conn) for conn in await asyncio.to_thread(_due)))
     await asyncio.to_thread(prune)
+    await asyncio.to_thread(backup_schedule.start_if_due)
     global last_tick_at
     last_tick_at = time.time()
     return synced

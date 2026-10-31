@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from app.connectors import units
 from app.connectors.fhir_normalize import partial_pressure
 from app.core import data_fixes, settings
-from app.core.db import audit, db, finite, read, dumps, row_to_dict, rows_to_dicts, write_in_batches
+from app.core.db import audit, db, finite, note_deleted, read, dumps, row_to_dict, rows_to_dicts, write_in_batches
 from app.store import lab_catalog, search
 
 CATEGORIES = [
@@ -88,6 +88,21 @@ def upsert_identity(connection_id: str, profile_id: str, patient: dict[str, Any]
              patient.get("mrn"), dumps(patient.get("telecom") or []), dumps(patient.get("address") or []),
              dumps(patient.get("raw")), time.time()),
         )
+
+
+def identity_of(connection_id: str) -> Optional[dict[str, Any]]:
+    with read() as conn:
+        row = conn.execute("SELECT full_name, birth_date FROM patient_identities WHERE connection_id = ?", (connection_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def upsert_references(connection_id: str, resources: Iterable[dict[str, Any]]) -> None:
+    now = time.time()
+    with db() as conn:
+        conn.executemany(
+            "INSERT INTO fhir_references(connection_id, resource_type, resource_id, raw_json, updated_at) VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(connection_id, resource_type, resource_id) DO UPDATE SET raw_json = excluded.raw_json, updated_at = excluded.updated_at",
+            [(connection_id, r["resourceType"], str(r["id"]), dumps(r), now) for r in resources])
 
 
 _COMPARED = ("profile_id, connection_id, resource_type, resource_id, category, title, code_system, code, code_display, "
@@ -327,6 +342,7 @@ data_fixes.register("partial-blood-pressure-text", _fix_partial_blood_pressure)
 def delete_record(record_id_: str) -> None:
     with db() as conn:
         conn.execute("DELETE FROM clinical_records WHERE id = ?", (record_id_,))
+    note_deleted()
 
 
 def delete_for_connection(connection_id: str) -> None:
@@ -1167,22 +1183,3 @@ def summary(profile_id: str) -> dict[str, Any]:
         "identities": idents,
         "identity_conflict": people if len(people) > 1 else [],
     }
-
-
-def raw_resources(profile_id: str) -> Iterable[dict[str, Any]]:
-    with read() as conn:
-        # Patient first: without it an exported bundle has records but no name, birth date or identifiers.
-        for (raw,) in conn.execute(
-                "SELECT raw_json FROM patient_identities WHERE profile_id = ? AND raw_json IS NOT NULL", (profile_id,)):
-            yield json.loads(raw)
-        rows = conn.execute(
-            "SELECT raw_json FROM clinical_records WHERE profile_id = ? AND raw_json IS NOT NULL ORDER BY category, effective_at",
-            (profile_id,),
-        ).fetchall()
-    for r in rows:
-        try:
-            res = json.loads(r["raw_json"])
-            if isinstance(res, dict) and res.get("resourceType"):
-                yield res
-        except ValueError:
-            continue

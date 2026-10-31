@@ -13,7 +13,7 @@ icon, so the iPhone app can keep syncing and automations keep running. From that
 A Mac can instead join the household's server running on another computer (chosen on first launch): then it runs no
 server of its own, and the window opens that one, where each person signs in as themselves.
 
-Run with a command (``serve``, ``mcp``, ``backup``, ``info``...) it behaves like the ``syntropy-health`` command
+Run with a command (``serve``, ``mcp``, ``backup``, ``restore``, ``info``...) it behaves like the ``syntropy-health`` command
 instead, without a window; that's how AI apps start its MCP server and how ``service install`` runs it.
 """
 
@@ -38,7 +38,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-CLI_COMMANDS = {"serve", "service", "backup", "update", "info", "mcp", "version", "accounts", "dev", "-h", "--help"}
+CLI_COMMANDS = {"serve", "service", "backup", "restore", "update", "info", "mcp", "version", "accounts", "key", "dev", "-h", "--help"}
 APP_NAME = "Syntropy Health"
 FIRST_PORT = 8000
 log = logging.getLogger("syntropy.desktop")

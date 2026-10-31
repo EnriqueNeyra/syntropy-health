@@ -525,7 +525,7 @@ def test_a_backup_of_a_damaged_database_is_refused(client):
     c = TestClient(client.app, base_url=BASE, client=LOCAL_CLIENT, raise_server_exceptions=False)
     c.headers.update(client.headers)
     c.cookies.update(client.cookies)
-    r = c.get("/api/export/backup")
+    r = c.post("/api/backups", json={"unencrypted": True})
     assert r.status_code == 503 and "damage" in r.json()["detail"]
     assert maintenance.integrity(path)["ok"] is False
 
@@ -542,8 +542,9 @@ def test_a_data_folder_that_cannot_be_used_is_explained(monkeypatch):
 
 
 def test_a_good_backup_is_served(client):
-    r = client.get("/api/export/backup")
-    assert r.status_code == 200 and r.content[:15] == b"SQLite format 3"
+    made = client.post("/api/backups", json={"unencrypted": True}).json()
+    r = client.get(made["download"])
+    assert r.status_code == 200 and r.content[:2] == b"PK"
 
 
 def test_the_command_line_backup_refuses_a_damaged_database(tmp_path):
@@ -552,7 +553,7 @@ def test_the_command_line_backup_refuses_a_damaged_database(tmp_path):
     _damage(config.db_path())
     out = tmp_path / "backups"
     with pytest.raises(SystemExit) as caught:
-        cli.main(["backup", str(out)])
+        cli.main(["backup", str(out), "--no-encrypt"])
     assert "damage" in str(caught.value.code)
     assert not list(out.glob("*.zip")) if out.exists() else True
 

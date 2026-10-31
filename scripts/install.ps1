@@ -129,5 +129,5 @@ if (-not $NoService) {
 Write-Host ""
 Say "Syntropy Health $(syntropy-health version) is installed."
 Write-Host "    Open http://localhost:$Port to finish setup."
-Write-Host "    Data:    $Data   (back up with: syntropy-health backup `$HOME\Desktop)"
+Write-Host "    Data:    $Data   (back up with: syntropy-health backup D:\A\Folder\On\Another\Drive)"
 Write-Host "    Update:  syntropy-health update   (or run this installer again)"

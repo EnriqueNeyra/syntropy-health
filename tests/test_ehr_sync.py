@@ -240,7 +240,7 @@ def test_removed_records_reach_no_read_path(client):
     _sync(client, cid)
     assert lab["id"] not in {i["id"] for i in client.get("/api/timeline", params={"categories": "labs", "limit": 500}).json()["items"]}
     assert lab["id"] not in {p["record_id"] for p in client.get("/api/observations/series", params={"code": lab["code"]}).json()["points"]}
-    assert lab["resource_id"] not in {r.get("id") for r in records.raw_resources(connections.get(cid)["profile_id"])}
+    assert lab["resource_id"] not in {e["resource"].get("id") for e in client.get("/api/export/fhir").json()["entry"]}
 
 
 def test_removed_records_go_with_their_source_and_after_a_long_time(client):

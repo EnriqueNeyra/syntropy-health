@@ -80,8 +80,8 @@ def test_csv_and_backup_exports(client):
     csv_text = client.get("/api/export/csv", params={"kind": "records"}).text
     assert csv_text.splitlines()[0].startswith("category,title")
     assert len(csv_text.splitlines()) > 100
-    backup = client.get("/api/export/backup")
-    assert backup.content[:15] == b"SQLite format 3"
+    backup = client.get(client.post("/api/backups", json={"unencrypted": True}).json()["download"])
+    assert backup.content[:2] == b"PK"
 
 
 def test_profiles_scope_data(client):
@@ -312,7 +312,7 @@ def test_fhir_export_includes_patient_and_round_trips(client):
     other = client.post("/api/profiles", json={"name": "Copy", "relationship": "other"}).json()
     files = {"file": ("export.json", json.dumps(bundle), "application/json")}
     res = client.post("/api/imports/fhir", files=files, data={"profile_id": other["id"]}).json()
-    assert res["records"] == len(types) - 1
+    assert res["records"] == len([t for t in types if t not in ("Patient", "Medication")])
     assert client.get("/api/summary", params={"profile": other["id"]}).json()["identities"][0]["full_name"] == "Alex Rivera"
 
 

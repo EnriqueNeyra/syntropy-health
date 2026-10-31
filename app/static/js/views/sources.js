@@ -557,9 +557,11 @@ export async function render({ el, params, state }) {
     mount(status, html`<div class="small"><span class="spinner"></span> Importing ${file.name}…</div>`);
     try {
       const r = await api("/api/imports/fhir", { method: "POST", form });
-      if (r.unchanged) toast("This file has already been imported, so nothing changed.");
+      const kept = r.kept_both ? ` ${plural(r.kept_both, "record")} differed from what's here, so both were kept.` : "";
+      const again = r.unchanged ? ` ${plural(r.unchanged, "record")} already here.` : "";
+      if (r.already_imported) toast("This file has already been imported, so nothing changed.");
       else if (r.matched_earlier) toast(`Updated the earlier import from this source: ${plural(r.inserted, "new record")}, ${plural(r.updated, "change")}${r.removed ? `, ${r.removed} taken back` : ""}`, "good");
-      else toast(`Imported ${plural(r.records, "record")}`, "good");
+      else toast(`Imported ${plural(r.inserted, "new record")}.${again}${kept}`, "good");
       await refresh();
       // After the refresh, which redraws what's around it.
       if (r.warnings?.length) mount(status, html`<div class="banner warn"><div class="grow"><b>Imported ${plural(r.records, "record")}, with something to check.</b>

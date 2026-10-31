@@ -8,8 +8,8 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 
-from app.core.db import db, read, dumps, row_to_dict, rows_to_dicts
-from app.store.biometrics import EARLIEST_YEAR, _tz as local_tz, id_held_elsewhere, item_offset, parse_ts, source_kind, source_kinds, to_utc_iso
+from app.core.db import db, note_deleted, read, dumps, row_to_dict, rows_to_dicts
+from app.store.biometrics import EARLIEST_YEAR, _tz as local_tz, check_source, id_held_elsewhere, item_offset, parse_ts, source_kind, source_kinds, to_utc_iso
 
 WORKOUT_FIELDS = (
     "activity_type", "name", "duration_s", "active_energy_kcal", "total_energy_kcal", "distance_m", "step_count",
@@ -116,6 +116,7 @@ def store_workouts(profile_id: str, connection_id: Optional[str], workouts: Iter
     inserted = updated = rejected = 0
     with db() as conn:
         imports = _imports_of(conn, profile_id)
+        check_source(conn, profile_id, connection_id)
         for w in workouts:
             try:
                 start, end = _when(w)
@@ -167,6 +168,7 @@ def store_events(profile_id: str, connection_id: Optional[str], events: Iterable
     now = time.time()
     inserted = updated = rejected = 0
     with db() as conn:
+        check_source(conn, profile_id, connection_id)
         imports = _imports_of(conn, profile_id)
         for e in events:
             try:
@@ -188,18 +190,21 @@ def store_events(profile_id: str, connection_id: Optional[str], events: Iterable
                                      (*changes.values(), offset, now, row["rowid"]))
                         updated += 1
                     continue
-                same = conn.execute("SELECT rowid, connection_id FROM health_events WHERE profile_id = ? AND event_type = ? "
-                                    "AND start_date = ? AND end_date = ? AND source_name = ?",
-                                    (profile_id, event_type, start, end, source)).fetchone()
+                # A device resends an event under a new id, so its type, time and source are what identify it. Entries typed
+                # into the journal have an id of their own, and two medications taken together share all of those.
+                typed_in = e.get("manual") and connection_id is None
+                same = None if typed_in else conn.execute(
+                    "SELECT rowid, connection_id FROM health_events WHERE profile_id = ? AND event_type = ? "
+                    "AND start_date = ? AND end_date = ? AND source_name = ?", (profile_id, event_type, start, end, source)).fetchone()
                 if same:
                     _move_from_import(conn, "health_events", same, connection_id, imports)
                     continue
                 conn.execute(
                     """INSERT INTO health_events(id, profile_id, connection_id, event_type, category, name, start_date, end_date,
-                           value, value_label, source_name, metadata_json, created_at, tz_offset_min)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                           value, value_label, source_name, metadata_json, note, manual, created_at, tz_offset_min)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (event_id, profile_id, connection_id, event_type, category, name, start, end, e.get("value"), e.get("value_label"),
-                     source, metadata, now, offset))
+                     source, metadata, e.get("note"), 1 if e.get("manual") else 0, now, offset))
                 inserted += 1
             except _ITEM_ERRORS:
                 rejected += 1
@@ -218,7 +223,8 @@ def insert_events(profile_id: str, connection_id: Optional[str], events: Iterabl
 def list_workouts(profile_id: str, days: Optional[int] = 90, limit: int = 200, dedupe: bool = True,
                   start: Optional[str] = None, end: Optional[str] = None, name: Optional[str] = None) -> list[dict[str, Any]]:
     q = ["SELECT id, activity_type, name, start_date, end_date, duration_s, active_energy_kcal, total_energy_kcal,",
-         "distance_m, step_count, avg_hr, max_hr, min_hr, elevation_ascent_m, indoor, source_name, tz_offset_min,",
+       "distance_m, step_count, avg_hr, max_hr, min_hr, elevation_ascent_m, elevation_descent_m, temperature_c, humidity_pct,",
+       "device_name, indoor, source_name, tz_offset_min,",
          "route_json IS NOT NULL AS has_route, heart_rate_json IS NOT NULL AS has_heart_rate",
          "FROM workouts WHERE profile_id = ?"]
     params: list[Any] = [profile_id]
@@ -469,8 +475,10 @@ def update_entry(profile_id: str, event_id: str, entry: dict[str, Any]) -> Optio
 
 def delete_entry(profile_id: str, event_id: str) -> bool:
     with db() as conn:
-        return conn.execute("DELETE FROM health_events WHERE profile_id = ? AND id = ? AND manual = 1",
-                            (profile_id, event_id)).rowcount > 0
+        deleted = conn.execute("DELETE FROM health_events WHERE profile_id = ? AND id = ? AND manual = 1",
+                               (profile_id, event_id)).rowcount > 0
+    note_deleted()
+    return deleted
 
 
 def counts(profile_id: str) -> dict[str, int]:

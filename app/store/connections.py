@@ -6,8 +6,8 @@ import time
 from typing import Any, Optional
 
 from app.core import security
-from app.core.db import audit, db, discard_pre_upgrade_copies, read, dumps, new_id, row_to_dict, rows_to_dicts
-from app.store import sample_counts
+from app.core.db import audit, db, read, dumps, new_id, row_to_dict, rows_to_dicts
+from app.store import profiles, sample_counts
 
 PUBLIC_FIELDS = (
     "id", "profile_id", "kind", "provider", "institution_id", "display_name", "mode",
@@ -101,6 +101,20 @@ def find_existing(profile_id: str, provider: str, *, institution_id: Optional[st
     with read() as conn:
         row = conn.execute(q, params).fetchone()
     return _present(row_to_dict(row, ["metadata_json"])) if row else None
+
+
+def find_import(profile_id: str, origin: str) -> Optional[dict[str, Any]]:
+    """The source an earlier import made for this origin, so importing the same thing again doesn't add another."""
+    return next((c for c in list_for_profile(profile_id, "import") if (c.get("metadata") or {}).get("origin") == origin), None)
+
+
+def find_imports_named(profile_id: str, origin: str, display_name: Optional[str] = None) -> list[dict[str, Any]]:
+    """Every source that came from a file by this name: there can be several (origin~...), because the name alone doesn't
+    say whose it was. One from before origins were saved is recognised by its name."""
+    found = list_for_profile(profile_id, "import")
+    named = [c for c in found if ((c.get("metadata") or {}).get("origin") or "") == origin
+             or ((c.get("metadata") or {}).get("origin") or "").startswith(f"{origin}~")]
+    return named + [c for c in found if display_name and c["display_name"] == display_name and not (c.get("metadata") or {}).get("origin")]
 
 
 def get(connection_id: str, include_credentials: bool = False) -> Optional[dict[str, Any]]:
@@ -214,7 +228,8 @@ def disconnect(connection_id: str, delete_data: bool = False) -> None:
         if not row:
             return
         if delete_data:
-            conn.execute("DELETE FROM biometric_samples WHERE connection_id = ?", (connection_id,))
+            # Samples next, in short steps (biometrics.delete_for_connection): with the source gone, no more can arrive.
+            profiles.note_unfinished(conn, f"connection:{connection_id}")
             conn.execute("DELETE FROM workouts WHERE connection_id = ?", (connection_id,))
             conn.execute("DELETE FROM health_events WHERE connection_id = ?", (connection_id,))
             conn.execute("DELETE FROM connections WHERE id = ?", (connection_id,))
@@ -227,7 +242,6 @@ def disconnect(connection_id: str, delete_data: bool = False) -> None:
               {"id": connection_id, "name": row["display_name"]}, row["profile_id"])
     if delete_data:
         sample_counts.forget()
-        discard_pre_upgrade_copies()
 
 
 # ---------------------------------------------------------------------------

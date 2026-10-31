@@ -31,8 +31,8 @@ from typing import Any, Callable, Iterable, Optional
 from zoneinfo import ZoneInfo
 
 from app.core import settings
-from app.core.db import db, read, dumps, new_id, rows_to_dicts, write_in_batches
-from app.store import sample_counts
+from app.core.db import db, discard_pre_upgrade_copies, read, dumps, new_id, rows_to_dicts, write_in_batches
+from app.store import profiles, sample_counts
 from app.store.metric_registry import (METRICS, TIME_WEIGHT_MAX_S, TIME_WEIGHTED, in_plausible_range, to_canonical)
 
 # Raw sample metric -> daily metric (sleep stages from HealthKit / rings).
@@ -161,10 +161,6 @@ def source_priority(source_name: Optional[str]) -> int:
 # ---------------------------------------------------------------------------
 # Ingest
 # ---------------------------------------------------------------------------
-
-class SourceRemoved(Exception):
-    """The source was removed while its sync was running, so what it fetched is dropped."""
-
 
 def id_held_elsewhere(conn: Any, table: str, item_id: str, profile_id: str) -> Optional[str]:
     """When a row's id (HealthKit's own UUID) is already stored for someone else, the id to store it under for this
@@ -402,6 +398,22 @@ def _same_reading(conn: Any, s: dict[str, Any], profile_id: str, source: str) ->
     return None
 
 
+class SourceGone(Exception):
+    """The person or source this data belongs to was deleted while it was on its way, so it goes nowhere."""
+
+    def __str__(self) -> str:
+        return "Stopped, because this person or source was deleted."
+
+
+def check_source(conn: Any, profile_id: str, connection_id: Optional[str]) -> None:
+    """Under the write lock of the transaction that stores the data. Wearable tables have no foreign keys, so without this
+    an import or sync that outlives its person or source brings back what was just deleted, with no source left to remove."""
+    row = (conn.execute("SELECT 1 FROM connections WHERE id = ? AND profile_id = ?", (connection_id, profile_id)).fetchone()
+           if connection_id else conn.execute("SELECT 1 FROM profiles WHERE id = ?", (profile_id,)).fetchone())
+    if not row:
+        raise SourceGone()
+
+
 def insert_samples(
     profile_id: str,
     connection_id: Optional[str],
@@ -410,7 +422,6 @@ def insert_samples(
     batch_meta: Optional[dict[str, Any]] = None,
     deleted_ids: Iterable[str] = (),
     deleted_prefixes: Iterable[str] = (),
-    must_have_source: bool = False,
 ) -> dict[str, Any]:
     """Stores readings and, in the same transaction, the daily rows they change. A new id is inserted, a known id with a
     changed value corrects the stored row, and anything else counts under ``duplicates``. ``deleted_*`` go first, so a
@@ -426,8 +437,7 @@ def insert_samples(
     changed: set[str] = set()
     sources_seen: dict[str, tuple[str, Optional[str], bool]] = {}
     with db() as conn:
-        if must_have_source and connection_id and not conn.execute("SELECT 1 FROM connections WHERE id = ?", (connection_id,)).fetchone():
-            raise SourceRemoved(connection_id)
+        check_source(conn, profile_id, connection_id)
         removed_ids = {r[0] for r in conn.execute("SELECT sample_id FROM sample_tombstones WHERE profile_id = ?", (profile_id,))}
         imports = {r[0] for r in conn.execute("SELECT id FROM connections WHERE profile_id = ? AND kind = 'import'", (profile_id,))}
         removed += _remove_samples(conn, profile_id, deleted_ids, deleted_prefixes, affected, changed, tz)
@@ -791,10 +801,14 @@ def rebuild_daily(profile_id: str, days: Optional[list[str]] = None, metrics: Op
     orders = source_orders()
     if not days:
         with db() as conn:
+            if not conn.execute("SELECT 1 FROM profiles WHERE id = ?", (profile_id,)).fetchone():
+                return 0
             queue_rebuild(conn, profile_id)
         run_queued_rebuilds()
         return 0
     with db() as conn:
+        if not conn.execute("SELECT 1 FROM profiles WHERE id = ?", (profile_id,)).fetchone():
+            return 0
         return _rollup(conn, profile_id, days, metrics, tz, orders)
 
 
@@ -890,6 +904,12 @@ def daily_revision(profile_id: str) -> int:
 # so another process (the MCP server) sees a change made by this one.
 _derived: dict[tuple[str, str], tuple[Any, Any]] = {}
 _DERIVED_MAX = 256
+
+
+def forget_derived() -> None:
+    """The database has been replaced: its revision numbers say nothing about what's kept here."""
+    _derived.clear()
+    _source_totals.clear()
 
 
 def _cached(what: str, profile_id: str, key: Any, compute: Any) -> Any:
@@ -1386,36 +1406,14 @@ def recent_samples(profile_id: str, metric: Optional[str] = None, limit: int = 1
         return rows_to_dicts(conn.execute(q, params).fetchall())
 
 
-def _delete_batches(where: str, params: tuple[Any, ...], table: str = "biometric_samples") -> None:
-    """A long delete in short transactions, so other writes get their turn."""
-    def step(conn: Any, cursor: Any, size: int) -> Any:
-        n = conn.execute(f"DELETE FROM {table} WHERE rowid IN (SELECT rowid FROM {table} WHERE {where} LIMIT ?)", (*params, size)).rowcount
-        return ((cursor or 0) + n) if n else None
-    write_in_batches(step, size=5000)
-
-
-def delete_for_connection(connection_id: str) -> None:
-    """A source's samples, then its person's rollups. The rebuild is queued first: from a kill at any point the rollups are
-    put right at the next start, whatever was or wasn't deleted, and removing the source again finishes the job."""
-    with read() as conn:
-        row = conn.execute("SELECT profile_id FROM connections WHERE id = ?", (connection_id,)).fetchone()
-        if not row:
-            row = conn.execute("SELECT profile_id FROM biometric_samples WHERE connection_id = ? LIMIT 1", (connection_id,)).fetchone()
-    if not row or not row[0]:
-        return
+def delete_for_connection(connection_id: str, profile_id: str) -> None:
+    """In short steps: a source can have millions of samples. The source itself has already gone (connections.disconnect).
+    The rebuild is queued first: from a kill at any point the rollups are put right at the next start."""
     with db() as conn:
-        queue_rebuild(conn, row[0])
-    _delete_batches("connection_id = ?", (connection_id,))
+        queue_rebuild(conn, profile_id)
+    profiles.delete_rows("biometric_samples", "connection_id", connection_id)
+    with db() as conn:
+        profiles.note_unfinished(conn, f"connection:{connection_id}", done=True)
     sample_counts.forget()
+    discard_pre_upgrade_copies()
     run_queued_rebuilds()
-
-
-def delete_all_for_profile(profile_id: str) -> None:
-    """Empties the biggest tables ahead of wiping someone's data, so the wipe's own transaction is short."""
-    for table in ("biometric_samples", "health_events", "workouts", "biometric_daily"):
-        _delete_batches("profile_id = ?", (profile_id,), table)
-    with db() as conn:
-        conn.execute("DELETE FROM daily_rebuilds WHERE profile_id = ?", (profile_id,))
-        conn.execute("DELETE FROM data_sources WHERE profile_id = ?", (profile_id,))
-        conn.execute("DELETE FROM sample_tombstones WHERE profile_id = ?", (profile_id,))
-        conn.execute("DELETE FROM import_jobs WHERE profile_id = ?", (profile_id,))

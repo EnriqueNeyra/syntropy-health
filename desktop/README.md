@@ -23,7 +23,7 @@ anything still running from the app's folder and removes a `service install` mad
 data. See [Uninstalling](../README.md#uninstalling).
 
 Started with a command, the app acts as the `syntropy-health` command instead, without a window:
-`"Syntropy Health.app/Contents/MacOS/Syntropy Health" mcp` (AI apps' stdio MCP), `… backup ~/Desktop`, `… info`. On
+`"Syntropy Health.app/Contents/MacOS/Syntropy Health" mcp` (AI apps' stdio MCP), `… backup /a/folder/on/another/drive`, `… restore FILE`, `… info`. On
 Windows, `syntropy-health.exe` next to the app is the console version of the same program.
 
 ## Updates

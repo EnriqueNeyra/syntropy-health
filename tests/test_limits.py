@@ -401,7 +401,7 @@ def test_a_command_line_backup_leaves_out_uploads_and_is_logged(client, tmp_path
     folder = config.data_dir() / "uploads"
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "upload_x.zip").write_bytes(b"a whole export")
-    out = cli.backup(str(tmp_path / "backups"))
+    out = cli.backup(str(tmp_path / "backups"), no_encrypt=True)
     with zipfile.ZipFile(out) as z:
         assert not [n for n in z.namelist() if n.startswith("uploads")] and "syntropy.db" in z.namelist()
     assert any(e["action"] == "export.backup" and e["actor"] == "cli" for e in client.get("/api/audit").json()["events"])

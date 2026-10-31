@@ -28,9 +28,11 @@ def test_backup_holds_the_database_and_key(client, isolated_data, tmp_path):
     client.post("/api/connections/wearable", json={"provider": "oura", "mode": "simulated"})
     from app.core import security
     security.encrypt_json("make sure the key exists")
-    out = cli.backup(str(tmp_path / "backups"))
+    (isolated_data / "uploads").mkdir(exist_ok=True)
+    (isolated_data / "uploads" / "upload_abc.zip").write_bytes(b"on its way into an import")
+    out = cli.backup(str(tmp_path / "backups"), no_encrypt=True)
     with zipfile.ZipFile(out) as z:
-        assert {"syntropy.db", "secret.key"} <= set(z.namelist())
+        assert {"manifest.json", "syntropy.db", "secret.key"} == set(z.namelist())
 
 
 def test_service_files(isolated_data):

@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from app.core import auth, config, context, data_fixes, maintenance, security, settings
 from app.core.db import audit, db, read, rows_to_dicts
-from app.services import network, scheduler, updates
+from app.services import backup_schedule, network, scheduler, updates
 from app.store import accounts, agents, profiles
 
 router = APIRouter(tags=["system"])
@@ -55,7 +55,7 @@ def health_details() -> dict:
         "scheduler": {"enabled": config.scheduler_enabled(), "last_tick_at": tick, "age_seconds": round(now - tick) if tick else None},
         "last_sync": {kind: {"at": at, "age_seconds": round(now - at) if at else None} for kind, at in syncs.items()},
         "data_fixes": data_fixes.status(),
-        "problems": maintenance.problems() + updates.problems(),
+        "problems": maintenance.problems() + updates.problems() + backup_schedule.problems(),
     }
 
 
@@ -100,7 +100,7 @@ def status(request: Request) -> dict:
             if update["available"]:
                 out["update"] = {"version": update["latest"]["version"], "installs": update["method"]["installs"]}
         if principal.owner:
-            out["problems"] = maintenance.problems() + updates.problems()
+            out["problems"] = maintenance.problems() + updates.problems() + backup_schedule.problems()
     return out
 
 

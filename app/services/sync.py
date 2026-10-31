@@ -9,12 +9,14 @@ sync and a manual "Sync now" never run concurrently for the same source.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import sqlite3
 import time
+import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 import httpx
 
@@ -22,7 +24,7 @@ from app.connectors import fhir_normalize, google_health, oura, smart, whoop
 from app.connectors import wearable_common as wc
 from app.connectors.smart import SmartError
 from app.services import connect
-from app.core.db import audit, db, read
+from app.core.db import audit, db, dumps, read
 from app.store import activity, biometrics, connections, records
 
 log = logging.getLogger("syntropy.sync")
@@ -100,6 +102,8 @@ async def sync_connection(connection_id: str, trigger: str = "manual") -> dict[s
             return await _stopped(run_id, conn, exc, started)
         except httpx.HTTPError as exc:
             return await _stopped(run_id, conn, _plain_failure(exc, conn["display_name"]), started)
+        except biometrics.SourceGone as exc:     # removed while this sync was fetching: there's nothing to report it on
+            return {"status": "skipped", "reason": str(exc)}
         except Exception as exc:  # noqa: BLE001 - surface any failure on the connection card
             log.exception("Sync failed for %s", connection_id)
             stats = {"failure_kind": "error", "duration_s": round(time.time() - started, 2)}
@@ -179,6 +183,7 @@ async def _sync_ehr(conn: dict[str, Any]) -> dict[str, Any]:
         if patient:
             records.upsert_identity(conn["id"], conn["profile_id"], patient)
         write = records.upsert_records(conn["profile_id"], conn["id"], conn["display_name"], recs)
+        records.upsert_references(conn["id"], fhir_normalize.referenced_resources(fetched.resources))
         outcome = records.reconcile(conn["id"], set(returned) - retracted, fetched.prune_verdict, retracted)
         connections.save_query_state(conn["id"], fetched.state())
         return write, outcome
@@ -418,12 +423,11 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
             batch_meta={"device_id": f"{conn['provider']}-cloud", "device_name": conn["display_name"],
                         "sync_trigger": "simulated" if conn["mode"] == "simulated" else "cloud"},
             deleted_prefixes=module.deleted_prefixes(data) if hasattr(module, "deleted_prefixes") else (),
-            must_have_source=True,
         )
         return result, activity.store_workouts(conn["profile_id"], conn["id"], workouts)
     try:
         result, workouts = await asyncio.to_thread(store)
-    except biometrics.SourceRemoved:
+    except biometrics.SourceGone:
         return {"since": since.isoformat(), "samples": 0, "inserted": 0, "warnings": [], "removed": True}
     await asyncio.to_thread(_remember_window, conn["id"], meta, asked_older, since, today, bool(warnings))
     return {"since": since.isoformat(), "samples": result["received"], "inserted": result["inserted"], "updated": result["updated"],
@@ -543,38 +547,195 @@ def _other_subjects(resources: list[dict[str, Any]]) -> int:
     return len(subjects - known) - (0 if known else 1)
 
 
+# The tag every exported resource carries (app.services.exports): which source it came from.
+SOURCE_TAG = "urn:syntropy-health:source"
+SOURCE_URN = "urn:syntropy-health:source:"
+
+
+def _take_source_tag(res: dict[str, Any]) -> tuple[dict[str, Any], Optional[str], Optional[str]]:
+    """The resource as it was before export, and the source's id and name if it had one."""
+    meta = res.get("meta")
+    if not isinstance(meta, dict):
+        return res, None, None
+    tags = [t for t in meta.get("tag") or [] if isinstance(t, dict)]
+    ours = next((t for t in tags if t.get("system") == SOURCE_TAG and t.get("code")), None)
+    if not ours:
+        return res, None, None
+    left = {**meta, "tag": [t for t in tags if t is not ours]}
+    if not left["tag"]:
+        del left["tag"]
+    if str(left.get("source") or "").startswith(SOURCE_URN):
+        del left["source"]
+    out = {k: v for k, v in res.items() if k != "meta"}
+    if left:
+        out["meta"] = left
+    return out, str(ours["code"]), str(ours.get("display") or "") or None
+
+
+def _patient_of(res: dict[str, Any]) -> Optional[str]:
+    for field in ("subject", "patient", "beneficiary"):
+        ref = (res.get(field) or {}).get("reference") if isinstance(res.get(field), dict) else None
+        if isinstance(ref, str) and "Patient/" in ref:
+            return ref.rsplit("Patient/", 1)[1]
+    return None
+
+
+def _group_by_source(resources: list[dict[str, Any]], display_name: str) -> list[dict[str, Any]]:
+    """A file is split by the source its resources say they came from, so two hospitals that use the same id both keep their
+    results. Without that, by patient: a file naming two people mustn't be stored as if it were one."""
+    groups: dict[str, dict[str, Any]] = {}
+    untagged: list[dict[str, Any]] = []
+    for res in resources:
+        clean, origin, name = _take_source_tag(res)
+        if origin:
+            groups.setdefault(origin, {"origin": origin, "name": name or display_name, "resources": []})["resources"].append(clean)
+        else:
+            untagged.append(clean)
+    patients = [r for r in untagged if r.get("resourceType") == "Patient"]
+    if len(patients) > 1:
+        # A Medication or a prescriber belongs to nobody, and each person's records need it to be read.
+        shared = [r for r in untagged if r.get("resourceType") in fhir_normalize.REFERENCED_TYPES]
+        for patient in patients:
+            who = str(patient.get("id") or len(groups))
+            mine = [r for r in untagged if r is patient or _patient_of(r) == who]
+            origin = f"file:{display_name}#{who}"
+            groups[origin] = {"origin": origin, "name": display_name, "resources": mine + shared, "by_name": True}
+        claimed = {id(r) for g in groups.values() for r in g["resources"]}
+        rest = [r for r in untagged if id(r) not in claimed]
+        if rest:
+            first = groups[f"file:{display_name}#{patients[0].get('id') or 0}"] if patients[0].get("id") else next(iter(groups.values()))
+            first["resources"].extend(rest)
+    elif untagged:
+        origin = f"file:{display_name}"
+        groups[origin] = {"origin": origin, "name": display_name, "resources": untagged, "legacy_name": display_name, "by_name": True}
+    return list(groups.values())
+
+
+def _keep_both(connection_id: str, recs: list[dict[str, Any]]) -> int:
+    """An import never overwrites. A resource with the id of one already here, and different contents, is kept beside it
+    under an id made from its contents, so importing the same file again finds it instead of adding it once more."""
+    with read() as c:
+        stored = {(r[0], r[1]): r[2] for r in c.execute(
+            "SELECT resource_type, resource_id, raw_json FROM clinical_records WHERE connection_id = ?", (connection_id,))}
+    kept = 0
+    for rec in recs:
+        key = (rec["resource_type"], rec["resource_id"])
+        text = dumps(rec["raw"])
+        if key not in stored or stored[key] == text:
+            stored[key] = text
+            continue
+        new_id = f"{rec['resource_id'][:53]}-k{hashlib.sha1((text or '').encode()).hexdigest()[:8]}"
+        rec["resource_id"] = new_id
+        rec["raw"] = {**rec["raw"], "id": new_id}
+        new_key = (rec["resource_type"], new_id)
+        if new_key not in stored:
+            kept += 1
+        stored[new_key] = dumps(rec["raw"])
+    return kept
+
+
+def _shares_a_record(connection_id: str, recs: list[dict[str, Any]]) -> bool:
+    """A corrected result keeps its id, so the id is what's compared. Different contents are kept beside it (_keep_both)."""
+    with read() as c:
+        stored = {(r[0], r[1]) for r in c.execute(
+            "SELECT resource_type, resource_id FROM clinical_records WHERE connection_id = ?", (connection_id,))}
+    return not stored or any((r["resource_type"], r["resource_id"]) in stored for r in recs)
+
+
+def _same_source(conn: dict[str, Any], patient: Optional[dict[str, Any]], resources: list[dict[str, Any]],
+                 recs: list[dict[str, Any]], named_by_file: bool, keys: Iterable[str] = ()) -> bool:
+    """Everyone's download is called export.json, so a name doesn't make a file the source already here under it. It has to
+    be about the same patient or, if one of them doesn't say who, to have a record in common. Otherwise a second person's
+    records would mix into the first's and their name replace the first's, and nothing would warn that these are two people.
+    A source that came with a patient number issued by someone is only ever that number's."""
+    numbers = (conn.get("metadata") or {}).get("source_keys")
+    if numbers and not set(numbers) & set(keys):
+        return False
+    here = records.identity_of(conn["id"])
+    known = conn.get("patient_ref")
+    if patient and here:
+        if patient.get("id") and known and str(patient["id"]) != known:
+            return False
+        named = [{"full_name": None if p["name"] == "Unknown" else p["name"], "birth_date": p["birth_date"], "source_name": ""}
+                 for p in ({"name": here["full_name"], "birth_date": here["birth_date"]},
+                           {"name": patient.get("name"), "birth_date": patient.get("birth_date")})]
+        return len(records.distinct_people(named)) == 1
+    if not named_by_file:       # Apple Health Records: the one place these go, and they name no patient
+        return True
+    subjects = {s for s in map(_patient_of, resources) if s}
+    if subjects and known:
+        return known in subjects
+    return _shares_a_record(conn["id"], recs)
+
+
+def _source_of(profile_id: str, group: dict[str, Any], patient: Optional[dict[str, Any]], recs: list[dict[str, Any]],
+               provider: str, keys: Iterable[str] = ()) -> tuple[Optional[dict[str, Any]], str, bool]:
+    """The source this group goes in, if there's one already; the origin to save; and whether others share its name."""
+    origin = group["origin"]
+    candidates = connections.find_imports_named(profile_id, origin, group.get("legacy_name"))
+    for conn in candidates:
+        if not group.get("by_name") or _same_source(conn, patient, group["resources"], recs, provider == "fhir_file", keys):
+            return conn, (conn.get("metadata") or {}).get("origin") or origin, False
+    return None, f"{origin}~{uuid.uuid4().hex[:8]}" if candidates else origin, bool(candidates)
+
+
 def import_fhir_resources(profile_id: str, display_name: str, resources: list[dict[str, Any]],
                           provider: str = "fhir_file", reuse: Optional[dict[str, Any]] = None,
                           metadata: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-    """Stores a file's records as a new source, or in ``reuse``, the one an earlier copy of this file went into: there,
-    the same resources are updated, and the file can take back what it now says was wrong. What it doesn't mention stays."""
-    _refuse_several_people(resources)
-    patient, recs, problems = fhir_normalize.normalize_report(resources)
-    if not recs and not patient:
-        raise ValueError("No supported FHIR R4 resources were found in the file.")
-    info = {"imported_at": time.time(), "resource_count": len(resources), **(metadata or {})}
-    if reuse:
-        conn = reuse
-        connections.update(conn["id"], metadata={**(conn.get("metadata") or {}), **info})
-    else:
-        conn = connections.create(profile_id, "import", provider, display_name, mode="live",
-                                  patient_ref=(patient or {}).get("id"), metadata=info)
-    run_id = connections.start_run(conn["id"], "import")
-    if patient:
-        records.upsert_identity(conn["id"], profile_id, patient)
-    write = records.upsert_records(profile_id, conn["id"], conn["display_name"], recs)
-    warnings = [f"{rtype}: {n} couldn't be read" for rtype, n in _unread_by_type(problems).items()]
+    """Each source in the file becomes one source here, found again if the same file comes back, and the result says what
+    happened to every record. ``reuse`` is the one source an earlier copy of this file is known to have gone into: there, the
+    same resources are updated, and the file can take back what it now says was wrong. What it doesn't mention stays."""
+    _refuse_several_people([r for r in resources if _take_source_tag(r)[1] is None])
+    total: dict[str, Any] = {"resources": len(resources), "records": 0, "inserted": 0, "updated": 0, "unchanged": 0, "kept_both": 0,
+                             "not_read": 0, "warnings": []}
     if provider == "fhir_file" and _other_subjects(resources) > 0:
-        warnings.append("Some records in this file point at another patient ID. Check they all belong to this person.")
-    stats: dict[str, Any] = {"resources": len(resources), "records": len(recs), **write, "warnings": warnings,
-                             "not_read": _count_unread(problems)}
-    if reuse:
-        stored = {f"{r['resource_type']}/{r['resource_id']}" for r in recs}
-        keys = {f"{r['resourceType']}/{r['id']}": r for r in resources if r.get("id")}
-        stats["removed"] = records.retract(conn["id"], {k for k, r in keys.items() if k not in stored and _says_taken_back(r)})
-        stats["matched_earlier"] = True
-    connections.finish_run(run_id, conn["id"], "success", stats)
-    return {"connection_id": conn["id"], **stats}
+        total["warnings"].append("Some records in this file point at another patient ID. Check they all belong to this person.")
+    made: list[dict[str, Any]] = []
+    groups = _group_by_source(resources, display_name)
+    reuse = reuse if len(groups) == 1 else None
+    keys = (metadata or {}).get("source_keys") or ()
+    for group in groups:
+        patient, recs, problems = fhir_normalize.normalize_report(group["resources"])
+        if not recs and (not patient or len(groups) > 1):
+            continue
+        conn, origin, name_taken = (reuse, (reuse.get("metadata") or {}).get("origin") or group["origin"], False) if reuse \
+            else _source_of(profile_id, group, patient, recs, provider, keys)
+        info = {"imported_at": time.time(), "resource_count": len(group["resources"]), **(metadata or {}), "origin": origin}
+        subjects = {s for s in map(_patient_of, group["resources"]) if s}
+        patient_ref = (patient or {}).get("id") or (next(iter(subjects)) if len(subjects) == 1 else None)
+        if conn:
+            connections.update(conn["id"], metadata={**(conn.get("metadata") or {}), **info},
+                               **({"patient_ref": patient_ref} if patient_ref and not conn.get("patient_ref") else {}))
+        else:
+            who = (patient or {}).get("name")
+            name = f"{group['name']} ({who})" if name_taken and who and who != "Unknown" else group["name"]
+            conn = connections.create(profile_id, "import", provider, name, mode="live", patient_ref=patient_ref, metadata=info)
+        run_id = connections.start_run(conn["id"], "import")
+        if patient:
+            records.upsert_identity(conn["id"], profile_id, patient)
+        if not reuse:
+            total["kept_both"] += _keep_both(conn["id"], recs)
+        write = records.upsert_records(profile_id, conn["id"], conn["display_name"], recs)
+        records.upsert_references(conn["id"], fhir_normalize.referenced_resources(group["resources"]))
+        warnings = [f"{rtype}: {n} couldn't be read" for rtype, n in _unread_by_type(problems).items()]
+        stats: dict[str, Any] = {"resources": len(group["resources"]), "records": len(recs), **write, "warnings": warnings,
+                                 "not_read": _count_unread(problems)}
+        if reuse:
+            stored = {f"{r['resource_type']}/{r['resource_id']}" for r in recs}
+            keyed = {f"{r['resourceType']}/{r['id']}": r for r in group["resources"] if r.get("id")}
+            total["removed"] = stats["removed"] = records.retract(conn["id"], {k for k, r in keyed.items() if k not in stored and _says_taken_back(r)})
+            total["matched_earlier"] = stats["matched_earlier"] = True
+        connections.finish_run(run_id, conn["id"], "success", stats)
+        total["records"] += len(recs)
+        total["inserted"] += write["inserted"]
+        total["updated"] += write["updated"]
+        total["unchanged"] += len(recs) - write["inserted"] - write["updated"]
+        total["not_read"] += stats["not_read"]
+        total["warnings"] += warnings
+        made.append({"connection_id": conn["id"], "name": conn["display_name"]})
+    if not made:
+        raise ValueError("No supported FHIR R4 resources were found in the file.")
+    return {"connection_id": made[0]["connection_id"], "sources": made, **total}
 
 
 def due_connections(ehr_hours: float, wearable_hours: float) -> list[dict[str, Any]]:
