@@ -468,6 +468,7 @@ def test_right_clicking_a_conversation_opens_its_menu_at_the_pointer(page, app):
     menu = page.locator(".popover.dropdown:not(.closing)")
     menu.wait_for()
     assert menu.locator(".menu-item").all_inner_texts() == ["Rename", "Pin", "Export as Markdown", "Delete"]
+    page.wait_for_timeout(50)       # its opening animation
     box, where = _row(page, "Right click me").bounding_box(), menu.bounding_box()
     assert abs(where["x"] - (box["x"] + 40)) < 2 and abs(where["y"] - (box["y"] + 10)) < 2
     page.keyboard.press("Escape")
