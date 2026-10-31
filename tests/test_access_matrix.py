@@ -15,7 +15,7 @@ from tests.conftest import BASE, CSRF, LOCAL_CLIENT, PASSPHRASE
 from tests.test_accounts import _join, _person, _phone, _signed_in_owner
 
 # What anyone may reach without signing in. A new one belongs here only after asking what it tells a stranger.
-PUBLIC = {"/", "/health", "/privacy", "/callback", "/api/status", "/api/setup", "/api/auth/login", "/api/auth/logout", "/api/auth/recovery",
+PUBLIC = {"/unlock", "/", "/health", "/privacy", "/callback", "/api/status", "/api/setup", "/api/auth/login", "/api/auth/logout", "/api/auth/recovery",
           "/api/invites/check", "/api/invites/accept", "/api/devices/pair", "/api/wearables/pair", "/api/connections/oauth/relay",
           "/api/openapi.json", "/api/desktop/discover", "/api/desktop/probe", "/api/desktop/join"}
 # What a phone's own token opens, besides that.

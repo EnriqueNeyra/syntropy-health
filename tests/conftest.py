@@ -19,8 +19,10 @@ os.environ["SYNTROPY_NO_DOTENV"] = "1"
 for _var in [v for v in os.environ if v != "SYNTROPY_NO_DOTENV" and (v.startswith("SYNTROPY_") or v in ("PORT", "FORWARDED_ALLOW_IPS"))]:
     del os.environ[_var]
 
-# The tests never touch a real Keychain or Windows' protected storage: test_keystore covers those with its own.
+# The tests never touch a real Keychain or Windows' protected storage: test_keystore covers those with its own. The second is
+# a seat belt, for a child process or a test that asks for the Keychain: it's a keychain that doesn't exist.
 os.environ["SYNTROPY_KEY_STORE"] = "file"
+os.environ["SYNTROPY_KEYCHAIN_FILE"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-keychain-db")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

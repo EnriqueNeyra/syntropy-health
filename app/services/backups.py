@@ -191,12 +191,17 @@ def _take_snapshot(snapshot: Path, unencrypted: bool) -> None:
     if not unencrypted or not db.is_encrypted(config.db_path()):
         db.snapshot(snapshot)
         return
-    encryption.plain_copy(snapshot)
-    conn = sqlite3.connect(snapshot)
     try:
-        found = "; ".join(r[0] for r in conn.execute("PRAGMA quick_check(5)").fetchall())
-    finally:
-        conn.close()
+        encryption.plain_copy(snapshot)
+        conn = sqlite3.connect(snapshot)
+        try:
+            found = "; ".join(r[0] for r in conn.execute("PRAGMA quick_check(5)").fetchall())
+        finally:
+            conn.close()
+    except sqlite3.DatabaseError as exc:
+        if not db.is_damage(exc):
+            raise
+        found = str(exc)
     if found != "ok":
         raise db.StartupProblem("damaged", f"The backup was stopped because the database has damage ({found[:200]}), so the copy "
                                            "couldn't be relied on. Keep your older backups: they may be the last good copies.")

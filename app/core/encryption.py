@@ -218,6 +218,7 @@ def _export(source: sqlite3.Connection, target: Path, key: Optional[str], *, ver
         stop.set()
         watcher.join(5)
         source.execute("DETACH DATABASE converted")
+    Path(f"{target}-journal").unlink(missing_ok=True)
     _durable(target)
 
 

@@ -252,7 +252,8 @@ def save_to_store(key: bytes) -> str:
     info = _read_info()
     try:
         if wanted == KEYCHAIN:
-            account = info.get("account") or uuid.uuid4().hex
+            # A new item each time: an old one left behind is harmless, and it may be what opens something set aside.
+            account = uuid.uuid4().hex
             _keychain_write(account, key)
             if _keychain_read(account) != key:
                 raise CantSave("The Keychain didn't give the key back as it was saved.")

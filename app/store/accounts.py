@@ -89,6 +89,8 @@ def create(profile_id: str, password: Optional[str], role: str = "member") -> di
     stored = _stored_hash(password)     # slow on purpose: not while holding the write lock
     with db() as conn:
         account_id = _insert(conn, profile_id, stored, role)
+    if role == "owner" and password:
+        security.note_owner_password(account_id, password, changed=True)
     return get(account_id)  # type: ignore[return-value]
 
 
