@@ -914,12 +914,9 @@ def _run_tool(name: str, args: dict[str, Any], profile_id: str) -> tuple[str, bo
         return f"Unknown tool: {name}", True
     token = mcp_server.SCOPED_PROFILE.set(profile_id)
     try:
-        text, is_error = mcp_server.call_tool(name, {k: v for k, v in args.items() if k != "profile"})
+        return mcp_server.call_tool(name, {k: v for k, v in args.items() if k != "profile"}, budget=TOOL_RESULT_CHARS)
     finally:
         mcp_server.SCOPED_PROFILE.reset(token)
-    if len(text) > TOOL_RESULT_CHARS:
-        text = text[:TOOL_RESULT_CHARS] + "… [truncated: ask for a shorter date range or fewer items]"
-    return text, is_error
 
 
 def system_prompt(profile: dict[str, Any], snapshot: Optional[str] = None) -> str:

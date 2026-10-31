@@ -7,7 +7,7 @@ The ``syntropy-health`` command: run the server, keep it running in the backgrou
     syntropy-health backup [folder]       database, encryption key and uploaded files, in one .zip
     syntropy-health update                install the latest release and restart the service
     syntropy-health info                  where the data is and the addresses to open
-    syntropy-health mcp                   the MCP server on stdio, for AI apps on this computer
+    syntropy-health mcp [--profile NAME]  the MCP server on stdio, for AI apps on this computer
     syntropy-health accounts              who signs in; `accounts reset-password NAME` for someone locked out
     syntropy-health key new               replace a lost encryption key
 
@@ -594,7 +594,8 @@ def _command(argv: Optional[list[str]] = None) -> None:
     u.add_argument("--due", action="store_true", help=argparse.SUPPRESS)
     i = sub.add_parser("info", help="where the data is and which addresses to open")
     i.add_argument("--port", type=int, default=None, help="default: the running server's")
-    sub.add_parser("mcp", help="the MCP server on stdio, for AI apps on this computer")
+    m = sub.add_parser("mcp", help="the MCP server on stdio, for AI apps on this computer")
+    m.add_argument("--profile", help="read only this person's records (a name or id); without it, everyone's")
     sub.add_parser("version", help="print the version")
     a = sub.add_parser("accounts", help="who signs in; reset-password NAME for someone locked out")
     a.add_argument("action", nargs="?", choices=["list", "reset-password"], default="list")
@@ -627,7 +628,7 @@ def _command(argv: Optional[list[str]] = None) -> None:
         info(args.port)
     elif args.command == "mcp":
         from app import mcp_server
-        mcp_server.main()
+        mcp_server.main(args.profile)
     elif args.command == "version":
         print(config.APP_VERSION)
     elif args.command == "accounts":

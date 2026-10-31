@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from app.core import auth, config, context, data_fixes, maintenance, settings
 from app.core.db import audit, db, read, rows_to_dicts
 from app.services import network, scheduler, updates
-from app.store import accounts, profiles
+from app.store import accounts, agents, profiles
 
 router = APIRouter(tags=["system"])
 
@@ -423,12 +423,16 @@ def list_sessions(principal: auth.Principal = Depends(auth.require_user)) -> dic
 
 @router.get("/api/audit")
 def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require_user)) -> dict:
-    """What happened to the people this account can see, and what it did itself. Owners also see what happened to
-    the server (sign-ins, settings)."""
+    """What happened to the people this account can see, and what it and its AI apps did. Owners also see what happened
+    to the server (sign-ins, settings)."""
     visible = list(principal.access)
     marks = ",".join("?" * len(visible)) or "NULL"
-    where = f"(a.profile_id IN ({marks}) OR a.actor = ?"
-    params: list = [*visible, principal.actor]
+    own_apps = agents.log_actors(principal.account_id, principal.owner)
+    if principal.owner:
+        own_apps.add("mcp")     # the connection on the computer holding the data
+    apps = ",".join("?" * len(own_apps)) or "NULL"
+    where = f"(a.profile_id IN ({marks}) OR a.actor = ? OR a.actor IN ({apps})"
+    params: list = [*visible, principal.actor, *own_apps]
     if principal.owner:
         where += " OR a.profile_id IS NULL"
     where += ")"
@@ -444,9 +448,27 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
     events = rows_to_dicts(rows)
     for e in events:
         kind, _, ref = (e["actor"] or "").partition(":")
-        e["who"] = (names.get(ref) if kind == "user" else devices.get(ref) if kind == "device" else None) or e["actor"]
-        e["detail"] = _readable_detail(e["action"], e["detail"], known)
+        e["who"] = (names.get(ref) if kind == "user" else devices.get(ref) if kind == "device" else
+                    (known["app"].get(ref) or ref or "AI app on this computer") if kind == "mcp" else None) or e["actor"]
+        detail = _ai_lookup_detail(e["detail"], e["actor"] in own_apps) if (e["action"] or "").startswith("mcp.") else e["detail"]
+        e["detail"] = _readable_detail(e["action"], detail, known)
     return {"events": events}
+
+
+def _ai_lookup_detail(detail: Optional[str], own: bool) -> Optional[str]:
+    """What an AI app looked up is for the account whose app it is. Anyone else who can see the person learns that it was
+    read and whether that worked, not the words searched for."""
+    try:
+        value = json.loads(detail) if detail else {}
+    except ValueError:
+        value = {}
+    if not isinstance(value, dict):
+        value = {}
+    outcome = value.get("outcome")
+    shown = {k: v for k, v in value.items() if k not in ("outcome", "ms", "chars")} if own else {}
+    if outcome:
+        shown["outcome"] = "ok" if outcome == "ok" else f"failed: {str(outcome).removeprefix('error:').replace('_', ' ')}"
+    return json.dumps(shown) if shown else None
 
 
 # Ids in an entry's details that have a name to show instead: {key in the details: its key once named}.

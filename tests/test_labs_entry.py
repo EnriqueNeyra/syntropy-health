@@ -110,7 +110,7 @@ def test_the_assistant_gets_the_same_rules(client):
     from app import mcp_server
     client.post("/api/labs", json={"collected": "2025-01-01", "results": [{"test": "X", "value_text": "<2", "unit": "mg/L"}, {"test": "X", "value": 3, "unit": "mg/L", "date": "2025-02-01"}]})
     trend = mcp_server.t_lab_trend({"test": "X"})
-    assert [(r["value"], r.get("comparator")) for r in trend["results"]] == [(2, "<"), (3, None)]
+    assert [(r["value"], r.get("comparator")) for r in trend["results"]] == [(3, None), (2, "<")]     # newest first
     summary = mcp_server.t_health_summary({})
     for key in ("unconfirmed_conditions", "conditions_status_not_stated", "visit_diagnoses", "medications_to_check", "medications_planned_not_started"):
         assert key in summary

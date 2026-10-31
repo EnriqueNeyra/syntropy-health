@@ -106,7 +106,7 @@ server = subprocess.Popen([config["command"], *config["args"]], env={**os.enviro
                           stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 out, _ = server.communicate(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
     "name": "list_profiles", "arguments": {}}}) + "\\n", timeout=60)
-people = json.loads(json.loads(out)["result"]["content"][0]["text"])
+people = json.loads(json.loads(out)["result"]["content"][0]["text"])["people"]
 print(json.dumps({"type": "system", "subtype": "init"}))
 print(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "mcp__syntropy__list_profiles", "input": {}}]}}))
 print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "result": "People: " + ", ".join(p["name"] for p in people)}))

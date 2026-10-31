@@ -35,6 +35,8 @@ MIGRATION_HASHES = {
     "026_removed_records.sql": "fcef2b3cc2a95d41d33544209356bbde629235071d2591c14dac9e7381ffba27",
     "027_sync_query_progress.sql": "52db3f9056b00235f3bcaeeb657433d84562ce417c8b3a8cead7339d25604be5",
     "030_wearable_corrections.sql": "8636c6871551e03987123b41bf6f811ad663c937bdfd5018f1da82faa56eedea",
+    "037_record_search.sql": "a777ac07ffb9d2eb0312c6d0c2ddb8f338875c0c7eaa4e53114f4cd955d51734",
+    "038_agent_token_expiry.sql": "b0d3469439632f45c9c4d34b4e86794bb04fb1e18fc2f2bfa083dee54f2e1d94",
 }
 
 
@@ -179,15 +181,24 @@ def test_every_old_schema_upgrades_with_its_data(version):
     if version == db.newest_schema():
         return      # already up to date: nothing was upgraded, so nothing was copied first
     copies = db.pre_upgrade_copies(path)
-    assert len(copies) == 1 and copies[0]["version"] == version
-    kept = sqlite3.connect(copies[0]["path"])
-    assert kept.execute("SELECT COUNT(*) FROM biometric_samples").fetchone()[0] == 3
-    kept.close()
+    if version < db.newest_schema():      # already the newest: nothing to upgrade, so no copy from before
+        assert len(copies) == 1 and copies[0]["version"] == version
+        kept = sqlite3.connect(copies[0]["path"])
+        assert kept.execute("SELECT COUNT(*) FROM biometric_samples").fetchone()[0] == 3
+        kept.close()
 
     db.reset_migration_cache()
     from app.main import create_app
     with TestClient(create_app(), base_url=BASE, client=LOCAL_CLIENT) as client:
         assert client.get("/health").json()["status"] == "ok"
+        # The search index is built from what was already there, and old tokens carry on without an end.
+        from app.core import data_fixes
+        from app.store import agents, records, search
+        data_fixes.run_pending()
+        assert search.ready(), data_fixes.status()
+        assert records.list_records("prf_a", q="a1c")["total"] == 1
+        if version >= 3:
+            assert [t["expires_at"] for t in agents.list_tokens()] == [None]
         if version >= 9:      # from here the seed has no account: the password came from the settings above
             return
         client.headers.update(CSRF)

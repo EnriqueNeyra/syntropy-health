@@ -197,7 +197,7 @@ def test_agent_tokens_read_only_what_their_account_sees(raw_client):
     token = maria_client.post("/api/agents/tokens", json={"name": "Claude"}).json()["token"]
     call = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "list_profiles", "arguments": {}}}
     r = client.post("/mcp", json=call, headers={"Authorization": f"Bearer {token}"})
-    people = json.loads(r.json()["result"]["content"][0]["text"])
+    people = json.loads(r.json()["result"]["content"][0]["text"])["people"]
     assert [p["name"] for p in people] == ["Maria"]
     assert client.get("/api/agents/tokens").json()["tokens"] == []           # Alex doesn't see Maria's tokens
     assert maria_client.get("/api/agents/local-command").status_code == 403  # the computer's own MCP reads everyone

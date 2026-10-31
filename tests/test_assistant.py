@@ -165,17 +165,19 @@ def test_mcp_over_http_with_scoped_tokens(client):
     assert {"get_health_summary", "get_lab_trend", "list_workouts"} <= {t["name"] for t in tools}
     call = lambda name, args, h: anon.post("/mcp", json={"jsonrpc": "2.0", "id": 3, "method": "tools/call",
                                                         "params": {"name": name, "arguments": args}}, headers=h).json()["result"]
-    summary = json.loads(call("get_health_summary", {}, auth)["content"][0]["text"])
+    # This token can read Alex and Sam, so it has to say which.
+    assert call("get_health_summary", {}, auth)["isError"]
+    summary = json.loads(call("get_health_summary", {"profile": "Alex"}, auth)["content"][0]["text"])
     assert summary["profile"]["name"] == "Alex" and summary["active_conditions"]
-    record_id = json.loads(call("search_records", {"category": "conditions"}, auth)["content"][0]["text"])["records"][0]["id"]
+    record_id = json.loads(call("search_records", {"category": "conditions", "profile": "Alex"}, auth)["content"][0]["text"])["records"][0]["id"]
 
     # A token limited to Sam can't see Alex, even when asking by name or by record id.
     scoped = {"Authorization": f"Bearer {sam_only['token']}"}
-    assert [p["name"] for p in json.loads(call("list_profiles", {}, scoped)["content"][0]["text"])] == ["Sam"]
+    assert [p["name"] for p in json.loads(call("list_profiles", {}, scoped)["content"][0]["text"])["people"]] == ["Sam"]
     assert call("get_health_summary", {"profile": "Alex"}, scoped)["isError"]
     assert json.loads(call("get_health_summary", {}, scoped)["content"][0]["text"])["profile"]["name"] == "Sam"
     assert call("get_record", {"record_id": record_id}, scoped)["isError"]
-    assert any(e["actor"] == "mcp:Coach bot" for e in client.get("/api/audit").json()["events"])
+    assert any(e["who"] == "Coach bot" for e in client.get("/api/audit").json()["events"])
 
     assert client.delete(f"/api/agents/tokens/{sam_only['id']}").status_code == 200
     assert anon.post("/mcp", json=init, headers=scoped).status_code == 401

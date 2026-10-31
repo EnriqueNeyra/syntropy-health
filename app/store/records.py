@@ -8,14 +8,15 @@ import re
 import time
 import unicodedata
 from collections import OrderedDict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
+from zoneinfo import ZoneInfo
 
 from app.connectors import units
 from app.connectors.fhir_normalize import partial_pressure
-from app.core import data_fixes
-from app.core.db import audit, db, read, dumps, row_to_dict, rows_to_dicts, write_in_batches
-from app.store import lab_catalog
+from app.core import data_fixes, settings
+from app.core.db import audit, db, finite, read, dumps, row_to_dict, rows_to_dicts, write_in_batches
+from app.store import lab_catalog, search
 
 CATEGORIES = [
     "conditions", "medications", "allergies", "labs", "vitals", "immunizations", "encounters",
@@ -120,9 +121,9 @@ def _upsert_batch(conn: Any, profile_id: str, connection_id: str, source_name: s
         values = (
             profile_id, connection_id, r["resource_type"], r["resource_id"], r["category"],
             (r.get("title") or "Untitled")[:500], r.get("code_system"), r.get("code"), r.get("code_display"),
-            r.get("effective_at"), r.get("effective_end"), r.get("status"), r.get("value_num"),
-            r.get("value_text"), r.get("unit"), r.get("value_norm"), r.get("unit_norm"),
-            r.get("ref_low"), r.get("ref_high"), r.get("ref_text"), r.get("interpretation"),
+            r.get("effective_at"), r.get("effective_end"), r.get("status"), finite(r.get("value_num")),
+            r.get("value_text"), r.get("unit"), finite(r.get("value_norm")), r.get("unit_norm"),
+            finite(r.get("ref_low")), finite(r.get("ref_high")), r.get("ref_text"), r.get("interpretation"),
             dumps(r.get("details") or {}), r.get("narrative"), r.get("dedup_key"), source_name,
             dumps(r.get("raw")), now,
         )
@@ -344,6 +345,25 @@ def _load(rows) -> list[dict[str, Any]]:
     return rows_to_dicts(rows, ["details_json"])
 
 
+NO_INFINITY_FIX = "records-no-infinity"
+_NUMBERS = ("value_num", "value_norm", "ref_low", "ref_high")
+
+
+def _clear_infinities(conn: Any, cursor: Any, size: int) -> Any:
+    """A portal's 1e999 used to be kept, as infinity: no measurement, and it can't be sent as JSON, so whatever held the
+    record failed to load."""
+    rows = conn.execute("SELECT id FROM clinical_records WHERE id > ? ORDER BY id LIMIT ?", (cursor or "", size)).fetchall()
+    if not rows:
+        return None
+    last = rows[-1]["id"]
+    conn.execute(f"UPDATE clinical_records SET {', '.join(f'{c} = CASE WHEN abs({c}) = 9e999 THEN NULL ELSE {c} END' for c in _NUMBERS)} "
+                 f"WHERE id > ? AND id <= ? AND ({' OR '.join(f'abs({c}) = 9e999' for c in _NUMBERS)})", (cursor or "", last))
+    return last
+
+
+data_fixes.register(NO_INFINITY_FIX, _clear_infinities)
+
+
 def friendly_day(when: Optional[str]) -> str:
     """A date at the precision it was given, in words for a note or a reason: "Mar 1, 2024", "Jun 2015", "2015"."""
     text = str(when or "")
@@ -516,6 +536,57 @@ def _dedupe(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def _local_midnight_utc(day: date) -> str:
+    try:
+        tz = ZoneInfo(settings.timezone_name())
+    except Exception:  # noqa: BLE001
+        tz = ZoneInfo("UTC")
+    return datetime(day.year, day.month, day.day, tzinfo=tz).astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _parse_bound(value: Optional[str]) -> tuple[Optional[date], bool]:
+    """The bound's date, and whether that's all it is."""
+    try:
+        return date.fromisoformat(value), True      # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        pass
+    try:
+        return datetime.fromisoformat((value or "").replace("Z", "+00:00")).date(), False
+    except ValueError:
+        return None, False
+
+
+# A record's time as stored, which can carry any offset, or be just a date (a whole day, and not in any time zone).
+_WHEN = "coalesce(datetime(effective_at), effective_at)"
+_DATE_ONLY = "length(effective_at) <= 10"
+
+
+def _since_clause(since: Optional[str]) -> tuple[str, list[Any]]:
+    """A plain date is a whole day where the person is. The calendar's first year is how to say "no limit" (it can't be
+    worked with: midnight there can be before the calendar starts)."""
+    day, plain = _parse_bound(since)
+    if since and not day:
+        return "effective_at >= ?", [since]
+    if not day or day.year == date.min.year:
+        return "", []
+    return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at >= ? ELSE {_WHEN} >= datetime(?) END)",
+            [day.isoformat(), _local_midnight_utc(day) if plain else since])
+
+
+def _until_clause(until: Optional[str]) -> tuple[str, list[Any]]:
+    """Inclusive, so a plain date runs to the end of that day: '2026-08-05T08:05:00Z' <= '2026-08-05' isn't true as text.
+    The calendar's last year is how to say "no limit": 9999-12-31 is common, and has no next day."""
+    day, plain = _parse_bound(until)
+    if until and not day:
+        return "effective_at <= ?", [until]
+    if not day or day.year == date.max.year:
+        return "", []
+    if plain:
+        return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? ELSE {_WHEN} < datetime(?) END)",
+                [day.isoformat(), _local_midnight_utc(day + timedelta(days=1))])
+    return f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? ELSE {_WHEN} <= datetime(?) END)", [day.isoformat(), until]
+
+
 def list_records(
     profile_id: str,
     category: Optional[str] = None,
@@ -541,20 +612,17 @@ def list_records(
     if code:
         where.append("code = ?")
         params.append(code)
-    if since:
-        where.append("effective_at >= ?")
-        params.append(since)
-    if until:
-        where.append("effective_at <= ?")
-        params.append(until)
+    for clause, values in (_since_clause(since), _until_clause(until)):
+        if clause:
+            where.append(clause)
+            params.extend(values)
     if status:
         where.append("lower(status) = ?")
         params.append(status.lower())
-    if q:
-        like = f"%{q.strip().lower()}%"
-        where.append("(lower(title) LIKE ? OR lower(coalesce(narrative,'')) LIKE ? OR lower(coalesce(code_display,'')) "
-                     "LIKE ? OR coalesce(code,'') = ? OR lower(coalesce(value_text,'')) LIKE ?)")
-        params.extend([like, like, like, q.strip(), like])
+    if q and q.strip():
+        clause, values = search.where(q, profile_id)
+        where.append(clause)
+        params.extend(values)
     sql = (f"SELECT {LIST_COLUMNS} FROM clinical_records WHERE {' AND '.join(where)} "
            "ORDER BY coalesce(effective_at, '') DESC, updated_at DESC")
     with read() as conn:
@@ -729,9 +797,10 @@ def timeline(profile_id: str, *, categories: Optional[list[str]] = None, limit: 
     if before:
         where.append("effective_at <= ?" if inclusive else "effective_at < ?")
         params.append(before)
-    if q:
-        where.append("(lower(title) LIKE ? OR lower(coalesce(narrative,'')) LIKE ?)")
-        params.extend([f"%{q.lower()}%"] * 2)
+    if q and q.strip():
+        clause, values = search.where(q, profile_id)
+        where.append(clause)
+        params.extend(values)
     with read() as conn:
         rows = _load(conn.execute(
             f"SELECT {LIST_COLUMNS} FROM clinical_records WHERE {' AND '.join(where)} "
