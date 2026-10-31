@@ -248,3 +248,34 @@ def test_ask_on_a_phone_width_has_no_page_errors(browser, app, width):
     assert errors == [] and page.locator(".msg-ai tbody tr").count() >= 3
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
     context.close()
+
+
+def test_a_model_first_found_to_have_no_tools_asks_before_trying_again(browser, app):
+    base, api, _ = app
+    context = browser.new_context(base_url=base, reduced_motion="reduce", viewport={"width": 1100, "height": 800})
+    context.add_cookies([{"name": c.name, "value": c.value, "url": base} for c in api.cookies.jar])
+    page = context.new_page()
+    chats = []
+
+    def cfg(route):
+        res = route.fetch()
+        route.fulfill(response=res, json={**res.json(), "sends_elsewhere": True, "cloud_ack": True, "tools": None, "summary_ack": False,
+                                          "vendor_key": "openrouter", "vendor_name": "OpenRouter"})
+
+    def chat(route):
+        chats.append(route.request.post_data)
+        route.fulfill(status=200, content_type="application/x-ndjson", body=json.dumps(
+            {"type": "error", "code": "summary_ack", "vendor": "openrouter", "vendor_name": "OpenRouter",
+             "message": "OpenRouter can't look things up. Confirm first, or choose another AI."}) + "\n")
+
+    page.route("**/api/ai/config*", cfg)
+    page.route("**/api/ai/chat", chat)
+    page.goto("/#/ask?new=1")
+    page.wait_for_selector("#chat-text")
+    _ask(page, "A question")
+    page.wait_for_selector("[data-retry]")
+    assert len(chats) == 1
+    page.click("[data-retry]")
+    page.wait_for_selector("text=Send a summary of the record to OpenRouter?")
+    assert len(chats) == 1
+    context.close()

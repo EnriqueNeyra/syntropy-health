@@ -589,15 +589,6 @@ def test_running_out_of_room_in_the_connection_test_says_nothing_about_tools(cli
     assert vendor.bodies[0]["max_tokens"] == 2000
 
 
-def test_a_no_after_a_week_is_asked_again(client, vendor, monkeypatch):
-    _connect(client)
-    ai._remember_tools("openai", "gpt-test", False)
-    assert client.get("/api/ai/config").json()["tools"] is False
-    now = ai.time.time()
-    monkeypatch.setattr(ai.time, "time", lambda: now + ai.TOOL_CHECK_S + 1)
-    assert client.get("/api/ai/config").json()["tools"] is None
-
-
 def test_the_connection_test_includes_a_round_after_a_lookup(client, vendor):
     _connect(client, "deepseek", "deepseek-flash")
     vendor.script += [(200, {"choices": [{"message": {"content": "", "tool_calls": [{"id": "c", "type": "function", "function": {"name": "get_health_summary", "arguments": "{}"}}]}}]}),
@@ -888,13 +879,13 @@ def test_the_prompt_says_the_date_units_age_and_who_is_asking(client, vendor):
     _events(client.post("/api/ai/chat", json={"profile_id": kid, "messages": [{"role": "user", "content": "How is my sleep?"}]}))
     prompt = vendor.bodies[-1]["messages"][0]["content"]
     assert "This is Sam's record" in prompt and "age 1" in prompt and "US units" in prompt
-    assert "The person asking is Alex, not Sam" in prompt and "time zone" in prompt
+    assert "The person asking isn't Sam" in prompt and "Alex" not in prompt and "time zone" in prompt
     assert ai.datetime.now().strftime("%Y") in prompt
 
 
 def test_no_who_is_asking_line_about_your_own_record(client, vendor):
     _connect(client)
-    assert "The person asking is" not in _system(client, vendor)
+    assert "The person asking" not in _system(client, vendor)
 
 
 def _journal(client, **entry):
@@ -968,3 +959,140 @@ def test_what_someone_looked_up_through_ask_shows_only_to_them(raw_client, vendo
     assert "cholesterol" in json.dumps(mine) and mine[0]["actor"] == f"ask:{alex['id']}"
     theirs = [e for e in maria.get("/api/audit").json()["events"] if e["action"] == "mcp.search_records"]
     assert "cholesterol" not in json.dumps(theirs)
+
+
+# ------------------------------------------------------------------ what a review of the above found
+
+def test_a_new_address_without_a_new_key_forgets_the_saved_key(client):
+    one, two = Vendor(), Vendor()
+    try:
+        client.put("/api/ai/config", json={"provider": "local", "base_url": f"{one.url}/v1", "api_key": "SECRET", "model": "m"})
+        client.put("/api/ai/config", json={"provider": "local", "base_url": f"{one.url}/v1", "model": "m2"})
+        assert ai.config(include_key=True)["key"] == "SECRET"       # the same address keeps it
+        client.put("/api/ai/config", json={"provider": "local", "base_url": f"{two.url}/v1", "model": "m"})
+        cfg = ai.config(include_key=True)
+        assert cfg["base_url"] == f"{two.url}/v1" and cfg["key"] is None
+        client.put("/api/ai/config", json={"provider": "local", "base_url": f"{one.url}/v1", "api_key": "NEW", "model": "m"})
+        assert ai.config(include_key=True)["key"] == "NEW"
+    finally:
+        one.close()
+        two.close()
+
+
+def test_turning_the_assistant_off_stops_a_members_own_pick_too(raw_client, vendor):
+    owner, maria, _ = _app_with_people(raw_client)
+    _connect(owner)
+    assert maria.put("/api/ai/config", json={"provider": "openai", "model": "gpt-test", "acknowledged": True}).status_code == 200
+    assert maria.get("/api/ai/config", params={"chat": True}).json()["configured"] is True
+    assert owner.delete("/api/ai/config").status_code == 200
+    assert maria.get("/api/ai/config", params={"chat": True}).json()["configured"] is False
+    events = _chat(maria)
+    assert not vendor.bodies and events[-1]["type"] == "error"
+    assert maria.put("/api/ai/config", json={"provider": "openai", "model": "gpt-test"}).status_code == 400
+    _connect(owner)     # on again: their pick is theirs
+    assert maria.get("/api/ai/config", params={"chat": True}).json()["configured"] is True
+
+
+def test_a_generic_server_keeps_full_lookups_and_the_whole_conversation(client, vendor, monkeypatch):
+    client.put("/api/ai/config", json={"provider": "local", "base_url": f"{vendor.url}/v1", "model": "m"})
+    budgets = []
+
+    def fake(name, args, profile, budget=ai.TOOL_RESULT_CHARS):
+        budgets.append(budget)
+        return "x" * budget, False
+
+    monkeypatch.setattr(ai, "_run_tool", fake)
+    vendor.script += [[LOOKUP, "[DONE]"], [LOOKUP, "[DONE]"], [LOOKUP, "[DONE]"], _text("Done.")]
+    history = [{"role": "user", "content": "first question MARKER"}, {"role": "assistant", "content": "x" * 7000},
+               {"role": "user", "content": "and that one?"}]
+    events = _events(client.post("/api/ai/chat", json={"messages": history}))
+    assert budgets == [ai.TOOL_RESULT_CHARS] * 3
+    assert "no_room" not in json.dumps(vendor.bodies[-1]["messages"])
+    assert "MARKER" in json.dumps(vendor.bodies[-1]["messages"]) and "note" not in _kinds(events)
+
+
+def test_an_ollama_model_not_loaded_yet_keeps_the_whole_conversation(client, vendor, monkeypatch):
+    client.put("/api/ai/config", json={"provider": "local", "base_url": f"{vendor.url}/v1", "model": "m"})
+
+    async def info(base_url, model, key=None):
+        return {"tokens": ai_local.OLLAMA_DEFAULT_CONTEXT, "server": "ollama", "measured": False}
+    monkeypatch.setattr(ai_local, "context_info", info)
+    vendor.script.append(_text("Fine."))
+    history = [{"role": "user", "content": "first question MARKER"}, {"role": "assistant", "content": "x" * 7000},
+               {"role": "user", "content": "and that one?"}]
+    _events(client.post("/api/ai/chat", json={"messages": history}))
+    assert "MARKER" in json.dumps(vendor.bodies[0]["messages"])
+
+
+def test_trimming_a_conversation_for_a_small_window_says_so(client, vendor, monkeypatch):
+    client.put("/api/ai/config", json={"provider": "local", "base_url": f"{vendor.url}/v1", "model": "m"})
+    _, info = _ollama(vendor, 4096)
+    monkeypatch.setattr(ai_local, "context_info", info)
+    vendor.script.append(_text("Fine."))
+    history = [{"role": r, "content": "x" * 5000} for r in ["user", "assistant"] * 2] + [{"role": "user", "content": "The question"}]
+    events = _events(client.post("/api/ai/chat", json={"messages": history}))
+    assert any(e["type"] == "note" and "earlier" in e["text"] for e in events)
+
+
+def _held_checks(monkeypatch):
+    held = []
+    monkeypatch.setattr(ai, "_in_background", held.append)
+    return held
+
+
+def test_a_no_stays_a_no_until_a_new_check_says_otherwise(client, vendor, monkeypatch):
+    client.put("/api/ai/config", json={"provider": "local", "base_url": f"{vendor.url}/v1", "model": "m"})
+    settings.set("ai.tools.local", {"m": False})        # from before checks were dated
+    held = _held_checks(monkeypatch)
+    assert client.get("/api/ai/config").json()["tools"] is False
+    vendor.script.append(_text("From the summary."))
+    _chat(client)
+    assert "tools" not in vendor.bodies[-1] and "snapshot" in vendor.bodies[-1]["messages"][0]["content"]
+    assert len(held) == 1
+
+    # The model still ignores tools: still a summary, and not checked again for a while.
+    vendor.script.append(_text("I can't do that."))
+    asyncio.run(held.pop())
+    assert client.get("/api/ai/config").json()["tools"] is False
+    vendor.script.append(_text("From the summary."))
+    _chat(client)
+    assert "tools" not in vendor.bodies[-1] and not held
+
+    # A week on, it has learned how.
+    now = ai.time.time()
+    monkeypatch.setattr(ai.time, "time", lambda: now + ai.TOOL_CHECK_S + 1)
+    vendor.script.append(_text("From the summary."))
+    _chat(client)
+    assert len(held) == 1
+    vendor.script += [(200, {"choices": [{"message": {"content": "", "tool_calls": [{"id": "c", "type": "function", "function": {"name": "get_health_summary", "arguments": "{}"}}]}}]}),
+                      (200, {"choices": [{"message": {"content": "OK"}}]})]
+    asyncio.run(held.pop())
+    assert client.get("/api/ai/config").json()["tools"] is True
+
+
+def test_a_failed_check_changes_nothing_and_says_nothing(client, vendor, monkeypatch):
+    client.put("/api/ai/config", json={"provider": "local", "base_url": f"{vendor.url}/v1", "model": "m"})
+    settings.set("ai.tools.local", {"m": False})
+    held = _held_checks(monkeypatch)
+    vendor.script.append(_text("From the summary."))
+    _chat(client)
+    vendor.script.append((401, {"error": {"message": "no"}}))
+    asyncio.run(held.pop())
+    assert client.get("/api/ai/config").json()["tools"] is False
+
+
+def test_a_no_about_a_hosted_model_is_checked_again_even_before_agreeing_to_a_summary(client, vendor, monkeypatch):
+    _connect(client)
+    client.post("/api/ai/acknowledge")
+    settings.set("ai.tools.openai", {"gpt-test": False})
+    held = _held_checks(monkeypatch)
+    events = _chat(client)
+    assert events[-1]["code"] == "summary_ack" and not vendor.bodies and len(held) == 1
+    held.pop().close()
+
+
+def test_the_whole_question_up_to_the_stated_limit_is_sent(client, vendor):
+    client.put("/api/ai/config", json={"provider": "local", "base_url": f"{vendor.url}/v1", "model": "m"})
+    vendor.script.append(_text("Fine."))
+    _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "x" * 39_990 + "THE END"}]}))
+    assert vendor.bodies[-1]["messages"][-1]["content"].endswith("THE END")

@@ -565,3 +565,39 @@ def test_infinite_values_already_stored_are_cleared(chart):
     with db() as conn:
         assert not conn.execute("SELECT 1 FROM clinical_records WHERE abs(value_norm) = 9e999 OR abs(ref_low) = 9e999").fetchone()
     assert chart.get("/api/records", params={"category": "labs", "limit": 1000}).status_code == 200
+
+
+def test_get_record_reaches_all_of_a_long_text_result_and_says_so(chart):
+    long_result = "MICROSCOPIC: " + "sections show benign tissue, margin clear. " * 80 + "FINAL LINE: margin involved."
+    _note("r_path", "short", category="labs", title="Pathology", details={"note": "clinician comment " * 300 + "LAST"})
+    with db() as conn:
+        conn.execute("UPDATE clinical_records SET value_text = ? WHERE id = 'r_path'", (long_result,))
+    out = ok("get_record", record_id="r_path")
+    whole = json.dumps(out)
+    assert "FINAL LINE" in whole and "LAST" in whole and "[value_text, in full]" in whole
+    assert "[details.note, in full]" in whole and out["truncated"] is False
+
+
+def test_get_record_pages_a_text_result_too_long_for_one_answer(chart):
+    long_result = "line of a report. " * 8000 + "FINAL LINE: margin involved."
+    _note("r_big", "short", category="labs", title="Pathology")
+    with db() as conn:
+        conn.execute("UPDATE clinical_records SET value_text = ? WHERE id = 'r_big'", (long_result,))
+    seen, cursor = "", None
+    for _ in range(20):
+        out = ok("get_record", record_id="r_big", **({"cursor": cursor} if cursor else {}))
+        seen += next(out[k] for k in ("full_text", "narrative") if k in out)
+        cursor = out.get("next_cursor")
+        assert out["truncated"] is bool(cursor)
+        if not cursor:
+            break
+    assert long_result in seen
+
+
+def test_a_list_says_when_a_text_field_was_shortened(chart):
+    _note("r_long", "short", category="labs", title="Pathology")
+    with db() as conn:
+        conn.execute("UPDATE clinical_records SET value_text = ? WHERE id = 'r_long'", ("x" * 900,))
+    out = ok("search_records", query="Pathology")
+    row = next(r for r in out["records"] if r["id"] == "r_long")
+    assert row["value_text"].endswith("…") and "value_text" in out["shortened_text"]

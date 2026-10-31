@@ -378,7 +378,7 @@ function connectKey({ id, cfg, providers, consent, done }) {
         <p class="hint" style="margin:-6px 0 12px">Where the service's /chat/completions lives. Azure OpenAI: https://YOUR-RESOURCE.openai.azure.com/openai/v1.</p>` : ""}
       <div class="field"><label class="label" for="ai-key">API key ${p.has_key ? html`<span class="badge good">Saved</span>` : ""}</label>
         <div class="row"><input class="input grow" id="ai-key" type="password" autocomplete="off" value="${keep.key}"
-            placeholder="${p.has_key ? "Saved. Paste a new one to replace it" : custom ? "If the service needs one" : "Paste your key"}">
+            placeholder="${p.has_key ? (custom ? "Saved, for this address only. Paste a new one to replace it" : "Saved. Paste a new one to replace it") : custom ? "If the service needs one" : "Paste your key"}">
           <button class="btn" type="button" data-list>${models ? "Check again" : "Continue"}</button></div>
         <div class="hint">${KEY_URL[id] ? html`Get one at <a href="${KEY_URL[id]}" target="_blank" rel="noopener">${KEY_URL[id].replace(/^https:\/\//, "").split("/")[0]}</a>. ` : ""}Stored encrypted on this computer.</div></div>
       ${models ? models.length ? html`<div class="field"><label class="label" for="ai-model">Model</label>
@@ -478,7 +478,7 @@ function connectLocal({ address, cfg, detected, consent, done }) {
               <button class="btn btn-sm" type="button" data-check>Connect</button></div>
             <div class="hint">Its name or address and port. The server must accept connections from other devices.</div></div>
           <div class="field"><label class="label" for="local-key">API key <span class="small muted">(optional)</span></label>
-            <input class="input" id="local-key" type="password" autocomplete="off" value="${keep.key}" placeholder="${saved.has_key ? "Saved" : "Only if the server needs one"}"></div>
+            <input class="input" id="local-key" type="password" autocomplete="off" value="${keep.key}" placeholder="${saved.has_key ? "Saved, for this address only" : "Only if the server needs one"}"></div>
         </div></details>
       ${st.models.length ? html`<div class="field" style="margin-top:12px"><label class="label" for="local-model">Model</label>
           ${modelSelect("local-model", st.models.map((x) => ({ ...x, name: x.id })), st.models.some((x) => x.id === st.model) ? st.model : st.models[0].id)}

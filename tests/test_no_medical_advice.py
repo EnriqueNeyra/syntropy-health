@@ -89,7 +89,7 @@ def test_no_advice_is_written_into_the_apps_text(path):
 
 def test_what_ask_itself_says_about_an_answer_gives_no_advice():
     cfg = {"label": "Claude"}
-    said = [ai.NOT_CHECKED, ai.SUMMARY_ACK_NEEDED, ai.CLOUD_ACK_NEEDED]
+    said = [ai.NOT_CHECKED, ai.LEFT_OUT_OF_CONVERSATION, ai.SUMMARY_ACK_NEEDED, ai.CLOUD_ACK_NEEDED]
     for ending, text in (("refused", ""), ("cut", ""), (None, ""), ("cut", "Part of it")):
         said += [e.get("message") or e.get("text") or "" for e in ai._closing(cfg, ai.Reply(text=text, ending=ending))]
     for text in said:

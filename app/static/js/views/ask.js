@@ -340,7 +340,7 @@ export async function render({ el, state, params, navigate }) {
           if (ev.type === "delta") { draft += ev.text; setTarget(reply, draft.trimStart()); }
           else if (ev.type === "reset") { draft = ""; setTarget(reply, ""); }
           else if (ev.type === "tool") { reply.steps.push(ev.label); patch(reply); }
-          else if (ev.type === "note") { reply.note = ev.text; patch(reply); }
+          else if (ev.type === "note") { reply.note = reply.note ? `${reply.note} ${ev.text}` : ev.text; patch(reply); }
           else if (ev.type === "retry") { reply.note = ev.text; reply.waiting = true; patch(reply); }
           else if (ev.type === "cut_short") { reply.note = ev.text; reply.cut = true; patch(reply); }
           else if (ev.type === "answer") { answer = ev.text; setTarget(reply, answer); }
@@ -349,7 +349,7 @@ export async function render({ el, state, params, navigate }) {
             // Asked again when the person retries: the AI in use has changed, or they haven't agreed to it yet.
             if (ev.config) { current = ev.config; drawHeader(); choicesReady = loadChoices().then(() => drawToolbar(), () => null); }
             if (ev.code === "cloud_ack") current = { ...current, cloud_ack: false };
-            if (ev.code === "summary_ack") current = { ...current, summary_ack: false };
+            if (ev.code === "summary_ack") current = { ...current, tools: false, summary_ack: false };
           } else if (ev.type === "done") reply.by = ev.by || byline(current);
         }
       }
