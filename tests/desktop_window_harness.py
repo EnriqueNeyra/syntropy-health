@@ -272,6 +272,8 @@ def scenario():
     on_main(lambda: mac.go("#/overview"))
     until(lambda: (url() or "").endswith("#/overview") and not mac.away)
     results["menu_from_away"] = state()
+    # Its address changes before it commits, and a late commit would say the window has moved on from the page below.
+    until(lambda: not on_main(lambda: mac.webview.isLoading()))
 
     # The app's own page: no site name, and it may talk to the app.
     location.showing_own_page()

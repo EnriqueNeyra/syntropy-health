@@ -32,11 +32,21 @@ new MutationObserver(() => {
 """
 
 
+def when_the_message_shows(act: str) -> str:
+    """Runs in the page the moment the message appears: from outside, the moment can be missed, and the browser can't be
+    asked anything once the page has started to go."""
+    return f"""new MutationObserver(() => {{
+      const box = document.querySelector(".leaving");
+      if (box && !window.acted) {{ window.acted = true; {act} }}
+    }}).observe(document, {{ childList: true, subtree: true }});"""
+
+
 class Portal:
     """A health system's FHIR discovery and sign-in page, answering as slowly as a test asks."""
 
     def __init__(self) -> None:
         self.delay = 0.0
+        self.asked = 0
         self.home = ""
         outer = self
 
@@ -51,6 +61,7 @@ class Portal:
                     body = json.dumps({"authorization_endpoint": f"{outer.url}/authorize", "token_endpoint": f"{outer.url}/token"}).encode()
                     self.answer(body, "application/json")
                 elif parts.path == "/authorize":
+                    outer.asked += 1
                     time.sleep(outer.delay)
                     state = urllib.parse.quote(query.get("state", ""))
                     self.answer(f'<!doctype html><title>Portal</title><a id=deny href="/finish?state={state}">Deny</a>'.encode())
@@ -147,29 +158,36 @@ def test_an_ordinary_load_of_the_app_doesnt_fade_in(opened):
     assert not page.evaluate("document.documentElement.hasAttribute('data-arriving')")
 
 
+BUTTON_BACK = "[data-action=custom-go]:not([disabled])"
+
+
 def test_a_slow_site_can_be_abandoned_and_the_page_is_as_it_was(opened, portal, server):
     portal.delay = 8
-    page = opened()
+    page = opened(init=when_the_message_shows("setTimeout(() => box.querySelector('button').click(), 900);"))
     start_connecting(page, portal)
-    page.locator(".leaving").wait_for()
-    assert page.locator("[data-action=custom-go]").is_disabled()
-    page.locator(".leaving button").click(force=True)      # it only fades in after a few seconds, when it's wanted
+    page.locator(BUTTON_BACK).wait_for()     # it has been on its way to the site for most of a second by then
+    assert portal.asked == 1
     assert page.locator(".leaving").count() == 0
-    assert page.locator("[data-action=custom-go]").is_enabled()
-    page.wait_for_timeout(600)      # past when the page would have gone
+    page.wait_for_timeout(300)
     assert page.url.startswith(server.url)
 
 
-def test_the_browsers_back_button_brings_the_page_back_without_the_message(opened, portal):
-    portal.delay = 8
-    page = opened()
+def test_staying_before_the_page_has_gone_means_it_never_goes(opened, portal, server):
+    page = opened(init=when_the_message_shows("box.querySelector('button').click();"))
     start_connecting(page, portal)
-    page.locator(".leaving").wait_for()
+    page.locator(BUTTON_BACK).wait_for()
+    page.wait_for_timeout(600)      # past when it would have gone
+    assert portal.asked == 0
+    assert page.url.startswith(server.url) and page.locator(".leaving").count() == 0
+
+
+def test_the_browsers_back_button_brings_the_page_back_without_the_message(opened, portal, server):
     # What a browser does on Back when it kept the page: the same page, with everything still on it.
-    page.evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))")
+    page = opened(init=when_the_message_shows("window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));"))
+    start_connecting(page, portal)
+    page.locator(BUTTON_BACK).wait_for()
     assert page.locator(".leaving").count() == 0
-    assert page.locator("[data-action=custom-go]").is_enabled()
-    page.evaluate("window.stop()")
+    assert page.url.startswith(server.url)
 
 
 def test_the_windows_app_gets_the_same_step(opened, portal, server):

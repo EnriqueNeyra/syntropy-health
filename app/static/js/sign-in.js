@@ -21,7 +21,9 @@ export function leaveForSignIn(url, restore = () => {}) {
     <p class="muted">You'll come back here when you're done.</p>
     <button class="btn btn-sm" type="button">Stay here</button></div>`);
   document.body.append(box);
+  const going = setTimeout(() => window.location.assign(url), FADE_MS);
   const back = () => {
+    clearTimeout(going);
     box.remove();
     window.removeEventListener("pageshow", cameBack);
     restore();
@@ -31,5 +33,4 @@ export function leaveForSignIn(url, restore = () => {}) {
   window.addEventListener("pageshow", cameBack);
   // Only a slow site or a refused address leaves time to want this (the button fades in after a few seconds).
   box.querySelector("button").addEventListener("click", () => { window.stop(); back(); });
-  setTimeout(() => window.location.assign(url), FADE_MS);
 }
