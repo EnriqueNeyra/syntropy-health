@@ -45,7 +45,14 @@ test("each destination in the shared rules is classed the same as the callback p
     assert.equal(got.class, c.class, c.name);
     assert.equal(got.origin, c.origin, c.name);
   }
-  assert.ok(returnsWithoutStop("[::1]") && returnsWithoutStop("NAS.local") && !returnsWithoutStop("10..") && !returnsWithoutStop("1.2.3.4.5"));
+  assert.ok(returnsWithoutStop("[::1]") && returnsWithoutStop("LOCALHOST") && !returnsWithoutStop("127..") && !returnsWithoutStop("127.0.0.1.5"));
+});
+
+test("only this computer returns with no stop in the rules", () => {
+  for (const c of rules.destinations) {
+    if (c.class !== "direct") continue;
+    assert.match(c.origin, /^https?:\/\/(localhost|[a-z.-]+\.localhost|127\.\d+\.\d+\.\d+|\[::1\])(:\d+)?$/, JSON.stringify(c.d));
+  }
 });
 
 test("the shared rules match the callback page's copy", (t) => {
@@ -170,9 +177,9 @@ test("the address on the page can't be used to write into it", async () => {
   assert.equal(hidden(html).code, code);
 });
 
-test("private addresses and this computer return with no stop (1.6.0 and earlier included)", async () => {
+test("this computer returns with no stop (1.6.0 and earlier included)", async () => {
   providerAnswers();
-  for (const d of ["http://localhost:8000", "http://192.168.1.20:8000", "http://100.101.1.2:8000", "http://nas.local:8000"]) {
+  for (const d of ["http://localhost:8000", "http://127.0.0.1:8110", "http://syntropy.localhost:8000", "http://[::1]:8000"]) {
     const res = await get({ code: "abc", state: b64({ p: "smart", n: "x", d }) });
     assert.equal(res.status, 302, d);
     assert.equal(new URL(res.headers.get("location")).origin, d);
@@ -181,12 +188,42 @@ test("private addresses and this computer return with no stop (1.6.0 and earlier
   assert.equal(new URL(noAddress.headers.get("location")).origin, "http://localhost:8000");
 });
 
+test("an address on the same network gets the question too: anyone on that network can claim one (F022)", async () => {
+  const addresses = ["http://192.168.1.50:8000", "http://10.0.0.5:8000", "http://172.16.0.1:8000", "http://100.101.1.2:8000", "http://attacker.local:8000"];
+  for (const p of ["oura", "whoop", "smart"]) {
+    for (const d of addresses) {
+      const calls = providerAnswers();
+      const state = b64({ p, n: "x", d });
+      const res = await get({ code: "lan-code", state });
+      assert.equal(res.status, 200, d);
+      assert.equal(res.headers.get("location"), null, d);
+      assert.deepEqual(calls, [], d);
+      const html = await res.text();
+      assert.ok(html.includes(`<p class="host">${d}</p>`), d);
+      assert.deepEqual(hidden(html), { code: "lan-code", state });
+      assert.ok(res.headers.get("content-security-policy").includes(`form-action 'self' ${d}`), d);
+    }
+  }
+});
+
+test("a phone paired over the network gets one extra click and carries on", async () => {
+  const d = "http://192.168.1.20:8000";
+  const calls = providerAnswers();
+  const state = b64({ p: "oura", n: "x", d });
+  const res = await confirm({ code: "abc", state });
+  assert.equal(res.status, 303);
+  const back = new URL(res.headers.get("location"));
+  assert.equal(back.origin, d);
+  assert.equal(new URLSearchParams(back.hash.slice(1)).get("access_token"), "VICTIM_AT");
+  assert.equal(calls.length, 1);
+});
+
 test("SMART callbacks forward code and state untouched", async () => {
-  const state = b64({ p: "smart", n: "x", d: "http://192.168.1.20:8000" });
+  const state = b64({ p: "smart", n: "x", d: "http://localhost:8000" });
   const res = await worker.fetch(new Request(`https://relay.test/callback?code=abc&state=${state}`), env);
   assert.equal(res.status, 302);
   const loc = new URL(res.headers.get("location"));
-  assert.equal(loc.origin, "http://192.168.1.20:8000");
+  assert.equal(loc.origin, "http://localhost:8000");
   assert.equal(loc.searchParams.get("code"), "abc");
   assert.equal(loc.searchParams.get("state"), state);
 });

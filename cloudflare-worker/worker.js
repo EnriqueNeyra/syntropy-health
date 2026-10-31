@@ -29,11 +29,11 @@
  *
  * Destination safety: the instance address comes from `state.d`, and `state` is written by whoever made the sign-in
  * link. Client IDs are public, so someone else can start a sign-in that names their own server, with their own PKCE
- * verifier, and send the link to a victim. Loopback, RFC 1918, 100.64.0.0/10 and .local addresses return with no stop,
- * since only someone already on the person's network could be there. Anything else, Tailscale Funnel hosts included
- * (those are public), gets a page naming the address, and nothing is exchanged or forwarded until the person clicks to
- * say it's their own. The click is a POST from that page, so no link can stand in for it. The callback page on the
- * website follows the same rules; test/relay-rules.json holds the cases both must pass.
+ * verifier, and send the link to a victim. Only this computer returns with no stop. Anything else gets a page naming the
+ * address, and nothing is exchanged or forwarded until the person clicks to say it's their own: LAN, Tailscale and .local
+ * addresses, which anyone on the same Wi-Fi or tailnet can hold, as well as Tailscale Funnel hosts (those are public) and
+ * domains. The click is a POST from that page, so no link can stand in for it. The callback page on the website follows
+ * the same rules; test/relay-rules.json holds the cases both must pass.
  */
 
 const PROVIDERS = {
@@ -108,14 +108,10 @@ function decodeState(state) {
   }
 }
 
-// Whether a sign-in goes straight back to this host, with no question: this computer or the person's own network.
+// Whether a sign-in goes straight back to this host, with no question: only this computer.
 export function returnsWithoutStop(host) {
   host = host.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "localhost" || host === "::1" || host.endsWith(".localhost") || host.endsWith(".local")) return true;
-  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return false;
-  const [a, b, c, d] = host.split(".").map(Number);
-  if (a > 255 || b > 255 || c > 255 || d > 255) return false;
-  return a === 10 || a === 127 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 100 && b >= 64 && b <= 127);
+  return host === "localhost" || host === "::1" || host.endsWith(".localhost") || /^127(\.\d{1,3}){3}$/.test(host);
 }
 
 // Where this state's sign-in goes back to, and on what terms: class "direct" or "confirm" with its origin, or "refused"
@@ -313,7 +309,7 @@ function refused(target) {
     `It names "${target.shown}" as the address to return to, which isn't a web address. Nothing was sent. Open Syntropy Health at its usual address and connect again.`, null, 400);
 }
 
-// Asks before anything leaves for an address that isn't this computer or the person's own network. The answer is a
+// Asks before anything leaves for an address that isn't this computer. The answer is a
 // form: a link could be followed by a mail scanner, and on Android a tapped link to another site leaves the sign-in's
 // web view, where a form and the redirect after it stay.
 function confirmation(params, origin) {
