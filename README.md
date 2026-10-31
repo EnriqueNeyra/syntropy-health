@@ -28,7 +28,7 @@ Medical records from your patient portals, Apple Health and wearable data, all i
 | eClinicalWorks practices (healow) | Patient portal sign-in, read-only | No: a one-time import. Sign in again to update | Works today |
 | TruBridge, MEDHOST, Greenway, ModMed, NextGen, Practice Fusion | Listed; registration is under way | Not yet | Coming. Meanwhile, import a record file from the portal |
 | Record files from any portal | Import a FHIR file, an Apple Health Records export, a C-CDA or CCD (.xml) or an XDM zip | No: one import per file | Works today |
-| Lab report photos or PDFs | Text reading (OCR) on your computer | No | Works today (needs Tesseract) |
+| Lab report photos or PDFs | Text reading (OCR) on your computer | No | Works today, with nothing to install in the Mac and Windows apps and the Docker image |
 | Oura and WHOOP | Sign in once | Yes | Works today. The sign-in passes through a small open-source relay |
 | Fitbit and Pixel Watch (Google Health) | Your own Google Cloud app and client ID in **Settings → Wearables** | Yes, but a Google project in Testing needs a new sign-in about weekly | Works today, for technical users |
 | Apple Health | Import the Health export file | No: manual | Works today. The iPhone app that syncs it in the background isn't out yet |

@@ -227,6 +227,11 @@ def for_record(connection_id: str, resource_type: str, resource_id: str) -> list
     return [dict(r) for r in rows]
 
 
+def delete_for_record(connection_id: str, resource_type: str, resource_id: str) -> None:
+    with db() as conn:
+        conn.execute("DELETE FROM record_files WHERE connection_id = ? AND resource_type = ? AND resource_id = ?", (connection_id, resource_type, resource_id))
+
+
 def fingerprints(connection_id: str) -> dict[tuple[str, str], Optional[str]]:
     """What each record's file was fetched for, so one with no text in it isn't downloaded again at every sync."""
     with read() as conn:

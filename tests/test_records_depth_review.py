@@ -319,7 +319,8 @@ def test_a_document_isnt_opened_in_a_new_window_inside_the_apps():
     source = (STATIC / "record-detail.js").read_text()
     assert 'hasAttribute("data-shell")' in source and 'hasAttribute("data-embedded")' in source
     assert "canShow = !inApp &&" in source
-    assert "Open it to read it" not in source.split("READ_IT = inApp ? ")[1].split(":")[0]
+    # There, "Open" draws its pages in place.
+    assert "canDraw = !canShow &&" in source and "data-view-file" in source
 
 
 def test_a_json_binary_with_no_type_doesnt_claim_to_be_text(monkeypatch):

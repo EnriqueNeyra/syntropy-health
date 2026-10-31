@@ -37,8 +37,9 @@ def test_the_lock_file_matches_pyproject_and_has_hashes():
     packages = {p["name"]: p for p in lock["package"]}
     ours = packages["syntropy-health"]
     locked = {f"{d['name']}{('[' + ','.join(d['extras']) + ']') if d.get('extras') else ''}{d.get('specifier', '')}"
-              for d in ours["metadata"]["requires-dist"] if not d.get("marker") and "extra" not in d.get("marker", "")}
-    wanted = {re.sub(r"\s", "", d).lower() for d in project["dependencies"]}
+              for d in ours["metadata"]["requires-dist"] if "extra" not in d.get("marker", "")}
+    # One computer's dependencies ("; sys_platform == 'darwin'") are locked under the same name and version.
+    wanted = {re.sub(r"\s", "", d).split(";")[0].lower() for d in project["dependencies"]}
     assert wanted <= {d.lower() for d in locked}, "run uv lock"
     for package in lock["package"]:
         if package["name"] != "syntropy-health":

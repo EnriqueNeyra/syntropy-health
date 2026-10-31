@@ -123,6 +123,7 @@ function recordBody(r, text) {
           ${(r.renewals || []).map((dup) => html`<div class="list-item small"><span class="grow">${dup.source_name} <span class="muted">(another order)</span></span>
           ${statusBadge(dup.status)}<span class="muted">${fmtDate(dup.effective_at)}</span></div>`)}</div>
         <p class="hint">Syntropy merges the same fact reported by several institutions, and the orders of one medication, into one entry.</p></div>` : ""}
+      ${r.from_report ? html`<div class="small">Read from: <button class="btn btn-sm btn-ghost" data-open-result="${r.from_report.id}">${r.from_report.title}</button></div>` : ""}
       ${filesBlock(r)}
       ${r.editable ? html`<div class="row"><span class="small muted grow">You entered this.</span>
         <button class="btn btn-sm btn-ghost btn-danger" data-delete>${icon("trash")} Delete</button></div>` : correctionBlock(r)}
@@ -133,7 +134,7 @@ function recordBody(r, text) {
 
 // The Mac, Windows and phone apps send a new window to the system browser, which isn't signed in: there, a document is downloaded.
 const inApp = document.documentElement.hasAttribute("data-shell") || document.documentElement.hasAttribute("data-embedded");
-const READ_IT = inApp ? "Download it to read it." : "Open it to read it.";
+const READ_IT = "Open it to read it.";
 const FILE_WORDS = {
   scanned: `Scanned document, no text. ${READ_IT}`, unreadable: `This document's text couldn't be read. ${READ_IT}`,
   read_later: `This document's text hasn't been read yet. ${READ_IT}`,
@@ -146,9 +147,12 @@ function filesBlock(r) {
   return html`<div><div class="label">Documents</div><div class="list card">${r.files.map((f) => {
     const url = `/api/records/${encodeURIComponent(r.id)}/files/${encodeURIComponent(f.id)}`;
     const canShow = !inApp && ["application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"].includes(f.content_type);
+    // Where the browser can't open it (the apps' windows, a HEIC anywhere), its pages are drawn here instead.
+    const canDraw = !canShow && (f.content_type === "application/pdf" || f.content_type.startsWith("image/"));
     return html`<div class="list-item small"><div class="grow"><b>${f.name || (f.content_type === "application/pdf" ? "PDF document" : "Document")}</b>
       ${FILE_WORDS[f.state] ? html`<div class="muted">${FILE_WORDS[f.state]}</div>` : ""}</div>
       ${f.state === "too_large" ? "" : html`${canShow ? html`<a class="btn btn-sm" href="${url}" target="_blank" rel="noopener">Open</a>` : ""}
+      ${canDraw ? html`<button class="btn btn-sm" data-view-file="${f.id}" data-name="${f.name || "Document"}">Open</button>` : ""}
       <a class="btn btn-sm btn-ghost" href="${url}?download=true">Download</a>`}</div>`;
   })}</div></div>`;
 }
@@ -182,12 +186,26 @@ const shownAbove = (r) => r.category === "allergies" && (r.details?.reactions ||
 const fullText = (r) => (r.category === "notes" ? r.narrative : (r.category === "reports" ? (r.details?.full_text || r.narrative) : null));
 
 /** The record's buttons: another result, delete (a result entered by hand), copy the note. `done` runs after a delete. */
+/** A kept file's pages as pictures, which every browser and web view can show. */
+async function viewFile(recordId, fileId, name) {
+  const m = modal({ title: name, wide: true, body: loading(4) });
+  m.el.classList.add("lab-viewer");
+  try {
+    const { pages } = await get(`/api/records/${encodeURIComponent(recordId)}/files/${encodeURIComponent(fileId)}/pages`);
+    m.setBody(html`<div class="stack">${pages.map((p, i) => html`<img src="${p.image}" alt="Page ${i + 1} of ${pages.length}" width="${p.width}" height="${p.height}" style="width:100%;height:auto;border:1px solid var(--border)">`)}</div>`);
+  } catch (err) { m.close(); toast(err.message, "bad"); }
+}
+
 function wire(el, r, text, { leave, done }) {
+  el.querySelectorAll("[data-view-file]").forEach((b) => b.addEventListener("click", () => viewFile(r.id, b.dataset.viewFile, b.dataset.name)));
   el.querySelectorAll("[data-open-result]").forEach((b) => b.addEventListener("click", () => {
     leave(); openRecord(b.dataset.openResult);
   }));
   el.querySelector("[data-delete]")?.addEventListener("click", async () => {
-    if (!(await confirmDialog("Delete result", `Delete ${r.title} from ${fmtDate(r.effective_at)}?`, { confirmLabel: "Delete", danger: true }))) return;
+    const asked = r.category === "reports"
+      ? ["Delete report", `Delete ${r.title} and its original file? The results read from it stay, and each can be deleted on its own.`]
+      : ["Delete result", `Delete ${r.title} from ${fmtDate(r.effective_at)}?`];
+    if (!(await confirmDialog(asked[0], asked[1], { confirmLabel: "Delete", danger: true }))) return;
     try { await del(`/api/labs/${encodeURIComponent(r.id)}`); } catch (err) { toast(err.message, "bad"); return; }
     toast("Deleted");
     done();

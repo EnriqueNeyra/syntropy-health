@@ -382,6 +382,17 @@ def delete_record(record_id_: str) -> None:
     note_deleted()
 
 
+def labs_on_days(profile_id: str, days: list[str]) -> list[dict[str, Any]]:
+    """Lab results already on record for these days, so the same report isn't entered twice."""
+    if not days:
+        return []
+    with read() as conn:
+        return rows_to_dicts(conn.execute(
+            f"""SELECT id, title, code, code_system, value_num, value_text, unit, source_name, effective_at FROM clinical_records
+                WHERE profile_id = ? AND category = 'labs' AND substr(effective_at, 1, 10) IN ({','.join('?' * len(days))})""",
+            (profile_id, *days)).fetchall())
+
+
 def delete_for_connection(connection_id: str) -> None:
     with db() as conn:
         conn.execute("DELETE FROM clinical_records WHERE connection_id = ?", (connection_id,))

@@ -169,7 +169,6 @@ def test_a_lab_read_from_a_report_is_saved_under_the_name_the_dialog_promised(br
     page.locator("[data-action=add-labs]").first.click()
     page.locator("[data-mode=report]").click()
     page.locator("#lab-file").set_input_files({"name": "report.pdf", "mimeType": "application/pdf", "buffer": b"%PDF-1.4"})
-    page.locator("[data-read=local]").click()
     page.wait_for_selector("[data-matched-note]")
     assert page.locator("[data-matched-note]").inner_text() == "Filed as Glucose"
     page.locator(".modal .btn-primary", has_text="Save").click()

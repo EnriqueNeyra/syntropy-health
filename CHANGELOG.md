@@ -5,6 +5,13 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 
 ## Unreleased
 
+- **Upload a lab report, on paper or as a PDF, from Sources, Records or Trends.** Drop in a PDF, a scan or a phone photo (HEIC too)
+  and it's read on your computer, with nothing to install: the Mac and Windows apps use the reader built into the system, and the Docker
+  image includes Tesseract. Each page is shown beside the rows it was read into, on a phone above them; choosing a row points out its
+  line on the page, rows that were hard to read are marked, and results already on file for that test and day are pointed out and left
+  out unless you say otherwise. Reports with results side by side in two columns are read in full. The original is kept once with the
+  results, opens from any of them, and goes in exports and backups. Saving takes you to what you added. Sending a report to an AI stays
+  optional and asks first, as before.
 A large release: records import and sync more completely, backups and upgrades are safer, and accounts, the phone
 connection and AI access are tighter. Lines under each heading are what changed for someone upgrading from 1.6.0.
 
