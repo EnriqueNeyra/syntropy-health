@@ -12,21 +12,28 @@ from syntropy_desktop import APP_NAME, resource
 Actions = dict[str, Callable[[], None]]
 
 
+def _back(state: dict[str, Any]) -> list[tuple[str, str, bool | None]]:
+    return [("home", f"Back to {APP_NAME}", None)] if state.get("away") else []
+
+
 def _labels(state: dict[str, Any]) -> list[tuple[str, str, bool | None]]:
     """(action, title, checked) for each menu line; "" is a separator and "info" lines can't be chosen."""
     if state.get("joined"):
         # This Mac opens the household's server on another computer; it runs no server of its own.
-        return [("show", f"Open {APP_NAME}", None), ("browser", "Open in Browser", None), ("", "", None),
+        return [("show", f"Open {APP_NAME}", None), *_back(state), ("browser", "Open in Browser", None), ("", "", None),
                 ("info", f"Connected to {state['joined']}", None), ("switch", "Use a Different Server…", None),
                 ("", "", None), ("updates", "Check for Updates…", None), ("quit", f"Quit {APP_NAME}", None)]
     lines: list[tuple[str, str, bool | None]] = [
         ("show", f"Open {APP_NAME}", None),
+        *_back(state),
         ("browser", "Open in Browser", None),
         ("", "", None),
         ("lan", "Let Your iPhone and Other Devices Connect", state["lan"]),
     ]
     if state.get("address"):
         lines.append(("info", f"    Address: {state['address']}", None))
+    if state.get("port_note"):
+        lines.append(("info", f"    {state['port_note']}", None))
     lines += [("login", "Open at Login", state["login"]), ("", "", None), ("updates", "Check for Updates…", None),
               ("quit", f"Quit {APP_NAME}", None)]
     return lines
@@ -55,6 +62,7 @@ class MacTray:
     def __init__(self, actions: Actions, state: Callable[[], dict[str, Any]], on_app_quit: Callable[[], None]):
         import objc
         from AppKit import NSObject
+        from PyObjCTools import AppHelper
         from webview.platforms.cocoa import BrowserView
 
         self.actions, self.state = actions, state
@@ -66,9 +74,15 @@ class MacTray:
             threading.Thread(target=actions["show"], daemon=True).start()
             return True
 
-        def terminate(_self: Any, _app: Any) -> int:
-            on_app_quit()
-            return 1   # NSTerminateNow
+        def terminate(_self: Any, app: Any) -> int:
+            # Stopping the server takes up to several seconds with requests open. Not on the main thread, which would
+            # freeze the app meanwhile (and which the server's shutdown may need).
+            def finish() -> None:
+                on_app_quit()
+                AppHelper.callAfter(app.replyToApplicationShouldTerminate_, True)
+
+            threading.Thread(target=finish, daemon=True).start()
+            return 2   # NSTerminateLater
 
         objc.classAddMethods(BrowserView.AppDelegate, [
             objc.selector(reopen, selector=b"applicationShouldHandleReopen:hasVisibleWindows:", signature=b"Z@:@Z"),

@@ -52,6 +52,15 @@ jobs:
           NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           NOTARY_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: desktop/build-mac.sh
+      # Without this a release whose secrets had gone missing would come out ad-hoc signed and green: every installed app
+      # would then refuse the update, and Gatekeeper every new download.
+      - name: A release's Mac app is signed and notarized
+        if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'EnriqueNeyra/syntropy-health'
+        run: |
+          dmg="$(ls desktop/dist/*.dmg)"
+          codesign --verify --deep --strict -R='anchor apple generic and identifier "io.syntropyhealth.desktop" and certificate leaf[subject.OU] = "RJ2YA2S2C8"' "desktop/dist/Syntropy Health.app"
+          xcrun stapler validate "$dmg"
+          spctl -a -t open --context context:primary-signature -vv "$dmg"
       - name: Smoke test
         run: |
           "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" version
@@ -90,6 +99,11 @@ jobs:
           }
           check "0 1" "$RUNNER_TEMP/app-window"
           check "1 0" "$RUNNER_TEMP/app-background" --background
+      # With a real web view and the real swap script: other sites in the window, start-up problems, going back.
+      - name: The window's and the updater's tests
+        run: |
+          python -m pip install -U pip && pip install --group dev
+          python -m pytest -q tests/test_desktop_window.py tests/test_desktop_start.py tests/test_desktop_updater.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mac
@@ -188,6 +202,66 @@ jobs:
           if (Task) { throw "The app's sign-in task outlived the app" }
           if (Get-ItemProperty $runKey -Name "Syntropy Health Server" -ErrorAction SilentlyContinue) { throw "The app's Run value outlived the app" }
           if (Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith("$dir\", 'OrdinalIgnoreCase') }) { throw "Something from the app's folder is still running" }
+      # An update as the app does it (desktop/updater.py's script), over a running copy: the old files go, Open at Login
+      # stays off, and the new version opens and answers on the same port.
+      - name: Updating
+        shell: pwsh
+        run: |
+          $version = python -c "from app.core.config import APP_VERSION; print(APP_VERSION)"
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          $setup = (Get-Item desktop\dist\*-setup.exe).FullName
+          & $iscc "/DAppVersion=99.0.0" "/O$env:RUNNER_TEMP\next" desktop\installer.iss
+          $next = (Get-Item "$env:RUNNER_TEMP\next\*-setup.exe").FullName
+          $dir = "$env:LOCALAPPDATA\Programs\Syntropy Health"
+          $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+          $uninstall = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{6C1F3E5A-2B7D-4C8E-9A41-5D3B8F0E7C21}_is1"
+          function Installed-Version { (Get-ItemProperty $uninstall).DisplayVersion }
+          function Update-App($script) {
+            $env:SYNTROPY_DATA_DIR = "$env:RUNNER_TEMP\update-data"
+            $folder = "$env:SYNTROPY_DATA_DIR\updates"
+            New-Item -ItemType Directory -Force $folder | Out-Null
+            Remove-Item "$folder\update-*" -Force -ErrorAction SilentlyContinue
+            '{"port": 8031}' | Set-Content "$env:SYNTROPY_DATA_DIR\desktop.json"
+            $app = Start-Process "$dir\Syntropy Health.exe" -PassThru
+            $up = $false
+            for ($i = 0; $i -lt 120 -and -not $up; $i++) {
+              Start-Sleep -Seconds 1
+              try { $up = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8031/health -TimeoutSec 2).StatusCode -eq 200 } catch {}
+            }
+            if (-not $up) { throw "The app didn't start before updating" }
+            python -c "import sys; sys.path[:0] = ['desktop', '.']; import updater; open(sys.argv[1], 'w', encoding='utf-8-sig').write(updater.WINDOWS_SCRIPT)" "$folder\apply-update.ps1"
+            Start-Process powershell -WindowStyle Hidden -ArgumentList @("-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "`"$folder\apply-update.ps1`"",
+              "-AppPid", "$($app.Id)", "-Setup", "`"$script`"", "-AppDir", "`"$dir`"", "-Relaunch", "window", "-Folder", "`"$folder`"", "-WatchSeconds", "180", "-GoneSeconds", "20")
+            Stop-Process -Id $app.Id -Force
+          }
+          function Wait-Answer {
+            for ($i = 0; $i -lt 180; $i++) {
+              Start-Sleep -Seconds 1
+              try { if ((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8031/health -TimeoutSec 2).StatusCode -eq 200) { return $true } } catch {}
+            }
+            return $false
+          }
+
+          Start-Process $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER", "/TASKS=startup" -Wait
+          if ((Installed-Version) -ne $version) { throw "Setup didn't install version $version" }
+          if (-not (Test-Path "$dir\_internal")) { throw "Setup left no _internal folder" }
+          Remove-ItemProperty $runKey "Syntropy Health" -ErrorAction SilentlyContinue      # the person turned Open at Login off
+          "stale" | Set-Content "$dir\_internal\stale-from-the-last-version.txt"
+
+          # The check the app makes before it installs, with the real PowerShell: on the installed app and the new version
+          # (not signed here, which it allows), and reading a signature Windows itself made.
+          python -c "import os, pathlib, sys; sys.path[:0] = ['desktop', '.']; import updater; sys.executable = sys.argv[1]; updater.Updater(pathlib.Path('.'), None, None, None)._check_windows(pathlib.Path(sys.argv[2])); status, signer = updater.Updater._signature(pathlib.Path(os.environ['ComSpec'])); sys.exit(0 if status == 'Valid' and signer else f'Read {status} for a signed program')" "$dir\Syntropy Health.exe" "$next"
+          if ($LASTEXITCODE -ne 0) { throw "The app's signature check failed" }
+
+          Update-App $next
+          if (-not (Wait-Answer)) { Get-Content "$env:RUNNER_TEMP\update-data\desktop.log" -ErrorAction SilentlyContinue; throw "The new version didn't answer on its port" }
+          (Get-Content "$env:RUNNER_TEMP\update-data\updates\setup.log" -ErrorAction SilentlyContinue) | Select-Object -Last 5
+          if ((Installed-Version) -ne "99.0.0") { throw "The update didn't install 99.0.0" }
+          if (Test-Path "$dir\_internal\stale-from-the-last-version.txt") { throw "The update left the old version's files behind" }
+          if (Get-ItemProperty $runKey -Name "Syntropy Health" -ErrorAction SilentlyContinue) { throw "The update turned Open at Login back on" }
+          Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith("$dir\", 'OrdinalIgnoreCase') } | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Process "$dir\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows

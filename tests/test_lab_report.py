@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import sys
 
 import pytest
 from PIL import Image, ImageDraw, ImageFont
@@ -147,7 +148,30 @@ def test_photo_without_tesseract_explains(client, monkeypatch):
     report_image().save(buf, "JPEG")
     r = client.post("/api/labs/extract", files={"file": ("photo.jpg", buf.getvalue(), "image/jpeg")})
     assert r.status_code == 400 and "Tesseract" in r.json()["detail"]
-    assert client.get("/api/labs/reader").json() == {"ocr": False}
+    assert client.get("/api/labs/reader").json() == {"ocr": False, "install": lab_report.install_advice()}
+
+
+@pytest.mark.parametrize("platform,words", [("darwin", "brew install tesseract"), ("win32", "winget install"), ("linux", "apt install")])
+def test_advice_fits_the_computer(monkeypatch, platform, words):
+    monkeypatch.setattr(lab_report.sys, "platform", platform)
+    assert words in lab_report.install_advice()
+
+
+def test_tesseract_is_found_outside_a_short_path(monkeypatch, tmp_path):
+    # Apps started from the Dock get a short PATH, without /opt/homebrew/bin, where following the advice puts it.
+    from app.services import ai_agents
+    folder = tmp_path / "homebrew-bin"
+    folder.mkdir()
+    program = folder / ("tesseract.exe" if sys.platform == "win32" else "tesseract")
+    program.write_text("#!/bin/sh\n")
+    program.chmod(0o755)
+    monkeypatch.setenv("PATH", "/usr/bin")
+    monkeypatch.setattr(ai_agents, "_search_dirs", lambda: ["/usr/bin"])
+    if lab_report.tesseract_path():
+        pytest.skip("this computer has it in /usr/bin")
+    monkeypatch.setattr(ai_agents, "_search_dirs", lambda: ["/usr/bin", str(folder)])
+    assert lab_report.tesseract_path() == str(program)
+    assert lab_report.ocr_available()
 
 
 @needs_ocr

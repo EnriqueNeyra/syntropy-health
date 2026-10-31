@@ -70,7 +70,8 @@ def serve(host: str = "0.0.0.0", port: int = DEFAULT_PORT, reload: bool = False)
         for addr in network.home_addresses() + network.tailscale_addresses():
             print(f"  or http://{addr}:{port} from your other devices")
     uvicorn.run("app.main:app", host=host, port=port, reload=reload, proxy_headers=True,
-                forwarded_allow_ips=config.env("FORWARDED_ALLOW_IPS") or "127.0.0.1", log_level="info")
+                forwarded_allow_ips=config.env("FORWARDED_ALLOW_IPS") or "127.0.0.1", log_level="info",
+                timeout_graceful_shutdown=10)      # a local AI answer or a long download doesn't hold up stopping
 
 
 def info(port: Optional[int]) -> None:

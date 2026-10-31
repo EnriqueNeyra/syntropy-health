@@ -1,9 +1,10 @@
 """
 File imports (Apple Health export, FHIR bundles) with background job tracking.
 
-Uploads are written to ``<data_dir>/uploads`` and processed off the event loop; the UI polls ``/api/imports/{job_id}`` for
-progress. Uploaded files are deleted once processed, or at the next start if the server stopped first. Jobs are also kept in
-the database, so a page can find one again and a restart can say what became of it.
+Uploads are written to ``<data_dir>/uploads`` and processed on a thread of their own; the UI polls ``/api/imports/{job_id}`` for
+progress. Uploaded files are deleted once processed, or at the next start if the server stopped first. A server that's stopping
+asks them to stop between batches (stop_running). Jobs are also kept in the database, so a page can find one again and a restart
+can say what became of it.
 """
 
 from __future__ import annotations
@@ -41,6 +42,13 @@ INTERRUPTED = "This import stopped when Syntropy Health was closed or restarted.
 STOPPED_EARLY = ("This file stops partway or has a fault at {where}, so the import stopped there. What came before it was imported. "
                  "If records are missing, export from the Health app again, or copy the file again.")
 CANT_READ = "This file couldn't be read as an Apple Health export ({detail}). Export it from the Health app again, or copy the file again."
+_running: dict[threading.Thread, threading.Event] = {}
+STOPPED = ("Syntropy Health was closed during this import, so it stopped part way. Import the file again: what was already "
+           "added won't be added twice.")
+
+
+class _Stopped(Exception):
+    pass
 
 
 def upload_dir() -> Path:
@@ -207,12 +215,33 @@ def import_fhir_file(profile_id: str, filename: str, raw: bytes) -> dict[str, An
     })
 
 
+def _start_thread(target: Any, *args: Any) -> None:
+    """With the request's context, so what the import records is attributed to whoever started it. Not on the event loop's
+    executor: shutting that down waits for whatever runs on it, so a long import kept a closed app running with no window."""
+    stop = threading.Event()
+    thread = threading.Thread(target=contextvars.copy_context().run, args=(target, *args, stop), daemon=True, name="import")
+    with _jobs_lock:
+        _running[thread] = stop
+    thread.start()
+
+
 async def start_apple_health_import(profile_id: str, path: Path, filename: str) -> str:
     job_id = await asyncio.to_thread(_new_job, "apple_health", filename, profile_id)
-    loop = asyncio.get_running_loop()
-    # With the request's context, so what the import records is attributed to whoever started it.
-    loop.run_in_executor(None, contextvars.copy_context().run, _run_apple_health, job_id, profile_id, path, filename)
+    _start_thread(_run_apple_health, job_id, profile_id, path, filename)
     return job_id
+
+
+def stop_running(wait: float = 15.0) -> None:
+    """The server is stopping: each import finishes its batch and stops, rather than dying in the middle of one."""
+    with _jobs_lock:
+        running = dict(_running)
+    for stop in running.values():
+        stop.set()
+    deadline = time.monotonic() + wait
+    for thread in running:
+        thread.join(max(0.0, deadline - time.monotonic()))
+        if thread.is_alive():
+            log.warning("An import is still finishing as the server stops")
 
 
 def _where(exc: ParseError) -> str:
@@ -222,29 +251,42 @@ def _where(exc: ParseError) -> str:
 
 async def start_archive_import(profile_id: str, account_id: Optional[str], path: Path, filename: str) -> str:
     job_id = await asyncio.to_thread(_new_job, "archive", filename, profile_id)
-    loop = asyncio.get_running_loop()
-    loop.run_in_executor(None, contextvars.copy_context().run, _run_archive, job_id, profile_id, account_id, path)
+    _start_thread(_run_archive, job_id, profile_id, account_id, path)
     return job_id
 
 
-def _run_archive(job_id: str, profile_id: str, account_id: Optional[str], path: Path) -> None:
+def _run_archive(job_id: str, profile_id: str, account_id: Optional[str], path: Path, stop: Optional[threading.Event] = None) -> None:
     from app.services import exports
+
+    stop = stop or threading.Event()
+
+    def progress(n: int) -> None:
+        if stop.is_set():
+            raise _Stopped
+        _update(job_id, processed=n, inserted=n)
 
     _update(job_id, status="running")
     try:
-        result = exports.import_archive(profile_id, account_id, path, lambda n: _update(job_id, processed=n, inserted=n))
+        result = exports.import_archive(profile_id, account_id, path, progress)
         _update(job_id, status="completed", finished_at=time.time(), result=result)
+    except _Stopped:
+        log.warning("Stopped an archive import because the server is stopping")
+        _update(job_id, status="error", finished_at=time.time(), error=STOPPED)
     except (ValueError, biometrics.SourceGone) as exc:
         _update(job_id, status="error", finished_at=time.time(), error=str(exc))
     except Exception as exc:  # noqa: BLE001
         log.exception("Archive import failed")
         _update(job_id, status="error", finished_at=time.time(), error=str(exc))
     finally:
+        with _jobs_lock:
+            _running.pop(threading.current_thread(), None)
         path.unlink(missing_ok=True)
 
 
-def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -> None:
+def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str, stop: Optional[threading.Event] = None) -> None:
+    stop = stop or threading.Event()
     _update(job_id, status="running")
+    run: Optional[tuple[int, str]] = None
     export = None
     try:
         export = apple_health.ExportArchive(path)
@@ -255,6 +297,7 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
                          if c["provider"] == "apple_health_export"), None) or connections.create(
                 profile_id, "import", "apple_health_export", "Apple Health export", mode="live")
             run_id = connections.start_run(conn["id"], "import")
+            run = (run_id, conn["id"])
             processed = inserted = updated = rejected = flagged = workouts = events = 0
             batch: list[dict[str, Any]] = []
             others: dict[str, list[dict[str, Any]]] = {"workout": [], "event": []}
@@ -283,6 +326,8 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
                 with opener() as stream:
                     try:
                         for kind, item in apple_health.iter_items(apple_health.CleanStream(stream), export.route_reader(), tally):
+                            if stop.is_set():
+                                raise _Stopped
                             if kind != "sample":
                                 others[kind].append(item)
                                 route_points += len(item.get("route") or ())
@@ -298,6 +343,8 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
                         log.warning("An Apple Health export stopped at %s", stopped)
                 flush_samples()
                 flush_others()
+            except _Stopped:
+                raise
             except Exception as exc:
                 connections.finish_run(run_id, conn["id"], "error", {"samples": processed, "inserted": inserted}, str(exc))
                 raise
@@ -330,12 +377,19 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
         _update(job_id, status="completed", finished_at=time.time(), result=result)
     except biometrics.SourceGone as exc:
         _update(job_id, status="error", finished_at=time.time(), error=str(exc))
+    except _Stopped:
+        log.warning("Stopped an Apple Health import because the server is stopping")
+        if run:
+            connections.finish_run(run[0], run[1], "error", {}, STOPPED)
+        _update(job_id, status="error", finished_at=time.time(), error=STOPPED)
     except Exception as exc:  # noqa: BLE001
         log.exception("Apple Health import failed")
         _update(job_id, status="error", finished_at=time.time(), error=str(exc))
     finally:
         if export:
             export.close()
+        with _jobs_lock:
+            _running.pop(threading.current_thread(), None)
         try:
             path.unlink()
         except OSError as exc:

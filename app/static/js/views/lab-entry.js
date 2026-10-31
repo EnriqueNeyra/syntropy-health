@@ -84,8 +84,8 @@ export async function openLabEntry(profile, onSaved) {
             <button class="btn btn-primary btn-sm" data-read="local" ${reading ? "disabled" : ""}>${reading === "local" ? "Reading…" : "Read privately"}</button>
             ${ai.configured ? html`<button class="btn btn-sm" data-read="ai" ${reading ? "disabled" : ""}>${icon("sparkles")} ${reading === "ai" ? "Reading…" : `Read with ${ai.label}`}</button>` : ""}</div>
           <p class="hint">Read privately: your Syntropy server reads the file and it goes nowhere else.
-            ${reader.ocr ? "" : html`Photos and scans need Tesseract on the computer running Syntropy (included in the Docker image;
-              on a Mac, <code>brew install tesseract</code>). PDFs from lab websites work without it.`}
+            ${reader.ocr ? "" : html`Photos and scans need a free program called Tesseract on the computer running Syntropy Health.
+              ${reader.install} PDFs from lab websites work without it.`}
             ${ai.configured ? html`${ai.label} (${ai.model}) is usually better with blurry or crooked photos; that sends the file to ${ai.label} with your key.`
               : html`For hard-to-read photos you can also <a href="#/settings/ai">add your own AI key</a>.`}</p></div>` : ""}
       ${fromReport ? html`<div class="banner warn small"><div class="grow">${fromReport === "ocr"

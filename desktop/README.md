@@ -9,12 +9,22 @@ so the iPhone app keeps syncing and automations keep running. The icon's menu ha
   it. Setup, Settings → Security and the pairing dialog have the same switch. Pairing then gives the
   phone this computer's home address, and suggests the Tailscale name as its away-from-home address.
 - **Open at Login** — start in the background when you log in (a LaunchAgent on a Mac, the Run key on Windows).
+- **Back to Syntropy Health** — while the window is on another site, such as a health system's sign-in.
 - **Check for Updates…** — also in the Mac app menu. See [Updates](#updates).
 - **Quit** — stops the server. Cmd-Q and Quit in the Dock also quit; the window's close button only hides it.
 
 Data lives in `~/Library/Application Support/Syntropy Health` or `%LOCALAPPDATA%\Syntropy Health`. The window opens
 `http://localhost:8000`: the app keeps port 8000 (saved in `desktop.json`), or takes the next free one the first time
-if something else already has it.
+if something else already has it. If another program holds the saved port later, the app uses another one until its next
+start, without saving it, because the saved one is what the phone was paired with. The menu and Alerts say so.
+
+The window opens straight away with a starting page, since the first start after an update copies and upgrades the
+database, which can take minutes. If the data can't be used it says why, with buttons to try again, restore a backup, set
+a damaged file aside and start fresh (nothing is deleted: see [recovery.py](recovery.py)), or show the data folder.
+
+Web pages in the window follow one set of rules on both systems ([sites.py](sites.py)): anything but the app's own
+pages shows its site's name and a way back, can't talk to the app, and can't start another program. A link only leaves
+the window as http, https or mailto, in the default browser or mail app, and only when a person clicked it.
 
 Uninstalling asks whether to delete that data too, and keeps it unless you say so: on a Mac, **Syntropy Health →
 Uninstall Syntropy Health…** quits, removes the login item, moves the app to the Trash and, if chosen, deletes the data
@@ -32,13 +42,24 @@ The server checks for new releases daily (app/services/updates.py); Settings →
 **Install and restart** and **Install updates automatically**. [updater.py](updater.py) does the installing:
 
 1. Downloads the release's `Syntropy-Health-mac-arm64.dmg` or `Syntropy-Health-windows-x64-setup.exe` and `SHA256SUMS`
-   from GitHub, and checks one against the other. When the running app is signed, the new one must be signed by the same
-   developer (Apple Team ID, or Authenticode certificate).
-2. Automatic updates wait until the window is closed; one the owner asked for installs straight away.
-3. Mac: the new app is copied next to this one, and a small script swaps them once the app has quit and opens it
-   again (in the background if it was). The app has to be somewhere it can write, like Applications. Windows: the setup
-   program runs silently (`/VERYSILENT /RELAUNCH=window|background`), keeping the install folder and choices, and
-   [installer.iss](installer.iss) opens the new version.
+   from GitHub (nowhere else, redirects included), and checks one against the other. Once the app has a release key built
+   in, `SHA256SUMS` needs its signature, `SHA256SUMS.sig`. When the running app is signed, the new one must be signed by
+   the same developer (Apple Team ID with the app's identifier, or Authenticode certificate). A check that can't be made
+   counts as failed.
+2. Automatic updates wait until the window is closed. Turning them off cancels the wait, and **Install and restart** ends it.
+   One the owner asked for installs straight away.
+3. A script takes over once the app has quit. Mac: it moves this app aside and puts the new one in its place. The app
+   has to be somewhere it can write, like Applications. Windows: it copies the program folder into `updates\previous`
+   and runs the setup program silently, keeping the install folder and choices. Either way it opens the new version (in
+   the background if it was).
+4. The script waits for the new version to say its server started, then throws the copy away. If the new version closes,
+   can't upgrade the data, or takes more than 25 minutes, the script puts the copy back and opens it. That version restores
+   the database from the copy made before upgrading it, says what happened in Settings and Alerts, and doesn't try the
+   same release again automatically for a day. **Install and restart** tries it whenever the owner likes.
+
+The release key is optional until it exists: `python scripts/new_release_key.py` makes one, and says where the two halves
+go. A signature protects against someone who can publish to the repository but doesn't hold the key. Apps that have the
+public key built in can't update to a release without a signature, and the release workflow fails rather than publish one.
 
 A Mac that opens another computer's server checks from **Check for Updates…** only.
 
@@ -79,10 +100,10 @@ Apple's grid (an 824-pixel tile on a 1024 canvas), so it sits at the same size a
 
 Windows builds run on GitHub Actions ([.github/workflows/apps.yml](../.github/workflows/apps.yml)): PyInstaller,
 then Inno Setup ([installer.iss](installer.iss)) makes a per-user installer that needs no administrator rights. CI
-builds both apps on every pull request, opens them, and on Windows installs and uninstalls, so each CI run has them as
-artifacts. A tag like `v1.0.0` (matching `APP_VERSION`) runs [desktop.yml](../.github/workflows/desktop.yml), which builds
-them signed and publishes a GitHub release with both apps, the Python wheel and `SHA256SUMS`: the version everyone's
-updates install. Without a code-signing
+builds both apps on every pull request, opens them, and on Windows installs, updates and uninstalls, so each CI run has
+them as artifacts. A tag like `v1.0.0` (matching `APP_VERSION`) runs [desktop.yml](../.github/workflows/desktop.yml), which builds
+them signed, fails if the Mac app isn't signed and notarized, and publishes a GitHub release with both apps, the Python
+wheel and `SHA256SUMS`: the version everyone's updates install. Without a code-signing
 certificate, Windows SmartScreen warns on first launch ("More info → Run anyway").
 
 Running from source, for development: `SYNTROPY_DATA_DIR=/tmp/syntropy-dev .venv-desktop/bin/python desktop/syntropy_desktop.py`

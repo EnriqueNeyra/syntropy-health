@@ -152,8 +152,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await asyncio.to_thread(_start_up)
     except db.StartupProblem as exc:
         app.state.problem = str(exc)
+        app.state.problem_kind = exc.kind
     except sqlite3.DatabaseError as exc:        # such as damage that only shows once the data is read
-        app.state.problem = str(db.unusable(exc, config.db_path()))
+        problem = db.unusable(exc, config.db_path())
+        app.state.problem, app.state.problem_kind = str(problem), problem.kind
     except OSError as exc:
         log.exception("Couldn't start")
         app.state.problem = (f"Syntropy Health can't use its data folder: {exc}. Check that the disk has room and that this "
@@ -173,6 +175,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     network.start_announcing()
     yield
     network.stop_announcing()
+    await asyncio.to_thread(imports.stop_running)
     await scheduler.stop()
     await updates.stop()
     await asyncio.to_thread(data_fixes.stop)
