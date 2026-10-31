@@ -13,6 +13,7 @@ import {
 } from "./trend-tools.js";
 import { convert, displayUnit, fmtMeasure, recordValue } from "../units.js";
 import { openRecord } from "./record-detail.js";
+import { cannotPickFiles, openLabEntry } from "./lab-entry.js";
 import {
   scrollToTop,
   $, confirmDialog, emptyState, flagBadge, fmtDate, fmtNum, html, icon, loading, modal, mount, onAction, plural, resultStatus, toast,
@@ -281,6 +282,7 @@ export async function render({ el, parts, params, state, navigate }) {
   }
   const METRIC_UNITS = new Map(metrics.map((m) => [m.metric, m.unit]));
   const topics = TOPICS.filter(([k]) => items.some((i) => i.topic === k));
+  const addReport = () => openLabEntry(profile, (address) => navigate(address), { report: true });
   // The page again, from what's stored now: a removed reading can change a day, its measure's latest value, or whether it's listed.
   const redraw = () => navigate(location.hash);
   const seeLeftOut = () => openReadings(profile, { leftOut: true }, redraw);
@@ -290,9 +292,10 @@ export async function render({ el, parts, params, state, navigate }) {
       <div class="page-head"><div><h1>Trends</h1><p>Lab results, vitals and wearable data over time.</p></div></div>
       ${leftOutNote(leftOut)}
       <div class="card">${emptyState("Nothing to chart yet",
-        "Lab results and vitals appear once a health system shares them; sleep, heart and activity data once a wearable or the iPhone app is connected.",
-        html`<a class="btn btn-primary" href="#/sources">${icon("plus")} Add a source</a>`)}</div>`);
-    return onAction(el, { "left-out-all": seeLeftOut });
+        "Lab results and vitals appear once a health system shares them or you add a lab report; sleep, heart and activity data once a wearable or the iPhone app is connected.",
+        html`<a class="btn btn-primary" href="#/sources">${icon("plus")} Add a source</a>
+          ${cannotPickFiles() ? "" : html`<button class="btn" data-action="add-report">${icon("upload")} Upload a lab report</button>`}`)}</div>`);
+    return onAction(el, { "left-out-all": seeLeftOut, "add-report": addReport });
   }
 
   // What to show: an explicit test or metric wins (and picks its topic), then the topic in the address, then the
@@ -318,7 +321,8 @@ export async function render({ el, parts, params, state, navigate }) {
   let goalsNow = goalData;
 
   mount(el, html`
-    <div class="page-head"><div><h1>Trends</h1><p>Lab results, vitals and wearable data over time, in one place.</p></div></div>
+    <div class="page-head"><div><h1>Trends</h1><p>Lab results, vitals and wearable data over time, in one place.</p></div>
+      <button class="btn" data-action="add-report" id="tr-add-report" hidden>${icon("upload")} Upload a lab report</button></div>
     ${leftOutNote(leftOut)}
     <div class="tabs" id="tr-tabs" role="tablist"></div>
     <div class="split" id="tr-layout">
@@ -348,7 +352,11 @@ export async function render({ el, parts, params, state, navigate }) {
     el.dataset.appTitle = selected.title;     // the screen's title in the app, instead of "Trends"
   }
 
-  const drawTabs = () => mount($("#tr-tabs", el), topics.map(([k, label]) => {
+  const drawTabs = () => {
+    $("#tr-add-report", el).hidden = topic !== "labs" || cannotPickFiles() || Boolean(detailScreen);
+    mountTabs();
+  };
+  const mountTabs = () => mount($("#tr-tabs", el), topics.map(([k, label]) => {
     const n = items.filter((i) => i.topic === k).length;
     const flagged = k === "labs" && items.some((i) => i.topic === k && isFlagged(i.interpretation));
     return html`<a class="tab ${k === topic ? "active" : ""}" href="#/trends/${k}" data-action="topic" data-topic="${k}" role="tab"

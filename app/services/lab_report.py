@@ -180,16 +180,33 @@ def _open_images(data: bytes, kind: str) -> list[Any]:
         raise ReportError("Couldn't open that image. Save it as JPEG or PNG and try again.") from exc
 
 
-def _pdf_words(page: Any) -> list[Word]:
-    """The words in a page's text layer, placed as the page shows them."""
+def _reading_turn(boxes: list[tuple[float, ...]]) -> int:
+    """How far a page's text is turned, from which way its letters run: a landscape report stored sideways runs up the page."""
+    votes = {0: 0, 90: 0, 180: 0, 270: 0}
+    for a, b in zip(boxes, boxes[1:]):
+        across, up = b[0] - a[0], b[1] - a[1]
+        if abs(across) > abs(up):
+            votes[0 if across > 0 else 180] += 1
+        elif up:
+            votes[90 if up > 0 else 270] += 1
+    return max(votes, key=lambda turn: votes[turn])
+
+
+def _pdf_words(page: Any) -> tuple[list[Word], float]:
+    """The words in a page's text layer, placed so they read from left to right, and how tall the page is that way up."""
     import pypdfium2.raw as pdfium
 
     text = page.get_textpage()
     left, bottom, right, top = page.get_bbox()
-    turn = page.get_rotation()
+    letters = []
+    for i in range(text.count_chars()):
+        ch = chr(pdfium.FPDFText_GetUnicode(text.raw, i) or 32)
+        # The letter's whole width: a tight box leaves a gap around a ".".
+        letters.append((ch, *text.get_charbox(i, loose=True), pdfium.FPDFText_GetFontSize(text.raw, i)) if not ch.isspace() and ord(ch) >= 32 else (" ",))
+    text.close()
+    turn = _reading_turn([found[1:5] for found in letters if len(found) > 1])
 
-    def place(box: tuple[float, ...]) -> tuple[float, float, float, float]:
-        l, b, r, t = box
+    def place(l: float, b: float, r: float, t: float) -> tuple[float, float, float, float]:
         if turn == 90:
             return b - bottom, l - left, t - bottom, r - left
         if turn == 180:
@@ -208,13 +225,12 @@ def _pdf_words(page: Any) -> list[Word]:
             current.clear()
 
     size = 0.0
-    for i in range(text.count_chars()):
-        ch = chr(pdfium.FPDFText_GetUnicode(text.raw, i) or 32)
-        if ch.isspace() or ord(ch) < 32:
+    for found in letters:
+        if len(found) == 1:
             finish()
             continue
-        l, t, r, b = place(text.get_charbox(i, loose=True))     # the letter's whole width: a tight box leaves a gap around a "."
-        font = pdfium.FPDFText_GetFontSize(text.raw, i)
+        ch, font = found[0], found[5]
+        l, t, r, b = place(*found[1:5])
         if current:
             _, _, last_top, last_right, last_bottom = current[-1]
             # Letters far apart are two words, with or without a space between them. So is a change of size: a lab's "01" after a test's name.
@@ -223,8 +239,7 @@ def _pdf_words(page: Any) -> list[Word]:
         current.append((ch, l, t, r, b))
         size = font
     finish()
-    text.close()
-    return words
+    return words, (right - left if turn in (90, 270) else top - bottom)
 
 
 def _has_big_picture(page: Any) -> bool:
@@ -277,8 +292,7 @@ def _read_pdf(data: bytes, used: Optional[str]) -> tuple[list[_Page], int]:
     def one(number: int) -> _Page:
         with _pdfium:
             page = doc[number]
-            height = page.get_size()[1]
-            words = _pdf_words(page)
+            words, height = _pdf_words(page)
             chars = sum(len(w.text) for w in words)
             scan = chars < MIN_TEXT or (chars < STAMP_TEXT and _has_big_picture(page))
             picture = _render(page, PREVIEW_WIDTH) if not scan or not used else None
@@ -494,10 +508,10 @@ def _read_unit(token: str) -> tuple[Optional[str], bool]:
 
 
 def _closest_unit(token: str) -> Optional[str]:
-    """Letters misread, so the same number of them: "g/aL" is g/dL, not g/L."""
+    """One letter misread, and only one: "g/aL" is g/dL, not g/L or mg/L."""
     read = token.lower().translate(_ONE_STROKE)
-    close = [u for u in difflib.get_close_matches(read, UNITS_READ, n=5, cutoff=0.74) if len(u) == len(read)]
-    return UNITS_READ[close[0]] if close else None
+    close = [u for u in UNITS_READ if len(u) == len(read) and sum(a != b for a, b in zip(u, read)) == 1]
+    return UNITS_READ[close[0]] if len(close) == 1 else None
 
 
 def _is_unit(token: str) -> bool:
@@ -533,7 +547,10 @@ def _name_and_rest(line: str) -> tuple[str, list[str], bool]:
         first_cell = cells[0].split()
         code_only = LAB_CODE.match(cells[1]) and len(cells) > 2
         looks = _says_result(second, 0) or _word(second[0]) in IN_COLUMN or code_only
-        holds_result = _says_result(first_cell, len(first_cell) - 1) and not _known(cells[0]) and not LAB_CODE.match(first_cell[-1])
+        # A number at the end of the first column is part of the name when the second column has the result: unless what's before it is a
+        # test already, as in "Glucose 105   98", where the second column is the previous result.
+        holds_result = (_says_result(first_cell, len(first_cell) - 1) and not _known(cells[0]) and not LAB_CODE.match(first_cell[-1])
+                        and (_known(" ".join(first_cell[:-1])) or not _says_result(second, 0)))
         if looks and not holds_result:
             return cells[0], " ".join(cells[1:]).split(), True
     tokens = line.split()
@@ -725,6 +742,18 @@ def _correct_ocr_names(results: list[dict[str, Any]]) -> None:
                     r["unsure"].append("test")
 
 
+def _fill_missing_units(results: list[dict[str, Any]]) -> None:
+    """OCR drops a lone "%" or reads it as "8". For a test whose usual unit is known, that goes in the box, marked to check."""
+    for r in results:
+        if r["unit"] or r["value"] is None:
+            continue
+        unit = re.sub(r"\{[^}]*\}", "", (lab_catalog.matched_test(r["test"]) or {}).get("unit") or "")
+        if unit:
+            r["unit"] = unit
+            if "unit" not in r["unsure"]:
+                r["unsure"].append("unit")
+
+
 def read(data: bytes, content_type: str, filename: str) -> dict[str, Any]:
     pages, total, used = _read_pages(data, content_type, filename)
     unread = [i + 1 for i, p in enumerate(pages) if p.unread]
@@ -736,6 +765,7 @@ def read(data: bytes, content_type: str, filename: str) -> dict[str, Any]:
     scanned = any(p.scan and not p.unread for p in pages)
     if scanned:
         _correct_ocr_names(out["results"])
+        _fill_missing_units(out["results"])
     notes = []
     if unread:
         notes.append(f"Page {', '.join(map(str, unread))} couldn't be read" + ("." if used else f": it's a scan, and this computer has no reader for those. {install_advice()}"))

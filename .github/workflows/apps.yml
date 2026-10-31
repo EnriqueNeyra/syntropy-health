@@ -113,6 +113,12 @@ jobs:
           uv export --frozen --only-group dev --no-emit-project --no-header -o "$RUNNER_TEMP/dev.txt"
           python -m pip install --require-hashes --no-deps -r "$RUNNER_TEMP/dev.txt"
           python -m pytest -q tests/test_desktop_window.py tests/test_desktop_start.py tests/test_desktop_updater.py
+      # Reading a photographed lab report with what macOS has built in, from the source and from the app as packaged.
+      - name: Reading a photographed lab report
+        run: |
+          python -m pytest -q tests/test_lab_ocr.py
+          python -c "from app.services import ocr; assert ocr.engine() == 'vision', ocr.engine()"
+          SYNTROPY_DATA_DIR="$RUNNER_TEMP/ocr-data" python scripts/check_app_ocr.py "desktop/dist/Syntropy Health.app/Contents/MacOS/Syntropy Health" vision
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: mac
@@ -166,6 +172,15 @@ jobs:
           Get-Content "$env:SYNTROPY_DATA_DIR\desktop.log" -ErrorAction SilentlyContinue
           Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
           if (-not $ok) { throw "The app's window didn't open (exited: $($app.HasExited))" }
+      # Reading a photographed lab report with the OCR built into Windows. A runner without an OCR language says so here, rather than passing quietly.
+      - name: Reading a photographed lab report
+        shell: bash
+        run: |
+          uv export --frozen --only-group dev --no-emit-project --no-header -o "$RUNNER_TEMP/dev.txt"
+          python -m pip install --require-hashes --no-deps -r "$RUNNER_TEMP/dev.txt"
+          python -c "from app.services import ocr; print('OCR engine:', ocr.engine())"
+          python -m pytest -q tests/test_lab_ocr.py
+          SYNTROPY_DATA_DIR="$RUNNER_TEMP/ocr-data" python scripts/check_app_ocr.py "desktop/dist/Syntropy Health/syntropy-health.exe" windows
       - name: Installer
         shell: pwsh
         run: |

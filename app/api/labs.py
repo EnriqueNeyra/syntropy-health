@@ -175,6 +175,8 @@ def _save_report(entry: LabEntry, data: bytes, kind: str, name: str) -> dict:
     for rec in recs:
         if rec["resource_type"] == "DiagnosticReport":
             record_files.put_text(rec, text)        # so search and the visit summary find what the report says, as with any other PDF
+        else:
+            rec["details"].pop("panel", None)       # a file's name isn't a panel: Trends would group them under it
     write = records.upsert_records(prof["id"], conn["id"], entry.lab or MANUAL_NAME, recs)
     with db() as c:
         audit(c, "user", "labs.entered", {"results": len(recs) - 1, "lab": entry.lab, "original_kept": True}, prof["id"])
@@ -214,12 +216,19 @@ class OnFile(BaseModel):
     results: list[Check] = Field(..., max_length=300)
 
 
+def _name_key(name: str) -> str:
+    return "name:" + re.sub(r"[^a-z0-9]", "", name.lower())
+
+
 def _same_value(row: Check, found: dict[str, Any]) -> bool:
-    said = (row.value or "").strip()
-    try:
-        return found["value_num"] is not None and float(said) == float(found["value_num"])
-    except ValueError:
-        return said.lower() == str(found.get("value_text") or "").strip().lower()
+    said = (row.value or "").strip().lower()
+    if found["value_num"] is not None:
+        try:
+            return float(said) == float(found["value_num"])
+        except ValueError:
+            pass
+    text = str(found.get("value_text") or "").strip().lower()
+    return said == text or (said[:1] in ("<", ">", "≤", "≥") and text.startswith(said))     # "<0.5" is kept as "<0.5 ng/mL"
 
 
 @router.post("/on-file")
@@ -231,12 +240,16 @@ def on_file(body: OnFile) -> dict:
     here = records.labs_on_days(prof["id"], [d for d in days if DATE.match(d)])
     by_test: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for found in here:
-        by_test.setdefault((str(found["effective_at"])[:10], lab_catalog.series_key(found["code"], found["code_system"], found["title"])), []).append(found)
+        day = str(found["effective_at"])[:10]
+        # Under its meaning and its name: one typed in with no code has no meaning to compare, and "Glucose" alone can mean urine.
+        for key in {lab_catalog.series_key(found["code"], found["code_system"], found["title"]), _name_key(found["title"])}:
+            by_test.setdefault((day, key), []).append(found)
     answers: list[Optional[dict[str, Any]]] = []
     for r in body.results:
         loinc = r.loinc if r.loinc and re.fullmatch(r"\d{1,7}-\d", r.loinc.strip()) else None
-        key = lab_catalog.series_key(loinc, fhir_normalize.LOINC if loinc else None, r.test.strip())
-        matches = by_test.get((r.date if r.date and DATE.match(r.date) else body.collected, key)) or []
+        day = r.date if r.date and DATE.match(r.date) else body.collected
+        keys = {lab_catalog.series_key(loinc, fhir_normalize.LOINC if loinc else None, r.test.strip()), _name_key(r.test)}
+        matches = [m for key in keys for m in by_test.get((day, key), [])]
         same = next((m for m in matches if _same_value(r, m)), None)
         shown = same or (matches[0] if matches else None)
         answers.append({"same": same is not None, "value": shown["value_text"], "source": shown["source_name"], "id": shown["id"]} if shown else None)

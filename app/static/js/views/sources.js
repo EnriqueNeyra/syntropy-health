@@ -5,6 +5,7 @@ import {
 } from "../ui.js";
 import { embedded, nativeNav, setToolbar } from "../app.js";
 import { networkStatus, renderNetworkPanel } from "../network.js";
+import { cannotPickFiles, openLabEntry, REPORT_FILES } from "./lab-entry.js";
 import { clearPrintedLetter, openRecordsRequest } from "./records-request.js";
 
 const PLATFORM_COLORS = { epic: "#c2410c", cerner: "#b91c1c", athena: "#7c3aed", healow: "#0f766e", trubridge: "#0e7490", greenway: "#15803d", modmed: "#be185d", nextgen: "#4338ca", practicefusion: "#0891b2", medhost: "#9333ea", "smart-health-it": "#0369a1", custom: "#4b5563" };
@@ -441,8 +442,16 @@ async function openPairing(profile) {
 }
 
 function importZones() {
+  // The Android app has nothing behind a file box yet, and one that does nothing when tapped looks broken.
+  if (cannotPickFiles()) {
+    return html`<div class="src-drops" id="import-card"><div class="banner info small"><div class="grow">The Android app can't open files yet. To add a lab report or a
+      record file, open <b>${location.origin}</b> in your phone's browser or on a computer, and sign in.</div></div></div><div id="imp-status" class="src-drop-status" role="status"></div>`;
+  }
   // The iPhone app sends Apple Health itself, so an export file is only offered elsewhere.
   return html`<div class="src-drops" id="import-card">
+      <label class="drop-zone" data-drop="lab">
+        ${icon("flask")}<div><b>A lab report</b><div class="small muted">A PDF from your lab's website, or a photo or scan of a paper report. You check every value beside the page before it's saved, and the original stays with the results.</div></div>
+        <input type="file" id="imp-lab" accept="${REPORT_FILES}"></label>
       ${embedded ? "" : html`<label class="drop-zone" data-drop="apple">
         ${icon("upload")}<div><b>Apple Health export</b><div class="small muted">Health app → your photo → Export All Health Data → <code>export.zip</code>. Includes Health Records if present.</div></div>
         <input type="file" id="imp-apple" accept=".zip,.xml"></label>`}
@@ -518,7 +527,7 @@ function group(title, hint, action, body) {
   </section>`;
 }
 
-export async function render({ el, params, state }) {
+export async function render({ el, params, state, navigate }) {
   const profile = state.profile;
   mount(el, loading(4));
   let pollTimer = null;
@@ -581,7 +590,7 @@ export async function render({ el, params, state }) {
             ${simulated || !state.status?.developer_mode ? "" : html`<button class="btn btn-sm btn-ghost" data-action="wearable" data-provider="${provider}" data-mode="simulated">Try simulated data</button>`}`)}`;
         })}</div>`)}
 
-      ${group("Files", "One-off imports of an Apple Health export or a record file from a portal. Drop a file on a box, or click to choose one.", "",
+      ${group("Files", "One-off imports of a lab report, an Apple Health export or a record file from a portal. Drop a file on a box, or click to choose one.", "",
         html`${importZones()}${files.length ? html`<div class="src-rows">${files.map((c) => sourceRow(c))}</div>` : ""}`)}
     `);
     wireUploads();
@@ -671,13 +680,16 @@ export async function render({ el, params, state }) {
     try { await uploadApple(file, profile, status, refresh, () => gone); } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };
 
+  const importLabReport = (file) => openLabEntry(profile, (address) => navigate(address), { file });
+
   const wireUploads = () => {
     const status = $("#imp-status", el);
     if (importNote && status) mount(status, importNote);
     // The value is cleared each time, so choosing the same file again after a failure counts as a choice.
     $("#imp-apple", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importApple(file, status); });
     $("#imp-fhir", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importFhir(file, status); });
-    // Drag a file onto either box.
+    $("#imp-lab", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importLabReport(file); });
+    // Drag a file onto a box.
     for (const zone of el.querySelectorAll("[data-drop]")) {
       zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
       zone.addEventListener("dragleave", () => zone.classList.remove("over"));
@@ -685,7 +697,8 @@ export async function render({ el, params, state }) {
         e.preventDefault();
         zone.classList.remove("over");
         const file = e.dataTransfer.files[0];
-        if (file) (zone.dataset.drop === "apple" ? importApple : importFhir)(file, status);
+        if (file && zone.dataset.drop === "lab") importLabReport(file);
+        else if (file) (zone.dataset.drop === "apple" ? importApple : importFhir)(file, status);
       });
     }
   };

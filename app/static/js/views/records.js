@@ -1,10 +1,10 @@
 import { get, post } from "../api.js";
 import { setToolbar } from "../app.js";
-import { openLabEntry } from "./lab-entry.js";
+import { cannotPickFiles, openLabEntry } from "./lab-entry.js";
 import { openRecord } from "./record-detail.js";
 import { recordValue } from "../units.js";
 import {
-  $, CATEGORY_ICON, debounce, emptyState, fieldsChanged, flagBadge, html, icon, loadInto, modal, mount, onAction, parseDate, recordDate, resultStatus, showActiveChip, statusBadge, toast,
+  $, CATEGORY_ICON, debounce, emptyState, fieldsChanged, flagBadge, fmtDate, html, icon, loadInto, modal, mount, onAction, parseDate, recordDate, resultStatus, showActiveChip, statusBadge, toast,
 } from "../ui.js";
 
 const PAGE = 100;
@@ -50,6 +50,11 @@ export async function render({ el, parts, params, state, navigate }) {
   let category = parts[0] || params.get("category") || "";
   let q = params.get("q") || "";
   const connection = params.get("connection") || undefined;
+  // Arriving from saving lab results: what was just added, on its own.
+  const added = params.get("added");
+  const report = params.get("report");
+  const since = params.get("since") || "";
+  const until = params.get("until") || "";
   let offset = 0;
   let items = [];
   let total = 0;
@@ -61,7 +66,7 @@ export async function render({ el, parts, params, state, navigate }) {
   // In the iPhone app, the visit summary and adding lab results are in the title bar.
   const appBar = setToolbar([
     { id: "report", title: "Visit Summary", symbol: "doc.text", run: () => navigate("#/report") },
-    { id: "add-labs", title: "Add Lab Results", symbol: "plus", run: () => openLabEntry(profile, () => navigate("#/records/labs")) },
+    { id: "add-labs", title: "Add Lab Results", symbol: "plus", run: () => openLabEntry(profile, (address) => navigate(address)) },
   ]);
   mount(el, html`
     <div class="page-head"><div><h1>Records</h1><p>Everything from every source, merged and de-duplicated.</p></div>
@@ -69,7 +74,14 @@ export async function render({ el, parts, params, state, navigate }) {
         ${appBar ? "" : html`<a class="btn" href="#/report" title="A summary to print or save as PDF">${icon("printer")} Visit summary</a>
         <button class="btn btn-primary" data-action="add-labs">${icon("plus")} Add lab results</button>`}
         <button class="btn" data-action="add-own">${icon("plus")} Add a medication or allergy</button></div></div>
-    ${connection ? html`<div class="banner info"><div class="grow">Showing records from one source only.</div><a class="btn btn-sm" href="#/records">Show all</a></div>` : ""}
+    ${added ? html`<div class="banner info" id="rec-added"><div class="grow"><b>Added ${added} result${added === "1" ? "" : "s"}</b> collected ${since === until ? fmtDate(since) : `${fmtDate(since)} to ${fmtDate(until)}`}.
+        Here's what went in. Trends and your Overview have them too.</div>
+        ${report ? html`<button class="btn btn-sm" data-action="open" data-id="${report}">${icon("records")} Open the original</button>` : ""}
+        <a class="btn btn-sm" href="#/trends/labs">See in Trends</a><a class="btn btn-sm" href="#/records/labs">Show all labs</a></div>`
+      : connection ? html`<div class="banner info"><div class="grow">Showing records from one source only.</div><a class="btn btn-sm" href="#/records">Show all</a></div>` : ""}
+    <div class="row wrap lab-way-in" id="rec-lab-report" ${category === "labs" && !added ? "" : "hidden"}>
+      <span class="small muted grow">Have a report on paper or as a PDF? Syntropy Health can read it for you, privately.</span>
+      <button class="btn btn-sm" data-action="add-report" ${cannotPickFiles() ? "hidden" : ""}>${icon("upload")} Upload a lab report</button></div>
     <div class="chips chips-strip" id="rec-cats" style="margin-bottom:10px"></div>
     <div class="row wrap" id="rec-filters" style="gap:8px;margin-bottom:16px"></div>
     <div class="card" id="rec-list"></div>`);
@@ -83,7 +95,7 @@ export async function render({ el, parts, params, state, navigate }) {
     showActiveChip($("#rec-cats", el));
   };
 
-  const narrow = { kind: "", note_type: "", author: "", has: "", connection: connection || "", since: "", until: "" };
+  const narrow = { kind: "", note_type: "", author: "", has: "", connection: connection || "", since: since || "", until: until || "" };
   const HAS_WORD = { documents: "With a document", corrected: "Your corrections" };
   const KIND_WORD = { lab: "Lab reports", imaging: "Imaging", other: "Other reports" };
   const select = (key, label, options) => (options.length ? html`<select class="input input-sm" data-narrow="${key}" aria-label="${label}" style="width:auto">
@@ -159,11 +171,13 @@ export async function render({ el, parts, params, state, navigate }) {
       category = cat;
       Object.assign(narrow, { kind: "", note_type: "", author: "", has: "" });
       drawCats(); drawFilters();
+      $("#rec-lab-report", el).hidden = cat !== "labs" || Boolean(added);
       history.replaceState(null, "", `#/records${cat ? "/" + cat : ""}`);
       load();
     },
     open: ({ id }) => openRecord(id, () => { drawFilters(); load(); }),
-    "add-labs": () => openLabEntry(profile, () => navigate("#/records/labs")),
+    "add-labs": () => openLabEntry(profile, (address) => navigate(address)),
+    "add-report": () => openLabEntry(profile, (address) => navigate(address), { report: true }),
     "add-own": () => openSelfReported(profile, () => load()),
     more: () => { offset += PAGE; return load(true); },
   });
