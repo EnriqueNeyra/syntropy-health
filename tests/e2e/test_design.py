@@ -108,3 +108,13 @@ def test_a_name_of_only_spaces_stays_on_the_page(session):
     page.locator('#own-form [type="submit"], .modal-foot [type="submit"]').first.click()
     page.wait_for_timeout(200)
     assert posts == [] and page.locator("#own-form").count() == 1
+
+
+def test_a_toast_sits_above_the_phones_bottom_nav(browser, server):
+    s = Session(browser, server, width="phone")
+    page = s.open("#/overview")
+    page.evaluate("import('/static/js/ui.js').then((ui) => ui.toast('Saved', 'good'))")
+    page.wait_for_selector(".toast")
+    toast, nav = page.locator(".toast").bounding_box(), page.locator(".mobile-nav").bounding_box()
+    assert toast["y"] + toast["height"] <= nav["y"]
+    s.close()

@@ -10,6 +10,8 @@ connection and AI access are tighter. Lines under each heading are what changed 
 
 ### Records and portals
 
+- **Tidier names from imports and reports.** A lab read from a PDF or photo is saved under the name the dialog shows
+  ("Glucose", not "GLUCOSE"), and the visit summary names the clinic that keeps an imported file where the file says.
 - **Health systems are easier to find.** Search works by whatever you call the place: the name on your bill, the portal
   you sign in to, your town, a short name like OHSU or MGH, or a misspelling. Saint and St, Mount and Mt, state names
   and apostrophes all match. The best match comes first, places you can connect ahead of the rest, and long lists can be
