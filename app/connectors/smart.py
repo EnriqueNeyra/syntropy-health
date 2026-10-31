@@ -853,7 +853,7 @@ class FhirClient:
             if start and found.status in ("forbidden", "unsupported"):
                 run.next_url, run.resumed = None, False      # the saved place has expired: start this query over
                 continue
-            if start and found.status != "paused":
+            if start and not (found.status == "paused" and found.next_url == start):
                 # A cursor can die with a 500 as easily as a 410, and being asked again won't bring it back. An outage
                 # isn't its fault, though, and the place is worth keeping through one.
                 stuck = found.next_url == start
