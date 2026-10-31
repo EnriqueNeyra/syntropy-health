@@ -34,7 +34,8 @@ WINDOW_SHOWS = (48, 88)              # how much of the window stays in sight aro
 BAR_HEIGHT = 44
 FADE = 0.18                          # seconds
 DRAWN_CHECK = 0.06                   # how often to ask whether a page that has committed has anything to draw, in seconds
-DRAWN_AT_THE_LATEST = 1.5            # a page may keep the document parsing for as long as it likes; show what it has by then
+DRAWN_AT_THE_LATEST = 2.0            # a page may take as long as it likes to paint anything; show what it has by then
+FILES_REFUSED = "Files can't be downloaded during sign-in."
 # Navigations that were stopped rather than failed: a newer one replaced them, or this module cancelled them.
 NOT_FAILURES = {-999, 102}
 
@@ -139,6 +140,7 @@ class SignInSheet:
                  on_end: Callable[[Optional[str]], None]):
         self.parent = parent                     # the NSWindow
         self.home = home
+        self.person_acted = person_acted
         self.leave = sites.only_when_clicked(person_acted).open
         self.on_end = on_end                     # given the hash to show ("" or None: stay where you were)
         self.closed = False
@@ -367,7 +369,7 @@ class SignInSheet:
         main = frame is None or bool(frame.isMainFrame())
         may = sites.sheet_may(url)
         if action.shouldPerformDownload():
-            self._refused("Files can't be downloaded during sign-in.", main)
+            self._refused(FILES_REFUSED, main, self.person_acted())
         elif may == "leave":
             self.leave(url)
         elif may == "refuse":
@@ -395,7 +397,7 @@ class SignInSheet:
     def decide_response(self, response: Any) -> int:
         if response.canShowMIMEType():
             return WebKit.WKNavigationResponsePolicyAllow
-        self._refused("Files can't be downloaded during sign-in.", bool(response.isForMainFrame()))
+        self._refused(FILES_REFUSED, bool(response.isForMainFrame()), self.person_acted())
         return WebKit.WKNavigationResponsePolicyCancel
 
     def new_window(self, action: Any) -> None:
@@ -407,11 +409,12 @@ class SignInSheet:
         elif sites.origin(url) is not None:
             self.load(action.request())
 
-    def _refused(self, words: str, main: bool) -> None:
-        # With a page showing, it carries on. With nothing showing, the cover would otherwise say "Opening" for ever.
+    def _refused(self, words: str, main: bool, a_person_asked: bool = False) -> None:
+        # With nothing showing, the cover would otherwise say "Opening" for ever. With a page showing it carries on, and
+        # only hears about it if a person chose the thing: a page shouldn't be able to put up box after box by script.
         if main and not self.ever_committed:
             self._cover_with(words, trouble=True)
-        elif main:
+        elif main and a_person_asked and not self.dialogs:
             self.ask(None, words, ["OK"], lambda _ok, _text: None)
 
     def committed(self) -> None:
@@ -428,18 +431,18 @@ class SignInSheet:
             self._uncover()
 
     def _uncover_once_drawn(self, commit: int) -> None:
-        # At commit WebKit has nothing to draw yet, and uncovering then would show white. Once the document has been
-        # parsed its stylesheets have loaded and it paints in the next frame or so.
-        def answered(state: Any, _error: Any) -> None:
+        # At commit WebKit has nothing to draw yet, and uncovering then would show white until the page's stylesheets
+        # arrive. The page's own paint timing says when something is really there.
+        def answered(painted: Any, _error: Any) -> None:
             if self.closed or commit != self.commits or not self.covered:
                 return
-            if str(state) in ("interactive", "complete"):
-                AppHelper.callLater(DRAWN_CHECK, self._uncover_if_still, commit)
+            if painted:
+                self._uncover()
             else:
                 AppHelper.callLater(DRAWN_CHECK, self._uncover_once_drawn, commit)
 
         if not self.closed:
-            self.webview.evaluateJavaScript_completionHandler_("document.readyState", answered)
+            self.webview.evaluateJavaScript_completionHandler_("performance.getEntriesByType('paint').length > 0", answered)
 
     def finished(self) -> None:
         url = url_text(self.webview.URL())

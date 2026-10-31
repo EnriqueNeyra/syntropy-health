@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 import AppKit
+import Foundation
 import objc
 import sites
 import WebKit
@@ -58,6 +59,7 @@ SECTIONS = [("Overview", "overview"), ("Ask", "ask"), ("Trends", "trends"), ("Wo
 ZOOM_STEPS = [0.75, 0.85, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5]
 BACK_ITEM = "syntropy.back"          # the toolbar's "‹ Syntropy Health" button, shown on other sites
 CLICK_COUNTS_FOR = 1.5               # seconds a person's click or key press lets a link leave the window
+AEVT, QUIT = int.from_bytes(b"aevt", "big"), int.from_bytes(b"quit", "big")     # the Apple event that asks an app to quit
 
 WKScriptMessageHandler = objc.protocolNamed("WKScriptMessageHandler")
 NSToolbarDelegate = objc.protocolNamed("NSToolbarDelegate")
@@ -105,6 +107,9 @@ class _MenuTarget(NSObject):
 
     def validateMenuItem_(self, item):
         return True
+
+    def quitAsked_withReply_(self, _event, _reply):
+        self.actions["quit"]()
 
 
 class _ToolbarDelegate(NSObject, protocols=[NSToolbarDelegate]):
@@ -358,6 +363,9 @@ class MacWindow:
 
         self._menus()
         self._dock_menu()
+        # The Dock's Quit and logging out arrive as this event.
+        AppleEvents = Foundation.NSAppleEventManager.sharedAppleEventManager()
+        AppleEvents.setEventHandler_andSelector_forEventClass_andEventID_(self.menu_target, b"quitAsked:withReply:", AEVT, QUIT)
         self.url_observer = _URLObserver.alloc().initWithCallback_(self._location_changed)
         wk.addObserver_forKeyPath_options_context_(self.url_observer, "URL", 0, None)
         # The page normally says it's ready well before this.
@@ -522,6 +530,12 @@ class MacWindow:
             self.sheet.cancel()
         self._go_to(route)
 
+    def quit_app(self) -> None:
+        """AppKit won't quit with a sheet open, whoever asks, and says nothing about it: that would hold up logging out."""
+        if self.sheet:
+            self.sheet.cancel()
+        AppKit.NSApp.terminate_(None)
+
     def _front_view(self) -> Any:
         """Where Back, Forward and Reload apply: the page a person is looking at."""
         return self.sheet.webview if self.sheet else self.webview
@@ -572,6 +586,7 @@ class MacWindow:
             "switch": lambda: threading.Thread(target=self.tray_actions["switch"], daemon=True).start(),
             "updates": lambda: threading.Thread(target=self.tray_actions["updates"], daemon=True).start(),
             "uninstall": self.confirm_uninstall,
+            "quit": self.quit_app,
         }
         for _, route in SECTIONS:
             actions[f"go-{route}"] = (lambda r=route: self.go(f"#/{r}"))
@@ -609,7 +624,7 @@ class MacWindow:
             item("Hide Others", key="h", mods=cmd | opt, selector="hideOtherApplications:"),
             item("Show All", selector="unhideAllApplications:"), None,
             item("Uninstall Syntropy Health…", "uninstall"),
-            item("Quit Syntropy Health", key="q", selector="terminate:"),
+            item("Quit Syntropy Health", "quit", "q"),
         ])
         AppKit.NSApp.setServicesMenu_(services)
         file_top, _ = menu("File", [
