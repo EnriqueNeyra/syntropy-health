@@ -1157,8 +1157,8 @@ def _unit_series(rows: list[dict[str, Any]]) -> dict[str, Any]:
         source_range = (r.get("details") or {}).get("source_range") if as_reported else None
         low, high = (source_range["low"], source_range["high"]) if source_range else (r.get("ref_low"), r.get("ref_high"))
         unit = (r.get("unit") if as_reported and units.converted(r.get("unit"), r.get("unit_norm")) else r.get("unit_norm") or r.get("unit")) or unit
-        ref_low = low if low is not None else ref_low
-        ref_high = high if high is not None else ref_high
+        if low is not None or high is not None:     # as a pair, from one lab: two labs' limits don't make a range
+            ref_low, ref_high = low, high
         value = r["value_num"] if as_reported else _row_value(r)
         point = {
             "t": r["effective_at"], "v": value, "interpretation": r.get("interpretation"),
@@ -1437,6 +1437,20 @@ def _no_known_note(rows: list[dict[str, Any]]) -> str:
     return " ".join(dict.fromkeys(f"{(a.get('title') or 'No known allergies').rstrip('.')}." for a in said))
 
 
+def conflicting_people(profile_id: str, people: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Who's named when these records can't all be this person's: more than one person, or one born on another day than
+    the birth date held for this person. Empty when nothing disagrees."""
+    if len(people) > 1:
+        return people
+    if not people or not people[0].get("birth_date"):
+        return []
+    with read() as conn:
+        row = conn.execute("SELECT name, birth_date FROM profiles WHERE id = ?", (profile_id,)).fetchone()
+    if not row or not row["birth_date"] or str(row["birth_date"])[:10] == str(people[0]["birth_date"])[:10]:
+        return []
+    return [*people, {"full_name": row["name"], "birth_date": row["birth_date"], "sources": ["this person's details"]}]
+
+
 def summary(profile_id: str, lab_rows: int = 12) -> dict[str, Any]:
     today = date.today()
     conds = list_records(profile_id, "conditions", limit=500)["items"]
@@ -1494,5 +1508,5 @@ def summary(profile_id: str, lab_rows: int = 12) -> dict[str, Any]:
         "immunizations": [i for i in vaccines if (i.get("status") or "").lower() != "not-done"],
         "immunizations_not_given": [i for i in vaccines if (i.get("status") or "").lower() == "not-done"],
         "identities": idents,
-        "identity_conflict": people if len(people) > 1 else [],
+        "identity_conflict": conflicting_people(profile_id, people),
     }

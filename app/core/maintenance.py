@@ -159,6 +159,16 @@ def _rewrite(path: Path, conn: sqlite3.Connection) -> bool:
     return True
 
 
+def _merge_search_index(conn: sqlite3.Connection) -> None:
+    """The search index keeps a deleted record's words in its old blocks until they're merged, and neither VACUUM nor a
+    backup's VACUUM INTO rewrites those. If the file is busy, the next delete merges them."""
+    try:
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'record_search_fts'").fetchone():
+            conn.execute("INSERT INTO record_search_fts(record_search_fts) VALUES('optimize')")
+    except sqlite3.Error as exc:
+        log.info("Couldn't merge the search index yet: %s", exc)
+
+
 def reclaim(path: Optional[Path] = None, *, step_pages: int = RECLAIM_STEP_PAGES) -> dict[str, Any]:
     """Empties the log and gives free space back to the disk, in short transactions between other writes. Nothing here
     raises: if the file is busy, the next delete or start tries again."""
@@ -169,6 +179,7 @@ def reclaim(path: Optional[Path] = None, *, step_pages: int = RECLAIM_STEP_PAGES
         out["checkpointed"] = db.checkpoint(path)
         conn = db.open_connection(path, timeout=2.0, check_same_thread=False)
         conn.execute("PRAGMA secure_delete = ON")
+        _merge_search_index(conn)
         if conn.execute("PRAGMA auto_vacuum").fetchone()[0] != 2:
             if _rewrite(path, conn):
                 out["vacuumed"] = True

@@ -28,6 +28,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
+from app.connectors.apple_health import _implausible
 from app.core import config, db
 from app.core.db import read
 from app.services.sync import SOURCE_TAG, SOURCE_URN
@@ -37,6 +38,7 @@ log = logging.getLogger("syntropy.exports")
 
 ARCHIVE_FORMAT = "syntropy-person-archive"
 ARCHIVE_VERSION = 1
+MAX_ARCHIVE_MEMBER = 512 * 1024 * 1024
 _ID_BAD = re.compile(r"[^A-Za-z0-9\-.]")
 _ID_IN_REFERENCE = re.compile(r"^(.*/)?([A-Z][A-Za-z]+)/([^/]+)(/_history/[^/]+)?$")
 
@@ -571,9 +573,17 @@ def _write_documents(z: zipfile.ZipFile, profile_id: str) -> int:
     return len(index)
 
 
+def _whole_member(z: zipfile.ZipFile, name: str) -> bytes:
+    """A part of an archive that's read all at once: one that would fill the memory is refused before it's unpacked."""
+    info = z.getinfo(name)
+    if info.file_size > MAX_ARCHIVE_MEMBER or _implausible(info):
+        raise ValueError("Part of this archive is too large to read, so it wasn't imported.")
+    return z.read(name)
+
+
 def _read_documents(z: zipfile.ZipFile, profile_id: str) -> int:
     try:
-        index = json.loads(z.read("documents.json"))
+        index = json.loads(_whole_member(z, "documents.json"))
     except (KeyError, ValueError):
         return 0
     added = 0
@@ -662,6 +672,8 @@ def _source_for(profile_id: str, origin: Optional[str], sources: dict[str, dict[
 def _lines(z: zipfile.ZipFile, name: str) -> Iterator[dict[str, Any]]:
     if name not in z.namelist():
         return
+    if _implausible(z.getinfo(name)):
+        raise ValueError("Part of this archive is too large to read, so it wasn't imported.")
     with z.open(name) as raw:
         for line in io.TextIOWrapper(raw, encoding="utf-8"):
             line = line.strip()
@@ -699,7 +711,7 @@ def import_archive(profile_id: str, account_id: Optional[str], path: Path, on_pr
         raise ValueError("This file isn't an archive from Syntropy Health.") from exc
     with z:
         try:
-            manifest = json.loads(z.read("manifest.json"))
+            manifest = json.loads(_whole_member(z, "manifest.json"))
         except (KeyError, ValueError) as exc:
             raise ValueError("This file isn't an archive from Syntropy Health.") from exc
         if not isinstance(manifest, dict) or manifest.get("format") != ARCHIVE_FORMAT:
@@ -710,7 +722,7 @@ def import_archive(profile_id: str, account_id: Optional[str], path: Path, on_pr
         made: dict[Optional[str], str] = {}
         out: dict[str, Any] = {"samples": 0, "workouts": 0, "journal": 0, "goals": 0, "goals_kept": 0, "chats": 0, "chats_kept": 0, "chats_skipped": 0}
         if "fhir.json" in z.namelist():
-            resources = imports.parse_fhir_payload(z.read("fhir.json"))
+            resources = imports.parse_fhir_payload(_whole_member(z, "fhir.json"))
             if resources:
                 out["clinical"] = sync.import_fhir_resources(profile_id, "Imported archive", resources)
         for origin, group in _by_source(_lines(z, "samples.ndjson"), 5000):
@@ -723,7 +735,7 @@ def import_archive(profile_id: str, account_id: Optional[str], path: Path, on_pr
         for origin, group in _by_source((_as_event(e) for e in _lines(z, "journal.ndjson")), 500):
             out["journal"] += activity.insert_events(profile_id, _source_for(profile_id, origin, sources, made), group)
         if "goals.json" in z.namelist():
-            wanted = json.loads(z.read("goals.json"))
+            wanted = json.loads(_whole_member(z, "goals.json"))
             here = goals.get(profile_id)
             for metric, goal in (wanted.items() if isinstance(wanted, dict) else []):
                 if metric in here:
@@ -738,7 +750,7 @@ def import_archive(profile_id: str, account_id: Optional[str], path: Path, on_pr
             out[_bring_in_chat(profile_id, account_id, chat)] += 1
         out["documents"] = _read_documents(z, profile_id)
         if "corrections.json" in z.namelist():
-            wanted = json.loads(z.read("corrections.json"))
+            wanted = json.loads(_whole_member(z, "corrections.json"))
             out["corrections"] = record_overrides.bring_in(profile_id, wanted if isinstance(wanted, list) else [])
     return out
 

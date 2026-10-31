@@ -31,8 +31,9 @@ from app.simulator import server as simulator
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-# OAuth codes and tokens, and search terms (which may name a condition or medication).
-_SECRET_PARAMS = re.compile(r"([?&](?:code|state|token|access_token|id_token|device_token|q|query|search)=)[^&\s]+", re.I)
+# OAuth codes and tokens, and search terms and filters (which may name a test, a condition, a medication or a doctor).
+_SECRET_PARAMS = re.compile(r"([?&](?:code|state|token|access_token|id_token|device_token|q|query|search"
+                            r"|title|author|note_type|type|category|measure|metric|a|b)=)[^&\s]+", re.I)
 
 
 class _RedactSecrets(logging.Filter):

@@ -217,6 +217,10 @@ def import_fhir_file(profile_id: str, filename: str, raw: bytes) -> dict[str, An
     if summary:
         _keep_originals(profile_id, result, summary)
         result["warnings"] = [*result.get("warnings", []), *summary.warnings]
+    named = records.conflicting_people(profile_id, records.distinct_people(records.identities(profile_id)))
+    if named:
+        who = ", ".join(f"{p.get('full_name') or 'Unnamed patient'}{' (born ' + str(p['birth_date'])[:10] + ')' if p.get('birth_date') else ''}" for p in named)
+        result["warnings"] = [*result.get("warnings", []), f"The records here now name more than one person: {who}. Check that this file belongs to this person."]
     return result
 
 
@@ -463,6 +467,9 @@ def _fold_apple_health_records(conn: Any, cursor: Any, size: int) -> Any:
             conn.execute("DELETE FROM clinical_records WHERE id = ?", (row["id"],))
         else:
             conn.execute("UPDATE clinical_records SET id = ?, connection_id = ? WHERE id = ?", (moved, spare["keeper"], row["id"]))
+            conn.execute("UPDATE record_search_ids SET record_id = ? WHERE record_id = ?", (moved, row["id"]))
+            conn.execute("UPDATE OR IGNORE record_files SET connection_id = ? WHERE connection_id = ? AND resource_type = ? AND resource_id = ?",
+                         (spare["keeper"], spare["id"], row["resource_type"], row["resource_id"]))
     if not rows:
         conn.execute("DELETE FROM patient_identities WHERE connection_id = ?", (spare["id"],))
         conn.execute("DELETE FROM connections WHERE id = ?", (spare["id"],))
