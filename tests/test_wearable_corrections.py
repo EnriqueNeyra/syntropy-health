@@ -1279,7 +1279,7 @@ def test_a_comma_in_a_sources_name_stays_one_source(client):
 def test_pairing_guesses_from_many_addresses_hit_a_shared_limit(client, monkeypatch):
     from app.api import biometrics as api
     with monkeypatch.context() as m:
-        m.setattr(api, "_pair_failures_anywhere", [datetime.now().timestamp()] * api.PAIR_MAX_FAILURES_ANYWHERE)
+        m.setattr(api, "_all_pair_failures", [datetime.now().timestamp()] * api.PAIR_MAX_FAILURES_ALL)
         phone = TestClient(client.app, base_url=BASE)
         assert phone.post("/api/devices/pair", json={"code": "WRONG-CODE", "device_name": "P"}).status_code == 429
 

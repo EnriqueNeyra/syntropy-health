@@ -406,7 +406,8 @@ async function watchImport(job_id, statusEl, refresh, left) {
         r.clinical?.not_read ? `Couldn't be read: ${plural(r.clinical.not_read, "health record")}.` : "",
         leftAside ? `Skipped, as Syntropy Health doesn't use these kinds of record: ${plural(leftAside, "record")}.` : ""].filter(Boolean).join(" ");
       importNote = html`<div class="banner ${r.warning ? "warn" : "info"}">${icon(r.warning ? "alert" : "check")}<div class="grow">Imported ${plural(r.inserted || 0, "new sample")} (${plural(r.samples || 0, "sample")} read)${r.clinical ? ` and ${plural(r.clinical.records, "clinical record")}` : ""}.
-        ${r.warning ? html`<div>${r.warning}</div>` : ""}${notes ? html`<div class="small muted">${notes}</div>` : ""}</div></div>`;
+        ${r.warning ? html`<div>${r.warning}</div>` : ""}${notes ? html`<div class="small muted">${notes}</div>` : ""}
+        ${r.skipped_files?.length ? html`<p class="small">Left out because they're far larger than an export's files should be: ${r.skipped_files.join(", ")}.</p>` : ""}</div></div>`;
       mount(statusEl, importNote);
       refresh();
       return;
@@ -529,9 +530,18 @@ export async function render({ el, params, state }) {
       if (bannerShown !== true) mount(box, bannerShown);
       return;
     }
-    if (params.get("error")) {
-      bannerShown = html`<div class="banner bad">${icon("alert")}<div class="grow"><b>The connection didn't complete.</b><p>${params.get("error")}</p></div></div>`;
+    // Only words this server signed: anyone can make a link to this page.
+    if (params.get("problem") || params.get("failed") || params.get("error")) {
+      const say = (text) => html`<div class="banner bad">${icon("alert")}<div class="grow"><b>The connection didn't complete.</b><p>${text}</p></div></div>`;
+      bannerShown = say("Try connecting again.");
       mount(box, bannerShown);
+      if (params.get("problem")) {
+        get("/api/sign-in-problem", { token: params.get("problem") }, { fresh: true }).then(({ message }) => {
+          if (!message) return;
+          bannerShown = say(message);
+          if (box.isConnected) mount(box, bannerShown);
+        }, () => {});
+      }
     } else if (params.get("connected")) {
       toast("Connected. Downloading records…", "good");
       bannerShown = true;

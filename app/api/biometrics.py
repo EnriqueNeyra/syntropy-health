@@ -495,9 +495,9 @@ class PairRequest(BaseModel):
 
 
 _pair_failures: dict[str, list[float]] = {}
-_pair_failures_anywhere: list[float] = []
-# Per address, and across all of them: guessing from many addresses at once gets no further than a code's life.
-PAIR_WINDOW, PAIR_MAX_FAILURES, PAIR_MAX_FAILURES_ANYWHERE = 900, 10, 100
+_all_pair_failures: list[float] = []
+# Per address, and across all addresses: a code can only be guessed, and one that's refused only has to be tried again.
+PAIR_WINDOW, PAIR_MAX_FAILURES, PAIR_MAX_FAILURES_ALL = 900, 10, 200
 
 
 @router.post("/api/devices/pair")
@@ -505,13 +505,15 @@ def pair(req: PairRequest, request: Request) -> dict:
     ip = request.client.host if request.client else "unknown"
     now = time.time()
     recent = [t for t in _pair_failures.get(ip, []) if now - t < PAIR_WINDOW]
-    _pair_failures_anywhere[:] = [t for t in _pair_failures_anywhere if now - t < PAIR_WINDOW]
-    if len(recent) >= PAIR_MAX_FAILURES or len(_pair_failures_anywhere) >= PAIR_MAX_FAILURES_ANYWHERE:
+    _all_pair_failures[:] = [t for t in _all_pair_failures if now - t < PAIR_WINDOW]
+    if len(recent) >= PAIR_MAX_FAILURES or len(_all_pair_failures) >= PAIR_MAX_FAILURES_ALL:
         raise HTTPException(429, "Too many attempts. Wait a few minutes and try again.")
     result = devices.claim(req.code, req.device_name, req.platform)
     if not result:
+        if len(_pair_failures) > 10000:
+            _pair_failures.clear()
         _pair_failures[ip] = recent + [now]
-        _pair_failures_anywhere.append(now)
+        _all_pair_failures.append(now)
         raise HTTPException(400, "That pairing code is invalid or has expired.")
     _pair_failures.pop(ip, None)
     return {**result, "server_url": request_origin(request)}
@@ -527,8 +529,9 @@ def web_session(request: Request, principal: auth.Principal = Depends(auth.requi
     if not auth.auth_required():
         return {"cookie": None}
     # Signed in as whoever paired it: the person's own phone opens everything they can see; a phone someone paired
-    # for a person they look after opens only that person (see auth._account_principal).
-    account = accounts.get(principal.account_id) or accounts.for_profile(principal.profile_id or "")
+    # for a person they look after opens only that person (see auth._account_principal). Never as the person it sends
+    # for, unless they paired it themselves: whoever holds it would hold their account.
+    account = accounts.get(principal.account_id)
     if not account:
         raise HTTPException(403, "Pair this phone again to open Syntropy Health in the app.")
     token = auth.create_session(request, account["id"], device_id=principal.device_id)

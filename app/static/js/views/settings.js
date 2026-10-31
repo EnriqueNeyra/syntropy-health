@@ -213,8 +213,8 @@ export async function render({ el, parts, state, navigate }) {
         : html`<span style="color:var(--warn)">No password is set: anyone who can reach this server can open your records.</span>`, html`
         <form class="set-form" id="pw-form">
           ${on ? row("Current password", "", html`<input class="input" type="password" id="pw-cur" autocomplete="current-password" aria-label="Current password">`) : ""}
-          ${row(on ? "New password" : "Password", isOwner() ? "At least 8 characters. Keep it in your password manager: to reset it, you'd need the command line on this computer."
-            : html`At least 8 characters. Keep it in your password manager. If you forget it, ${ownerName()} can reset it from the command line on the computer this server runs on.`,
+          ${row(on ? "New password" : "Password", isOwner() ? "At least 8 characters. Keep it in your password manager. If you forget it, the sign-in screen shows the command that sets a new one, on the computer this server runs on."
+            : html`At least 8 characters. Keep it in your password manager. If you forget it, ${ownerName()} can set a new one on the computer this server runs on.`,
             html`<input class="input" type="password" id="pw-new" minlength="8" autocomplete="new-password" aria-label="${on ? "New password" : "Password"}">`)}
           ${row(on ? "Confirm new password" : "Confirm password", "", html`<input class="input" type="password" id="pw-new2" autocomplete="new-password" aria-label="Confirm the password">`)}
           <div class="set-foot"><button class="btn btn-primary btn-sm" type="submit">${on ? "Change password" : "Set password"}</button>
@@ -223,11 +223,15 @@ export async function render({ el, parts, state, navigate }) {
       ${section("Other devices", "Your phone, other computers, and your devices on Tailscale.", html`<div id="net-panel" class="set-pad"><div class="skeleton" style="height:64px"></div></div>`)}
       ${section(household() ? "Where you're signed in" : "Signed-in browsers", "", html`<div class="list">${sessions.map((s) => html`<div class="list-item small">
           <span class="ev-icon">${icon(s.device_name ? "phone" : "monitor")}</span><div class="grow truncate">${s.device_name ? `The ${s.device_platform === "android" ? "Android" : "iPhone"} app (${s.device_name})` : browserName(s.user_agent)}
-          <div class="meta">${s.ip} · last active ${fmtDateTime(s.last_seen_at)}</div></div></div>`)}
+          ${s.current ? html` <span class="badge">This browser</span>` : ""}
+          <div class="meta">${s.ip} · last active ${fmtDateTime(s.last_seen_at)}</div></div>
+          ${s.device_name || s.current ? "" : html`<button class="btn btn-sm btn-ghost" data-action="end-session" data-id="${s.id}">Sign out</button>`}</div>`)}
           ${sessions.length ? "" : html`<div class="list-item small muted">No browser sessions.</div>`}</div>
-        <div class="set-foot small muted">Phones and AI apps use their own tokens: see Sources → Phones & watches and Settings → AI.</div>`, "flush")}
+        <div class="set-foot small muted"><span class="grow">Phones and AI apps use their own tokens: see Sources → Phones & watches and Settings → AI. A browser has to sign in again after six months.</span>
+          ${sessions.some((s) => !s.device_name && !s.current) ? html`<button class="btn btn-sm" data-action="end-others">Sign out everywhere else</button>` : ""}</div>`, "flush")}
       ${section("How your data is protected", "", html`<ul class="check-list">
-          <li>Everything lives in <code>${settings.data_dir}</code> on this machine.</li>
+          <li>Everything lives ${settings.data_dir ? html`in <code>${settings.data_dir}</code> on this machine` : "on the computer this server runs on"}.</li>
+          ${isOwner() ? "" : html`<li>${ownerName()} runs this server, so can reach the file it's all kept in, and its backups. Your access log shows each backup.</li>`}
           <li>Sign-in tokens and secrets are encrypted at rest (key in <code>secret.key</code> or <code>SYNTROPY_SECRET_KEY</code>).</li>
           <li>Health record connections use PKCE; the relay only ever sees a one-time code.</li>
           <li>Phones and AI apps use individual tokens you can revoke.</li>
@@ -244,7 +248,7 @@ export async function render({ el, parts, state, navigate }) {
       e.preventDefault();
       const next = $("#pw-new", body).value;
       if (next.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
-      // There's no recovery: a typo here would lock you out.
+      // A typo here would lock you out until someone resets it on the server's computer.
       if (next !== $("#pw-new2", body).value) return toast("The passwords don't match.", "bad");
       try {
         await post("/api/auth/password", { current: $("#pw-cur", body)?.value, new: next });
@@ -252,6 +256,13 @@ export async function render({ el, parts, state, navigate }) {
       } catch (err) { toast(err.message, "bad"); }
     });
     return onAction(body, {
+      "end-session": async ({ id }) => {
+        try { await del(`/api/auth/sessions/${id}`); toast("Signed out"); redraw(); } catch (err) { toast(err.message, "bad"); }
+      },
+      "end-others": async () => {
+        if (!(await confirmDialog("Sign out everywhere else?", "Your other browsers will need your password again. Phones and AI apps keep working.", { confirmLabel: "Sign out" }))) return;
+        try { await post("/api/auth/sessions/end-others"); toast("Signed out everywhere else"); redraw(); } catch (err) { toast(err.message, "bad"); }
+      },
       "remove-pass": async () => {
         if (!(await confirmDialog("Remove password?", "Anyone who can reach this server will be able to open your records.", { confirmLabel: "Remove", danger: true }))) return;
         await post("/api/auth/password", { current: $("#pw-cur", body).value, new: null });
@@ -272,10 +283,10 @@ export async function render({ el, parts, state, navigate }) {
         ${row("Workouts (CSV)", "", dl(`/api/export/csv?kind=workouts&profile=${p.id}`))}
         ${row("Health journal (CSV)", "Symptoms, cycle tracking, mood and more.", dl(`/api/export/csv?kind=events&profile=${p.id}`))}`)}
       ${!isOwner() ? "" : section("Backup", "", html`
-        ${row("Database backup", html`A complete copy of everything, for all people. Store it somewhere only you can reach: it holds your health records unencrypted (sign-in tokens in it stay encrypted; keep <code>secret.key</code> with it to restore).`,
+        ${row("Database backup", html`A complete copy of everything, for all people, including anyone who hasn't shared with you. Store it somewhere only you can reach: it holds health records unencrypted (sign-in tokens in it stay encrypted; keep <code>secret.key</code> with it to restore). ${household() ? "Everyone here sees it in their access log when one is made." : ""}`,
           html`<a class="btn btn-sm btn-primary" href="/api/export/backup" download>${icon("download")} Download backup</a>`)}
         ${row("Uninstalling", uninstallHint(), "")}`)}
-      ${p.access !== "manage" ? "" : section("Delete data", "", row(`Delete all of ${p.name}'s data`, "Removes their sources, records, wearable data and paired devices from this machine. This can't be undone.",
+      ${p.access !== "manage" || (p.signs_in && !p.is_self) || appState.status?.account?.limited ? "" : section("Delete data", "", row(`Delete all of ${p.name}'s data`, "Removes their sources, records, wearable data and paired devices from this machine. This can't be undone.",
         html`<button class="btn btn-sm btn-danger" data-action="wipe">Delete…</button>`), "danger")}
     </div>`);
     return onAction(body, {
@@ -392,7 +403,8 @@ function uninstallHint() {
 const AUDIT_ACTIONS = {
   "setup.completed": "Finished setting up", "account.created": "Account created", "account.role": "Role changed",
   "auth.login": "Signed in", "auth.login_failed": "Sign-in refused", "auth.password_changed": "Password changed",
-  "auth.password_reset": "Password reset", "terms.accepted": "Agreed to the terms",
+  "auth.password_reset": "Password reset", "auth.session_ended": "Signed a browser out", "auth.sessions_ended": "Signed out everywhere else",
+  "terms.accepted": "Agreed to the terms", "profile.removed": "Removed someone",
   "access.granted": "Shared access", "access.revoked": "Stopped sharing", "invite.created": "Invitation made",
   "invite.accepted": "Joined by invitation", "connection.created": "Source added", "connection.disconnected": "Source disconnected",
   "connection.removed": "Source removed with its data", "sync.completed": "Synced", "device.paired": "Phone paired",
@@ -432,10 +444,19 @@ function browserName(ua) {
 }
 
 async function renderPeople(body, { redraw }) {
-  const [{ profiles }, { timezones }] = await Promise.all([get("/api/profiles", undefined, { fresh: true }), get("/api/settings/timezones")]);
-  const me = profiles.find((p) => p.is_self);
   const owner = isOwner();
-  const canRemove = (p) => p.access === "manage" && !p.is_self && (!p.signs_in || owner);
+  const [{ profiles }, signsIn, adult, { timezones }] = await Promise.all([
+    get("/api/profiles", undefined, { fresh: true }),
+    owner && appState.status?.account ? get("/api/accounts", undefined, { fresh: true }).then((r) => r.accounts) : [],
+    owner ? get("/api/settings", undefined, { fresh: true }).then((r) => r.adult_age) : null,
+    get("/api/settings/timezones"),
+  ]);
+  const me = profiles.find((p) => p.is_self);
+  // Someone who signs in is removed from "Who signs in" below, which an owner sees whether or not they've shared anything.
+  // The screens of a phone paired for someone else open that person's record, not the account's say over who's here.
+  const limited = !!appState.status?.account?.limited;
+  const canRemove = (p) => p.access === "manage" && !p.signs_in && !limited;
+  const owners = signsIn.filter((a) => a.role === "owner");
   mount(body, html`<div class="stack">
     ${appState.status && !appState.status.auth_required ? html`<div class="banner warn">${icon("shield")}<div class="grow"><p><b>No password is set.</b>
       Anyone who opens Syntropy Health is signed in as you, so invitations are off until you
@@ -447,16 +468,38 @@ async function renderPeople(body, { redraw }) {
         <div class="grow" style="min-width:0"><div class="row wrap" style="gap:6px"><b>${p.name}</b>${personBadges(p)}</div>
           <div class="meta">${capitalize(p.relationship)} · ${plural(p.connection_count, "source")} · ${plural(p.record_count, "record")}</div></div>
         <div class="row wrap people-actions">
-          ${p.access === "manage" && !p.signs_in ? html`<button class="btn btn-sm" data-action="invite" data-id="${p.id}">${icon("ticket")} ${p.invited_until ? "Invitation" : "Invite"}</button>` : ""}
-          ${p.access === "manage" && !p.is_self ? html`<button class="btn btn-sm" data-action="share" data-id="${p.id}">${icon("users")} Access</button>` : ""}
+          ${p.access === "manage" && !p.signs_in && !limited ? html`<button class="btn btn-sm" data-action="invite" data-id="${p.id}">${icon("ticket")} ${p.invited_until ? "Invitation" : "Invite"}</button>` : ""}
+          ${p.access === "manage" && !p.is_self && !p.signs_in && !limited ? html`<button class="btn btn-sm" data-action="share" data-id="${p.id}">${icon("users")} Access</button>` : ""}
           ${p.access === "manage" ? html`<button class="btn btn-sm btn-ghost" data-action="edit-profile" data-id="${p.id}">Edit</button>` : ""}
           ${canRemove(p) ? html`<button class="btn btn-sm btn-ghost btn-danger" data-action="delete-profile" data-id="${p.id}">Remove</button>` : ""}
         </div></div>`)}</div>
-      <div class="set-foot"><button class="btn btn-sm btn-primary" data-action="add-profile">${icon("plus")} Add person</button>
-        <span class="small muted">You'll look after them. Invite them if they should sign in themselves.</span></div>`, "flush")}
-    ${me ? section("Your data", "", row("Who can see it", "Only you, unless you share it. Sharing to view lets someone read your data; to change, also add sources, pair a phone and edit.",
+      ${limited ? "" : html`<div class="set-foot"><button class="btn btn-sm btn-primary" data-action="add-profile">${icon("plus")} Add person</button>
+        <span class="small muted">You'll look after them. Invite them if they should sign in themselves.</span></div>`}`, "flush")}
+    ${signsIn.length ? section("Who signs in", "Only owners see this list: names and last sign-ins, not anyone's health data. Owners run the server: its settings, its backups and this list.", html`
+      <div class="list">${signsIn.map((a) => html`<div class="list-item people-row">
+        <span class="avatar" style="--c:${a.color || "var(--accent)"};width:34px;height:34px;font-size:12.5px">${initials(a.name)}</span>
+        <div class="grow" style="min-width:0"><div class="row wrap" style="gap:6px"><b>${a.name}</b>${a.is_self ? html`<span class="badge">You</span>` : ""}${a.role === "owner" ? html`<span class="badge">Owner</span>` : ""}</div>
+          <div class="meta">${a.last_login_at ? `Last signed in ${fmtDateTime(a.last_login_at)}` : "Hasn't signed in since joining"}</div></div>
+        <div class="row wrap people-actions">
+          ${a.role !== "owner" ? html`<button class="btn btn-sm" data-action="make-owner" data-id="${a.id}">Make owner</button>` : ""}
+          ${a.role === "owner" && owners.length > 1 ? html`<button class="btn btn-sm btn-ghost" data-action="make-member" data-id="${a.id}">${a.is_self ? "Stop being an owner" : "Remove as owner"}</button>` : ""}
+          ${a.is_self ? "" : html`<button class="btn btn-sm btn-ghost btn-danger" data-action="remove-account" data-id="${a.id}">Remove</button>`}
+        </div></div>`)}</div>`, "flush") : ""}
+    ${owner && signsIn.length ? section("Growing up", "", row("Age to suggest their own sign-in", "A reminder comes six months before someone you look after, marked as a child, turns this age. It varies by place. Nothing changes until you invite them.",
+      html`<select class="input input-sm" id="adult-age" aria-label="Age to suggest their own sign-in">${[16, 17, 18, 19, 20, 21].map((n) => html`<option value="${n}" ${adult === n ? "selected" : ""}>${n}</option>`)}</select>`)) : ""}
+    ${me ? section("Your data", "", row("Who can see it", html`Nobody here, in the app, unless you share it. Viewing lets someone read your data and ask about it. Changing also lets them add and remove sources, pair a phone and edit records. It doesn't let them share it with anyone else or delete all of it.
+      ${owner ? "" : html` ${ownerName()} runs this server, so can reach the file it's kept in, and its backups; your access log shows each backup.`}`,
       html`<button class="btn btn-sm" data-action="share" data-id="${me.id}">${icon("users")} Share my data</button>`)) : ""}
+    ${me ? section("Your account", "", row("Delete my account and data", html`Signs you out everywhere and permanently deletes your sources, records, wearable data and devices from this server. People only you look after pass to the server's owner. <a href="#/settings/data">Download your data</a> first if you want to keep it.`,
+      html`<button class="btn btn-sm btn-danger" data-action="delete-me">Delete…</button>`), "danger") : ""}
   </div>`);
+  $("#adult-age", body)?.addEventListener("change", async (e) => {
+    try {
+      await put("/api/settings/general", { adult_age: Number(e.target.value) });
+      if (appState.status) appState.status.adult_age = Number(e.target.value);
+      toast("Saved");
+    } catch (err) { toast(err.message, "bad"); }
+  });
 
   const profileForm = (p) => {
     p = p || { relationship: profiles.some((x) => x.relationship === "self") ? "other" : "self" };
@@ -494,14 +537,67 @@ async function renderPeople(body, { redraw }) {
     invite: ({ id }) => openInvite(profiles.find((p) => p.id === id), redraw),
     "delete-profile": async ({ id }) => {
       const p = profiles.find((x) => x.id === id);
-      const text = p.signs_in
-        ? `${p.name} will be signed out everywhere, and their sources, records, wearable data and devices are permanently deleted from this machine.`
-        : "This permanently deletes them with all of their sources, records, wearable data and devices.";
-      if (await confirmDialog(`Remove ${p.name}?`, text, { confirmLabel: "Remove and delete their data", danger: true })) {
+      if (await confirmDialog(`Remove ${p.name}?`, "This permanently deletes them with all of their sources, records, wearable data and devices.", { confirmLabel: "Remove and delete their data", danger: true })) {
         try { await del(`/api/profiles/${id}`); await refreshProfiles(); toast(`Removed ${p.name}`); redraw(); }
         catch (err) { toast(err.message, "bad"); }
       }
     },
+    "remove-account": async ({ id }) => {
+      const a = signsIn.find((x) => x.id === id);
+      if (await confirmDialog(`Remove ${a.name}?`, `${a.name} will be signed out everywhere, and their sources, records, wearable data and devices are permanently deleted from this server. You won't be able to see them first unless they've shared them with you.`, { confirmLabel: "Remove and delete their data", danger: true })) {
+        try { await del(`/api/profiles/${a.profile_id}`); await refreshProfiles(); toast(`Removed ${a.name}`); redraw(); }
+        catch (err) { toast(err.message, "bad"); }
+      }
+    },
+    "make-owner": ({ id }) => openRoleChange(signsIn.find((a) => a.id === id), "owner", redraw),
+    "make-member": ({ id }) => openRoleChange(signsIn.find((a) => a.id === id), "member", redraw),
+    "delete-me": () => openDeleteAccount(me),
+  });
+}
+
+function passwordField(id) {
+  return appState.status?.auth_required ? html`<div class="field" style="margin-top:12px"><label class="label" for="${id}">Your password</label>
+    <input class="input" id="${id}" type="password" autocomplete="current-password" required></div>` : "";
+}
+
+/** Who runs the server: everything an owner can do, handed over with the owner's own password. */
+function openRoleChange(a, role, redraw) {
+  const promoting = role === "owner";
+  const m = modal({ title: promoting ? `Make ${a.name} an owner` : a.is_self ? "Stop being an owner" : `Remove ${a.name} as owner`, body: html`
+    <p>${promoting ? html`${a.name} will be able to change every server setting, download a backup holding everyone's records, and see who signs in.`
+      : a.is_self ? "You'll keep your own data and what's shared with you, but stop running the server's settings and backups."
+      : `${a.name} keeps their own data and what's shared with them, but stops running the server's settings and backups.`}</p>
+    ${promoting ? html`<label class="checkbox small" style="margin-top:12px"><input type="checkbox" id="role-step-down">
+      <span>I'm handing the server over: stop being an owner myself.</span></label>` : ""}
+    ${passwordField("role-pass")}`,
+    footer: html`<button class="btn" data-cancel>Cancel</button><button class="btn btn-primary" data-save>${promoting ? "Make owner" : "Confirm"}</button>` });
+  m.el.querySelector("[data-cancel]").addEventListener("click", m.close);
+  m.el.querySelector("[data-save]").addEventListener("click", async () => {
+    const stepDown = !!$("#role-step-down", m.el)?.checked;
+    try {
+      await put(`/api/accounts/${a.id}/role`, { role, step_down: stepDown, password: $("#role-pass", m.el)?.value });
+      m.close();
+      if (a.is_self || stepDown) location.reload();     // what this person may see and change has just changed
+      else { toast("Saved"); redraw(); }
+    } catch (err) { toast(err.message, "bad"); }
+  });
+}
+
+/** Leaving: only with their own password, and not by accident. */
+function openDeleteAccount(me) {
+  const m = modal({ title: "Delete your account and data?", body: html`
+    <p>Your sources, records, wearable data, conversations and devices are permanently deleted from this server, and you're signed out everywhere. This can't be undone.</p>
+    <p class="small muted" style="margin-top:8px"><a href="#/settings/data">Download your data</a> first if you want to keep it. Copies in backups already made stay until those are deleted.</p>
+    ${passwordField("del-pass")}`,
+    footer: html`<button class="btn" data-cancel>Cancel</button><button class="btn btn-danger" data-save>Delete ${me.name}'s account and data</button>` });
+  m.el.querySelector("[data-cancel]").addEventListener("click", m.close);
+  m.el.querySelector("[data-save]").addEventListener("click", async () => {
+    try {
+      await post("/api/accounts/me/delete", { password: $("#del-pass", m.el)?.value });
+      try { localStorage.removeItem("syntropy-account"); localStorage.removeItem("syntropy-profile"); } catch {}
+      history.replaceState(null, "", "#/");
+      location.reload();
+    } catch (err) { toast(err.message, "bad"); }
   });
 }
 
@@ -514,8 +610,10 @@ async function openSharing(p, redraw) {
     const level = (id) => info.access.find((a) => a.account_id === id)?.level || "";
     const whose = p.is_self ? "your" : `${p.name}'s`;
     m.setBody(info.accounts.length ? html`
-      <p class="muted" style="margin-bottom:14px">${p.is_self ? "Only you see your data unless you share it here." : html`${p.name} ${p.signs_in ? "signs in themselves" : "doesn't sign in"}; these people can see them too.`}
-        Viewing lets someone read ${whose} data and ask about it; changing also lets them add sources, pair a phone and edit.</p>
+      <p class="muted" style="margin-bottom:14px">${p.is_self ? "Nobody here sees your data in the app unless you share it here." : html`${p.name} doesn't sign in; these people can see them too.`}
+        Viewing lets someone read ${whose} data and ask about it. Changing also lets them add and remove sources, pair a phone and edit records.
+        ${p.is_self ? "It doesn't let them share it with anyone else or delete all of it." : `It also lets them share ${whose} data with others, and delete it.`}
+        If you lower or end someone's access, any phone they paired for ${p.is_self ? "you" : p.name} stops and has to be paired again, and their conversations with an AI about ${p.is_self ? "you" : p.name} end along with their access.</p>
       <div class="list share-list">${info.accounts.map((a) => html`<div class="list-item">
         <span class="avatar" style="--c:${a.color || "var(--accent)"}">${initials(a.name)}</span><b class="grow truncate">${a.name}</b>
         <div class="segmented" role="group" aria-label="${a.name}'s access">${[["", "None"], ["view", "View"], ["manage", "Change"]].map(([k, label]) => html`
@@ -546,7 +644,10 @@ async function openInvite(p, redraw) {
     <p style="margin-bottom:10px">${p.name} will choose their own password and sign in as themselves, on this computer, another one, or
       the iPhone app.</p>
     <div class="banner info">${icon("users")}<div class="grow"><p><b>Once ${p.name} joins, their data is theirs.</b> You'll stop
-      seeing it unless they share it with you. ${p.relationship === "child" ? html`For a young child, you may prefer to keep looking after them without an invitation.` : ""}</p></div></div>`;
+      seeing it unless they share it with you. Phones you paired for them stop until they pair them again with their own sign-in, and your
+      conversations with an AI about them are deleted. Sources you connected keep running, and they're shown what's there.
+      Whoever runs this server can still reach the file it's kept in, and its backups.
+      ${p.relationship === "child" ? html`For a young child, you may prefer to keep looking after them without an invitation.` : ""}</p></div></div>`;
   const show = (inv) => {
     const link = `${inv.server_url || location.origin}/#/join/${inv.code}`;
     m.setBody(html`${intro()}

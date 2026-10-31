@@ -3,7 +3,7 @@
 import asyncio
 import base64
 import json
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 import httpx
 import pytest
@@ -11,11 +11,17 @@ from fastapi.testclient import TestClient
 
 from app.connectors import smart
 from app.connectors import wearable_common as wc
+from app.core import security
 from app.core.db import db
 from app.services import connect, sync as sync_svc
 from app.simulator import server as sim
 from app.store import connections, records
 from tests.conftest import BASE, CSRF, LOCAL_CLIENT, connect_institution, simulated_login
+
+
+def _problem_text(response) -> str:
+    """What the page will say about a sign-in that didn't finish: the address carries it signed."""
+    return security.unsign(unquote(response.headers["location"].split("problem=")[1]), "sign-in-problem")["message"]
 
 BANNER = "banner-health"
 RealClient = httpx.AsyncClient
@@ -76,10 +82,10 @@ def test_leaving_it_as_it_was_drops_the_other_charts_tokens(client):
     place = _reconnect(client, cid, "jordan.chen").headers["location"]
     state = parse_qs(urlparse(place).query)["state"][0]
     no = client.post("/callback/choose", data={"state": state, "decision": "no"}, follow_redirects=False)
-    assert "error=" in no.headers["location"] and "Nothing" in no.headers["location"].replace("%20", " ")
+    assert "Nothing" in _problem_text(no)
     assert connections.get(cid, include_credentials=True)["credentials"] == before["credentials"]
     assert len(client.get("/api/connections").json()["connections"]) == 1
-    assert client.post("/callback/choose", data={"state": state, "decision": "yes"}, follow_redirects=False).headers["location"].startswith("/#/sources?error=")
+    assert client.post("/callback/choose", data={"state": state, "decision": "yes"}, follow_redirects=False).headers["location"].startswith("/#/sources?problem=")
 
 
 def test_adding_the_other_chart_makes_a_separate_source_and_flags_the_mix(client):
@@ -165,7 +171,7 @@ def test_another_accounts_browser_is_turned_away_and_the_link_still_works_for_it
     theirs, _ = _member(client)
     callback = _started(client)
     refused = theirs.get(callback[len(BASE):], follow_redirects=False)
-    assert "error=" in refused.headers["location"] and "someone%20else" in refused.headers["location"]
+    assert "someone else" in _problem_text(refused)
     assert client.get("/api/connections").json()["connections"] == []
     assert "connected=" in client.get(callback[len(BASE):], follow_redirects=False).headers["location"]
 
@@ -193,7 +199,7 @@ def test_no_session_with_several_accounts_asks_first_and_names_who_gets_the_reco
 
     state = parse_qs(urlparse(place).query)["state"][0]
     no = outsider.post("/callback/choose", data={"state": state, "decision": "no"}, follow_redirects=False)
-    assert "error=" in no.headers["location"]
+    assert "problem=" in no.headers["location"]
     assert client.get("/api/connections").json()["connections"] == []
 
 
@@ -240,7 +246,7 @@ def test_a_choice_cant_be_reached_through_the_oauth_callback(client):
     assert "connected=" in client.get(callback[len(BASE):], follow_redirects=False).headers["location"]
     from app.store.connections import save_pending
     save_pending("ticket", "choice", {"action": "finish"})
-    assert "error=" in client.get("/callback", params={"code": "x", "state": "ticket"}, follow_redirects=False).headers["location"]
+    assert "problem=" in client.get("/callback", params={"code": "x", "state": "ticket"}, follow_redirects=False).headers["location"]
 
 
 def test_the_relay_page_still_runs_under_its_policy(client):
@@ -548,7 +554,7 @@ def test_failed_sign_in_shapes_at_the_callback_stay_on_the_sources_page(client, 
     callback = simulated_login(client, r.json()["auth_url"])
     monkeypatch.setattr(smart, "http_client", _handled(lambda req: httpx.Response(200, text="<html>")))
     done = client.get(callback[len(BASE):], follow_redirects=False)
-    assert done.status_code == 303 and "error=" in done.headers["location"]
+    assert done.status_code == 303 and "problem=" in done.headers["location"]
 
 
 def test_scheduled_syncs_run_side_by_side_without_losing_track(client, monkeypatch):

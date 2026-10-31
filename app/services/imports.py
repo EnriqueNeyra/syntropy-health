@@ -33,6 +33,7 @@ log = logging.getLogger("syntropy.imports")
 
 BATCH = 5000
 KEEP_FILE_HASHES = 50
+ROUTE_POINTS_HELD = 200_000      # workouts waiting to be saved: a few hundred bytes of memory each
 _jobs: dict[str, dict[str, Any]] = {}
 _jobs_lock = threading.Lock()
 NO_ROOM = "There isn't enough disk space for this file. Free up some space and try again."
@@ -219,8 +220,10 @@ def _where(exc: ParseError) -> str:
 
 def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -> None:
     _update(job_id, status="running")
+    export = None
     try:
-        opener, fhir_resources = apple_health.open_export(path)
+        export = apple_health.ExportArchive(path)
+        opener, fhir_resources = export.xml_opener(), export.clinical_records()
         result: dict[str, Any] = {}
         if opener is not None:
             conn = next((c for c in connections.list_for_profile(profile_id, "import")
@@ -230,6 +233,7 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
             processed = inserted = updated = rejected = flagged = workouts = events = 0
             batch: list[dict[str, Any]] = []
             others: dict[str, list[dict[str, Any]]] = {"workout": [], "event": []}
+            route_points = 0
             tally: dict[str, dict[str, int]] = {"imported": {}, "skipped": {}}
             stopped: Optional[str] = None
 
@@ -244,18 +248,20 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
                     _update(job_id, processed=processed, inserted=inserted)
 
             def flush_others() -> None:
-                nonlocal workouts, events
+                nonlocal workouts, events, route_points
                 workouts += activity.insert_workouts(profile_id, conn["id"], others["workout"])
                 events += activity.insert_events(profile_id, conn["id"], others["event"])
                 others["workout"], others["event"] = [], []
+                route_points = 0
 
             try:
                 with opener() as stream:
                     try:
-                        for kind, item in apple_health.iter_items(apple_health.CleanStream(stream), apple_health.zip_reader(path), tally):
+                        for kind, item in apple_health.iter_items(apple_health.CleanStream(stream), export.route_reader(), tally):
                             if kind != "sample":
                                 others[kind].append(item)
-                                if len(others[kind]) >= 200:
+                                route_points += len(item.get("route") or ())
+                                if len(others[kind]) >= 200 or route_points >= ROUTE_POINTS_HELD:
                                     flush_others()
                                 continue
                             batch.append(item)
@@ -294,15 +300,31 @@ def _run_apple_health(job_id: str, profile_id: str, path: Path, filename: str) -
                                                             provider="apple_health_records", reuse=earlier)
         if opener is None and not fhir_resources:
             raise ValueError("No export.xml or clinical records were found in the upload.")
+        if export.skipped:
+            result["skipped_files"] = export.skipped[:50]
         _update(job_id, status="completed", finished_at=time.time(), result=result)
     except Exception as exc:  # noqa: BLE001
         log.exception("Apple Health import failed")
         _update(job_id, status="error", finished_at=time.time(), error=str(exc))
     finally:
+        if export:
+            export.close()
         try:
             path.unlink()
-        except OSError:
-            pass
+        except OSError as exc:
+            # A whole, unencrypted export: the next start tries again (sweep_uploads).
+            log.warning("Couldn't delete an uploaded export: %s", exc)
+
+
+def sweep_uploads() -> None:
+    """At start-up, when nothing can be importing: what an import that was cut off, or couldn't delete, left behind."""
+    folder = config.data_dir() / "uploads"
+    for leftover in folder.iterdir() if folder.is_dir() else []:
+        try:
+            if leftover.is_file():
+                leftover.unlink()
+        except OSError as exc:
+            log.warning("Couldn't delete an uploaded export: %s", exc)
 
 
 # ---------------------------------------------------------------------------

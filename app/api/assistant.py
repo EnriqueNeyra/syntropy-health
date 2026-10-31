@@ -119,7 +119,11 @@ async def check_local(req: LocalCheck) -> dict:
 @router.get("/api/ai/agents")
 async def list_agents(refresh: bool = False) -> dict:
     """Claude Code, Codex CLI and Gemini CLI: installed here or not, and signed in or not."""
-    return await run_in_threadpool(ai_agents.detect, refresh)
+    found = await run_in_threadpool(ai_agents.detect, refresh)
+    principal = context.principal()
+    if principal is not None and not principal.owner:      # a full path usually names the owner's account on this computer
+        found = {**found, "agents": [{k: v for k, v in agent.items() if k != "path"} for agent in found.get("agents", [])]}
+    return found
 
 
 @router.post("/api/ai/test", dependencies=[owner])

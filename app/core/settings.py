@@ -66,6 +66,7 @@ def _is_secret(key: str) -> bool:
 
 DEFAULTS: dict[str, Any] = {
     "setup.completed": False,
+    "people.adult_age": 18,     # when to suggest someone looked after gets their own sign-in (varies by place)
     "developer.mode": False,    # off: health systems connect for real; on: each platform's own mode (simulator, sandbox)
     "auth.required": True,
     "relay.redirect_uri": config.DEFAULT_RELAY_URL,

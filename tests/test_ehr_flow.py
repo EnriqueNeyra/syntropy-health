@@ -30,7 +30,7 @@ def test_denied_consent_redirects_with_error(client):
     r = client.post("/api/connections/ehr", json={"institution_id": "epic-duke-health"})
     callback = simulated_login(client, r.json()["auth_url"], decision="deny")
     done = client.get(callback[len(BASE):], follow_redirects=False)
-    assert "error=" in done.headers["location"]
+    assert "problem=" in done.headers["location"]
     assert client.get("/api/connections").json()["connections"] == []
 
 
@@ -40,7 +40,7 @@ def test_state_is_single_use(client):
     first = client.get(callback[len(BASE):], follow_redirects=False)
     assert "connected=" in first.headers["location"]
     replay = client.get(callback[len(BASE):], follow_redirects=False)
-    assert "error=" in replay.headers["location"]
+    assert "problem=" in replay.headers["location"]
 
 
 def test_multiple_institutions_deduplicate_shared_facts(client):

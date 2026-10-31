@@ -68,14 +68,64 @@ def test_setup_only_from_nearby(strict):
             break      # set up now; the rest is covered
 
 
-def test_login_throttled_across_addresses(client, monkeypatch):
-    monkeypatch.setattr(auth, "_all_failures", auth.deque())
-    monkeypatch.setattr(auth, "_failed_logins", auth.defaultdict(auth.deque))
-    codes = []
-    for i in range(auth.LOGIN_MAX_FAILURES_ALL + 1):
-        with TestClient(client.app, base_url=BASE, client=(f"10.0.{i // 250}.{i % 250 + 1}", 5000)) as c:
-            codes.append(c.post("/api/auth/login", json={"password": "wrong"}, headers=CSRF).status_code)
-    assert codes[:auth.LOGIN_MAX_FAILURES_ALL] == [401] * auth.LOGIN_MAX_FAILURES_ALL and codes[-1] == 429
+def test_guessing_from_many_addresses_slows_down_but_never_locks_out_the_right_password(client, monkeypatch):
+    slept = []
+    # time.sleep is everyone's: only what a sign-in waits counts here, not a background rewrite's pause.
+    monkeypatch.setattr(auth.time, "sleep", lambda s: slept.append(s) if s == auth.LOGIN_SLOW_S else None)
+    for i in range(auth.LOGIN_SLOW_AFTER):
+        c = TestClient(client.app, base_url=BASE, client=(f"10.0.{i // 250}.{i % 250 + 1}", 5000))
+        assert c.post("/api/auth/login", json={"password": "wrong"}, headers=CSRF).status_code == 401
+    assert not slept
+    c = TestClient(client.app, base_url=BASE, client=("10.9.9.9", 5000))
+    assert c.post("/api/auth/login", json={"password": PASSPHRASE}, headers=CSRF).status_code == 200
+    assert slept == [auth.LOGIN_SLOW_S]
+
+
+def test_one_address_only_uses_up_its_own_tries_at_one_person(raw_client):
+    client = raw_client
+    assert client.post("/api/setup", json={"password": PASSPHRASE, "profile_name": "Alex"}, headers=CSRF).status_code == 200
+    client.headers.update(CSRF)
+    maria = client.post("/api/profiles", json={"name": "Maria"}).json()["id"]
+    code = client.post(f"/api/profiles/{maria}/invite").json()["code"]
+    c = TestClient(client.app, base_url=BASE, client=("10.0.0.5", 5000))
+    c.headers.update(CSRF)
+    for _ in range(auth.LOGIN_MAX_FAILURES):
+        assert c.post("/api/auth/login", json={"account": "Alex", "password": "wrong"}).status_code == 401
+    assert c.post("/api/auth/login", json={"account": "Alex", "password": PASSPHRASE}).status_code == 429
+    # Another address isn't held back. Nor is another person, or an invitation, from this one.
+    other = TestClient(client.app, base_url=BASE, client=("10.0.0.6", 5000))
+    assert other.post("/api/auth/login", json={"account": "Alex", "password": PASSPHRASE}, headers=CSRF).status_code == 200
+    assert c.post("/api/invites/check", json={"code": code}).status_code == 200
+    assert c.post("/api/auth/login", json={"account": "Nobody", "password": "wrong"}).status_code == 401
+    # Bad invitation codes don't use up sign-in tries, or the other way round.
+    for _ in range(auth.LOGIN_MAX_FAILURES):
+        assert c.post("/api/invites/check", json={"code": "ZZZZ-ZZZZ"}).status_code == 404
+    assert c.post("/api/invites/check", json={"code": code}).status_code == 429
+
+
+def test_a_right_password_clears_only_its_own_tries(raw_client):
+    client = raw_client
+    assert client.post("/api/setup", json={"password": PASSPHRASE, "profile_name": "Alex"}, headers=CSRF).status_code == 200
+    c = TestClient(client.app, base_url=BASE, client=("10.0.0.5", 5000))
+    c.headers.update(CSRF)
+    for _ in range(auth.LOGIN_MAX_FAILURES - 1):
+        assert c.post("/api/auth/login", json={"account": "Nobody", "password": "wrong"}).status_code == 401
+    assert c.post("/api/auth/login", json={"account": "Alex", "password": PASSPHRASE}).status_code == 200
+    c.cookies.clear()
+    assert c.post("/api/auth/login", json={"account": "Nobody", "password": "wrong"}).status_code == 401
+    assert c.post("/api/auth/login", json={"account": "Nobody", "password": "wrong"}).status_code == 429
+
+
+def test_pairing_codes_can_only_be_guessed_so_many_times_in_all(client, monkeypatch):
+    from app.api import biometrics
+    monkeypatch.setattr(biometrics, "_pair_failures", {})
+    monkeypatch.setattr(biometrics, "_all_pair_failures", [])
+    monkeypatch.setattr(biometrics, "PAIR_MAX_FAILURES_ALL", 3)
+    for i in range(3):
+        c = TestClient(client.app, base_url=BASE, client=(f"10.0.0.{i + 1}", 5000))
+        assert c.post("/api/devices/pair", json={"code": "ZZZZ-ZZZZ", "device_name": "x"}).status_code == 400
+    c = TestClient(client.app, base_url=BASE, client=("10.0.1.1", 5000))
+    assert c.post("/api/devices/pair", json={"code": "ZZZZ-ZZZZ", "device_name": "x"}).status_code == 429
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX permissions")

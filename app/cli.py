@@ -8,7 +8,8 @@ The ``syntropy-health`` command: run the server, keep it running in the backgrou
     syntropy-health update                install the latest release and restart the service
     syntropy-health info                  where the data is and the addresses to open
     syntropy-health mcp [--profile NAME]  the MCP server on stdio, for AI apps on this computer
-    syntropy-health accounts              who signs in; `accounts reset-password NAME` for someone locked out
+    syntropy-health accounts              who signs in; `accounts reset-password NAME` for someone locked out;
+                                          `accounts make-owner NAME` to hand the server over
     syntropy-health key new               replace a lost encryption key
 
 The same code runs from a clone (``./run.sh``), a pip or uv install, the Linux installer and the Mac and Windows apps.
@@ -101,7 +102,8 @@ def _answers(host: str, port: int) -> bool:
 
 
 def backup(dest: Optional[str]) -> Path:
-    """A consistent copy of the database (taken while the server runs), the encryption key and uploads, zipped."""
+    """A consistent copy of the database (taken while the server runs) and the encryption key, zipped. Not the uploads
+    folder: all it ever holds is the file an import is working through, which goes when that's done."""
     from app.core import db
 
     data = config.data_dir()
@@ -115,9 +117,8 @@ def backup(dest: Optional[str]) -> Path:
             z.write(snapshot, "syntropy.db")
             if (data / "secret.key").exists():
                 z.write(data / "secret.key", "secret.key")      # without it, saved sign-ins and keys can't be read
-            for f in (data / "uploads").rglob("*") if (data / "uploads").exists() else []:
-                if f.is_file():
-                    z.write(f, str(Path("uploads") / f.relative_to(data / "uploads")))
+        with db.db() as conn:
+            db.audit(conn, "cli", "export.backup")
     if os.name != "nt":
         out.chmod(0o600)
     print(f"Backed up to {out}")
@@ -534,18 +535,28 @@ def accounts_command(action: Optional[str], name: Optional[str]) -> None:
     the database anyway, so this adds no way in that wasn't already there."""
     import getpass
 
-    from app.core import auth, db
+    from app.core import auth, context, db
     from app.store import accounts
     db.ensure_migrated()
-    if action != "reset-password":
+    if action not in ("reset-password", "make-owner"):
         for a in accounts.list_accounts():
-            print(f"{a['name']:<24} {a['role']:<7} {'password set' if a['has_password'] else 'no password'}")
+            state = "password set" if a["has_password"] else "no password"
+            print(f"{a['name']:<24} {a['role']:<7} {state:<13}{a['id']}")
         if not accounts.any_accounts():
             print("No one signs in yet: open Syntropy Health to set it up.")
         return
-    account = accounts.find(name or "")
-    if not account:
+    found = accounts.matching(name or "")
+    if len(found) > 1:
+        sys.exit(f"More than one person is named {name!r}. Use the id from `syntropy-health accounts` instead of the name.")
+    if not found:
         sys.exit(f"No one named {name!r} signs in here. `syntropy-health accounts` lists who does.")
+    account = found[0]
+    if action == "make-owner":
+        context.ACTING_FOR.set("cli")       # how the log names who did it
+        accounts.set_role(account["id"], "owner")
+        print(f"{account['name']} is now an owner of this server. Anyone else who was one still is: they can step down in "
+              "Settings → People.")
+        return
     password = getpass.getpass(f"New password for {account['name']}: ")
     if getpass.getpass("Again: ") != password:
         sys.exit("The passwords don't match.")
@@ -555,7 +566,7 @@ def accounts_command(action: Optional[str], name: Optional[str]) -> None:
         sys.exit(getattr(exc, "detail", str(exc)))
     accounts.set_password(account["id"], password)
     with db.db() as conn:
-        db.audit(conn, "cli", "auth.password_reset", None, account["profile_id"])
+        db.audit(conn, "cli", "auth.password_reset", {"person": account["name"]}, account["profile_id"])
     print(f"{account['name']} can sign in with the new password. Their other browsers were signed out.")
 
 
@@ -597,8 +608,8 @@ def _command(argv: Optional[list[str]] = None) -> None:
     m = sub.add_parser("mcp", help="the MCP server on stdio, for AI apps on this computer")
     m.add_argument("--profile", help="read only this person's records (a name or id); without it, everyone's")
     sub.add_parser("version", help="print the version")
-    a = sub.add_parser("accounts", help="who signs in; reset-password NAME for someone locked out")
-    a.add_argument("action", nargs="?", choices=["list", "reset-password"], default="list")
+    a = sub.add_parser("accounts", help="who signs in; reset-password NAME for someone locked out; make-owner NAME")
+    a.add_argument("action", nargs="?", choices=["list", "reset-password", "make-owner"], default="list")
     a.add_argument("name", nargs="?")
     k = sub.add_parser("key", help="key new: replace a lost encryption key (saved passwords and sign-ins stay unreadable)")
     k.add_argument("action", choices=["new"])

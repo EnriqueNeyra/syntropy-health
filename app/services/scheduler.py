@@ -30,7 +30,7 @@ def _due() -> list[dict]:
                                 float(settings.get("sync.wearable_interval_hours")))
 
 
-def _prune() -> None:
+def prune() -> None:
     now = time.time()
     with db() as c:
         c.execute("DELETE FROM user_sessions WHERE expires_at < ?", (now,))
@@ -51,7 +51,7 @@ async def run_once() -> list[str]:
             except Exception:  # noqa: BLE001
                 log.exception("Scheduled sync failed for %s", conn["id"])
     await asyncio.gather(*(one(conn) for conn in await asyncio.to_thread(_due)))
-    await asyncio.to_thread(_prune)
+    await asyncio.to_thread(prune)
     global last_tick_at
     last_tick_at = time.time()
     return synced

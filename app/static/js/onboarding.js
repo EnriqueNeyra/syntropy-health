@@ -115,9 +115,10 @@ export function renderSetup(status, onDone) {
       <form id="setup-form">
         <div class="field"><label class="label" for="s-pass">Password</label>
           <input class="input" id="s-pass" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
-          <div class="hint">There is no recovery, so keep it in your password manager.</div></div>
+          <div class="hint">${RECOVERY_HINT}</div></div>
         <div class="field"><label class="label" for="s-pass2">Confirm password</label>
           <input class="input" id="s-pass2" type="password" autocomplete="new-password"></div>
+        ${status?.setup_code_needed ? setupCodeField("s-code") : ""}
         ${status?.password_optional ? html`<label class="checkbox small muted field"><input type="checkbox" id="s-nopass">
           <span>Development mode: don't use a password.</span></label>` : ""}
         <div class="field">${termsCheckbox()}</div>
@@ -136,13 +137,25 @@ export function renderSetup(status, onDone) {
       if (!skip && pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
       if (!skip && pass !== $("#s-pass2").value) return toast("The passwords don't match.", "bad");
       try {
-        await post("/api/setup", { profile_name: draft.name || "Me", password: skip ? null : pass, timezone: tz, accept_terms: true });
+        await post("/api/setup", { profile_name: draft.name || "Me", password: skip ? null : pass, timezone: tz, accept_terms: true,
+                                  setup_code: $("#s-code")?.value.trim() || undefined });
         onDone();
       } catch (err) { toast(err.message, "bad"); }
     });
   };
 
   if (mac) choose(); else welcome();
+}
+
+
+const RECOVERY_HINT = "Keep it in your password manager. Syntropy Labs can't recover it, but someone at the computer this server runs on can set a new one.";
+
+/** Setting up from somewhere other than this computer or the home network takes the code the server printed to its log. */
+function setupCodeField(id) {
+  return html`<div class="field"><label class="label" for="${id}">Setup code</label>
+    <input class="input mono" id="${id}" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required placeholder="ABCD-EFGH">
+    <div class="hint">You're not on this server's computer or its home network, so it asks for proof it's yours. The code is in the server's log, printed when it started
+      (for Docker: <code>docker logs syntropy-health</code>).</div></div>`;
 }
 
 
@@ -158,9 +171,10 @@ export function renderPasswordGate(status, onDone) {
       <form id="gate-form">
         <div class="field"><label class="label" for="g-pass">Password</label>
           <input class="input" id="g-pass" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" required>
-          <div class="hint">There is no recovery, so keep it in your password manager.</div></div>
+          <div class="hint">${RECOVERY_HINT}</div></div>
         <div class="field"><label class="label" for="g-pass2">Confirm password</label>
           <input class="input" id="g-pass2" type="password" autocomplete="new-password" required></div>
+        ${status.setup_code_needed ? setupCodeField("g-code") : ""}
         ${status.terms_accepted ? "" : html`<div class="field">${termsCheckbox("g-terms")}</div>`}
         <button class="btn btn-primary onboard-next" type="submit">Save password</button>
       </form></div></div>`);
@@ -171,7 +185,7 @@ export function renderPasswordGate(status, onDone) {
     if (pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
     if (pass !== $("#g-pass2").value) return toast("The passwords don't match.", "bad");
     try {
-      await post("/api/auth/password", { current: null, new: pass, accept_terms: true });
+      await post("/api/auth/password", { current: null, new: pass, accept_terms: true, setup_code: $("#g-code")?.value.trim() || undefined });
       onDone();
     } catch (err) { toast(err.message, "bad"); }
   });
@@ -225,7 +239,7 @@ export function renderOnboarding(status, onDone) {
   const data = () => {
     screen(owner ? 4 : null, html`
       <h1>${owner ? "Bring in your data" : `Welcome, ${status.account?.name || ""}`}</h1>
-      <p class="muted onboard-lede">${owner ? "Start with whatever you have." : "Your health data is yours here: only you see it, unless you share it. Start with whatever you have."}
+      <p class="muted onboard-lede">${owner ? "Start with whatever you have." : "Your health data is yours here: nobody sees it in the app unless you share it. Start with whatever you have."}
         You can add the rest any time from Sources.</p>
       <div class="onboard-tiles">
         ${tile("iphone", "phone", "Your phone and watch", "Heart, sleep, workouts and more from Apple Health or Health Connect, with the Syntropy Health app")}

@@ -164,11 +164,30 @@ def _float(value: Optional[str]) -> Optional[float]:
         return None
 
 
-def parse_gpx(data: bytes) -> list[dict[str, Any]]:
+def parse_gpx(data: bytes, room: Optional[int] = None) -> list[dict[str, Any]]:
+    """Up to ``room`` points. Only the point being read is kept while reading, so what the file holds besides doesn't add up."""
+    room = MAX_ROUTE_POINTS if room is None else room
     points: list[dict[str, Any]] = []
+    within: list[Any] = []
+    current = None
+    parts = 0
     try:
-        for _event, el in iterparse(io.BytesIO(data), events=("end",)):
-            if el.tag.endswith("trkpt"):
+        for event, el in iterparse(io.BytesIO(data), events=("start", "end")):
+            if event == "start":
+                within.append(el)
+                if len(within) > MAX_XML_DEPTH:
+                    break
+                if current is None and el.tag.endswith("trkpt"):
+                    current = el
+                continue
+            within.pop()
+            if current is not None and el is not current:
+                parts += 1
+                if parts > MAX_POINT_PARTS:
+                    break
+                continue
+            if el is current:
+                current, parts = None, 0
                 lat, lon = _float(el.get("lat")), _float(el.get("lon"))
                 if lat is not None and lon is not None:
                     point: dict[str, Any] = {"lat": lat, "lon": lon, "alt": None, "t": None, "speed": None}
@@ -181,7 +200,11 @@ def parse_gpx(data: bytes) -> list[dict[str, Any]]:
                         elif tag == "speed":
                             point["speed"] = _float(child.text)
                     points.append(point)
+                    if len(points) >= room:
+                        break
                 el.clear()
+            if within:
+                within[-1].remove(el)
     except Exception:  # noqa: BLE001 - a damaged route file shouldn't fail the import
         return points
     return points
@@ -237,9 +260,11 @@ def _workout(elem: Any, start: str, end: str, source: str, read_file: Optional[C
     route: list[dict[str, Any]] = []
     if read_file:
         for path in route_paths:
+            if len(route) >= MAX_ROUTE_POINTS:
+                break
             data = read_file(path)
             if data:
-                route += parse_gpx(data)
+                route += parse_gpx(data, MAX_ROUTE_POINTS - len(route))
     indoor = meta.get("HKIndoorWorkout")
     return {
         "id": _sample_id("workout", source, start, end),
@@ -302,22 +327,32 @@ def _record_offset(elem: Any, start: str) -> Optional[int]:
 def iter_items(xml_stream: Any, read_file: Optional[Callable[[str], Optional[bytes]]] = None,
                tally: Optional[dict[str, dict[str, int]]] = None) -> Iterator[tuple[str, dict[str, Any]]]:
     """Yields ("sample" | "workout" | "event", item) from export.xml in constant memory. ``tally`` counts the records of each
-    type imported and left aside."""
+    type imported and left aside. What's held at any moment is one of its top-level elements, so what that can be is limited;
+    past that, TooBig (what came before it has been yielded)."""
+    stream = _CountedRead(xml_stream)
+
     def count(which: str, record_type: str) -> None:
         if tally is not None:
             tally[which][record_type] = tally[which].get(record_type, 0) + 1
 
     root = None
-    handled = 0
-    for event, elem in iterparse(xml_stream, events=("start", "end")):
+    depth = parts = 0
+    for event, elem in iterparse(stream, events=("start", "end")):
         if event == "start":
             if root is None:
                 root = elem
+            depth += 1
+            if depth > MAX_XML_DEPTH:
+                raise _element_too_big()
             continue
-        handled += 1
-        if root is not None and handled % 2000 == 0:
+        depth -= 1
+        parts += 1
+        if parts > MAX_XML_PARTS:
+            raise _element_too_big()
+        if depth == 1:
             # Cleared elements stay attached to the root; drop them or millions of records add up to gigabytes.
             root.clear()
+            stream.since_element = parts = 0
         tag = elem.tag
         if tag not in ("Record", "Workout"):
             if tag in ("ActivitySummary", "Correlation"):
@@ -378,39 +413,127 @@ def _device_label(device: str) -> Optional[str]:
     return match.group(1).strip() if match else None
 
 
-def zip_reader(path: Path) -> Optional[Callable[[str], Optional[bytes]]]:
-    """Reads files referenced from export.xml (e.g. '/workout-routes/route_x.gpx') out of the export zip."""
-    if not zipfile.is_zipfile(path):
-        return None
-    zf = zipfile.ZipFile(path)
-    names = zf.namelist()
+# What an export's files may be. Real ones are far below these; a booby-trapped "export" isn't. The sizes are what each file
+# says it holds, which reading can't go past. Deflate shrinks these formats 5 to 30 times, and a file claiming far more
+# is built to fill memory.
+MAX_CLINICAL_FILE = 50 * 1024 * 1024
+MAX_CLINICAL_TOTAL = 256 * 1024 * 1024        # all kept in memory until they're imported
+MAX_CLINICAL_PARTS = 5_000_000                # the same, in what memory goes on: tens of thousands of real records
+MAX_ROUTE_FILE = 100 * 1024 * 1024
+MAX_ROUTE_POINTS = 500_000                    # for one workout: nearly six days, second by second
+MAX_POINT_PARTS = 100
+MAX_XML = 64 * 1024 ** 3
+MAX_XML_ELEMENT = 64 * 1024 * 1024            # one Record or Workout, with all it holds and the text after it
+MAX_XML_PARTS = 1_000_000                     # the same, in elements: a second-by-second route of 11 days
+MAX_XML_DEPTH = 32                            # real exports go 4 deep
+MAX_RATIO = 200
+_RATIO_FROM = 1024 * 1024                     # tiny files can shrink by any amount
 
-    def read(ref: str) -> Optional[bytes]:
-        ref = ref.lstrip("/")
-        name = next((n for n in names if n == ref or n.endswith("/" + ref)), None)
-        return zf.read(name) if name else None
-    return read
+
+class TooBig(ValueError):
+    pass
 
 
-def open_export(path: Path) -> tuple[Optional[Callable[[], io.BufferedIOBase]], list[dict[str, Any]]]:
-    """Returns (opener for export.xml, FHIR clinical record resources found in the archive)."""
-    if zipfile.is_zipfile(path):
-        zf = zipfile.ZipFile(path)
-        xml_name = next((n for n in zf.namelist() if n.endswith("/export.xml") or n == "export.xml"), None)
-        fhir: list[dict[str, Any]] = []
-        for name in zf.namelist():
-            if "/clinical-records/" in name and name.endswith(".json"):
-                try:
-                    res = json.loads(zf.read(name))
-                    if isinstance(res, dict) and res.get("resourceType"):
-                        fhir.append(res)
-                except ValueError:
+def _element_too_big() -> TooBig:
+    return TooBig("This file doesn't look like an Apple Health export: part of its export.xml is far larger than any "
+                  "health record. The import stopped there.")
+
+
+class _CountedRead:
+    """The parser hands nothing back while it's inside one long text or value, and holds all of it: this is what notices."""
+
+    def __init__(self, stream: io.BufferedIOBase):
+        self.stream = stream
+        self.since_element = 0
+
+    def read(self, size: int = -1) -> bytes:
+        data = self.stream.read(size)
+        self.since_element += len(data)
+        if self.since_element > MAX_XML_ELEMENT:
+            raise _element_too_big()
+        return data
+
+
+def _implausible(info: zipfile.ZipInfo) -> bool:
+    return info.file_size > _RATIO_FROM and info.file_size > max(info.compress_size, 1) * MAX_RATIO
+
+
+class ExportArchive:
+    """An Apple Health upload (the export's zip, or its export.xml alone), open while it's imported. Close it before
+    deleting the file: Windows won't delete one that's still open."""
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.zip = zipfile.ZipFile(path) if zipfile.is_zipfile(path) else None
+        self.skipped: list[str] = []
+
+    def close(self) -> None:
+        if self.zip:
+            self.zip.close()
+
+    def xml_opener(self) -> Optional[Callable[[], io.BufferedIOBase]]:
+        """Read as a stream, so its size doesn't matter to memory; a lie about its size can still only fill the disk."""
+        if not self.zip:
+            with open(self.path, "rb") as fh:
+                head = fh.read(512).lstrip(b"\xef\xbb\xbf \t\r\n")
+            if head.startswith(b"PK"):
+                raise ValueError("This zip file is incomplete. Copy it again, or export from the Health app again.")
+            if not head.startswith(b"<"):
+                raise ValueError("This isn't an Apple Health export. It should be the export.zip the Health app makes, or the export.xml inside it.")
+            return lambda: open(self.path, "rb")
+        info = next((i for i in self.zip.infolist() if i.filename.endswith("/export.xml") or i.filename == "export.xml"), None)
+        if not info:
+            return None
+        if info.file_size > MAX_XML or _implausible(info):
+            raise TooBig("This file doesn't look like an Apple Health export: its export.xml is built to expand far beyond "
+                         "what it holds. Nothing was imported.")
+        return lambda: self.zip.open(info)  # type: ignore[union-attr,return-value]
+
+    def clinical_records(self) -> list[dict[str, Any]]:
+        """The FHIR resources in the export's clinical-records folder. One too large to be real is left out and noted."""
+        if not self.zip:
+            return []
+        out: list[dict[str, Any]] = []
+        total = parts = 0
+        for info in self.zip.infolist():
+            name = info.filename
+            if "/clinical-records/" not in name or not name.endswith(".json"):
+                continue
+            noted = name.rsplit("/", 1)[-1][:100]
+            if info.file_size > MAX_CLINICAL_FILE or total + info.file_size > MAX_CLINICAL_TOTAL or _implausible(info):
+                self.skipped.append(noted)
+                continue
+            try:
+                raw = self.zip.read(info)
+                held = raw.count(b",") + raw.count(b"{") + raw.count(b"[")
+                if parts + held > MAX_CLINICAL_PARTS:
+                    self.skipped.append(noted)
                     continue
-        return ((lambda: zf.open(xml_name)) if xml_name else None), fhir  # type: ignore[return-value]
-    with open(path, "rb") as fh:
-        head = fh.read(512).lstrip(b"\xef\xbb\xbf \t\r\n")
-    if head.startswith(b"PK"):
-        raise ValueError("This zip file is incomplete. Copy it again, or export from the Health app again.")
-    if not head.startswith(b"<"):
-        raise ValueError("This isn't an Apple Health export. It should be the export.zip the Health app makes, or the export.xml inside it.")
-    return (lambda: open(path, "rb")), []
+                res = json.loads(raw)
+            except (ValueError, RecursionError, zipfile.BadZipFile):
+                continue
+            total += info.file_size
+            parts += held
+            if isinstance(res, dict) and res.get("resourceType"):
+                out.append(res)
+        return out
+
+    def route_reader(self) -> Optional[Callable[[str], Optional[bytes]]]:
+        """Reads files referenced from export.xml (e.g. '/workout-routes/route_x.gpx') out of the zip."""
+        if not self.zip:
+            return None
+        infos = self.zip.infolist()
+        read_already: set[str] = set()
+
+        def read(ref: str) -> Optional[bytes]:
+            ref = ref.lstrip("/")
+            info = next((i for i in infos if i.filename == ref or i.filename.endswith("/" + ref)), None)
+            # A route is one workout's: read for every mention, one small file could fill any amount of memory and disk.
+            if not info or info.filename in read_already:
+                return None
+            read_already.add(info.filename)
+            if info.file_size > MAX_ROUTE_FILE or _implausible(info):
+                self.skipped.append(info.filename.rsplit("/", 1)[-1][:100])
+                return None
+            return self.zip.read(info)  # type: ignore[union-attr]
+        return read

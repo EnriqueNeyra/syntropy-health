@@ -72,9 +72,12 @@ def test_sharing_that_ends_ends_for_lookups_by_id_too(household):
     assert not _rpc(client, only_alex, "get_record", {"record_id": household["record"]})["isError"]
 
     _share_alex_with_maria(household, None)
-    for token in (everyone, only_alex):
-        result = _rpc(client, token, "get_record", {"record_id": household["record"]})
-        assert result["isError"] and "Record not found" in result["content"][0]["text"]
+    result = _rpc(client, everyone, "get_record", {"record_id": household["record"]})
+    assert result["isError"] and "Record not found" in result["content"][0]["text"]
+    # A token only for them ends with the sharing.
+    gone = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "get_record", "arguments": {"record_id": household["record"]}}},
+                       headers={"Authorization": f"Bearer {only_alex}"})
+    assert gone.status_code == 401
 
 
 def test_missing_and_forbidden_records_look_the_same(household):
@@ -119,15 +122,21 @@ def test_the_matrix_covers_every_tool():
     assert set(_every_tool("x")) == set(mcp_server.TOOLS)
 
 
-@pytest.mark.parametrize("kind", ["member's own token", "token limited to the member", "token made while shared, limited to the owner, sharing ended"])
+def test_a_token_limited_to_someone_ends_when_their_sharing_does(household):
+    client = household["maria_client"]
+    _share_alex_with_maria(household)
+    token = _token(client, "Was shared", household["alex"])["token"]
+    _share_alex_with_maria(household, None)
+    for tool, args in _every_tool(household["record"]).items():
+        r = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": tool, "arguments": args}},
+                        headers={"Authorization": f"Bearer {token}"})
+        assert r.status_code == 401, tool
+
+
+@pytest.mark.parametrize("kind", ["member's own token", "token limited to the member"])
 def test_no_tool_reaches_the_owners_chart_without_access(household, kind):
     client = household["maria_client"]
-    if kind.startswith("token made"):
-        _share_alex_with_maria(household)
-        token = _token(client, "Was shared", household["alex"])["token"]
-        _share_alex_with_maria(household, None)
-    else:
-        token = _token(client, "Maria's", household["maria"] if "limited" in kind else None)["token"]
+    token = _token(client, "Maria's", household["maria"] if "limited" in kind else None)["token"]
     for tool, args in _every_tool(household["record"]).items():
         for extra in ({}, {"profile": "Alex"}, {"profile": household["alex"]}):
             if tool == "get_record" and extra:

@@ -827,7 +827,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .set-control { flex: none; display: flex; justify-content: flex-end; max-width: 55%; min-width: 0; }
 .set-control .input { min-width: 240px; }
 .set-control code { text-align: right; }
-.set-foot { display: flex; gap: 8px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--border); }
+.set-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--border); }
 .set-details { padding: 0 18px 16px; }
 .set-details summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 4px 0 10px; font-size: 13px; }
 .set-subcard { padding: 14px; border: 1px solid var(--border); border-radius: 12px; margin-top: 10px; }

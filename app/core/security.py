@@ -208,14 +208,42 @@ def decrypt_json(token: Optional[str]) -> Any:
 # Passwords
 # ---------------------------------------------------------------------------
 
-_SCRYPT_N, _SCRYPT_R, _SCRYPT_P = 2**14, 8, 1
+# About a quarter of a second and 128 MB on a laptop, a second or so on a Raspberry Pi. Passwords saved with lower
+# settings keep working (each hash names its own) and are upgraded at the next sign-in.
+_SCRYPT_N, _SCRYPT_R, _SCRYPT_P = 2**17, 8, 1
+# A small computer that can't spare the memory still gets as much as it can.
+_SCRYPT_N_LOWEST = 2**14
+# Each check takes that memory, so a burst of sign-ins can't take the server down: the others wait their turn.
+_hashing = threading.BoundedSemaphore(2)
+_HASHING_WAIT_S = 30
+
+
+class ServerBusy(Exception):
+    pass
+
+
+def _scrypt(password: str, salt: bytes, n: int, r: int, p: int) -> bytes:
+    if not _hashing.acquire(timeout=_HASHING_WAIT_S):
+        raise ServerBusy("Too many sign-ins at once. Try again in a moment.")
+    try:
+        return hashlib.scrypt(password.encode(), salt=salt, n=n, r=r, p=p, dklen=32, maxmem=128 * r * (n + p + 2) + 1024 * 1024)
+    finally:
+        _hashing.release()
 
 
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
-    digest = hashlib.scrypt(password.encode(), salt=salt, n=_SCRYPT_N, r=_SCRYPT_R, p=_SCRYPT_P, dklen=32)
+    n = _SCRYPT_N
+    while True:
+        try:
+            digest = _scrypt(password, salt, n, _SCRYPT_R, _SCRYPT_P)
+            break
+        except (ValueError, MemoryError):
+            if n <= _SCRYPT_N_LOWEST:
+                raise
+            n //= 2
     return "scrypt${}${}${}${}${}".format(
-        _SCRYPT_N, _SCRYPT_R, _SCRYPT_P,
+        n, _SCRYPT_R, _SCRYPT_P,
         base64.b64encode(salt).decode(), base64.b64encode(digest).decode(),
     )
 
@@ -225,13 +253,30 @@ def verify_password(password: str, stored: str) -> bool:
         algo, n, r, p, salt_b64, digest_b64 = stored.split("$")
         if algo != "scrypt":
             return False
-        digest = hashlib.scrypt(
-            password.encode(), salt=base64.b64decode(salt_b64),
-            n=int(n), r=int(r), p=int(p), dklen=32,
-        )
+        digest = _scrypt(password, base64.b64decode(salt_b64), int(n), int(r), int(p))
         return hmac.compare_digest(digest, base64.b64decode(digest_b64))
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, MemoryError):
         return False
+
+
+def password_needs_upgrade(stored: str) -> bool:
+    """Whether this hash was made with weaker settings than a new one would be."""
+    try:
+        algo, n, r, p, *_ = stored.split("$")
+        return algo != "scrypt" or (int(n), int(r), int(p)) < (_SCRYPT_N, _SCRYPT_R, _SCRYPT_P)
+    except ValueError:
+        return False
+
+
+_decoy: dict[int, str] = {}
+
+
+def waste_a_password_check(password: str) -> None:
+    """For a name that doesn't exist: takes as long as checking a real password, so timing doesn't tell who signs in here."""
+    decoy = _decoy.get(_SCRYPT_N)
+    if decoy is None:
+        decoy = _decoy.setdefault(_SCRYPT_N, hash_password(secrets.token_urlsafe(16)))
+    verify_password(password, decoy)
 
 
 # ---------------------------------------------------------------------------

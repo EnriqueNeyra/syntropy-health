@@ -24,15 +24,13 @@ def test_data_folder_follows_how_it_was_installed(monkeypatch, tmp_path):
     assert config.default_data_dir() == tmp_path / "AppData/Local/Syntropy Health"
 
 
-def test_backup_holds_the_database_key_and_uploads(client, isolated_data, tmp_path):
+def test_backup_holds_the_database_and_key(client, isolated_data, tmp_path):
     client.post("/api/connections/wearable", json={"provider": "oura", "mode": "simulated"})
-    (isolated_data / "uploads").mkdir(exist_ok=True)
-    (isolated_data / "uploads" / "report.pdf").write_bytes(b"%PDF-1.4")
     from app.core import security
     security.encrypt_json("make sure the key exists")
     out = cli.backup(str(tmp_path / "backups"))
     with zipfile.ZipFile(out) as z:
-        assert {"syntropy.db", "secret.key", "uploads/report.pdf"} <= set(z.namelist())
+        assert {"syntropy.db", "secret.key"} <= set(z.namelist())
 
 
 def test_service_files(isolated_data):

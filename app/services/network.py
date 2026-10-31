@@ -9,6 +9,7 @@ How this server is reached from other devices: its addresses on the home network
 
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import json
 import logging
@@ -16,7 +17,6 @@ import os
 import shutil
 import socket
 import subprocess
-import sys
 import threading
 import time
 from typing import Any, Callable, Optional
@@ -232,8 +232,13 @@ def _resolves_elsewhere(host: str, mine: set[str]) -> bool:
     return bool(result and result[0] and not result[0] <= mine)
 
 
+# Anyone on the network hears this before signing in, so it says only what finding the server needs: not whose computer
+# it is, or which version it runs. Those who look for it manage without (Servers before 1.1 didn't say either).
+ANNOUNCED = {"path": "/", "service": "syntropy-health"}
+
+
 class Advertiser:
-    """Announces ``syntropyhealth.local`` (or ``syntropyhealth-<computer>.local`` if that name is taken) and an
+    """Announces ``syntropyhealth.local`` (or a variation if that name is taken) and an
     ``_http._tcp`` service, and follows this computer to a new address when the network changes."""
 
     def __init__(self) -> None:
@@ -278,13 +283,13 @@ class Advertiser:
 
         name = f"{LOCAL_NAME}.local"
         if _resolves_elsewhere(name, {addr, "127.0.0.1"}):
-            computer = socket.gethostname().split(".")[0].lower().replace(" ", "-")
-            name = f"{LOCAL_NAME}-{computer}.local"
+            # Told apart by something that stays the same here, without saying what this computer is called.
+            suffix = hashlib.sha256(socket.gethostname().encode()).hexdigest()[:6]
+            name = f"{LOCAL_NAME}-{suffix}.local"
         self.info = ServiceInfo(
             SERVICE_TYPE, f"Syntropy Health.{SERVICE_TYPE}", port=port, server=f"{name}.",
             addresses=[socket.inet_aton(addr)],
-            properties={"path": "/", "service": "syntropy-health", "version": config.APP_VERSION,
-                        "computer": computer_name()})
+            properties=ANNOUNCED)
         self.zc.register_service(self.info, allow_name_change=True)
         self.name = name
         log.info("Announced http://%s:%s (%s)", name, port, addr)
@@ -309,18 +314,6 @@ class Advertiser:
 
 
 advertiser = Advertiser()
-
-
-def computer_name() -> str:
-    """This computer's name as people know it ("Enrique's MacBook Pro"), for other Macs choosing a server to join."""
-    if sys.platform == "darwin":
-        try:
-            name = subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True, timeout=2).stdout.strip()
-            if name:
-                return name[:80]
-        except (OSError, subprocess.SubprocessError):
-            pass
-    return socket.gethostname().split(".")[0].replace("-", " ")[:80]
 
 
 def discover(seconds: float = 2.5) -> list[dict[str, Any]]:
