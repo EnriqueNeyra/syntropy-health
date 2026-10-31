@@ -17,7 +17,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import re
-import sqlite3
+from app.core.sqlite import sqlite3
 from functools import lru_cache
 from typing import Any, Optional
 

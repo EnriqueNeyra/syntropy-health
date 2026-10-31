@@ -19,8 +19,48 @@ os.environ["SYNTROPY_NO_DOTENV"] = "1"
 for _var in [v for v in os.environ if v != "SYNTROPY_NO_DOTENV" and (v.startswith("SYNTROPY_") or v in ("PORT", "FORWARDED_ALLOW_IPS"))]:
     del os.environ[_var]
 
+# The tests never touch a real Keychain or Windows' protected storage: test_keystore covers those with its own.
+os.environ["SYNTROPY_KEY_STORE"] = "file"
+
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+
+
+def _open_any_database() -> None:
+    """Many tests look inside the database with `import sqlite3`. That has to mean the same SQLite as the app, or its errors
+    are other classes, and it has to open an encrypted file as the app would. A new file stays plain, so a test can still make
+    a database as an earlier version would have."""
+    import sqlite3 as standard
+
+    from app.core.sqlite import HAS_ENCRYPTION, sqlite3
+    if not HAS_ENCRYPTION:
+        return
+    from pathlib import Path
+
+    real_connect = sqlite3.connect
+
+    def unlocking_connect(target: Any, *args: Any, **kwargs: Any) -> Any:
+        conn = real_connect(target, *args, **kwargs)
+        name = str(target).removeprefix("file:").split("?")[0]
+        if name != ":memory:":
+            from app.core import db, security
+            if db.is_encrypted(Path(name)):
+                keys = security.known_database_keys()
+                match = next((k for k in keys if db.opens(Path(name), k)), keys[0])
+                db.use_key(conn, match)
+        return conn
+
+    class Unlocking:
+        """The module, with connect that knows the key. app.core.db has its own reference to the real one."""
+        def __getattr__(self, name: str) -> Any:
+            return getattr(sqlite3, name)
+        connect = staticmethod(unlocking_connect)
+
+    assert standard
+    sys.modules["sqlite3"] = Unlocking()  # type: ignore[assignment]
+
+
+_open_any_database()
 
 BASE = "http://localhost:8000"
 CSRF = {"X-Requested-With": "syntropy"}

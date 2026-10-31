@@ -6,7 +6,7 @@ this order, and the daily numbers are worked out again last, from what the other
 from __future__ import annotations
 
 import json
-import sqlite3
+from app.core.sqlite import sqlite3
 import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional

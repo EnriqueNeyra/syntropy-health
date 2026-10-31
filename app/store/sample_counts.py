@@ -8,7 +8,7 @@ every few minutes so they never drift far. Deleting samples drops them, so the n
 from __future__ import annotations
 
 import logging
-import sqlite3
+from app.core.sqlite import sqlite3
 import threading
 import time
 from typing import Optional

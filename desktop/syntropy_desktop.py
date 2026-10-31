@@ -529,7 +529,7 @@ def setup_logging() -> None:
 
 def describe_failure(exc: BaseException) -> tuple[str, str]:
     """(kind, text) for whatever stopped the app starting: what's wrong and what to do, in words."""
-    import sqlite3
+    from app.core.sqlite import sqlite3
 
     from app.core import config, db
 
@@ -739,6 +739,9 @@ class DesktopApp:
 
         self.starting = True
         problem = None
+        watching = threading.Event()
+        watcher = threading.Thread(target=self.show_encrypting, args=(watching,), daemon=True, name="encrypting-page")
+        watcher.start()
         try:
             updater.review_last_attempt(self.data / "updates")     # before the server: it may put the database back
             self.start_own_server()
@@ -746,6 +749,8 @@ class DesktopApp:
         except Exception as exc:  # noqa: BLE001 - whatever it was, the window says so
             log.exception("The server didn't start")
             problem = describe_failure(exc)
+        watching.set()
+        watcher.join(5)     # so it can't put its page back over what's shown next
         self.starting = False
         if problem:
             log.error("Can't start: %s", problem[1])
@@ -759,10 +764,23 @@ class DesktopApp:
                 self.window.load_url(self.server.url)
         self.refresh_menu()
 
+    def show_encrypting(self, finished: threading.Event) -> None:
+        """The start page, with how far along it is, while the server encrypts a database from before this version."""
+        from app.core import encryption
+
+        shown = None
+        while not finished.wait(1.0):
+            now = encryption.progress()
+            if now and now != shown and self.window:
+                shown = now
+                self.show_own_page(own_pages.encrypting_page(now["stage"], now.get("percent")))
+
     def show_problem(self, kind: str, text: str) -> None:
         """Even when opened at login, with no window: nothing else will tell them, and the phone has stopped syncing."""
+        from app.core import keystore
+
         if self.window:
-            self.show_own_page(own_pages.problem_page(text, kind, str(self.data), str(log_path())))
+            self.show_own_page(own_pages.problem_page(text, kind, str(self.data), str(log_path()), can_unlock=bool(keystore.recovery_entries())))
             self.show()
 
     # ----------------------------------------------------------- getting past a start-up problem
@@ -777,6 +795,8 @@ class DesktopApp:
             return self.quit()
         if kind == "go-home":
             return self.go_home()
+        if kind == "problem-unlock":        # the server's own page, which only it can answer (see app.main.unlock)
+            return self.window.load_url(f"{self.server.url}/") if self.window else None
         if not self.recovering.acquire(blocking=False):     # a second click while the first is still going
             return None
         try:

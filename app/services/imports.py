@@ -15,7 +15,7 @@ import hashlib
 import json
 import logging
 import shutil
-import sqlite3
+from app.core.sqlite import sqlite3
 import threading
 import time
 from pathlib import Path

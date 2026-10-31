@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
-import sqlite3
+from app.core.sqlite import sqlite3
 import threading
 import time
 from collections import deque

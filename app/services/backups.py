@@ -2,12 +2,14 @@
 Backups and restoring them. One kind of backup, from Settings, the command line and the schedule alike: a zip holding
 manifest.json, syntropy.db (a consistent copy taken while the server runs), secret.key and uploads, so it brings back
 everything on any computer, sign-ins included. It's encrypted with a passphrase (``app.services.backup_file``) unless
-someone explicitly chooses otherwise.
+someone explicitly chooses otherwise. Inside that, the database is encrypted too and the key is alongside it, so the
+passphrase alone restores it, wherever the key lives on this computer. A backup someone asked to have unencrypted holds an
+ordinary SQLite database instead, so that it never needs a key to read.
 
 Restoring is two steps. ``check`` unpacks a file into a private folder and tests everything without touching anything
 else; ``apply`` then swaps it in, keeps what it replaces in ``pre-restore/``, and puts that back if the result doesn't
 start. Older backups still work: a zip without a manifest, and a bare database as Settings used to download (which needs
-the key from elsewhere, and says so).
+the key from elsewhere, and says so). Their unencrypted database is encrypted on its way in.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ import logging
 import os
 import secrets
 import shutil
-import sqlite3
+from app.core.sqlite import sqlite3
 import tempfile
 import threading
 import time
@@ -29,13 +31,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from app.core import config, db, maintenance, security, settings
+from app.core import config, db, encryption, keystore, maintenance, security, settings
 from app.services import backup_file
 from app.services.backup_file import BackupFileError, Damaged, SealKey
 
 log = logging.getLogger("syntropy.backups")
 
-FORMAT = 1
+FORMAT = 2              # 2: the database inside is encrypted. A plain zip's isn't, and it stays 1 for older versions to read.
+PLAIN_FORMAT = 1
 SEALED_SUFFIX = ".syntropy"
 PLAIN_SUFFIX = ".zip"
 NAME_PREFIX = "syntropy-backup-"
@@ -71,10 +74,12 @@ def validate_passphrase(passphrase: Optional[str]) -> str:
 
 
 def key_source() -> str:
-    """Where this computer's encryption key lives: included in backups when it's the file."""
-    if config.env("SYNTROPY_SECRET_KEY"):
+    """Where this computer's encryption key lives: ``setting`` is one chosen by hand, in the environment or a key file."""
+    if security.explicit_source():
         return "setting"
-    return "file" if (config.data_dir() / "secret.key").exists() else "none"
+    if (config.data_dir() / keystore.KEY_FILE).exists() or keystore.store_of_record() in keystore.PROTECTED_STORES:
+        return "file"
+    return "none"
 
 
 def _private_folder(prefix: str) -> Path:
@@ -155,12 +160,12 @@ def _room_for(folder: Path, size: int, what: str) -> None:
                             f"and {free // 1048576:,} MB is free.")
 
 
-def _write_zip(out: Any, data: Path, snapshot: Path, manifest: dict[str, Any]) -> None:
+def _write_zip(out: Any, data: Path, snapshot: Path, manifest: dict[str, Any], key: Optional[bytes]) -> None:
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as z:
         z.writestr("manifest.json", json.dumps(manifest, indent=2))
         z.write(snapshot, "syntropy.db")
-        if manifest["key"] == "included":
-            z.write(data / "secret.key", "secret.key")
+        if key:
+            z.writestr("secret.key", security.key_as_file(key))
         uploads = data / "uploads"
         for f in sorted(uploads.rglob("*")) if uploads.exists() else []:
             if f.is_file() and not f.name.startswith(_TRANSIENT_UPLOAD):
@@ -178,6 +183,35 @@ def _sync_folder(folder: Path) -> None:
         os.fsync(fd)
     finally:
         os.close(fd)
+
+
+def _take_snapshot(snapshot: Path, unencrypted: bool) -> None:
+    """Encrypted as the database is, unless someone asked for a backup that isn't: then ordinary SQLite, as what they get in
+    the end is readable anyway."""
+    if not unencrypted or not db.is_encrypted(config.db_path()):
+        db.snapshot(snapshot)
+        return
+    encryption.plain_copy(snapshot)
+    conn = sqlite3.connect(snapshot)
+    try:
+        found = "; ".join(r[0] for r in conn.execute("PRAGMA quick_check(5)").fetchall())
+    finally:
+        conn.close()
+    if found != "ok":
+        raise db.StartupProblem("damaged", f"The backup was stopped because the database has damage ({found[:200]}), so the copy "
+                                           "couldn't be relied on. Keep your older backups: they may be the last good copies.")
+
+
+def _key_for_backup(unencrypted: bool) -> tuple[Optional[bytes], str]:
+    """The key and what the manifest says of it. A passphrase protects it, so an encrypted backup always carries it, even one
+    chosen by hand: otherwise the backup is one more thing that can't be opened if that's lost. A plain zip of a server whose
+    key was chosen by hand leaves it out, as it always has: the sign-ins in it stay locked, and the records are readable."""
+    source = key_source()
+    if source == "none":
+        return None, "none"
+    if unencrypted and source == "setting":
+        return None, "setting"
+    return security.master_key(), "included"
 
 
 def create(folder: Path, *, passphrase: Optional[str] = None, seal_key: Optional[SealKey] = None, unencrypted: bool = False,
@@ -200,8 +234,8 @@ def create(folder: Path, *, passphrase: Optional[str] = None, seal_key: Optional
         snapshot = work / "syntropy.db"
         if progress:
             progress("Copying the database…")
-        db.snapshot(snapshot)
-        conn = sqlite3.connect(snapshot)
+        _take_snapshot(snapshot, unencrypted)
+        conn = db.open_copy(snapshot)
         try:
             info = _describe(conn)
             schema = conn.execute("PRAGMA user_version").fetchone()[0]
@@ -210,11 +244,11 @@ def create(folder: Path, *, passphrase: Optional[str] = None, seal_key: Optional
         if not info["setup_completed"] and not info["counts"]["records"] and not info["counts"]["samples"]:
             raise NothingHere(f"There's nothing to back up in {data}: it hasn't been set up and holds no records. If your "
                               "data is somewhere else, say where with --data-dir.")
-        source = key_source()
+        key, key_note = _key_for_backup(unencrypted)
         created_at = time.time()
-        manifest = {"format": FORMAT, "app_version": config.APP_VERSION, "schema_version": schema,
+        manifest = {"format": FORMAT if db.is_encrypted(snapshot) else PLAIN_FORMAT, "app_version": config.APP_VERSION, "schema_version": schema,
                     "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(created_at)), "made_by": made_by,
-                    "key": {"file": "included", "setting": "setting", "none": "none"}[source], **info}
+                    "key": key_note, **info}
         if progress:
             progress("Writing the backup…")
         _room_for(folder, snapshot.stat().st_size, "the backup")
@@ -222,10 +256,10 @@ def create(folder: Path, *, passphrase: Optional[str] = None, seal_key: Optional
         fd = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "wb") as out:
             if unencrypted:
-                _write_zip(out, data, snapshot, manifest)
+                _write_zip(out, data, snapshot, manifest, key)
             else:
                 sealer = backup_file.Sealer(out, seal_key)      # type: ignore[arg-type]
-                _write_zip(sealer, data, snapshot, manifest)
+                _write_zip(sealer, data, snapshot, manifest, key)
                 sealer.close()
             out.flush()
             os.fsync(out.fileno())
@@ -413,7 +447,19 @@ def _unpack(file: Path, folder: Path, passphrase: Optional[str]) -> tuple[str, b
     if zipfile.is_zipfile(file):
         manifest = _unzip(file, folder)
         return ("current" if manifest else "older-zip"), False, manifest
+    if _is_our_encrypted_copy(file):     # from pre-upgrade/, say
+        _room_for(folder, file.stat().st_size, "unpacking this backup")
+        shutil.copyfile(file, folder / "syntropy.db")
+        return "database-only", False, {}
     raise BackupFileError("This isn't a Syntropy Health backup. It should be a .syntropy file, or a .zip or .db from an older version.")
+
+
+def _is_our_encrypted_copy(file: Path) -> bool:
+    try:
+        keys = security.known_database_keys()
+    except db.StartupProblem:
+        return False
+    return any(db.opens(file, key) for key in keys)
 
 
 class PassphraseNeeded(BackupFileError):
@@ -421,10 +467,27 @@ class PassphraseNeeded(BackupFileError):
         super().__init__("This backup is encrypted. Enter the passphrase it was made with.")
 
 
-def _test_database(path: Path) -> dict[str, Any]:
+def _keys_to_try(folder: Path) -> list[str]:
+    """The backup's own key first, then any this computer has had."""
+    keys = []
+    staged = folder / keystore.KEY_FILE
+    in_backup = security.key_from_file(staged.read_bytes()) if staged.exists() else None
+    if in_backup:
+        keys.append(security.database_key(in_backup))
+    try:
+        keys += security.known_database_keys()
+    except db.StartupProblem:
+        pass
+    return keys
+
+
+def _test_database(path: Path, keys: Optional[list[str]] = None) -> dict[str, Any]:
     conn = None
     try:
-        conn = sqlite3.connect(path)
+        if db.is_encrypted(path) and not any(db.opens(path, k) for k in keys or []):
+            raise BackupFileError("The database in this file is encrypted, and the key that opens it isn't with it or on this "
+                                  "computer. If you still have the key file, add it and check again.")
+        conn = db.open_copy(path, keys)
         conn.execute("PRAGMA trusted_schema = OFF")
         version = conn.execute("PRAGMA user_version").fetchone()[0]
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
@@ -450,27 +513,45 @@ def _test_database(path: Path) -> dict[str, Any]:
             Path(f"{path}{extra}").unlink(missing_ok=True)
 
 
-def _key_report(folder: Path, manifest: dict[str, Any], key_file: Optional[Path]) -> dict[str, Any]:
-    """Will the restored data's passwords and sign-ins open? ``ok`` false means they won't, and restoring takes an explicit yes."""
-    database = folder / "syntropy.db"
-    staged_key = folder / "secret.key"
+def _stage_key_file(folder: Path, key_file: Optional[Path]) -> None:
+    staged_key = folder / keystore.KEY_FILE
     if key_file:
         raw = key_file.read_bytes()
         if security.key_from_file(raw) is None:
             raise BackupFileError("That key file isn't valid: it should hold a 32-byte key.")
         staged_key.write_bytes(raw)
-    in_backup = security.key_from_file(staged_key.read_bytes()) if staged_key.exists() else None
-    if staged_key.exists() and in_backup is None:
+    if staged_key.exists() and security.key_from_file(staged_key.read_bytes()) is None:
         raise Damaged("the encryption key in it isn't valid")
+
+
+def _encrypted_key_report(database: Path, in_backup: Optional[bytes]) -> dict[str, Any]:
+    """An encrypted database has only one question: which key opens it? There's no restoring without it, so a chosen key that
+    doesn't fit stops this rather than being something to accept."""
+    if security.explicit_source():
+        here = security.existing_key()
+        if here and security.opens(database, here):
+            return {"status": "setting", "ok": True, "included": in_backup is not None,
+                    "message": "The encryption key you've set on this computer opens this backup."}
+        return {"status": "setting-differs", "ok": False, "blocking": True, "included": in_backup is not None,
+                "message": "This computer's SYNTROPY_SECRET_KEY or SYNTROPY_KEY_FILE setting takes priority and doesn't open this backup. Set "
+                           "it to the value used when the backup was made, or remove it" + (" to use the key inside the backup" if in_backup else "")
+                           + ", then check again."}
+    if in_backup is not None and security.opens(database, in_backup):
+        return {"status": "included", "ok": True, "included": True,
+                "message": "The encryption key is in this backup, so your records, passwords and saved sign-ins all come back."}
+    return {"status": "here", "ok": True, "included": False,
+            "message": "The encryption key already on this computer opens this backup."}
+
+
+def _key_report(folder: Path, manifest: dict[str, Any], key_file: Optional[Path]) -> dict[str, Any]:
+    """Will the restored data's passwords and sign-ins open? ``ok`` false means they won't, and restoring takes an explicit yes."""
+    database = folder / "syntropy.db"
+    staged_key = folder / keystore.KEY_FILE
+    in_backup = security.key_from_file(staged_key.read_bytes()) if staged_key.exists() else None
+    if db.is_encrypted(database):
+        return _encrypted_key_report(database, in_backup)
     env = config.env("SYNTROPY_SECRET_KEY")
-    here = None
-    if env:
-        here = security.key_from_setting(env)
-    elif (config.data_dir() / "secret.key").exists():
-        try:
-            here = security.key_from_file((config.data_dir() / "secret.key").read_bytes())
-        except OSError:
-            here = None
+    here = security.existing_key()
     needed = security.opens(database, here) if here else None
     has_secrets = security.has_secrets(database)
     if not has_secrets:
@@ -511,7 +592,8 @@ def check(file: Path, passphrase: Optional[str] = None, key_file: Optional[Path]
     folder = _private_folder(_RESTORE_PREFIX)
     try:
         kind, encrypted, manifest = _unpack(file, folder, passphrase)
-        info = _test_database(folder / "syntropy.db")
+        _stage_key_file(folder, key_file)
+        info = _test_database(folder / "syntropy.db", _keys_to_try(folder))
         key = _key_report(folder, manifest, key_file)
         uploads = sum(1 for f in (folder / "uploads").rglob("*") if f.is_file()) if (folder / "uploads").exists() else 0
         report = {
@@ -544,7 +626,7 @@ def _what_is_here() -> Optional[dict[str, Any]]:
         conn = db.open_connection(path, timeout=2.0)
         info = _describe(conn)
         return None if not info["setup_completed"] and not info["counts"]["records"] else {"holds": holds_text(info), **info}
-    except sqlite3.Error:
+    except (sqlite3.Error, db.StartupProblem):      # without the key is the very time a backup is wanted
         return {"holds": "a database that can't be read", "people": [], "accounts": [], "counts": {}}
     finally:
         if conn:
@@ -598,13 +680,30 @@ def _prune_safety_copies(folder: Path) -> None:
         shutil.rmtree(old, ignore_errors=True)
 
 
-def _swap(item: Staged) -> Optional[Path]:
-    """Puts the staged files in place. There's a database under the real name at every moment (a crash here must not leave
-    the next start to make an empty one), and the old log is never left beside the new file: SQLite would replay it onto
-    the wrong database, which is how unzipping a backup over a folder corrupted it. An OSError means nothing has changed."""
+def _encrypt_what_came_in(item: Staged) -> None:
+    """A database from before encryption, or from a plain zip, is encrypted before it takes the place of the one in use, with
+    the key it will have from then on. If it can't be, the next start tries again, as for any unencrypted database."""
+    database = item.folder / "syntropy.db"
+    if db.is_encrypted(database) or not encryption.enabled():
+        return
+    staged = item.folder / keystore.KEY_FILE
+    key = None if security.explicit_source() else (security.key_from_file(staged.read_bytes()) if staged.exists() else None)
+    try:
+        encryption.encrypt_copy(database, security.database_key(key or security.master_key()))
+    except (sqlite3.Error, OSError, db.StartupProblem) as exc:
+        log.warning("The restored database will be encrypted at the next start instead: %s", exc)
+
+
+def _swap(item: Staged) -> tuple[Optional[Path], Optional[bytes]]:
+    """Puts the staged files in place, and returns where what was here went, with its key. There's a database under the real
+    name at every moment (a crash here must not leave the next start to make an empty one), and the old log is never left
+    beside the new file: SQLite would replay it onto the wrong database, which is how unzipping a backup over a folder
+    corrupted it. The key is saved first, keeping the old one, so that a crash midway still has one for whichever database is
+    here. An OSError means nothing has changed."""
     data, path = config.data_dir(), config.db_path()
     siblings = [Path(f"{path}{extra}") for extra in ("-wal", "-shm")]
-    key, uploads = data / "secret.key", data / "uploads"
+    key, uploads = data / keystore.KEY_FILE, data / "uploads"
+    old_key = security.existing_key()
     aside = None
     if path.exists() or key.exists() or uploads.exists():
         if path.exists():
@@ -619,9 +718,13 @@ def _swap(item: Staged) -> Optional[Path]:
         for f in (path, *siblings):
             if f.exists():
                 _link_or_copy(f, aside / f.name)
-        if key.exists():
+        # Only where the key is beside the data anyway. Otherwise it stays in the system's store, with the keys it has replaced.
+        if key.exists() and keystore.store_of_record() not in keystore.PROTECTED_STORES:
             shutil.copy2(key, aside / key.name)
     try:
+        staged_key = item.folder / keystore.KEY_FILE
+        if staged_key.exists() and not security.explicit_source():
+            security.adopt_key(security.key_from_file(staged_key.read_bytes()) or b"")
         for f in siblings:
             f.unlink(missing_ok=True)
         restored = item.folder / "syntropy.db"
@@ -631,33 +734,30 @@ def _swap(item: Staged) -> Optional[Path]:
         with open(restored, "rb+") as fh:
             os.fsync(fh.fileno())
         os.replace(restored, path)
-        staged_key = item.folder / "secret.key"
-        if staged_key.exists():
-            if os.name != "nt":
-                staged_key.chmod(0o600)
-            db.same_owner(staged_key, data)
-            os.replace(staged_key, key)
         if aside and uploads.exists():
             os.replace(uploads, aside / "uploads")
         if (item.folder / "uploads").exists():
             os.replace(item.folder / "uploads", uploads)
         _sync_folder(path.parent)
     except OSError:
-        _put_back(aside)
+        _put_back(aside, old_key)
         raise
     if aside:
         _prune_safety_copies(aside.parent)
-    return aside
+    return aside, old_key
 
 
-def _put_back(aside: Optional[Path]) -> None:
+def _put_back(aside: Optional[Path], old_key: Optional[bytes] = None) -> None:
     """Back to what was there, from the copy kept, or to an empty folder if nothing was."""
     data, path = config.data_dir(), config.db_path()
     for extra in ("-wal", "-shm"):
         Path(f"{path}{extra}").unlink(missing_ok=True)
+    if old_key and not security.explicit_source():
+        security.adopt_key(old_key, keep_replaced=False)
     if aside is None:
         path.unlink(missing_ok=True)
-        (data / "secret.key").unlink(missing_ok=True)
+        (data / keystore.KEY_FILE).unlink(missing_ok=True)
+        keystore.forget()
         shutil.rmtree(data / "uploads", ignore_errors=True)
         return
     if (aside / path.name).exists():
@@ -668,10 +768,10 @@ def _put_back(aside: Optional[Path]) -> None:
     for extra in ("-wal", "-shm"):
         if (aside / f"{path.name}{extra}").exists():
             _link_or_copy(aside / f"{path.name}{extra}", Path(f"{path}{extra}"))
-    if (aside / "secret.key").exists():
-        shutil.copy2(aside / "secret.key", data / "secret.key")
-    else:
-        (data / "secret.key").unlink(missing_ok=True)
+    if (aside / keystore.KEY_FILE).exists():
+        shutil.copy2(aside / keystore.KEY_FILE, data / keystore.KEY_FILE)
+    elif not old_key:
+        (data / keystore.KEY_FILE).unlink(missing_ok=True)
     if (aside / "uploads").exists():
         shutil.rmtree(data / "uploads", ignore_errors=True)
         os.replace(aside / "uploads", data / "uploads")
@@ -708,11 +808,12 @@ def apply(item: Staged, accept_key_problem: bool = False, *, actor: str = "cli",
     """Swaps it in. If the result doesn't open, what was there goes back and this raises. The server must not be using the
     database: the command line checks that first, and in the server ``restore_in_server`` stops everything else."""
     report = item.report
-    if not report["key"]["ok"] and not accept_key_problem:
+    if not report["key"]["ok"] and (not accept_key_problem or report["key"].get("blocking")):
         raise BackupProblem(report["key"]["message"])
     if uses := in_use_elsewhere():
         raise BackupProblem(uses)
-    aside = _swap(item)
+    _encrypt_what_came_in(item)
+    aside, old_key = _swap(item)
     try:
         forget_everything_kept()
         if when_swapped:
@@ -720,7 +821,7 @@ def apply(item: Staged, accept_key_problem: bool = False, *, actor: str = "cli",
         _settle(report, accept_key_problem, actor)
     except (db.StartupProblem, sqlite3.Error, OSError) as exc:
         log.exception("The restored database didn't open")
-        _put_back(aside)
+        _put_back(aside, old_key)
         forget_everything_kept()
         raise BackupProblem(f"The restored data wouldn't open, so everything has been put back as it was: {exc}") from exc
     with _lock:
@@ -737,7 +838,10 @@ def in_use_elsewhere() -> Optional[str]:
         return None
     conn = None
     try:
-        conn = db.open_connection(path, timeout=0.2)
+        try:
+            conn = db.open_connection(path, timeout=0.2)
+        except db.StartupProblem:       # no key: this is only about who has the file open
+            conn = sqlite3.connect(str(path), timeout=0.2, isolation_level=None)
         conn.execute("PRAGMA busy_timeout = 200")
         conn.execute("PRAGMA locking_mode = EXCLUSIVE")
         conn.execute("BEGIN EXCLUSIVE")
@@ -765,7 +869,7 @@ def restore_in_server(app: Any, item: Staged, accept_key_problem: bool = False) 
     from app.core import data_fixes
     from app.services import imports
 
-    if not item.report["key"]["ok"] and not accept_key_problem:
+    if not item.report["key"]["ok"] and (not accept_key_problem or item.report["key"].get("blocking")):
         raise BackupProblem(item.report["key"]["message"])
     app.state.problem = RESTORING_TEXT
     imports.stop_running()      # before the pause, which an import's next batch would wait out and then write to what's restored

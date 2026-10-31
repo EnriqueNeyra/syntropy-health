@@ -21,7 +21,7 @@ import difflib
 import json
 import logging
 import re
-import sqlite3
+from app.core.sqlite import sqlite3
 import sys
 import time
 from dataclasses import dataclass, field

@@ -132,7 +132,7 @@ def info(port: Optional[int]) -> None:
 
     port = port or _running_port() or DEFAULT_PORT
     print(f"Syntropy Health {config.APP_VERSION}")
-    print(f"Data:     {config.data_dir()}  (to back it up: syntropy-health backup. Copying the folder while it runs isn't reliable)")
+    print(f"Data:     {config.data_dir()}  (to back it up: syntropy-health backup. A copy of the folder alone may not open without the key)")
     print(f"Program:  {sys.executable}")
     print(f"Open:     http://localhost:{port}")
     home, tailscale = network.home_addresses(), network.tailscale_addresses()
@@ -413,17 +413,15 @@ def restore(file: str, *, check_only: bool = False, key_only: bool = False, yes:
             staged_key = item.folder / "secret.key"
             if not staged_key.exists():
                 sys.exit("This backup has no encryption key in it. Nothing was changed.")
-            target = config.data_dir() / "secret.key"
             here = config.db_path()
-            if not here.exists() or not security.opens(here, security.key_from_file(staged_key.read_bytes())):
+            brought = security.key_from_file(staged_key.read_bytes())
+            if not here.exists() or not security.opens(here, brought):
                 sys.exit("The key in this backup doesn't open what's saved in the database here. Nothing was changed.")
-            if target.exists():
-                os.replace(target, target.with_name(f"{target.name}.replaced-{time.strftime('%Y%m%d-%H%M%S')}"))
-            if os.name != "nt":
-                staged_key.chmod(0o600)
-            db.same_owner(staged_key, target.parent)
-            os.replace(staged_key, target)
-            print(f"The encryption key is back at {target}. Your records weren't touched.")
+            if security.explicit_source():
+                sys.exit("This computer's key comes from SYNTROPY_SECRET_KEY or SYNTROPY_KEY_FILE, so it can't be replaced from here. "
+                         "Change or remove that setting, then try again. Nothing was changed.")
+            security.adopt_key(brought)
+            print("The encryption key is back. Your records weren't touched.")
             return
         if not report["key"]["ok"] and not without_key:
             sys.exit(f"{report['key']['message']}\nNothing was changed. To restore anyway, without passwords and saved sign-ins, "
@@ -1018,10 +1016,16 @@ def new_key() -> None:
     db.ensure_migrated()
     if config.env("SYNTROPY_SECRET_KEY"):
         sys.exit("The key comes from the SYNTROPY_SECRET_KEY setting: change it there.")
-    print("This starts a new encryption key. Your records are safe, but passwords, sign-ins to health systems and AI keys "
-          "saved with the old key stay unreadable: everyone sets a new password with `syntropy-health accounts "
-          "reset-password NAME`, and sources and AI services need signing in to again.")
-    print("Don't do this if you can still find the old secret.key: putting it back fixes everything.")
+    if db.is_encrypted(config.db_path()):
+        print("Your records are encrypted with the key on this computer, and it opens them, so that key stays: there's nothing a "
+              "new one could help. Passwords, sign-ins to health systems and AI keys that it can't open stay unreadable: this only "
+              "stops the warning about them. Everyone sets a new password with `syntropy-health accounts reset-password NAME`, "
+              "and sources and AI services need signing in to again.")
+    else:
+        print("This starts a new encryption key. Your records are safe, but passwords, sign-ins to health systems and AI keys "
+              "saved with the old key stay unreadable: everyone sets a new password with `syntropy-health accounts "
+              "reset-password NAME`, and sources and AI services need signing in to again.")
+        print("Don't do this if you can still find the old secret.key: putting it back fixes everything.")
     try:
         answer = input("Type NEW to go ahead: ")
     except EOFError:
@@ -1031,6 +1035,92 @@ def new_key() -> None:
     moved = security.start_new_key()
     print(f"Done. The old key file was kept as {moved}." if moved else "Done.")
     print("Restart Syntropy Health if it's running.")
+
+
+def key_status() -> None:
+    from app.core import encryption
+
+    state = encryption.status()
+    if state["encrypted"]:
+        print(f"Your records are encrypted on disk with {state['cipher'] or 'SQLCipher'}.")
+    else:
+        print("Your records are not encrypted on disk." + (f" {state['why_not']}" if state["why_not"] else " They will be the next time the server starts."))
+    print(f"The key is in {state['key_where']}." + (f" ({state['key_file']})" if state["key_file"] else ""))
+    if state["key_beside_data"]:
+        print("Anyone who copies the data folder gets the key too, so this protects little. Set SYNTROPY_KEY_FILE to a file "
+              "elsewhere, and use full-disk encryption for a stolen disk.")
+    recovery = state["password_recovery"]
+    if recovery["applies"]:
+        print(f"If that's ever lost, an owner's password can bring it back ({len(recovery['accounts'])} owner(s) ready; the others "
+              "at their next sign-in). `syntropy-health key recovery off` stops that.")
+    elif recovery["turned_off"]:
+        print("A password can't bring the key back if it's lost: that's turned off. Backups can. `syntropy-health key recovery on` turns it on.")
+    for copy in state["plain_copies"]:
+        print(f"Still unencrypted: {copy}")
+    print("A backup made with a passphrase holds the key, and can bring it back (restore --key-only).")
+
+
+def key_recover() -> None:
+    """The key's gone from the Keychain or Windows' protected storage, and the owner knows their password."""
+    import getpass
+
+    from app.core import keystore, security
+
+    if not keystore.recovery_entries():
+        sys.exit("A password can't bring the key back here: none was ever saved for it, or that's turned off. Take the key "
+                 "from a backup instead: syntropy-health restore BACKUP-FILE --key-only")
+    if not (sys.stdin and sys.stdin.isatty()):
+        sys.exit("This asks for a password, so it needs a terminal.")
+    if not security.recover_key(getpass.getpass("The password of an owner of this server: ")):
+        sys.exit("That password doesn't open it. Nothing was changed.")
+    print("The key is back, and your records open. Start Syntropy Health.")
+
+
+def key_export(target: Optional[str]) -> None:
+    """A copy to keep somewhere else: anyone with it can read a copy of the data, so it isn't made by accident or quietly."""
+    from app.core import security
+
+    if not target:
+        sys.exit("Say where to put it: syntropy-health key export FILE. Somewhere other than this computer's data folder.")
+    path = Path(target).expanduser()
+    key = security.master_key()
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        sys.exit(f"There's already a file at {path}. Nothing was changed.")
+    with os.fdopen(fd, "wb") as out:
+        out.write(security.key_as_file(key))
+    print(f"The key is in {path}. Anyone with this file and a copy of your data folder can read every record, so keep it apart from "
+          "them, such as on a USB drive in a drawer. To use it, put it back in the data folder as secret.key.")
+
+
+def key_recovery_setting(state: Optional[str]) -> None:
+    from app.core import keystore
+
+    if state not in ("on", "off"):
+        sys.exit("syntropy-health key recovery on, or off.")
+    keystore.set_recovery_off(state == "off")
+    print("An owner's password can't bring the key back any more. Keep a backup somewhere safe: it's the only way back now." if state == "off"
+          else "An owner's password can bring the key back, from the next time they sign in.")
+
+
+def database_decrypt(target: Optional[str]) -> None:
+    """Out of encryption: for going back to an earlier version, or taking the data to another tool. The server can keep running."""
+    from app.core import db, encryption
+
+    if not target:
+        sys.exit("Say where to put it: syntropy-health database decrypt FILE")
+    path = Path(target).expanduser()
+    if path.exists():
+        sys.exit(f"There's already a file at {path}. Nothing was changed.")
+    source = config.db_path()
+    if not db.is_encrypted(source):
+        sys.exit("The database isn't encrypted, so there's nothing to do. Copy it with `syntropy-health backup --no-encrypt` instead.")
+    if shutil.disk_usage(path.parent).free < source.stat().st_size:
+        sys.exit(f"There isn't enough room in {path.parent}.")
+    encryption.plain_copy(path)
+    print(f"An unencrypted copy of the database is at {path}. Anyone who gets it can read every record, so remove it when you're "
+          "done with it. Passwords and sign-ins in it still need the encryption key.")
 
 
 def accounts_command(action: Optional[str], name: Optional[str]) -> None:
@@ -1076,7 +1166,7 @@ def accounts_command(action: Optional[str], name: Optional[str]) -> None:
 # ---------------------------------------------------------------------------
 
 def main(argv: Optional[list[str]] = None) -> None:
-    import sqlite3
+    from app.core.sqlite import sqlite3
 
     from app.core.db import StartupProblem
 
@@ -1127,8 +1217,13 @@ def _command(argv: Optional[list[str]] = None) -> None:
     a = sub.add_parser("accounts", help="who signs in; reset-password NAME for someone locked out; make-owner NAME")
     a.add_argument("action", nargs="?", choices=["list", "reset-password", "make-owner"], default="list")
     a.add_argument("name", nargs="?")
-    k = sub.add_parser("key", help="key new: replace a lost encryption key (saved passwords and sign-ins stay unreadable)")
-    k.add_argument("action", choices=["new"])
+    k = sub.add_parser("key", help="the encryption key: status, recover (with a password), export FILE (keep a copy), recovery on|off, or "
+                                   "new (replace a lost key, while the database isn't encrypted)")
+    k.add_argument("action", nargs="?", choices=["status", "recover", "export", "recovery", "new"], default="status")
+    k.add_argument("value", nargs="?", help="export: where to put it. recovery: on or off")
+    dbp = sub.add_parser("database", help="database decrypt FILE: an unencrypted copy, to go back to an earlier version or use another tool")
+    dbp.add_argument("action", choices=["decrypt"])
+    dbp.add_argument("file", nargs="?")
     d = sub.add_parser("dev", help="development only: dev no-password on|off lets this instance run without a password")
     d.add_argument("setting", choices=["no-password"])
     d.add_argument("state", nargs="?", choices=["on", "off"])
@@ -1166,7 +1261,10 @@ def _command(argv: Optional[list[str]] = None) -> None:
     elif args.command == "accounts":
         accounts_command(args.action, args.name)
     elif args.command == "key":
-        new_key()
+        {"new": lambda: new_key(), "status": key_status, "recover": key_recover, "export": lambda: key_export(args.value),
+         "recovery": lambda: key_recovery_setting(args.value)}[args.action]()
+    elif args.command == "database":
+        database_decrypt(args.file)
     elif args.command == "dev":
         dev_no_password(args.state)
     else:

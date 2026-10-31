@@ -13,7 +13,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
-import sqlite3
+from app.core.sqlite import sqlite3
 import sys
 import threading
 import time

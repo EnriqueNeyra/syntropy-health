@@ -14,7 +14,7 @@ source itself says was a mistake, which is also what the next sync of a live con
 from __future__ import annotations
 
 import json
-import sqlite3
+from app.core.sqlite import sqlite3
 import time
 from typing import Any, Optional
 

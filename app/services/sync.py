@@ -12,7 +12,7 @@ import asyncio
 import hashlib
 import json
 import logging
-import sqlite3
+from app.core.sqlite import sqlite3
 import time
 import uuid
 from datetime import date, datetime, timedelta, timezone

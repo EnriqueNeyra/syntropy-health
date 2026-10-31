@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
+from app.core.sqlite import sqlite3
 import time
 from typing import Any, Optional
 
@@ -155,6 +155,12 @@ def set_password(account_id: str, password: Optional[str]) -> None:
     with db() as conn:
         conn.execute("UPDATE accounts SET password_hash = ?, updated_at = ? WHERE id = ?", (stored, time.time(), account_id))
         conn.execute("DELETE FROM user_sessions WHERE account_id = ? AND device_id IS NULL", (account_id,))
+    account = get(account_id)
+    if account and account["role"] == "owner":
+        if password:
+            security.note_owner_password(account_id, password, changed=True)
+        else:
+            security.forget_owner_password(account_id)
 
 
 def matching(ref: str) -> list[dict[str, Any]]:
@@ -196,6 +202,10 @@ def set_role(account_id: str, role: str, step_down: Optional[str] = None) -> Non
             raise ValueError("The server needs at least one owner.")
         for changed in {account_id, step_down} - {None}:
             _end_phones_out_of_reach(conn, "account_id", changed)
+    # Only an owner's password opens the key. A new owner's starts to at their next sign-in, when it's known.
+    for changed, now_role in ((account_id, role), (step_down, "member")):
+        if changed and now_role != "owner":
+            security.forget_owner_password(changed)
 
 
 def touch_login(account_id: str) -> None:
