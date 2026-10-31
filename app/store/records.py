@@ -7,7 +7,7 @@ import json
 import re
 import time
 import unicodedata
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 from zoneinfo import ZoneInfo
@@ -869,6 +869,8 @@ def new_since(profile_id: str, mark: float) -> dict[str, Any]:
             f"SELECT {columns} FROM clinical_records r WHERE r.profile_id = ? AND r.first_seen_at > ? AND NOT EXISTS "
             "(SELECT 1 FROM clinical_records o WHERE o.profile_id = r.profile_id AND o.dedup_key = r.dedup_key AND o.first_seen_at <= ?) "
             "ORDER BY coalesce(r.effective_at, '') DESC", (profile_id, mark, mark)).fetchall())
+        brought = rows_to_dicts(conn.execute(
+            f"SELECT {columns} FROM clinical_records r WHERE r.profile_id = ? AND r.first_seen_at > ?", (profile_id, mark)).fetchall())
         stopped = rows_to_dicts(conn.execute(
             f"SELECT {columns} FROM clinical_records r WHERE r.profile_id = ? AND r.id IN ({','.join('?' * len(stopped_ids))}) AND r.first_seen_at <= ? "
             f"AND lower(coalesce(r.status, '')) IN ({','.join('?' * len(ENDED_MED_STATUSES))}) ORDER BY coalesce(r.effective_at, '') DESC",
@@ -880,15 +882,17 @@ def new_since(profile_id: str, mark: float) -> dict[str, Any]:
             "ORDER BY coalesce(r.effective_at, '') DESC", (profile_id, mark, mark)).fetchall())
     # What the person has said is wrong or isn't them is on record, but it isn't news about them.
     said = record_overrides.for_profile(profile_id)
-    rows, stopped, documents = ([r for r in group if said.get(record_overrides.key_for(r), {}).get("state") != record_overrides.WRONG] for group in (rows, stopped, documents))
+    rows, stopped, documents, brought = ([r for r in group if said.get(record_overrides.key_for(r), {}).get("state") != record_overrides.WRONG]
+                                         for group in (rows, stopped, documents, brought))
+    brought = Counter(r["connection_id"] for r in brought)
     imported: dict[str, dict[str, Any]] = {}
     by_category: dict[str, list[dict[str, Any]]] = {}
     older = 0
     cutoff = datetime.fromtimestamp(mark - NEW_OLD_HISTORY_DAYS * 86400, timezone.utc).isoformat()
     for row in rows:
         if row["connection_id"] in first_time:
-            line = imported.setdefault(row["connection_id"], {"source": row["source_name"], "count": 0})
-            line["count"] += 1
+            # The line is about the import, so it counts what the import brought, as its own message did, records another source also sent among them.
+            imported.setdefault(row["connection_id"], {"source": row["source_name"], "count": brought[row["connection_id"]]})
         elif row["effective_at"] and row["effective_at"] < cutoff:
             older += 1
         else:

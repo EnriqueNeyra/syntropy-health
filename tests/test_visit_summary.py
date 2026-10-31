@@ -295,6 +295,19 @@ def test_a_first_import_is_one_line(client, pid):
     assert found["imported"] == [{"source": "Clinic", "count": 30}] and found["groups"] == []
 
 
+def test_a_first_import_counts_what_it_brought_including_what_another_source_also_sent(client, pid):
+    old = _source(pid, "Earlier")
+    _rec(pid, old, "shared", "labs", "Glucose", day="2010-01-01", dedup_key="labs|shared")
+    with db.db() as conn:
+        conn.execute("UPDATE clinical_records SET first_seen_at = 1")
+        conn.execute("UPDATE connections SET created_at = 1")
+    _new(client, pid)
+    src = _source(pid, "Banner")
+    _rec(pid, src, "shared", "labs", "Glucose", day="2010-01-01", dedup_key="labs|shared")
+    _rec(pid, src, "fresh", "labs", "Sodium", day="2010-01-01")
+    assert _new(client, pid)["imported"] == [{"source": "Clinic", "count": 2}]
+
+
 def test_old_history_arriving_later_is_not_news(client, pid):
     src = _source(pid)
     _age_connection(src)
