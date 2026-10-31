@@ -1117,6 +1117,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .msg-edit textarea { resize: none; max-height: 240px; line-height: 1.45; }
 .msg-edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
 /* The row under an answer keeps its height while the answer is written: finishing doesn't push anything. */
+.msg-note { margin-top: 6px; }
 .msg-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; min-height: 28px; margin-top: 4px; }
 .msg-foot:not(.ready) .msg-tools { visibility: hidden; }
 .msg-tools { display: inline-flex; gap: 2px; opacity: 0; transition: opacity .12s ease; }
@@ -1204,12 +1205,12 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 :root[data-shell="mac"] .ask-group { text-transform: none; letter-spacing: 0; color: var(--text-3); }
 /* Too narrow for it to sit beside the conversation: it slides over everything, and is closed until asked for. */
 @media (max-width: 1023px) {
-  .ask-side { position: fixed; inset: 0 auto 0 0; z-index: 45; width: min(320px, 86vw); padding-bottom: env(safe-area-inset-bottom); box-shadow: var(--shadow-lg); border-right: 0; transform: translateX(-102%); visibility: hidden;
-    transition: transform .24s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .24s; }
+  .ask-side { position: fixed; inset: 0 auto 0 0; z-index: 45; width: min(320px, 86vw); padding-bottom: env(safe-area-inset-bottom); box-shadow: var(--shadow-lg); border-right: 0;
+    transform: translateX(calc(-100% - 40px)); transition: transform .24s cubic-bezier(.2, .8, .2, 1); }
   .ask-split[data-side="closed"] .ask-side { display: flex; }
-  .ask-split[data-side="open"] .ask-side { transform: none; visibility: visible; transition: transform .24s cubic-bezier(.2, .8, .2, 1); }
-  .ask-scrim { display: block; position: fixed; inset: 0; z-index: 44; background: rgba(8, 8, 12, .55); opacity: 0; visibility: hidden; transition: opacity .24s ease, visibility 0s linear .24s; }
-  .ask-split[data-side="open"] .ask-scrim { opacity: 1; visibility: visible; transition: opacity .24s ease; }
+  .ask-split[data-side="open"] .ask-side { transform: none; }
+  .ask-scrim { display: block; position: fixed; inset: 0; z-index: 44; background: rgba(8, 8, 12, .55); opacity: 0; pointer-events: none; transition: opacity .24s ease; }
+  .ask-split[data-side="open"] .ask-scrim { opacity: 1; pointer-events: auto; }
   .ask-split .ask-bar { padding-left: 52px; }
   .ask-split .ask-bar-new { display: inline-flex; }
   .ask-side-head { padding-left: 10px; }

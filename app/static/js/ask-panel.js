@@ -230,7 +230,7 @@ export function conversationList({ list, searchBox, chats, currentId, liveId, on
   return {
     draw, rename, clearSearch,
     reveal: () => show(rows.get(currentId())),
-    focusSearch: () => { searchBox.focus(); searchBox.select(); },
+    focusSearch: () => { searchBox.focus({ preventScroll: true }); searchBox.select(); },
     /** What a search shows follows a rename or a pin straight away too. */
     change(id, fields) { const c = found?.find((x) => x.id === id); if (c) Object.assign(c, fields); },
     forget(id) { if (found) found = found.filter((c) => c.id !== id); rows.delete(id); },

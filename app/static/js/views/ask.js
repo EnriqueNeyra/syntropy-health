@@ -252,8 +252,10 @@ export async function render({ el, state, params, navigate }) {
       $(".msg-user", node).textContent = m.content;
     } else {
       node.className = `msg msg-ai${enter ? " enter" : ""}`;
-      mount(node, html`<div class="msg-note small muted"></div><div class="msg-steps"></div><div class="msg-body"></div>
+      // The note comes under the answer: it can arrive as the answer ends, and above it would push all the text down.
+      mount(node, html`<div class="msg-steps"></div><div class="msg-body"></div>
         <div class="typing" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="msg-note small muted"></div>
         <div class="msg-foot"><div class="msg-by"></div><div class="msg-tools">${toolButton("copy", "Copy answer", "copy")}${toolButton("regenerate", "Regenerate answer", "sync")}</div></div>`);
       patch(m, node, false);
     }
@@ -311,7 +313,7 @@ export async function render({ el, state, params, navigate }) {
       more.type = "button";
       more.dataset.continue = "";
       more.textContent = "Continue";
-      body.after(more);
+      note.after(more);
     }
     node.classList.toggle("streaming", !!(m.pending && shown));
     $(".typing", node).hidden = !(m.pending && !shown);
@@ -856,11 +858,11 @@ export async function render({ el, state, params, navigate }) {
     toggle.setAttribute("aria-expanded", String(sideOpen));
   };
 
-  /** What's near the top of the conversation, to stay there when the text takes a new width. */
+  /** The paragraph at the top of the conversation, to stay there when the text takes a new width. */
   const readingPlace = () => {
     if (nearBottom()) return { atEnd: true };
     const top = log.getBoundingClientRect().top;
-    const node = [...thread.children].find((n) => n.getBoundingClientRect().bottom > top);
+    const node = [...thread.querySelectorAll(".msg-user, .msg-body > *, .msg-foot")].find((n) => n.getBoundingClientRect().top >= top);
     return node ? { node, y: node.getBoundingClientRect().top } : null;
   };
   const keepPlace = (place) => {
@@ -968,9 +970,11 @@ export async function render({ el, state, params, navigate }) {
   $("#ask-bar-new", el).addEventListener("click", newChat);
   followAddress((route, where) => {
     if (route !== "ask") return false;
-    if (where.get("new")) newChat();
-    else if (where.get("chat")) openChat(where.get("chat"));
-    showAddress();
+    if (where.get("chat")) openChat(where.get("chat")).then(showAddress);
+    else {
+      if (where.get("new")) newChat();
+      showAddress();
+    }
     return true;
   });
 
