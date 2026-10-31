@@ -146,9 +146,12 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
           systemd-analyze security --offline=true /etc/systemd/system/syntropy-health.service --no-pager | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
-          properties=$(grep -E '^(User|NoNewPrivileges|Protect|Private|Restrict|Lock|Capability|SystemCall|ReadWritePaths)' /etc/systemd/system/syntropy-health.service | sed 's/^/-p /')
-          # shellcheck disable=SC2086  # one argument per word
-          sudo systemd-run --wait --pipe $properties /opt/syntropy-health/venv/bin/python -c '
+          # One argument per setting, since a setting can hold spaces.
+          set --
+          while IFS= read -r setting; do set -- "$@" "--property=$setting"; done <<EOF
+          $(grep -E '^(User|NoNewPrivileges|Protect|Private|Restrict|Lock|Capability|SystemCall|ReadWritePaths)' /etc/systemd/system/syntropy-health.service)
+          EOF
+          sudo systemd-run --wait --pipe "$@" /opt/syntropy-health/venv/bin/python -c '
           import subprocess
           from PIL import Image, ImageDraw
           image = Image.new("L", (300, 60), 255)

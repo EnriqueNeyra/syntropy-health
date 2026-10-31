@@ -3,14 +3,20 @@ systemd and Windows' Task Scheduler are stood in for; CI's install jobs run them
 
 from __future__ import annotations
 
+import errno
+import hashlib
+import io
+import json
 import os
 import plistlib
 import signal
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Optional
 
 import pytest
 
@@ -119,11 +125,49 @@ def test_a_first_install_listens_where_it_always_did(linux, monkeypatch, command
 
 def test_reinstalling_the_mac_service_keeps_its_port_and_address(monkeypatch, tmp_path, commands):
     monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(cli.os, "getuid", lambda: 501, raising=False)
     monkeypatch.setattr(cli, "_launchd_path", lambda: tmp_path / "agent.plist")
     cli.service_install("127.0.0.1", 9000, None)
     cli.service_install(None, None, None)
     args = plistlib.loads((tmp_path / "agent.plist").read_bytes())["ProgramArguments"]
     assert args[-4:] == ["--host", "127.0.0.1", "--port", "9000"]
+
+
+# What earlier versions left behind: a plist launchctl refused, written before it did, from a folder with an ampersand.
+MALFORMED_PLIST = b"""<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+  <key>Label</key><string>io.syntropyhealth.server</string>
+  <key>ProgramArguments</key><array><string>python</string><string>--host</string><string>0.0.0.0</string></array>
+  <key>EnvironmentVariables</key><dict><key>SYNTROPY_DATA_DIR</key><string>/Users/me/A&B</string></dict>
+</dict></plist>
+"""
+
+
+@pytest.mark.parametrize("left_behind", [MALFORMED_PLIST, b"", b"not a plist", plistlib.dumps(["a list"]),
+                                         plistlib.dumps({"ProgramArguments": [1, 2]})])
+def test_a_broken_plist_counts_as_no_address(monkeypatch, tmp_path, left_behind):
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(cli, "_launchd_path", lambda: tmp_path / "agent.plist")
+    (tmp_path / "agent.plist").write_bytes(left_behind)
+    assert cli._installed_address() == (None, None)
+
+
+def test_installing_again_replaces_the_plist_an_ampersand_broke(monkeypatch, tmp_path, commands):
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(cli.os, "getuid", lambda: 501, raising=False)
+    monkeypatch.setattr(cli, "_launchd_path", lambda: tmp_path / "agent.plist")
+    (tmp_path / "agent.plist").write_bytes(MALFORMED_PLIST)
+    cli.service_install(None, None, None)
+    args = plistlib.loads((tmp_path / "agent.plist").read_bytes())["ProgramArguments"]
+    assert args[-4:] == ["--host", "0.0.0.0", "--port", str(cli.DEFAULT_PORT)]
+    assert ["launchctl", "bootstrap", "gui/501", str(tmp_path / "agent.plist")] in commands.ran
+
+
+def test_updating_gets_past_a_plist_an_ampersand_broke(monkeypatch, tmp_path, isolated_data):
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(cli, "_launchd_path", lambda: tmp_path / "agent.plist")
+    (tmp_path / "agent.plist").write_bytes(MALFORMED_PLIST)
+    assert cli._last_port() == cli.DEFAULT_PORT
 
 
 def test_reinstalling_the_windows_task_keeps_its_port_and_address(monkeypatch, commands):
@@ -279,6 +323,7 @@ def test_a_service_for_an_account_that_does_not_exist_says_so(linux, monkeypatch
 # The service definitions
 # ---------------------------------------------------------------------------
 
+@pytest.mark.skipif(sys.platform == "win32", reason="a folder name can't hold < there, and launchd is the Mac's")
 def test_the_plist_survives_a_data_folder_with_an_ampersand(monkeypatch, tmp_path):
     folder = tmp_path / "A&B <mine>"
     monkeypatch.setenv("SYNTROPY_DATA_DIR", str(folder))
@@ -310,6 +355,86 @@ def test_the_log_file_is_rotated(isolated_data, monkeypatch):
     assert "line 399 of the log 100%\n" in (isolated_data / "server.log").read_text()
 
 
+class _NoRoom(io.StringIO):
+    def write(self, _text):
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+
+@pytest.fixture
+def log(isolated_data):
+    opened = cli._RotatingLog(isolated_data / "server.log")
+    yield opened
+    opened.close()
+
+
+# Under serve() sys.stderr is the log itself, so anything sent there about a failed write fails again, without end. Here
+# it's captured, so that being sent there at all is what fails: the real recursion is in test_a_full_disk_does_not_stop_the_server.
+def test_a_log_that_cannot_be_written_stays_quiet_about_it(log, monkeypatch, capsys):
+    log.write("opens the file\n")
+    log._handler.stream.close()
+    monkeypatch.setattr(log._handler, "stream", _NoRoom())
+    assert log.write("a request\n") == len("a request\n")
+    assert capsys.readouterr().err == ""
+
+
+def test_the_log_carries_on_once_there_is_room_again(log, isolated_data, capsys):
+    log.write("before\n")
+    log._handler.stream.close()      # how a flush that fails while rotating leaves it
+    log.write("while it was full\n")
+    log.write("after\n")
+    written = (isolated_data / "server.log").read_text()
+    assert "before\n" in written and "after\n" in written and capsys.readouterr().err == ""
+
+
+def test_a_log_that_cannot_be_opened_does_not_stop_the_server(isolated_data, capsys):
+    (isolated_data / "server.log").mkdir()
+    opened = cli._RotatingLog(isolated_data / "server.log")
+    assert opened.write("a request\n") == len("a request\n")
+    opened.close()
+    assert capsys.readouterr().err == ""
+
+
+def test_text_that_cannot_be_encoded_is_still_logged(log, isolated_data, capsys):
+    log.write("a file named \udc80\n")
+    assert "a file named \\udc80\n" in (isolated_data / "server.log").read_text() and capsys.readouterr().err == ""
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="a limit on file size stands in for a full disk")
+def test_a_full_disk_does_not_stop_the_server(isolated_data):
+    """The real thing, with the operating system refusing the writes."""
+    program = f"""
+import logging, resource, sys
+from pathlib import Path
+from app import cli
+real = sys.stdout
+resource.setrlimit(resource.RLIMIT_FSIZE, (2000, 2000))
+sys.stdout = sys.stderr = cli._RotatingLog(Path({str(isolated_data / "server.log")!r}))
+logging.basicConfig()
+for i in range(2000):
+    print("a line of the log, over and over")
+    logging.getLogger("uvicorn.access").warning("a request")
+real.write("still here")
+"""
+    done = subprocess.run([sys.executable, "-c", program], capture_output=True, text=True, timeout=60,
+                          cwd=Path(cli.__file__).parent.parent)
+    assert (done.returncode, done.stdout) == (0, "still here"), done.stderr
+    assert (isolated_data / "server.log").stat().st_size <= 2000
+
+
+def test_a_full_disk_does_not_stop_the_server_starting(isolated_data, monkeypatch, capsys):
+    monkeypatch.setattr("uvicorn.run", lambda *_a, **_k: print("from uvicorn"))
+    before = signal.getsignal(signal.SIGTERM)
+
+    def no_room(*_a, **_k):
+        raise OSError(errno.ENOSPC, "No space left on device")
+    monkeypatch.setattr(Path, "write_text", no_room)
+    try:
+        cli.serve("127.0.0.1", 8123)
+    finally:
+        signal.signal(signal.SIGTERM, before)
+    assert "from uvicorn" in capsys.readouterr().out
+
+
 def test_serve_with_no_console_writes_to_the_rotating_log(isolated_data, monkeypatch):
     monkeypatch.setattr("uvicorn.run", lambda *_a, **_k: print("from uvicorn"))
     monkeypatch.setattr(sys, "stdout", None)
@@ -336,6 +461,7 @@ def test_the_system_service_gives_the_server_only_what_it_needs(isolated_data):
     assert {"AF_UNIX", "AF_INET", "AF_INET6", "AF_NETLINK"} == set(families.split("=")[1].split())
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Linux paths, which Windows turns into its own")
 def test_home_folders_are_hidden_unless_the_server_lives_in_one(monkeypatch, tmp_path):
     monkeypatch.setenv("SYNTROPY_DATA_DIR", "/var/lib/syntropy-health")
     monkeypatch.setattr(cli, "_program", lambda: ["/opt/syntropy-health/venv/bin/python", "-m", "app"])
@@ -426,6 +552,86 @@ def test_update_finds_the_uv_the_installer_recorded(installing):
     cli._pip_install("syntropy-health @ https://example.test/w.whl#sha256=abc", installing.root / "locked.txt")
     assert installing.ran == [[str(uv), "pip", "install", "--python", sys.executable, "--upgrade", "-c",
                                str(installing.root / "locked.txt"), "syntropy-health @ https://example.test/w.whl#sha256=abc"]]
+
+
+def _wheel(folder: Path, name: str, version: str, needs: tuple[str, ...] = ()) -> Path:
+    path = folder / f"{name}-{version}-py3-none-any.whl"
+    info = f"{name}-{version}.dist-info"
+    metadata = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n" + "".join(f"Requires-Dist: {n}\n" for n in needs)
+    with zipfile.ZipFile(path, "w") as whl:
+        whl.writestr(f"{name}.py", f"VERSION = {version!r}\n")
+        whl.writestr(f"{info}/METADATA", metadata)
+        whl.writestr(f"{info}/WHEEL", "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n")
+        whl.writestr(f"{info}/RECORD", "")
+    return path
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+@pytest.fixture(scope="module")
+def venv_with_pip(tmp_path_factory) -> Path:
+    pytest.importorskip("ensurepip")
+    folder = tmp_path_factory.mktemp("pip-install") / "venv"
+    subprocess.run([sys.executable, "-m", "venv", str(folder)], check=True, capture_output=True)
+    return folder / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+
+
+@pytest.fixture
+def pip_install(venv_with_pip, monkeypatch, tmp_path):
+    """Real pip with no uv around, as for someone who ran `pip install`, finding packages in a folder instead of PyPI."""
+    packages = tmp_path / "packages"
+    packages.mkdir()
+    monkeypatch.setattr(sys, "executable", str(venv_with_pip))
+    monkeypatch.setattr(cli, "_uv", lambda: None)
+    monkeypatch.setenv("PIP_NO_INDEX", "1")
+    monkeypatch.setenv("PIP_FIND_LINKS", str(packages))
+    monkeypatch.setenv("PIP_DISABLE_PIP_VERSION_CHECK", "1")
+
+    def installed() -> dict[str, str]:
+        shown = subprocess.run([str(venv_with_pip), "-m", "pip", "list", "--format=json"], check=True, capture_output=True, text=True)
+        return {p["name"]: p["version"] for p in json.loads(shown.stdout)}
+    yield SimpleNamespace(packages=packages, installed=installed)
+    subprocess.run([str(venv_with_pip), "-m", "pip", "uninstall", "-y", "syntropy_health", "lockeddep"], check=True, capture_output=True)
+
+
+def _release(pip_install, version: str, dep_version: str, dep_digest: Optional[str] = None) -> tuple[str, Path]:
+    """A release as desktop.yml publishes one: its wheel, which asks loosely, and every dependency locked with hashes."""
+    dep = _wheel(pip_install.packages, "lockeddep", dep_version)
+    wheel = _wheel(pip_install.packages.parent, "syntropy_health", version, ("lockeddep>=0.1",))
+    lock = pip_install.packages.parent / f"lock-{version}" / updates.REQUIREMENTS_ASSET
+    lock.parent.mkdir()
+    lock.write_text(f"lockeddep=={dep_version} \\\n    --hash=sha256:{dep_digest or _sha256(dep)}\n")
+    return f"syntropy-health @ {wheel.as_uri()}#sha256={_sha256(wheel)}", lock
+
+
+def test_pip_installs_a_release_with_its_locked_dependencies(pip_install):
+    cli._pip_install(*_release(pip_install, "99.0.0", "1.5"))
+    assert pip_install.installed()["syntropy_health"] == "99.0.0" and pip_install.installed()["lockeddep"] == "1.5"
+    # Going back uses the same call, and takes the older dependency with it.
+    cli._pip_install(*_release(pip_install, "98.0.0", "1.4"))
+    assert pip_install.installed()["syntropy_health"] == "98.0.0" and pip_install.installed()["lockeddep"] == "1.4"
+
+
+def test_pip_refuses_a_dependency_that_does_not_match_the_list(pip_install):
+    source, lock = _release(pip_install, "99.0.0", "1.5", dep_digest="0" * 64)
+    with pytest.raises(cli.InstallProblem):
+        cli._pip_install(source, lock)
+    assert "syntropy_health" not in pip_install.installed()
+
+
+def test_pip_refuses_a_wheel_that_does_not_match_its_checksum(pip_install):
+    source, lock = _release(pip_install, "99.0.0", "1.5")
+    with pytest.raises(cli.InstallProblem):
+        cli._pip_install(f"{source.split('#')[0]}#sha256={'0' * 64}", lock)
+    assert "syntropy_health" not in pip_install.installed() and "lockeddep" not in pip_install.installed()
+
+
+def test_pip_still_installs_a_release_from_before_lock_files(pip_install):
+    wheel = _wheel(pip_install.packages.parent, "syntropy_health", "97.0.0")
+    cli._pip_install(f"syntropy-health @ {wheel.as_uri()}#sha256={_sha256(wheel)}")
+    assert pip_install.installed()["syntropy_health"] == "97.0.0"
 
 
 def test_update_without_uv_or_pip_says_what_to_do(installing, monkeypatch):

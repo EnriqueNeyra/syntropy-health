@@ -34,6 +34,7 @@ import time
 import urllib.error
 import urllib.request
 import zipfile
+from xml.parsers.expat import ExpatError
 from xml.sax.saxutils import escape
 from pathlib import Path
 from typing import Optional
@@ -56,19 +57,27 @@ LATEST = "latest"
 # serve / mcp / info
 # ---------------------------------------------------------------------------
 
+class _LogFile(logging.handlers.RotatingFileHandler):
+    def handleError(self, record: logging.LogRecord) -> None:
+        """A log that can't be written, on a full disk say, must not stop the server. The usual report of the problem goes
+        to sys.stderr, which is this log: it would fail too, and so on until Python gave up and the server fell over."""
+        if self.stream and self.stream.closed:      # so it opens again once there's room
+            self.stream = None
+
+
 class _RotatingLog(io.TextIOBase):
     """What a server with no console writes to, instead of a file that grows for as long as the computer stays on."""
     encoding = "utf-8"
 
     def __init__(self, path: Path):
-        self._handler = logging.handlers.RotatingFileHandler(path, maxBytes=LOG_BYTES, backupCount=LOG_KEEP, encoding="utf-8")
+        self._handler = _LogFile(path, maxBytes=LOG_BYTES, backupCount=LOG_KEEP, encoding="utf-8", errors="backslashreplace", delay=True)
         self._handler.terminator = ""
 
     def writable(self) -> bool:
         return True
 
     def write(self, text: str) -> int:
-        self._handler.emit(logging.makeLogRecord({"msg": text}))
+        self._handler.handle(logging.makeLogRecord({"msg": text}))      # threads write here too, and one may be rotating
         return len(text)
 
     def close(self) -> None:
@@ -91,7 +100,10 @@ def serve(host: str = "0.0.0.0", port: int = DEFAULT_PORT, reload: bool = False)
     # Uvicorn passes SIGTERM on once it has shut down. Dying from it would look like a crash to launchd, which restarts
     # the server, and would leave the pid file behind.
     signal.signal(signal.SIGTERM, _leave_cleanly)
-    _pid_file().write_text(f"{os.getpid()} {port}")
+    try:
+        _pid_file().write_text(f"{os.getpid()} {port}")
+    except OSError as exc:      # a full disk, perhaps: the records can still be read, and that's when they may be needed
+        print(f"Couldn't write {_pid_file().name}, but starting anyway: {exc}")
     # So pairing can give the iPhone a reachable address, and syntropyhealth.local is announced on the network.
     os.environ["SYNTROPY_LISTEN_HOST"], os.environ["SYNTROPY_LISTEN_PORT"] = host, str(port)
     print(f"Syntropy Health {config.APP_VERSION}: data in {config.data_dir()}")
@@ -397,7 +409,7 @@ def _installed_address() -> tuple[Optional[str], Optional[int]]:
             text = query.stdout if query.returncode == 0 else _windows_run_entry(None) or ""
         else:
             text = _unit_path().read_text()
-    except (OSError, ValueError, KeyError, plistlib.InvalidFileException):
+    except (OSError, ValueError, KeyError, TypeError, ExpatError):      # missing, or a file launchctl refused
         pass
     host, port = re.search(r"--host\s+([^\s<\"']+)", text), re.search(r"--port\s+(\d+)", text)
     return host.group(1) if host else None, int(port.group(1)) if port else None
@@ -583,10 +595,18 @@ def _pip_install(source: str, constraints: Optional[Path] = None) -> None:
     from app.services import updates
 
     uv = _uv()
-    pinned = ["-c", str(constraints)] if constraints else []
-    cmd = ([uv, "pip", "install", "--python", sys.executable, "--upgrade", *pinned, source] if uv
-           else [sys.executable, "-m", "pip", "install", "--upgrade", *pinned, source])
     try:
+        if uv:
+            pinned = ["-c", str(constraints)] if constraints else []
+            cmd = [uv, "pip", "install", "--python", sys.executable, "--upgrade", *pinned, source]
+        elif constraints:
+            # pip won't take hashes as constraints: they make it want an exact version of everything, and the package only
+            # asks for fastapi>=... So, as the Docker image does, one list of everything, all checked before any of it goes in.
+            everything = constraints.with_name("everything.txt")
+            everything.write_text(f"{constraints.read_text(encoding='utf-8')}\n{source}\n", encoding="utf-8")
+            cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--require-hashes", "--no-deps", "-r", str(everything)]
+        else:
+            cmd = [sys.executable, "-m", "pip", "install", "--upgrade", source]
         subprocess.run(cmd, check=True)
     except (subprocess.CalledProcessError, OSError) as exc:
         missing = "" if uv else " uv wasn't found either: run the installer again, which puts it back."

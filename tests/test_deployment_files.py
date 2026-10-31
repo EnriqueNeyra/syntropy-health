@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
 import pytest
 import yaml
 
-from app.core import settings
+from app import cli
+from app.core import config, settings
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
@@ -79,6 +83,40 @@ def test_ci_runs_the_windows_installer_in_windows_powershell():
     steps = yaml.safe_load(_read(".github/workflows/ci.yml"))["jobs"]["windows-install"]["steps"]
     runs = [s for s in steps if "install.ps1 -Server" in s.get("run", "")]
     assert runs and all(s["shell"] == "powershell" for s in runs)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="a step of a Linux job, in a POSIX shell")
+def test_ci_starts_the_sandbox_check_with_one_argument_per_setting(tmp_path):
+    """A setting can hold spaces (RestrictAddressFamilies=AF_UNIX AF_INET ...). Split up, its second word is taken for the
+    program to run. systemd-run itself only runs in CI, so this looks at what it would be given."""
+    steps = yaml.safe_load(_read(".github/workflows/ci.yml"))["jobs"]["linux-install"]["steps"]
+    script = next(s["run"] for s in steps if s.get("name") == "Lab photos can be read inside the service's sandbox")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv("SYNTROPY_DATA_DIR", "/var/lib/syntropy-health")
+        patch.setattr(cli, "_program", lambda: ["/opt/syntropy-health/venv/bin/python", "-m", "app"])
+        patch.setattr(config.Path, "mkdir", lambda *_a, **_k: None)
+        unit = cli._systemd_unit("0.0.0.0", 8000, "syntropy")
+    (tmp_path / "unit").write_text(unit)
+    script = script.replace("/etc/systemd/system/syntropy-health.service", str(tmp_path / "unit"))
+
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    stand_ins = {"sudo": 'exec "$@"\n', "apt-get": "exit 0\n", "systemd-analyze": "exit 0\n",
+                 "systemd-run": f'for a in "$@"; do printf \'%s\\n--\\n\' "$a"; done > "{tmp_path}/argv"\n'}
+    for name, body in stand_ins.items():
+        (stubs / name).write_text(f"#!/bin/sh\n{body}")
+        (stubs / name).chmod(0o755)
+    env = {**os.environ, "PATH": f"{stubs}{os.pathsep}{os.environ['PATH']}", "GITHUB_STEP_SUMMARY": str(tmp_path / "summary")}
+    subprocess.run(["bash", "-e", "-c", script], check=True, env=env, cwd=tmp_path)
+
+    argv = (tmp_path / "argv").read_text().split("\n--\n")
+    assert argv[:2] == ["--wait", "--pipe"]
+    program = next(i for i, a in enumerate(argv) if not a.startswith("-"))
+    assert argv[program:program + 2] == ["/opt/syntropy-health/venv/bin/python", "-c"] and "tesseract" in argv[program + 2]
+    passed = argv[2:program]
+    assert [a.removeprefix("--property=") for a in passed] == [line for line in unit.splitlines() if line.startswith((
+        "User=", "NoNewPrivileges=", "Protect", "Private", "Restrict", "Lock", "Capability", "SystemCall", "ReadWritePaths="))]
+    assert "--property=RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" in passed
 
 
 def test_the_installers_fetch_a_fixed_uv():
@@ -174,8 +212,9 @@ def test_the_image_carries_the_licence_and_the_command():
     dockerfile = _read("Dockerfile")
     assert re.search(r"^COPY LICENSE NOTICE ", dockerfile, re.M)
     assert "COPY scripts/docker-syntropy-health.sh /usr/local/bin/syntropy-health" in dockerfile
-    assert (ROOT / "scripts" / "docker-syntropy-health.sh").stat().st_mode & 0o111
-    assert (ROOT / "scripts" / "docker-entrypoint.sh").stat().st_mode & 0o111
+    if sys.platform != "win32":      # no executable bit there
+        assert (ROOT / "scripts" / "docker-syntropy-health.sh").stat().st_mode & 0o111
+        assert (ROOT / "scripts" / "docker-entrypoint.sh").stat().st_mode & 0o111
 
 
 def test_the_apps_carry_the_licence():
