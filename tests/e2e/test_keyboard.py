@@ -8,7 +8,7 @@ import pytest
 
 from tests.e2e.conftest import Session, seed
 
-PAGES = ["#/overview", "#/records", "#/timeline", "#/trends", "#/workouts", "#/journal", "#/sources", "#/settings/general", "#/ask"]
+PAGES = ["#/overview", "#/records", "#/timeline", "#/trends", "#/workouts", "#/journal", "#/sources", "#/settings/general", "#/ask", "#/prepare", "#/people"]
 
 
 @pytest.mark.parametrize("hash_", PAGES)

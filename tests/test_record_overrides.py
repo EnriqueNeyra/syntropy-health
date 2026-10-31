@@ -10,9 +10,10 @@ import zipfile
 
 import pytest
 
+from app.core.db import db
 from app.mcp_server import t_health_summary
 from app.services import exports, sync
-from app.store import connections, profiles, record_overrides, records
+from app.store import connections, profiles, record_files, record_overrides, records
 
 
 def _bundle(status="active", when="2025-05-01"):
@@ -187,3 +188,64 @@ def test_insights_leave_out_what_the_person_says_isnt_theirs(client, pid):
     client.put(f"/api/records/{_one(pid, 'labs')['id']}/override", json={"state": "wrong"})
     assert not records.flagged_labs(pid)
     assert records.summary(pid)["flagged_labs"][0]["override"]["words"] == "Wrong or not this person"
+
+
+def _other_on_record(profile, when):
+    with db() as conn:
+        rec = conn.execute("SELECT * FROM clinical_records WHERE profile_id = ? AND category = 'medications' LIMIT 1", (profile,)).fetchone()
+        conn.execute("UPDATE clinical_records SET category = 'other', title = 'A kind the app has no heading for', effective_at = ? WHERE id = ?", (when, rec["id"]))
+        return rec["id"]
+
+
+def test_prepare_for_a_visit_lists_what_the_person_said_is_wrong_apart_from_the_facts(client, pid):
+    day = time.strftime("%Y-%m-%d")
+    allergy, condition = _one(pid, "allergies"), _one(pid, "conditions")
+    with db() as conn:
+        conn.execute("UPDATE clinical_records SET effective_at = ? WHERE id IN (?, ?)", (day, allergy["id"], condition["id"]))
+    client.put(f"/api/records/{allergy['id']}/override", json={"state": "wrong"})
+    client.put(f"/api/records/{condition['id']}/override", json={"note": "Only the left foot"})
+    prep = client.get("/api/visit-prep", params={"profile": pid, "since": day}).json()
+    assert not prep["allergies"] and [a["title"] for a in prep["said_wrong"]] == [allergy["title"]]
+    assert prep["diagnoses"][0]["override"]["text"] == "Only the left foot"
+
+
+def test_the_other_category_reaches_prepare_and_the_timeline(client, pid):
+    day = time.strftime("%Y-%m-%d")
+    rid = _other_on_record(pid, day)
+    prep = client.get("/api/visit-prep", params={"profile": pid, "since": day}).json()
+    assert [r["id"] for r in prep["other"]] == [rid]
+    for params in ({}, {"categories": "other"}):
+        assert rid in [i["id"] for i in client.get("/api/timeline", params={"profile": pid, **params}).json()["items"]]
+
+
+def test_records_and_the_timeline_narrow_to_corrections_and_documents(client, pid):
+    condition = _one(pid, "conditions")
+    assert client.get("/api/record-filters", params={"profile": pid}).json()["has"] == []
+    client.put(f"/api/records/{condition['id']}/override", json={"note": "Only the left foot"})
+    assert client.get("/api/record-filters", params={"profile": pid}).json()["has"] == ["corrected"]
+    assert [r["id"] for r in client.get("/api/records", params={"profile": pid, "has": "corrected"}).json()["items"]] == [condition["id"]]
+    with db() as conn:
+        conn.execute("UPDATE clinical_records SET effective_at = '2025-01-01' WHERE id = ?", (condition["id"],))
+    shown = client.get("/api/timeline", params={"profile": pid, "categories": "corrected"}).json()["items"]
+    assert [r["id"] for r in shown] == [condition["id"]] and shown[0]["override"]["text"] == "Only the left foot"
+    allergy = _one(pid, "allergies")
+    record_files.save(pid, allergy["connection_id"], allergy["resource_type"], allergy["resource_id"], "letter.pdf", "application/pdf", b"%PDF-1.4 a letter")
+    assert "documents" in client.get("/api/record-filters", params={"profile": pid}).json()["has"]
+    assert [r["id"] for r in client.get("/api/records", params={"profile": pid, "has": "documents"}).json()["items"]] == [allergy["id"]]
+
+
+def test_an_entry_marked_wrong_isnt_new_and_a_document_on_a_known_record_is(client, pid):
+    mark = time.time() - 60
+    with db() as conn:
+        conn.execute("UPDATE clinical_records SET first_seen_at = ? WHERE profile_id = ?", (time.time() - 3600, pid))
+        conn.execute("UPDATE connections SET created_at = ? WHERE profile_id = ?", (time.time() - 3600, pid))
+    allergy, condition = _one(pid, "allergies"), _one(pid, "conditions")
+    with db() as conn:
+        conn.execute("UPDATE clinical_records SET first_seen_at = ? WHERE id IN (?, ?)", (time.time(), allergy["id"], condition["id"]))
+    client.put(f"/api/records/{allergy['id']}/override", json={"state": "wrong"})
+    groups = {g["key"]: g for g in records.new_since(pid, mark)["groups"]}
+    assert "allergies" not in groups and groups["conditions"]["count"] == 1
+    med = _one(pid, "medications")
+    record_files.save(pid, med["connection_id"], med["resource_type"], med["resource_id"], "letter.pdf", "application/pdf", b"%PDF-1.4 a letter")
+    groups = {g["key"]: g for g in records.new_since(pid, mark)["groups"]}
+    assert [i["id"] for i in groups["documents"]["items"]] == [med["id"]]

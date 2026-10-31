@@ -17,7 +17,7 @@ export async function render({ el }) {
   mount(el, html`
     <div class="page-head"><div><h1>Your people</h1><p>Everyone you can see, without switching to each.</p></div></div>
     <div class="card"><div class="list" id="people-list">${people.map((p) => html`
-      <button class="list-item" data-person="${p.id}" style="text-align:left;width:100%;background:none;border:0;cursor:pointer">
+      <button type="button" class="list-item" data-person="${p.id}" style="text-align:left;width:100%;background:none;border:0;cursor:pointer">
         <div class="grow" style="min-width:0"><div class="title">${p.name}</div><div class="meta">${facts(p)}</div></div>
         ${p.sources_need_signing_in + p.sources_failed + p.sources_not_synced_lately ? html`<span class="badge warn">Sources</span>` : ""}${icon("arrowRight")}</button>`)}</div></div>`);
   $("#people-list", el).addEventListener("click", (e) => {

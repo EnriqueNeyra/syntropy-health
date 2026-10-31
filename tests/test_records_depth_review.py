@@ -308,9 +308,11 @@ def test_a_name_of_only_spaces_is_refused(client, pid, kind):
 def test_the_visit_summary_shows_the_persons_words_on_every_table_of_entries():
     source = (STATIC / "report.js").read_text()
     for rows in ("r.unconfirmed_conditions.map((c)", "r.conditions_status_unknown.map((c)", "r.visit_diagnoses.slice(0, 10).map((c)", "r.medications_to_check.map((m)",
-                 "r.medications_planned.map((m)", "r.latest_vitals.map((v)", "vaccines.slice(0, 15).map((i)", "r.recent_encounters.map((e)"):
+                 "r.medications_planned.map((m)", "r.latest_vitals.map((v)", "byName.values()].map((doses)", "const visitRow = (e)", "const flaggedRow = (l)",
+                 "r.procedures.map((p)", "r.procedures_unfinished.map((p)", "r.imaging.map((p)", "r.coverage.map((c)", "r.allergies.map((a)", "r.active_conditions.map((c)"):
         line = next(ln for ln in source.splitlines() if rows in ln)
-        assert "saidOf(" in line, rows
+        assert "saidOf" in line, rows
+    assert "${resultStatus(l.status)}${saidOf(l)}" in source and "r.recent_encounters.map(visitRow)" in source and "r.upcoming_encounters.map(visitRow)" in source
 
 
 def test_a_document_isnt_opened_in_a_new_window_inside_the_apps():

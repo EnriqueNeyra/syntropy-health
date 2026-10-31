@@ -4,7 +4,7 @@ import { openLabEntry } from "./lab-entry.js";
 import { openRecord } from "./record-detail.js";
 import { recordValue } from "../units.js";
 import {
-  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loadInto, loading, modal, mount, onAction, parseDate, recordDate, resultStatus, showActiveChip, statusBadge, toast,
+  $, CATEGORY_ICON, debounce, emptyState, fieldsChanged, flagBadge, html, icon, loadInto, modal, mount, onAction, parseDate, recordDate, resultStatus, showActiveChip, statusBadge, toast,
 } from "../ui.js";
 
 const PAGE = 100;
@@ -83,7 +83,8 @@ export async function render({ el, parts, params, state, navigate }) {
     showActiveChip($("#rec-cats", el));
   };
 
-  const narrow = { kind: "", note_type: "", author: "", connection: connection || "", since: "", until: "" };
+  const narrow = { kind: "", note_type: "", author: "", has: "", connection: connection || "", since: "", until: "" };
+  const HAS_WORD = { documents: "With a document", corrected: "Your corrections" };
   const KIND_WORD = { lab: "Lab reports", imaging: "Imaging", other: "Other reports" };
   const select = (key, label, options) => (options.length ? html`<select class="input input-sm" data-narrow="${key}" aria-label="${label}" style="width:auto">
     <option value="">${label}</option>${options.map(([v, t]) => html`<option value="${v}" ${narrow[key] === String(v) ? "selected" : ""}>${t}</option>`)}</select>` : "");
@@ -96,6 +97,7 @@ export async function render({ el, parts, params, state, navigate }) {
       ${select("kind", "All reports", f.kinds.map((k) => [k, KIND_WORD[k] || k]))}
       ${select("note_type", "All note types", f.note_types.map((t) => [t, t]))}
       ${select("author", "All authors", f.authors.map((a) => [a, a]))}
+      ${select("has", "All entries", (f.has || []).map((k) => [k, HAS_WORD[k]]))}
       <label class="row small muted" style="gap:4px">From <input class="input input-sm" type="date" data-narrow="since" value="${narrow.since}" style="width:auto"></label>
       <label class="row small muted" style="gap:4px">To <input class="input input-sm" type="date" data-narrow="until" value="${narrow.until}" style="width:auto"></label>`);
     box.querySelectorAll("[data-narrow]").forEach((c) => c.addEventListener("change", () => { narrow[c.dataset.narrow] = c.value; load(); }));
@@ -138,7 +140,7 @@ export async function render({ el, parts, params, state, navigate }) {
   };
   const fetchInto = async (seq, append) => {
     const res = await get("/api/records", { profile: profile.id, category: category || undefined, q: q || undefined, connection: narrow.connection || undefined,
-      kind: narrow.kind || undefined, note_type: narrow.note_type || undefined, author: narrow.author || undefined, since: narrow.since || undefined, until: narrow.until || undefined,
+      kind: narrow.kind || undefined, note_type: narrow.note_type || undefined, author: narrow.author || undefined, has: narrow.has || undefined, since: narrow.since || undefined, until: narrow.until || undefined,
       limit: PAGE, offset });
     if (seq !== loadSeq) return;      // a newer search or category answered first (or will): this one is stale
     total = res.total;
@@ -155,7 +157,7 @@ export async function render({ el, parts, params, state, navigate }) {
   return onAction(el, {
     cat: ({ cat }) => {
       category = cat;
-      Object.assign(narrow, { kind: "", note_type: "", author: "" });
+      Object.assign(narrow, { kind: "", note_type: "", author: "", has: "" });
       drawCats(); drawFilters();
       history.replaceState(null, "", `#/records${cat ? "/" + cat : ""}`);
       load();
@@ -169,7 +171,7 @@ export async function render({ el, parts, params, state, navigate }) {
 
 /** A medication, supplement or allergy no source lists. Goes in as the person's own word, and says so wherever it's shown. */
 function openSelfReported(profile, done) {
-  const m = modal({ title: "Add a medication or allergy", body: html`<form class="stack" id="own-form">
+  const m = modal({ title: "Add a medication or allergy", dirty: () => fieldsChanged(m.el), body: html`<form class="stack" id="own-form">
     <p class="small muted">For what your record is missing, such as something bought over the counter. It's shown as patient-reported.</p>
     <label class="field"><span class="label">What is it</span><select class="input" name="kind">
       <option value="medication">A medication</option><option value="supplement">A supplement</option><option value="allergy">An allergy</option></select></label>
@@ -181,8 +183,10 @@ function openSelfReported(profile, done) {
   m.el.querySelector("#own-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
+    const name = String(f.get("name") || "").trim();
+    if (!name) { toast("Type a name first.", "bad"); return; }
     try {
-      await post("/api/records/self-reported", { profile_id: profile.id, kind: f.get("kind"), name: f.get("name"),
+      await post("/api/records/self-reported", { profile_id: profile.id, kind: f.get("kind"), name,
         how: f.get("how") || null, started: f.get("started") || null, note: f.get("note") || null });
     } catch (err) { toast(err.message, "bad"); return; }
     m.close();

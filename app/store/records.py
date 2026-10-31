@@ -634,6 +634,14 @@ def _until_clause(until: Optional[str]) -> tuple[str, list[Any]]:
     return f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? ELSE {_WHEN} <= datetime(?) END)", [day.isoformat(), until]
 
 
+# Narrowing by what's been added to an entry: a document kept with it, or the person's own words.
+HAS_CLAUSES = {
+    "documents": "EXISTS (SELECT 1 FROM record_files f WHERE f.connection_id = clinical_records.connection_id "
+                 "AND f.resource_type = clinical_records.resource_type AND f.resource_id = clinical_records.resource_id)",
+    "corrected": "coalesce(dedup_key, 'id:' || id) IN (SELECT dedup_key FROM record_overrides o WHERE o.profile_id = clinical_records.profile_id)",
+}
+
+
 def list_records(
     profile_id: str,
     category: Optional[str] = None,
@@ -650,8 +658,11 @@ def list_records(
     kind: Optional[str] = None,
     note_type: Optional[str] = None,
     author: Optional[str] = None,
+    has: Optional[str] = None,
 ) -> dict[str, Any]:
     where, params = ["profile_id = ?"], [profile_id]
+    if has in HAS_CLAUSES:
+        where.append(HAS_CLAUSES[has])
     if kind:
         where.append("json_extract(details_json, '$.kind') = ?")
         params.append(kind)
@@ -786,7 +797,10 @@ def record_filters(profile_id: str, category: Optional[str] = None) -> dict[str,
                                                 "WHERE profile_id = ? AND category = 'notes' ORDER BY 1", (profile_id,)).fetchall() if r[0]]
             authors = [r[0] for r in conn.execute("SELECT DISTINCT a.value FROM clinical_records c, json_each(c.details_json, '$.authors') a "
                                                   "WHERE c.profile_id = ? AND c.category = 'notes' ORDER BY 1", (profile_id,)).fetchall() if r[0]]
-    return {"sources": sources, "kinds": kinds, "note_types": types, "authors": authors}
+        narrowed = "AND category = ? " if category else ""
+        has = [k for k, clause in HAS_CLAUSES.items() if conn.execute(
+            f"SELECT 1 FROM clinical_records WHERE profile_id = ? {narrowed}AND {clause} LIMIT 1", (profile_id, category) if category else (profile_id,)).fetchone()]
+    return {"sources": sources, "kinds": kinds, "note_types": types, "authors": authors, "has": has}
 
 
 def visit_links(rec: dict[str, Any]) -> dict[str, Any]:
@@ -847,7 +861,7 @@ NEW_GROUPS = [("encounters", "New visits"), ("conditions", "New diagnoses"), ("m
 def new_since(profile_id: str, mark: float) -> dict[str, Any]:
     """What arrived after a moment: counts, titles and dates by kind. A source's first import is one line rather than years of history,
     and a record another source had already sent isn't new."""
-    columns = "r.id, r.category, r.title, r.effective_at, r.value_text, r.interpretation, r.source_name, r.connection_id, r.status"
+    columns = "r.id, r.dedup_key, r.category, r.title, r.effective_at, r.value_text, r.interpretation, r.source_name, r.connection_id, r.status"
     stopped_ids = sorted({rid for rid, at in settings.get(stopped_key(profile_id)) or [] if at > mark})
     with read() as conn:
         first_time = {r[0] for r in conn.execute("SELECT id FROM connections WHERE profile_id = ? AND created_at > ?", (profile_id, mark)).fetchall()}
@@ -859,6 +873,14 @@ def new_since(profile_id: str, mark: float) -> dict[str, Any]:
             f"SELECT {columns} FROM clinical_records r WHERE r.profile_id = ? AND r.id IN ({','.join('?' * len(stopped_ids))}) AND r.first_seen_at <= ? "
             f"AND lower(coalesce(r.status, '')) IN ({','.join('?' * len(ENDED_MED_STATUSES))}) ORDER BY coalesce(r.effective_at, '') DESC",
             (profile_id, *stopped_ids, mark, *ENDED_MED_STATUSES)).fetchall())
+        # A document that reached a record already known: one on a new record arrives with it.
+        documents = rows_to_dicts(conn.execute(
+            f"SELECT DISTINCT {columns} FROM record_files f JOIN clinical_records r ON r.connection_id = f.connection_id AND r.resource_type = f.resource_type "
+            "AND r.resource_id = f.resource_id WHERE f.profile_id = ? AND f.stored_at > ? AND f.data IS NOT NULL AND r.first_seen_at <= ? "
+            "ORDER BY coalesce(r.effective_at, '') DESC", (profile_id, mark, mark)).fetchall())
+    # What the person has said is wrong or isn't them is on record, but it isn't news about them.
+    said = record_overrides.for_profile(profile_id)
+    rows, stopped, documents = ([r for r in group if said.get(record_overrides.key_for(r), {}).get("state") != record_overrides.WRONG] for group in (rows, stopped, documents))
     imported: dict[str, dict[str, Any]] = {}
     by_category: dict[str, list[dict[str, Any]]] = {}
     older = 0
@@ -873,7 +895,7 @@ def new_since(profile_id: str, mark: float) -> dict[str, Any]:
             by_category.setdefault(row["category"], []).append(row)
     known = {key for key, _ in NEW_GROUPS}
     other = [row for key, group in by_category.items() if key not in known for row in group]
-    groups = [(key, label, by_category.get(key, [])) for key, label in NEW_GROUPS] + [("medications_stopped", "Medications marked stopped", stopped), ("other", "Other new records", other)]
+    groups = [(key, label, by_category.get(key, [])) for key, label in NEW_GROUPS] + [("medications_stopped", "Medications marked stopped", stopped), ("documents", "New documents", documents), ("other", "Other new records", other)]
     return {"since": mark, "imported": list(imported.values()), "older": older,
             "groups": [{"key": key, "label": label, "count": len(group),
                         "items": [{k: r[k] for k in ("id", "title", "effective_at", "value_text", "interpretation", "source_name")} for r in group[:NEW_ITEMS_SHOWN]]}
@@ -998,13 +1020,17 @@ def timeline(profile_id: str, *, categories: Optional[list[str]] = None, limit: 
              before: Optional[str] = None, q: Optional[str] = None, inclusive: bool = False) -> list[dict[str, Any]]:
     """Clinical records newest first, before ``before`` (or at it too, with ``inclusive``)."""
     cats = categories or ["encounters", "labs", "conditions", "medications", "procedures", "immunizations",
-                          "notes", "reports", "allergies"]
+                          "notes", "reports", "allergies", "other"]
+    added = [HAS_CLAUSES[c] for c in cats if c in HAS_CLAUSES]
+    cats = [c for c in cats if c not in HAS_CLAUSES]
     # Reports split by what they are: a lab panel is with labs, not among imaging.
     kinds = [c for c in cats if c in TIMELINE_REPORT_KINDS]
     cats = [c for c in cats if c not in TIMELINE_REPORT_KINDS]
     wanted = f"category IN ({','.join('?' * len(cats))})"
     for name in kinds:
         wanted += f" OR (category = 'reports' AND {TIMELINE_REPORT_KINDS[name]})"
+    for clause in added:
+        wanted += f" OR ({clause})"
     # What hasn't happened yet isn't history: a planned visit is under Upcoming on the Overview, and in Records.
     where = [f"({wanted})", "profile_id = ?", "effective_at IS NOT NULL",
              "NOT (category = 'encounters' AND (lower(coalesce(status, '')) = 'planned' OR effective_at > ?))",
@@ -1023,7 +1049,9 @@ def timeline(profile_id: str, *, categories: Optional[list[str]] = None, limit: 
             "ORDER BY effective_at DESC LIMIT ?",
             (*params, limit * 3),
         ).fetchall())
-    return _dedupe(rows)[:limit]
+    shown = _dedupe(rows)[:limit]
+    record_overrides.attach(profile_id, shown)
+    return shown
 
 
 # ---------------------------------------------------------------------------

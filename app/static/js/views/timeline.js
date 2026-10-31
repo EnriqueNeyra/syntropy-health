@@ -13,7 +13,7 @@ import {
 const FILTERS = [
   ["", "Everything"], ["encounters", "Visits"], ["labs,lab_reports", "Labs"], ["conditions", "Diagnoses"], ["medications", "Medications"],
   ["procedures", "Procedures"], ["imaging", "Imaging and reports"], ["immunizations", "Vaccines"], ["notes", "Notes"],
-  ["journal,checkins", "Journal"], ["signals", "Device alerts"], ["workouts", "Workouts"],
+  ["other", "Other records"], ["documents", "With a document"], ["corrected", "Your corrections"], ["journal,checkins", "Journal"], ["signals", "Device alerts"], ["workouts", "Workouts"],
 ];
 const JOURNAL_ICONS = { symptoms: "stethoscope", medication: "pill", notes: "note", cycle: "heart", stateOfMind: "sparkles", other: "list" };
 
@@ -108,7 +108,7 @@ export async function render({ el, state, navigate }) {
       const sourceOf = (e) => (e.kind === "journal" && e.manual ? "Journal" : e.source_name || "");
       const names = new Set(evs.map(sourceOf));
       const shared = names.size === 1 ? [...names][0] : "";
-      const metaOf = (e) => [shared ? "" : sourceOf(e), e.kind && e.kind !== "record" ? new Date(e.effective_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : ""].filter(Boolean).join(" · ");
+      const metaOf = (e) => [shared ? "" : sourceOf(e), e.kind && e.kind !== "record" ? new Date(e.effective_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "", e.override ? `You said: ${e.override.text}` : ""].filter(Boolean).join(" · ");
       const labs = evs.filter((e) => e.category === "labs");
       const other = evs.filter((e) => e.category !== "labs");
       const flagged = labs.filter((l) => l.interpretation && l.interpretation !== "normal");

@@ -2,19 +2,20 @@
 import { get, put } from "../api.js";
 import { appBridge, nativeNav, setToolbar } from "../app.js";
 import { recordValue } from "../units.js";
-import { $, capitalize, emptyState, flagBadge, fmtDate, html, icon, loading, mount, plural, toast } from "../ui.js";
+import { $, busy, capitalize, emptyState, flagBadge, fmtDate, html, icon, loadInto, loading, mount, plural, toast } from "../ui.js";
 
 // Said on the row only when it changes how the row reads: a visit that was cancelled, an allergy that's resolved.
 const UNREMARKABLE = new Set(["", "active", "completed", "finished", "final", "amended", "corrected", "current"]);
 const statusWord = (r) => (UNREMARKABLE.has(String(r.status || "").toLowerCase()) ? null : capitalize(r.status.replace(/-/g, " ")));
 
+const saidOf = (r) => (r.override ? html`<div class="meta">You said: ${r.override.text}</div>` : "");
 const row = (r, extra = "") => html`<div class="list-item"><div class="grow" style="min-width:0"><div class="title">${r.title}</div>
-  <div class="meta">${[statusWord(r), r.category_label, fmtDate(r.effective_at), r.source_name].filter(Boolean).join(" · ")}</div></div>${extra}</div>`;
+  <div class="meta">${[statusWord(r), r.category_label, fmtDate(r.effective_at), r.source_name].filter(Boolean).join(" · ")}</div>${saidOf(r)}</div>${extra}</div>`;
 
 const visitRow = (v) => row(v, v.clinician ? html`<span class="small muted">${v.clinician}</span>` : "");
 const resultRow = (r) => html`<div class="list-item"><div class="grow" style="min-width:0"><div class="title">${r.title}</div>
   <div class="meta">${[fmtDate(r.effective_at), r.source_name, r.count > 1 ? plural(r.count, "result") : null].filter(Boolean).join(" · ")}</div>
-  <div class="meta">${r.before ? `Before this period: ${recordValue(r.before)} on ${fmtDate(r.before.effective_at)}` : "No earlier result on record"}${r.ref_text ? ` · Range ${r.ref_text}` : ""}</div></div>
+  <div class="meta">${r.before ? `Before this period: ${recordValue(r.before)} on ${fmtDate(r.before.effective_at)}` : "No earlier result on record"}${r.ref_text ? ` · Range ${r.ref_text}` : ""}</div>${saidOf(r)}</div>
   <div class="value">${r.value_num != null || r.value_text ? recordValue(r) : ""}</div>${flagBadge(r.interpretation)}</div>`;
 
 function block(title, count, items, draw) {
@@ -43,8 +44,10 @@ function digest(d) {
     ${block("Notes", n.notes, d.notes, (p) => row(p))}
     ${block("Immunizations", n.immunizations, d.immunizations, (p) => row(p))}
     ${block("Other records", n.other, d.other, (p) => row(p))}
+    ${block("Documents kept", n.documents, d.documents, (p) => row({ ...p, category_label: p.document || "Document" }))}
     ${block("Logged in the journal", n.journal, d.journal, (j) => html`<div class="list-item"><div class="grow"><div class="title">${j.name}</div>
-      <div class="meta">${plural(j.count, "time")} · last ${fmtDate(j.last_at)}</div></div></div>`)}`;
+      <div class="meta">${plural(j.count, "time")} · last ${fmtDate(j.last_at)}</div></div></div>`)}
+    ${block("On record, and you said it's wrong", n.said_wrong, d.said_wrong, (p) => row(p))}`;
 }
 
 export async function render({ el, state }) {
@@ -73,7 +76,7 @@ export async function render({ el, state }) {
         <form class="row no-print" id="prep-form" style="margin-top:8px"><input class="input grow" id="prep-question" maxlength="500" aria-label="A question to ask" placeholder="Add a question to ask">
           <button class="btn" type="submit">${icon("plus")} Add</button></form>
         <p class="small muted no-print" style="margin-top:6px">These print on the visit summary too.</p></section>
-      <div id="prep-digest"><p class="muted small">Choose a visit or a date to see what's on record since then.</p></div>
+      <div id="prep-digest" aria-live="polite"><p class="muted small">Choose a visit or a date to see what's on record since then.</p></div>
     </div>`);
 
   const drawQuestions = () => mount($("#prep-questions", el), questions.map((q, i) => html`<li><span>${q}</span>
@@ -90,7 +93,7 @@ export async function render({ el, state }) {
     questions = [...questions, input.value.trim()];
     input.value = "";
     drawQuestions();
-    await saveQuestions();
+    await busy(e.submitter, saveQuestions);
   });
   $("#prep-questions", el).addEventListener("click", async (e) => {
     const b = e.target.closest("[data-remove-question]");
@@ -103,13 +106,12 @@ export async function render({ el, state }) {
   const box = $("#prep-digest", el);
   const show = async (since) => {
     if (!since) return;
-    mount(box, loading(3));
-    try {
+    await loadInto(box, async () => {
       const d = await get("/api/visit-prep", { profile: pid, since });
       const undated = d.undated.map((u) => `${u.label} ${u.count}`).join(", ");
       mount(box, html`<p class="small muted" style="margin:12px 0">Records and journal entries dated ${fmtDate(d.since)} or later. Measures from wearables and apps are in Trends.
         ${undated ? `Records with no date can't be placed before or after this, so they aren't listed here. They're in Records: ${undated}.` : ""}</p>${digest(d)}`);
-    } catch (err) { mount(box, html`<div class="banner bad"><div class="grow">${err.message}</div></div>`); }
+    });
   };
   $("#prep-visit", el).addEventListener("change", (e) => { $("#prep-date", el).value = ""; show(e.target.value); });
   $("#prep-date", el).addEventListener("change", (e) => { $("#prep-visit", el).value = ""; show(e.target.value); });

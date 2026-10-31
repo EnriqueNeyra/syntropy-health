@@ -10,15 +10,31 @@ from datetime import date, timedelta
 from typing import Any
 
 from app.services import insights
-from app.store import activity, records
+from app.core.db import read, rows_to_dicts
+from app.store import activity, record_overrides, records
 
 MOST = 200      # a list longer than this says how many it left out
-OTHER_KINDS = ("care_plans", "goals", "devices", "observations", "care_team", "coverage")
+OTHER_KINDS = ("care_plans", "goals", "devices", "observations", "care_team", "coverage", "other")
 
 
 def _light(r: dict[str, Any]) -> dict[str, Any]:
-    keep = ("id", "title", "category", "effective_at", "status", "value_text", "value_num", "unit", "interpretation", "ref_text", "source_name")
+    keep = ("id", "title", "category", "effective_at", "status", "value_text", "value_num", "unit", "interpretation", "ref_text", "source_name", "override")
     return {k: r.get(k) for k in keep}
+
+
+def _said_wrong(r: dict[str, Any]) -> bool:
+    return (r.get("override") or {}).get("state") == record_overrides.WRONG
+
+
+def _documents(profile_id: str, day: str) -> list[dict[str, Any]]:
+    """Documents kept with records dated since then, each with the record it belongs to."""
+    with read() as conn:
+        rows = rows_to_dicts(conn.execute(
+            "SELECT DISTINCT r.id, r.dedup_key, r.title, r.category, r.effective_at, r.source_name, f.name AS document FROM record_files f "
+            "JOIN clinical_records r ON r.connection_id = f.connection_id AND r.resource_type = f.resource_type AND r.resource_id = f.resource_id "
+            "WHERE f.profile_id = ? AND f.data IS NOT NULL AND substr(coalesce(r.effective_at, ''), 1, 10) >= ? ORDER BY r.effective_at DESC", (profile_id, day)).fetchall())
+    record_overrides.attach(profile_id, rows)
+    return [r for r in rows if not _said_wrong(r)]
 
 
 def _visit(e: dict[str, Any]) -> dict[str, Any]:
@@ -26,6 +42,10 @@ def _visit(e: dict[str, Any]) -> dict[str, Any]:
 
 
 def _since(profile_id: str, category: str, since: str) -> list[dict[str, Any]]:
+    return [r for r in _on_record(profile_id, category, since) if not _said_wrong(r)]
+
+
+def _on_record(profile_id: str, category: str, since: str) -> list[dict[str, Any]]:
     return [r for r in records.list_records(profile_id, category, since=since, limit=1000)["items"] if r.get("effective_at")]
 
 
@@ -36,7 +56,7 @@ def _results(profile_id: str, since: str, category: str = "labs") -> list[dict[s
     day = since[:10]
     for r in rows:
         when = str(r.get("effective_at") or "")[:10]
-        if not when:
+        if not when or _said_wrong(r):
             continue
         key = records._row_key(r)
         test = tests.get(key)
@@ -54,7 +74,7 @@ def changes_since(profile_id: str, since: str) -> dict[str, Any]:
     day = since[:10]
     timeline = insights.medication_timeline(profile_id)
     meds = records.list_records(profile_id, "medications", limit=500)["items"]
-    stopped = [m for m in meds if (m.get("status") or "").lower() in records.ENDED_MED_STATUSES
+    stopped = [m for m in meds if not _said_wrong(m) and (m.get("status") or "").lower() in records.ENDED_MED_STATUSES
                and str(m.get("effective_end") or m.get("effective_at") or "")[:10] >= day]
     # As the summary has it: a planned visit counts from today, and anything dated after the next couple of days hasn't happened.
     today, soon = date.today().isoformat(), (date.today() + timedelta(days=2)).isoformat()
@@ -66,6 +86,9 @@ def changes_since(profile_id: str, since: str) -> dict[str, Any]:
     imaging = [r for r in reports if (r.get("details") or {}).get("kind") == "imaging"]
     procedures, unfinished = records.procedures_by_finished(_since(profile_id, "procedures", since))
     other = [{**_light(r), "category_label": records.CATEGORY_LABELS[kind]} for kind in OTHER_KINDS for r in _since(profile_id, kind, since)]
+    # On record, and the person says it's wrong: listed as that, apart from the rest, and never as something that happened to them.
+    said_wrong = [{**_light(r), "category_label": records.CATEGORY_LABELS[kind]} for kind in records.CATEGORIES if kind not in ("care_team", "coverage")
+                  for r in _on_record(profile_id, kind, since) if _said_wrong(r)]
     lists = {
         "results": _results(profile_id, since),
         "medications_started": [{"id": m["record_id"], "title": m["name"], "effective_at": m["first"], "status": m["status"]}
@@ -83,6 +106,8 @@ def changes_since(profile_id: str, since: str) -> dict[str, Any]:
         "reports": [_light(r) for r in reports if (r.get("details") or {}).get("kind") != "imaging"],
         "immunizations": [_light(i) for i in _since(profile_id, "immunizations", since)],
         "other": other,
+        "documents": _documents(profile_id, day),
+        "said_wrong": said_wrong,
         "journal": activity.logged_summary(profile_id, start=day),
     }
     return {"since": day, "counts": {k: len(v) for k, v in lists.items()}, "undated": records.undated_counts(profile_id), **{k: v[:MOST] for k, v in lists.items()}}

@@ -51,11 +51,12 @@ def list_records(
     kind: Optional[str] = None,
     note_type: Optional[str] = None,
     author: Optional[str] = None,
+    has: Optional[str] = None,
 ) -> dict:
     prof = resolve_profile(profile)
     return records.list_records(prof["id"], category, q=q, connection_id=connection, code=code, status=status,
                                 since=since, until=until, dedupe=dedupe, limit=limit, offset=offset,
-                                kind=kind, note_type=note_type, author=author)
+                                kind=kind, note_type=note_type, author=author, has=has)
 
 
 @router.get("/record-filters")
