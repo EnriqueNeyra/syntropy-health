@@ -294,7 +294,7 @@ export function lineChart(container, series, opts = {}) {
   };
   pointerLayer(svgEl, width, height, {
     at: (px, py) => {
-      if (px < pad.left - 8 || px > width - pad.right + 8) return null;
+      if (px < pad.left - 16) return null;
       const event = py < pad.top ? rail.near(px) : null;
       if (event) return { key: `e${event.x}`, event };
       const p = nearest(px, py);
@@ -426,7 +426,7 @@ export function barChart(container, points, opts = {}) {
   pointerLayer(svgEl, width, height, {
     at: (px, py) => {
       if (py < pad.top && rail.near(px)) return { key: `e${rail.near(px).x}`, event: rail.near(px) };
-      if (px < pad.left - 8 || px > width - pad.right + 8) return null;
+      if (px < pad.left - 16) return null;
       const i = Math.max(0, Math.min(points.length - 1, Math.floor((px - pad.left) / slot)));
       return { key: i, i };
     },
@@ -552,7 +552,7 @@ export function rangeChart(container, rows, opts = {}) {
   const slotEl = container.querySelector(".slot");
   pointerLayer(container.querySelector("svg"), width, height, {
     at: (px) => {
-      if (px < PAD.left - 8 || px > width - PAD.right + 8) return null;
+      if (px < PAD.left - 16) return null;
       const i = Math.max(0, Math.min(rows.length - 1, Math.floor((px - PAD.left) / slot)));
       return { key: i, i };
     },

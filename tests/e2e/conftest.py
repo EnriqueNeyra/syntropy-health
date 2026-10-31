@@ -124,7 +124,7 @@ class Session:
         self.server = server
         self.errors: list[str] = []
         self.ctx = browser.new_context(viewport={"width": w, "height": h}, color_scheme="dark" if dark else "light",
-                                       service_workers="block", reduced_motion="reduce", **context)
+                                       service_workers="block", **{"reduced_motion": "reduce", **context})
         self.ctx.route(lambda url: not url.startswith(server.url),
                        lambda route: (self.errors.append(f"left the server: {route.request.url}"), route.abort()))
         self.page = self.ctx.new_page()

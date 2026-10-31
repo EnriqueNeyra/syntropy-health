@@ -540,7 +540,11 @@ export async function render({ el, state, navigate }) {
       redraw();
     },
     edit: () => setEditing(true),
-    done: () => setEditing(false),
+    done: async () => {
+      setEditing(false);
+      // Done means saved, even if the window closes straight after.
+      if (saveTimer) { clearTimeout(saveTimer); await sendLayout(); }
+    },
     remove: async ({ id }, btn) => {
       const inner = btn.closest(".dash-inner");
       if (!prefersStill()) await inner.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.94)" }], { duration: 130, easing: "ease-in", fill: "forwards" }).finished;
