@@ -188,11 +188,11 @@ export async function render({ el, params, state }) {
       <div class="card-head"><h3>Last 30 days</h3><span class="small muted">${logged ? plural(logged, "day") + " logged" : "Nothing logged yet"}</span></div>
       <div class="card-body stack" style="gap:10px">
         ${strip("mood", MOODS, "mood")}${strip("energy", ENERGY, "energy")}${strip("stress", STRESS, "stress")}
-        <div class="jr-sum">
+        ${logged ? html`<div class="jr-sum">
           <div><span>Mood</span><b>${moodAvg == null ? "—" : MOODS[Math.round(moodAvg) - 1][1]}</b></div>
           <div><span>Energy</span><b>${energyAvg == null ? "—" : ENERGY[Math.round(energyAvg) - 1][1]}</b></div>
           <div><span>Stress</span><b>${stressAvg == null ? "—" : STRESS[Math.round(stressAvg) - 1][1]}</b></div>
-        </div>
+        </div>` : ""}
         ${top.length ? html`<div class="small muted">Most logged symptoms: ${top.map(([n, c]) => `${n} (${c})`).join(", ")}</div>` : ""}
       </div>
       <div id="jr-patterns"></div>`);

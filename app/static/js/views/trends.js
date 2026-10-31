@@ -164,7 +164,7 @@ function buildItems(labs, vitals, metrics, signals) {
       const topic = clinicalTopic(it, category);
       items.push({
         key: it.code ? `c:${it.code}` : `t:${it.title}`, kind: "clinical", category, code: it.code, codes: it.codes || [], codeSystem: it.code_system, topic, title: it.title,
-        section: topic === "labs" ? (it.panel || "Other tests") : "From health records",
+        section: topic === "labs" ? (it.panel || "Single tests") : "From health records",
         value: category === "vitals" ? recordValue(it.latest) : it.latest.value_text || "", interpretation: it.latest.interpretation, status: it.latest.status, trend: it.trend,
         meta: `${fmtDate(it.latest.effective_at)} · ${plural(it.count, "result")}`,
       });
@@ -203,7 +203,7 @@ async function resultWithoutNumber(profileId, code, title, category) {
   const item = { code: s.code, title: s.title };
   return {
     key: item.code ? `c:${item.code}` : `t:${item.title}`, kind: "clinical", category, code: item.code, codes: s.codes || [], codeSystem: s.code_system,
-    topic: clinicalTopic(item, category), title: item.title, section: category === "labs" ? "Other tests" : "From health records",
+    topic: clinicalTopic(item, category), title: item.title, section: category === "labs" ? "Single tests" : "From health records",
     value: last.text, interpretation: last.interpretation, status: last.status, trend: null,
     meta: `${fmtDate(last.t)} · ${plural(s.text_results.length, "result")}`,
   };
@@ -389,9 +389,11 @@ export async function render({ el, parts, params, state, navigate }) {
         ${unitSets.length > 1 ? html`<div class="chips" style="margin-bottom:8px">${unitSets.map((u, i) => html`<button class="chip ${u === shownSet ? "active" : ""}" data-action="unit" data-index="${i}">
           ${u.unit || "No unit"} <span class="n">${u.points.length}</span></button>`)}</div>
           <p class="small muted" style="margin:0 0 8px">Some results are in a unit that can't be converted to the others, so they have their own chart rather than sharing an axis.</p>` : ""}
-        ${hasComponents ? html`<div class="legend" style="margin-bottom:6px">${s.components.map((c, i) => html`<span class="${i ? "alt" : ""}">${c.name}</span>`)}</div>`
-          : ref ? html`<div class="legend" style="margin-bottom:6px"><span class="band">Reference range</span></div>` : ""}
-        ${pts.length > 1 ? html`<div class="row wrap" style="justify-content:flex-end;margin-bottom:4px">${markerToggle(clinicalMarks().length, showMarkers)}</div>` : ""}
+        <div class="row wrap between" style="gap:4px 14px;margin-bottom:6px">
+          ${hasComponents ? html`<div class="legend">${s.components.map((c, i) => html`<span class="${i ? "alt" : ""}">${c.name}</span>`)}</div>`
+            : ref ? html`<div class="legend"><span class="band">Reference range</span></div>` : html`<span></span>`}
+          ${pts.length > 1 ? markerToggle(clinicalMarks().length, showMarkers) : ""}
+        </div>
         ${wordsOnly ? html`<p class="small muted" style="margin:0">No chart, because these results are words rather than numbers. Every result is listed below.</p>` : html`<div id="tr-chart"></div>`}
         ${markerList(showMarkers ? clinicalMarks() : [])}
         ${change !== null ? html`<p class="small muted" style="margin-top:8px">${Math.abs(change) < 1e-9 ? "Unchanged" : `${change > 0 ? "Up" : "Down"} ${body ? fmtNum(Math.abs(change), 1) : num(Math.abs(change))} ${unit}`}
