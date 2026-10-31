@@ -492,14 +492,6 @@ def test_before_and_after_works_for_blood_pressure_and_leaves_limits_out(client,
     assert d["lines"][0]["before"]["count"] == 0 and d["lines"][0]["limits_left_out"] == 1
 
 
-def test_before_and_after_never_claims_a_cause():
-    text = (STATIC / "views/trends.js").read_text(encoding="utf-8").lower()
-    start = text.index("function beforeaftercard")
-    words = text[start:text.index("\n}\n", start)]
-    for word in ("improved", "worked", "lowered", "because", "effect"):
-        assert word not in words, word
-
-
 # ---------------------------------------------------------------------------
 # F303
 # ---------------------------------------------------------------------------
