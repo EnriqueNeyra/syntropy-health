@@ -79,11 +79,15 @@ MEDHOST_URL = "https://api.mhdi10xasayd.com/medhost-developer-composition/v1/fhi
 # and each enterprise has its "Default Practice" and "Model Practice".
 NEXTGEN_PLACEHOLDER = re.compile(r"^(?:[A-Z]?\d+|person|\*.*|zz.*|.*\bzee\b.*|.*\bdefault\b.*|z ?default.*|model practice(?: \d+)?)$", re.I)
 # Whole words in any case. Then what test systems look like when run together with a name, in the capitals that tell
-# them apart from real ones: TestFamily and LLCTEST1, but not Testa, Testosterone or Neurotesting.
+# them apart from real ones: TestFamily and LLCTEST1, but not Testa, Testosterone or Neurotesting. A name all in capitals
+# hides those capitals, and a row left out here is never seen again, so only what can't be a word counts: TESTQA and
+# DEMOTEST, but not TESTA or FASTEST.
 TEST_NAME = re.compile(
     r"\b(?i:test|tests|tst|sandbox|staging)\b|\b(?i:demo)\b|\bTRAIN\b|\b(?i:train)$|\b(?i:training)\b|(?i:test ?db)|(?i:-test\b)|----"
-    r"|\b(?i:test|demo)\d+\b|^(?i:test)(?=[A-Z0-9_])|^TEST(?!ING|OS)|[A-Za-z]TEST(?![A-Z])|[a-z]Test\b|_(?i:test)|(?i:testing)[_\d]"
-    r"|^Test\w*local$|^(?i:testtest|prodtest|automatedtesting|qaproduction)$|InternalTest|^Train(?=[A-Z])"
+    r"|\b(?i:test|demo)\d+\b|^[Tt]est(?=[A-Z0-9_])|^TEST(?=[a-z0-9_])|[a-z]TEST(?![A-Z])|[a-z]Test\b|_(?i:test)|(?i:testing)[_\d]"
+    r"|^TEST(?:QA|EMR|EHR|DB|SITE|PRACTICE|FACILITY|FAMILY|CLINIC|HOSPITAL|MEDICAL|HEALTH|LAB|PROVIDER|USER|CLIENT|ACCOUNT|LOCAL|PROD|DEPT)"
+    r"|[A-Z]TEST\d|(?:DEMO|QA|UAT|DEV|PROD|EMR|EHR|LLC|INC)TEST\b"
+    r"|^Test\w*local$|^(?i:testtest|prodtest|automatedtesting|qaproduction)$|InternalTest|^Train(?=[A-Z]|\s*-)"
     r"|^QA\b|\bQA\d*$|\b(?i:z?default)\b")
 # The pods vendors run their own software on: "ASP41 POD3", "ECWINDQAPOD1 RTREDE", ModMed's "pod 10 admin" and "ophthpod1".
 VENDOR_POD = re.compile(
@@ -97,7 +101,8 @@ VENDOR_POD = re.compile(
     r"|^nextgen (?:ambulatory|behavioral|cardiology|ophthalmology|specialty|chc|ugm)\b"
     r"|^(?:practice \d+|master practice|standard practice|chc practice|optical practice \d+)$", re.I)
 # Retired, the way vendors mark it: "Z Retired Open MRI", "zzzJordan and Associates Office", "CVS - ZZZNJ22052", "... MD INACTIVE".
-RETIRED_NAME = re.compile(r"^z+ ?retired\b|^zzz|\bzzz[a-z]{2}\d|\binactive$", re.I)
+# NextGen's names stop at 40 characters, so a long one loses letters from the word: "Z RetEast Bay Medical Imaging Center LLC".
+RETIRED_NAME = re.compile(r"^z+ ?retired|^(?-i:Z Re(?:t|ti|tir|tire|tired)?(?=[A-Z]))|^zzz|\bzzz[a-z]{2}\d|\binactive$", re.I)
 # In an address's first label, where a name can't be judged: bellinghamentsandbox, efpod03test04, lagastro-test, testapi-sdg.
 TEST_HOST = re.compile(r"sandbox|(?<!la)(?<!grea)(?<!fas)(?<!con)(?<!at)(?<!pro)(?<!de)(?<!brigh)(?<!smar)test\d*$|^test|-test|test-|testpod"
                        r"|\d+admin$|^appadmin$|demo\d*$|^demo|-demo|-qa\d*$")

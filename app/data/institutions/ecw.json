@@ -116494,13 +116494,6 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/FDHCCD"
 },
 {
-"id": "ecw-eibgcd",
-"name": "Train-TALKIATRY MANAGEMENT SERVICES, LLC",
-"location": "New York, NY",
-"platform": "healow",
-"fhir_base_url": "https://fhir4.healow.com/fhir/r4/EIBGCD"
-},
-{
 "id": "ecw-fifibd",
 "name": "Tran Physician Group",
 "location": "Lubbock, TX",

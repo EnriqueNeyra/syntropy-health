@@ -27747,55 +27747,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-z-resouthern-connecticut-imaging-centers",
-"name": "Z ReSouthern Connecticut Imaging Centers",
-"location": "Hamden, CT",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-reteast-bay-medical-imaging-center-llc",
-"name": "Z RetEast Bay Medical Imaging Center LLC",
-"location": "San Ramon, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retiredosceola-radiology-associates-pa",
-"name": "Z RetiredOsceola Radiology Associates PA",
-"location": "Orlando, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retiregrand-itasca-clinic-and-hospital",
-"name": "Z RetireGrand Itasca Clinic And Hospital",
-"location": "Grand Rapids, MN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retireocean-medical-imaging-associates",
-"name": "Z RetireOcean Medical Imaging Associates",
-"location": "Toms River, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retirnew-haven-radiology-associates-pc",
-"name": "Z RetirNew Haven Radiology Associates PC",
-"location": "Hamden, CT",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-z-retiwillowbend-diagnostic-imaging-pllc",
-"name": "Z RetiWillowbend Diagnostic Imaging PLLC",
-"location": "Plano, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-z-riverfield-family-health",
 "name": "Z Riverfield Family Health",
 "location": "Clinton, NJ",
