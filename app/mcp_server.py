@@ -247,10 +247,11 @@ def t_compare(args: dict[str, Any]) -> Any:
     prof = _profile(args)
     c = insights.compare(prof["id"], str(args["a"]), str(args["b"]), min(int(args.get("days", 90)), 3650),
                          int(args.get("lag", 0)))
-    return {**{k: c[k] for k in ("a", "b", "lag", "days", "n", "r", "strength", "split")},
+    return {**{k: c[k] for k in ("a", "b", "lag", "days", "n", "r", "interval", "strength", "split")},
             "pairs": c["pairs"][-120:],
-            "note": "r is the Pearson correlation of a with b (b taken lag days later; negative lag: earlier). Correlation is "
-                    "not causation."}
+            "note": "r is a rank correlation of a with b (b taken lag days later; negative lag: earlier), after taking out each "
+                    "measure's overall trend, so a correlation worked out from the raw pairs will differ: report r. interval is "
+                    "its 95% range, allowing for correlated days. Correlation is not causation."}
 
 
 def t_sleep_nights(args: dict[str, Any]) -> Any:

@@ -176,7 +176,8 @@ def compare(profile_id: str, a: str, b: str, days: int = 90, lag: int = 0) -> di
 # Events from health records, for charts
 # ---------------------------------------------------------------------------
 
-NOT_TAKEN_STATUSES = {"draft", "cancelled", "entered-in-error", "not-taken"}
+# "intended" is a statement that the person hasn't begun it yet.
+NOT_TAKEN_STATUSES = {"draft", "cancelled", "entered-in-error", "not-taken", "intended"}
 NOT_AN_ORDER_INTENTS = {"proposal", "plan", "option"}
 # What's on record doesn't say whether these were taken, so they never support a before and after.
 UNSURE_STATUSES = {"unknown", "on-hold"}
@@ -206,11 +207,13 @@ def medication_timeline(profile_id: str) -> list[dict[str, Any]]:
     out = []
     for rows in by_drug.values():
         rows.sort(key=lambda r: r["day"])
-        newest = rows[-1]
-        out.append({"name": newest["title"], "first": rows[0]["day"], "last_ordered": newest["day"],
-                    "orders": len({r["day"] for r in rows}), "record_id": newest["id"], "status": newest.get("status"),
-                    # Only a statement says the person took it. An order is proof of an order.
-                    "reported_taking": rows[0].get("resource_type") == "MedicationStatement"})
+        oldest, newest = rows[0], rows[-1]
+        sure = not {(r.get("status") or "").lower() for r in (oldest, newest)} & UNSURE_STATUSES
+        first_sure = (oldest.get("status") or "").lower() not in UNSURE_STATUSES
+        out.append({"name": newest["title"], "first": oldest["day"], "last_ordered": newest["day"],
+                    "orders": len({r["day"] for r in rows}), "record_id": newest["id"], "status": newest.get("status"), "sure": sure,
+                    # Only a statement says the person took it, and only with a status that says so. An order is proof of an order.
+                    "reported_taking": oldest.get("resource_type") == "MedicationStatement" and first_sure})
     return out
 
 
@@ -241,6 +244,9 @@ MIN_BASELINE_VALUES = 14
 BASELINE_SPREAD = 2.0        # how many robust standard deviations either side counts as "your usual"
 DEVICE_RUN_BEFORE, DEVICE_RUN_AFTER = 5, 3
 DEVICE_NOTE_DAYS = 30
+WHOLE_DAY_SOURCES = ("oura", "whoop", "google health")
+# A deviation from the person's own temperature is below zero about half the time. Everything else stops at zero.
+SIGNED_METRICS = {"body_temperature_deviation"}
 
 
 def _complete(points: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -253,9 +259,21 @@ def _main_source(points: Iterable[dict[str, Any]]) -> Optional[str]:
     return counts.most_common(1)[0][0] if counts else None
 
 
+def _merges_into(source: Optional[str]) -> bool:
+    """Whether the merged row carries on from this source. It's a wearable's own numbers with the phone filling the gaps,
+    so from a wearable nothing has changed. From the phone alone a wearable now sets the numbers, and accounts that send
+    whole days aren't part of what's merged."""
+    name = (source or "").lower()
+    return biometrics.source_kind(source) != "phone" and not any(n in name for n in WHOLE_DAY_SOURCES)
+
+
+def _device_name(source: str) -> str:
+    return "your devices together" if source == biometrics.MERGED_SOURCE else source
+
+
 def device_changes(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The days a measure moved from one device to another for good. Which device wins can flick back and forth from
-    day to day when two record it, and a day or two of that isn't a change."""
+    day to day when two record it, and a day or two of that isn't a change. Nor is a wearable being joined by the phone."""
     runs: list[list[Any]] = []
     for p in points:
         if runs and runs[-1][0] == p["source"]:
@@ -281,22 +299,45 @@ def device_changes(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
             else:
                 merged.append(r)
         runs = merged
-    return [{"day": b[1], "from": a[0], "to": b[0]} for a, b in zip(runs, runs[1:]) if a[2] >= DEVICE_RUN_BEFORE]
+    devices: list[list[Any]] = []
+    for r in runs:
+        last = devices[-1] if devices else None
+        if last and last[0] == biometrics.MERGED_SOURCE and _merges_into(r[0]):
+            last[0], last[2] = r[0], last[2] + r[2]
+        elif last and (last[0] == r[0] or (r[0] == biometrics.MERGED_SOURCE and _merges_into(last[0]))):
+            last[2] += r[2]
+        else:
+            devices.append(r)
+    return [{"day": b[1], "from": a[0], "to": b[0]} for a, b in zip(devices, devices[1:]) if a[2] >= DEVICE_RUN_BEFORE]
+
+
+def _device_names(points: list[dict[str, Any]], source: Optional[str]) -> set[Optional[str]]:
+    """What one device's numbers are stored under: its own name and the merged row, which stands in for it on the days
+    the phone also recorded."""
+    if source == biometrics.MERGED_SOURCE:
+        return {source} | {p["source"] for p in points if _merges_into(p["source"])}
+    return {source, biometrics.MERGED_SOURCE} if _merges_into(source) else {source}
 
 
 def _same_device(profile_id: str, metric: str, points: list[dict[str, Any]], source: Optional[str], days: int,
                  end: Optional[date] = None) -> list[dict[str, Any]]:
     """Only ``source``'s days, including those another device outranked it on."""
-    if all(p["source"] == source for p in points):
+    names = _device_names(points, source)
+    if all(p["source"] in names for p in points):
         return points
-    return _complete(biometrics.daily_series(profile_id, metric, days=days, source=source, end=end)["points"])
+    by_day: dict[str, dict[str, Any]] = {}
+    for name in sorted(names, key=lambda n: n == biometrics.MERGED_SOURCE):
+        for p in _complete(biometrics.daily_series(profile_id, metric, days=days, source=name, end=end)["points"]):
+            by_day[p["day"]] = p
+    return [by_day[day] for day in sorted(by_day)]
 
 
-def _usual_range(values: list[float]) -> Optional[dict[str, float]]:
+def _usual_range(metric: str, values: list[float]) -> Optional[dict[str, float]]:
     if len(values) < MIN_BASELINE_VALUES:
         return None
     mid, spread = insight_stats.robust_center(values)
-    return {"median": mid, "low": max(0.0, mid - BASELINE_SPREAD * spread), "high": mid + BASELINE_SPREAD * spread}
+    low = mid - BASELINE_SPREAD * spread
+    return {"median": mid, "low": low if metric in SIGNED_METRICS else max(0.0, low), "high": mid + BASELINE_SPREAD * spread}
 
 
 def personal_range(profile_id: str, metric: str, days: int = 90, source: Optional[str] = None) -> dict[str, Any]:
@@ -313,13 +354,13 @@ def personal_range(profile_id: str, metric: str, days: int = 90, source: Optiona
     mine = _same_device(profile_id, metric, points, chosen, span)
     # The last week is left out, so a change that's under way doesn't pull "usual" along with it.
     settled = [p["value"] for p in mine if p["day"] < (today - timedelta(days=RECENT_DAYS - 1)).isoformat()][-BASELINE_DAYS:]
-    now = _usual_range(settled)
+    now = _usual_range(metric, settled)
     rolling = []
     step = max(1, days // 60)
     for back in range(days - 1, -1, -step):
         day = (today - timedelta(days=back)).isoformat()
         since = (today - timedelta(days=back + BASELINE_DAYS)).isoformat()
-        band = _usual_range([p["value"] for p in mine if since <= p["day"] < day])
+        band = _usual_range(metric, [p["value"] for p in mine if since <= p["day"] < day])
         if band:
             rolling.append({"day": day, **{k: round(v, 2) for k, v in band.items()}})
     return {"metric": metric, "label": label, "unit": unit, "source": chosen, "window_days": BASELINE_DAYS, "n": len(settled),
@@ -419,7 +460,7 @@ def _changes(profile_id: str) -> list[dict[str, Any]]:
         if len(recent) < min_recent or len(base) < min_base:
             # Too little from this device to compare it with itself. If that's because it's new, say so.
             for change in device_changes(pts)[-1:]:
-                if change["to"] == source and change["day"] >= (today - timedelta(days=DEVICE_NOTE_DAYS)).isoformat():
+                if change["to"] in _device_names(pts, source) and change["day"] >= (today - timedelta(days=DEVICE_NOTE_DAYS)).isoformat():
                     note = moved.setdefault((change["from"], change["to"]), {**change, "metrics": []})
                     note["day"] = min(note["day"], change["day"])
                     note["metrics"].append(metric)
@@ -438,7 +479,7 @@ def _changes(profile_id: str) -> list[dict[str, Any]]:
         tone, mention = health_limits.tone_for_move(metric, usual, typical, better)
         up = delta > 0
         label = METRICS[metric][0]
-        band = _usual_range(base)
+        band = _usual_range(metric, base)
         note = WORTH_MENTIONING if mention else None
         found.append(({
             "id": f"change:{metric}:{last.isoformat()}", "kind": "change", "tone": tone, "metric": metric,
@@ -457,13 +498,13 @@ def _changes(profile_id: str) -> list[dict[str, Any]]:
 
 
 def _device_note(change: dict[str, Any]) -> dict[str, Any]:
-    labels = [METRICS[m][0] for m in change["metrics"]]
+    labels = [_soft(METRICS[m][0]) for m in change["metrics"]]
     named = labels[0] if len(labels) == 1 else ", ".join(labels[:-1]) + f" and {labels[-1]}"
     return {
         "id": f"device:{change['to']}:{change['day']}", "kind": "device", "tone": "info",
-        "title": f"Now measured by {change['to']}",
-        "text": (f"{named} {'comes' if len(labels) == 1 else 'come'} from {change['to']} since {_day(change['day'])}, "
-                 f"instead of {change['from']}. Devices measure these differently, so earlier numbers aren't comparable. "
+        "title": f"Now measured by {_device_name(change['to'])}",
+        "text": (f"Since {_day(change['day'])}, the numbers for {named} come from {_device_name(change['to'])}, instead of "
+                 f"{_device_name(change['from'])}. Devices measure these differently, so earlier numbers aren't comparable. "
                  "Changes will be looked for again once there are enough days from the new one."),
         "data": {"from": change["from"], "to": change["to"], "day": change["day"], "metrics": change["metrics"]},
         "link": f"#/trends?metric={change['metrics'][0]}",
@@ -674,7 +715,7 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
     gates = {metric: (min_abs, min_rel) for metric, _, min_abs, min_rel in WATCH}
     for med in medication_timeline(profile_id):
         started = date.fromisoformat(med["first"])
-        if not 21 <= (today - started).days <= 365 or (med["status"] or "").lower() in UNSURE_STATUSES:
+        if not 21 <= (today - started).days <= 365 or not med["sure"]:
             continue
         day = med["first"]
         end = started + timedelta(days=30)
@@ -781,6 +822,11 @@ def _lab_note(lab: dict[str, Any], s: dict[str, Any]) -> Optional[dict[str, Any]
     sentence = (f"{s['title']} was {num(last['v'])} {unit} on {_day(last['t'])}, {'up' if moved > 0 else 'down'} from "
                 f"{num(prev['v'])} {unit} on {_day(prev['t'])}").replace("  ", " ")
     if big and not outward:
+        # Closer isn't good news while the lab still calls it critical.
+        if lab.get("interpretation") in records.CRITICAL:
+            return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention", "title": f"{s['title']} still flagged critical",
+                    "text": (f"{sentence}, and still {out_word} the reference range{ref}. The lab marked it critical, so go over it "
+                             "with your care team if you haven't already.")}
         return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "good", "title": f"{s['title']} closer to the range",
                 "text": f"{sentence}, and still {out_word} the reference range{ref}."}
     dated = [p for p in pts if _iso_day(p["t"])]
@@ -814,7 +860,8 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
     the range they're on when the record can say."""
     found = []
     for lab in records.flagged_labs(profile_id):
-        if lab.get("code"):
+        # An old result stays on the out-of-range list, marked as older. It isn't news.
+        if lab.get("code") and not lab.get("older"):
             note = _lab_note(lab, records.observation_series(profile_id, lab["code"], "labs"))
             if note:
                 found.append(note)
@@ -894,7 +941,7 @@ def _reading_breach(profile_id: str, metric: str, today: date) -> dict[str, Any]
             continue
         if limit.own_usual_counts:
             history = _complete(biometrics.daily_series(profile_id, metric, days=BASELINE_DAYS, source=p["source"])["points"])
-            usual = _usual_range([h["value"] for h in history if h["day"] < p["day"]])
+            usual = _usual_range(metric, [h["value"] for h in history if h["day"] < p["day"]])
             if usual and (figure >= usual["low"] if limit.side == "low" else figure <= usual["high"]):
                 continue
         out[limit.side] = {"value": figure, "day": p["day"], "source": p["source"]}

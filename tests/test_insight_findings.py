@@ -436,7 +436,7 @@ def test_a_new_device_is_reported_as_that_not_as_a_health_change(client):
     assert [i["kind"] for i in found] == ["device"]
     note = found[0]
     assert note["tone"] == "info" and note["data"]["to"] == "Oura Ring" and note["data"]["from"] == "Apple Watch"
-    assert "aren't comparable" in note["text"] and "Resting heart rate" in note["text"] and "HRV (RMSSD)" in note["text"]
+    assert "aren't comparable" in note["text"] and "resting heart rate" in note["text"] and "HRV (RMSSD)" in note["text"]
 
 
 def test_a_real_change_is_found_within_one_device_while_another_also_records(client):
@@ -715,3 +715,221 @@ def test_hiding_an_insight_follows_the_person_to_their_other_devices(client):
     assert client.get("/api/insights/hidden").json()["ids"] == [item["id"]]
     # AI apps still see everything.
     assert json.dumps(mcp_server.t_insights({})).count(item["title"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# F185: measures that go below zero
+# ---------------------------------------------------------------------------
+
+def test_the_usual_range_of_a_measure_that_goes_negative_holds_its_median(client):
+    pid = _prof()
+    _daily(pid, "body_temperature_deviation", _noisy(-0.2, 0.1, 70), source="Oura", unit="degC")
+    res = client.get("/api/insights/baseline", params={"metric": "body_temperature_deviation"}).json()
+    assert res["enough"] and res["low"] < res["median"] < res["high"]
+    assert res["median"] == pytest.approx(-0.2, abs=0.05) and res["low"] == pytest.approx(-0.4, abs=0.1)
+    assert all(day["low"] < day["median"] for day in res["rolling"])
+
+
+def test_the_usual_range_of_steps_stops_at_zero(client):
+    pid = _prof()
+    _daily(pid, "step_count", [abs(v) for v in _noisy(3000, 3000, 70)])
+    res = client.get("/api/insights/baseline", params={"metric": "step_count"}).json()
+    assert res["low"] == 0 and res["median"] > 0
+
+
+# ---------------------------------------------------------------------------
+# F266: old results
+# ---------------------------------------------------------------------------
+
+def _cholesterol(pid, first, second):
+    src = _source(pid)
+    _lab(pid, src, 1, first, 190, "normal", code="2093-3", title="Cholesterol", unit="mg/dL", high=200)
+    _lab(pid, src, 2, second, 260, "high", code="2093-3", title="Cholesterol", unit="mg/dL", high=200)
+
+
+def test_a_result_years_old_is_not_a_note_about_what_has_changed(client):
+    pid = _prof()
+    _cholesterol(pid, "2015-03-01", "2016-03-01")
+    assert records.flagged_labs(pid)[0]["older"] is True
+    assert insights._lab_notes(pid) == []
+    assert [i for i in insights.insights(pid) if i["kind"] == "lab"] == []
+
+
+def test_a_result_just_inside_the_older_limit_is_still_a_note(client):
+    pid = _prof()
+    _cholesterol(pid, _ago(records.OLDER_RESULT_DAYS + 300), _ago(records.OLDER_RESULT_DAYS - 2))
+    assert [n["title"] for n in insights._lab_notes(pid)] == ["Cholesterol moved out of range"]
+
+
+def test_an_old_critical_result_with_a_lower_one_before_it_stays_quiet_too(client):
+    pid = _prof()
+    src = _source(pid)
+    _lab(pid, src, 1, "2015-03-01", 7.5, "critical_high", code="2160-0", title="Creatinine", unit="mg/dL", low=0.6, high=1.2)
+    _lab(pid, src, 2, "2016-03-01", 6.0, "critical_high", code="2160-0", title="Creatinine", unit="mg/dL", low=0.6, high=1.2)
+    assert insights._lab_notes(pid) == []
+
+
+# ---------------------------------------------------------------------------
+# F077 and F071: a critical flag and a good tone
+# ---------------------------------------------------------------------------
+
+def test_a_result_still_flagged_critical_never_gets_a_good_tone(client):
+    pid = _prof()
+    src = _source(pid)
+    _lab(pid, src, 1, _ago(100), 7.5, "critical_high", code="2160-0", title="Creatinine", unit="mg/dL", low=0.6, high=1.2)
+    _lab(pid, src, 2, _ago(45), 6.0, "critical_high", code="2160-0", title="Creatinine", unit="mg/dL", low=0.6, high=1.2)
+    note = next(i for i in insights.insights(pid) if i["kind"] == "lab")
+    assert note["tone"] == "attention" and note["title"] == "Creatinine still flagged critical"
+    assert "7.5" in note["text"] and "6.0" in note["text"] and "above the reference range" in note["text"]
+    assert "marked it critical" in note["text"] and "closer" not in note["text"]
+
+
+def test_coming_down_from_critical_to_merely_high_can_be_good(client):
+    pid = _prof()
+    src = _source(pid)
+    _lab(pid, src, 1, _ago(100), 7.5, "critical_high", code="2160-0", title="Creatinine", unit="mg/dL", low=0.6, high=1.2)
+    _lab(pid, src, 2, _ago(45), 2.0, "high", code="2160-0", title="Creatinine", unit="mg/dL", low=0.6, high=1.2)
+    note = next(i for i in insights.insights(pid) if i["kind"] == "lab")
+    assert note["tone"] == "good" and note["title"] == "Creatinine closer to the range"
+
+
+# ---------------------------------------------------------------------------
+# F021: what a statement says
+# ---------------------------------------------------------------------------
+
+def _statement(pid, src, status, day=None, name=None):
+    _med(pid, src, f"s-{status}-{day}", day or _ago(40), title=name or f"Drug {status}", status=status, key=f"med|{name or status}",
+         resource="MedicationStatement")
+
+
+@pytest.mark.parametrize("status", ["active", "completed", "stopped"])
+def test_a_statement_of_taking_a_drug_says_started(client, status):
+    pid = _prof()
+    _statement(pid, _source(pid, "Clinic"), status)
+    assert [m["label"] for m in insights.markers(pid)] == [f"Started Drug {status}"]
+
+
+@pytest.mark.parametrize("status", ["unknown", "on-hold"])
+def test_a_statement_with_an_unsure_status_says_ordered_at_most(client, status):
+    pid = _prof()
+    _statement(pid, _source(pid, "Clinic"), status)
+    marker = insights.markers(pid)[0]
+    assert marker["label"] == f"Ordered Drug {status}" and marker["event"] == "ordered"
+
+
+def test_a_drug_not_begun_yet_is_no_event(client):
+    pid = _prof()
+    _statement(pid, _source(pid, "Clinic"), "intended")
+    assert insights.markers(pid) == []
+    assert insights.medication_timeline(pid) == []
+
+
+def test_a_drug_intended_first_and_taken_later_starts_when_it_was_taken(client):
+    pid = _prof()
+    src = _source(pid, "Clinic")
+    _statement(pid, src, "intended", _ago(90), "Metformin")
+    _statement(pid, src, "active", _ago(40), "Metformin")
+    marker = insights.markers(pid)[0]
+    assert marker["label"] == "Started Metformin" and marker["t"] == _ago(40)
+
+
+@pytest.mark.parametrize("status", ["intended", "unknown", "on-hold"])
+def test_no_before_and_after_for_a_statement_that_does_not_say_it_was_taken(client, status):
+    pid = _prof()
+    _daily(pid, "resting_heart_rate", _noisy(60, 1, 50) + _noisy(68, 1, 40), unit="bpm")
+    _statement(pid, _source(pid, "Clinic"), status, name="Vitamin D")
+    assert insights._medication_notes(pid) == []
+
+
+def test_no_before_and_after_when_only_the_first_row_of_a_drug_is_unsure(client):
+    pid = _prof()
+    src = _source(pid, "Clinic")
+    _daily(pid, "resting_heart_rate", _noisy(60, 1, 50) + _noisy(68, 1, 40), unit="bpm")
+    _statement(pid, src, "unknown", _ago(40), "Vitamin D")
+    _statement(pid, src, "active", _ago(5), "Vitamin D")
+    assert insights._medication_notes(pid) == []
+
+
+def test_a_statement_of_taking_a_drug_still_gets_its_before_and_after(client):
+    pid = _prof()
+    _daily(pid, "resting_heart_rate", _noisy(60, 1, 50) + _noisy(68, 1, 40), unit="bpm")
+    _statement(pid, _source(pid, "Clinic"), "active", name="Vitamin D")
+    assert "you started Vitamin D" in insights._medication_notes(pid)[0]["text"]
+
+
+# ---------------------------------------------------------------------------
+# F075: the merged row isn't a device
+# ---------------------------------------------------------------------------
+
+def test_a_watch_joined_by_a_phone_is_not_a_new_device(client):
+    pid = _prof()
+    _daily(pid, "step_count", _noisy(8000, 500, 70))
+    _daily(pid, "step_count", [300] * 7, source="iPhone")
+    biometrics.rebuild_daily(pid)
+    assert biometrics.daily_series(pid, "step_count", days=3)["points"][-2]["source"] == biometrics.MERGED_SOURCE
+    assert [i for i in insights._changes(pid) if i["kind"] == "device"] == []
+    assert insights.personal_range(pid, "step_count")["device_changes"] == []
+    assert "Combined" not in json.dumps(insights.insights(pid))
+
+
+def test_a_real_change_is_found_across_the_watch_and_its_merged_days(client):
+    pid = _prof()
+    _daily(pid, "step_count", _noisy(9000, 500, 70), end_days_ago=7)
+    _daily(pid, "step_count", _noisy(3000, 200, 7))
+    _daily(pid, "step_count", [100] * 7, source="iPhone")
+    biometrics.rebuild_daily(pid)
+    found = [i for i in insights._changes(pid) if i.get("metric") == "step_count"]
+    assert len(found) == 1 and found[0]["data"]["usual"] > 8000 and found[0]["title"] == "Steps is down"
+
+
+def test_the_usual_range_carries_on_across_the_merged_days(client):
+    pid = _prof()
+    _daily(pid, "step_count", _noisy(8000, 500, 70))
+    _daily(pid, "step_count", [300] * 7, source="iPhone")
+    biometrics.rebuild_daily(pid)
+    res = insights.personal_range(pid, "step_count")
+    assert res["enough"] and res["median"] == pytest.approx(8000, abs=300)
+
+
+def test_from_the_phone_alone_to_merged_is_a_change_in_plain_words(client):
+    pid = _prof()
+    _daily(pid, "step_count", _noisy(4000, 300, 70), source="iPhone", end_days_ago=5)
+    _daily(pid, "step_count", _noisy(9000, 300, 5))
+    _daily(pid, "step_count", [100] * 5, source="iPhone")
+    biometrics.rebuild_daily(pid)
+    note = next(i for i in insights._changes(pid) if i["kind"] == "device")
+    assert note["title"] == "Now measured by your devices together"
+    assert "Combined" not in note["text"] and "your devices together" in note["text"] and "instead of iPhone" in note["text"]
+    assert "the numbers for steps come from" in note["text"]
+
+
+@pytest.mark.parametrize("names,expected", [
+    (["Apple Watch"] * 8 + ["Combined"] * 8, []),
+    (["Combined"] * 8 + ["Apple Watch"] * 8, []),
+    (["Apple Watch"] * 8 + ["Combined"] * 8 + ["Apple Watch"] * 8, []),
+    (["Fitbit"] * 8 + ["Combined"] * 8, []),
+    (["iPhone"] * 8 + ["Combined"] * 8, [("iPhone", "Combined")]),
+    (["Combined"] * 8 + ["iPhone"] * 8, [("Combined", "iPhone")]),
+    # Oura sends whole days, so it's never part of what's merged.
+    (["Oura"] * 8 + ["Combined"] * 8, [("Oura", "Combined")]),
+    (["Apple Watch"] * 8 + ["Combined"] * 8 + ["Oura"] * 8, [("Apple Watch", "Oura")]),
+])
+def test_which_moves_to_and_from_the_merged_row_are_device_changes(names, expected):
+    points = [{"day": (datetime(2026, 1, 1) + timedelta(days=i)).date().isoformat(), "source": s} for i, s in enumerate(names)]
+    assert [(c["from"], c["to"]) for c in insights.device_changes(points)] == expected
+
+
+# ---------------------------------------------------------------------------
+# F181: what AI apps are told about a comparison
+# ---------------------------------------------------------------------------
+
+def test_the_compare_tool_names_the_right_statistic_and_gives_its_interval(client):
+    pid = _prof()
+    xs = _noisy(40, 5, 60)
+    _daily(pid, "hrv_rmssd", xs, unit="ms")
+    _daily(pid, "resting_heart_rate", [100 - x for x in xs], unit="bpm")
+    tool = mcp_server.t_compare({"a": "hrv_rmssd", "b": "resting_heart_rate"})
+    direct = insights.compare(pid, "hrv_rmssd", "resting_heart_rate")
+    assert "Pearson" not in tool["note"] and "rank correlation" in tool["note"] and "trend" in tool["note"]
+    assert "interval" in tool["note"] and "pairs" in tool["note"]
+    assert tool["interval"] == direct["interval"] and tool["interval"]["low"] <= tool["r"] <= tool["interval"]["high"]

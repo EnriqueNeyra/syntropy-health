@@ -66,6 +66,7 @@ function wearableSection(m, topic) {
 }
 
 function isFlagged(interp) { return interp && interp !== "normal"; }
+function deviceName(source) { return source === "Combined" ? "your devices together" : source; }
 
 /** A row per result of a panel (blood pressure), by the record each number came from, so a result with one number
  *  can't shift the rest of the history. Systolic first, and a dash where a number is missing. */
@@ -359,7 +360,7 @@ export async function render({ el, parts, params, state, navigate }) {
     const usualBand = usual?.enough ? { low: cv(usual.low), high: cv(usual.high) } : null;
     const outside = usual?.enough && last && !last.partial && (last.value < usual.low || last.value > usual.high);
     const switches = (usual?.device_changes || []).filter((c) => c.day >= firstDay && c.day <= s.end)
-      .map((c) => ({ t: c.day, label: `Device changed from ${c.from} to ${c.to}: earlier numbers aren't comparable` }));
+      .map((c) => ({ t: c.day, label: `Device changed from ${deviceName(c.from)} to ${deviceName(c.to)}: earlier numbers aren't comparable` }));
     mount(detail, html`
       ${backBar()}
       <div class="card card-pad">
@@ -372,7 +373,7 @@ export async function render({ el, parts, params, state, navigate }) {
         ${inRange ? html`<div class="row wrap" style="justify-content:flex-end;margin:-4px 0 6px">${markerToggle(inRange, showMarkers)}</div>` : ""}
         <div id="tr-chart"></div>
         ${word ? html`<p class="tiny faint" style="margin:4px 0 0">The chart shows each period's ${word.toLowerCase().replace(/^\w+ /, "")}.</p>` : ""}
-        ${usualBand ? html`<p class="small muted" style="margin:8px 0 0">Your usual range${usual.source ? ` from ${usual.source}` : ""} is ${metricValue(m, usual.low)}–${metricValue(m, usual.high)} ${unit}, from the ${usual.window_days} days before the last week.${outside ? " The latest day is outside it." : ""}</p>`
+        ${usualBand ? html`<p class="small muted" style="margin:8px 0 0">Your usual range${usual.source ? ` from ${deviceName(usual.source)}` : ""} is ${metricValue(m, usual.low)} to ${metricValue(m, usual.high)} ${unit}, from the ${usual.window_days} days before the last week.${outside ? " The latest day is outside it." : ""}</p>`
           : usual && !usual.enough && s.points.length ? html`<p class="tiny faint" style="margin:8px 0 0">Your usual range appears after two weeks of readings from one device.</p>` : ""}
         <div class="stat-row">
           <div><span>Average</span><b>${metricValue(m, s.stats.mean)}</b></div>
