@@ -415,7 +415,10 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
     for m in markers(profile_id, start=(today - timedelta(days=365)).isoformat()):
         if m["kind"] != "medications":
             continue
-        started = date.fromisoformat(m["t"])
+        try:
+            started = date.fromisoformat(m["t"])
+        except ValueError:      # known only to the year or month: too rough to compare the weeks around it
+            continue
         if (today - started).days < 21:
             continue
         name = m["label"].removeprefix("Started ")
@@ -445,6 +448,19 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
     return out[:3]
 
 
+def _range_words(lab: dict[str, Any], series: dict[str, Any], last: dict[str, Any]) -> str:
+    """The reference range beside a series' numbers, in their unit. The lab's own words only fit a result shown as the lab reported it."""
+    if not last.get("converted"):
+        return lab.get("ref_text") or "as reported"
+    low, high, unit = series.get("ref_low"), series.get("ref_high"), series.get("unit") or ""
+    if low is not None and high is not None:
+        return f"{low:g}–{high:g} {unit}".strip()
+    if low is not None or high is not None:
+        return f"{'≥' if low is not None else '≤'} {low if low is not None else high:g} {unit}".strip()
+    text, reported = lab.get("ref_text"), lab.get("unit") or ""
+    return f"{text} {reported}".strip() if text and reported not in text else text or "as reported"
+
+
 def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
     """Out-of-range lab results that moved further from the range since the previous result."""
     out = []
@@ -457,6 +473,8 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
         if len(pts) < 2:
             continue
         last, prev = pts[-1], pts[-2]
+        if last.get("comparator") or prev.get("comparator"):
+            continue        # a limit like "<5" isn't a level to have moved from
         high = "high" in (lab.get("interpretation") or "")
         worse = last["v"] > prev["v"] if high else last["v"] < prev["v"]
         if not worse or last["v"] == prev["v"]:
@@ -470,7 +488,7 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
             "title": f"{s['title']} moving further out of range",
             "text": (f"{s['title']} was {num(last['v'])} {unit} on {_day(last['t'])}, {'up' if high else 'down'} from "
                      f"{num(prev['v'])} {unit} on {_day(prev['t'])}, and {'above' if high else 'below'} the reference range "
-                     f"({lab.get('ref_text') or 'as reported'})."),
+                     f"({_range_words(lab, s, last)})."),
             "data": {"code": code, "latest": last["v"], "previous": prev["v"], "unit": unit},
             "link": f"#/trends?code={code}",
         })

@@ -373,7 +373,8 @@ async function uploadApple(file, profile, statusEl, refresh, left) {
     if (job.status === "completed") {
       const r = job.result || {};
       mount(statusEl, html`<div class="banner info">${icon("check")}<div class="grow">Imported ${plural(r.inserted || 0, "new sample")} (${plural(r.samples || 0, "sample")} read)
-        ${r.clinical ? `and ${plural(r.clinical.records, "clinical record")}` : ""}.</div></div>`);
+        ${r.clinical ? `and ${plural(r.clinical.records, "clinical record")}` : ""}.
+        ${r.clinical?.not_read ? `${plural(r.clinical.not_read, "health record")} couldn't be read.` : ""}</div></div>`);
       refresh();
       return;
     }
@@ -500,6 +501,9 @@ export async function render({ el, params, state }) {
       const r = await api("/api/imports/fhir", { method: "POST", form });
       toast(`Imported ${plural(r.records, "record")}`, "good");
       await refresh();
+      // After the refresh, which redraws what's around it.
+      if (r.warnings?.length) mount(status, html`<div class="banner warn"><div class="grow"><b>Imported ${plural(r.records, "record")}, with something to check.</b>
+        ${r.warnings.map((w) => html`<p>${w}</p>`)}</div></div>`);
     } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };
   const importApple = async (file, status) => {

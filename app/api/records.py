@@ -112,7 +112,8 @@ def timeline(profile: Optional[str] = None, before: Optional[str] = None, q: Opt
 
     items = collect(before, limit)
     if len(items) < limit:
-        return {"items": items, "next_before": None}
+        undated = records.timeline_undated(prof["id"], categories=clinical or None, q=q) if clinical or not cats else []
+        return {"items": items + undated, "next_before": None}
     # The next page starts strictly before this one's last moment, so everything at that moment comes on this page
     # (a lab panel's results share one): cut at the count alone, the rest of them were never shown.
     boundary = items[limit - 1].get("effective_at") or ""
@@ -128,6 +129,10 @@ def observation_catalog(profile: Optional[str] = None, category: str = "labs") -
 
 
 @router.get("/observations/series")
-def observation_series(code: str, profile: Optional[str] = None, category: Optional[str] = None) -> dict:
+def observation_series(code: Optional[str] = None, title: Optional[str] = None, profile: Optional[str] = None,
+                       category: Optional[str] = None) -> dict:
+    """One test's history, by its code, or by its name for a test the source sent with no code."""
+    if not code and not title:
+        raise HTTPException(422, "Say which test: its code or its name.")
     prof = resolve_profile(profile)
-    return records.observation_series(prof["id"], code, category)
+    return records.observation_series(prof["id"], code, category, title=title)

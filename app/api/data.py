@@ -123,12 +123,13 @@ def export_csv(kind: str = "records", profile: Optional[str] = None) -> Streamin
     if kind == "records":
         writer.writerow(["category", "title", "code_system", "code", "effective_at", "status", "value", "unit",
                          "value_normalized", "unit_normalized", "reference_low", "reference_high", "interpretation",
-                         "source", "narrative"])
+                         "source", "narrative", "value_as_reported", "comparator", "reference_as_reported"])
         for r in records.list_records(prof["id"], dedupe=False, limit=10**7)["items"]:
             writer.writerow([r["category"], r["title"], r.get("code_system"), r.get("code"), r.get("effective_at"),
                              r.get("status"), r.get("value_num") if r.get("value_num") is not None else r.get("value_text"),
                              r.get("unit"), r.get("value_norm"), r.get("unit_norm"), r.get("ref_low"), r.get("ref_high"),
-                             r.get("interpretation"), r.get("source_name"), (r.get("narrative") or "")[:2000]])
+                             r.get("interpretation"), r.get("source_name"), (r.get("narrative") or "")[:2000],
+                             r.get("value_text"), (r.get("details") or {}).get("comparator"), r.get("ref_text")])
     elif kind == "daily":
         writer.writerow(["day", "metric", "source", "value", "unit", "min", "max", "samples"])
         with read() as conn:

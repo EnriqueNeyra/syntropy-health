@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -55,6 +56,21 @@ class LabEntry(BaseModel):
     results: list[LabResult] = Field(..., min_length=1, max_length=300)
 
 
+def _check_date(value: str, label: str) -> None:
+    """A typo in the year would make a result the newest forever. Tomorrow is allowed: it may already be tomorrow where the lab is."""
+    if not DATE.match(value):
+        raise HTTPException(400, f"{label} must be YYYY-MM-DD.")
+    try:
+        when = date.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(400, f"{label} isn't a real date.")
+    if when > date.today() + timedelta(days=1):
+        raise HTTPException(400, f"{label} is in the future. Check the date.")
+
+
+COMPARED = re.compile(r"^\s*(<=|>=|≤|≥|<|>)\s*(\d+(?:\.\d+)?|\.\d+)\s*$")
+
+
 def to_observation(r: LabResult, collected: str, lab: Optional[str]) -> dict:
     """A FHIR R4 Observation, so manual results flow through the same normalization, trends and exports as
     results downloaded from a patient portal."""
@@ -67,8 +83,13 @@ def to_observation(r: LabResult, collected: str, lab: Optional[str]) -> dict:
         "category": [{"coding": [{"system": OBS_CATEGORY, "code": "laboratory", "display": "Laboratory"}]}],
         "code": code, "effectiveDateTime": when,
     }
+    bound = COMPARED.match(r.value_text or "") if r.value is None else None
     if r.value is not None:
         res["valueQuantity"] = {"value": r.value, **({"unit": r.unit.strip()} if r.unit else {})}
+    elif bound:
+        # "<0.5" is a limit with a unit, not words.
+        comparator = {"≤": "<=", "≥": ">="}.get(bound.group(1), bound.group(1))
+        res["valueQuantity"] = {"value": float(bound.group(2)), "comparator": comparator, **({"unit": r.unit.strip()} if r.unit else {})}
     elif r.value_text:
         res["valueString"] = r.value_text.strip()
     else:
@@ -100,8 +121,10 @@ def _manual_connection(profile_id: str) -> dict:
 
 @router.post("")
 def add_results(entry: LabEntry) -> dict:
-    if not DATE.match(entry.collected):
-        raise HTTPException(400, "Collection date must be YYYY-MM-DD.")
+    _check_date(entry.collected, "Collection date")
+    for r in entry.results:
+        if r.date and DATE.match(r.date):
+            _check_date(r.date, f"The date for {r.test}")
     prof = resolve_profile(entry.profile_id)
     resources = [to_observation(r, entry.collected, entry.lab) for r in entry.results]
     _, recs = fhir_normalize.normalize_resources(resources)
@@ -149,6 +172,8 @@ async def extract(file: UploadFile = File(...), method: str = Form("local")) -> 
         codes = lab_catalog.loinc_codes(r["test"]) if not r.get("loinc") and isinstance(r.get("test"), str) else []
         if codes:
             r["loinc"] = codes[0]
+            # Shown on the row for review: which test its history joins is the person's to check.
+            r["matched_test"] = lab_catalog.matched_test(r["test"])["name"]
 
     def record() -> None:
         with db() as c:

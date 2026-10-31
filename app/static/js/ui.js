@@ -52,14 +52,26 @@ const DATE_FMT = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "s
 const DATE_SHORT = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 const DATETIME_FMT = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
+const MONTH_FMT = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short" });
+
 export function parseDate(value) {
   if (!value) return null;
   if (typeof value === "number") return new Date(value * 1000);
   const s = String(value);
-  const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + "T12:00:00") : new Date(s);
+  // A date with no time is that day here, wherever "here" is: read as UTC, 2015 is Dec 31, 2014 in New York.
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + "T12:00:00") : /^\d{4}-\d{2}$/.test(s) ? new Date(s + "-15T12:00:00")
+    : /^\d{4}$/.test(s) ? new Date(s + "-07-01T12:00:00") : new Date(s);
   return isNaN(d) ? null : d;
 }
-export function fmtDate(value) { const d = parseDate(value); return d ? DATE_FMT.format(d) : (value ? String(value) : "—"); }
+/** A date at the precision it was given: "Mar 1, 2024", "Jun 2015", "2015". Free text is shown as it was written. */
+export function fmtDate(value) {
+  if (typeof value === "string" && /^\d{4}$/.test(value)) return value;
+  const d = parseDate(value);
+  if (d && typeof value === "string" && /^\d{4}-\d{2}$/.test(value)) return MONTH_FMT.format(d);
+  return d ? DATE_FMT.format(d) : (value ? String(value) : "—");
+}
+/** When a record happened: its date, or what the source wrote where a date belongs ("as a child"). */
+export function recordDate(r) { return r.effective_at || !r.details?.date_text ? fmtDate(r.effective_at) : r.details.date_text; }
 export function fmtShortDate(value) { const d = parseDate(value); return d ? DATE_SHORT.format(d) : "—"; }
 export function fmtDateTime(value) { const d = parseDate(value); return d ? DATETIME_FMT.format(d) : "—"; }
 export function fmtAgo(value) {
@@ -103,8 +115,14 @@ export function statusBadge(status) {
   if (!status) return "";
   const s = String(status).toLowerCase();
   const cls = ["active", "final", "completed", "current", "finished", "in-progress"].includes(s) ? "good"
-    : ["resolved", "inactive", "stopped", "completed", "cancelled", "entered-in-error"].includes(s) ? "" : "info";
+    : ["resolved", "inactive", "stopped", "completed", "cancelled", "entered-in-error", "superseded"].includes(s) ? "" : "info";
   return html`<span class="badge ${cls}">${capitalize(s.replace(/-/g, " "))}</span>`;
+}
+/** A result that may still change, or that did: anything but a plain final result says so wherever its value is shown. */
+export function resultStatus(status) {
+  const s = String(status || "").toLowerCase();
+  const label = { preliminary: "Preliminary", registered: "Preliminary", partial: "Partial", amended: "Amended", corrected: "Corrected", appended: "Amended" }[s];
+  return label ? html`<span class="badge warn">${label}</span>` : "";
 }
 export function modeBadge(mode) {
   if (mode === "simulated") return html`<span class="badge warn" title="Signs in through Syntropy's built-in EHR simulator">Simulated</span>`;

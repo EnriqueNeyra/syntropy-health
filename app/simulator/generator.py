@@ -438,7 +438,8 @@ class ChartBuilder:
             if m.status != "active" and not self.tp.primary:
                 continue
             start = _years_ago(m.started_years_ago, self.today)
-            authored = start + timedelta(days=(self.today - start).days // 2 if m.status == "active" else 0)
+            # A medication still being taken was renewed in the last year or so; its order carries that date, not when it began.
+            authored = max(start, self.today - timedelta(days=30 + _hint("med", m.rxnorm) % 300)) if m.status == "active" else start
             res: dict[str, Any] = {
                 "resourceType": "MedicationRequest", "id": self.id("MedicationRequest", m.rxnorm),
                 "status": m.status, "intent": "order",

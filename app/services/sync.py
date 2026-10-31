@@ -9,6 +9,7 @@ sync and a manual "Sync now" never run concurrently for the same source.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import sqlite3
 import time
@@ -122,7 +123,7 @@ async def _sync_ehr(conn: dict[str, Any]) -> dict[str, Any]:
 
     # Normalizing and storing thousands of records is plain CPU and SQLite work: it runs in a thread so the server
     # keeps answering (the page, the phone) meanwhile.
-    patient, recs = await asyncio.to_thread(fhir_normalize.normalize_resources, [fetched.patient] + fetched.resources)  # type: ignore[list-item]
+    patient, recs, problems = await asyncio.to_thread(fhir_normalize.normalize_report, [fetched.patient] + fetched.resources)  # type: ignore[list-item]
     notes_fetched = await _fetch_note_bodies(conn, client, recs, simulated)
 
     def store() -> tuple[dict[str, Any], int]:
@@ -140,35 +141,63 @@ async def _sync_ehr(conn: dict[str, Any]) -> dict[str, Any]:
     return {
         "resources": len(fetched.resources) + 1, "records": len(recs), "inserted": write["inserted"],
         "updated": write["updated"], "pruned": pruned, "notes_fetched": notes_fetched,
+        # Counted, not a warning: one odd resource in a chart would otherwise mark every sync "Partly synced" for good.
+        "not_read": _count_unread(problems), "not_read_by_type": _unread_by_type(problems),
         "by_category": by_category, "queries": fetched.status, "warnings": warnings,
     }
 
 
+def _unread_by_type(problems: dict[str, dict[str, int]]) -> dict[str, int]:
+    """Resources that came in and couldn't be kept, so losing them is never silent."""
+    counts: dict[str, int] = {}
+    for by_type in problems.values():
+        for rtype, n in by_type.items():
+            counts[rtype] = counts.get(rtype, 0) + n
+    return dict(sorted(counts.items()))
+
+
+def _count_unread(problems: dict[str, dict[str, int]]) -> int:
+    return sum(_unread_by_type(problems).values())
+
+
 async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, recs: list[dict[str, Any]], simulated: bool) -> int:
-    """Clinical notes and reports often reference their content by URL (Binary); fetch text bodies we don't have yet."""
+    """Clinical notes and reports often reference their content by URL (Binary). Fetch the bodies we don't have yet, and again when
+    the source changed the note: an amended note under its old text says the wrong thing. The stored text is kept until a new one
+    arrives, and a note that couldn't be fetched this time keeps its old mark, so the next sync tries again."""
     pending = [r for r in recs if r["category"] in ("notes", "reports") and not r.get("narrative")
                and (r.get("details") or {}).get("attachments")]
     if not pending:
         return 0
-    existing: dict[str, str] = {}
+    existing: dict[tuple[str, str], Any] = {}
     with read() as c:       # without the write lock: this runs on the event loop, and a big upload may hold it
         rows = c.execute(
-            "SELECT resource_id, narrative FROM clinical_records WHERE connection_id = ? "
+            "SELECT resource_type, resource_id, narrative, raw_json, details_json FROM clinical_records WHERE connection_id = ? "
             "AND category IN ('notes', 'reports') AND narrative IS NOT NULL",
             (conn["id"],),
         ).fetchall()
-        existing = {r["resource_id"]: r["narrative"] for r in rows}
+        existing = {(r["resource_type"], r["resource_id"]): r for r in rows}
+    changed, new = [], []
+    for rec in pending:
+        rec["details"]["body_fingerprint"] = fingerprint = fhir_normalize.body_fingerprint(rec.get("raw"))
+        row = existing.get((rec["resource_type"], rec["resource_id"]))
+        if row is None:
+            new.append(rec)
+            continue
+        rec["narrative"] = row["narrative"]
+        stored = _stored_fingerprint(row)
+        if stored != fingerprint:
+            rec["details"]["body_fingerprint"] = stored     # until the new text is here
+            rec["details"]["body_stale"] = True
+            changed.append((rec, fingerprint))
     fetched = 0
     async with smart.http_client(simulated) as http:
-        for rec in pending:
-            if rec["resource_id"] in existing:
-                rec["narrative"] = existing[rec["resource_id"]]
-                continue
+        for rec, fingerprint in [*changed, *((r, r["details"]["body_fingerprint"]) for r in new)]:
             if fetched >= MAX_NOTE_FETCHES:
                 break
-            for att in rec["details"].get("attachments") or []:
+            attachments = sorted(rec["details"].get("attachments") or [], key=lambda a: fhir_normalize.text_preference(a.get("content_type")))
+            for att in attachments:
                 ctype = (att.get("content_type") or "").lower()
-                if not att.get("url") or not (ctype.startswith("text/") or "xml" in ctype or not ctype):
+                if not att.get("url") or not (ctype.startswith("text/") or "rtf" in ctype or "xml" in ctype or not ctype):
                     continue
                 try:
                     body = await client.read_binary_text(http, att["url"])
@@ -176,13 +205,21 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
                     body = None
                 if body:
                     content_type, raw = body
-                    text = raw.decode("utf-8", errors="replace")
-                    if "html" in content_type or "xml" in content_type:
-                        text = fhir_normalize.strip_html(text)
-                    rec["narrative"] = text[:200_000]
+                    rec["narrative"] = fhir_normalize.decode_body(raw, content_type)[:200_000]
+                    rec["details"]["body_fingerprint"] = fingerprint
+                    rec["details"].pop("body_stale", None)
                     fetched += 1
                     break
     return fetched
+
+
+def _stored_fingerprint(row: Any) -> Optional[str]:
+    """What the stored text was fetched for. A row from before this was kept: its own stored resource says."""
+    try:
+        details = json.loads(row["details_json"]) if row["details_json"] else {}
+        return details.get("body_fingerprint") or fhir_normalize.body_fingerprint(json.loads(row["raw_json"]) if row["raw_json"] else None)
+    except ValueError:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -249,9 +286,33 @@ async def _sync_wearable(conn: dict[str, Any]) -> dict[str, Any]:
 # Imports
 # ---------------------------------------------------------------------------
 
+def _refuse_several_people(resources: list[dict[str, Any]]) -> None:
+    """One profile is one person's record: a family export or a bulk file would silently mix one person's conditions into another's."""
+    people = records.distinct_people([{"full_name": p["name"], "birth_date": p["birth_date"], "source_name": ""}
+                                      for p in (fhir_normalize.normalize_patient(r) for r in resources if r.get("resourceType") == "Patient")])
+    if len(people) > 1:
+        names = " and ".join(f"{p['full_name'] or 'an unnamed patient'}{' (born ' + p['birth_date'] + ')' if p['birth_date'] else ''}" for p in people[:4])
+        raise ValueError(f"This file holds records for {len(people)} different people: {names}. Nothing was imported, so their records "
+                         "don't mix. Export one person at a time, and import each into their own profile.")
+
+
+def _other_subjects(resources: list[dict[str, Any]]) -> int:
+    """How many other patient ids this file's records point at, beyond the patients it names. Can't be told apart from the same person
+    at another hospital without a name to go on, so it's mentioned rather than refused."""
+    known = {str(r.get("id")) for r in resources if r.get("resourceType") == "Patient"}
+    subjects = set()
+    for r in resources:
+        for field in ("subject", "patient"):
+            ref = r.get(field).get("reference") if isinstance(r.get(field), dict) else None
+            if isinstance(ref, str) and "Patient/" in ref:
+                subjects.add(ref.split("Patient/")[-1])
+    return len(subjects - known) - (0 if known else 1)
+
+
 def import_fhir_resources(profile_id: str, display_name: str, resources: list[dict[str, Any]],
                           provider: str = "fhir_file") -> dict[str, Any]:
-    patient, recs = fhir_normalize.normalize_resources(resources)
+    _refuse_several_people(resources)
+    patient, recs, problems = fhir_normalize.normalize_report(resources)
     if not recs and not patient:
         raise ValueError("No supported FHIR R4 resources were found in the file.")
     conn = connections.create(profile_id, "import", provider, display_name, mode="live",
@@ -261,7 +322,11 @@ def import_fhir_resources(profile_id: str, display_name: str, resources: list[di
     if patient:
         records.upsert_identity(conn["id"], profile_id, patient)
     write = records.upsert_records(profile_id, conn["id"], display_name, recs)
-    stats = {"resources": len(resources), "records": len(recs), **write}
+    warnings = [f"{rtype}: {n} couldn't be read" for rtype, n in _unread_by_type(problems).items()]
+    if provider == "fhir_file" and _other_subjects(resources) > 0:
+        warnings.append("Some records in this file point at another patient ID. Check they all belong to this person.")
+    stats = {"resources": len(resources), "records": len(recs), **write, "warnings": warnings,
+             "not_read": _count_unread(problems)}
     connections.finish_run(run_id, conn["id"], "success", stats)
     return {"connection_id": conn["id"], **stats}
 
