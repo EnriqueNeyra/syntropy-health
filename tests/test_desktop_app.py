@@ -407,10 +407,11 @@ def test_no_server_after_the_switch_is_said_in_the_window(monkeypatch, desktop, 
 
 def test_problem_reports_what_startup_found(monkeypatch):
     import app.main as server_main
-    monkeypatch.setattr(server_main.app.state, "problem", "It's damaged", raising=False)
-    monkeypatch.setattr(server_main.app.state, "problem_kind", "damaged", raising=False)
+    state = server_main.app.state._state  # setitem cleans up whether or not an earlier test started the app
+    monkeypatch.setitem(state, "problem", "It's damaged")
+    monkeypatch.setitem(state, "problem_kind", "damaged")
     assert syntropy_desktop.Server().problem() == ("damaged", "It's damaged")
-    monkeypatch.setattr(server_main.app.state, "problem", None, raising=False)
+    monkeypatch.setitem(state, "problem", None)
     assert syntropy_desktop.Server().problem() is None
 
 
