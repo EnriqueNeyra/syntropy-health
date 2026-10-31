@@ -76,14 +76,24 @@ def _person(rng, rho, days=130):
 # Changes
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("rho", [0.0, 0.3, 0.5, 0.7, 0.85])
-def test_noise_rarely_raises_a_change_across_all_ten_measures(world, rho):
+@pytest.mark.parametrize("rho,limit", [(0.0, 0.05), (0.3, 0.05), (0.5, 0.05), (0.7, 0.05), (0.85, 0.05), (0.95, 0.07)])
+def test_noise_rarely_raises_a_change_across_all_ten_measures(world, rho, limit):
     rng = random.Random(int(rho * 100) + 11)
     runs, alarms = 300, 0
     for _ in range(runs):
         world["series"] = _person(rng, rho)
         alarms += bool(insights._changes("p"))
-    assert alarms / runs < 0.05, f"{alarms} of {runs} runs raised a change at rho {rho}"
+    assert alarms / runs < limit, f"{alarms} of {runs} runs raised a change at rho {rho}"
+
+
+def test_a_level_that_wanders_is_not_often_taken_for_a_slide(world):
+    # A wandering level does end up somewhere else, so this can't be near zero, but it's half what fitting a line alone gives.
+    rng = random.Random(3)
+    runs, alarms = 300, 0
+    for _ in range(runs):
+        world["series"] = {m: _points([mean + sd * 0.25 * z for z in _walk(130, rng)]) for m, (mean, sd) in PERSON.items()}
+        alarms += bool(insights._changes("p"))
+    assert alarms / runs < 0.25, f"{alarms} of {runs}"
 
 
 @pytest.mark.parametrize("rho,sds,found_at_least", [(0.0, 2.5, 0.9), (0.3, 3, 0.8), (0.5, 4, 0.75)])
@@ -113,6 +123,44 @@ def test_a_real_change_is_found_among_nine_quiet_measures(world):
         hits += "resting_heart_rate" in found
         others += any(m != "resting_heart_rate" for m in found)
     assert hits / runs >= 0.85 and others / runs < 0.08
+
+
+def _slide(start, end, sd, span, every=1, source="Apple Watch", rho=0.0, flat=0):
+    """From ``start`` to ``end`` over the last ``span`` days, after ``flat`` days at ``start``."""
+    def make(rng):
+        z = _ar1(span + flat + 1, rho, rng)
+        return [{"day": _day(i), "value": (end + (start - end) * i / span if i <= span else start) + sd * z[i], "source": source}
+                for i in range(span + flat, 0, -every)]
+    return make
+
+
+@pytest.mark.parametrize("metric,make,found_at_least", [
+    ("body_mass", _slide(80, 70, 0.4, 60, source="Scale"), 0.95),
+    ("body_mass", _slide(80, 72, 0.4, 90, source="Scale"), 0.95),
+    ("body_mass", _slide(80, 72, 0.4, 140, source="Scale"), 0.95),
+    ("body_mass", _slide(80, 72, 0.4, 140, 7, source="Scale"), 0.85),
+    ("body_mass", _slide(80, 74, 0.4, 40, flat=100, source="Scale"), 0.95),
+    ("vo2_max", _slide(45, 39, 0.3, 140, 7), 0.85),
+    ("resting_heart_rate", _slide(58, 70, 1.5, 67), 0.95),
+    ("resting_heart_rate", _slide(58, 70, 1.5, 67, rho=0.5), 0.7),
+    ("resting_heart_rate", _slide(58, 68, 1.5, 30, flat=40), 0.9),
+    ("oxygen_saturation", _slide(97, 93, 0.5, 67), 0.9),
+    ("sleep_duration", _slide(7.5, 5.5, 0.4, 67), 0.8),
+    ("step_count", _slide(9000, 4000, 800, 67), 0.85),
+])
+def test_a_slow_slide_is_found_though_no_single_week_stands_out(world, metric, make, found_at_least):
+    rng = random.Random(1)
+    runs, hits = 100, 0
+    for _ in range(runs):
+        world["series"] = {metric: make(rng)}
+        hits += any(i.get("metric") == metric for i in insights._changes("p"))
+    assert hits / runs >= found_at_least, f"found {hits} of {runs}"
+
+
+def test_a_slow_slide_is_described_as_going_the_right_way(world):
+    world["series"] = {"body_mass": _slide(80, 70, 0.4, 60, source="Scale")(random.Random(2))}
+    found = insights._changes("p")[0]
+    assert found["title"] == "Weight is down" and found["data"]["recent"] < 73 < found["data"]["usual"]
 
 
 def test_weighed_once_a_week_still_gets_looked_at(world):

@@ -15,14 +15,18 @@ from typing import Any, Optional, Sequence
 
 MAD_TO_SD = 1.4826      # scales the median absolute deviation to a standard deviation on normal data
 MEDIAN_SE = 1.2533      # the standard error of a median, as a multiple of sd / sqrt(n)
+WANDERS_FROM = 0.8      # correlation read from moves is a rough estimate, so it only counts when it's this clear
+
+
+def median_deviation(values: Sequence[float]) -> float:
+    mid = statistics.median(values)
+    return statistics.median(abs(v - mid) for v in values)
 
 
 def robust_center(values: Sequence[float]) -> tuple[float, float]:
     """The median and a spread in standard-deviation units that one bad reading can't move. Falls back to the plain
     standard deviation when most values are identical (the median deviation is then zero)."""
-    mid = statistics.median(values)
-    spread = MAD_TO_SD * statistics.median(abs(v - mid) for v in values)
-    return mid, spread or statistics.pstdev(values)
+    return statistics.median(values), MAD_TO_SD * median_deviation(values) or statistics.pstdev(values)
 
 
 def lag1(values: Sequence[float]) -> float:
@@ -37,6 +41,13 @@ def lag1(values: Sequence[float]) -> float:
         return 0.1
     rho = sum((a - mean) * (b - mean) for a, b in zip(values, values[1:])) / denom
     return max(0.1, min(0.95, rho + (1 + 3 * rho) / n))
+
+
+def _lag1_from_moves(values: Sequence[float]) -> float:
+    """The same from day-to-day moves, which a slide of any shape barely touches. Readings scattered around a line have
+    moves that undo each other (their own lag-1 is -0.5, giving 0 here); a level that wanders has moves that don't."""
+    moves = [b - a for a, b in zip(values, values[1:])]
+    return max(0.0, min(0.95, 1 + 2 * _acf(moves, 1))) if len(moves) >= 4 else 0.0
 
 
 def effective_n(n: int, rho: float) -> float:
@@ -58,9 +69,15 @@ def shift_p(recent: Sequence[float], base: Sequence[float]) -> float:
     """Whether the middle of ``recent`` sits away from the middle of ``base`` by more than their day-to-day swing and
     correlation explain. Both are in date order."""
     mid_r, _ = robust_center(recent)
-    mid_b, spread = robust_center(base)
+    mid_b, _ = robust_center(base)
     delta = mid_r - mid_b
-    rho = lag1(base)
+    # A slow slide is the very thing being looked for, not day-to-day swing or correlation, so those come from what's
+    # left once the baseline's own trend is out. A level that wanders keeps correlation that a line can't remove.
+    settled = _detrended(range(len(base)), base)
+    spread = robust_center(settled)[1] if median_deviation(base) else statistics.pstdev(settled)
+    rho, moves_rho = lag1(settled), _lag1_from_moves(base)
+    if moves_rho >= WANDERS_FROM:
+        rho = max(rho, moves_rho)
     n_r, n_b = effective_n(len(recent), rho), effective_n(len(base), rho)
     # Discrete readings can have no spread at all: only the caller's smallest meaningful change then decides.
     se = MEDIAN_SE * spread * math.sqrt(1 / n_r + 1 / n_b)

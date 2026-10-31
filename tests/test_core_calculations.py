@@ -107,6 +107,29 @@ def test_effective_sample_size():
     assert insight_stats.effective_n(7, 0.95) == 1
 
 
+def test_a_baseline_that_slides_keeps_its_own_day_to_day_swing():
+    rng = random.Random(4)
+    base = [80 - 0.15 * i + rng.gauss(0, 0.4) for i in range(53)]
+    recent = [72 + rng.gauss(0, 0.4) for _ in range(7)]
+    assert insight_stats.shift_p(recent, base) < 0.001
+
+
+def test_a_baseline_that_wanders_is_not_taken_for_a_slide():
+    # Long stretches away from the middle: correlation, which a line through it doesn't explain.
+    rng = random.Random(9)
+    wander = [0.0]
+    for _ in range(52):
+        wander.append(wander[-1] + rng.gauss(0, 1))
+    mid, spread = insight_stats.robust_center(wander)
+    assert insight_stats.shift_p([mid + 2 * spread] * 7, wander) > 0.01
+
+
+def test_readings_mostly_identical_are_not_read_as_having_no_swing():
+    # Whole numbers with most days the same: the middle deviation is zero, with or without a line through them.
+    base = [97.0 if i % 3 else 95.0 for i in range(60)]
+    assert insight_stats.shift_p([96.0] * 7, base) > 0.01
+
+
 def test_correlated_values_read_as_correlated():
     rng = random.Random(1)
     assert insight_stats.lag1([rng.gauss(0, 1) for _ in range(300)]) < 0.2
