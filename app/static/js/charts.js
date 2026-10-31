@@ -454,7 +454,9 @@ export function sparkline(values) {
   const pts = vals.map((v, i) => [pad + (i / (vals.length - 1)) * (w - pad * 2), h - pad - ((v - min) / span) * (h - pad * 2)]);
   const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("");
   const last = pts[pts.length - 1];
-  return `<svg class="spark ${visible() ? "intro" : ""}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" vector-effect="non-scaling-stroke"/><circle cx="${last[0]}" cy="${last[1]}" r="3"/></svg>`;
+  // The line stretches to the tile's shape. The latest value's dot is drawn over it in page units, or it would stretch too.
+  return `<span class="spark ${visible() ? "intro" : ""}" aria-hidden="true"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><path d="${d}" vector-effect="non-scaling-stroke"/></svg>`
+    + `<i style="left:${((last[0] / w) * 100).toFixed(2)}%;top:${((last[1] / h) * 100).toFixed(2)}%"></i></span>`;
 }
 
 /** Re-render charts when their container width changes. */

@@ -430,7 +430,7 @@ label.btn:has(input[type="file"]):focus-within { outline: 2px solid var(--accent
 .dash-inner > .card { height: auto; }
 .dash-item.is-tile .tile { margin: 0; display: flex; flex-direction: column; }
 /* Tiles share one height (see masonry()): the sparkline sits at the bottom of a taller one. */
-.dash-item.is-tile .tile svg.spark { margin-top: auto; padding-top: 6px; box-sizing: content-box; }
+.dash-item.is-tile .tile .spark { margin-top: auto; }
 .dash.editing .dash-inner > :not(.dash-controls) { pointer-events: none; user-select: none; }
 .dash.editing .dash-inner > .card { outline: 1.5px dashed var(--border-strong); outline-offset: 3px; }
 .dash-controls { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; align-items: center; gap: 4px; padding: 3px;
@@ -586,9 +586,10 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .tile .v { font-family: var(--font-brand); font-size: 26px; font-weight: 750; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .tile .v small { font-size: 13px; font-weight: 600; color: var(--text-3); margin-left: 3px; }
 .tile .s { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
-.tile svg.spark { width: 100%; height: 34px; margin-top: 6px; display: block; }
-.tile svg.spark path { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
-.tile svg.spark circle { fill: var(--series-1); stroke: var(--surface); stroke-width: 2; }
+.tile .spark { position: relative; display: block; width: 100%; height: 34px; margin-top: 6px; }
+.tile .spark svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.tile .spark path { fill: none; stroke: var(--series-1); stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; }
+.tile .spark i { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--series-1); box-shadow: 0 0 0 2px var(--surface); }
 
 /* ---------- Empty / loading ---------- */
 .empty { text-align: center; padding: 36px 20px; color: var(--text-3); }
@@ -1485,8 +1486,8 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .chart svg.intro .line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw-line .8s cubic-bezier(.4, 0, .2, 1) forwards; }
 .chart svg.intro .area, .chart svg.intro .pt, .chart svg.intro .band { animation: appear .4s ease .35s both; }
 .chart svg.intro .bar { transform-box: fill-box; transform-origin: 50% 100%; animation: grow-bar .5s cubic-bezier(.2, .8, .2, 1) var(--d, 0ms) both; }
-svg.spark.intro { animation: wipe .8s cubic-bezier(.4, 0, .2, 1) both; }
-:root.no-intro svg.intro, :root.no-intro svg.intro * { animation: none !important; }
+.spark.intro { animation: wipe .8s cubic-bezier(.4, 0, .2, 1) both; }
+:root.no-intro svg.intro, :root.no-intro svg.intro *, :root.no-intro .spark.intro { animation: none !important; }
 /* The line waits behind its dash for the animation to reveal it: with no animation it has to start revealed. */
 :root.no-intro .chart svg.intro .line { stroke-dasharray: none; stroke-dashoffset: 0; }
 @keyframes draw-line { to { stroke-dashoffset: 0; } }
