@@ -973,6 +973,18 @@ def _name_tokens(name: Optional[str]) -> set[str]:
     return {t for t in re.split(r"[^a-z]+", plain) if len(t) > 1}
 
 
+def shown_date(value: Any) -> str:
+    """A date as the app writes it, at the precision it came in: "Feb 3, 1970", "Feb 1970", "1970". Anything else as written."""
+    text = str(value or "")
+    for pattern, length in (("%Y-%m-%d", 10), ("%Y-%m", 7)):
+        try:
+            day = datetime.strptime(text[:length], pattern)
+        except ValueError:
+            continue
+        return f"{day:%b} {day.day}, {day.year}" if length == 10 else f"{day:%b} {day.year}"
+    return text
+
+
 def distinct_people(idents: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Groups connected-record identities into people: same birth date and at least one shared name part.
     More than one group means records for different people are mixed into this profile. What one row leaves out, another fills in:

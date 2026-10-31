@@ -219,7 +219,7 @@ def import_fhir_file(profile_id: str, filename: str, raw: bytes) -> dict[str, An
         result["warnings"] = [*result.get("warnings", []), *summary.warnings]
     named = records.conflicting_people(profile_id, records.distinct_people(records.identities(profile_id)))
     if named:
-        who = ", ".join(f"{p.get('full_name') or 'Unnamed patient'}{' (born ' + str(p['birth_date'])[:10] + ')' if p.get('birth_date') else ''}" for p in named)
+        who = ", ".join(f"{p.get('full_name') or 'Unnamed patient'}{' (born ' + records.shown_date(p['birth_date']) + ')' if p.get('birth_date') else ''}" for p in named)
         result["warnings"] = [*result.get("warnings", []), f"The records here now name more than one person: {who}. Check that this file belongs to this person."]
     return result
 

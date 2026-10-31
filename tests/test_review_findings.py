@@ -40,7 +40,7 @@ def _import(client, pid):
 def test_a_file_born_on_another_day_than_the_person_is_called_out(client):
     pid = _person(client, "Maya", "2015-05-05")
     result = _import(client, pid)
-    assert any("Testa Example" in w and "Maya" in w for w in result["warnings"])
+    assert any("Testa Example (born Feb 3, 1970)" in w and "Maya (born May 5, 2015)" in w for w in result["warnings"])
     conflict = client.get("/api/report", params={"profile": pid}).json()["identity_conflict"]
     assert [p["full_name"] for p in conflict] == ["Testa Example", "Maya"]
     assert all(p["sources"] for p in conflict)      # the bell lists where each one comes from

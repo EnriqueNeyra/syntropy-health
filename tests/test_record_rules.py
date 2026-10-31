@@ -658,7 +658,7 @@ def test_a_nameless_patient_doesnt_hide_two_named_people(prof):
 
 
 def test_a_nameless_patient_born_on_another_day_is_named_for_what_it_is(prof):
-    with pytest.raises(ValueError, match=r"Jane Doe \(born 1980-01-01\) and an unnamed patient \(born 1990-02-02\)"):
+    with pytest.raises(ValueError, match=r"Jane Doe \(born Jan 1, 1980\) and an unnamed patient \(born Feb 2, 1990\)"):
         sync.import_fhir_resources(prof, "File", [JANE, {"resourceType": "Patient", "id": "p2", "birthDate": "1990-02-02"}])
 
 
