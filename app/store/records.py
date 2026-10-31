@@ -989,6 +989,12 @@ def shown_date(value: Any) -> str:
     return text
 
 
+def _same_birth(a: Any, b: Any) -> bool:
+    """1970 and 1970-02-03 can be one birth date, and so can the same day with a time on it."""
+    a, b = str(a)[:10], str(b)[:10]
+    return a.startswith(b) or b.startswith(a)
+
+
 def distinct_people(idents: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Groups connected-record identities into people: same birth date and at least one shared name part.
     More than one group means records for different people are mixed into this profile. What one row leaves out, another fills in:
@@ -998,7 +1004,7 @@ def distinct_people(idents: list[dict[str, Any]]) -> list[dict[str, Any]]:
         tokens = _name_tokens(i.get("full_name"))
         name = None if _no_name(i.get("full_name")) else i.get("full_name")
         for p in people:
-            same_birth = not i.get("birth_date") or not p["birth_date"] or i["birth_date"] == p["birth_date"]
+            same_birth = not i.get("birth_date") or not p["birth_date"] or _same_birth(i["birth_date"], p["birth_date"])
             same_name = not tokens or not p["tokens"] or bool(tokens & p["tokens"])
             if same_birth and same_name:
                 p["sources"].append(i["source_name"])
@@ -1462,7 +1468,7 @@ def conflicting_people(profile_id: str, people: list[dict[str, Any]]) -> list[di
         return []
     with read() as conn:
         row = conn.execute("SELECT name, birth_date FROM profiles WHERE id = ?", (profile_id,)).fetchone()
-    if not row or not row["birth_date"] or str(row["birth_date"])[:10] == str(people[0]["birth_date"])[:10]:
+    if not row or not row["birth_date"] or _same_birth(row["birth_date"], people[0]["birth_date"]):
         return []
     return [*people, {"full_name": row["name"], "birth_date": row["birth_date"], "sources": ["this person's details"]}]
 

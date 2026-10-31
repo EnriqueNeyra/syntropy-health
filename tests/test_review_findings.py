@@ -53,6 +53,16 @@ def test_a_file_that_agrees_or_a_person_with_no_birth_date_is_not(client):
         assert client.get("/api/report", params={"profile": pid}).json()["identity_conflict"] == []
 
 
+def test_a_less_exact_birth_date_is_not_a_different_person(client):
+    pid = _person(client, "Testa Example", "1970-02-03")
+    for said in ("1970", "1970-02", "1970-02-03T00:00:00Z"):
+        assert records.conflicting_people(pid, [{"full_name": "Testa Example", "birth_date": said, "sources": ["Clinic"]}]) == []
+    assert records.conflicting_people(pid, [{"full_name": "Testa Example", "birth_date": "1971-02-03", "sources": ["Clinic"]}])
+    same = [{"source_name": s, "full_name": "Testa Example", "birth_date": b} for s, b in (("A", "1970-02-03"), ("B", "1970"), ("C", "1970-02-03T00:00:00Z"))]
+    assert len(records.distinct_people(same)) == 1
+    assert len(records.distinct_people([*same, {"source_name": "D", "full_name": "Testa Example", "birth_date": "1971-02-03"}])) == 2
+
+
 def _condition(name):
     return {"resourceType": "Condition", "id": name, "code": {"text": f"{name} Patientconfidentialnote"}, "clinicalStatus": {"coding": [{"code": "active"}]}}
 
@@ -115,6 +125,24 @@ def test_an_archive_that_would_fill_the_memory_is_refused(client):
         assert res.status_code == 200, res.text
         job = _wait(res.json()["job_id"])
         assert job["status"] != "completed" and "too large" in json.dumps(job), job
+
+
+def test_a_persons_own_archive_of_repeated_letters_comes_back(client):
+    """Years of reminders from one template compress at over 200 to 1. The app made this archive, so it has to read it."""
+    pid = _person(client, "Letters")
+    letter = "Your appointment reminder from the clinic. " * 450
+    sync.import_fhir_resources(pid, "Clinic", [
+        {"resourceType": "DocumentReference", "id": f"letter-{i}", "status": "current", "description": letter, "date": f"20{10 + i // 12}-{i % 12 + 1:02d}-01"}
+        for i in range(144)])
+    data = client.get("/api/export/archive", params={"profile": pid}).content
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        info = z.getinfo("fhir.json")
+        assert info.file_size > info.compress_size * 200       # past the limit a stranger's Apple Health file gets
+    other = _person(client, "Letters again")
+    res = client.post("/api/imports/archive", files={"file": ("a.zip", data, "application/zip")}, data={"profile_id": other})
+    assert res.status_code == 200, res.text
+    job = _wait(res.json()["job_id"])
+    assert job["status"] == "completed", job
 
 
 def test_what_was_asked_about_stays_out_of_the_access_log():

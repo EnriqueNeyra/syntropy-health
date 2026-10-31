@@ -28,7 +28,6 @@ import zipfile
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
-from app.connectors.apple_health import _implausible
 from app.core import config, db
 from app.core.db import read
 from app.services.sync import SOURCE_TAG, SOURCE_URN
@@ -38,7 +37,7 @@ log = logging.getLogger("syntropy.exports")
 
 ARCHIVE_FORMAT = "syntropy-person-archive"
 ARCHIVE_VERSION = 1
-MAX_ARCHIVE_MEMBER = 512 * 1024 * 1024
+MAX_ARCHIVE_MEMBER = 4 * 1024 * 1024 * 1024
 _ID_BAD = re.compile(r"[^A-Za-z0-9\-.]")
 _ID_IN_REFERENCE = re.compile(r"^(.*/)?([A-Z][A-Za-z]+)/([^/]+)(/_history/[^/]+)?$")
 
@@ -571,6 +570,11 @@ def _write_documents(z: zipfile.ZipFile, profile_id: str) -> int:
         index.append({"path": path, **{k: found.get(k) for k in ("resource_type", "resource_id", "name", "content_type")}})
     z.writestr("documents.json", json.dumps(index, indent=2, ensure_ascii=False))
     return len(index)
+
+
+def _implausible(info: zipfile.ZipInfo) -> bool:
+    # A person's own export reaches over 200 to 1 on repeated letters, while deflate tops out near 1030 to 1
+    return info.file_size > 1024 * 1024 and info.file_size > max(info.compress_size, 1) * 1000
 
 
 def _whole_member(z: zipfile.ZipFile, name: str) -> bytes:
