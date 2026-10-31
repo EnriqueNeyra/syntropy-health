@@ -112,6 +112,7 @@ def _person(prof: dict[str, Any]) -> str:
 
 @router.get("/export/fhir")
 def export_fhir(profile: Optional[str] = None) -> StreamingResponse:
+    auth.refuse_if_limited(context.principal())      # as for anything that passes someone's data on (auth.require_whole_account)
     prof = resolve_profile(profile)
     with db() as conn:
         audit(conn, "user", "export.fhir", None, prof["id"])
@@ -123,6 +124,7 @@ def export_fhir(profile: Optional[str] = None) -> StreamingResponse:
 @router.get("/export/ips")
 def export_patient_summary(profile: Optional[str] = None) -> Response:
     """An International Patient Summary, for a clinician anywhere."""
+    auth.refuse_if_limited(context.principal())
     prof = resolve_profile(profile)
     document = exports.patient_summary(prof)
     with db() as conn:
@@ -133,6 +135,7 @@ def export_patient_summary(profile: Optional[str] = None) -> Response:
 
 @router.get("/export/csv")
 def export_csv(kind: str = "records", profile: Optional[str] = None) -> StreamingResponse:
+    auth.refuse_if_limited(context.principal())
     prof = resolve_profile(profile)
     if kind not in exports.CSV_KINDS:
         raise HTTPException(400, "kind must be 'records', 'daily', 'workouts' or 'events'")
@@ -148,6 +151,7 @@ def export_archive(background: BackgroundTasks, profile: Optional[str] = None) -
     """Everything kept about one person, for whoever manages them. Their chats are per account: this account's come along."""
     prof = resolve_profile(profile, "manage")
     principal = context.principal()
+    auth.refuse_if_limited(principal)        # it holds this account's conversations
     built = exports.build_archive(prof, principal.account_id if principal else None)
     with db() as conn:
         audit(conn, "user", "export.archive", None, prof["id"])

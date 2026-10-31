@@ -151,8 +151,9 @@ def upgrade_password(account_id: str, password: str) -> None:
 
 
 def set_password(account_id: str, password: Optional[str]) -> None:
-    """A new password (or none, only while developing). Signs the account out everywhere; the caller signs this
-    browser back in."""
+    """A new password (or none, only while developing). Signs the account's browsers out; the caller signs this one back
+    in. Phones and AI apps have tokens of their own that a password doesn't open, and keep working: a lost phone is
+    unpaired in Sources, which is what ends its access."""
     stored = _stored_hash(password)
     with db() as conn:
         conn.execute("UPDATE accounts SET password_hash = ?, updated_at = ? WHERE id = ?", (stored, time.time(), account_id))
@@ -348,9 +349,14 @@ def _invite(code: str) -> Optional[dict[str, Any]]:
     if not normalized:
         return None
     with read() as conn:
-        row = conn.execute("SELECT i.profile_id, i.expires_at, p.name, p.color FROM invites i JOIN profiles p ON p.id = i.profile_id "
+        row = conn.execute("SELECT i.profile_id, i.expires_at, i.created_by, p.name, p.color FROM invites i JOIN profiles p ON p.id = i.profile_id "
                            "WHERE i.code_hash = ?", (security.hash_token(normalized),)).fetchone()
     if not row or row["expires_at"] < time.time():
+        return None
+    # Redeeming one takes the person over and shuts everyone else out, so it's only good while whoever made it still looks
+    # after them: someone removed yesterday mustn't be able to use a code they kept. None is an invite from before this was noted.
+    maker = get(row["created_by"]) if row["created_by"] else None
+    if row["created_by"] and (not maker or access_for(maker).get(row["profile_id"]) != "manage"):
         return None
     return {**dict(row), "code_hash": security.hash_token(normalized)}
 

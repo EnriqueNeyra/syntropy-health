@@ -1019,9 +1019,12 @@ class DesktopApp:
         self.quitting = True
         if not self.joined:
             self.server.stop()
+        from app.core import keystore
+
         if erase:
             if self.mac and bundle:
                 self.mac.forget_website_data(LOGIN_LABEL)
+            keystore.forget()       # the key that opened it, wherever it was kept
             shutil.rmtree(self.data, ignore_errors=True)
         else:
             shutil.rmtree(self.data / "updates", ignore_errors=True)      # downloaded installers

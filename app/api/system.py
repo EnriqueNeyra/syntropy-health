@@ -541,6 +541,8 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
     own_apps |= {f"ask:{principal.account_id}", *(f"agent:{a}:{principal.account_id}" for a in ai_agents.AGENTS)}
     if principal.owner:
         own_apps.update(("mcp", "ask"))     # the connection on the computer holding the data, and asking before accounts
+    if principal.limited:
+        own_apps = set()        # the words the account that paired this phone searched for are that account's
     apps = ",".join("?" * len(own_apps)) or "NULL"
     where = f"(a.profile_id IN ({marks})"
     params: list = [*visible]
@@ -553,6 +555,9 @@ def audit_log(limit: int = 100, principal: auth.Principal = Depends(auth.require
         where += f" OR a.action IN ({','.join('?' * len(EVERYONE_IS_TOLD))})"
         params += EVERYONE_IS_TOLD
     where += ")"
+    if not principal.owner:      # who else has access to someone is that person's to know: see _theirs_alone in app.api.profiles
+        where += " AND NOT (a.action IN ('access.granted', 'access.revoked') AND a.profile_id IS NOT ?)"
+        params.append(principal.home)
     with read() as conn:
         rows = conn.execute(f"SELECT a.* FROM audit_log a WHERE {where} ORDER BY a.at DESC LIMIT ?",
                             (*params, max(1, min(limit, 500)))).fetchall()

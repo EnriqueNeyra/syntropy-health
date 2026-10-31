@@ -19,7 +19,7 @@ datas = [
     (str(ROOT / "app" / "data"), "app/data"),
     (str(DESKTOP / "icons"), "icons"),
 ]
-hidden = [*collect_submodules("app"), *collect_submodules("uvicorn"), *collect_submodules("zeroconf"), "ifaddr", "tray", "updater", "sites", "own_pages", "recovery"]
+hidden = [*collect_submodules("app"), *collect_submodules("uvicorn"), *collect_submodules("zeroconf"), "ifaddr", "sqlcipher3.dbapi2", "sqlcipher3._sqlite3", "tray", "updater", "sites", "own_pages", "recovery"]
 if sys.platform == "win32":
     hidden += ["pystray._win32", "webview.platforms.edgechromium", "webview.platforms.winforms", "windows_window"]
 elif sys.platform == "darwin":

@@ -38,6 +38,9 @@ export function openBackupDialog(info, onDone) {
         encryption key that opens them, so it restores on any computer. It's encrypted with a passphrase you choose.
         ${info.key_source === "setting" ? html`<b>Your encryption key comes from the SYNTROPY_SECRET_KEY setting, so it isn't in the file: keep that value safe too.</b>` : ""}</p>
       <div id="bk-fields">${passphraseFields(info.min_passphrase)}</div>
+      ${info.needs_password ? html`<div class="field"><label class="label" for="bk-password">Your password</label>
+        <input class="input" type="password" id="bk-password" autocomplete="current-password" required>
+        <div class="hint">A backup holds everyone's records, so from a phone it takes your password.</div></div>` : ""}
       <div class="hint" style="margin-bottom:14px">Keep the passphrase somewhere other than the backup. If it's lost, nobody can open the backup.</div>
       <label class="checkbox small field"><input type="checkbox" id="bk-plain"><span>Don't encrypt it.</span></label>
       <div class="banner warn" id="bk-warn" hidden>${icon("shield")}<div class="grow"><p><b>Anyone who gets an unencrypted backup can read every record and use every saved
@@ -56,6 +59,8 @@ export function openBackupDialog(info, onDone) {
     let done;
     try {
       const body = plain.checked ? { unencrypted: true } : { passphrase: readPassphrase(m.el, info.min_passphrase) };
+      const password = $("#bk-password", m.el);
+      if (password) body.password = password.value;
       done = busyButton(e.currentTarget, "Making it…");
       const made = await api("/api/backups", { method: "POST", body, keepCache: true });
       m.setBody(html`<div class="banner info">${icon("check")}<div class="grow"><p>Your backup is ready: ${fmtSize(made.size_bytes)}, holding ${made.holds}.</p></div></div>
