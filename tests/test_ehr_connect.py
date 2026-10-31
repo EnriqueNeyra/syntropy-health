@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.connectors import smart
+from app.connectors import wearable_common as wc
 from app.core.db import db
 from app.services import connect, sync as sync_svc
 from app.simulator import server as sim
@@ -609,11 +610,12 @@ def test_whoop_pages_through_everything(monkeypatch):
     assert [r["id"] for r in _whoop_fetch(_whoop_client(monkeypatch, handler))] == [1, 2]
 
 
-def test_whoop_401_is_a_sign_in_problem_and_403_is_a_quiet_gap(monkeypatch):
+def test_whoop_401_is_a_sign_in_problem_and_403_is_a_refusal(monkeypatch):
     with pytest.raises(smart.SmartError) as caught:
         _whoop_fetch(_whoop_client(monkeypatch, lambda r: httpx.Response(401)))
     assert caught.value.kind == "auth"
-    assert _whoop_fetch(_whoop_client(monkeypatch, lambda r: httpx.Response(403))) == []
+    with pytest.raises(wc.Refused):     # fetch_live decides what that means, from all the types together
+        _whoop_fetch(_whoop_client(monkeypatch, lambda r: httpx.Response(403)))
 
 
 @pytest.mark.parametrize("status", [429, 500, 503])
@@ -631,7 +633,6 @@ def test_a_client_error_from_a_vendor_isnt_called_temporary():
 
 
 def _local_exchange(monkeypatch, handler):
-    from app.connectors import wearable_common as wc
     from app.core import settings
     monkeypatch.setattr(wc.httpx, "AsyncClient", lambda **kw: RealClient(transport=httpx.MockTransport(handler), **kw))
     monkeypatch.setattr(settings, "wearable_credentials", lambda provider: {"client_id": "id", "client_secret": "secret"})

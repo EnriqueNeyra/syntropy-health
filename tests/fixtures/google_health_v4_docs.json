@@ -1,0 +1,185 @@
+{
+ "rollup:steps": [
+  {
+   "civilStartTime": {
+    "date": {
+     "year": 2026,
+     "month": 10,
+     "day": 5
+    }
+   },
+   "civilEndTime": {
+    "date": {
+     "year": 2026,
+     "month": 10,
+     "day": 5
+    }
+   },
+   "steps": {
+    "countSum": "9321"
+   }
+  }
+ ],
+ "rollup:distance": [
+  {
+   "civilStartTime": {
+    "date": {
+     "year": 2026,
+     "month": 10,
+     "day": 5
+    }
+   },
+   "distance": {
+    "millimetersSum": "7084000"
+   }
+  }
+ ],
+ "daily-resting-heart-rate": [
+  {
+   "dataSource": {
+    "device": {
+     "formFactor": "WATCH",
+     "manufacturer": "Google",
+     "displayName": "Pixel Watch 3"
+    }
+   },
+   "dailyRestingHeartRate": {
+    "date": {
+     "year": 2026,
+     "month": 10,
+     "day": 5
+    },
+    "beatsPerMinute": "58"
+   }
+  }
+ ],
+ "weight": [
+  {
+   "name": "users/me/dataTypes/weight/dataPoints/w1",
+   "dataSource": {
+    "device": {
+     "formFactor": "WATCH",
+     "manufacturer": "Google",
+     "displayName": "Pixel Watch 3"
+    }
+   },
+   "weight": {
+    "sampleTime": {
+     "physicalTime": "2026-10-05T11:00:00Z"
+    },
+    "weightGrams": 78200
+   }
+  }
+ ],
+ "sleep": [
+  {
+   "name": "users/me/dataTypes/sleep/dataPoints/night",
+   "dataSource": {
+    "device": {
+     "formFactor": "WATCH",
+     "manufacturer": "Google",
+     "displayName": "Pixel Watch 3"
+    }
+   },
+   "sleep": {
+    "interval": {
+     "startTime": "2026-10-05T02:40:00Z",
+     "startUtcOffset": "-14400s",
+     "endTime": "2026-10-05T10:50:00Z",
+     "endUtcOffset": "-14400s",
+     "civilEndTime": {
+      "date": {
+       "year": 2026,
+       "month": 10,
+       "day": 5
+      }
+     }
+    },
+    "type": "STAGES",
+    "metadata": {
+     "nap": false
+    },
+    "summary": {
+     "minutesAsleep": "440",
+     "minutesAwake": "50",
+     "stagesSummary": [
+      {
+       "type": "DEEP",
+       "minutes": "80"
+      },
+      {
+       "type": "REM",
+       "minutes": "100"
+      },
+      {
+       "type": "LIGHT",
+       "minutes": "260"
+      },
+      {
+       "type": "AWAKE",
+       "minutes": "50"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "users/me/dataTypes/sleep/dataPoints/nap",
+   "dataSource": {
+    "device": {
+     "formFactor": "WATCH",
+     "manufacturer": "Google",
+     "displayName": "Pixel Watch 3"
+    }
+   },
+   "sleep": {
+    "interval": {
+     "startTime": "2026-10-05T18:00:00Z",
+     "startUtcOffset": "-14400s",
+     "endTime": "2026-10-05T18:50:00Z",
+     "endUtcOffset": "-14400s",
+     "civilEndTime": {
+      "date": {
+       "year": 2026,
+       "month": 10,
+       "day": 5
+      }
+     }
+    },
+    "metadata": {
+     "nap": true
+    },
+    "summary": {
+     "minutesAsleep": "45"
+    }
+   }
+  }
+ ],
+ "exercise": [
+  {
+   "name": "users/me/dataTypes/exercise/dataPoints/run",
+   "dataSource": {
+    "device": {
+     "formFactor": "WATCH",
+     "manufacturer": "Google",
+     "displayName": "Pixel Watch 3"
+    }
+   },
+   "exercise": {
+    "interval": {
+     "startTime": "2026-10-05T11:00:00Z",
+     "startUtcOffset": "-14400s",
+     "endTime": "2026-10-05T11:40:00Z",
+     "endUtcOffset": "-14400s"
+    },
+    "exerciseType": "RUNNING",
+    "activeDuration": "2400s",
+    "metricsSummary": {
+     "caloriesKcal": 400.5,
+     "distanceMillimeters": 6000000,
+     "averageHeartRateBeatsPerMinute": "140"
+    }
+   }
+  }
+ ]
+}

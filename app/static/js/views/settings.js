@@ -432,7 +432,7 @@ function browserName(ua) {
 }
 
 async function renderPeople(body, { redraw }) {
-  const { profiles } = await get("/api/profiles", undefined, { fresh: true });
+  const [{ profiles }, { timezones }] = await Promise.all([get("/api/profiles", undefined, { fresh: true }), get("/api/settings/timezones")]);
   const me = profiles.find((p) => p.is_self);
   const owner = isOwner();
   const canRemove = (p) => p.access === "manage" && !p.is_self && (!p.signs_in || owner);
@@ -464,7 +464,11 @@ async function renderPeople(body, { redraw }) {
     <div class="field"><label class="label" for="p-name">Name</label><input class="input" id="p-name" value="${p.name || ""}" maxlength="80"></div>
     <div class="field"><label class="label" for="p-rel">Relationship</label><select class="input" id="p-rel">
       ${["self", "partner", "child", "parent", "sibling", "other"].map((r) => html`<option value="${r}" ${p.relationship === r ? "selected" : ""}>${capitalize(r)}</option>`)}</select></div>
-    <div class="field"><label class="label" for="p-dob">Date of birth</label><input class="input" id="p-dob" type="date" value="${p.birth_date || ""}"></div>`;
+    <div class="field"><label class="label" for="p-dob">Date of birth</label><input class="input" id="p-dob" type="date" value="${p.birth_date || ""}"></div>
+    ${p.id ? html`<div class="field"><label class="label" for="p-tz">Home time zone</label><select class="input" id="p-tz">
+      <option value="">Same as this server</option>
+      ${timezones.map((tz) => html`<option value="${tz}" ${p.timezone === tz ? "selected" : ""}>${tz.replaceAll("_", " ")}</option>`)}</select>
+      <div class="small muted">Which day a reading counts toward, when the device doesn't say where it was.</div></div>` : ""}`;
   };
   const openForm = (p) => {
     const m = modal({ title: p ? `Edit ${p.name}` : "Add person", body: profileForm(p),
@@ -472,6 +476,8 @@ async function renderPeople(body, { redraw }) {
     m.el.querySelector("[data-cancel]").addEventListener("click", m.close);
     m.el.querySelector("[data-save]").addEventListener("click", async () => {
       const data = { name: $("#p-name", m.el).value.trim(), relationship: $("#p-rel", m.el).value, birth_date: $("#p-dob", m.el).value || null };
+      const zone = $("#p-tz", m.el);
+      if (zone) data.timezone = zone.value || null;
       if (!data.name) return toast("Enter a name", "bad");
       try {
         if (p) await patch(`/api/profiles/${p.id}`, data);

@@ -1,0 +1,98 @@
+{
+ "daily_activity": [
+  {
+   "id": "a1b2",
+   "day": "2026-10-05",
+   "score": 82,
+   "steps": 9321,
+   "active_calories": 420,
+   "total_calories": 2410,
+   "timestamp": "2026-10-05T04:00:00-04:00"
+  }
+ ],
+ "daily_sleep": [
+  {
+   "id": "c3d4",
+   "day": "2026-10-05",
+   "score": 77,
+   "timestamp": "2026-10-05T00:00:00+00:00",
+   "contributors": {
+    "deep_sleep": 70
+   }
+  }
+ ],
+ "daily_readiness": [
+  {
+   "id": "e5f6",
+   "day": "2026-10-05",
+   "score": 80,
+   "temperature_deviation": -0.1,
+   "timestamp": "2026-10-05T00:00:00+00:00"
+  }
+ ],
+ "daily_spo2": [
+  {
+   "id": "g7h8",
+   "day": "2026-10-05",
+   "spo2_percentage": {
+    "average": 97.1
+   }
+  }
+ ],
+ "sleep": [
+  {
+   "id": "night",
+   "day": "2026-10-05",
+   "type": "long_sleep",
+   "bedtime_start": "2026-10-04T22:40:00-04:00",
+   "bedtime_end": "2026-10-05T06:50:00-04:00",
+   "total_sleep_duration": 26400,
+   "deep_sleep_duration": 5000,
+   "rem_sleep_duration": 6000,
+   "light_sleep_duration": 15400,
+   "awake_time": 3000,
+   "lowest_heart_rate": 50,
+   "average_hrv": 60,
+   "average_breath": 14.0
+  },
+  {
+   "id": "nap",
+   "day": "2026-10-05",
+   "type": "sleep",
+   "bedtime_start": "2026-10-05T14:00:00-04:00",
+   "bedtime_end": "2026-10-05T14:50:00-04:00",
+   "total_sleep_duration": 2700,
+   "lowest_heart_rate": 68,
+   "average_hrv": 28,
+   "average_breath": 16.0
+  },
+  {
+   "id": "rest",
+   "day": "2026-10-05",
+   "type": "rest",
+   "bedtime_start": "2026-10-05T16:00:00-04:00",
+   "bedtime_end": "2026-10-05T16:20:00-04:00"
+  }
+ ],
+ "workout": [
+  {
+   "id": "wo",
+   "activity": "cycling",
+   "calories": 412.5,
+   "day": "2026-10-05",
+   "distance": 18000.0,
+   "start_datetime": "2026-10-05T07:00:00-04:00",
+   "end_datetime": "2026-10-05T08:10:00-04:00",
+   "intensity": "moderate",
+   "label": null,
+   "source": "confirmed"
+  }
+ ],
+ "heartrate": [
+  {
+   "bpm": 62,
+   "source": "awake",
+   "timestamp": "2026-10-05T12:00:00+00:00"
+  }
+ ]
+}

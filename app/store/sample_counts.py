@@ -102,8 +102,8 @@ def for_profile(profile_id: str) -> int:
 
 
 def added(profile_id: str, connection_id: Optional[str], n: int) -> None:
-    """Records samples that were just stored."""
-    if n <= 0:
+    """Records samples that were just stored, or with a negative ``n``, that just went."""
+    if n == 0:
         return
     with _lock:
         if _by_connection is None:
@@ -112,6 +112,12 @@ def added(profile_id: str, connection_id: Optional[str], n: int) -> None:
         _by_profile[profile_id] = _by_profile.get(profile_id, 0) + n
         if _recounting:
             _arrived_while_recounting.append((profile_id, connection_id, n))
+
+
+def moved(profile_id: str, from_connection: Optional[str], to_connection: Optional[str], n: int) -> None:
+    """Samples now belong to another source of the same person."""
+    added(profile_id, from_connection, -n)
+    added(profile_id, to_connection, n)
 
 
 def forget() -> None:

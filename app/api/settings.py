@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from app import directory
 from app.connectors import smart
 from app.core import auth, config, context, settings
+from app.core.db import db
 from app.store import accounts, biometrics
 
 # Anyone signed in can read these; changing them (they affect everyone on the server) is for owners. Units are each
@@ -155,13 +156,13 @@ def update_general(req: GeneralPatch) -> dict:
     if req.timezone is not None:
         if req.timezone and req.timezone not in available_timezones():
             raise HTTPException(400, "Unknown time zone.")
-        before = settings.timezone_name()
+        if (req.timezone or config.timezone_name()) != settings.timezone_name():
+            # Days are grouped in the new zone: every rollup is recomputed, which can take a while with years of data. Queued
+            # first, so a kill partway is finished at the next start; running it again after a failure is harmless.
+            with db() as conn:
+                biometrics.queue_all_rebuilds(conn)
         settings.set("display.timezone", req.timezone or None)
-        if settings.timezone_name() != before:
-            # Days are grouped in the new zone: every rollup is recomputed, which can take a while with years of data.
-            from app.store import profiles
-            for p in profiles.list_profiles():
-                biometrics.rebuild_daily(p["id"])
+        biometrics.run_queued_rebuilds()
     return _snapshot()
 
 

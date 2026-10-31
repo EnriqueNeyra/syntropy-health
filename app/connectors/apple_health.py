@@ -6,6 +6,9 @@ Streams ``export.xml`` (from Health app → profile → Export All Health Data) 
 mapped to the same metric identifiers the iOS companion app uses, so data from
 both paths de-duplicates. If the export contains ``clinical-records/*.json`` (Health
 Records), those FHIR resources are returned for import as well.
+
+The offset in an export's dates isn't kept. It's reported to be the phone's zone when the file was made rather than where the
+reading was taken, which would pin years of history to the wrong place. A record's own HKTimeZone is used when it has one.
 """
 
 from __future__ import annotations
@@ -19,42 +22,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 from xml.etree.ElementTree import iterparse
+from zoneinfo import ZoneInfo
 
-# HealthKit identifier -> (metric_type, target unit, converter from export unit)
-QUANTITY_TYPES: dict[str, str] = {
-    "HKQuantityTypeIdentifierHeartRate": "heart_rate",
-    "HKQuantityTypeIdentifierRestingHeartRate": "resting_heart_rate",
-    "HKQuantityTypeIdentifierWalkingHeartRateAverage": "walking_heart_rate_average",
-    "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": "hrv_sdnn",
-    "HKQuantityTypeIdentifierHeartRateRecoveryOneMinute": "heart_rate_recovery_one_minute",
-    "HKQuantityTypeIdentifierStepCount": "step_count",
-    "HKQuantityTypeIdentifierDistanceWalkingRunning": "distance_walking_running",
-    "HKQuantityTypeIdentifierFlightsClimbed": "flights_climbed",
-    "HKQuantityTypeIdentifierActiveEnergyBurned": "active_energy",
-    "HKQuantityTypeIdentifierBasalEnergyBurned": "basal_energy",
-    "HKQuantityTypeIdentifierAppleExerciseTime": "apple_exercise_time",
-    "HKQuantityTypeIdentifierAppleStandTime": "apple_stand_time",
-    "HKQuantityTypeIdentifierVO2Max": "vo2_max",
-    "HKQuantityTypeIdentifierOxygenSaturation": "oxygen_saturation",
-    "HKQuantityTypeIdentifierRespiratoryRate": "respiratory_rate",
-    "HKQuantityTypeIdentifierBodyTemperature": "body_temperature",
-    "HKQuantityTypeIdentifierBloodPressureSystolic": "blood_pressure_systolic",
-    "HKQuantityTypeIdentifierBloodPressureDiastolic": "blood_pressure_diastolic",
-    "HKQuantityTypeIdentifierBloodGlucose": "blood_glucose",
-    "HKQuantityTypeIdentifierBodyMass": "body_mass",
-    "HKQuantityTypeIdentifierBodyMassIndex": "body_mass_index",
-    "HKQuantityTypeIdentifierBodyFatPercentage": "body_fat_percentage",
-    "HKQuantityTypeIdentifierLeanBodyMass": "lean_body_mass",
-    "HKQuantityTypeIdentifierWalkingSpeed": "walking_speed",
-    "HKQuantityTypeIdentifierWalkingStepLength": "walking_step_length",
-    "HKQuantityTypeIdentifierWalkingAsymmetryPercentage": "walking_asymmetry",
-    "HKQuantityTypeIdentifierWalkingDoubleSupportPercentage": "walking_double_support",
-    "HKQuantityTypeIdentifierSixMinuteWalkTestDistance": "six_minute_walk_distance",
-    "HKQuantityTypeIdentifierStairAscentSpeed": "stair_ascent_speed",
-    "HKQuantityTypeIdentifierStairDescentSpeed": "stair_descent_speed",
-    "HKQuantityTypeIdentifierEnvironmentalAudioExposure": "environmental_audio_exposure",
-    "HKQuantityTypeIdentifierHeadphoneAudioExposure": "headphone_audio_exposure",
-}
+from app.store.metric_registry import QUANTITY_TYPES, to_canonical
 
 SLEEP_VALUES = {
     "HKCategoryValueSleepAnalysisAsleepDeep": "sleep_analysis_deep",
@@ -161,32 +131,10 @@ def workout_name(activity_type: str) -> str:
     return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", v)
 
 
-# Export unit -> (factor, canonical unit) per metric family
-_DISTANCE_M = {"m": 1.0, "km": 1000.0, "mi": 1609.344, "ft": 0.3048, "yd": 0.9144, "cm": 0.01}
-_MASS_KG = {"kg": 1.0, "lb": 0.45359237, "g": 0.001, "st": 6.35029}
-_ENERGY_KCAL = {"kcal": 1.0, "Cal": 1.0, "kJ": 1 / 4.184, "cal": 0.001}
-_SPEED_MS = {"m/s": 1.0, "km/hr": 1 / 3.6, "mi/hr": 0.44704}
-_LENGTH_CM = {"cm": 1.0, "in": 2.54, "m": 100.0}
-
-
 def convert_unit(metric: str, value: float, unit: str) -> tuple[float, str]:
-    if metric in ("distance_walking_running", "six_minute_walk_distance"):
-        return value * _DISTANCE_M.get(unit, 1.0), "m"
-    if metric in ("body_mass", "lean_body_mass"):
-        return value * _MASS_KG.get(unit, 1.0), "kg"
-    if metric in ("active_energy", "basal_energy"):
-        return value * _ENERGY_KCAL.get(unit, 1.0), "kcal"
-    if metric in ("walking_speed", "stair_ascent_speed", "stair_descent_speed"):
-        return value * _SPEED_MS.get(unit, 1.0), "m/s"
-    if metric == "walking_step_length":
-        return value * _LENGTH_CM.get(unit, 1.0), "cm"
-    if metric == "body_temperature" and unit == "degF":
-        return (value - 32) * 5 / 9, "°C"
-    if metric == "blood_glucose" and unit == "mmol<180.1558800000541>/L":
-        return value * 18.016, "mg/dL"
-    if metric in ("apple_exercise_time", "apple_stand_time") and unit == "s":
-        return value / 60, "min"
-    return value, unit
+    """``value`` in the metric's own unit, for a workout's figures. A unit that isn't recognised stays as it is."""
+    converted, label, _ = to_canonical(metric, value, unit)
+    return converted, label
 
 
 def _parse_date(value: str) -> str:
@@ -237,6 +185,12 @@ def parse_gpx(data: bytes) -> list[dict[str, Any]]:
     except Exception:  # noqa: BLE001 - a damaged route file shouldn't fail the import
         return points
     return points
+
+
+def _elevation_m(value: Optional[float], unit: str) -> Optional[float]:
+    if value is None:
+        return None
+    return convert_unit("six_minute_walk_distance", value, unit)[0]
 
 
 def _workout(elem: Any, start: str, end: str, source: str, read_file: Optional[Callable[[str], Optional[bytes]]]) -> dict[str, Any]:
@@ -293,17 +247,66 @@ def _workout(elem: Any, start: str, end: str, source: str, read_file: Optional[C
         "duration_s": duration, "active_energy_kcal": active, "total_energy_kcal": (active + basal) if active and basal else None,
         "distance_m": distance, "step_count": stat("StepCount", "sum"),
         "avg_hr": stat("HeartRate", "average"), "max_hr": stat("HeartRate", "maximum"), "min_hr": stat("HeartRate", "minimum"),
-        "elevation_ascent_m": ascent / 100 if ascent is not None and ascent_unit == "cm" else ascent,
-        "elevation_descent_m": descent / 100 if descent is not None and descent_unit == "cm" else descent,
+        "elevation_ascent_m": _elevation_m(ascent, ascent_unit),
+        "elevation_descent_m": _elevation_m(descent, descent_unit),
         "indoor": None if indoor is None else indoor == "1", "temperature_c": temp, "humidity_pct": humidity,
         "source_name": source, "device_name": None,
         "metadata": {k.removeprefix("HK"): v for k, v in meta.items()} or None, "heart_rate": [], "route": route,
     }
 
 
-def iter_items(xml_stream: io.BufferedIOBase,
-               read_file: Optional[Callable[[str], Optional[bytes]]] = None) -> Iterator[tuple[str, dict[str, Any]]]:
-    """Yields ("sample" | "workout" | "event", item) from export.xml in constant memory."""
+# Control characters XML 1.0 doesn't allow, which Apple's exports have been seen to carry. On UTF-8 they can be taken out byte
+# by byte, since the bytes of a longer character are all 0x80 or above.
+_NOT_XML = bytes(b for b in range(0x20) if b not in (0x09, 0x0A, 0x0D))
+_DOCTYPE_SEARCH = 4 * 1024 * 1024
+
+
+class CleanStream:
+    """Reads an export.xml around two known Apple faults: the document type block, which iOS 16 exports wrote malformed, and
+    stray control characters. What else goes wrong in a file ends the read where it happens (see imports)."""
+
+    def __init__(self, raw: Any):
+        self._raw = raw
+        self._started = False
+
+    def _start(self) -> bytes:
+        head = self._raw.read(64 * 1024)
+        at = head.find(b"<!DOCTYPE")
+        if at < 0:
+            return head
+        # The block's end can't be trusted when the block is what's broken, so it ends where the document starts.
+        while (root := head.find(b"<HealthData", at)) < 0 and len(head) < _DOCTYPE_SEARCH:
+            more = self._raw.read(64 * 1024)
+            if not more:
+                break
+            head += more
+        return head[:at] + head[root:] if root >= 0 else head
+
+    def read(self, size: int = -1) -> bytes:
+        chunk = self._raw.read(size) if self._started else self._start()
+        self._started = True
+        return chunk.translate(None, _NOT_XML)
+
+
+def _record_offset(elem: Any, start: str) -> Optional[int]:
+    for child in elem:
+        if child.tag == "MetadataEntry" and child.get("key") == "HKTimeZone":
+            try:
+                delta = datetime.fromisoformat(start.replace("Z", "+00:00")).astimezone(ZoneInfo(child.get("value", ""))).utcoffset()
+            except Exception:  # noqa: BLE001 - someone else's text, not necessarily a zone
+                return None
+            return int(delta.total_seconds() // 60) if delta is not None else None
+    return None
+
+
+def iter_items(xml_stream: Any, read_file: Optional[Callable[[str], Optional[bytes]]] = None,
+               tally: Optional[dict[str, dict[str, int]]] = None) -> Iterator[tuple[str, dict[str, Any]]]:
+    """Yields ("sample" | "workout" | "event", item) from export.xml in constant memory. ``tally`` counts the records of each
+    type imported and left aside."""
+    def count(which: str, record_type: str) -> None:
+        if tally is not None:
+            tally[which][record_type] = tally[which].get(record_type, 0) + 1
+
     root = None
     handled = 0
     for event, elem in iterparse(xml_stream, events=("start", "end")):
@@ -339,23 +342,40 @@ def iter_items(xml_stream: io.BufferedIOBase,
             except ValueError:
                 elem.clear()
                 continue
-            value, unit = convert_unit(metric, raw, a.get("unit", ""))
-            yield "sample", {"id": _sample_id(rtype, source, start, end, a.get("value", "")), "metric_type": metric,
-                             "hk_identifier": rtype, "value": value, "unit": unit, "start_date": start, "end_date": end,
-                             "source_name": source, "device_name": source}
+            count("imported", rtype)
+            sample = {"id": _sample_id(rtype, source, start, end, a.get("value", "")), "metric_type": metric,
+                      "hk_identifier": rtype, "value": raw, "unit": a.get("unit", ""), "start_date": start, "end_date": end,
+                      "source_name": source, "device_name": a.get("device") and _device_label(a["device"]) or source, "strict_units": True}
+            offset = _record_offset(elem, start)
+            if offset is not None:
+                sample["tz_offset_min"] = offset
+            yield "sample", sample
         elif rtype == "HKCategoryTypeIdentifierSleepAnalysis" and a.get("value") in SLEEP_VALUES:
             s = datetime.fromisoformat(start.replace("Z", "+00:00"))
             e = datetime.fromisoformat(end.replace("Z", "+00:00"))
+            count("imported", rtype)
             yield "sample", {"id": _sample_id(rtype, source, start, end, a["value"]), "metric_type": SLEEP_VALUES[a["value"]],
                              "hk_identifier": rtype, "value": (e - s).total_seconds(), "unit": "seconds",
                              "start_date": start, "end_date": end, "source_name": source, "device_name": source}
         elif rtype in CATEGORY_TYPES:
             event_type, category, name = CATEGORY_TYPES[rtype]
             label = category_label(a.get("value", ""))
+            count("imported", rtype)
             yield "event", {"id": _sample_id(rtype, source, start, end, a.get("value", "")), "event_type": event_type,
                             "category": category, "name": name, "start": start, "end": end, "value": None,
                             "value_label": label, "source_name": source, "metadata": None}
+        else:
+            count("skipped", rtype or "unknown")
         elem.clear()
+
+
+_DEVICE_NAME = re.compile(r"\bname:([^,>]+)")
+
+
+def _device_label(device: str) -> Optional[str]:
+    """The record's device attribute reads like "<<HKDevice: 0x...>, name:Apple Watch, manufacturer:Apple Inc., ...>"."""
+    match = _DEVICE_NAME.search(device)
+    return match.group(1).strip() if match else None
 
 
 def zip_reader(path: Path) -> Optional[Callable[[str], Optional[bytes]]]:
@@ -387,4 +407,10 @@ def open_export(path: Path) -> tuple[Optional[Callable[[], io.BufferedIOBase]], 
                 except ValueError:
                     continue
         return ((lambda: zf.open(xml_name)) if xml_name else None), fhir  # type: ignore[return-value]
+    with open(path, "rb") as fh:
+        head = fh.read(512).lstrip(b"\xef\xbb\xbf \t\r\n")
+    if head.startswith(b"PK"):
+        raise ValueError("This zip file is incomplete. Copy it again, or export from the Health app again.")
+    if not head.startswith(b"<"):
+        raise ValueError("This isn't an Apple Health export. It should be the export.zip the Health app makes, or the export.xml inside it.")
     return (lambda: open(path, "rb")), []

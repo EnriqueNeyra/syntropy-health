@@ -103,6 +103,17 @@ async def reconnect(connection_id: str, request: Request) -> dict:
     raise HTTPException(400, "This source cannot be re-authorized.")
 
 
+@router.post("/api/connections/{connection_id}/fetch-history", dependencies=[user])
+def fetch_history(connection_id: str, background: BackgroundTasks) -> dict:
+    """Asks a live wearable for everything it still has from before this source was connected."""
+    conn = _mine(connection_id)
+    if conn["kind"] != "wearable" or conn["mode"] != "live":
+        raise HTTPException(400, "Only a connected wearable has older history to fetch.")
+    sync.ask_for_history(conn)
+    background.add_task(sync.fetch_whole_history, connection_id)
+    return {"ok": True}
+
+
 class WearableConnectRequest(BaseModel):
     profile_id: Optional[str] = None
     provider: str
@@ -168,6 +179,8 @@ def rename(connection_id: str, req: RenameRequest) -> dict:
 @router.delete("/api/connections/{connection_id}", dependencies=[user])
 def remove(connection_id: str, delete_data: bool = False) -> dict:
     conn = _mine(connection_id)
+    if sync.is_running(connection_id):
+        raise HTTPException(409, "This source is syncing right now. Try again in a minute.")
     if conn["kind"] == "device":
         devices.revoke_for_connection(connection_id)   # the phone stops sending to a source that's gone
     if delete_data:

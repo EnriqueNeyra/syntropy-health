@@ -15,6 +15,50 @@ from app.core import config, settings
 from app.connectors.smart import SmartError, USER_AGENT, retry_after_seconds, temporary_refusal
 
 
+class Refused(Exception):
+    """A provider answered 403 to one data type. Why isn't known yet: that takes all the types together (see refusals)."""
+
+    def __init__(self, endpoint: str = "", detail: str = ""):
+        super().__init__(endpoint)
+        self.endpoint = endpoint
+        self.detail = detail
+
+
+def refusals(name: str, refused: list[Refused], asked: int, granted: Optional[str], scopes: dict[str, str]) -> list[str]:
+    """What to say about the data types a provider refused. All of them is an error, because counted as a success the next
+    sync would start after the days this one didn't bring. Some of them is a warning, unless the person didn't grant that
+    type when they connected, which is their choice and nothing to keep mentioning."""
+    if refused and len(refused) >= asked:
+        detail = next((r.detail for r in refused if r.detail), None)
+        raise SmartError(detail or f"{name} refused access to everything Syntropy Health asked for. A membership may have expired, or "
+                                   f"permission may have been taken back. Check your {name} account, or reconnect. What's missing "
+                                   "is fetched once access is back.", "error")
+    held = set((granted or "").split())
+    out = []
+    for r in refused:
+        scope = scopes.get(r.endpoint)
+        if granted and scope and scope not in held:
+            continue
+        out.append(f"{name} refused access to {r.endpoint.replace('_', ' ').replace('-', ' ')}. It will be fetched again until {name} allows it.")
+    return out
+
+
+def too_many_pages(name: str, what: str) -> SmartError:
+    return SmartError(f"{name} has more {what} than Syntropy Health can fetch in one go, so this sync stopped rather than miss some. "
+                      "It will try again.", "error")
+
+
+def clock_offset_minutes(value: Any) -> Optional[int]:
+    """"-05:00" to -300. Zero says nothing about where someone was, so it's left to their home zone."""
+    if not isinstance(value, str) or len(value) != 6 or value[0] not in "+-":
+        return None
+    try:
+        minutes = int(value[1:3]) * 60 + int(value[4:6])
+    except ValueError:
+        return None
+    return (-minutes if value[0] == "-" else minutes) or None
+
+
 def redirect_uri() -> str:
     return settings.get("relay.wearable_redirect_uri")
 
@@ -96,6 +140,10 @@ async def refresh_tokens(token_url: str, provider: str, credentials: dict[str, A
         if temporary_refusal(resp) or _relay_passing_on_trouble(resp, bool(creds["client_secret"])):
             raise SmartError(f"{provider.title()} couldn't renew access just now ({resp.status_code}). Syntropy will try again.",
                              "network", retry_after=retry_after_seconds(resp))
+        if provider == "google" and "invalid_grant" in resp.text:
+            raise SmartError("Google ended this sign-in, so Google Health has to be reconnected. A Google Cloud project still in "
+                             "Testing has its sign-ins end after 7 days. To stop that, publish the project's OAuth consent "
+                             "screen (Google may ask for a review), or reconnect each week.", "auth")
         raise SmartError(f"{provider.title()} refused to refresh access ({resp.status_code}). Reconnect to continue.", "auth")
     try:
         tokens = resp.json()

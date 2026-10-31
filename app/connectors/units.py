@@ -161,6 +161,46 @@ def converted(unit: Optional[str], unit_norm: Optional[str]) -> bool:
     return unit_key(unit) != unit_key(unit_norm)
 
 
+# Wearable measurements, by family: the labels that already mean the canonical unit (the phones send these), and what to
+# multiply other units by. Temperature and molar glucose aren't a plain factor; see convert_family.
+_CM = {"cm": 1.0, "mm": 0.1, "m": 100.0, "km": 100_000.0, "in": 2.54, "ft": 30.48, "yd": 91.44, "mi": 160_934.4}
+FAMILIES: dict[str, tuple[set[str], dict[str, float]]] = {
+    "metres": ({"m", "meter", "meters", "metre", "metres"},
+               {"km": 1000.0, "mi": 1609.344, "ft": 0.3048, "yd": 0.9144, "cm": 0.01, "mm": 0.001, "in": 0.0254}),
+    "centimetres": ({"cm"}, {k: v for k, v in _CM.items() if k != "cm"}),
+    "kilograms": ({"kg"}, {"lb": 0.45359237, "lbs": 0.45359237, "g": 0.001, "st": 6.35029318, "oz": 0.028349523}),
+    "energy": ({"kcal", "Cal", "Kcal", "kCal"}, {"kJ": 1 / 4.184, "kj": 1 / 4.184, "cal": 0.001, "J": 1 / 4184}),
+    "speed": ({"m/s"}, {"km/hr": 1 / 3.6, "km/h": 1 / 3.6, "kph": 1 / 3.6, "mi/hr": 0.44704, "mph": 0.44704, "mi/h": 0.44704,
+                        "ft/s": 0.3048}),
+    "minutes": ({"min", "minutes"}, {"s": 1 / 60, "sec": 1 / 60, "seconds": 1 / 60, "hr": 60.0, "h": 60.0, "hours": 60.0}),
+    "millilitres": ({"mL", "ml"}, {"L": 1000.0, "l": 1000.0, "fl_oz_us": 29.5735296, "fl oz": 29.5735296, "fl_oz_imp": 28.4130625,
+                                   "cup_us": 236.588236, "cup_imp": 284.130625, "pt_us": 473.176473, "pt_imp": 568.26125}),
+    "litres": ({"L", "l"}, {"mL": 0.001, "ml": 0.001}),
+    "grams": ({"g"}, {"kg": 1000.0, "mg": 0.001, "mcg": 1e-6, "µg": 1e-6, "ug": 1e-6, "oz": 28.349523}),
+    "milligrams": ({"mg"}, {"g": 1000.0, "mcg": 0.001, "µg": 0.001, "ug": 0.001}),
+    "micrograms": ({"mcg", "µg", "ug"}, {"mg": 1000.0, "g": 1_000_000.0}),
+    "rate": ({"count/min", "bpm", "/min", "br/min", "rpm", "beats/min", "breaths/min"}, {"count/s": 60.0, "Hz": 60.0}),
+    "temperature": ({"degC", "°C", "C", "Cel", "celsius"}, {}),
+    "glucose": ({"mg/dL", "mg/dl"}, {}),
+}
+_FAHRENHEIT = {"degF", "°F", "F", "[degF]", "fahrenheit"}
+GLUCOSE_MG_PER_MMOL = 18.016
+
+
+def is_canonical(family: str, unit: str) -> bool:
+    return unit in FAMILIES[family][0]
+
+
+def convert_family(family: str, value: float, unit: str) -> Optional[float]:
+    """``value`` in the family's canonical unit, or None for a unit that isn't one of its own."""
+    if family == "temperature" and unit in _FAHRENHEIT:
+        return (value - 32) * 5 / 9
+    if family == "glucose" and unit.lower().startswith("mmol"):     # HealthKit writes mmol<180.15588000005408>/L
+        return value * GLUCOSE_MG_PER_MMOL
+    factor = FAMILIES[family][1].get(unit)
+    return None if factor is None else value * factor
+
+
 def pretty_unit(unit: Optional[str]) -> Optional[str]:
     """Human-friendly rendering of common UCUM codes."""
     if not unit:

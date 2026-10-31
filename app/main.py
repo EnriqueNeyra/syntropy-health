@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import agents, assistant, biometrics, connections, data, desktop, directory, insights, labs, profiles, records, settings, system
 from app.core import auth, config, data_fixes, db, maintenance, security, settings as instance_settings
 from app.core.uploads import DecompressUploads
-from app.services import network, renormalize, scheduler, updates  # noqa: F401 - renormalize registers a data fix
+from app.services import imports, network, renormalize, scheduler, updates, wearable_fixes  # noqa: F401 - renormalize and wearable_fixes register data fixes
 from app.store import biometrics as biometric_store, sample_counts
 from app.simulator import server as simulator
 
@@ -76,7 +76,8 @@ def _start_up() -> None:
     db.ensure_migrated()
     security.check_key()
     instance_settings.migrate_client_ids()
-    biometric_store.upgrade_daily_if_needed()
+    biometric_store.resume_rebuilds()
+    imports.recover_at_start_up()
     sample_counts.warm()
     maintenance.check_at_start_up()
 

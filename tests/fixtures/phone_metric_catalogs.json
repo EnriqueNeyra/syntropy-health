@@ -1,0 +1,810 @@
+{
+"ios": [
+{
+"metric": "step_count",
+"hk": "StepCount",
+"unit": "count",
+"cumulative": true
+},
+{
+"metric": "distance_walking_running",
+"hk": "DistanceWalkingRunning",
+"unit": "m",
+"cumulative": true
+},
+{
+"metric": "distance_cycling",
+"hk": "DistanceCycling",
+"unit": "m",
+"cumulative": true
+},
+{
+"metric": "distance_swimming",
+"hk": "DistanceSwimming",
+"unit": "m",
+"cumulative": true
+},
+{
+"metric": "distance_wheelchair",
+"hk": "DistanceWheelchair",
+"unit": "m",
+"cumulative": true
+},
+{
+"metric": "distance_downhill_snow_sports",
+"hk": "DistanceDownhillSnowSports",
+"unit": "m",
+"cumulative": true
+},
+{
+"metric": "distance_cross_country_skiing",
+"hk": "DistanceCrossCountrySkiing",
+"unit": "m",
+"cumulative": true
+},
+{
+"metric": "distance_paddle_sports",
+"hk": "DistancePaddleSports",
+"unit": "m",
+"cumulative": true
+},
+{
+"metric": "distance_rowing",
+"hk": "DistanceRowing",
+"unit": "m",
+"cumulative": true
+},
+{
+"metric": "distance_skating_sports",
+"hk": "DistanceSkatingSports",
+"unit": "m",
+"cumulative": true
+},
+{
+"metric": "swimming_stroke_count",
+"hk": "SwimmingStrokeCount",
+"unit": "count",
+"cumulative": true
+},
+{
+"metric": "push_count",
+"hk": "PushCount",
+"unit": "count",
+"cumulative": true
+},
+{
+"metric": "flights_climbed",
+"hk": "FlightsClimbed",
+"unit": "count",
+"cumulative": true
+},
+{
+"metric": "active_energy",
+"hk": "ActiveEnergyBurned",
+"unit": "kcal",
+"cumulative": true
+},
+{
+"metric": "basal_energy",
+"hk": "BasalEnergyBurned",
+"unit": "kcal",
+"cumulative": true
+},
+{
+"metric": "apple_exercise_time",
+"hk": "AppleExerciseTime",
+"unit": "min",
+"cumulative": true
+},
+{
+"metric": "apple_stand_time",
+"hk": "AppleStandTime",
+"unit": "min",
+"cumulative": true
+},
+{
+"metric": "apple_move_time",
+"hk": "AppleMoveTime",
+"unit": "min",
+"cumulative": true
+},
+{
+"metric": "time_in_daylight",
+"hk": "TimeInDaylight",
+"unit": "min",
+"cumulative": true
+},
+{
+"metric": "physical_effort",
+"hk": "PhysicalEffort",
+"unit": "kcal/(kg·hr)",
+"cumulative": false
+},
+{
+"metric": "vo2_max",
+"hk": "VO2Max",
+"unit": "mL/(kg·min)",
+"cumulative": false
+},
+{
+"metric": "running_speed",
+"hk": "RunningSpeed",
+"unit": "m/s",
+"cumulative": false
+},
+{
+"metric": "running_power",
+"hk": "RunningPower",
+"unit": "W",
+"cumulative": false
+},
+{
+"metric": "running_stride_length",
+"hk": "RunningStrideLength",
+"unit": "m",
+"cumulative": false
+},
+{
+"metric": "running_vertical_oscillation",
+"hk": "RunningVerticalOscillation",
+"unit": "cm",
+"cumulative": false
+},
+{
+"metric": "running_ground_contact_time",
+"hk": "RunningGroundContactTime",
+"unit": "ms",
+"cumulative": false
+},
+{
+"metric": "cycling_speed",
+"hk": "CyclingSpeed",
+"unit": "m/s",
+"cumulative": false
+},
+{
+"metric": "cycling_power",
+"hk": "CyclingPower",
+"unit": "W",
+"cumulative": false
+},
+{
+"metric": "cycling_cadence",
+"hk": "CyclingCadence",
+"unit": "count/min",
+"cumulative": false
+},
+{
+"metric": "cycling_functional_threshold_power",
+"hk": "CyclingFunctionalThresholdPower",
+"unit": "W",
+"cumulative": false
+},
+{
+"metric": "underwater_depth",
+"hk": "UnderwaterDepth",
+"unit": "m",
+"cumulative": false
+},
+{
+"metric": "water_temperature",
+"hk": "WaterTemperature",
+"unit": "degC",
+"cumulative": false
+},
+{
+"metric": "heart_rate",
+"hk": "HeartRate",
+"unit": "count/min",
+"cumulative": false
+},
+{
+"metric": "resting_heart_rate",
+"hk": "RestingHeartRate",
+"unit": "count/min",
+"cumulative": false
+},
+{
+"metric": "walking_heart_rate_average",
+"hk": "WalkingHeartRateAverage",
+"unit": "count/min",
+"cumulative": false
+},
+{
+"metric": "hrv_sdnn",
+"hk": "HeartRateVariabilitySDNN",
+"unit": "ms",
+"cumulative": false
+},
+{
+"metric": "heart_rate_recovery_one_minute",
+"hk": "HeartRateRecoveryOneMinute",
+"unit": "count/min",
+"cumulative": false
+},
+{
+"metric": "atrial_fibrillation_burden",
+"hk": "AtrialFibrillationBurden",
+"unit": "%",
+"cumulative": false
+},
+{
+"metric": "peripheral_perfusion_index",
+"hk": "PeripheralPerfusionIndex",
+"unit": "%",
+"cumulative": false
+},
+{
+"metric": "oxygen_saturation",
+"hk": "OxygenSaturation",
+"unit": "%",
+"cumulative": false
+},
+{
+"metric": "respiratory_rate",
+"hk": "RespiratoryRate",
+"unit": "count/min",
+"cumulative": false
+},
+{
+"metric": "forced_vital_capacity",
+"hk": "ForcedVitalCapacity",
+"unit": "L",
+"cumulative": false
+},
+{
+"metric": "forced_expiratory_volume_1",
+"hk": "ForcedExpiratoryVolume1",
+"unit": "L",
+"cumulative": false
+},
+{
+"metric": "peak_expiratory_flow_rate",
+"hk": "PeakExpiratoryFlowRate",
+"unit": "L/min",
+"cumulative": false
+},
+{
+"metric": "inhaler_usage",
+"hk": "InhalerUsage",
+"unit": "count",
+"cumulative": true
+},
+{
+"metric": "sleeping_breathing_disturbances",
+"hk": "AppleSleepingBreathingDisturbances",
+"unit": "count",
+"cumulative": false
+},
+{
+"metric": "body_temperature",
+"hk": "BodyTemperature",
+"unit": "degC",
+"cumulative": false
+},
+{
+"metric": "basal_body_temperature",
+"hk": "BasalBodyTemperature",
+"unit": "degC",
+"cumulative": false
+},
+{
+"metric": "sleeping_wrist_temperature",
+"hk": "AppleSleepingWristTemperature",
+"unit": "degC",
+"cumulative": false
+},
+{
+"metric": "blood_pressure_systolic",
+"hk": "BloodPressureSystolic",
+"unit": "mmHg",
+"cumulative": false
+},
+{
+"metric": "blood_pressure_diastolic",
+"hk": "BloodPressureDiastolic",
+"unit": "mmHg",
+"cumulative": false
+},
+{
+"metric": "blood_glucose",
+"hk": "BloodGlucose",
+"unit": "mg/dL",
+"cumulative": false
+},
+{
+"metric": "electrodermal_activity",
+"hk": "ElectrodermalActivity",
+"unit": "µS",
+"cumulative": false
+},
+{
+"metric": "insulin_delivery",
+"hk": "InsulinDelivery",
+"unit": "IU",
+"cumulative": true
+},
+{
+"metric": "blood_alcohol_content",
+"hk": "BloodAlcoholContent",
+"unit": "%",
+"cumulative": false
+},
+{
+"metric": "number_of_alcoholic_beverages",
+"hk": "NumberOfAlcoholicBeverages",
+"unit": "count",
+"cumulative": true
+},
+{
+"metric": "number_of_times_fallen",
+"hk": "NumberOfTimesFallen",
+"unit": "count",
+"cumulative": true
+},
+{
+"metric": "uv_exposure",
+"hk": "UVExposure",
+"unit": "count",
+"cumulative": false
+},
+{
+"metric": "body_mass",
+"hk": "BodyMass",
+"unit": "kg",
+"cumulative": false
+},
+{
+"metric": "body_mass_index",
+"hk": "BodyMassIndex",
+"unit": "count",
+"cumulative": false
+},
+{
+"metric": "body_fat_percentage",
+"hk": "BodyFatPercentage",
+"unit": "%",
+"cumulative": false
+},
+{
+"metric": "lean_body_mass",
+"hk": "LeanBodyMass",
+"unit": "kg",
+"cumulative": false
+},
+{
+"metric": "height",
+"hk": "Height",
+"unit": "cm",
+"cumulative": false
+},
+{
+"metric": "waist_circumference",
+"hk": "WaistCircumference",
+"unit": "cm",
+"cumulative": false
+},
+{
+"metric": "walking_speed",
+"hk": "WalkingSpeed",
+"unit": "m/s",
+"cumulative": false
+},
+{
+"metric": "walking_step_length",
+"hk": "WalkingStepLength",
+"unit": "cm",
+"cumulative": false
+},
+{
+"metric": "walking_asymmetry",
+"hk": "WalkingAsymmetryPercentage",
+"unit": "%",
+"cumulative": false
+},
+{
+"metric": "walking_double_support",
+"hk": "WalkingDoubleSupportPercentage",
+"unit": "%",
+"cumulative": false
+},
+{
+"metric": "six_minute_walk_distance",
+"hk": "SixMinuteWalkTestDistance",
+"unit": "m",
+"cumulative": false
+},
+{
+"metric": "stair_ascent_speed",
+"hk": "StairAscentSpeed",
+"unit": "m/s",
+"cumulative": false
+},
+{
+"metric": "stair_descent_speed",
+"hk": "StairDescentSpeed",
+"unit": "m/s",
+"cumulative": false
+},
+{
+"metric": "walking_steadiness",
+"hk": "AppleWalkingSteadiness",
+"unit": "%",
+"cumulative": false
+},
+{
+"metric": "environmental_audio_exposure",
+"hk": "EnvironmentalAudioExposure",
+"unit": "dBASPL",
+"cumulative": false
+},
+{
+"metric": "headphone_audio_exposure",
+"hk": "HeadphoneAudioExposure",
+"unit": "dBASPL",
+"cumulative": false
+},
+{
+"metric": "environmental_sound_reduction",
+"hk": "EnvironmentalSoundReduction",
+"unit": "dBASPL",
+"cumulative": false
+},
+{
+"metric": "dietary_energy",
+"hk": "DietaryEnergyConsumed",
+"unit": "kcal",
+"cumulative": true
+},
+{
+"metric": "dietary_carbohydrates",
+"hk": "DietaryCarbohydrates",
+"unit": "g",
+"cumulative": true
+},
+{
+"metric": "dietary_protein",
+"hk": "DietaryProtein",
+"unit": "g",
+"cumulative": true
+},
+{
+"metric": "dietary_fat_total",
+"hk": "DietaryFatTotal",
+"unit": "g",
+"cumulative": true
+},
+{
+"metric": "dietary_fat_saturated",
+"hk": "DietaryFatSaturated",
+"unit": "g",
+"cumulative": true
+},
+{
+"metric": "dietary_fat_monounsaturated",
+"hk": "DietaryFatMonounsaturated",
+"unit": "g",
+"cumulative": true
+},
+{
+"metric": "dietary_fat_polyunsaturated",
+"hk": "DietaryFatPolyunsaturated",
+"unit": "g",
+"cumulative": true
+},
+{
+"metric": "dietary_cholesterol",
+"hk": "DietaryCholesterol",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_sodium",
+"hk": "DietarySodium",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_fiber",
+"hk": "DietaryFiber",
+"unit": "g",
+"cumulative": true
+},
+{
+"metric": "dietary_sugar",
+"hk": "DietarySugar",
+"unit": "g",
+"cumulative": true
+},
+{
+"metric": "dietary_water",
+"hk": "DietaryWater",
+"unit": "mL",
+"cumulative": true
+},
+{
+"metric": "dietary_caffeine",
+"hk": "DietaryCaffeine",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_calcium",
+"hk": "DietaryCalcium",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_iron",
+"hk": "DietaryIron",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_potassium",
+"hk": "DietaryPotassium",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_magnesium",
+"hk": "DietaryMagnesium",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_zinc",
+"hk": "DietaryZinc",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_phosphorus",
+"hk": "DietaryPhosphorus",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_vitamin_a",
+"hk": "DietaryVitaminA",
+"unit": "mcg",
+"cumulative": true
+},
+{
+"metric": "dietary_vitamin_b6",
+"hk": "DietaryVitaminB6",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_vitamin_b12",
+"hk": "DietaryVitaminB12",
+"unit": "mcg",
+"cumulative": true
+},
+{
+"metric": "dietary_vitamin_c",
+"hk": "DietaryVitaminC",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_vitamin_d",
+"hk": "DietaryVitaminD",
+"unit": "mcg",
+"cumulative": true
+},
+{
+"metric": "dietary_vitamin_e",
+"hk": "DietaryVitaminE",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_vitamin_k",
+"hk": "DietaryVitaminK",
+"unit": "mcg",
+"cumulative": true
+},
+{
+"metric": "dietary_folate",
+"hk": "DietaryFolate",
+"unit": "mcg",
+"cumulative": true
+},
+{
+"metric": "dietary_niacin",
+"hk": "DietaryNiacin",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_riboflavin",
+"hk": "DietaryRiboflavin",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_thiamin",
+"hk": "DietaryThiamin",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_pantothenic_acid",
+"hk": "DietaryPantothenicAcid",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_biotin",
+"hk": "DietaryBiotin",
+"unit": "mcg",
+"cumulative": true
+},
+{
+"metric": "dietary_selenium",
+"hk": "DietarySelenium",
+"unit": "mcg",
+"cumulative": true
+},
+{
+"metric": "dietary_iodine",
+"hk": "DietaryIodine",
+"unit": "mcg",
+"cumulative": true
+},
+{
+"metric": "dietary_copper",
+"hk": "DietaryCopper",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_manganese",
+"hk": "DietaryManganese",
+"unit": "mg",
+"cumulative": true
+},
+{
+"metric": "dietary_chromium",
+"hk": "DietaryChromium",
+"unit": "mcg",
+"cumulative": true
+},
+{
+"metric": "dietary_molybdenum",
+"hk": "DietaryMolybdenum",
+"unit": "mcg",
+"cumulative": true
+},
+{
+"metric": "dietary_chloride",
+"hk": "DietaryChloride",
+"unit": "mg",
+"cumulative": true
+}
+],
+"android": [
+{
+"metric": "step_count",
+"unit": "count"
+},
+{
+"metric": "distance_walking_running",
+"unit": "m"
+},
+{
+"metric": "active_energy",
+"unit": "kcal"
+},
+{
+"metric": "total_energy",
+"unit": "kcal"
+},
+{
+"metric": "flights_climbed",
+"unit": "count"
+},
+{
+"metric": "vo2_max",
+"unit": "mL/(kg·min)"
+},
+{
+"metric": "heart_rate",
+"unit": "count/min"
+},
+{
+"metric": "resting_heart_rate",
+"unit": "count/min"
+},
+{
+"metric": "hrv_rmssd",
+"unit": "ms"
+},
+{
+"metric": "oxygen_saturation",
+"unit": "%"
+},
+{
+"metric": "respiratory_rate",
+"unit": "count/min"
+},
+{
+"metric": "body_temperature",
+"unit": "degC"
+},
+{
+"metric": "body_temperature_deviation",
+"unit": "degC"
+},
+{
+"metric": "basal_body_temperature",
+"unit": "degC"
+},
+{
+"metric": "blood_pressure_systolic",
+"unit": "mmHg"
+},
+{
+"metric": "blood_pressure_diastolic",
+"unit": "mmHg"
+},
+{
+"metric": "blood_glucose",
+"unit": "mg/dL"
+},
+{
+"metric": "body_mass",
+"unit": "kg"
+},
+{
+"metric": "height",
+"unit": "cm"
+},
+{
+"metric": "body_fat_percentage",
+"unit": "%"
+},
+{
+"metric": "lean_body_mass",
+"unit": "kg"
+},
+{
+"metric": "dietary_energy",
+"unit": "kcal"
+},
+{
+"metric": "dietary_protein",
+"unit": "g"
+},
+{
+"metric": "dietary_carbohydrates",
+"unit": "g"
+},
+{
+"metric": "dietary_fat_total",
+"unit": "g"
+},
+{
+"metric": "dietary_fiber",
+"unit": "g"
+},
+{
+"metric": "dietary_sugar",
+"unit": "g"
+},
+{
+"metric": "dietary_sodium",
+"unit": "mg"
+},
+{
+"metric": "dietary_caffeine",
+"unit": "mg"
+},
+{
+"metric": "dietary_water",
+"unit": "mL"
+}
+]
+}

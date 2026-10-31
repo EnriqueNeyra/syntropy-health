@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import errno
 import io
 import json
 import re
@@ -45,11 +46,25 @@ async def import_fhir(file: UploadFile = File(...), profile_id: Optional[str] = 
 async def import_apple_health(file: UploadFile = File(...), profile_id: Optional[str] = Form(None)) -> dict:
     prof = resolve_profile(profile_id)
     dest = imports.upload_dir() / f"{new_id('upload')}{Path(file.filename or 'export.zip').suffix or '.zip'}"
-    with open(dest, "wb") as fh:
-        while chunk := await file.read(1024 * 1024):
-            fh.write(chunk)
-    job_id = imports.start_apple_health_import(prof["id"], dest, file.filename or "export.zip")
+    imports.check_room(file.size)
+    try:
+        with open(dest, "wb") as fh:
+            while chunk := await file.read(1024 * 1024):
+                fh.write(chunk)
+    except BaseException as exc:
+        dest.unlink(missing_ok=True)
+        if isinstance(exc, OSError) and exc.errno in (errno.ENOSPC, errno.EDQUOT):
+            raise HTTPException(507, imports.NO_ROOM) from exc
+        raise
+    job_id = await imports.start_apple_health_import(prof["id"], dest, file.filename or "export.zip")
     return {"job_id": job_id}
+
+
+@router.get("/imports")
+def list_imports(profile: Optional[str] = None) -> dict:
+    """This person's recent Apple Health imports, so a page can find one again after being left or after a restart."""
+    prof = resolve_profile(profile)
+    return {"imports": imports.recent_jobs(prof["id"])}
 
 
 @router.get("/imports/{job_id}")
@@ -182,16 +197,13 @@ def export_backup(background: BackgroundTasks) -> FileResponse:
 def wipe_profile_data(profile_id: str) -> dict:
     """Deletes all records, samples and connections for a profile but keeps the profile itself."""
     prof = resolve_profile(profile_id)
+    biometrics.delete_all_for_profile(prof["id"])
     with db() as conn:
         conn.execute("DELETE FROM clinical_records WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM clinical_records_removed WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM patient_identities WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM biometric_samples WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM biometric_daily WHERE profile_id = ?", (prof["id"],))
         biometrics.mark_daily_changed(conn, prof["id"])
         conn.execute("DELETE FROM sync_batches WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM workouts WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM health_events WHERE profile_id = ?", (prof["id"],))
         conn.execute("DELETE FROM chats WHERE profile_id = ?", (prof["id"],))
         # The paired phones' Syntropy tabs are signed out along with their tokens.
         conn.execute("DELETE FROM user_sessions WHERE device_id IN (SELECT id FROM devices WHERE profile_id = ?)", (prof["id"],))

@@ -34,6 +34,7 @@ MIGRATION_HASHES = {
     "025_sync_query_state.sql": "89b2ae046caae627a8ad9385cb35fbe4a7e2a8a0d00742cbd5fa888c3f7e8ff7",
     "026_removed_records.sql": "fcef2b3cc2a95d41d33544209356bbde629235071d2591c14dac9e7381ffba27",
     "027_sync_query_progress.sql": "52db3f9056b00235f3bcaeeb657433d84562ce417c8b3a8cead7339d25604be5",
+    "030_wearable_corrections.sql": "8636c6871551e03987123b41bf6f811ad663c937bdfd5018f1da82faa56eedea",
 }
 
 
@@ -129,8 +130,8 @@ def _seed(conn: sqlite3.Connection, version: int, stored_hash: str) -> None:
 
 
 def _shipped_versions() -> list[int]:
+    """The newest has nothing to upgrade to, so nothing to test here."""
     from app.core import db
-    # The newest has nothing to upgrade to.
     return [v for v in (int(name.split("_", 1)[0]) for name in MIGRATION_HASHES) if v < db.newest_schema()]
 
 
@@ -169,6 +170,10 @@ def test_every_old_schema_upgrades_with_its_data(version):
         assert c.execute("SELECT platform FROM devices WHERE id = 'dev2'").fetchone()[0] == "healthkit-export"
     if 2 <= version < 12:
         assert c.execute("SELECT humidity_pct FROM workouts").fetchone()[0] == 65
+    if version < 30:
+        assert c.execute("SELECT COUNT(*) FROM biometric_samples WHERE flag IS NOT NULL OR tz_offset_min IS NOT NULL").fetchone()[0] == 0
+        assert c.execute("SELECT timezone FROM profiles").fetchone()[0] is None
+        assert {"data_sources", "sample_tombstones", "daily_rebuilds", "import_jobs"} <= _tables(c)
     c.close()
 
     if version == db.newest_schema():

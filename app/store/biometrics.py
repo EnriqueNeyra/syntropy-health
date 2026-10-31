@@ -1,110 +1,39 @@
 """
-Continuous biometrics: idempotent sample ingest, per-day rollups and trend queries.
+Continuous biometrics: sample ingest, per-day rollups and trend queries.
 
-Raw samples are kept verbatim. After each ingest the affected local days are
-re-aggregated into ``biometric_daily`` (one row per day / metric / source). Reads pick
-one source per day using a priority order so totals such as steps are never
-double-counted when an Apple Watch, an iPhone and a ring all report them.
+Raw samples keep what the source said. Sending the same id again with a changed value corrects the stored reading (a
+day's steps grow, a score is revised), and samples and the daily rows they feed (``biometric_daily``, one row per day /
+metric / source) commit together, so a crash can't leave wrong numbers. A reading outside what's possible stays stored
+with a flag, out of the daily numbers, and counted (``left_out``). Reads pick one source per day using a priority order
+so totals such as steps are never double-counted when an Apple Watch, an iPhone and a ring all report them.
 
-For summed metrics recorded as time intervals by several sources (steps from an Apple
-Watch and an iPhone), an extra "Combined" row merges them the way Apple Health does:
-the preferred source counts in full and each other sample only for the share of its
-interval the preferred sources did not cover. Steps taken with only the phone are kept.
+A reading belongs to the day where the person was: its own offset from UTC when the source gives one, otherwise that
+person's home time zone (``profiles.timezone``, or the server's).
+
+For summed metrics recorded as time intervals by several sources (steps from an Apple Watch and an iPhone), an extra
+"Combined" row merges them the way Apple Health does: the preferred source counts in full and each other sample only for
+the share of its interval the preferred sources did not cover. Steps taken with only the phone are kept.
 """
 
 from __future__ import annotations
 
 import bisect
 import copy
+import json
 import math
+import re
+import threading
 import time
+from calendar import monthrange
 from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
-from typing import Any, Iterable, Optional
+from datetime import date, datetime, timedelta, timezone, tzinfo
+from typing import Any, Callable, Iterable, Optional
 from zoneinfo import ZoneInfo
 
 from app.core import settings
-from app.core.db import db, read, dumps, new_id, rows_to_dicts
+from app.core.db import db, read, dumps, new_id, rows_to_dicts, write_in_batches
 from app.store import sample_counts
-
-# metric -> (label, display unit, aggregation, group)
-METRICS: dict[str, tuple[str, str, str, str]] = {
-    "step_count": ("Steps", "steps", "sum", "activity"),
-    "active_energy": ("Active energy", "kcal", "sum", "activity"),
-    "basal_energy": ("Resting energy", "kcal", "sum", "activity"),
-    "total_energy": ("Total energy", "kcal", "sum", "activity"),
-    "distance_walking_running": ("Walking + running distance", "m", "sum", "activity"),
-    "flights_climbed": ("Flights climbed", "flights", "sum", "activity"),
-    "apple_exercise_time": ("Exercise minutes", "min", "sum", "activity"),
-    "apple_stand_time": ("Stand minutes", "min", "sum", "activity"),
-    "activity_score": ("Activity score", "score", "last", "activity"),
-    "strain_score": ("Strain", "score", "last", "activity"),
-    "vo2_max": ("VO₂ max", "mL/kg·min", "last", "activity"),
-    "heart_rate": ("Heart rate", "bpm", "mean", "heart"),
-    "resting_heart_rate": ("Resting heart rate", "bpm", "mean", "heart"),
-    "walking_heart_rate_average": ("Walking heart rate", "bpm", "mean", "heart"),
-    "heart_rate_recovery_one_minute": ("Heart rate recovery", "bpm", "mean", "heart"),
-    "hrv_sdnn": ("HRV (SDNN)", "ms", "mean", "heart"),
-    "hrv_rmssd": ("HRV (RMSSD)", "ms", "mean", "heart"),
-    "recovery_score": ("Recovery", "score", "last", "readiness"),
-    "readiness_score": ("Readiness", "score", "last", "readiness"),
-    "sleep_duration": ("Sleep", "h", "sum", "sleep"),
-    "sleep_deep": ("Deep sleep", "h", "sum", "sleep"),
-    "sleep_rem": ("REM sleep", "h", "sum", "sleep"),
-    "sleep_core": ("Light / core sleep", "h", "sum", "sleep"),
-    "sleep_awake": ("Awake in bed", "h", "sum", "sleep"),
-    "sleep_score": ("Sleep score", "score", "last", "sleep"),
-    "oxygen_saturation": ("Blood oxygen", "%", "mean", "vitals"),
-    "respiratory_rate": ("Respiratory rate", "br/min", "mean", "vitals"),
-    "body_temperature": ("Body temperature", "°C", "mean", "vitals"),
-    "body_temperature_deviation": ("Temperature deviation", "°C", "last", "vitals"),
-    "blood_pressure_systolic": ("Systolic BP", "mmHg", "mean", "vitals"),
-    "blood_pressure_diastolic": ("Diastolic BP", "mmHg", "mean", "vitals"),
-    "blood_glucose": ("Blood glucose", "mg/dL", "mean", "vitals"),
-    "body_mass": ("Weight", "kg", "last", "body"),
-    "body_mass_index": ("BMI", "kg/m²", "last", "body"),
-    "body_fat_percentage": ("Body fat", "%", "last", "body"),
-    "lean_body_mass": ("Lean body mass", "kg", "last", "body"),
-    "walking_speed": ("Walking speed", "m/s", "mean", "mobility"),
-    "walking_step_length": ("Step length", "cm", "mean", "mobility"),
-    "walking_asymmetry": ("Walking asymmetry", "%", "mean", "mobility"),
-    "walking_double_support": ("Double support time", "%", "mean", "mobility"),
-    "six_minute_walk_distance": ("Six-minute walk", "m", "last", "mobility"),
-    "stair_ascent_speed": ("Stair ascent speed", "m/s", "mean", "mobility"),
-    "stair_descent_speed": ("Stair descent speed", "m/s", "mean", "mobility"),
-    "environmental_audio_exposure": ("Environmental noise", "dB", "mean", "hearing"),
-    "headphone_audio_exposure": ("Headphone audio", "dB", "mean", "hearing"),
-    "environmental_sound_reduction": ("Noise reduction", "dB", "mean", "hearing"),
-    # Additional Apple Health types sent by the iPhone app
-    "apple_move_time": ("Move minutes", "min", "sum", "activity"),
-    "time_in_daylight": ("Time in daylight", "min", "sum", "activity"),
-    "distance_cycling": ("Cycling distance", "m", "sum", "activity"),
-    "distance_swimming": ("Swimming distance", "m", "sum", "activity"),
-    "physical_effort": ("Physical effort", "kcal/hr·kg", "mean", "activity"),
-    "running_speed": ("Running speed", "m/s", "mean", "activity"),
-    "running_power": ("Running power", "W", "mean", "activity"),
-    "running_stride_length": ("Running stride length", "m", "mean", "activity"),
-    "running_ground_contact_time": ("Ground contact time", "ms", "mean", "activity"),
-    "running_vertical_oscillation": ("Vertical oscillation", "cm", "mean", "activity"),
-    "cycling_power": ("Cycling power", "W", "mean", "activity"),
-    "atrial_fibrillation_burden": ("AFib history", "%", "last", "heart"),
-    "sleeping_wrist_temperature": ("Wrist temperature (sleep)", "°C", "last", "vitals"),
-    "basal_body_temperature": ("Basal body temperature", "°C", "last", "vitals"),
-    "sleeping_breathing_disturbances": ("Breathing disturbances", "count", "last", "vitals"),
-    "number_of_times_fallen": ("Falls", "count", "sum", "vitals"),
-    "height": ("Height", "cm", "last", "body"),
-    "waist_circumference": ("Waist circumference", "cm", "last", "body"),
-    "walking_steadiness": ("Walking steadiness", "%", "last", "mobility"),
-    "dietary_energy": ("Dietary energy", "kcal", "sum", "nutrition"),
-    "dietary_protein": ("Protein", "g", "sum", "nutrition"),
-    "dietary_carbohydrates": ("Carbohydrates", "g", "sum", "nutrition"),
-    "dietary_fat_total": ("Total fat", "g", "sum", "nutrition"),
-    "dietary_fiber": ("Fiber", "g", "sum", "nutrition"),
-    "dietary_sugar": ("Sugar", "g", "sum", "nutrition"),
-    "dietary_water": ("Water", "mL", "sum", "nutrition"),
-    "dietary_caffeine": ("Caffeine", "mg", "sum", "nutrition"),
-    "dietary_sodium": ("Sodium", "mg", "sum", "nutrition"),
-}
+from app.store.metric_registry import (METRICS, TIME_WEIGHT_MAX_S, TIME_WEIGHTED, in_plausible_range, to_canonical)
 
 # Raw sample metric -> daily metric (sleep stages from HealthKit / rings).
 SLEEP_MAP = {
@@ -119,6 +48,7 @@ SLEEP_MAP = {
     "sleep_rem": ["sleep_rem"],
     "sleep_light": ["sleep_core"],
     "sleep_awake": ["sleep_awake"],
+    "sleep_nap": ["sleep_nap"],
 }
 
 # Sleep stage samples (HealthKit style: one row per stretch of a stage, value = its length in seconds). A night is the
@@ -127,6 +57,16 @@ SLEEP_MAP = {
 SLEEP_STAGE_SAMPLES = {"sleep_analysis_deep", "sleep_analysis_rem", "sleep_analysis_core", "sleep_analysis_asleep",
                        "sleep_analysis_unspecified", "sleep_analysis_awake"}
 SLEEP_SESSION_GAP_S = 3 * 3600
+# Stage samples can move between the night and a nap, so a change to any of them can change all of these.
+_STAGE_TARGETS = ["sleep_duration", "sleep_deep", "sleep_rem", "sleep_core", "sleep_awake", "sleep_nap"]
+# A shorter session that isn't the day's longest and starts between these local hours is a nap, apart from the night.
+# Oura's own definition of a nap is up to 3 hours. Waking for a few hours overnight doesn't make the rest of the night one:
+# a longer session within NIGHT_BREAK_MAX_S of the day's longest is the same night, if it's after it and began before this hour
+# of the morning, or before it and began outside the nap hours. Any other is sleep at another time, listed with the naps.
+NAP_MAX_S = 3 * 3600
+NAP_HOURS = (6, 20)
+NIGHT_RESUMES_BEFORE_HOUR = 10
+NIGHT_BREAK_MAX_S = 6 * 3600
 # Measured over a whole night and shown on the morning it ends, like sleep.
 OVERNIGHT_METRICS = {"sleeping_wrist_temperature", "sleeping_breathing_disturbances"}
 
@@ -140,12 +80,37 @@ HEADLINE_METRICS = [
     "respiratory_rate", "body_mass",
 ]
 
+# Why a reading is left out of the daily numbers.
+FLAG_RANGE, FLAG_UNIT, FLAG_DATE = "range", "unit", "date"
+# Earlier than anything a person could have recorded; Date.distantPast (year 1) is how a phone says "no date".
+EARLIEST_YEAR = 1950
+_ISO = "%Y-%m-%dT%H:%M:%SZ"
+OFFSET_MAX_MIN = 18 * 60
+# An interval that crosses midnight is shared between the days it covers, up to this long.
+SPLIT_MAX_S = 48 * 3600
+# A day's label is believed only this close to the reading, and a rebuild of a day reads this far around it: up to 26
+# hours between a reading's own zone and the person's home zone, plus a night that ends the next morning.
+DAY_LABEL_MAX_DAYS = 3
+REBUILD_MARGIN_BEFORE, REBUILD_MARGIN_AFTER = 2, 3
 
-def _tz() -> ZoneInfo:
+
+def _profile_zone(profile_id: str) -> Optional[str]:
+    with read() as conn:
+        row = conn.execute("SELECT timezone FROM profiles WHERE id = ?", (profile_id,)).fetchone()
+    return row[0] if row else None
+
+
+def _tz(profile_id: Optional[str] = None) -> ZoneInfo:
+    """A person's home time zone, or without one (or without a person) the server's."""
     try:
-        return ZoneInfo(settings.timezone_name())
+        return ZoneInfo((profile_id and _profile_zone(profile_id)) or settings.timezone_name())
     except Exception:  # noqa: BLE001
         return ZoneInfo("UTC")
+
+
+def zone_at(offset: Optional[int], tz: tzinfo) -> tzinfo:
+    """Where a reading was taken: its own offset from UTC if it has a possible one, otherwise the person's zone."""
+    return tz if offset is None or abs(offset) > OFFSET_MAX_MIN else timezone(timedelta(minutes=offset))
 
 
 def parse_ts(value: str) -> datetime:
@@ -163,11 +128,23 @@ def parse_ts(value: str) -> datetime:
 
 
 def to_utc_iso(value: str) -> str:
-    return parse_ts(value).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return parse_ts(value).astimezone(timezone.utc).strftime(_ISO)
 
 
-def local_day(value: str, tz: Optional[ZoneInfo] = None) -> str:
-    return parse_ts(value).astimezone(tz or _tz()).date().isoformat()
+def local_day(value: str, tz: Optional[tzinfo] = None, offset: Optional[int] = None) -> str:
+    return parse_ts(value).astimezone(zone_at(offset, tz or _tz())).date().isoformat()
+
+
+def offset_of(value: Any) -> Optional[int]:
+    """Minutes from UTC written in a timestamp. A bare UTC stamp says nothing about where the person was, so it's None."""
+    if not isinstance(value, str):
+        return None
+    try:
+        delta = parse_ts(value).utcoffset()
+    except (ValueError, OverflowError):
+        return None
+    minutes = int(delta.total_seconds() // 60) if delta else 0
+    return minutes if minutes and abs(minutes) <= OFFSET_MAX_MIN else None
 
 
 MERGED_SOURCE = "Combined"
@@ -176,21 +153,18 @@ MERGED_SOURCE = "Combined"
 def source_priority(source_name: Optional[str]) -> int:
     if source_name == MERGED_SOURCE:
         return 0
-    s = (source_name or "").lower()
-    if "(simulated)" in s:
+    if "(simulated)" in (source_name or "").lower():
         return 9   # demo data never outranks real measurements
-    if "watch" in s:
-        return 1
-    if "oura" in s or "whoop" in s or "google health" in s:
-        return 2
-    if "iphone" in s or "phone" in s:
-        return 3
-    return 4
+    return {"watch": 1, "ring": 2, "phone": 3}.get(source_kind(source_name), 4)
 
 
 # ---------------------------------------------------------------------------
 # Ingest
 # ---------------------------------------------------------------------------
+
+class SourceRemoved(Exception):
+    """The source was removed while its sync was running, so what it fetched is dropped."""
+
 
 def id_held_elsewhere(conn: Any, table: str, item_id: str, profile_id: str) -> Optional[str]:
     """When a row's id (HealthKit's own UUID) is already stored for someone else, the id to store it under for this
@@ -200,15 +174,232 @@ def id_held_elsewhere(conn: Any, table: str, item_id: str, profile_id: str) -> O
     return f"{item_id}@{profile_id}" if row and row[0] != profile_id else None
 
 
+def meta_day(meta: Any, start: Optional[str] = None) -> Optional[str]:
+    """The day a reading's metadata says it belongs to. iOS forwards other apps' metadata as it finds it, so anything
+    that isn't a real date near the reading is ignored."""
+    value = meta.get("day") if isinstance(meta, dict) else None
+    if not isinstance(value, str) or len(value) != 10:
+        return None
+    try:
+        day = date.fromisoformat(value)
+        if start and abs((day - date.fromisoformat(start[:10])).days) > DAY_LABEL_MAX_DAYS:
+            return None
+    except ValueError:
+        return None
+    return value if day.year >= EARLIEST_YEAR else None
+
+
+def _stored_day(metadata_json: Optional[str], start: Optional[str] = None) -> Optional[str]:
+    if not metadata_json or '"day"' not in metadata_json:
+        return None
+    try:
+        return meta_day(json.loads(metadata_json), start)
+    except ValueError:
+        return None
+
+
+def reading_offset(s: dict[str, Any], meta: dict[str, Any], start: str) -> Optional[int]:
+    """The reading's own offset: the optional per-record field, then the zone HealthKit keeps in its metadata."""
+    raw = s.get("tz_offset_min")
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        return int(raw) if abs(raw) <= OFFSET_MAX_MIN else None
+    name = meta.get("HKTimeZone") or meta.get("TimeZone")
+    if not isinstance(name, str):
+        return None
+    try:
+        delta = parse_ts(start).astimezone(ZoneInfo(name)).utcoffset()
+    except Exception:  # noqa: BLE001 - another app's text, not necessarily a zone
+        return None
+    return int(delta.total_seconds() // 60) if delta is not None else None
+
+
+def item_offset(raw: Any, start: str) -> Optional[int]:
+    """A workout's or event's offset: the optional field if it's a possible one, otherwise what its start says."""
+    if isinstance(raw, int) and not isinstance(raw, bool) and abs(raw) <= OFFSET_MAX_MIN:
+        return raw
+    return offset_of(start)
+
+
+def reading_flag(metric: str, value: float, start: str, end: str, day: Optional[str] = None,
+                 now: Optional[datetime] = None) -> Optional[str]:
+    """Why a reading can't count toward the day's numbers. A clock a little fast isn't one: the phone never sends a
+    reading twice, so only what can't be true (a day ahead, before anyone wore a device) is left out."""
+    now = now or datetime.now(timezone.utc)
+    latest = (now + timedelta(days=1)).strftime(_ISO)
+    if end < start or start[:4] < str(EARLIEST_YEAR):
+        return FLAG_DATE
+    if day:
+        if day > (now + timedelta(days=2)).date().isoformat():
+            return FLAG_DATE
+    elif max(start, end) > latest:
+        return FLAG_DATE
+    return None if in_plausible_range(metric, value) else FLAG_RANGE
+
+
 def normalize_sample(s: dict[str, Any]) -> dict[str, Any]:
     metric = s["metric_type"]
     value = float(s["value"])
     if not math.isfinite(value):
         raise ValueError(f"{metric}: value must be a finite number")
-    if metric in FRACTION_METRICS and 0 <= value <= 1.0:
-        value = round(value * 100, 3)
-    return {**s, "value": value, "start_date": to_utc_iso(s["start_date"]),
-            "end_date": to_utc_iso(s.get("end_date") or s["start_date"])}
+    value, unit, understood = to_canonical(metric, value, s.get("unit"))
+    if metric in FRACTION_METRICS:
+        # Both phone apps send fractions labelled "%", so a bare % up to 1 stays a fraction. Another client can say which
+        # it means: "fraction" or "percent".
+        if unit == "percent":
+            unit = "%"
+        elif unit == "fraction" or 0 <= value <= 1.0:
+            value, unit = round(value * 100, 3), "%" if unit == "fraction" else unit
+    start, end = to_utc_iso(s["start_date"]), to_utc_iso(s.get("end_date") or s["start_date"])
+    # Only what an import reads from a file is held to its units: the phones' labels aren't all listed.
+    flag = s.get("flag") or (FLAG_UNIT if not understood and s.get("strict_units") else None)
+    return {**s, "value": value, "unit": unit, "start_date": start, "end_date": end, "flag": flag}
+
+
+# Kinds of device, whole words only: "ring" isn't in "Monitoring" and "phone" isn't in "Headphones".
+_WATCH_WORDS = re.compile(r"\b(watch|garmin|forerunner|fenix|polar|suunto|coros|amazfit|samsung health)\b", re.I)
+_RING_WORDS = re.compile(r"\b(oura|whoop|ring|fitbit|google health|ultrahuman)\b", re.I)
+_PHONE_WORDS = re.compile(r"\b(iphone|phone|pixel \d+\w*|galaxy s\d+\w*)\b", re.I)
+_DEVICE_TYPES = {"watch": "watch", "ring": "ring", "band": "ring", "phone": "phone", "scale": "other", "chest_strap": "other"}
+
+
+def _kind_from_words(text: Optional[str]) -> Optional[str]:
+    if not text:
+        return None
+    for words, kind in ((_WATCH_WORDS, "watch"), (_RING_WORDS, "ring"), (_PHONE_WORDS, "phone")):
+        if words.search(text):
+            return kind
+    return None
+
+
+def device_kind(source_name: Optional[str], device_name: Optional[str] = None, meta: Optional[dict[str, Any]] = None) -> str:
+    """What a source really is: what the device says about itself first (Health Connect says outright), then the
+    device's name, and only then the name of the app."""
+    declared = _DEVICE_TYPES.get((meta or {}).get("device_type"))
+    return declared or _kind_from_words(device_name) or _kind_from_words(source_name) or "other"
+
+
+def _id_path(sample_id: str) -> str:
+    return "export" if sample_id.startswith("ah-") else "json" if sample_id.startswith("hx_") else "phone"
+
+
+def _close(a: float, b: float) -> bool:
+    """The same reading after two paths' rounding and units (kilometres to 3 decimals against unrounded metres). Between
+    paths, the same source, metric and whole-second interval is all but certainly one sample."""
+    return abs(a - b) <= max(0.001, 0.01 * max(abs(a), abs(b)))
+
+
+def _row_days(metric: str, start: str, end: str, day: Optional[str], offset: Optional[int], tz: tzinfo) -> set[str]:
+    """The days a reading can count toward."""
+    if day:
+        return {day}
+    out = {local_day(start, tz, offset)}
+    if metric in OVERNIGHT_METRICS:
+        out.add(local_day(end, tz, offset))
+    if metric in SLEEP_MAP:
+        # A stretch before midnight belongs to the night that ends the next morning.
+        woke = date.fromisoformat(local_day(end, tz, offset))
+        out.update({woke.isoformat(), (woke + timedelta(days=1)).isoformat()})
+        if metric in SLEEP_STAGE_SAMPLES:
+            # One after midnight can join a session that began the evening before, or leave it, which moves that session's day.
+            out.add((date.fromisoformat(local_day(start, tz, offset)) - timedelta(days=1)).isoformat())
+    elif METRICS.get(metric, ("", "", ""))[2] == "sum" and end > start:
+        out.update(piece[0] for piece in _split_by_day(start, end, 0.0, offset, tz))
+    return out
+
+
+def _stored_row_days(row: Any, tz: tzinfo) -> set[str]:
+    if row["flag"]:
+        return set()
+    try:
+        return _row_days(row["metric_type"], row["start_date"], row["end_date"], _stored_day(row["metadata_json"], row["start_date"]),
+                         row["tz_offset_min"], tz)
+    except (ValueError, OverflowError):
+        return set()
+
+
+_SAMPLE_COLUMNS = ("rowid, id, profile_id, connection_id, metric_type, value, unit, start_date, end_date, metadata_json, "
+                   "flag, tz_offset_min")
+
+
+def _prefix_end(prefix: str) -> str:
+    return prefix[:-1] + chr(ord(prefix[-1]) + 1)
+
+
+def _remove_samples(conn: Any, profile_id: str, ids: Iterable[str], prefixes: Iterable[str], affected: set[str],
+                    changed: set[str], tz: tzinfo) -> int:
+    """Removes readings, noting which days to work out again. A prefix is an id's family: what Oura's one sleep period or
+    Health Connect's one record became. It's a range on the primary key, so ``_`` and ``%`` in an id mean nothing, and
+    the id@person form from ``id_held_elsewhere`` comes along."""
+    rows: list[Any] = []
+    for item in ids:
+        rows += conn.execute(f"SELECT {_SAMPLE_COLUMNS} FROM biometric_samples WHERE profile_id = ? AND id IN (?, ?)",
+                             (profile_id, item, f"{item}@{profile_id}")).fetchall()
+    for prefix in prefixes:
+        rows += conn.execute(f"SELECT {_SAMPLE_COLUMNS} FROM biometric_samples WHERE profile_id = ? AND id >= ? AND id < ?",
+                             (profile_id, prefix, _prefix_end(prefix))).fetchall()
+    removed = set()
+    for row in rows:
+        if row["rowid"] in removed:
+            continue
+        removed.add(row["rowid"])
+        affected |= _stored_row_days(row, tz)
+        changed.add(row["metric_type"])
+        conn.execute("DELETE FROM biometric_samples WHERE rowid = ?", (row["rowid"],))
+    return len(removed)
+
+
+def _supersede(conn: Any, s: dict[str, Any], profile_id: str, source: str, day: Optional[str], tz: tzinfo,
+               affected: set[str], changed: set[str]) -> int:
+    """A re-sent total: the rows from earlier sends of the same slot go. Only rows from the export JSON path, whose ids
+    are made here, so a reading the phone sent for the same time is never touched."""
+    if day:
+        lo = (date.fromisoformat(day) - timedelta(days=DAY_LABEL_MAX_DAYS + 1)).isoformat()
+        hi = (date.fromisoformat(day) + timedelta(days=DAY_LABEL_MAX_DAYS + 2)).isoformat()
+        rows = [r for r in conn.execute(
+            f"SELECT {_SAMPLE_COLUMNS} FROM biometric_samples WHERE profile_id = ? AND metric_type = ? AND start_date >= ? "
+            "AND start_date < ? AND source_name = ? AND id <> ? AND substr(id, 1, 3) = 'hx_'",
+            (profile_id, s["metric_type"], lo, hi, source, s["id"])).fetchall()
+            if _stored_day(r["metadata_json"], r["start_date"]) == day]
+    else:
+        rows = conn.execute(
+            f"SELECT {_SAMPLE_COLUMNS} FROM biometric_samples WHERE profile_id = ? AND metric_type = ? AND start_date = ? "
+            "AND source_name = ? AND id <> ? AND substr(id, 1, 3) = 'hx_'",
+            (profile_id, s["metric_type"], s["start_date"], source, s["id"])).fetchall()
+    for row in rows:
+        affected |= _stored_row_days(row, tz)
+        conn.execute("DELETE FROM biometric_samples WHERE rowid = ?", (row["rowid"],))
+    if rows:
+        changed.add(s["metric_type"])
+    return len(rows)
+
+
+def _drop_other_day_rows(conn: Any, s: dict[str, Any], profile_id: str, connection_id: str, day: str, tz: tzinfo,
+                         affected: set[str], changed: set[str]) -> None:
+    """A provider's one figure for a day arriving under a new id replaces the old one rather than adding to it. Whether
+    Oura's ids stay the same within a day can't be checked from here; this holds either way."""
+    lo = (date.fromisoformat(day) - timedelta(days=DAY_LABEL_MAX_DAYS + 1)).isoformat()
+    hi = (date.fromisoformat(day) + timedelta(days=DAY_LABEL_MAX_DAYS + 2)).isoformat()
+    for row in conn.execute(
+            f"SELECT {_SAMPLE_COLUMNS} FROM biometric_samples WHERE profile_id = ? AND metric_type = ? AND start_date >= ? "
+            "AND start_date < ? AND connection_id = ? AND id <> ?",
+            (profile_id, s["metric_type"], lo, hi, connection_id, s["id"])).fetchall():
+        if _stored_day(row["metadata_json"], row["start_date"]) == day:
+            affected |= _stored_row_days(row, tz)
+            changed.add(s["metric_type"])
+            conn.execute("DELETE FROM biometric_samples WHERE rowid = ?", (row["rowid"],))
+
+
+def _same_reading(conn: Any, s: dict[str, Any], profile_id: str, source: str) -> Optional[Any]:
+    """The stored row this sample repeats under another id, if any: the same one from another path (the phone and an
+    export.xml import) is stored once, while two different entries one app logged at the same moment both count."""
+    path = _id_path(s["id"])
+    for row in conn.execute(
+            "SELECT rowid, id, value, connection_id FROM biometric_samples WHERE profile_id = ? AND metric_type = ? "
+            "AND start_date = ? AND end_date = ? AND source_name = ?",
+            (profile_id, s["metric_type"], s["start_date"], s["end_date"], source)).fetchall():
+        if row["value"] == s["value"] or (_id_path(row["id"]) != path and _close(row["value"], s["value"])):
+            return row
+    return None
 
 
 def insert_samples(
@@ -217,52 +408,102 @@ def insert_samples(
     samples: Iterable[dict[str, Any]],
     *,
     batch_meta: Optional[dict[str, Any]] = None,
+    deleted_ids: Iterable[str] = (),
+    deleted_prefixes: Iterable[str] = (),
+    must_have_source: bool = False,
 ) -> dict[str, Any]:
+    """Stores readings and, in the same transaction, the daily rows they change. A new id is inserted, a known id with a
+    changed value corrects the stored row, and anything else counts under ``duplicates``. ``deleted_*`` go first, so a
+    replacement isn't taken for a repeat of what it replaces. A row that can't be read is counted under ``rejected``
+    rather than failing the batch: senders only move on after a success, so a rejected batch would be retried (and
+    rejected) forever."""
     now = time.time()
-    received = inserted = rejected = 0
-    tz = _tz()
+    received = inserted = updated = rejected = flagged = removed = 0
+    moved: list[tuple[Optional[str], int]] = []
+    tz = _tz(profile_id)
+    orders = source_orders()
     affected: set[str] = set()
-    changed_metrics: set[str] = set()
+    changed: set[str] = set()
+    sources_seen: dict[str, tuple[str, Optional[str], bool]] = {}
     with db() as conn:
+        if must_have_source and connection_id and not conn.execute("SELECT 1 FROM connections WHERE id = ?", (connection_id,)).fetchone():
+            raise SourceRemoved(connection_id)
+        removed_ids = {r[0] for r in conn.execute("SELECT sample_id FROM sample_tombstones WHERE profile_id = ?", (profile_id,))}
+        imports = {r[0] for r in conn.execute("SELECT id FROM connections WHERE profile_id = ? AND kind = 'import'", (profile_id,))}
+        removed += _remove_samples(conn, profile_id, deleted_ids, deleted_prefixes, affected, changed, tz)
         for raw in samples:
             received += 1
             try:
                 s = normalize_sample(raw)
-            except (ValueError, KeyError, TypeError, AttributeError):
-                # One unreadable row must not fail the batch: senders only move on after a success,
-                # so a rejected batch would be retried (and rejected) forever.
+                meta = s.get("metadata") if isinstance(s.get("metadata"), dict) else {}
+                metric, start, end = s["metric_type"], s["start_date"], s["end_date"]
+                day = meta_day(meta, start)
+                offset = reading_offset(s, meta, start)
+                flag = s["flag"] or reading_flag(metric, s["value"], start, end, day)
+                days = set() if flag else _row_days(metric, start, end, day, offset, tz)
+                sample_id = s["id"]
+            except (ValueError, KeyError, TypeError, AttributeError, OverflowError):
                 rejected += 1
                 continue
-            meta = s.get("metadata") or {}
-            if not isinstance(meta, dict):
-                meta = {}
+            # Removed under the id the person saw, which is the id@person form when someone else holds the plain one.
+            if sample_id in removed_ids or f"{sample_id}@{profile_id}" in removed_ids:
+                continue
             source = s.get("source_name") or "Unknown"
-            # Idempotent on the sample id *and* on its natural key, so the same HealthKit sample
-            # arriving via the companion app and via an export.xml import is stored once.
-            insert = lambda sample_id: conn.execute(
-                """INSERT OR IGNORE INTO biometric_samples(id, profile_id, connection_id, metric_type, hk_identifier,
-                       value, unit, start_date, end_date, device_id, device_name, source_name, metadata_json, created_at)
-                   SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                   WHERE NOT EXISTS (SELECT 1 FROM biometric_samples WHERE profile_id = ? AND metric_type = ?
-                                     AND start_date = ? AND end_date = ? AND source_name = ? AND value = ?)""",
-                (sample_id, profile_id, connection_id, s["metric_type"], s.get("hk_identifier"), s["value"],
-                 s.get("unit") or "", s["start_date"], s["end_date"], s.get("device_id"), s.get("device_name"),
-                 source, dumps(meta) if meta else None, now,
-                 profile_id, s["metric_type"], s["start_date"], s["end_date"], source, s["value"]),
-            )
-            cur = insert(s["id"])
-            if not cur.rowcount and (own := id_held_elsewhere(conn, "biometric_samples", s["id"], profile_id)):
-                cur = insert(own)
-            if cur.rowcount:
+            meta_json = dumps(meta) if meta else None
+            row = conn.execute(f"SELECT {_SAMPLE_COLUMNS} FROM biometric_samples WHERE id = ?", (sample_id,)).fetchone()
+            if row and row["profile_id"] != profile_id:
+                sample_id = f"{sample_id}@{profile_id}"
+                row = conn.execute(f"SELECT {_SAMPLE_COLUMNS} FROM biometric_samples WHERE id = ?", (sample_id,)).fetchone()
+            s["id"] = sample_id
+            replaces = bool(s.get("replaces"))
+            if flag:
+                flagged += 1
+            if not flag:
+                # A cloud connector knows what it's connected to, whatever device a reading passed through.
+                sources_seen[source] = (s.get("device_kind") or device_kind(source, s.get("device_name"), meta), s.get("device_name"),
+                                        bool(s.get("device_kind") or meta.get("device_type") or _kind_from_words(s.get("device_name"))))
+            if row:
+                same = (abs(row["value"] - s["value"]) < 1e-9 and row["start_date"] == start and row["end_date"] == end
+                        and row["flag"] == flag and (offset is None or offset == row["tz_offset_min"])
+                        and (meta_json == row["metadata_json"] if replaces else meta_json is None or meta_json == row["metadata_json"]))
+                if same:
+                    continue
+                conn.execute(
+                    """UPDATE biometric_samples SET value = ?, unit = ?, start_date = ?, end_date = ?, source_name = ?,
+                           hk_identifier = COALESCE(?, hk_identifier), device_id = COALESCE(?, device_id),
+                           device_name = COALESCE(?, device_name), metadata_json = ?, flag = ?,
+                           tz_offset_min = COALESCE(?, tz_offset_min), updated_at = ? WHERE rowid = ?""",
+                    (s["value"], s.get("unit") or "", start, end, source, s.get("hk_identifier"), s.get("device_id"),
+                     s.get("device_name"), meta_json if replaces else meta_json or row["metadata_json"], flag, offset, now,
+                     row["rowid"]))
+                updated += 1
+                changed.add(metric)
+                affected |= days | _stored_row_days(row, tz)
+                continue
+            if connection_id and s.get("one_per_day") and day:
+                _drop_other_day_rows(conn, s, profile_id, connection_id, day, tz, affected, changed)
+            superseded = _supersede(conn, s, profile_id, source, day, tz, affected, changed) if replaces else 0
+            if not superseded and (repeat := _same_reading(conn, s, profile_id, source)):
+                # An export can be imported again, but a phone never re-sends: the row now belongs to the phone, so tidying
+                # up the old import doesn't take it away.
+                if repeat["connection_id"] in imports and connection_id and connection_id not in imports:
+                    conn.execute("UPDATE biometric_samples SET connection_id = ? WHERE rowid = ?", (connection_id, repeat["rowid"]))
+                    moved.append((repeat["connection_id"], 1))
+                continue
+            conn.execute(
+                """INSERT INTO biometric_samples(id, profile_id, connection_id, metric_type, hk_identifier, value, unit,
+                       start_date, end_date, device_id, device_name, source_name, metadata_json, created_at, flag, tz_offset_min)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (sample_id, profile_id, connection_id, metric, s.get("hk_identifier"), s["value"], s.get("unit") or "", start, end,
+                 s.get("device_id"), s.get("device_name"), source, meta_json, now, flag, offset))
+            if superseded:
+                updated += 1
+                removed += superseded - 1
+            else:
                 inserted += 1
-                changed_metrics.add(s["metric_type"])
-                affected.add(meta.get("day") or local_day(s["start_date"], tz))
-                if s["metric_type"] in OVERNIGHT_METRICS:
-                    affected.add(local_day(s["end_date"], tz))
-                if s["metric_type"] in SLEEP_MAP:
-                    # A stretch before midnight belongs to the night that ends the next morning.
-                    woke = date.fromisoformat(local_day(s["end_date"], tz))
-                    affected.update({woke.isoformat(), (woke + timedelta(days=1)).isoformat()})
+            if not flag:
+                changed.add(metric)
+                affected |= days
         batch_id = None
         if batch_meta is not None:
             batch_id = batch_meta.get("batch_id") or new_id("batch")
@@ -274,153 +515,361 @@ def insert_samples(
                  batch_meta.get("os_version"), batch_meta.get("app_version"), batch_meta.get("sync_trigger") or "manual",
                  received, inserted, now),
             )
-    sample_counts.added(profile_id, connection_id, inserted)
+        _note_sources(conn, profile_id, sources_seen, now)
+        if affected:
+            _rollup(conn, profile_id, sorted(affected), changed, tz, orders)
+    sample_counts.added(profile_id, connection_id, inserted - removed)
+    for was, n in moved:
+        sample_counts.moved(profile_id, was, connection_id, n)
     total = sample_counts.for_profile(profile_id)
-    if affected:
-        rebuild_daily(profile_id, sorted(affected), changed_metrics)
     return {
-        "success": True, "batch_id": batch_id, "received": received, "inserted": inserted,
-        "duplicates": received - inserted - rejected, "rejected": rejected, "server_total_samples": total, "days_updated": len(affected),
+        "success": True, "batch_id": batch_id, "received": received, "inserted": inserted, "updated": updated,
+        "unchanged": received - inserted - updated - rejected, "duplicates": received - inserted - updated - rejected,
+        "rejected": rejected, "flagged": flagged, "removed": removed, "server_total_samples": total, "days_updated": len(affected),
     }
+
+
+def _note_sources(conn: Any, profile_id: str, seen: dict[str, tuple[str, Optional[str], bool]], now: float) -> None:
+    """Keeps what each source is. A batch whose readings say which device took them overrides a guess from a name."""
+    for source, (kind, device, said_so) in seen.items():
+        conn.execute(
+            """INSERT INTO data_sources(profile_id, source_name, device_kind, device_name, updated_at) VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(profile_id, source_name) DO UPDATE SET device_kind = excluded.device_kind,
+                   device_name = COALESCE(excluded.device_name, device_name), updated_at = excluded.updated_at
+               WHERE ? AND excluded.device_kind <> data_sources.device_kind""",
+            (profile_id, source, kind, device, now, said_so))
+
+
+def delete_sample(profile_id: str, sample_id: str) -> bool:
+    """Removes one reading the person says is wrong. A sync that brings the same id back leaves it out."""
+    tz = _tz(profile_id)
+    orders = source_orders()
+    affected: set[str] = set()
+    changed: set[str] = set()
+    with db() as conn:
+        n = _remove_samples(conn, profile_id, [sample_id], (), affected, changed, tz)
+        if not n:
+            return False
+        conn.execute("INSERT OR REPLACE INTO sample_tombstones(profile_id, sample_id, deleted_at) VALUES (?, ?, ?)",
+                     (profile_id, sample_id, time.time()))
+        if affected:
+            _rollup(conn, profile_id, sorted(affected), changed, tz, orders)
+        mark_daily_changed(conn, profile_id)
+    sample_counts.forget()
+    return True
+
+
+def delete_from_phone(profile_id: str, items: Iterable[dict[str, Any]]) -> int:
+    """What a phone says was deleted there, for this person only. Health Connect turns one record into suffixed samples
+    (hc-id-0, hc-id-1), so the record's id takes them all. A sample first stored from an export.xml has a hash for an id
+    and can't be matched from here; that row stays until the person removes it."""
+    tz = _tz(profile_id)
+    orders = source_orders()
+    affected: set[str] = set()
+    changed: set[str] = set()
+    total = 0
+    now = time.time()
+    with db() as conn:
+        for item in items:
+            item_id, kind = item.get("id"), item.get("kind") or "sample"
+            if not isinstance(item_id, str) or not item_id:
+                continue
+            if kind == "sample":
+                record = item_id if item_id.startswith("hc-") else f"hc-{item_id}"
+                total += _remove_samples(conn, profile_id, [item_id, record], [f"{record}-"], affected, changed, tz)
+                conn.execute("INSERT OR REPLACE INTO sample_tombstones(profile_id, sample_id, deleted_at) VALUES (?, ?, ?)",
+                             (profile_id, item_id, now))
+            elif kind in ("workout", "event"):
+                table = "workouts" if kind == "workout" else "health_events"
+                total += conn.execute(f"DELETE FROM {table} WHERE profile_id = ? AND id IN (?, ?, ?)",
+                                      (profile_id, item_id, f"hc-{item_id}", f"{item_id}@{profile_id}")).rowcount
+        if affected:
+            _rollup(conn, profile_id, sorted(affected), changed, tz, orders)
+    if total:
+        sample_counts.forget()
+    return total
 
 
 def _daily_targets(metric: str) -> list[str]:
     """The daily rollups a sample type feeds (sleep stages add up into several)."""
+    if metric in SLEEP_STAGE_SAMPLES:
+        return _STAGE_TARGETS
     if metric in SLEEP_MAP:
         return SLEEP_MAP[metric]
     return [metric] if metric in METRICS else []
 
 
-def _day_spans(days: Iterable[str], tz: ZoneInfo) -> list[tuple[str, str]]:
-    """UTC [start, end) spans covering each day with a day's margin either side (samples near midnight, nights that
-    end the next morning), merged so no sample is read twice."""
+def _day_spans(days: Iterable[str], tz: tzinfo) -> list[tuple[str, str]]:
+    """UTC [start, end) spans covering each day with a margin either side (samples near midnight, in a zone other than
+    the person's, nights that end the next morning), merged so no sample is read twice."""
     spans: list[list[date]] = []
     for d in sorted({date.fromisoformat(d) for d in days}):
-        lo, hi = d - timedelta(days=1), d + timedelta(days=2)
+        lo, hi = d - timedelta(days=REBUILD_MARGIN_BEFORE), d + timedelta(days=REBUILD_MARGIN_AFTER)
         if spans and lo <= spans[-1][1]:
             spans[-1][1] = max(spans[-1][1], hi)
         else:
             spans.append([lo, hi])
 
     def utc(d: date) -> str:
-        return datetime(d.year, d.month, d.day, tzinfo=tz).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return datetime(d.year, d.month, d.day, tzinfo=tz).astimezone(timezone.utc).strftime(_ISO)
     return [(utc(lo), utc(hi)) for lo, hi in spans]
 
 
-def rebuild_daily(profile_id: str, days: Optional[list[str]] = None, metrics: Optional[Iterable[str]] = None) -> int:
-    """Recomputes daily aggregates for the given local days (or all days).
+def _split_by_day(start: str, end: str, value: float, offset: Optional[int], tz: tzinfo) -> list[tuple[str, str, str, float]]:
+    """(day, start, end, share) for each local day an interval covers, shared by time. Steps from 23:30 to 00:30 are half
+    on each day."""
+    zone = zone_at(offset, tz)
+    s, e = parse_ts(start).astimezone(zone), parse_ts(end).astimezone(zone)
+    length = (e - s).total_seconds()
+    if length <= 0 or length > SPLIT_MAX_S or s.date() == (e - timedelta(seconds=1)).date():
+        return [(s.date().isoformat(), start, end, value)]
+    pieces = []
+    cursor = s
+    while cursor < e:
+        midnight = datetime.combine(cursor.date() + timedelta(days=1), datetime.min.time(), zone)
+        stop = min(midnight, e)
+        share = value * (stop - cursor).total_seconds() / length
+        pieces.append((cursor.date().isoformat(), cursor.astimezone(timezone.utc).strftime(_ISO),
+                       stop.astimezone(timezone.utc).strftime(_ISO), share))
+        cursor = stop
+    return pieces
 
-    With ``metrics`` (the sample types that changed), only the rollups those types feed are recomputed, reading just
-    those types around just those days: a batch of years-old heart rate then touches heart rate, not every row in
-    between.
-    """
-    tz = _tz()
+
+def _time_mean(points: list[tuple[float, float]]) -> float:
+    """Each reading counts for the time until the next one, up to TIME_WEIGHT_MAX_S."""
+    points = sorted(points)
+    total = weight = 0.0
+    last_gap = TIME_WEIGHT_MAX_S
+    for i, (t, value) in enumerate(points):
+        if i + 1 < len(points):
+            last_gap = min(points[i + 1][0] - t, TIME_WEIGHT_MAX_S)
+        w = max(last_gap, 1.0)
+        total += value * w
+        weight += w
+    return total / weight
+
+
+def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Iterable[str]], tz: tzinfo,
+            orders: Optional[dict[str, list[str]]] = None) -> int:
+    """Works out the given local days again on the caller's transaction. With ``metrics`` (the sample types that
+    changed), only the rollups those types feed: a batch of years-old heart rate then touches heart rate, not every row
+    in between."""
     targets: Optional[set[str]] = None
-    if days and metrics is not None:
+    if metrics is not None:
         targets = {t for m in metrics for t in _daily_targets(m)}
         if not targets:
             return 0
-    with db() as conn:
-        if days:
-            where = "profile_id = ? AND start_date >= ? AND start_date < ?"
-            extra: tuple[str, ...] = ()
-            if targets is not None:
-                feeding = sorted(m for m in {*SLEEP_MAP, *METRICS} if targets.intersection(_daily_targets(m)))
-                where += f" AND metric_type IN ({','.join('?' * len(feeding))})"
-                extra = tuple(feeding)
-            rows = []
-            for lo, hi in _day_spans(days, tz):
-                rows += conn.execute(
-                    "SELECT metric_type, value, unit, start_date, end_date, source_name, metadata_json "
-                    f"FROM biometric_samples WHERE {where}", (profile_id, lo, hi, *extra),
-                ).fetchall()
+    where = "profile_id = ? AND flag IS NULL AND start_date >= ? AND start_date < ?"
+    extra: tuple[str, ...] = ()
+    if targets is not None:
+        feeding = sorted(m for m in {*SLEEP_MAP, *METRICS} if targets.intersection(_daily_targets(m)))
+        where += f" AND metric_type IN ({','.join('?' * len(feeding))})"
+        extra = tuple(feeding)
+    rows: list[Any] = []
+    for lo, hi in _day_spans(days, tz):
+        rows += conn.execute(
+            "SELECT id, metric_type, value, start_date, end_date, source_name, metadata_json, tz_offset_min "
+            f"FROM biometric_samples WHERE {where}", (profile_id, lo, hi, *extra),
+        ).fetchall()
+
+    readings: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    totals: dict[tuple[str, str, str], list[float]] = defaultdict(list)    # what a source says the whole day came to
+    maybe_totals: dict[tuple[str, str, str], list[float]] = defaultdict(list)   # the same, unless more of that day turns up
+    export_rows: set[tuple[str, str, str]] = set()
+    last_seen: dict[tuple[str, str, str], tuple[str, float]] = {}
+    timed: dict[tuple[str, str, str], list[tuple[float, float]]] = defaultdict(list)
+    intervals: dict[tuple[str, str], list[tuple[str, str, float, str]]] = defaultdict(list)
+    stages: dict[str, list[tuple[float, float, str, Optional[int]]]] = defaultdict(list)
+    repeats: dict[tuple[str, str, str, str], list[tuple[float, str]]] = defaultdict(list)
+    for r in rows:
+        metric, value, source = r["metric_type"], float(r["value"]), r["source_name"] or "Unknown"
+        start, end, offset = r["start_date"], r["end_date"], r["tz_offset_min"]
+        day = _stored_day(r["metadata_json"], start)
+        if metric in SLEEP_STAGE_SAMPLES and not day:
+            s, e = parse_ts(start).timestamp(), parse_ts(end).timestamp()
+            if e > s:
+                stages[source].append((s, e, metric, offset))
+            continue
+        if metric in SLEEP_MAP:
+            d = day or local_day(end, tz, offset)
+            for target in SLEEP_MAP[metric]:
+                totals[(d, target, source)].append(value / 3600.0)
+            continue
+        if metric not in METRICS:
+            continue
+        aggregation = METRICS[metric][2]
+        if aggregation == "sum":
+            path, seen = _id_path(r["id"]), repeats[(metric, start, end, source)]
+            # The same reading stored from two paths before they recognised each other.
+            if any(p != path and _close(v, value) for v, p in seen):
+                continue
+            seen.append((value, path))
+            if day or (r["metadata_json"] and '"daily_total":true' in r["metadata_json"]):
+                totals[(day or local_day(start, tz, offset), metric, source)].append(value)
+                continue
+            if r["metadata_json"] and '"daily_total_if_alone":true' in r["metadata_json"]:
+                maybe_totals[(local_day(start, tz, offset), metric, source)].append(value)
+                continue
+            if path == "json" and end == start:
+                export_rows.add((local_day(start, tz, offset), metric, source))
+            if end > start:
+                for d, piece_start, piece_end, share in _split_by_day(start, end, value, offset, tz):
+                    readings[(d, metric, source)].append(share)
+                    intervals[(d, metric)].append((piece_start, piece_end, share, source))
+                continue
+        d = day or local_day(end if metric in OVERNIGHT_METRICS else start, tz, offset)
+        key = (d, metric, source)
+        readings[key].append(value)
+        if metric in TIME_WEIGHTED:
+            timed[key].append((parse_ts(start).timestamp(), value))
+        prev = last_seen.get(key)
+        if prev is None or start >= prev[0]:
+            last_seen[key] = (start, value)
+
+    for key, values in maybe_totals.items():
+        (readings if key in export_rows or len(values) > 1 else totals)[key].extend(values)
+
+    for (day, target, source), spans in _sleep_nights(stages, tz).items():
+        # A source's own summary of the night wins over adding up its stages; both would count the night twice.
+        if (day, target, source) not in totals:
+            readings[(day, target, source)].extend(spans)
+
+    wanted = set(days)
+    only = f" AND metric_type IN ({','.join('?' * len(targets))})" if targets is not None else ""
+    conn.execute(
+        f"DELETE FROM biometric_daily WHERE profile_id = ? AND day IN ({','.join('?' * len(wanted))}){only}",
+        (profile_id, *wanted, *(sorted(targets) if targets is not None else ())),
+    )
+
+    written = 0
+    for key in {*readings, *totals}:
+        day, metric, source = key
+        if day not in wanted or (targets is not None and metric not in targets):
+            continue
+        values = totals.get(key) or readings[key]
+        agg = METRICS[metric][2]
+        if agg == "sum":
+            value = sum(values)
+        elif agg == "last":
+            value = last_seen.get(key, (None, values[-1]))[1]
+        elif timed.get(key):
+            value = _time_mean(timed[key])
         else:
-            rows = conn.execute(
-                "SELECT metric_type, value, unit, start_date, end_date, source_name, metadata_json "
-                "FROM biometric_samples WHERE profile_id = ?",
-                (profile_id,),
-            ).fetchall()
-
-        buckets: dict[tuple[str, str, str], list[float]] = defaultdict(list)
-        last_seen: dict[tuple[str, str, str], tuple[str, float]] = {}
-        intervals: dict[tuple[str, str], list[tuple[str, str, float, str]]] = defaultdict(list)
-        stages: dict[str, list[tuple[float, float, str]]] = defaultdict(list)    # source -> (start, end, metric)
-        import json as _json
-        for r in rows:
-            metric, value, source = r["metric_type"], float(r["value"]), r["source_name"] or "Unknown"
-            meta_day = None
-            if r["metadata_json"] and '"day"' in r["metadata_json"]:
-                try:
-                    meta_day = _json.loads(r["metadata_json"]).get("day")
-                except ValueError:
-                    meta_day = None
-            if metric in SLEEP_STAGE_SAMPLES and not meta_day:
-                start, end = parse_ts(r["start_date"]).timestamp(), parse_ts(r["end_date"]).timestamp()
-                if end > start:
-                    stages[source].append((start, end, metric))
-                continue
-            if metric in SLEEP_MAP:
-                day = meta_day or local_day(r["end_date"], tz)
-                for target in SLEEP_MAP[metric]:
-                    buckets[(day, target, source)].append(value / 3600.0)
-                continue
-            if metric not in METRICS:
-                continue
-            day = meta_day or local_day(r["end_date" if metric in OVERNIGHT_METRICS else "start_date"], tz)
-            key = (day, metric, source)
-            buckets[key].append(value)
-            if METRICS[metric][2] == "sum" and r["end_date"] > r["start_date"] and not meta_day:
-                intervals[(day, metric)].append((r["start_date"], r["end_date"], value, source))
-            prev = last_seen.get(key)
-            if prev is None or r["start_date"] >= prev[0]:
-                last_seen[key] = (r["start_date"], value)
-
-        for (day, target, source), spans in _sleep_nights(stages, tz).items():
-            buckets[(day, target, source)].extend(spans)
-
-        wanted = set(days) if days else None
-        if days:
-            only = f" AND metric_type IN ({','.join('?' * len(targets))})" if targets is not None else ""
-            conn.execute(
-                f"DELETE FROM biometric_daily WHERE profile_id = ? AND day IN ({','.join('?' * len(wanted))}){only}",
-                (profile_id, *wanted, *(sorted(targets) if targets is not None else ())),
-            )
-        else:
-            conn.execute("DELETE FROM biometric_daily WHERE profile_id = ?", (profile_id,))
-
-        written = 0
-        for (day, metric, source), values in buckets.items():
-            if (wanted is not None and day not in wanted) or (targets is not None and metric not in targets):
-                continue
-            agg = METRICS[metric][2]
-            if agg == "sum":
-                value = sum(values)
-            elif agg == "last":
-                value = last_seen.get((day, metric, source), (None, values[-1]))[1]
-            else:
-                value = sum(values) / len(values)
-            conn.execute(
-                """INSERT OR REPLACE INTO biometric_daily(profile_id, day, metric_type, source_name, value,
-                       min_value, max_value, sample_count, unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (profile_id, day, metric, source, round(value, 4), min(values), max(values), len(values), METRICS[metric][1]),
-            )
-            written += 1
-        for (day, metric), items in intervals.items():
-            if ((wanted is not None and day not in wanted) or (targets is not None and metric not in targets)
-                    or len({i[3] for i in items}) < 2):
-                continue
-            merged = merge_interval_sources(items)
-            if METRICS[metric][1] in ("steps", "flights"):
-                merged = round(merged)   # whole steps, as Apple Health shows them
-            conn.execute(
-                """INSERT OR REPLACE INTO biometric_daily(profile_id, day, metric_type, source_name, value,
-                       min_value, max_value, sample_count, unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (profile_id, day, metric, MERGED_SOURCE, round(merged, 4), min(i[2] for i in items),
-                 max(i[2] for i in items), len(items), METRICS[metric][1]),
-            )
-            written += 1
-        mark_daily_changed(conn, profile_id)
+            value = sum(values) / len(values)
+        conn.execute(
+            """INSERT OR REPLACE INTO biometric_daily(profile_id, day, metric_type, source_name, value,
+                   min_value, max_value, sample_count, unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (profile_id, day, metric, source, round(value, 4), min(values), max(values), len(values), METRICS[metric][1]),
+        )
+        written += 1
+    kinds = source_kinds(profile_id, conn)
+    for (day, metric), found in intervals.items():
+        if day not in wanted or (targets is not None and metric not in targets):
+            continue
+        items = [i for i in found if (day, metric, i[3]) not in totals]
+        contributors = {i[3] for i in items}
+        if len(contributors) < 2:
+            continue
+        merged = merge_interval_sources(items, lambda s: source_rank(s, metric, orders, kinds))
+        if METRICS[metric][1] in ("steps", "flights"):
+            merged = round(merged)   # whole steps, as Apple Health shows them
+        conn.execute(
+            """INSERT OR REPLACE INTO biometric_daily(profile_id, day, metric_type, source_name, value,
+                   min_value, max_value, sample_count, unit, contributors) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (profile_id, day, metric, MERGED_SOURCE, round(merged, 4), min(i[2] for i in items),
+             max(i[2] for i in items), len(items), METRICS[metric][1], dumps(sorted(contributors))),
+        )
+        written += 1
+    mark_daily_changed(conn, profile_id)
     return written
+
+
+def rebuild_daily(profile_id: str, days: Optional[list[str]] = None, metrics: Optional[Iterable[str]] = None) -> int:
+    """Recomputes daily aggregates for the given local days in one transaction, or with no days, every day a month at a
+    time (see ``queue_rebuild``)."""
+    tz = _tz(profile_id)
+    orders = source_orders()
+    if not days:
+        with db() as conn:
+            queue_rebuild(conn, profile_id)
+        run_queued_rebuilds()
+        return 0
+    with db() as conn:
+        return _rollup(conn, profile_id, days, metrics, tz, orders)
+
+
+def queue_rebuild(conn: Any, profile_id: str) -> None:
+    """Says, in the caller's transaction, that all of a person's days have to be worked out again. Written before what
+    makes it necessary, so a kill at any point is picked up at the next start."""
+    conn.execute("""INSERT INTO daily_rebuilds(profile_id, next_day, last_day, requested_at) VALUES (?, NULL, NULL, ?)
+                    ON CONFLICT(profile_id) DO UPDATE SET next_day = NULL, last_day = NULL, requested_at = excluded.requested_at""",
+                 (profile_id, time.time()))
+
+
+def _rebuild_range(conn: Any, profile_id: str, tz: tzinfo) -> Optional[tuple[str, str]]:
+    """Every day that has rollups or could get some. Rollups outside the samples' range (a time zone ago, a deleted source)
+    are in it too, so they go."""
+    # What can't be a day (from before day labels were checked, or a reading dated 2105) would stretch the range for nothing.
+    soon = (datetime.now(timezone.utc) + timedelta(days=2)).strftime(_ISO)
+    conn.execute("DELETE FROM biometric_daily WHERE profile_id = ? AND (day NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' "
+                 "OR day < ? OR day > ?)", (profile_id, str(EARLIEST_YEAR), soon[:10]))
+    days = conn.execute("SELECT MIN(day), MAX(day) FROM biometric_daily WHERE profile_id = ?", (profile_id,)).fetchone()
+    first = conn.execute("SELECT start_date FROM biometric_samples WHERE profile_id = ? AND flag IS NULL AND start_date >= ? "
+                         "ORDER BY start_date LIMIT 1", (profile_id, str(EARLIEST_YEAR))).fetchone()
+    last = conn.execute("SELECT start_date FROM biometric_samples WHERE profile_id = ? AND flag IS NULL AND start_date < ? "
+                        "ORDER BY start_date DESC LIMIT 1", (profile_id, soon)).fetchone()
+    low = [d for d in (days[0], first and (date.fromisoformat(local_day(first[0], tz)) - timedelta(days=DAY_LABEL_MAX_DAYS + 1)).isoformat()) if d]
+    high = [d for d in (days[1], last and (date.fromisoformat(local_day(last[0], tz)) + timedelta(days=DAY_LABEL_MAX_DAYS + 2)).isoformat()) if d]
+    return (min(low), max(high)) if low and high else None
+
+
+def rebuild_step(conn: Any, cursor: Any = None, size: int = 0) -> Any:
+    """One month of the oldest queued rebuild; a step for ``write_in_batches``. A month at a time keeps memory small (one
+    month's readings, not years of them) and gives the write lock back: other writes have a 15 second limit on waiting."""
+    row = conn.execute("SELECT * FROM daily_rebuilds ORDER BY requested_at, profile_id LIMIT 1").fetchone()
+    if not row:
+        return None
+    profile_id = row["profile_id"]
+    tz = _tz(profile_id)
+    next_day, last_day = row["next_day"], row["last_day"]
+    if next_day is None:
+        span = _rebuild_range(conn, profile_id, tz)
+        if span is None:
+            conn.execute("DELETE FROM daily_rebuilds WHERE profile_id = ?", (profile_id,))
+            mark_daily_changed(conn, profile_id)
+            return (cursor or 0) + 1
+        next_day, last_day = span
+    first = date.fromisoformat(next_day)
+    end_of_month = first.replace(day=monthrange(first.year, first.month)[1])
+    stop = min(end_of_month, date.fromisoformat(last_day))
+    days = [(first + timedelta(days=i)).isoformat() for i in range((stop - first).days + 1)]
+    _rollup(conn, profile_id, days, None, tz, source_orders())
+    following = stop + timedelta(days=1)
+    if following > date.fromisoformat(last_day):
+        conn.execute("DELETE FROM daily_rebuilds WHERE profile_id = ?", (profile_id,))
+    else:
+        conn.execute("UPDATE daily_rebuilds SET next_day = ?, last_day = ? WHERE profile_id = ?",
+                     (following.isoformat(), last_day, profile_id))
+    return (cursor or 0) + 1
+
+
+def run_queued_rebuilds() -> None:
+    """Until nothing is queued. Safe beside another thread doing the same: each step reads where things stand under the
+    write lock."""
+    write_in_batches(rebuild_step)
+
+
+def resume_rebuilds() -> None:
+    """At start-up: what a kill interrupted carries on in the background, without holding up the server's start."""
+    with read() as conn:
+        pending = conn.execute("SELECT 1 FROM daily_rebuilds LIMIT 1").fetchone()
+    if pending:
+        threading.Thread(target=run_queued_rebuilds, name="daily-rebuild", daemon=True).start()
+
+
+def queue_all_rebuilds(conn: Any) -> None:
+    for row in conn.execute("SELECT id FROM profiles").fetchall():
+        queue_rebuild(conn, row[0])
 
 
 def mark_daily_changed(conn: Any, profile_id: str) -> None:
@@ -444,8 +893,8 @@ _DERIVED_MAX = 256
 
 
 def _cached(what: str, profile_id: str, key: Any, compute: Any) -> Any:
-    full = (daily_revision(profile_id), datetime.now(_tz()).date().isoformat(), settings.timezone_name(),
-            dumps(source_orders()), key)
+    tz = _tz(profile_id)
+    full = (daily_revision(profile_id), datetime.now(tz).date().isoformat(), tz.key, dumps(source_orders()), key)
     hit = _derived.get((what, profile_id))
     if hit and hit[0] == full:
         return copy.deepcopy(hit[1])
@@ -456,52 +905,89 @@ def _cached(what: str, profile_id: str, key: Any, compute: Any) -> Any:
     return copy.deepcopy(value)
 
 
-def _sleep_nights(stages: dict[str, list[tuple[float, float, str]]], tz: ZoneInfo) -> dict[tuple[str, str, str], list[float]]:
-    """Hours per (day, daily metric, source) from sleep stage samples.
+def _asleep_seconds(samples: list[tuple[float, float, str, Optional[int]]]) -> float:
+    return sum(e - s for s, e in _union([(s, e) for s, e, m, _ in samples if not m.endswith("_awake")]))
 
-    Each source's samples are grouped into nights (no gap over SLEEP_SESSION_GAP_S) and a night counts toward the local
-    day it ends. Counting each sample by its own end would give the stretch before midnight to the evening's date: a
-    one-hour "night" on days with no sleep, and a short real one the morning after. Overlapping samples from the same
-    source (an app writing both "asleep" and stages) count once, as in Apple Health.
-    """
-    out: dict[tuple[str, str, str], list[float]] = {}
-    for source, samples in stages.items():
-        nights: list[list[Any]] = []     # [latest end, samples]
-        for sample in sorted(samples):
-            if nights and sample[0] - nights[-1][0] <= SLEEP_SESSION_GAP_S:
-                nights[-1][0] = max(nights[-1][0], sample[1])
-                nights[-1][1].append(sample)
-            else:
-                nights.append([sample[1], [sample]])
-        for woke, night in nights:
-            day = datetime.fromtimestamp(woke, tz).date().isoformat()
-            by_target: dict[str, list[tuple[float, float]]] = defaultdict(list)
-            for start, end, metric in night:
-                for target in SLEEP_MAP[metric]:
-                    by_target[target].append((start, end))
-            for target, spans in by_target.items():
-                out.setdefault((day, target, source), []).extend((e - s) / 3600.0 for s, e in _union(spans))
+
+def _is_nap(samples: list[tuple[float, float, str, Optional[int]]], tz: tzinfo) -> bool:
+    first = min(samples, key=lambda x: x[0])
+    started = datetime.fromtimestamp(first[0], zone_at(first[3], tz))
+    return _asleep_seconds(samples) < NAP_MAX_S and NAP_HOURS[0] <= started.hour < NAP_HOURS[1]
+
+
+def _same_night(session: list[tuple[float, float, str, Optional[int]]], main: list[tuple[float, float, str, Optional[int]]], tz: tzinfo) -> bool:
+    """Whether another session on the longest one's day is that night, broken by hours awake."""
+    if _is_nap(session, tz):
+        return False
+    first = min(session, key=lambda x: x[0])
+    hour = datetime.fromtimestamp(first[0], zone_at(first[3], tz)).hour
+    main_start, main_end = min(x[0] for x in main), max(x[1] for x in main)
+    if first[0] >= main_end:
+        return first[0] - main_end <= NIGHT_BREAK_MAX_S and hour < NIGHT_RESUMES_BEFORE_HOUR
+    return main_start - max(x[1] for x in session) <= NIGHT_BREAK_MAX_S and not NAP_HOURS[0] <= hour < NAP_HOURS[1]
+
+
+def sleep_sessions(samples: list[tuple[float, float, str, Optional[int]]], tz: tzinfo) -> list[dict[str, Any]]:
+    """One source's stage samples, as ``{day, night: samples, naps: [samples]}``. Samples are grouped into sessions (no
+    gap over SLEEP_SESSION_GAP_S) and a session counts toward the local day it ends: counting each sample by its own end
+    would give the stretch before midnight to the evening's date, a one-hour "night" on days with no sleep. The day's
+    longest session is the night. Another is part of that night only when it's the same night broken by hours awake
+    (someone awake for hours at 3 AM didn't nap afterwards); sleep at another time is listed with the naps, and doesn't
+    move the bedtime or wake time. The Sleep page and the daily figures both start here, so they can't disagree."""
+    sessions: list[list[Any]] = []     # [latest end, samples]
+    for sample in sorted(samples, key=lambda x: x[:3]):
+        if sessions and sample[0] - sessions[-1][0] <= SLEEP_SESSION_GAP_S:
+            sessions[-1][0] = max(sessions[-1][0], sample[1])
+            sessions[-1][1].append(sample)
+        else:
+            sessions.append([sample[1], [sample]])
+    by_day: dict[str, list[list[Any]]] = defaultdict(list)
+    for woke, session in sessions:
+        last = max(session, key=lambda x: x[1])
+        by_day[datetime.fromtimestamp(woke, zone_at(last[3], tz)).date().isoformat()].append(session)
+    out = []
+    for day, found in by_day.items():
+        main = max(found, key=_asleep_seconds)
+        night, naps = list(main), []
+        for session in found:
+            if session is main:
+                continue
+            if _same_night(session, main, tz):
+                night.extend(session)
+            elif _asleep_seconds(session):
+                naps.append(session)
+        out.append({"day": day, "night": night, "naps": naps})
     return out
 
 
-# Bump when rebuild_daily's rules change; stored rollups are then recomputed once at startup.
+def _sleep_nights(stages: dict[str, list[tuple[float, float, str, Optional[int]]]], tz: tzinfo) -> dict[tuple[str, str, str], list[float]]:
+    """Hours per (day, daily metric, source) from sleep stage samples. Overlapping samples from the same source (an app
+    writing both "asleep" and stages) count once, as in Apple Health."""
+    out: dict[tuple[str, str, str], list[float]] = {}
+    for source, samples in stages.items():
+        for session in sleep_sessions(samples, tz):
+            by_target: dict[str, list[tuple[float, float]]] = defaultdict(list)
+            for start, end, metric, _ in session["night"]:
+                for target in SLEEP_MAP[metric]:
+                    by_target[target].append((start, end))
+            for target, spans in by_target.items():
+                out.setdefault((session["day"], target, source), []).extend((e - s) / 3600.0 for s, e in _union(spans))
+            for nap in session["naps"]:
+                if asleep := _asleep_seconds(nap):
+                    out.setdefault((session["day"], "sleep_nap", source), []).append(asleep / 3600.0)
+    return out
+
+
+# Bump when _rollup's rules change; stored rollups are then recomputed once, in the background (app/services/wearable_fixes.py).
 # 2: combined Watch + iPhone totals; simulated sources ranked last.
 # 3: sleep stages grouped into nights that count toward the day they end; overlapping stages count once; overnight
 #    wrist temperature and breathing disturbances count toward the morning too.
-DAILY_VERSION = 3
+# 4: flagged readings left out; naps apart from the night; heart rate weighted by time; intervals shared across midnight;
+#    a source's daily total wins over its intraday readings; every metric the iPhone sends; a reading's own offset.
+DAILY_VERSION = 4
 
 
-def upgrade_daily_if_needed() -> None:
-    if settings.get("biometrics.daily_version") == DAILY_VERSION:
-        return
-    with read() as conn:
-        profiles = [r[0] for r in conn.execute("SELECT DISTINCT profile_id FROM biometric_samples").fetchall()]
-    for profile_id in profiles:
-        rebuild_daily(profile_id)
-    settings.set("biometrics.daily_version", DAILY_VERSION)
-
-
-def merge_interval_sources(items: list[tuple[str, str, float, str]]) -> float:
+def merge_interval_sources(items: list[tuple[str, str, float, str]], rank: Optional[Callable[[str], Any]] = None) -> float:
     """Sums interval samples from several sources without double counting overlapping time.
     Sources are taken in priority order; a sample counts for the fraction of its interval not already
     covered by a higher-priority source (the same proportional rule HealthKit statistics use)."""
@@ -510,7 +996,7 @@ def merge_interval_sources(items: list[tuple[str, str, float, str]]) -> float:
         by_source[source].append((parse_ts(start).timestamp(), parse_ts(end).timestamp(), value))
     covered: list[tuple[float, float]] = []   # disjoint, sorted
     total = 0.0
-    for source in sorted(by_source, key=lambda s: (source_priority(s), s)):
+    for source in sorted(by_source, key=lambda s: ((rank or source_priority)(s), s)):
         samples = by_source[source]
         ends = [ce for _, ce in covered]
         for s, e, v in samples:
@@ -541,12 +1027,12 @@ def _union(spans: list[tuple[float, float]]) -> list[tuple[float, float]]:
 # per-type Data Sources list. Defaults: rings and straps are worn overnight and usually measure sleep and
 # overnight vitals best; the Watch is best for activity and daytime heart rate.
 
-SOURCE_KINDS = {"watch": "Apple Watch or Galaxy Watch", "ring": "Oura, WHOOP or Google (Fitbit, Pixel Watch)", "phone": "Phone",
-                "other": "Other apps and devices"}
+SOURCE_KINDS = {"watch": "Apple Watch, Galaxy Watch, Pixel Watch, Garmin or Polar", "ring": "Oura, WHOOP, Fitbit or Google Health",
+                "phone": "Phone", "other": "Other apps and devices"}
 
 PRIORITY_GROUPS: dict[str, dict[str, Any]] = {
     "sleep": {"label": "Sleep", "hint": "Duration, stages and sleep score", "default": ["ring", "watch", "phone", "other"],
-              "metrics": ["sleep_duration", "sleep_deep", "sleep_rem", "sleep_core", "sleep_awake", "sleep_score"]},
+              "metrics": ["sleep_duration", "sleep_deep", "sleep_rem", "sleep_core", "sleep_awake", "sleep_nap", "sleep_score"]},
     "overnight": {"label": "Overnight vitals", "hint": "HRV, resting heart rate, breathing, blood oxygen, temperature",
                   "default": ["ring", "watch", "phone", "other"],
                   "metrics": ["hrv_sdnn", "hrv_rmssd", "resting_heart_rate", "respiratory_rate", "oxygen_saturation",
@@ -565,19 +1051,28 @@ def priority_group(metric: str) -> str:
     return _METRIC_GROUP.get(metric, "activity")
 
 
-def source_kind(source_name: Optional[str]) -> str:
+def source_kinds(profile_id: str, conn: Any = None) -> dict[str, str]:
+    """What each of a person's sources turned out to be (see ``device_kind``)."""
+    if conn is not None:
+        return {r[0]: r[1] for r in conn.execute("SELECT source_name, device_kind FROM data_sources WHERE profile_id = ?", (profile_id,))}
+    with read() as reader:
+        return source_kinds(profile_id, reader)
+
+
+def source_kind(source_name: Optional[str], kinds: Optional[dict[str, str]] = None, contributors: Optional[str] = None,
+                orders: Optional[list[str]] = None) -> str:
+    """A source's kind. Combined takes the kind of the best source merged into it; without that on the row (one worked out
+    before this was kept), the Watch's, whose rules it follows."""
     if source_name == MERGED_SOURCE:
-        return "watch"   # Watch + iPhone combined by the Watch's rules
-    s = (source_name or "").lower()
-    if "watch" in s:
-        return "watch"
-    if "oura" in s or "whoop" in s or "ring" in s or "google health" in s or "fitbit" in s:
-        return "ring"      # worn overnight: Oura, WHOOP, and Fitbit / Pixel Watch (Google Health, or Health Connect)
-    if "samsung health" in s:
-        return "watch"     # Galaxy Watch, through Health Connect on an Android phone
-    if "iphone" in s or "phone" in s:
-        return "phone"
-    return "other"
+        try:
+            merged = json.loads(contributors) if contributors else None
+        except ValueError:
+            merged = None
+        if not merged:
+            return "watch"
+        found = [source_kind(m, kinds) for m in merged]
+        return min(found, key=(orders or list(SOURCE_KINDS)).index)
+    return (kinds or {}).get(source_name or "") or device_kind(source_name)
 
 
 def source_orders() -> dict[str, list[str]]:
@@ -602,11 +1097,12 @@ def set_source_orders(orders: dict[str, list[str]]) -> dict[str, list[str]]:
     return source_orders()
 
 
-def source_rank(source_name: Optional[str], metric: str, orders: Optional[dict[str, list[str]]] = None) -> tuple[int, int]:
+def source_rank(source_name: Optional[str], metric: str, orders: Optional[dict[str, list[str]]] = None,
+                kinds: Optional[dict[str, str]] = None, contributors: Optional[str] = None) -> tuple[int, int]:
     if "(simulated)" in (source_name or "").lower():
         return (99, 0)   # demo data never outranks real measurements
     order = (orders or source_orders())[priority_group(metric)]
-    return (order.index(source_kind(source_name)), 0 if source_name == MERGED_SOURCE else 1)
+    return (order.index(source_kind(source_name, kinds, contributors, order)), 0 if source_name == MERGED_SOURCE else 1)
 
 
 # ---------------------------------------------------------------------------
@@ -614,9 +1110,12 @@ def source_rank(source_name: Optional[str], metric: str, orders: Optional[dict[s
 # ---------------------------------------------------------------------------
 
 def _pick(rows: list[dict[str, Any]], metric: str, source: Optional[str] = None,
-          orders: Optional[dict[str, list[str]]] = None) -> dict[str, dict[str, Any]]:
+          orders: Optional[dict[str, list[str]]] = None, kinds: Optional[dict[str, str]] = None) -> dict[str, dict[str, Any]]:
     """Chooses one source per day by the metric group's source order (ties: more samples)."""
     orders = orders or source_orders()
+
+    def rank(r: dict[str, Any]) -> tuple[int, int]:
+        return source_rank(r["source_name"], metric, orders, kinds, r.get("contributors"))
     best: dict[str, dict[str, Any]] = {}
     for r in rows:
         if source and r["source_name"] != source:
@@ -625,16 +1124,16 @@ def _pick(rows: list[dict[str, Any]], metric: str, source: Optional[str] = None,
         if cur is None:
             best[r["day"]] = r
             continue
-        a, b = source_rank(r["source_name"], metric, orders), source_rank(cur["source_name"], metric, orders)
+        a, b = rank(r), rank(cur)
         if a < b or (a == b and r["sample_count"] > cur["sample_count"]):
             best[r["day"]] = r
     return best
 
 
-def _sleep_sources(nights: list[dict[str, Any]], orders: dict[str, list[str]]) -> dict[str, str]:
+def _sleep_sources(nights: list[dict[str, Any]], orders: dict[str, list[str]], kinds: Optional[dict[str, str]] = None) -> dict[str, str]:
     """Per night, the source to use for every sleep metric: the preferred one, unless it only caught part of
     the night (e.g. the Watch died at 2 AM) and another real source recorded a much longer one."""
-    preferred = _pick(nights, "sleep_duration", orders=orders)
+    preferred = _pick(nights, "sleep_duration", orders=orders, kinds=kinds)
     longest: dict[str, dict[str, Any]] = {}
     for r in nights:
         if "(simulated)" in r["source_name"].lower() and "(simulated)" not in preferred[r["day"]]["source_name"].lower():
@@ -650,9 +1149,11 @@ def _sleep_sources(nights: list[dict[str, Any]], orders: dict[str, list[str]]) -
 
 def daily_series(profile_id: str, metric: str, days: int = 30, source: Optional[str] = None,
                  end: Optional[date] = None) -> dict[str, Any]:
-    end = end or datetime.now(_tz()).date()
+    tz = _tz(profile_id)
+    end = end or datetime.now(tz).date()
     start = end - timedelta(days=days - 1)
     orders = source_orders()
+    kinds = source_kinds(profile_id)
     group = priority_group(metric)
     with read() as conn:
         rows = rows_to_dicts(conn.execute(
@@ -663,15 +1164,18 @@ def daily_series(profile_id: str, metric: str, days: int = 30, source: Optional[
             "SELECT * FROM biometric_daily WHERE profile_id = ? AND metric_type = 'sleep_duration' AND day >= ? AND day <= ?",
             (profile_id, start.isoformat(), end.isoformat()),
         ).fetchall())
-    chosen = _pick(rows, metric, source, orders)
+        feeding = _feeding(metric)
+        left_out = conn.execute(f"SELECT COUNT(*) FROM biometric_samples WHERE profile_id = ? AND metric_type IN ({','.join('?' * len(feeding))}) "
+                                "AND flag IS NOT NULL", (profile_id, *feeding)).fetchone()[0]
+    chosen = _pick(rows, metric, source, orders, kinds)
     if nights:
         # Every sleep figure for a night comes from the same source, chosen by how much of the night it covered.
         by_source = {(r["day"], r["source_name"]): r for r in rows}
-        for day, src in _sleep_sources(nights, orders).items():
+        for day, src in _sleep_sources(nights, orders, kinds).items():
             if (day, src) in by_source:
                 chosen[day] = by_source[(day, src)]
     label, unit, agg, group = METRICS.get(metric, (metric, "", "mean", "other"))
-    today = datetime.now(_tz()).date().isoformat()
+    today = datetime.now(tz).date().isoformat()
     points = [
         {"day": d, "value": round(r["value"], 2), "min": r["min_value"], "max": r["max_value"], "source": r["source_name"],
          **({"partial": True} if d == today and in_progress(metric) else {})}
@@ -683,6 +1187,7 @@ def daily_series(profile_id: str, metric: str, days: int = 30, source: Optional[
         "metric": metric, "label": label, "unit": unit, "aggregation": agg, "group": group,
         "start": start.isoformat(), "end": end.isoformat(), "points": points,
         "sources": sorted({r["source_name"] for r in rows} - {MERGED_SOURCE}),   # "Best source" already uses it
+        "left_out": left_out,
         "stats": {
             "count": len(values),
             "mean": round(sum(values) / len(values), 2) if values else None,
@@ -705,17 +1210,26 @@ def available_metrics(profile_id: str) -> list[dict[str, Any]]:
 
 
 def _available_metrics(profile_id: str) -> list[dict[str, Any]]:
+    today = datetime.now(_tz(profile_id)).date().isoformat()
+    found: dict[str, dict[str, Any]] = {}
     with read() as conn:
-        rows = conn.execute(
-            "SELECT metric_type, COUNT(DISTINCT day) AS days, MAX(day) AS latest_day, GROUP_CONCAT(DISTINCT source_name) AS sources "
-            "FROM biometric_daily WHERE profile_id = ? GROUP BY metric_type",
-            (profile_id,),
-        ).fetchall()
+        # Per source rather than joined into one text, since a source's name can hold a comma. A day that hasn't happened
+        # yet doesn't get to be "latest", and text that isn't a date (rollups from before day labels were checked) isn't a day.
+        for r in conn.execute(
+                "SELECT metric_type, source_name, COUNT(*) AS days, MAX(day) AS latest_day FROM biometric_daily WHERE profile_id = ? "
+                "AND day <= ? AND day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' GROUP BY metric_type, source_name",
+                (profile_id, today)).fetchall():
+            m = found.setdefault(r["metric_type"], {"days": 0, "latest_day": None, "sources": []})
+            m["latest_day"] = max(m["latest_day"] or "", r["latest_day"])
+            m["sources"].append(r["source_name"])
+        for r in conn.execute(
+                "SELECT metric_type, COUNT(DISTINCT day) FROM biometric_daily WHERE profile_id = ? AND day <= ? "
+                "AND day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' GROUP BY metric_type", (profile_id, today)).fetchall():
+            found[r[0]]["days"] = r[1]
     out = []
-    for r in rows:
-        label, unit, agg, group = METRICS.get(r["metric_type"], (r["metric_type"], "", "mean", "other"))
-        out.append({"metric": r["metric_type"], "label": label, "unit": unit, "group": group, "days": r["days"],
-                    "latest_day": r["latest_day"], "sources": (r["sources"] or "").split(",")})
+    for metric, m in found.items():
+        label, unit, agg, group = METRICS.get(metric, (metric, "", "mean", "other"))
+        out.append({"metric": metric, "label": label, "unit": unit, "group": group, **m})
     order = {m: i for i, m in enumerate(METRICS)}
     return sorted(out, key=lambda m: order.get(m["metric"], 999))
 
@@ -780,6 +1294,38 @@ def _samples_signature(conn: Any, profile_id: str) -> tuple:
     return (rev[0] if rev else 0, conn.execute("SELECT MAX(rowid) FROM biometric_samples").fetchone()[0])
 
 
+def _feeding(metric: str) -> list[str]:
+    """The stored types a daily figure is worked out from."""
+    return sorted(m for m in {metric, *SLEEP_MAP} if m == metric or metric in SLEEP_MAP.get(m, ()))
+
+
+def metric_label(metric: str) -> str:
+    """What to call a stored type, including the sleep types that only feed others."""
+    spec = METRICS.get(metric) or METRICS.get(SLEEP_MAP.get(metric, [""])[-1])
+    return spec[0] if spec else metric.replace("_", " ").capitalize()
+
+
+def with_reading_text(sample: dict[str, Any]) -> dict[str, Any]:
+    """A stored reading with its name, and its value in the unit its daily figure uses. A stretch of sleep is stored in seconds; a
+    reading in a unit nobody knows was never converted, so it stays as it came."""
+    metric, value, unit = sample["metric_type"], sample["value"], sample["unit"]
+    if metric in SLEEP_MAP and sample["flag"] != FLAG_UNIT:
+        value, unit = value / 3600.0, "h"
+    elif metric in METRICS and sample["flag"] != FLAG_UNIT:
+        unit = METRICS[metric][1]
+    return {**sample, "label": metric_label(metric), "shown_value": value, "shown_unit": unit}
+
+
+def left_out(profile_id: str, conn: Any = None) -> list[dict[str, Any]]:
+    """Readings kept but not counted, per metric and why. The partial index only holds these, so this costs nothing."""
+    if conn is None:
+        with read() as reader:
+            return left_out(profile_id, reader)
+    return [{"metric": r["metric_type"], "label": metric_label(r["metric_type"]), "reason": r["flag"], "count": r["n"]}
+            for r in conn.execute("SELECT metric_type, flag, COUNT(*) AS n FROM biometric_samples WHERE profile_id = ? AND flag IS NOT NULL "
+                                  "GROUP BY metric_type, flag ORDER BY n DESC", (profile_id,)).fetchall()]
+
+
 def overview(profile_id: str) -> dict[str, Any]:
     with read() as conn:
         signature = _samples_signature(conn, profile_id)
@@ -793,39 +1339,83 @@ def overview(profile_id: str) -> dict[str, Any]:
                 "FROM biometric_samples WHERE profile_id = ? GROUP BY source_name ORDER BY samples DESC",
                 (profile_id,),
             ).fetchall())
+            # A reading dated 2105 is kept but doesn't get to say how far the history runs. Few readings are flagged, and only
+            # the sources that have one are looked at again.
+            flagged = {r[0] for r in conn.execute("SELECT DISTINCT source_name FROM biometric_samples WHERE profile_id = ? AND flag IS NOT NULL",
+                                                  (profile_id,))}
+            for r in rows:
+                if r["source_name"] in flagged:
+                    span = conn.execute("SELECT MIN(start_date), MAX(start_date) FROM biometric_samples WHERE profile_id = ? "
+                                        "AND source_name = ? AND flag IS NULL", (profile_id, r["source_name"])).fetchone()
+                    r["earliest"], r["latest"] = span[0], span[1]
             _source_totals[profile_id] = (signature, rows)
         last_batch = conn.execute(
             "SELECT * FROM sync_batches WHERE profile_id = ? ORDER BY synced_at DESC LIMIT 1", (profile_id,)
         ).fetchone()
+        not_counted = left_out(profile_id, conn)
     sources = [{"source_name": r["source_name"], "samples": r["samples"], "latest": r["latest"]} for r in rows]
     return {
         "total_samples": sum(r["samples"] for r in rows),
-        "history_span": {"earliest": min((r["earliest"] for r in rows), default=None),
-                         "latest": max((r["latest"] for r in rows), default=None)},
+        "history_span": {"earliest": min((r["earliest"] for r in rows if r["earliest"]), default=None),
+                         "latest": max((r["latest"] for r in rows if r["latest"]), default=None)},
         "sources": sources,
+        "left_out": not_counted,
         "last_batch": dict(last_batch) if last_batch else None,
         "headline": headline(profile_id),
     }
 
 
-def recent_samples(profile_id: str, metric: Optional[str] = None, limit: int = 100) -> list[dict[str, Any]]:
-    q = ("SELECT id, metric_type, value, unit, start_date, end_date, device_name, source_name "
+def recent_samples(profile_id: str, metric: Optional[str] = None, limit: int = 100, left_out_only: bool = False,
+                   until: Optional[str] = None) -> list[dict[str, Any]]:
+    q = ("SELECT id, metric_type, value, unit, start_date, end_date, device_name, source_name, flag "
          "FROM biometric_samples WHERE profile_id = ?")
     params: list[Any] = [profile_id]
     if metric:
-        q += " AND metric_type = ?"
-        params.append(metric)
+        feeding = _feeding(metric)
+        q += f" AND metric_type IN ({','.join('?' * len(feeding))})"
+        params += feeding
+    if left_out_only:
+        q += " AND flag IS NOT NULL"
+    if until:
+        following = datetime.combine(date.fromisoformat(until) + timedelta(days=1), datetime.min.time(), _tz(profile_id))
+        q += " AND start_date < ?"
+        params.append(following.astimezone(timezone.utc).strftime(_ISO))
     q += " ORDER BY start_date DESC LIMIT ?"
     params.append(limit)
     with read() as conn:
         return rows_to_dicts(conn.execute(q, params).fetchall())
 
 
+def _delete_batches(where: str, params: tuple[Any, ...], table: str = "biometric_samples") -> None:
+    """A long delete in short transactions, so other writes get their turn."""
+    def step(conn: Any, cursor: Any, size: int) -> Any:
+        n = conn.execute(f"DELETE FROM {table} WHERE rowid IN (SELECT rowid FROM {table} WHERE {where} LIMIT ?)", (*params, size)).rowcount
+        return ((cursor or 0) + n) if n else None
+    write_in_batches(step, size=5000)
+
+
 def delete_for_connection(connection_id: str) -> None:
+    """A source's samples, then its person's rollups. The rebuild is queued first: from a kill at any point the rollups are
+    put right at the next start, whatever was or wasn't deleted, and removing the source again finishes the job."""
+    with read() as conn:
+        row = conn.execute("SELECT profile_id FROM connections WHERE id = ?", (connection_id,)).fetchone()
+        if not row:
+            row = conn.execute("SELECT profile_id FROM biometric_samples WHERE connection_id = ? LIMIT 1", (connection_id,)).fetchone()
+    if not row or not row[0]:
+        return
     with db() as conn:
-        rows = conn.execute("SELECT DISTINCT profile_id FROM biometric_samples WHERE connection_id = ?", (connection_id,)).fetchall()
-        conn.execute("DELETE FROM biometric_samples WHERE connection_id = ?", (connection_id,))
+        queue_rebuild(conn, row[0])
+    _delete_batches("connection_id = ?", (connection_id,))
     sample_counts.forget()
-    for r in rows:
-        if r["profile_id"]:
-            rebuild_daily(r["profile_id"])
+    run_queued_rebuilds()
+
+
+def delete_all_for_profile(profile_id: str) -> None:
+    """Empties the biggest tables ahead of wiping someone's data, so the wipe's own transaction is short."""
+    for table in ("biometric_samples", "health_events", "workouts", "biometric_daily"):
+        _delete_batches("profile_id = ?", (profile_id,), table)
+    with db() as conn:
+        conn.execute("DELETE FROM daily_rebuilds WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM data_sources WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM sample_tombstones WHERE profile_id = ?", (profile_id,))
+        conn.execute("DELETE FROM import_jobs WHERE profile_id = ?", (profile_id,))
