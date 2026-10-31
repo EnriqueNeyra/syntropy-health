@@ -63,6 +63,34 @@ class SmartError(Exception):
         self.stats: dict[str, Any] = {}     # what the sync did before this stopped it
 
 
+class _CappedClient:
+    """Stands in for the client on one attachment: reads a good answer only as far as it may be long, and stops there. Everything
+    else about the request, its redirects and their checks among them, is the client's own."""
+
+    def __init__(self, client: Any, max_bytes: int) -> None:
+        self.client, self.max_bytes = client, max_bytes
+
+    async def get(self, url: str, params: Optional[dict[str, str]] = None, headers: Optional[dict[str, str]] = None) -> httpx.Response:
+        resp = await self.client.send(self.client.build_request("GET", url, params=params, headers=headers), stream=True)
+        try:
+            if resp.status_code != 200:
+                return resp         # only its status and headers are looked at
+            ctype = resp.headers.get("content-type", "")
+            # A FHIR Binary carries its bytes as base64, a third longer.
+            limit = self.max_bytes * 4 // 3 + 1024 if "json" in ctype else self.max_bytes
+            declared = resp.headers.get("content-length", "")
+            if declared.isdigit() and int(declared) > limit:
+                raise BinaryTooLarge(int(declared))
+            body = bytearray()
+            async for chunk in resp.aiter_bytes():
+                body += chunk
+                if len(body) > limit:
+                    raise BinaryTooLarge(len(body))
+            return httpx.Response(200, headers={"content-type": ctype}, content=bytes(body))
+        finally:
+            await resp.aclose()
+
+
 class BlockedAddress(SmartError):
     """A FHIR server someone typed in, or one of its redirects, pointed at an address this server won't go to for them."""
 
@@ -740,19 +768,19 @@ class FhirClient:
     async def read_binary_file(self, client: Any, url: str, max_bytes: int, accept: str = "application/fhir+json, application/pdf, image/*") -> Optional[tuple[str, bytes]]:
         """An attachment and its type, by the same rule as a note's text. Raises BinaryTooLarge for one that's over the limit."""
         target = url if url.startswith("http") else f"{self.base}/{url.lstrip('/')}"
-        if not self.simulated and not _same_server(target, self.base):
-            return None         # an attachment elsewhere never gets this source's access token (as with paging links)
         try:
-            resp = await self._get(client, target, headers={"Accept": accept})
+            if not self.simulated and not _same_server(target, self.base):
+                return None     # an attachment elsewhere never gets this source's access token (as with paging links)
+            resp = await self._get(_CappedClient(client, max_bytes), target, headers={"Accept": accept})    # type: ignore[arg-type]
         except BlockedAddress as exc:
             log.warning("A note attachment led somewhere it can't go: %s", exc)
+            return None
+        except httpx.InvalidURL:
+            log.warning("A note attachment's address can't be read")     # a problem with this one link, not with the sync
             return None
         if resp.status_code != 200:
             return None
         ctype = resp.headers.get("content-type", "")
-        # A FHIR Binary carries its bytes as base64, a third longer.
-        if len(resp.content) > (max_bytes * 4 // 3 + 1024 if "json" in ctype else max_bytes):
-            raise BinaryTooLarge(len(resp.content))
         if "json" in ctype:
             try:
                 body = resp.json()

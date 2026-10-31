@@ -8,6 +8,7 @@ import io
 import json
 import zipfile
 
+import httpx
 import pytest
 
 from app.connectors import fhir_normalize as fn
@@ -260,3 +261,64 @@ def test_a_file_too_large_is_remembered(client, pid, source, monkeypatch):
 def test_an_attachment_on_another_server_never_gets_the_token():
     client = smart.FhirClient("https://fhir.hospital.example/r4", {"access_token": "t"}, "p", False)
     assert asyncio.run(client.read_binary_file(None, "https://elsewhere.example/Binary/1", 1000)) is None
+
+
+class _Endless(httpx.AsyncByteStream):
+    def __init__(self):
+        self.sent = 0
+
+    async def __aiter__(self):
+        while self.sent < 1000:
+            self.sent += 1
+            yield b"x" * 1024
+
+
+def _reading(handler):
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+def test_an_attachment_is_read_only_as_far_as_the_limit():
+    endless = _Endless()
+    fhir = smart.FhirClient("https://fhir.hospital.example/r4", {"access_token": "t"}, "p", False)
+
+    async def go():
+        async with _reading(lambda _: httpx.Response(200, headers={"content-type": "application/pdf"}, stream=endless)) as http:
+            await fhir.read_binary_file(http, "Binary/1", 4096)
+    with pytest.raises(smart.BinaryTooLarge):
+        asyncio.run(go())
+    assert endless.sent <= 5
+
+
+def test_an_attachment_saying_it_is_over_the_limit_is_not_read():
+    endless = _Endless()
+    fhir = smart.FhirClient("https://fhir.hospital.example/r4", {"access_token": "t"}, "p", False)
+
+    async def go():
+        headers = {"content-type": "application/pdf", "content-length": "9999999"}
+        async with _reading(lambda _: httpx.Response(200, headers=headers, stream=endless)) as http:
+            await fhir.read_binary_file(http, "Binary/1", 4096)
+    with pytest.raises(smart.BinaryTooLarge) as caught:
+        asyncio.run(go())
+    assert caught.value.args[0] == 9999999 and endless.sent == 0
+
+
+def test_an_attachment_within_the_limit_comes_whole_and_a_binary_is_unwrapped():
+    fhir = smart.FhirClient("https://fhir.hospital.example/r4", {"access_token": "t"}, "p", False)
+    binary = {"resourceType": "Binary", "contentType": "application/pdf", "data": base64.b64encode(b"%PDF-1.3").decode()}
+
+    async def go(answer):
+        async with _reading(lambda _: answer) as http:
+            return await fhir.read_binary_file(http, "Binary/1", 4096)
+    assert asyncio.run(go(httpx.Response(200, headers={"content-type": "image/png"}, content=b"png"))) == ("image/png", b"png")
+    assert asyncio.run(go(httpx.Response(200, json=binary))) == ("application/pdf", b"%PDF-1.3")
+    assert asyncio.run(go(httpx.Response(404))) is None
+
+
+@pytest.mark.parametrize("address", ["https://fhir.hospital.example/r4/Binary/\x01", "Binary/\x01", "https://[bad/Binary/1"])
+def test_a_strange_attachment_address_is_no_problem_for_the_sync(address):
+    fhir = smart.FhirClient("https://fhir.hospital.example/r4", {"access_token": "t"}, "p", False)
+
+    async def go():
+        async with _reading(lambda _: httpx.Response(200, content=b"x")) as http:
+            return await fhir.read_binary_file(http, address, 4096)
+    assert asyncio.run(go()) is None
