@@ -1,19 +1,27 @@
 // First run: welcome and name, a password, then (once the record exists) other devices, bringing in data and AI.
 import { get, post } from "./api.js";
 import { networkStatus, renderNetworkPanel } from "./network.js";
-import { $, busy, html, icon, mount, onAction, toast, wordmark } from "./ui.js";
+import { $, EASE_OUT, busy, html, icon, mount, onAction, prefersStill, toast, wordmark } from "./ui.js";
 import { termsCheckbox } from "./consent.js";
 import { restoreSteps } from "./backup.js";
 
 const STEPS = 5;
 
 function screen(step, content) {
+  const before = $(".onboard-card")?.getBoundingClientRect().height;
   mount(document.getElementById("root"), html`
     <div class="auth-wrap" role="main"><div class="card auth-card onboard-card">
       <div class="onboard-top"><div class="brand">${wordmark()}</div>
         ${step ? html`<div class="onboard-dots" role="img" aria-label="Step ${step} of ${STEPS}">${Array.from({ length: STEPS }, (_, i) => html`<span class="${i < step ? "on" : ""}"></span>`)}</div>` : ""}</div>
       ${content}
     </div></div>`);
+  // One card that changes from step to step: it eases to the new size and its contents fade over, rather than jumping.
+  const card = $(".onboard-card");
+  if (!before || !card || prefersStill()) return;
+  card.style.overflow = "hidden";
+  const settled = () => { card.style.overflow = ""; };
+  card.animate([{ height: `${before}px` }, { height: `${card.getBoundingClientRect().height}px` }], { duration: 240, easing: EASE_OUT }).finished.then(settled, settled);
+  [...card.children].slice(1).forEach((part) => part.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: "ease-out" }));
 }
 
 // ------------------------------------------------------------------ before the record exists
