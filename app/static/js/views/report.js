@@ -9,8 +9,9 @@ const flaggedRow = (l) => [l.title, l.value_text, flagWord(l.interpretation), l.
 
 function table(headers, rows, empty = "None on record.") {
   if (!rows.length) return html`<p class="muted small">${empty}</p>`;
-  return html`<div class="table-wrap"><table class="table"><thead><tr>${headers.map((h) => html`<th>${h}</th>`)}</tr></thead>
-    <tbody>${rows.map((r) => html`<tr>${r.map((c) => html`<td>${c}</td>`)}</tr>`)}</tbody></table></div>`;
+  // The roles keep it a table for screen readers when a phone's styles stack its rows.
+  return html`<div class="table-wrap"><table class="table" role="table"><thead role="rowgroup"><tr role="row">${headers.map((h) => html`<th role="columnheader">${h}</th>`)}</tr></thead>
+    <tbody role="rowgroup">${rows.map((r) => html`<tr role="row">${r.map((c, i) => html`<td role="cell" data-label="${headers[i]}">${c}</td>`)}</tr>`)}</tbody></table></div>`;
 }
 
 /** A title with what other sources said about it, where they disagree. */
