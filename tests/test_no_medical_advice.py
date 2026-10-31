@@ -202,6 +202,10 @@ def test_the_app_connects_nothing_for_the_person(name):
     assert not CONCLUSIONS.search((APP / name).read_text())
 
 
+def test_a_scatter_chart_draws_no_line_through_the_points():
+    assert 'class="fit"' not in (APP / "static/js/charts.js").read_text()
+
+
 def test_a_change_after_a_new_medication_is_not_connected_to_it(client):
     pid = _prof()
     _med(pid, _source(pid, "Clinic"), "new", _ago(45), title="Metformin 500 mg", key="med|860975")

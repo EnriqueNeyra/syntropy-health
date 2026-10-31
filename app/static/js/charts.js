@@ -422,13 +422,6 @@ export function scatterChart(container, points, opts = {}) {
   }
   xt.ticks.forEach((tk) => { svg += `<text x="${x(tk)}" y="${pad.top + ih + 16}" text-anchor="middle">${esc(fx(tk))}</text>`; });
   svg += `<text x="${pad.left + iw / 2}" y="${height - 4}" text-anchor="middle">${esc(opts.xLabel || "")}</text></g>`;
-  const n = points.length, mx = xs.reduce((a, b) => a + b) / n, my = ys.reduce((a, b) => a + b) / n;
-  const sxx = xs.reduce((a, v) => a + (v - mx) ** 2, 0);
-  if (sxx > 0) {
-    const slope = points.reduce((a, p) => a + (p.x - mx) * (p.y - my), 0) / sxx;
-    const a = xt.lo, b = xt.hi;
-    svg += `<line class="fit" x1="${x(a)}" y1="${y(my + slope * (a - mx))}" x2="${x(b)}" y2="${y(my + slope * (b - mx))}"/>`;
-  }
   points.forEach((p, i) => { svg += `<circle class="pt dot" cx="${x(p.x)}" cy="${y(p.y)}" r="4" data-i="${i}"/>`; });
   svg += `</svg>`;
   container.classList.add("chart");

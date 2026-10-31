@@ -655,7 +655,6 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .chart .goal-label { fill: var(--good); font-size: 10.5px; font-weight: 600; font-family: var(--font-body); }
 .chart .marker line { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 2 3; }
 .chart .marker circle { fill: var(--surface); stroke: var(--text-3); stroke-width: 1.5; }
-.chart .fit { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 5 4; }
 .chart .dot { opacity: .8; }
 .chart-tip .tip-swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
 .chart-tip .tip-marker { margin-top: 3px; padding-top: 3px; border-top: 1px solid color-mix(in srgb, var(--bg) 30%, transparent); }
