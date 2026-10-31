@@ -15,30 +15,69 @@ import { convert, displayUnit, fmtMeasure, recordValue } from "../units.js";
 import { openRecord } from "./record-detail.js";
 import {
   scrollToTop,
-  $, emptyState, flagBadge, fmtDate, fmtNum, html, icon, loading, modal, mount, onAction, plural, toast,
+  $, confirmDialog, emptyState, flagBadge, fmtDate, fmtNum, html, icon, loading, modal, mount, onAction, plural, toast,
 } from "../ui.js";
 
 const LEFT_OUT_REASON = { range: "Outside what's possible", unit: "In a unit Syntropy Health doesn't know", date: "The date can't be right" };
 
-/** The readings kept but not counted in a metric's numbers, each with why, and a way to remove one for good. */
-async function openLeftOut(profile, metric, label, onChange) {
-  const { samples } = await get("/api/biometrics/samples", { profile: profile.id, metric, left_out: true, limit: 500 }, { fresh: true });
+const READINGS_SHOWN = 500;
+
+const readingText = (s) => {
+  const m = { metric: s.metric_type, unit: s.shown_unit };
+  return `${metricValue(m, s.shown_value)} ${metricUnit(m)}`.trim();
+};
+
+/** Stored readings with a way to remove a wrong one for good: those kept but not counted (one measure's, or with no measure
+    everyone's), or one measure's newest, reaching older ones by date. `onChange` runs when the list closes, if one went. */
+async function openReadings(profile, { metric, label, leftOut = false }, onChange) {
+  let removed = false;
   const m = modal({
-    title: `${label}: readings left out`,
-    body: html`<p class="small muted">These came from your devices but can't be right, so they aren't in your charts, averages or insights. They're kept
-      in case you want to check them against the source.</p>
-      <div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Value</th><th>Why</th><th></th></tr></thead>
-      <tbody>${samples.map((s) => html`<tr><td>${new Date(s.start_date).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</td><td>${fmtNum(s.value, 2)} ${s.unit || ""}</td>
-        <td class="small">${LEFT_OUT_REASON[s.flag] || ""}<div class="muted">${s.source_name || ""}</div></td>
-        <td><button class="btn btn-sm btn-ghost btn-danger" data-remove="${encodeURIComponent(s.id)}">Remove</button></td></tr>`)}</tbody></table></div>`,
+    title: leftOut ? (label ? `${label}: readings left out` : "Readings left out") : `${label}: readings`,
+    body: html`<p class="small muted">${leftOut
+      ? "These came from your devices but can't be right, so they aren't in your charts, averages or insights. They're kept in case you want to check them against the source."
+      : "What your devices sent for this, newest first. If one is wrong, such as someone else on your scale, you can remove it."}</p>
+      <label class="row small muted" style="gap:8px;margin-bottom:10px" ${leftOut ? "hidden" : ""}>Up to
+        <input class="input input-sm" type="date" data-until style="width:auto"></label>
+      <div data-rows>${loading(2)}</div>`,
+    onClose: () => { if (removed) onChange(); },
   });
-  m.el.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", async () => {
-    try {
-      await del(`/api/biometrics/samples/${b.dataset.remove}?profile=${encodeURIComponent(profile.id)}`);
-      b.closest("tr").remove();
-      onChange();
-    } catch (err) { toast(err.message, "bad"); }
-  }));
+  // Not the date field: in the iPhone app that would open its picker over the list.
+  m.el.focus({ preventScroll: true });
+  const rows = $("[data-rows]", m.el);
+  const until = $("[data-until]", m.el);
+  const draw = async () => {
+    const { samples } = await get("/api/biometrics/samples", { profile: profile.id, metric, left_out: leftOut || undefined, until: until.value,
+                                                                limit: READINGS_SHOWN }, { fresh: true });
+    if (samples.length >= READINGS_SHOWN) until.closest("label").hidden = false;
+    mount(rows, samples.length ? html`
+      <div class="list">${samples.map((s) => html`<div class="list-item">
+        <div class="grow" style="min-width:0"><div class="title">${metric ? "" : `${s.label}: `}${readingText(s)}</div>
+          <div class="meta">${[new Date(s.start_date).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }), s.source_name].filter(Boolean).join(" · ")}</div>
+          ${leftOut ? html`<div class="meta">${LEFT_OUT_REASON[s.flag] || ""}</div>` : ""}</div>
+        <button class="btn btn-sm btn-ghost btn-danger" data-delete data-remove="${encodeURIComponent(s.id)}">Remove</button></div>`)}</div>
+      ${samples.length >= READINGS_SHOWN ? html`<p class="small muted" style="margin-top:8px">Showing the newest ${READINGS_SHOWN}. Choose an earlier date to see older ones.</p>` : ""}`
+      : html`<div class="empty small">${until.value ? "No readings up to that date." : leftOut ? "Nothing is left out now." : "No readings are stored for this."}</div>`);
+    rows.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", async () => {
+      if (!await confirmDialog("Remove this reading?", "It comes out of your charts and averages, and a later sync won't bring it back. This can't be undone.",
+        { confirmLabel: "Remove", danger: true })) return;
+      try {
+        await del(`/api/biometrics/samples/${b.dataset.remove}?profile=${encodeURIComponent(profile.id)}`);
+        removed = true;
+        const row = b.closest(".list-item");
+        if (row.parentElement.children.length > 1) row.remove(); else await draw();
+      } catch (err) { toast(err.message, "bad"); }
+    }));
+  };
+  until.addEventListener("change", () => draw().catch((err) => toast(err.message, "bad")));
+  await draw();
+}
+
+/** Readings left out of every measure, including ones with nothing else to chart. */
+function leftOutNote(list) {
+  const n = list.reduce((sum, x) => sum + x.count, 0);
+  if (!n) return "";
+  return html`<p class="small muted" id="tr-left-out" style="margin:-8px 0 14px">${plural(n, "reading")} from your devices ${n === 1 ? "isn't" : "aren't"} counted because ${n === 1 ? "it can't" : "they can't"} be right.
+    <button class="link-btn" data-action="left-out-all">See ${n === 1 ? "it" : "them"}</button></p>`;
 }
 
 /** Decimal places a value was given with (6 → 0, 5.9 → 1). */
@@ -141,23 +180,27 @@ function buildItems(labs, vitals, metrics, signals) {
 export async function render({ el, parts, params, state, navigate }) {
   const profile = state.profile;
   mount(el, loading(3));
-  const [labs, vitals, metrics, signals] = await Promise.all([
+  const [labs, vitals, { metrics, left_out: leftOut }, signals] = await Promise.all([
     get("/api/observations", { profile: profile.id, category: "labs" }).then((r) => r.items),
     get("/api/observations", { profile: profile.id, category: "vitals" }).then((r) => r.items),
-    get("/api/biometrics/metrics", { profile: profile.id, latest: true }).then((r) => r.metrics),
+    get("/api/biometrics/metrics", { profile: profile.id, latest: true }),
     get("/api/biometrics/events", { profile: profile.id, view: "signals", days: 0, limit: 1 }).then((r) => r.summary),
   ]);
   const items = buildItems(labs, vitals, metrics, signals);
   const METRIC_UNITS = new Map(metrics.map((m) => [m.metric, m.unit]));
   const topics = TOPICS.filter(([k]) => items.some((i) => i.topic === k));
+  // The page again, from what's stored now: a removed reading can change a day, its measure's latest value, or whether it's listed.
+  const redraw = () => navigate(location.hash);
+  const seeLeftOut = () => openReadings(profile, { leftOut: true }, redraw);
 
   if (!items.length) {
     mount(el, html`
       <div class="page-head"><div><h1>Trends</h1><p>Lab results, vitals and wearable data over time.</p></div></div>
+      ${leftOutNote(leftOut)}
       <div class="card">${emptyState("Nothing to chart yet",
         "Lab results and vitals appear once a health system shares them; sleep, heart and activity data once a wearable or the iPhone app is connected.",
         html`<a class="btn btn-primary" href="#/sources">${icon("plus")} Add a source</a>`)}</div>`);
-    return;
+    return onAction(el, { "left-out-all": seeLeftOut });
   }
 
   // What to show: an explicit test or metric wins (and picks its topic), then the topic in the address, then the
@@ -183,6 +226,7 @@ export async function render({ el, parts, params, state, navigate }) {
 
   mount(el, html`
     <div class="page-head"><div><h1>Trends</h1><p>Lab results, vitals and wearable data over time, in one place.</p></div></div>
+    ${leftOutNote(leftOut)}
     <div class="tabs" id="tr-tabs" role="tablist"></div>
     <div class="split" id="tr-layout">
       <div class="card split-list">
@@ -312,6 +356,7 @@ export async function render({ el, parts, params, state, navigate }) {
       <div class="row wrap" style="gap:8px">
         ${sources.length > 1 || source ? html`<select class="input input-sm" id="tr-source" aria-label="Source" style="width:auto">
           <option value="">Best source</option>${sources.map((src) => html`<option value="${src}" ${src === source ? "selected" : ""}>${src}</option>`)}</select>` : ""}
+        <button class="btn btn-sm" data-action="readings">Readings</button>
         <button class="btn btn-sm" data-action="goal">${icon("target")} ${goal ? "Goal" : "Set goal"}</button>
       </div>
     </div>`;
@@ -443,7 +488,9 @@ export async function render({ el, parts, params, state, navigate }) {
   $("#tr-filter", el).addEventListener("input", (e) => { filter = e.target.value.trim().toLowerCase(); drawList(); });
 
   const off = onAction(el, {
-    "left-out": () => openLeftOut(profile, selected.metric, selected.title || selected.metric, () => drawDetail()),
+    "left-out": () => openReadings(profile, { metric: selected.metric, label: selected.title, leftOut: true }, redraw),
+    "left-out-all": seeLeftOut,
+    readings: () => openReadings(profile, { metric: selected.metric, label: selected.title }, redraw),
     topic: ({ topic: t }) => {
       if (t === topic) { showDetail = false; layout(); return; }
       topic = t; filter = ""; $("#tr-filter", el).value = ""; source = ""; cmp.b = null; cmp.lag = 0;

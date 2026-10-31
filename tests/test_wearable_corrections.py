@@ -1660,3 +1660,16 @@ def test_a_reading_removed_under_its_plain_id_for_a_second_person_stays_removed(
     assert biometrics.delete_sample(jordan, "UUID1")
     assert biometrics.insert_samples(jordan, None, [_s("UUID1")])["inserted"] == 0
     assert _daily(jordan, "step_count") == {}
+
+
+def test_a_reading_is_listed_in_the_unit_its_daily_figure_uses(client):
+    profile = _profile(client)
+    d = TODAY - timedelta(days=3)
+    biometrics.insert_samples(profile, None, [
+        _s("steps", value=120, unit="count"), _core("slept", _iso(d, "01:00:00"), _iso(d, "02:30:00")),
+        {**_s("odd", "body_mass", 70, unit="stone-ish"), "strict_units": True}])
+    listed = {s["id"]: s for s in client.get("/api/biometrics/samples").json()["samples"]}
+    assert (listed["steps"]["shown_value"], listed["steps"]["shown_unit"], listed["steps"]["label"]) == (120, "steps", "Steps")
+    assert (listed["slept"]["shown_value"], listed["slept"]["shown_unit"]) == (1.5, "h")
+    # Never converted, so it isn't called kilograms.
+    assert listed["odd"]["flag"] == "unit" and (listed["odd"]["shown_value"], listed["odd"]["shown_unit"]) == (70, "stone-ish")
