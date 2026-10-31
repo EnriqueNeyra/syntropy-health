@@ -47,7 +47,7 @@ export async function render({ el, parts, state, navigate }) {
   const tab = TABS.some(([k]) => k === parts[0]) ? parts[0] : "general";
   const label = TABS.find(([k]) => k === tab)[1];
   mount(el, html`
-    <div class="page-head"><div><h1>Settings</h1><p>${isOwner() ? "Stored in this instance's own database, on this machine."
+    <div class="page-head"><div><h1>Settings</h1><p>${isOwner() ? "Saved on the computer that runs Syntropy Health."
       : html`Your own settings. Settings that affect everyone here are changed by ${ownerName()}, the server's owner.`}</p></div></div>
     <div class="settings-layout">
       <nav class="settings-nav" aria-label="Settings sections">${SECTIONS.map(([group, tabs]) => html`<div class="settings-group">
@@ -92,7 +92,7 @@ export async function render({ el, parts, state, navigate }) {
           isOwner() ? html`<select class="input" id="g-tz" data-save="timezone" aria-label="Time zone">${timezones.map((tz) => html`<option value="${tz}" ${tz === settings.timezone ? "selected" : ""}>${tz.replaceAll("_", " ")}</option>`)}</select>`
             : html`<span>${settings.timezone.replaceAll("_", " ")}</span>`)}`)}
       ${isOwner() ? section("Background sync", settings.sync.scheduler_enabled ? "New data is fetched automatically while Syntropy Health is running."
-        : html`<span style="color:var(--warn)">Background sync is off on this instance (SYNTROPY_SCHEDULER=false). Use Sync now on Sources.</span>`, html`
+        : html`<span style="color:var(--warn)">Background sync is turned off where Syntropy Health was started (SYNTROPY_SCHEDULER=false). Use Sync now on Sources.</span>`, html`
         ${row("Health records", "How often to check connected health systems.",
           html`<div class="input-unit"><input class="input" id="g-ehr" aria-label="Hours between health record checks" data-save="ehr_interval_hours" type="number" min="1" value="${settings.sync.ehr_interval_hours}"><span>hours</span></div>`)}
         ${row("Wearables", "How often to fetch from Oura, WHOOP and Google Health. The phone apps send their data on their own.",

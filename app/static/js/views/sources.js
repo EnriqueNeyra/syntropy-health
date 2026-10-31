@@ -546,7 +546,7 @@ export async function render({ el, params, state }) {
     // In the iPhone app, Add is the title bar's + menu.
     const appAdd = setToolbar([{ id: "add", title: "Add a Source", symbol: "plus", menu: addMenu() }]);
     mount(el, html`
-      <div class="page-head"><div><h1>Sources</h1><p>Where ${profile.name}'s data comes from. Everything syncs into the database on this machine.</p></div>
+      <div class="page-head"><div><h1>Sources</h1><p>Where ${profile.name}'s data comes from. Everything is kept on your own computer.</p></div>
         ${appAdd ? "" : html`<button class="btn btn-primary" data-action="add" aria-haspopup="menu" aria-expanded="false">${icon("plus")} Add a source</button>`}</div>
       ${all.length ? html`<div class="src-summary">
         <span><b>${active.length}</b> ${active.length === 1 ? "source" : "sources"} connected</span>
@@ -555,14 +555,19 @@ export async function render({ el, params, state }) {
       </div>` : ""}
       <div id="src-banner"></div>
 
+      ${group("Medical records", "Your history from hospitals and clinics, through their patient portals.",
+        html`<button class="btn btn-sm" data-action="add-ehr">${icon("plus")} Connect a health system</button>`,
+        ehr.length ? html`<div class="src-rows">${ehr.map((c) => sourceRow(c))}</div>`
+          : html`<div class="src-empty">No health systems connected yet. Search ${dir ? `${dir.total.toLocaleString()} ` : ""}US health systems and practices that offer patient access.</div>`)}
+
       ${group("Phones & watches", "Apple Health and Health Connect data from the Syntropy phone apps, sent over your own network.",
         phones.length ? html`<button class="btn btn-sm" data-action="pair">${icon("phone")} Pair phone</button>` : "",
         html`<div class="src-rows">${phones.length ? phones.map((c) => sourceRow(c, devicesFor(c))) : html`
           ${offerRow("phone", "Syntropy Health iPhone app", "Apple Health from iPhone and Apple Watch: heart, HRV, sleep stages, steps, workouts with routes, symptoms, cycle tracking, ECG and more, synced in the background.", html`
-            <button class="btn btn-sm btn-primary" data-action="pair">${icon("phone")} Pair iPhone</button>
+            <button class="btn btn-sm offer-go" data-action="pair">${icon("phone")} Pair iPhone</button>
             <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener" aria-label="Get the iPhone app">Get the app</a>`)}
           ${offerRow("phone", "Syntropy Health Android app", "Health Connect from Fitbit, Pixel Watch, Samsung Health, Oura and other apps: heart, HRV, sleep stages, steps, workouts and more, synced in the background.", html`
-            <button class="btn btn-sm btn-primary" data-action="pair">${icon("phone")} Pair Android phone</button>
+            <button class="btn btn-sm offer-go" data-action="pair">${icon("phone")} Pair Android phone</button>
             <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener" aria-label="Get the Android app">Get the app</a>`)}`}</div>`)}
 
       ${group("Wearables", "Oura, WHOOP and Google Health (Fitbit, Pixel Watch) sync from their cloud every few hours. Signing in to Oura or WHOOP passes through Syntropy Labs' sign-in relay, which completes the sign-in and keeps nothing. Google Health uses your own Google Cloud app.", "",
@@ -571,14 +576,9 @@ export async function render({ el, params, state }) {
           const connected = mine.some((c) => c.status !== "disconnected");
           const simulated = mine.some((c) => c.mode === "simulated");
           return html`${mine.map((c) => sourceRow(c))}${connected ? "" : offerRow("watch", label, blurb, html`
-            <button class="btn btn-sm btn-primary" data-action="wearable" data-provider="${provider}" data-mode="live">Connect ${label}</button>
+            <button class="btn btn-sm offer-go" data-action="wearable" data-provider="${provider}" data-mode="live">Connect ${label}</button>
             ${simulated || !state.status?.developer_mode ? "" : html`<button class="btn btn-sm btn-ghost" data-action="wearable" data-provider="${provider}" data-mode="simulated">Try simulated data</button>`}`)}`;
         })}</div>`)}
-
-      ${group("Medical records", "Your history from hospitals and clinics, through their patient portals.",
-        html`<button class="btn btn-sm" data-action="add-ehr">${icon("plus")} Connect a health system</button>`,
-        ehr.length ? html`<div class="src-rows">${ehr.map((c) => sourceRow(c))}</div>`
-          : html`<div class="src-empty">No health systems connected yet. Search ${dir ? `${dir.total.toLocaleString()} ` : ""}US health systems and practices that offer patient access.</div>`)}
 
       ${group("Files", "One-off imports of an Apple Health export or a record file from a portal. Drop a file on a box, or click to choose one.", "",
         html`${importZones()}${files.length ? html`<div class="src-rows">${files.map((c) => sourceRow(c))}</div>` : ""}`)}

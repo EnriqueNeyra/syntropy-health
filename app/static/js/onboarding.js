@@ -272,9 +272,9 @@ export function renderOnboarding(status, onDone) {
       <p class="muted onboard-lede">${owner ? "Start with whatever you have." : "Your health data is yours here: nobody sees it in the app unless you share it. Start with whatever you have."}
         You can add the rest any time from Sources.</p>
       <div class="onboard-tiles">
+        ${tile("ehr", "records", "Doctors and hospitals", "MyChart and other patient portals: visits, labs, medications")}
         ${tile("iphone", "phone", "Your phone and watch", "Heart, sleep, workouts and more from Apple Health or Health Connect, with the Syntropy Health app")}
         ${tile("wearables", "watch", "Oura, WHOOP or Google Health", "Sign in once; new days sync on their own")}
-        ${tile("ehr", "records", "Doctors and hospitals", "MyChart and other patient portals: visits, labs, medications")}
         ${tile("import", "upload", "Files", "An Apple Health export, a FHIR file or a lab report PDF")}
       </div>
       <div class="onboard-foot">${owner ? html`<button class="btn" data-action="back">Back</button>` : ""}<span class="grow"></span>

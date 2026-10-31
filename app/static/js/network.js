@@ -35,7 +35,7 @@ function explain(net) {
   if (!net.managed) {
     return net.on_network
       ? "This server listens on your network. Open it from your other devices at:"
-      : html`This server only accepts connections from this computer. Whoever set it up can change that where it's started (for developers: <code>--host 0.0.0.0</code>).`;
+      : html`For now, only this computer can reach it, so a phone can't connect yet. Whoever set it up can change that where it's started (for developers: <code>--host 0.0.0.0</code>).`;
   }
   return net.on_network
     ? html`Your phone and other devices at home${net.tailscale ? " and on Tailscale" : ""} can connect. Open it from them at:`
