@@ -101,11 +101,13 @@ body {
 }
 a { color: var(--accent); text-decoration: none; }
 /* Inside running text a link can't rely on its color alone. */
-:where(p, li, .hint, .small, .tiny, .banner, .set-desc, td, label) a:not(.btn, .menu-item, .chip, .list-item) { text-decoration: underline; text-underline-offset: 2px; }
+:where(p, li, .hint, .set-hint, .muted, .small, .tiny, .banner, td, label) a:not(.btn, .menu-item, .chip, .list-item) { text-decoration: underline; text-underline-offset: 2px; }
 .progress.working > div { width: 35%; animation: progress-working 1.4s ease-in-out infinite alternate; }
 @keyframes progress-working { from { margin-left: 0; } to { margin-left: 65%; } }
 @media (prefers-reduced-motion: reduce) { .progress.working > div { animation: none; width: 100%; opacity: .5; } }
-h1, h2, h3 { overflow-wrap: anywhere; }
+h1, h2, h3, .title, .meta, .set-title, .set-hint, .view-only-note span, .report-head b { overflow-wrap: anywhere; }
+.set-row > *, .page-head > * { min-width: 0; }
+body { overflow-wrap: break-word; }
 .set-foot { flex-wrap: wrap; }
 @media (hover: hover) { a:hover { text-decoration: underline; } }
 h1, h2, h3, h4 { font-family: var(--font-brand); letter-spacing: -0.01em; margin: 0; }
@@ -226,6 +228,7 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
   [data-action="pair"], [data-action="wearable"], [data-action="sync"], [data-action="menu"], [data-action="reconnect"],
   [data-action="import"], [data-delete], a.btn[href^="#/sources"], [data-action="edit"], #jr-checkin) { display: none !important; }
 .sim-note { background: color-mix(in srgb, var(--warn, #b45309) 12%, var(--surface)); }
+.sim-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 :root[data-dialogs-held] .overlay { display: none; }
 .skip-link { position: absolute; left: 8px; top: -60px; z-index: 1000; padding: 8px 14px; border-radius: var(--radius); background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 .skip-link:focus { top: 8px; }
@@ -920,6 +923,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .auth-alt { margin: 16px 0 0; text-align: center; }
 /* Settings → People: sharing and invitations. */
 .people-actions { gap: 6px; flex: none; justify-content: flex-end; }
+.people-row b { overflow-wrap: anywhere; min-width: 0; }
 .share-list .list-item { gap: 10px; }
 .share-list .segmented { flex: none; }
 .invite-code { margin: 16px 0; padding: 14px; border: 1px dashed var(--border-strong); border-radius: var(--radius); text-align: center; }

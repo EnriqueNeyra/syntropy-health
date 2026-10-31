@@ -583,6 +583,9 @@ async function route(opts) {
   if (!keepScroll && composerHandlers) setComposer(null);
   const next = document.createElement("main");
   next.className = "content";
+  // Being drawn: for screen readers, which wait until it's ready to read it out.
+  next.setAttribute("aria-busy", "true");
+  $("#view").setAttribute("aria-busy", "true");
   // Another section's content rises in; a tab or filter within the same page, and fresh data, swap in place. Only the
   // content moves: the sidebar and top bar stay put. (A View Transition cross-faded the whole window, which
   // double-exposed both pages, dimmed the Mac app's see-through sidebar and made the top bar jump.)
@@ -622,6 +625,7 @@ async function route(opts) {
     clearTimeout(progress);
     if (seq === renderSeq) setLoading(false);
     show();
+    if (seq === renderSeq) next.removeAttribute("aria-busy");
     // Unless the page put focus somewhere itself, or a dialog is open over it.
     if (newSection && !nativeNav && seq === renderSeq && !next.contains(document.activeElement) && !document.querySelector(".overlay")) focusPage();
     // The app shows the page's heading as its title (the page hides its own; see [data-native-nav] in app.css).
@@ -656,7 +660,7 @@ async function drawSimulatedNote(name) {
   }
   if (parseHash().route !== name) return;
   mount(box, has ? html`<div class="view-only-note sim-note" role="note">${icon("alert")}<span><b>Includes simulated data.</b> Some figures here
-    were made up by a demo connection and aren't real measurements. <a href="#/sources">Remove it in Sources</a>.</span></div>` : "");
+    were made up by a demo connection and aren't real measurements. You can remove it in <a class="sim-link" href="#/sources">Sources</a>.</span></div>` : "");
 }
 
 /** A page that couldn't be drawn: what happened, in words, and a way to try again. */

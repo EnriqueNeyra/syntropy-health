@@ -119,21 +119,33 @@ class Session:
         self.server = server
         self.errors: list[str] = []
         self.ctx = browser.new_context(viewport={"width": w, "height": h}, color_scheme="dark" if dark else "light",
-                                       service_workers="block", **context)
+                                       service_workers="block", reduced_motion="reduce", **context)
         self.ctx.route(lambda url: not url.startswith(server.url),
                        lambda route: (self.errors.append(f"left the server: {route.request.url}"), route.abort()))
         self.page = self.ctx.new_page()
         self.page.on("pageerror", lambda e: self.errors.append(f"page error: {e}"))
         self.page.on("console", lambda m: self.errors.append(f"console: {m.text}") if m.type == "error" else None)
         self.page.set_default_timeout(10000)
+        self.signed_in = sign_in
         if sign_in:
             r = self.ctx.request.post(f"{server.url}/api/auth/login", data={"password": PASSWORD}, headers=CSRF)
             assert r.ok, r.text()
 
     def open(self, hash_: str = "#/overview") -> Any:
-        self.page.goto(f"{self.server.url}/{hash_}")
+        """Goes to an address and waits for its page. Within the app that's a hash change, as following a link is."""
+        page = self.page
+        if self.signed_in and page.locator("#view").count():
+            if not page.url.endswith(hash_):
+                page.evaluate("""(h) => new Promise((done) => {
+                  window.addEventListener('hashchange', () => setTimeout(done), { once: true });
+                  location.hash = h;
+                })""", hash_)
+        else:
+            page.goto(f"{self.server.url}/{hash_}")
+        if self.signed_in:
+            page.wait_for_selector("#view:not([aria-busy])")
         self.settle()
-        return self.page
+        return page
 
     def settle(self) -> None:
         self.page.wait_for_load_state("networkidle")
