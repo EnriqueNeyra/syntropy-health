@@ -322,6 +322,7 @@ export async function renderAiTab(body, { state, redraw }) {
 function connectModal({ logoKey, title, lead, connected, onDisconnect, fallback = "globe" }) {
   const m = modal({
     title: "",
+    dirty: true,
     body: html`<div class="ai-connect-head"><span class="ai-connect-logo">${logo(logoKey, title, "", fallback)}</span>
         <div><h2>${title}</h2>${lead ? html`<p class="small muted">${lead}</p>` : ""}</div></div>
       <div class="ai-connect-form"></div>`,

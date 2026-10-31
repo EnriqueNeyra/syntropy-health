@@ -5,7 +5,7 @@
 
 import { del, get, post, put } from "../api.js";
 import { setToolbar } from "../app.js";
-import { $, confirmDialog, debounce, emptyState, fmtNum, html, icon, loading, modal, mount, onAction, plural, raw, toast } from "../ui.js";
+import { $, confirmDialog, debounce, emptyState, fmtNum, html, icon, loadInto, loading, modal, mount, onAction, plural, raw, toast } from "../ui.js";
 import { rangeHash, rangePhrase, rangePicker, rangeQuery, readRange, saveRange, wireRange } from "../range.js";
 
 const RANGE_KEY = "syntropy-journal-range";
@@ -119,7 +119,13 @@ export async function render({ el, params, state }) {
     <div id="jr-body">${loading(3)}</div>`);
 
   // ------------------------------------------------------------------ today's check-in
-  let draft = null;        // what's picked on the card but not saved yet
+  // What's picked on the card but not saved yet. It's kept for this tab, for this person, so a session running out or a
+  // reload doesn't lose it.
+  const draftKey = `syntropy-checkin:${state.status?.account?.id}:${profile.id}:${dayKey(new Date())}`;
+  let draft = null;
+  try { draft = JSON.parse(sessionStorage.getItem(draftKey)); } catch {}
+  const keepDraft = () => { try { sessionStorage.setItem(draftKey, JSON.stringify(draft)); } catch {} };
+  const dropDraft = () => { try { sessionStorage.removeItem(draftKey); } catch {} };
   const todays = () => recent.events.find((e) => e.event_type === "check_in" && e.manual && dayKey(e.start_date) === dayKey(new Date()));
 
   const drawCheckin = () => {
@@ -182,11 +188,11 @@ export async function render({ el, params, state }) {
       <div class="card-head"><h3>Last 30 days</h3><span class="small muted">${logged ? plural(logged, "day") + " logged" : "Nothing logged yet"}</span></div>
       <div class="card-body stack" style="gap:10px">
         ${strip("mood", MOODS, "mood")}${strip("energy", ENERGY, "energy")}${strip("stress", STRESS, "stress")}
-        <div class="jr-sum">
+        ${logged ? html`<div class="jr-sum">
           <div><span>Mood</span><b>${moodAvg == null ? "—" : MOODS[Math.round(moodAvg) - 1][1]}</b></div>
           <div><span>Energy</span><b>${energyAvg == null ? "—" : ENERGY[Math.round(energyAvg) - 1][1]}</b></div>
           <div><span>Stress</span><b>${stressAvg == null ? "—" : STRESS[Math.round(stressAvg) - 1][1]}</b></div>
-        </div>
+        </div>` : ""}
         ${top.length ? html`<div class="small muted">Most logged symptoms: ${top.map(([n, c]) => `${n} (${c})`).join(", ")}</div>` : ""}
       </div>
       <div id="jr-patterns"></div>`);
@@ -248,19 +254,22 @@ export async function render({ el, params, state }) {
   const reload = async () => {
     syncAddress();
     const n = ++seq;
-    const next = await load();
-    if (n !== seq) return;   // a newer choice is already loading
-    res = next;
-    draw();
+    return loadInto($("#jr-body", el), async () => {
+      const next = await load();
+      if (n !== seq) return;   // a newer choice is already loading
+      res = next;
+      draw();
+    });
   };
   const reloadAll = async () => {
     [res, recent] = await Promise.all([load(), loadRecent()]);
     draft = null;
+    dropDraft();
     drawCheckin(); drawMonth(); draw();
   };
   const onRange = wireRange(el, () => range, (r) => { range = r; limit = PAGE; saveRange(range, RANGE_KEY); drawControls(); return reload(); });
   $("#jr-q", el).addEventListener("input", debounce((e) => { q = e.target.value.trim(); limit = PAGE; reload(); }, 250));
-  el.addEventListener("input", (e) => { if (e.target.id === "jr-quick-note" && draft) draft.note = e.target.value; });
+  el.addEventListener("input", (e) => { if (e.target.id === "jr-quick-note" && draft) { draft.note = e.target.value; keepDraft(); } });
   const byId = (id) => res.events.find((e) => e.id === id);
 
   return onAction(el, {
@@ -272,16 +281,21 @@ export async function render({ el, params, state }) {
     pick: ({ field, value }) => {
       draft[field] = Number(value);
       draft.note = $("#jr-quick-note", el)?.value ?? draft.note;
+      keepDraft();
       drawCheckin();
     },
     "save-checkin": async (_, btn) => {
       const saved = todays();
       const body = checkinEntry({ mood: draft.mood, energy: draft.energy, stress: draft.stress,
         note: $("#jr-quick-note", el).value, start: saved ? saved.start_date : new Date().toISOString() });
+      draft.note = body.note || "";
+      keepDraft();
       btn.disabled = true;
       try {
         if (saved) await put(`/api/journal/${saved.id}?profile=${encodeURIComponent(profile.id)}`, body);
         else await post("/api/journal", body, { profile: profile.id });
+        dropDraft();
+        draft = null;
         toast(saved ? "Check-in updated" : "Checked in", "good");
         await reloadAll();
       } catch (err) { toast(err.message, "bad"); btn.disabled = false; }
@@ -362,6 +376,7 @@ function openEntry(profile, existing, onSaved, recent, startKind) {
   const medNames = [...new Set(recent.filter((e) => e.category === "medication").map((e) => e.name))];
   const m = modal({
     title: existing ? "Edit entry" : "New entry",
+    dirty: true,
     body: html`<form id="jr-form" class="jr-form"></form>`,
     footer: html`${existing ? html`<button class="btn btn-ghost btn-danger" data-delete style="margin-right:auto">${icon("trash")} Delete</button>` : ""}
       <button class="btn" data-cancel type="button">Cancel</button><button class="btn btn-primary" data-save>${existing ? "Save" : "Add to journal"}</button>`,

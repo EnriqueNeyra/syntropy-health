@@ -41,9 +41,14 @@ export async function render({ el, state, params, navigate }) {
   if (!cfg.configured) {
     mount(el, html`
       <div class="page-head"><div><h1>Ask</h1><p>Questions and trends from your own data, with the AI you choose.</p></div></div>
-      ${emptyState("Connect an AI to get started",
-        "Run a model on your own computer (Ollama, LM Studio) so nothing leaves your network, use your own API key (Anthropic, OpenAI, Google and others), or use Claude Code or Codex already signed in on this computer. The assistant can only read your data.",
-        html`<a class="btn btn-primary" href="#/settings/ai">${icon("sparkles")} Connect an AI</a>`)}`);
+      <div class="card">${emptyState("Connect an AI to get started",
+        "There are three ways. The assistant can only read your data.",
+        html`<ul class="ai-routes">
+            <li><b>A model on your computer</b><span>Nothing leaves your network. Ollama or LM Studio, for example.</span></li>
+            <li><b>Your own API key</b><span>From Anthropic, OpenAI, Google and others.</span></li>
+            <li><b>An app you're signed in to</b><span>Claude Code or Codex, already on this computer.</span></li>
+          </ul>
+          <a class="btn btn-primary" href="#/settings/ai">${icon("sparkles")} Connect an AI</a>`)}</div>`);
     return;
   }
 
@@ -90,7 +95,7 @@ export async function render({ el, state, params, navigate }) {
       <div><h1>Ask</h1><p class="small ask-privacy" id="ask-privacy"></p></div>
       <div class="row"><button class="model-btn" id="model-btn" aria-haspopup="true" aria-expanded="false"></button>
         <button class="btn btn-sm" id="ask-history" aria-haspopup="true" aria-expanded="false" title="Past conversations">${icon("history")}<span class="hide-narrow"> History</span></button>
-        <button class="btn btn-sm" id="ask-new">${icon("plus")}<span class="hide-narrow"> New chat</span></button></div>
+        <button class="btn btn-sm" id="ask-new" aria-label="New chat">${icon("plus")}<span class="hide-narrow"> New chat</span></button></div>
     </div>
     <div class="chat card">
       <div class="chat-log" id="chat-log" aria-live="polite"></div>

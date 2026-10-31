@@ -1,4 +1,5 @@
 // Thin fetch wrapper: JSON in/out, CSRF header, uniform errors.
+import { SIGNED_OUT } from "./ui.js";
 
 export class ApiError extends Error {
   constructor(status, message, body) { super(message); this.status = status; this.body = body; }
@@ -44,8 +45,9 @@ export async function api(path, { method = "GET", body, query, form, raw = false
   const text = await res.text();
   if (text) { try { data = JSON.parse(text); } catch { data = { detail: text }; } }
   if (!res.ok) {
-    if (res.status === 401 && !path.startsWith("/api/auth/")) listeners.unauthorized.forEach((fn) => fn());
-    let msg = data && data.detail;
+    const signedOut = res.status === 401 && !path.startsWith("/api/auth/");
+    if (signedOut) listeners.unauthorized.forEach((fn) => fn());
+    let msg = signedOut ? SIGNED_OUT : data && data.detail;
     if (Array.isArray(msg)) msg = msg.map((d) => String(d.msg || "").replace(/^Value error, /, "")).join("; ");
     throw new ApiError(res.status, msg || `Request failed (${res.status})`, data);
   }

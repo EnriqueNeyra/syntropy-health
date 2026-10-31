@@ -46,6 +46,13 @@ def daily(metric: str, profile: Optional[str] = None, days: int = Query(30, ge=1
     return biometrics.daily_series(prof["id"], metric, days=days, source=source)
 
 
+@router.get("/api/simulated-data", dependencies=[user])
+def simulated_data(profile: Optional[str] = None) -> dict:
+    """Whether this person's record holds demo data, so the app can say so wherever it's shown."""
+    prof = resolve_profile(profile)
+    return {"simulated": biometrics.has_simulated(prof["id"])}
+
+
 @router.get("/api/biometrics/sleep", dependencies=[user])
 def sleep_nights(profile: Optional[str] = None, days: int = Query(30, ge=1, le=3650), source: Optional[str] = None) -> dict:
     """Night by night: bedtime, wake time and stages, with averages and how regular the schedule was."""

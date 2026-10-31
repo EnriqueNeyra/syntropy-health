@@ -214,7 +214,7 @@ function buildItems(labs, vitals, metrics, signals) {
       const topic = clinicalTopic(it, category);
       items.push({
         key: it.code ? `c:${it.code}` : `t:${it.title}`, kind: "clinical", category, code: it.code, codes: it.codes || [], codeSystem: it.code_system, topic, title: it.title,
-        section: topic === "labs" ? (it.panel || "Other tests") : "From health records",
+        section: topic === "labs" ? (it.panel || "Single tests") : "From health records",
         value: category === "vitals" ? recordValue(it.latest) : it.latest.value_text || "", interpretation: it.latest.interpretation, status: it.latest.status, trend: it.trend,
         meta: `${fmtDate(it.latest.effective_at)} · ${plural(it.count, "result")}`,
       });
@@ -253,7 +253,7 @@ async function resultWithoutNumber(profileId, code, title, category) {
   const item = { code: s.code, title: s.title };
   return {
     key: item.code ? `c:${item.code}` : `t:${item.title}`, kind: "clinical", category, code: item.code, codes: s.codes || [], codeSystem: s.code_system,
-    topic: clinicalTopic(item, category), title: item.title, section: category === "labs" ? "Other tests" : "From health records",
+    topic: clinicalTopic(item, category), title: item.title, section: category === "labs" ? "Single tests" : "From health records",
     value: last.text, interpretation: last.interpretation, status: last.status, trend: null,
     meta: `${fmtDate(last.t)} · ${plural(s.text_results.length, "result")}`,
   };
@@ -341,6 +341,7 @@ export async function render({ el, parts, params, state, navigate }) {
   // The list's own screen in the app keeps only its topic in the address. With a chart in it, drawing the page again
   // (pull to refresh, a change on another screen, another person) would show that chart in the list's place, with no
   // way back to the list.
+  let chartPushed = false;
   const address = () => history.replaceState(null, "", nativeNav && !detailScreen ? `#/trends/${topic}` : hashFor(selected));
   if (detailScreen) {
     $("#tr-tabs", el).hidden = true;
@@ -442,11 +443,12 @@ export async function render({ el, parts, params, state, navigate }) {
         ${unitSets.length > 1 ? html`<div class="chips" style="margin-bottom:8px">${unitSets.map((u, i) => html`<button class="chip ${u === shownSet ? "active" : ""}" data-action="unit" data-index="${i}">
           ${u.unit || "No unit"} <span class="n">${u.points.length}</span></button>`)}</div>
           <p class="small muted" style="margin:0 0 8px">Some results are in a unit that can't be converted to the others, so they have their own chart rather than sharing an axis.</p>` : ""}
-        ${hasComponents ? html`<div class="legend" style="margin-bottom:6px">${s.components.map((c, i) => html`<span class="${i ? "alt" : ""}">${c.name}</span>`)}</div>`
-          : ref ? html`<div class="legend" style="margin-bottom:6px"><span class="band">Reference range</span></div>` : ""}
-        ${pts.length > 1 || hasComponents ? html`<div class="row wrap between" style="margin-bottom:4px">
-          <div class="chips">${CLINICAL_PERIODS.map(([d, label]) => html`<button class="chip ${clinicalDays === d ? "active" : ""}" data-action="clinical-period" data-days="${d}">${label}</button>`)}</div>
-          ${markerToggle(clinicalMarks().length, showMarkers)}</div>` : ""}
+        <div class="row wrap between" style="gap:4px 14px;margin-bottom:6px">
+          ${hasComponents ? html`<div class="legend">${s.components.map((c, i) => html`<span class="${i ? "alt" : ""}">${c.name}</span>`)}</div>`
+            : ref ? html`<div class="legend"><span class="band">Reference range</span></div>` : html`<span></span>`}
+          ${pts.length > 1 || hasComponents ? markerToggle(clinicalMarks().length, showMarkers) : ""}
+        </div>
+        ${pts.length > 1 || hasComponents ? html`<div class="chips chips-strip" style="margin-bottom:4px">${CLINICAL_PERIODS.map(([d, label]) => html`<button class="chip ${clinicalDays === d ? "active" : ""}" data-action="clinical-period" data-days="${d}">${label}</button>`)}</div>` : ""}
         ${wordsOnly ? html`<p class="small muted" style="margin:0">No chart, because these results are words rather than numbers. Every result is listed below.</p>` : html`<div id="tr-chart"></div>`}
         ${markerList(showMarkers ? clinicalMarks() : [])}
         ${change !== null ? html`<p class="small muted" style="margin-top:8px">${Math.abs(change) < 1e-9 ? "Unchanged" : `${change > 0 ? "Up" : "Down"} ${body ? fmtNum(Math.abs(change), 1) : num(Math.abs(change))} ${unit}`}
@@ -627,14 +629,14 @@ export async function render({ el, parts, params, state, navigate }) {
     if (stopResize) { stopResize(); stopResize = null; }
     if (!selected) { mount(detail, ""); return; }
     mount(detail, html`${backBar()}${loading(2)}`);
-    if (selected.kind === "wearable") await drawWearable(detail, selected, seq);
-    else if (selected.kind === "signal") await drawSignal(detail, selected, seq);
-    else {
-      // One test that can't be read costs its own pane, not the whole page.
-      try { await drawClinical(detail, selected, seq); }
-      catch (err) {
-        if (seq === drawSeq) mount(detail, html`${backBar()}<div class="card card-pad"><p class="muted">${selected.title} couldn't be shown: ${err.message}</p></div>`);
-      }
+    // One chart that can't be read costs its own pane, not the whole page.
+    try {
+      if (selected.kind === "wearable") await drawWearable(detail, selected, seq);
+      else if (selected.kind === "signal") await drawSignal(detail, selected, seq);
+      else await drawClinical(detail, selected, seq);
+    } catch (err) {
+      if (seq === drawSeq) mount(detail, html`${backBar()}<div class="card card-pad" role="alert"><p class="muted">${selected.title} couldn't be shown: ${err.message}</p>
+        <button class="btn" style="margin-top:10px" data-action="retry-detail">${icon("sync")} Try again</button></div>`);
     }
   };
 
@@ -649,6 +651,7 @@ export async function render({ el, parts, params, state, navigate }) {
   $("#tr-filter", el).addEventListener("input", (e) => { filter = e.target.value.trim().toLowerCase(); drawList(); });
 
   const off = onAction(el, {
+    "retry-detail": () => drawDetail(),
     "left-out": () => openReadings(profile, { metric: selected.metric, label: selected.title, leftOut: true }, redraw),
     "left-out-all": seeLeftOut,
     readings: () => openReadings(profile, { metric: selected.metric, label: selected.title }, redraw),
@@ -668,12 +671,21 @@ export async function render({ el, parts, params, state, navigate }) {
       if (nativeNav && narrow() && !showDetail && appBridge({ type: "visit", hash: hashFor(next) })) return;
       if (next.key !== selected?.key) { source = ""; unitChoice = 0; cmp.b = null; cmp.lag = 0; }
       selected = next;
+      // On a phone the chart takes over from the list, so Back has to come back to the list.
+      if (narrow() && !nativeNav && !showDetail) {
+        history.replaceState(null, "", `#/trends/${topic}`);
+        history.pushState(null, "", hashFor(next));
+        chartPushed = true;
+      } else address();
       showDetail = true;
-      address(); drawList(); layout();
+      drawList(); layout();
       if (narrow()) scrollToTop();
       return drawDetail();
     },
-    back: () => { showDetail = false; layout(); scrollToTop(); },
+    back: () => {
+      if (chartPushed) { chartPushed = false; history.back(); return; }
+      showDetail = false; layout(); scrollToTop();
+    },
     range: ({ days: d }) => { days = Number(d); saveDays(days); return drawDetail(); },
     unit: ({ index }) => { unitChoice = Number(index) || 0; return drawDetail(); },
     "clinical-period": ({ days: d }) => { clinicalDays = Number(d) || 0; return drawDetail(); },

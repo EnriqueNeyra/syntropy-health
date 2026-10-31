@@ -34,7 +34,7 @@ function detailRows(r) {
               ["Prescriber", d.prescriber], ["Refills", d.refills], ["Valid until", d.valid_until ? fmtDate(d.valid_until) : null], ["Reason", d.reason]];
     case "conditions":
       return [...common, ["Onset", d.onset_text || fmtDate(r.effective_at)], ["Resolved", r.effective_end ? fmtDate(r.effective_end) : d.abatement_text],
-              ["Type", (d.categories || []).filter(Boolean)], ["ICD-10", d.icd10], ["SNOMED CT", d.snomed], ["Verification", d.verification], ["Severity", d.severity]];
+              ["Type", (d.categories || []).filter(Boolean)], ["ICD-10", d.icd10], ["SNOMED CT", d.snomed], ["Verification", d.verification ? capitalize(d.verification) : null], ["Severity", d.severity]];
     case "allergies":
       return [...common, ["Category", d.category ? capitalize(d.category) : null], ["Criticality", d.criticality ? capitalize(d.criticality) : null],
               ["Reactions", (d.reactions || []).map((x) => `${x.manifestation || "Reaction"}${x.severity ? ` (${x.severity})` : ""}`)], ["Note", d.note]];
@@ -97,12 +97,12 @@ function recordBody(r, text) {
   return html`
     <div class="stack">
       <div class="row"><span class="src-avatar">${icon(CATEGORY_ICON[r.category] || "records")}</span>
-        <div class="grow"><div class="muted small">${capitalize(r.category.replace("_", " "))}${r.code ? html` · <span class="mono">${r.code}</span>` : ""}</div>
+        <div class="grow"><div class="muted small">${capitalize(r.category.replace("_", " "))}</div>
           <div><b>${r.source_name || ""}</b></div></div></div>
       ${r.status_note ? html`<div class="banner warn small"><div class="grow">${r.status_note}</div></div>` : ""}
       ${r.details?.body_stale ? html`<div class="banner warn small"><div class="grow">This changed at the source, and the new text couldn't be fetched yet.
         This is the earlier version. The next sync tries again.</div></div>` : ""}
-      ${kv(detailRows(r))}
+      ${kv([...detailRows(r), ["Code", [r.details?.icd10, r.details?.snomed].includes(r.code) ? null : r.code]])}
       ${r.previous ? html`<div class="small muted">Previous result: ${r.previous.value_text || "—"} on ${fmtDate(r.previous.effective_at)}${r.previous.source_name ? ` from ${r.previous.source_name}` : ""}</div>` : ""}
       ${seriesLink(r) ? html`<div><a class="btn btn-sm" href="${seriesLink(r)}" data-leave>See history ${icon("arrowRight")}</a></div>` : ""}
       ${r.visit ? html`<div class="small">From the visit: <button class="btn btn-sm btn-ghost" data-open-result="${r.visit.id}">${r.visit.title} · ${fmtDate(r.visit.effective_at)}</button></div>` : ""}
@@ -126,7 +126,7 @@ function recordBody(r, text) {
       ${filesBlock(r)}
       ${r.editable ? html`<div class="row"><span class="small muted grow">You entered this.</span>
         <button class="btn btn-sm btn-ghost btn-danger" data-delete>${icon("trash")} Delete</button></div>` : correctionBlock(r)}
-      <details><summary class="small muted" style="cursor:pointer">Original FHIR resource</summary>
+      <details><summary class="small muted" style="cursor:pointer">Original record data (FHIR)</summary>
         <pre class="raw">${JSON.stringify(r.raw, null, 2)}</pre></details>
     </div>`;
 }

@@ -206,7 +206,7 @@ export const WIDGETS = [
           ${e.category === "stateOfMind" && e.value != null ? html` <span class="badge">${moodLabel(e.value)}</span>` : e.value_label ? html` <span class="badge">${e.value_label}</span>` : ""}</div>
           <div class="meta">${fmtDateTime(e.start_date)}</div></div></a>`,
       html`Nothing logged in the last 30 days. <a href="#/journal">Check in</a>`, { href: "#/journal", more: "Journal" }) },
-  { id: "workouts", title: "Recent workouts", desc: "Your latest workouts from the iPhone app and wearables", size: "m", on: true, needs: ["workouts"],
+  { id: "workouts", title: "Recent workouts", desc: "Your latest workouts from the phone apps and wearables", size: "m", on: true, needs: ["workouts"],
     render: (d) => listCard("Recent workouts", "activity", d.workouts.workouts, (w) => html`
       <div class="list-item clickable" data-action="workout" data-id="${w.id}">
         <div class="grow"><div class="title truncate">${w.name}</div><div class="meta truncate">${fmtDateTime(w.start_date)} · ${w.source_name}</div></div>
@@ -270,6 +270,8 @@ const SIZES = [["s", "Small"], ["m", "Medium"], ["l", "Large"], ["xl", "Full wid
 const TILE_SIZES = ["s", "m"];
 const isMetric = (id) => id.startsWith("m:");
 const MAX_ITEMS = 60;
+const CORE_CARDS = ["labs", "medications", "conditions", "allergies"];
+const NEXT_CARDS = ["vitals", "visits"];
 
 /** The saved layout, with cards added since it was saved placed at the end (shown if they're on by default). Layouts
  * saved before numbers could be placed one by one kept them in a "today" row; its numbers take its place. */
@@ -292,9 +294,12 @@ export function resolveLayout(saved, defaultMetrics) {
     if (w.first && saved) { seen.add(w.id); front.push({ id: w.id, visible: w.on, size: w.size }); } else push({ id: w.id, visible: w.on, size: w.size });
   }
   if (!saved) {
-    // A new Overview starts with What's changed, then the numbers, then the cards.
+    // A new Overview starts with What's changed, then what's on the medical record, then the numbers, then the rest.
+    // Without records those cards draw nothing, so the numbers come straight after What's changed.
     const firsts = out.filter((i) => BY_ID.get(i.id)?.first);
-    return [...firsts, ...out.filter((i) => !BY_ID.get(i.id)?.first)];
+    const picked = (ids) => ids.map((id) => out.find((i) => i.id === id));
+    const early = [...firsts, ...picked(CORE_CARDS), ...out.filter((i) => isMetric(i.id)), ...picked(NEXT_CARDS)];
+    return [...early, ...out.filter((i) => !early.includes(i))];
   }
   return [...front, ...out].slice(0, MAX_ITEMS);
 }
@@ -378,20 +383,21 @@ export async function render({ el, state, navigate }) {
     if (!connections.length && !bio.has_samples) {
       mount(el, html`
         <div class="page-head"><div><h1>${heading}</h1>
-          <p>Let's bring ${self ? "your" : `${first}'s`} health data together. Everything is stored locally on this machine.</p></div></div>
+          <p>Let's bring ${self ? "your" : `${first}'s`} health data together. Everything is saved on the computer that runs Syntropy Health.</p></div></div>
         <div class="grid grid-auto">
           ${[
-            ["watch", "Wearables and phones", "Pair the Syntropy iPhone or Android app for Apple Health or Health Connect, or link Oura, WHOOP or Google Health for sleep, recovery, HRV and training.", "#/sources", "Connect a device"],
-            ["building", "Medical records", "Bring in labs, medications, conditions and visits from patient portals like Epic MyChart, Oracle Health, athenahealth and healow.", "#/sources?add=ehr", "Find my health system"],
-            ["upload", "Import files", "Drop in an Apple Health export, or a health summary or FHIR file you downloaded from a portal.", "#/sources?add=import", "Import a file"],
-            ["shieldCheck", "Private by design", "No cloud account. Tokens are encrypted at rest and every access is recorded in your access log.", "#/settings/security", "Review security"],
-          ].map(([ic, t, text, href, cta]) => html`
+            ["building", "Medical records", "Bring in labs, medications, conditions and visits from patient portals like Epic MyChart, Oracle Health, athenahealth and healow.", "#/sources?add=ehr", "Find my health system", "btn-primary"],
+            ["watch", "Wearables and phones", "Pair the Syntropy iPhone or Android app for Apple Health or Health Connect, or link Oura, WHOOP or Google Health for sleep, recovery, HRV and training.", "#/sources", "Connect a device", ""],
+            ["upload", "Import files", "Drop in an Apple Health export, or a record file you downloaded from a patient portal.", "#/sources?add=import", "Import a file", ""],
+          ].map(([ic, t, text, href, cta, kind]) => html`
             <div class="card card-pad stack" style="gap:10px">
               <div class="row"><span class="src-avatar">${icon(ic)}</span><h2>${t}</h2></div>
               <p class="muted">${text}</p>
-              <div><a class="btn" href="${href}">${cta} ${icon("arrowRight")}</a></div>
+              <div style="margin-top:auto"><a class="btn ${kind}" href="${href}">${cta} ${icon("arrowRight")}</a></div>
             </div>`)}
-        </div>`);
+        </div>
+        <p class="onboard-note">${icon("shieldCheck")}<span>No cloud account. Your sign-ins to other services are stored encrypted, and every access is recorded.
+          <a href="#/settings/security">Review security</a></span></p>`);
       return;
     }
 
@@ -434,12 +440,15 @@ export async function render({ el, state, navigate }) {
 
   let saveTimer = null;
   let customized = Boolean(saved.widgets);
+  const sendLayout = () => {
+    saveTimer = null;
+    return put(`/api/profiles/${profile.id}/overview`, { widgets: layout.map(({ id, visible, size }) => ({ id, visible, size })) })
+      .catch((err) => toast(`Couldn't save the layout: ${err.message}`, "bad"));
+  };
   const save = () => {
     customized = true;
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => put(`/api/profiles/${profile.id}/overview`,
-      { widgets: layout.map(({ id, visible, size }) => ({ id, visible, size })) })
-      .catch((err) => toast(`Couldn't save the layout: ${err.message}`, "bad")), 400);
+    saveTimer = setTimeout(sendLayout, 400);
   };
   const apply = async (next, { reload = false } = {}) => {
     layout = next;
@@ -494,6 +503,7 @@ export async function render({ el, state, navigate }) {
     reset: async () => {
       if (!(await confirmDialog("Reset the Overview?", "Cards, numbers and sizes go back to how they started.", { confirmLabel: "Reset" }))) return;
       clearTimeout(saveTimer);
+      saveTimer = null;
       if (customized) await del(`/api/profiles/${profile.id}/overview`);
       customized = false;
       layout = resolveLayout(null, defaultMetrics());
@@ -501,7 +511,8 @@ export async function render({ el, state, navigate }) {
       draw();
     },
   });
-  return () => { off(); clearTimeout(saveTimer); stopCharts.forEach((stop) => stop()); };
+  // Leaving straight after a change still saves it.
+  return () => { off(); if (saveTimer) { clearTimeout(saveTimer); sendLayout(); } stopCharts.forEach((stop) => stop()); };
 }
 
 // ------------------------------------------------------------------ adding cards and numbers

@@ -1,7 +1,7 @@
 // Add lab results: typed in, or read from a report (PDF or photo) on the server or with the person's AI provider key,
 // then reviewed and saved.
 import { api, get, post } from "../api.js";
-import { $, $$, html, icon, loading, modal, toast } from "../ui.js";
+import { $, $$, fieldsChanged, html, icon, loading, modal, toast } from "../ui.js";
 import { confirmAiProvider } from "../consent.js";
 
 const NUMBER = /^-?\d+(\.\d+)?$/;
@@ -42,7 +42,9 @@ export function checkRow(r) {
 
 export async function openLabEntry(profile, onSaved) {
   // The dialog opens at once; what it needs to know loads inside it.
+  let rows = [{}, {}, {}];
   const m = modal({ title: "Add lab results", wide: true, body: loading(3),
+    dirty: () => fieldsChanged(m.el) || rows.some((r) => r.test || r.value),
     footer: html`<button class="btn" data-cancel>Cancel</button><button class="btn btn-primary" data-save disabled>Save results</button>` });
   m.el.querySelector("[data-cancel]").addEventListener("click", m.close);
   let catalog, ai, reader;
@@ -54,7 +56,6 @@ export async function openLabEntry(profile, onSaved) {
   const known = new Map();
   for (const t of [...catalog.common, ...catalog.yours]) known.set(t.name.toLowerCase(), t);
   let mode = "type";
-  let rows = [{}, {}, {}];
   let collected = today();
   let lab = "";
   let reading = "";         // "local" | "ai" while a report is being read
@@ -97,7 +98,7 @@ export async function openLabEntry(profile, onSaved) {
       </div>
       <datalist id="lab-tests">${[...known.values()].map((t) => html`<option value="${t.name}">`)}</datalist>
       <div class="table-wrap"><table class="table lab-table">
-        <thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Range low</th><th>Range high</th><th></th></tr></thead>
+        <thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Range low</th><th>Range high</th><th aria-label="Remove row"></th></tr></thead>
         <tbody>${rows.map((r, i) => html`<tr class="lab-row" data-loinc="${r.loinc || ""}" data-flag="${r.flag || ""}" data-date="${r.date || ""}" data-matched="${r.matched || ""}">
           <td><input class="input" data-k="test" list="lab-tests" value="${r.test || ""}" placeholder="e.g. Ferritin" aria-label="Test">
             ${r.matched ? html`<div class="small muted" data-matched-note>Filed as ${r.matched}</div>` : ""}

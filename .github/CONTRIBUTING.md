@@ -70,7 +70,7 @@ Changing what's stored? A schema change is a new file in `app/core/migrations` (
 case added to `tests/test_migrations.py`. Rows that need correcting go through `app/core/data_fixes.py`, and any other long
 rewrite through `db.write_in_batches`: both keep the server answering.
 
-The web app has no build step: check your change in the browser in light and dark appearance, and at phone width.
+The web app has no build step: check your change in the browser in light and dark appearance, and at phone width. The browser tests do the same for every page: `pip install -e ".[checks]"` and `pytest tests/e2e`, with Chrome installed. Set `AXE_CORE_JS` to a copy of axe-core to add the accessibility pass, as CI does.
 Add an entry under **Unreleased** in [CHANGELOG.md](../CHANGELOG.md).
 
 ## What runs on GitHub

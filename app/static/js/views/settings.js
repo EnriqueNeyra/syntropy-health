@@ -10,7 +10,7 @@ import { renderUpdates } from "../updates.js";
 import { importArchive, openBackupDialog, openRestoreDialog, openScheduleDialog, scheduleText } from "../backup.js";
 import { PRIVACY_URL, SOURCE_URL, TERMS_URL } from "../consent.js";
 import {
-  $, capitalize, confirmDialog, fmtDateTime, html, icon, initials, loading, modal, mount, onAction, plural, toast,
+  $, busy, capitalize, confirmDialog, fmtDateTime, html, icon, initials, loading, modal, mount, onAction, plural, toast,
 } from "../ui.js";
 
 // Settings sections, in the order the side navigation lists them. Those marked owner change the server for everyone.
@@ -47,7 +47,7 @@ export async function render({ el, parts, state, navigate }) {
   const tab = TABS.some(([k]) => k === parts[0]) ? parts[0] : "general";
   const label = TABS.find(([k]) => k === tab)[1];
   mount(el, html`
-    <div class="page-head"><div><h1>Settings</h1><p>${isOwner() ? "Stored in this instance's own database, on this machine."
+    <div class="page-head"><div><h1>Settings</h1><p>${isOwner() ? "Saved on the computer that runs Syntropy Health."
       : html`Your own settings. Settings that affect everyone here are changed by ${ownerName()}, the server's owner.`}</p></div></div>
     <div class="settings-layout">
       <nav class="settings-nav" aria-label="Settings sections">${SECTIONS.map(([group, tabs]) => html`<div class="settings-group">
@@ -80,7 +80,7 @@ export async function render({ el, parts, state, navigate }) {
         ${embedded ? "" : row("Theme", "System follows your device's light or dark setting.",
           html`<div class="segmented" role="group" aria-label="Theme">${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([k, name]) =>
             html`<button class="${k === pref ? "active" : ""}" data-action="theme" data-theme="${k}" aria-pressed="${k === pref}">${name}</button>`)}</div>`)}
-        ${row("Accent color", "Buttons, highlights and charts, on every device: here, the desktop app and the iPhone app.",
+        ${row("Accent color", "Buttons, highlights and charts, on every device: here, the desktop app and the phone apps.",
           html`<div class="swatches" role="radiogroup" aria-label="Accent color">${ACCENTS.map(([k, name, light, dark]) => html`
             <button class="swatch ${k === currentAccent() ? "active" : ""}" role="radio" aria-checked="${k === currentAccent()}" data-action="accent"
               data-accent="${k}" title="${name}" aria-label="${name}" style="--sw:${light};--sw-dark:${dark}"></button>`)}</div>`)}`)}
@@ -92,11 +92,11 @@ export async function render({ el, parts, state, navigate }) {
           isOwner() ? html`<select class="input" id="g-tz" data-save="timezone" aria-label="Time zone">${timezones.map((tz) => html`<option value="${tz}" ${tz === settings.timezone ? "selected" : ""}>${tz.replaceAll("_", " ")}</option>`)}</select>`
             : html`<span>${settings.timezone.replaceAll("_", " ")}</span>`)}`)}
       ${isOwner() ? section("Background sync", settings.sync.scheduler_enabled ? "New data is fetched automatically while Syntropy Health is running."
-        : html`<span style="color:var(--warn)">Background sync is off on this instance (SYNTROPY_SCHEDULER=false). Use Sync now on Sources.</span>`, html`
+        : html`<span style="color:var(--warn)">Background sync is turned off where Syntropy Health was started (SYNTROPY_SCHEDULER=false). Use Sync now on Sources.</span>`, html`
         ${row("Health records", "How often to check connected health systems.",
-          html`<div class="input-unit"><input class="input" id="g-ehr" data-save="ehr_interval_hours" type="number" min="1" value="${settings.sync.ehr_interval_hours}"><span>hours</span></div>`)}
+          html`<div class="input-unit"><input class="input" id="g-ehr" aria-label="Hours between health record checks" data-save="ehr_interval_hours" type="number" min="1" value="${settings.sync.ehr_interval_hours}"><span>hours</span></div>`)}
         ${row("Wearables", "How often to fetch from Oura, WHOOP and Google Health. The phone apps send their data on their own.",
-          html`<div class="input-unit"><input class="input" id="g-wear" data-save="wearable_interval_hours" type="number" min="0.5" step="0.5" value="${settings.sync.wearable_interval_hours}"><span>hours</span></div>`)}`) : ""}
+          html`<div class="input-unit"><input class="input" id="g-wear" aria-label="Hours between wearable fetches" data-save="wearable_interval_hours" type="number" min="0.5" step="0.5" value="${settings.sync.wearable_interval_hours}"><span>hours</span></div>`)}`) : ""}
       ${isOwner() ? section("Updates", "", html`<div id="upd-panel" class="upd-panel"><div class="skeleton" style="height:64px"></div></div>`, "upd-card") : ""}
       ${section("About", "", html`
         ${row("Getting started", "Walk through connecting your other devices, your data and an AI again.",
@@ -257,10 +257,12 @@ export async function render({ el, parts, state, navigate }) {
       if (next.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
       // A typo here would lock you out until someone resets it on the server's computer.
       if (next !== $("#pw-new2", body).value) return toast("The passwords don't match.", "bad");
-      try {
-        await post("/api/auth/password", { current: $("#pw-cur", body)?.value, new: next });
-        toast("Password updated", "good"); redraw();
-      } catch (err) { toast(err.message, "bad"); }
+      await busy(e.submitter, async () => {
+        try {
+          await post("/api/auth/password", { current: $("#pw-cur", body)?.value, new: next });
+          toast("Password updated", "good"); redraw();
+        } catch (err) { toast(err.message, "bad"); }
+      });
     });
     return onAction(body, {
       "end-session": async ({ id }) => {
@@ -297,7 +299,7 @@ export async function render({ el, parts, state, navigate }) {
         ${row("Workouts (CSV)", "", dl(`/api/export/csv?kind=workouts&profile=${p.id}`))}
         ${row("Health journal (CSV)", "Symptoms, cycle tracking, mood and more, with your notes.", dl(`/api/export/csv?kind=events&profile=${p.id}`))}
         ${p.access === "manage" ? html`${row("Import an archive", `Brings an "Everything" file from another Syntropy Health into ${p.name}'s data. What's already here is left as it is.`,
-          html`<label class="btn btn-sm">${icon("upload")} Choose file<input type="file" id="ar-file" accept=".zip" hidden></label>`)}<div id="ar-status" style="padding:0 16px"></div>` : ""}`)}
+          html`<label class="btn btn-sm">${icon("upload")} Choose file<input type="file" id="ar-file" accept=".zip"></label>`)}<div id="ar-status" style="padding:0 16px"></div>` : ""}`)}
       ${!owner ? "" : section("Backup", "", html`
         ${failing ? html`<div class="banner bad" style="margin:12px 16px"><div class="grow"><p><b>The last scheduled backup failed.</b> ${failing}</p></div></div>` : ""}
         ${row("Download a backup", html`Everyone's data in one encrypted file, including anyone who hasn't shared with you, with the encryption key that opens saved sign-ins, so it restores on any computer. ${household() ? "Everyone here sees it in their access log when one is made." : ""}
@@ -394,10 +396,24 @@ export async function render({ el, parts, state, navigate }) {
         ${row("Health records", html`Registered with EHR vendors. Default <code>${settings.relay.default_redirect_uri}</code> forwards the one-time code to this instance; use <code>${location.origin}/callback</code> if you registered it directly.`,
           html`<input class="input" id="g-redirect" value="${settings.relay.redirect_uri}" aria-label="Health record redirect URI">`)}
         <div class="set-foot"><button class="btn btn-sm btn-primary" data-action="save-relay">Save redirect URI</button></div>`)}
+      <div id="dev-upkeep"></div>
     </div>`);
+    get("/api/health", undefined, { fresh: true }).then((health) => {
+      const box = $("#dev-upkeep", body);
+      if (!box?.isConnected) return;
+      const fixes = health.data_fixes || [];
+      const failed = fixes.filter((f) => f.state === "failed");
+      const waiting = fixes.filter((f) => f.state === "pending" || f.state === "running").length;
+      const copies = health.database?.pre_upgrade_copies || [];
+      mount(box, section("Database upkeep", "What the server has done to keep stored data correct after upgrades.", html`
+        ${row("Data corrections", failed.length ? html`Couldn't finish: ${failed.map((f) => f.name).join(", ")}. They're tried again when the server restarts.` : "",
+          html`<span>${plural(fixes.length - waiting - failed.length, "finished", "finished")}, ${plural(waiting, "waiting", "waiting")}, ${plural(failed.length, "failed", "failed")}</span>`)}
+        ${row("Copies from before upgrades", "Kept beside the database in case an upgrade has to be undone.", html`<span>${copies.length}</span>`)}`));
+    }, () => {});
     $("#dev-mode", body).addEventListener("change", async (ev) => {
       try { await put("/api/settings/developer", { enabled: ev.target.checked }); }
       catch (err) { toast(err.message, "bad"); ev.target.checked = !ev.target.checked; return; }
+      appState.status.developer_mode = ev.target.checked;
       toast(`Developer mode ${ev.target.checked ? "on" : "off"}`); redraw();
     });
     return onAction(body, {
@@ -564,10 +580,10 @@ async function renderPeople(body, { redraw }) {
       <div class="small muted">Which day a reading counts toward, when the device doesn't say where it was.</div></div>` : ""}`;
   };
   const openForm = (p) => {
-    const m = modal({ title: p ? `Edit ${p.name}` : "Add person", body: profileForm(p),
+    const m = modal({ title: p ? `Edit ${p.name}` : "Add person", dirty: true, body: profileForm(p),
       footer: html`<button class="btn" data-cancel>Cancel</button><button class="btn btn-primary" data-save>Save</button>` });
     m.el.querySelector("[data-cancel]").addEventListener("click", m.close);
-    m.el.querySelector("[data-save]").addEventListener("click", async () => {
+    m.el.querySelector("[data-save]").addEventListener("click", (e) => busy(e.currentTarget, async () => {
       const data = { name: $("#p-name", m.el).value.trim(), relationship: $("#p-rel", m.el).value, birth_date: $("#p-dob", m.el).value || null };
       const zone = $("#p-tz", m.el);
       if (zone) data.timezone = zone.value || null;
@@ -577,7 +593,7 @@ async function renderPeople(body, { redraw }) {
         else { const created = await post("/api/profiles", data); m.close(); await refreshProfiles(); setProfile(created.id); toast(`Added ${created.name}`); return; }
         m.close(); await refreshProfiles(); toast("Saved"); redraw();
       } catch (err) { toast(err.message, "bad"); }
-    });
+    }));
   };
 
   return onAction(body, {
@@ -695,7 +711,7 @@ async function openInvite(p, redraw) {
   m.el.querySelector("[data-close-invite]").addEventListener("click", () => { m.close(); redraw(); });
   const intro = () => html`
     <p style="margin-bottom:10px">${p.name} will choose their own password and sign in as themselves, on this computer, another one, or
-      the iPhone app.</p>
+      a phone app.</p>
     <div class="banner info">${icon("users")}<div class="grow"><p><b>Once ${p.name} joins, their data is theirs.</b> You'll stop
       seeing it unless they share it with you. Phones you paired for them stop until they pair them again with their own sign-in, and your
       conversations with an AI about them are deleted. Sources you connected keep running, and they're shown what's there.

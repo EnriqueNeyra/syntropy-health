@@ -94,6 +94,7 @@ def status(request: Request) -> dict:
         out["onboarding"] = bool(account and account["onboarding"])
         out["terms_accepted"] = terms_accepted(account)
         out["adult_age"] = settings.get("people.adult_age")
+        out["developer_mode"] = settings.developer_mode()
         if account and account["prefs"].get("join_review"):
             out["join_review"] = account["prefs"]["join_review"]
         if principal.owner and updates.checks_on():

@@ -7,7 +7,7 @@ import { openWorkout, duration, workoutIcon } from "./workouts.js";
 import { moodLabel } from "./journal.js";
 import { fmtMeasure } from "../units.js";
 import {
-  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loading, mount, onAction, parseDate, resultStatus,
+  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loadInto, loading, mount, onAction, parseDate, resultStatus, showActiveChip,
 } from "../ui.js";
 
 const FILTERS = [
@@ -72,11 +72,14 @@ export async function render({ el, state, navigate }) {
   mount(el, html`
     <div class="page-head"><div><h1>Timeline</h1><p>Your health history in order: every institution, with what you logged and your devices noticed along the way.</p></div>
       <div class="search" style="min-width:240px">${icon("search")}<input class="input" id="tl-q" placeholder="Filter timeline…" aria-label="Filter the timeline"></div></div>
-    <div class="chips" id="tl-filters" style="margin-bottom:16px"></div>
+    <div class="chips chips-strip" id="tl-filters" style="margin-bottom:16px"></div>
     <div class="card card-pad" id="tl-body">${loading(4)}</div>`);
 
-  const drawFilters = () => mount($("#tl-filters", el), FILTERS.map(([k, label]) =>
-    html`<button class="chip ${filter === k ? "active" : ""}" data-action="filter" data-key="${k}">${label}</button>`));
+  const drawFilters = () => {
+    mount($("#tl-filters", el), FILTERS.map(([k, label]) =>
+      html`<button class="chip ${filter === k ? "active" : ""}" data-action="filter" data-key="${k}">${label}</button>`));
+    showActiveChip($("#tl-filters", el));
+  };
 
   const draw = () => {
     const body = $("#tl-body", el);
@@ -94,34 +97,46 @@ export async function render({ el, state, navigate }) {
       groups.get(k).push(r);
     }
     // Within a day show the visit first, then labs collapsed.
+    let year = null;
     mount(body, html`${[...groups.entries()].map(([day, evs]) => {
       const words = day.startsWith("words:") ? day.slice(6) : null;     // as the source wrote it: "age 5" would parse as a year
       const d = words ? null : parseDate(day);
+      const dayYear = d ? d.getFullYear() : "No exact date";
+      const yearHead = dayYear === year ? "" : html`<h2 class="timeline-year">${dayYear}</h2>`;
+      year = dayYear;
+      // A day from one place says so once, by its date, instead of under every line.
+      const sourceOf = (e) => (e.kind === "journal" && e.manual ? "Journal" : e.source_name || "");
+      const names = new Set(evs.map(sourceOf));
+      const shared = names.size === 1 ? [...names][0] : "";
+      const metaOf = (e) => [shared ? "" : sourceOf(e), e.kind && e.kind !== "record" ? new Date(e.effective_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : ""].filter(Boolean).join(" · ");
       const labs = evs.filter((e) => e.category === "labs");
       const other = evs.filter((e) => e.category !== "labs");
       const flagged = labs.filter((l) => l.interpretation && l.interpretation !== "normal");
-      return html`<div class="timeline-day">
+      return html`${yearHead}<div class="timeline-day">
         <div class="timeline-date">${words || (!d ? "Unknown" : /^\d{4}$/.test(day) ? day : /^\d{4}-\d{2}$/.test(day) ? d.toLocaleDateString(undefined, { month: "short" })
           : d.toLocaleDateString(undefined, { month: "short", day: "numeric" }))}
-          <small>${d && !/^\d{4}$/.test(day) ? d.getFullYear() : ""}</small></div>
+          <small>${shared}</small></div>
         <div>
           ${other.map((e) => html`<div class="ev ${e.kind ? `ev-${e.kind}` : ""}" data-action="open" data-id="${e.id}" data-kind="${e.kind || "record"}" data-type="${e.event_type || ""}">
             <span class="ev-icon">${icon(e.kind === "workout" ? workoutIcon(e.title) : e.kind === "journal" ? JOURNAL_ICONS[e.category] || "book"
               : e.kind === "signal" ? (e.event_type === "ecg" ? "heart" : "bell") : CATEGORY_ICON[e.category] || "records")}</span>
-            <div class="grow"><div>${describe(e)}</div><div class="small muted">${e.kind ? `${e.kind === "journal" && e.manual ? "Journal" : e.source_name || ""}${e.kind !== "record" ? ` · ${new Date(e.effective_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}` : ""}` : e.source_name || ""}</div></div></div>`)}
+            <div class="grow"><div>${describe(e)}</div><div class="small muted">${metaOf(e)}</div></div></div>`)}
           ${labs.length > 3 && !expanded.has(day) ? html`<div class="ev" data-action="labs" data-day="${day}"><span class="ev-icon">${icon("flask")}</span>
               <div class="grow"><div><b>${labs.length} lab results</b>${flagged.length ? html` · <span class="flag-high">${flagged.length} out of range</span>` : ""}</div>
               <div class="small muted">${labs.slice(0, 5).map((l) => l.title).join(", ")}${labs.length > 5 ? "…" : ""}</div></div></div>`
             : labs.map((e) => html`<div class="ev" data-action="open" data-id="${e.id}"><span class="ev-icon">${icon("flask")}</span>
-              <div class="grow"><div>${describe(e)}</div><div class="small muted">${e.source_name || ""}</div></div></div>`)}
+              <div class="grow"><div>${describe(e)}</div><div class="small muted">${metaOf(e)}</div></div></div>`)}
         </div></div>`;
     })}
     ${nextBefore ? html`<div style="text-align:center;padding-top:14px"><button class="btn" data-action="more">Show earlier</button></div>` : ""}`);
   };
 
   let loadSeq = 0;
-  const load = async (append = false) => {
+  const load = (append = false) => {
     const seq = ++loadSeq;
+    return append ? fetchInto(seq, append) : loadInto($("#tl-body", el), () => fetchInto(seq, append));
+  };
+  const fetchInto = async (seq, append) => {
     const res = await get("/api/timeline", { profile: profile.id, categories: filter || undefined, q: q || undefined,
                                              before: append ? nextBefore : undefined, limit: 150 });
     if (seq !== loadSeq) return;       // a newer filter or search is loading
@@ -135,7 +150,7 @@ export async function render({ el, state, navigate }) {
   $("#tl-q", el).addEventListener("input", debounce((e) => { q = e.target.value.trim(); load(); }, 300));
 
   return onAction(el, {
-    filter: ({ key }) => { filter = key; drawFilters(); mount($("#tl-body", el), loading(3)); return load(); },
+    filter: ({ key }) => { filter = key; drawFilters(); return load(); },
     open: ({ id, kind, type }) => (kind === "workout" ? openWorkout(profile, id) : kind === "journal" ? navigate("#/journal")
       : kind === "signal" ? navigate(`#/trends?event=${encodeURIComponent(type)}`) : openRecord(id)),
     labs: ({ day }) => { expanded.add(day); draw(); },

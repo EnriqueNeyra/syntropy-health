@@ -1,7 +1,7 @@
 // First run: welcome and name, a password, then (once the record exists) other devices, bringing in data and AI.
 import { get, post } from "./api.js";
 import { networkStatus, renderNetworkPanel } from "./network.js";
-import { $, html, icon, mount, onAction, toast, wordmark } from "./ui.js";
+import { $, busy, html, icon, mount, onAction, toast, wordmark } from "./ui.js";
 import { termsCheckbox } from "./consent.js";
 import { restoreSteps } from "./backup.js";
 
@@ -9,9 +9,9 @@ const STEPS = 5;
 
 function screen(step, content) {
   mount(document.getElementById("root"), html`
-    <div class="auth-wrap"><div class="card auth-card onboard-card">
+    <div class="auth-wrap" role="main"><div class="card auth-card onboard-card">
       <div class="onboard-top"><div class="brand">${wordmark()}</div>
-        ${step ? html`<div class="onboard-dots" aria-label="Step ${step} of ${STEPS}">${Array.from({ length: STEPS }, (_, i) => html`<span class="${i < step ? "on" : ""}"></span>`)}</div>` : ""}</div>
+        ${step ? html`<div class="onboard-dots" role="img" aria-label="Step ${step} of ${STEPS}">${Array.from({ length: STEPS }, (_, i) => html`<span class="${i < step ? "on" : ""}"></span>`)}</div>` : ""}</div>
       ${content}
     </div></div>`);
 }
@@ -30,7 +30,7 @@ export function renderSetup(status, onDone) {
     screen(null, html`
       <h1>Welcome to Syntropy Health</h1>
       <p class="muted onboard-lede">Your household keeps its health records on one computer, the server. Each person signs in as
-        themselves, from any computer or iPhone.</p>
+        themselves, from any computer or phone.</p>
       <div id="ob-found"></div>
       <div class="onboard-tiles">
         <button class="onboard-tile" type="button" data-action="join"><span class="ev-icon">${icon("users")}</span>
@@ -118,6 +118,11 @@ export function renderSetup(status, onDone) {
     $("#ob-name").addEventListener("submit", (e) => {
       e.preventDefault();
       draft.name = $("#s-name").value.trim();
+      if (!draft.name) {
+        toast("Enter your first name.", "bad");
+        $("#s-name").focus();
+        return;
+      }
       password();
     });
   };
@@ -151,11 +156,17 @@ export function renderSetup(status, onDone) {
       const pass = $("#s-pass").value;
       if (!skip && pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
       if (!skip && pass !== $("#s-pass2").value) return toast("The passwords don't match.", "bad");
-      try {
-        await post("/api/setup", { profile_name: draft.name || "Me", password: skip ? null : pass, timezone: tz, accept_terms: true,
-                                  setup_code: $("#s-code")?.value.trim() || undefined });
-        onDone();
-      } catch (err) { toast(err.message, "bad"); }
+      await busy(e.submitter, async () => {
+        try {
+          await post("/api/setup", { profile_name: draft.name, password: skip ? null : pass, timezone: tz, accept_terms: true,
+                                     setup_code: $("#s-code")?.value.trim() || undefined });
+          onDone();
+        } catch (err) {
+          // A second submit that crossed the first: the record exists, so carry on.
+          if (err.status === 409 && (await get("/api/status", undefined, { fresh: true }).catch(() => null))?.setup_complete) return onDone();
+          toast(err.message, "bad");
+        }
+      });
     });
   };
 
@@ -178,7 +189,7 @@ function setupCodeField(id) {
 /** Asks for the password an older setup doesn't have (and the agreement, if not given yet) before anything opens. */
 export function renderPasswordGate(status, onDone) {
   mount(document.getElementById("root"), html`
-    <div class="auth-wrap"><div class="card auth-card onboard-card">
+    <div class="auth-wrap" role="main"><div class="card auth-card onboard-card">
       <div class="onboard-top"><div class="brand">${wordmark()}</div></div>
       <h1>Add a password</h1>
       <p class="muted onboard-lede">Syntropy Health now asks for a password, because it holds your health records. Everything else
@@ -199,17 +210,19 @@ export function renderPasswordGate(status, onDone) {
     const pass = $("#g-pass").value;
     if (pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
     if (pass !== $("#g-pass2").value) return toast("The passwords don't match.", "bad");
-    try {
-      await post("/api/auth/password", { current: null, new: pass, accept_terms: true, setup_code: $("#g-code")?.value.trim() || undefined });
-      onDone();
-    } catch (err) { toast(err.message, "bad"); }
+    await busy(e.submitter, async () => {
+      try {
+        await post("/api/auth/password", { current: null, new: pass, accept_terms: true, setup_code: $("#g-code")?.value.trim() || undefined });
+        onDone();
+      } catch (err) { toast(err.message, "bad"); }
+    });
   });
 }
 
 /** Once, for instances set up before the agreement was asked for. */
 export function renderTermsGate(onDone) {
   mount(document.getElementById("root"), html`
-    <div class="auth-wrap"><div class="card auth-card onboard-card">
+    <div class="auth-wrap" role="main"><div class="card auth-card onboard-card">
       <div class="onboard-top"><div class="brand">${wordmark()}</div></div>
       <h1>Before you continue</h1>
       <ul class="check-list onboard-points">
@@ -220,7 +233,9 @@ export function renderTermsGate(onDone) {
         <button class="btn btn-primary onboard-next" type="submit">Continue</button></form></div></div>`);
   $("#terms-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    try { await post("/api/terms/accept"); onDone(); } catch (err) { toast(err.message, "bad"); }
+    await busy(e.submitter, async () => {
+      try { await post("/api/terms/accept"); onDone(); } catch (err) { toast(err.message, "bad"); }
+    });
   });
 }
 
@@ -257,9 +272,9 @@ export function renderOnboarding(status, onDone) {
       <p class="muted onboard-lede">${owner ? "Start with whatever you have." : "Your health data is yours here: nobody sees it in the app unless you share it. Start with whatever you have."}
         You can add the rest any time from Sources.</p>
       <div class="onboard-tiles">
+        ${tile("ehr", "records", "Doctors and hospitals", "MyChart and other patient portals: visits, labs, medications")}
         ${tile("iphone", "phone", "Your phone and watch", "Heart, sleep, workouts and more from Apple Health or Health Connect, with the Syntropy Health app")}
         ${tile("wearables", "watch", "Oura, WHOOP or Google Health", "Sign in once; new days sync on their own")}
-        ${tile("ehr", "records", "Doctors and hospitals", "MyChart and other patient portals: visits, labs, medications")}
         ${tile("import", "upload", "Files", "An Apple Health export, a portal health summary, a FHIR file or a lab report PDF")}
       </div>
       <div class="onboard-foot">${owner ? html`<button class="btn" data-action="back">Back</button>` : ""}<span class="grow"></span>

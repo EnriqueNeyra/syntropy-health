@@ -125,6 +125,27 @@ jobs:
         working-directory: cloudflare-worker
         run: npm test
 
+  browser:
+    # The web app in Chrome (the runner's own): first run, every page at each width and theme, the bridge the phone apps use,
+    # and an axe accessibility pass. axe-core is fetched here only, checked against its hash, and is never part of the app.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.11.15"      # the same in the Dockerfile and the installers
+      - run: uv sync --frozen --python 3.12 --group dev --extra checks
+      - name: Fetch axe-core
+        run: |
+          curl -fsSL https://registry.npmjs.org/axe-core/-/axe-core-4.10.3.tgz | tar -xz -C "$RUNNER_TEMP" package/axe.min.js
+          echo "880970c081707360e64f34cea25ff91892f5bc95675b0776925b9709dd8a68bb  $RUNNER_TEMP/package/axe.min.js" | sha256sum -c -
+      - env:
+          AXE_CORE_JS: ${{ runner.temp }}/package/axe.min.js
+        run: uv run --frozen --no-sync python -m pytest -q tests/e2e
+
   linux-install:
     # The home-server installer, on a real systemd machine: install, serve, back up, update, uninstall.
     runs-on: ubuntu-latest
@@ -265,7 +286,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: always()
-    needs: [lint, audit, app, app-mac-windows, web-and-relay, linux-install, mac-install, windows-install, apps]
+    needs: [lint, audit, app, app-mac-windows, web-and-relay, browser, linux-install, mac-install, windows-install, apps]
     runs-on: ubuntu-latest
     steps:
       - env:

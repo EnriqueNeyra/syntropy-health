@@ -1167,6 +1167,28 @@ def _sleep_sources(nights: list[dict[str, Any]], orders: dict[str, list[str]], k
     return chosen
 
 
+def is_simulated(source_name: Optional[str]) -> bool:
+    return "(simulated)" in (source_name or "").lower()
+
+
+def _real_metrics(conn: Any, profile_id: str, metrics: tuple[str, ...]) -> set[str]:
+    """Which of these metrics have a real source, on any day: from then on demo data doesn't fill the gaps beside it."""
+    found: set[str] = set()
+    for metric in metrics:
+        if conn.execute("SELECT 1 FROM biometric_daily WHERE profile_id = ? AND metric_type = ? AND lower(source_name) NOT LIKE '%(simulated)%' LIMIT 1",
+                        (profile_id, metric)).fetchone():
+            found.add(metric)
+    return found
+
+
+def has_simulated(profile_id: str) -> bool:
+    """Whether any figure on this person's record comes from a demo connection."""
+    with read() as conn:
+        if conn.execute("SELECT 1 FROM connections WHERE profile_id = ? AND mode = 'simulated' LIMIT 1", (profile_id,)).fetchone():
+            return True
+    return any(is_simulated(s) for m in available_metrics(profile_id) for s in m["sources"])
+
+
 def daily_series(profile_id: str, metric: str, days: int = 30, source: Optional[str] = None,
                  end: Optional[date] = None) -> dict[str, Any]:
     tz = _tz(profile_id)
@@ -1184,6 +1206,12 @@ def daily_series(profile_id: str, metric: str, days: int = 30, source: Optional[
             "SELECT * FROM biometric_daily WHERE profile_id = ? AND metric_type = 'sleep_duration' AND day >= ? AND day <= ?",
             (profile_id, start.isoformat(), end.isoformat()),
         ).fetchall())
+        if not source:
+            real = _real_metrics(conn, profile_id, (metric, "sleep_duration") if nights else (metric,))
+            if metric in real:
+                rows = [r for r in rows if not is_simulated(r["source_name"])]
+            if "sleep_duration" in real:
+                nights = [r for r in nights if not is_simulated(r["source_name"])]
         feeding = _feeding(metric)
         left_out = conn.execute(f"SELECT COUNT(*) FROM biometric_samples WHERE profile_id = ? AND metric_type IN ({','.join('?' * len(feeding))}) "
                                 "AND flag IS NOT NULL", (profile_id, *feeding)).fetchone()[0]
@@ -1239,16 +1267,24 @@ def _available_metrics(profile_id: str) -> list[dict[str, Any]]:
                 "SELECT metric_type, source_name, COUNT(*) AS days, MAX(day) AS latest_day FROM biometric_daily WHERE profile_id = ? "
                 "AND day <= ? AND day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' GROUP BY metric_type, source_name",
                 (profile_id, today)).fetchall():
-            m = found.setdefault(r["metric_type"], {"days": 0, "latest_day": None, "sources": []})
+            m = found.setdefault(r["metric_type"], {"days": 0, "latest_day": None, "sources": [], "real_latest": None})
             m["latest_day"] = max(m["latest_day"] or "", r["latest_day"])
             m["sources"].append(r["source_name"])
+            if not is_simulated(r["source_name"]):
+                m["real_latest"] = max(m["real_latest"] or "", r["latest_day"])
         for r in conn.execute(
-                "SELECT metric_type, COUNT(DISTINCT day) FROM biometric_daily WHERE profile_id = ? AND day <= ? "
+                "SELECT metric_type, COUNT(DISTINCT day), COUNT(DISTINCT CASE WHEN lower(source_name) NOT LIKE '%(simulated)%' THEN day END) "
+                "FROM biometric_daily WHERE profile_id = ? AND day <= ? "
                 "AND day GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' GROUP BY metric_type", (profile_id, today)).fetchall():
-            found[r[0]]["days"] = r[1]
+            m = found[r[0]]
+            # Beside a real source, demo data isn't what the series shows, so it doesn't count here either.
+            m["days"] = r[2] or r[1]
+            if m["real_latest"]:
+                m["latest_day"] = m["real_latest"]
     out = []
     for metric, m in found.items():
         label, unit, agg, group = METRICS.get(metric, (metric, "", "mean", "other"))
+        m.pop("real_latest")
         out.append({"metric": metric, "label": label, "unit": unit, "group": group, **m})
     order = {m: i for i, m in enumerate(METRICS)}
     return sorted(out, key=lambda m: order.get(m["metric"], 999))
