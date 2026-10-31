@@ -101,6 +101,14 @@ export function insightItem(i, { hide = true } = {}) {
   </div>`;
 }
 
+/** What the latest lab results come to. "All" only when every one of them was checked against a range. */
+export function labStatusText(s) {
+  if (!s?.total) return "No lab results on record.";
+  if (s.in_range === s.total) return `All ${s.total} latest results were in range.`;
+  const unchecked = s.not_assessed ? ` ${s.not_assessed} had no range to compare with.` : "";
+  return `${s.in_range} of ${s.total} latest results were in range${s.flagged ? `, ${s.flagged} out of range` : ""}.${unchecked}`;
+}
+
 /** How long ago, in the words of someone reading a result: "about 3 years ago". */
 function ageWords(when) {
   const years = (Date.now() - new Date(when).getTime()) / (365.25 * 86400000);
@@ -185,7 +193,7 @@ export const WIDGETS = [
       <div class="list-item clickable ${l.older ? "muted" : ""}" data-action="lab" data-code="${l.code || ""}" data-title="${l.title}">
         <div class="grow"><div class="title">${l.title}</div><div class="meta">${fmtDate(l.effective_at)}${l.older ? ` · older result, ${ageWords(l.effective_at)}` : ""} · range ${l.ref_text || "—"}</div></div>
         <div class="value">${l.value_text}</div>${resultStatus(l.status)}${flagBadge(l.interpretation)}
-      </div>`, "All of your most recent lab results are in range.", { href: "#/trends/labs", more: "Lab trends" }) },
+      </div>`, labStatusText(d.summary.lab_status), { href: "#/trends/labs", more: "Lab trends" }) },
   { id: "medications", title: "Medications", desc: "Medications your records list as current, and any that may be out of date", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Medications", "pill", [...d.summary.active_medications, ...(d.summary.medications_to_check || [])], (m) => html`
       <div class="list-item clickable" data-action="record" data-id="${m.id}">

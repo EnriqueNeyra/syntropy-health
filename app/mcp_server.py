@@ -177,6 +177,8 @@ def t_health_summary(args: dict[str, Any]) -> Any:
         "medications_may_be_out_of_date": [_slim(m) for m in s["medications_to_check"]],
         "medications_planned_not_started": [_slim(m) for m in s["medications_planned"]],
         "allergies": [_slim(a) for a in s["allergies"]],
+        # Results with no range aren't known to be in range: an empty out-of-range list doesn't mean they all are.
+        "lab_status": s["lab_status"],
         "out_of_range_recent_labs": [_lab_line(l) for l in s["flagged_labs"] if not l.get("older")],
         "older_out_of_range_labs": [_lab_line(l) for l in s["flagged_labs"] if l.get("older")],
         "recent_labs": [_lab_line(l) for l in s["recent_labs"]],
@@ -634,7 +636,7 @@ _NUMBER = {"type": "number"}
 TOOL_DISPLAY: dict[str, tuple[str, dict[str, Any]]] = {
     "list_profiles": ("List people", {"people": _LIST}),
     "get_health_summary": ("Health summary", {"profile": _OBJECT, "patient": _LIST, "identity_conflict": _LIST, "active_conditions": _LIST,
-                                              "active_medications": _LIST, "allergies": _LIST, "out_of_range_recent_labs": _LIST, "recent_labs": _LIST,
+                                              "active_medications": _LIST, "allergies": _LIST, "lab_status": _OBJECT, "out_of_range_recent_labs": _LIST, "recent_labs": _LIST,
                                               "latest_vitals": _LIST, "recent_visits": _LIST, "record_counts": _OBJECT, "connected_sources": _LIST,
                                               "wearable_headline_30d": _LIST}),
     "search_records": ("Search records", {"total_matches": _NUMBER, "records": _LIST, "matches_per_word": _OBJECT, "hint": _TEXT}),

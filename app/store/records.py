@@ -1019,6 +1019,14 @@ def _out_of_range(latest_by_code: dict[str, dict[str, Any]], today: Optional[dat
     return sorted(flagged, key=lambda l: 2 if l.get("older") else 0 if l["interpretation"] in CRITICAL else 1)
 
 
+def lab_status(latest_by_code: dict[str, dict[str, Any]]) -> dict[str, int]:
+    """How each test's latest result stands. In range only when it was actually assessed as normal: having no range isn't a good result."""
+    interpretations = [l.get("interpretation") or "" for l in latest_by_code.values()]
+    flagged = sum(i in ABNORMAL for i in interpretations)
+    in_range = interpretations.count("normal")
+    return {"total": len(interpretations), "flagged": flagged, "in_range": in_range, "not_assessed": len(interpretations) - flagged - in_range}
+
+
 def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
     """Tests whose latest result is out of range, as in the summary, but for Insights on every Overview: without reading
     the rest of the summary, or the full text of every result. These rows have no details or narrative."""
@@ -1174,6 +1182,7 @@ def summary(profile_id: str) -> dict[str, Any]:
         "allergies": allergies,
         "allergy_note": allergy_note,
         "flagged_labs": flagged,
+        "lab_status": lab_status(latest_by_code),
         "recent_labs": _first(list(latest_by_code.values()), 12),
         "latest_vitals": list(vitals_latest.values())[:12],
         "recent_encounters": happened[:5],

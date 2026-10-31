@@ -1,10 +1,11 @@
 import { get } from "../api.js";
 import { appBridge, nativeNav, setToolbar } from "../app.js";
-import { metricUnit, metricValue } from "./overview.js";
+import { labStatusText, metricUnit, metricValue } from "./overview.js";
 import { recordValue } from "../units.js";
 import { age, capitalize, fmtDate, fmtDateTime, html, icon, loading, mount, recordDate, resultStatus } from "../ui.js";
 
 const flagWord = (interp) => (interp && interp !== "normal" ? capitalize(interp.replace("_", " ")) : "");
+const assessedWord = (interp) => (interp === "normal" ? "In range" : flagWord(interp) || "Not assessed");
 const flaggedRow = (l) => [l.title, l.value_text, flagWord(l.interpretation), l.ref_text || "—", fmtDate(l.effective_at)];
 
 function table(headers, rows, empty = "None on record.") {
@@ -77,12 +78,13 @@ export async function render({ el, state }) {
         r.latest_vitals.map((v) => [v.title, recordValue(v), fmtDate(v.effective_at)]))}</section>
 
       <section><h2>Out-of-range results (most recent)</h2>${table(["Test", "Result", "Flag", "Reference", "Date"],
-        r.flagged_labs.filter((l) => !l.older).map(flaggedRow), "All recent lab results are within reference ranges.")}
+        r.flagged_labs.filter((l) => !l.older).map(flaggedRow), "No recent result is flagged out of range.")}
+        <p class="small muted" style="margin-top:6px">${labStatusText(r.lab_status)}</p>
         ${r.flagged_labs.some((l) => l.older) ? html`<h3 class="small muted" style="margin-top:10px">Older results, not repeated since</h3>${table(["Test", "Result", "Flag", "Reference", "Date"],
           r.flagged_labs.filter((l) => l.older).map(flaggedRow))}` : ""}</section>
 
       <section><h2>Recent lab results</h2>${table(["Test", "Result", "Flag", "Date"],
-        r.recent_labs.map((l) => [html`${l.title} ${resultStatus(l.status)}`, l.value_text, flagWord(l.interpretation), fmtDate(l.effective_at)]))}</section>
+        r.recent_labs.map((l) => [html`${l.title} ${resultStatus(l.status)}`, l.value_text, assessedWord(l.interpretation), fmtDate(l.effective_at)]))}</section>
 
       ${r.biometrics.length ? html`<section><h2>Wearable trends (30 days)</h2>${table(["Metric", "Latest", "7-day avg", "30-day avg"],
         r.biometrics.map((m) => [m.label, `${metricValue(m, m.latest.value)} ${metricUnit(m)}`,
