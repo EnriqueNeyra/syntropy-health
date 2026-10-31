@@ -226,7 +226,7 @@ export function wordmark() {
 export const CATEGORY_ICON = {
   conditions: "stethoscope", medications: "pill", allergies: "alert", labs: "flask", vitals: "heart",
   immunizations: "syringe", encounters: "building", procedures: "scissors", notes: "note", reports: "image",
-  care_team: "user", care_plans: "records", goals: "check", devices: "watch", coverage: "shield", observations: "records",
+  care_team: "user", care_plans: "records", goals: "check", devices: "watch", coverage: "shield", observations: "records", other: "records",
 };
 
 // ---------------------------------------------------------------- markdown (assistant replies)

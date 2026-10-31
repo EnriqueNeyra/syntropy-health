@@ -20,7 +20,7 @@ from app.store import lab_catalog, record_overrides, search
 
 CATEGORIES = [
     "conditions", "medications", "allergies", "labs", "vitals", "immunizations", "encounters",
-    "procedures", "notes", "reports", "care_team", "care_plans", "goals", "devices", "coverage", "observations",
+    "procedures", "notes", "reports", "care_team", "care_plans", "goals", "devices", "coverage", "observations", "other",
 ]
 
 CATEGORY_LABELS = {
@@ -28,7 +28,7 @@ CATEGORY_LABELS = {
     "labs": "Lab results", "vitals": "Vital signs", "immunizations": "Immunizations",
     "encounters": "Visits", "procedures": "Procedures", "notes": "Clinical notes",
     "reports": "Diagnostic reports", "care_team": "Care team", "care_plans": "Care plans",
-    "goals": "Goals", "devices": "Devices", "coverage": "Insurance", "observations": "Other observations",
+    "goals": "Goals", "devices": "Devices", "coverage": "Insurance", "observations": "Other observations", "other": "Other records",
 }
 
 ENDED_MED_STATUSES = ("stopped", "completed", "cancelled", "entered-in-error", "not-taken", "superseded")
@@ -700,6 +700,16 @@ def _reported_elsewhere(conn, rec: dict[str, Any]) -> list[dict[str, Any]]:
         f"SELECT {columns} FROM clinical_records WHERE id IN ({','.join('?' * len(ids))})", ids).fetchall())
 
 
+def _same_source_orders(conn, rec: dict[str, Any]) -> list[dict[str, Any]]:
+    """A prescription renewed: the same drug from the same source, on rows of its own, which a list folds into the newest."""
+    if rec["category"] != "medications" or not rec.get("dedup_key"):
+        return []
+    return rows_to_dicts(conn.execute(
+        "SELECT id, source_name, effective_at, value_text, status FROM clinical_records WHERE profile_id = ? AND dedup_key = ? AND id != ? "
+        "AND connection_id = ? ORDER BY coalesce(effective_at, '') DESC LIMIT 50",
+        (rec["profile_id"], rec["dedup_key"], rec["id"], rec["connection_id"])).fetchall())
+
+
 def get_record(record_id_: str, profile_id: Optional[str] = None) -> Optional[dict[str, Any]]:
     with read() as conn:
         row = conn.execute("SELECT * FROM clinical_records WHERE id = ?", (record_id_,)).fetchone()
@@ -708,6 +718,7 @@ def get_record(record_id_: str, profile_id: Optional[str] = None) -> Optional[di
         rec = row_to_dict(row, ["details_json", "raw_json"])
         assert rec is not None
         others = _reported_elsewhere(conn, rec)
+        renewals = _same_source_orders(conn, rec)
         refs = [r for r in (rec.get("details") or {}).get("result_refs") or [] if isinstance(r, str)]
         keys = ["/".join(r.rstrip("/").split("/")[-2:]) for r in refs]   # "Observation/123", also from absolute URLs
         results = rows_to_dicts(conn.execute(
@@ -718,6 +729,7 @@ def get_record(record_id_: str, profile_id: Optional[str] = None) -> Optional[di
         ).fetchall()) if keys else []
     rec["duplicates"] = others
     rec["results"] = results
+    rec["renewals"] = renewals
     record_overrides.attach(rec["profile_id"], [rec])
     return rec
 

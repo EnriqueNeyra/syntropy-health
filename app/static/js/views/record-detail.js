@@ -27,7 +27,9 @@ function detailRows(r) {
         ["Components", (d.components || []).map((c) => `${c.name}: ${c.text ?? c.value ?? "No value"}${c.text ? "" : ` ${c.unit || ""}`}`)],
       ];
     case "medications":
-      return [...common, ["Reported, not prescribed", d.reported ? "Yes" : null], ["Instructions", d.dosage], ["As needed", d.as_needed ? "Yes" : null],
+      return [...common, [r.history?.reported_taking ? "First reported" : "First ordered", r.history ? fmtDate(r.history.first) : null],
+              ["Last ordered", r.history ? fmtDate(r.history.last_ordered) : null],
+              ["Reported, not prescribed", d.reported ? "Yes" : null], ["Instructions", d.dosage], ["As needed", d.as_needed ? "Yes" : null],
               ["Prescriber", d.prescriber], ["Refills", d.refills], ["Valid until", d.valid_until ? fmtDate(d.valid_until) : null], ["Reason", d.reason]];
     case "conditions":
       return [...common, ["Onset", d.onset_text || fmtDate(r.effective_at)], ["Resolved", r.effective_end ? fmtDate(r.effective_end) : d.abatement_text],
@@ -56,6 +58,8 @@ function detailRows(r) {
       return [...common, ["Targets", d.targets], ["Achievement", d.achievement]];
     case "devices":
       return [...common, ["Type", d.type], ["Manufacturer", d.manufacturer], ["Model", d.model], ["UDI", d.udi]];
+    case "other":
+      return [...common, ["Kind of record", capitalize(d.type || "")]];
     case "coverage":
       return [...common, ["Payor", d.payor], ["Plan", d.plan], ["Member ID", d.subscriber_id], ["Relationship", d.relationship]];
     default:
@@ -83,11 +87,13 @@ function recordBody(r, text) {
       ${r.narrative && !text && !shownAbove(r) ? html`<div><div class="label">Notes</div><p>${r.narrative}</p></div>` : ""}
       ${text ? html`<div><div class="row between" style="margin-bottom:6px"><div class="label" style="margin:0">Full text</div>
         <button class="btn btn-sm" data-copy>Copy</button></div><div class="note-text">${text}</div></div>` : ""}
-      ${r.duplicates?.length ? html`<div><div class="label">Also reported by</div>
+      ${r.duplicates?.length || r.renewals?.length ? html`<div><div class="label">Also reported by</div>
         <div class="list card">${r.duplicates.map((dup) => html`<div class="list-item small"><span class="grow">${dup.source_name}</span>
           ${["conditions", "allergies", "medications"].includes(r.category) ? statusBadge(dup.status) : ""}
-          <span class="muted">${fmtDate(dup.effective_at)}</span></div>`)}</div>
-        <p class="hint">Syntropy merges the same fact reported by several institutions into one entry.</p></div>` : ""}
+          <span class="muted">${fmtDate(dup.effective_at)}</span></div>`)}
+          ${(r.renewals || []).map((dup) => html`<div class="list-item small"><span class="grow">${dup.source_name} <span class="muted">(another order)</span></span>
+          ${statusBadge(dup.status)}<span class="muted">${fmtDate(dup.effective_at)}</span></div>`)}</div>
+        <p class="hint">Syntropy merges the same fact reported by several institutions, and the orders of one medication, into one entry.</p></div>` : ""}
       ${filesBlock(r)}
       ${r.editable ? html`<div class="row"><span class="small muted grow">You entered this.</span>
         <button class="btn btn-sm btn-ghost btn-danger" data-delete>${icon("trash")} Delete</button></div>` : correctionBlock(r)}

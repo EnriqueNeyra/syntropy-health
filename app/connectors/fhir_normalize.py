@@ -1301,12 +1301,47 @@ def _from_dstu2(res: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+# About the exchange, or what records refer to, rather than something about the person. A Composition is the index of a summary whose contents come as resources of their own.
+NOT_RECORDS = {*REFERENCED_TYPES, "Patient", "Bundle", "OperationOutcome", "Binary", "CapabilityStatement", "Provenance", "AuditEvent", "Parameters",
+               "Composition", "MessageHeader", "Subscription", "StructureDefinition", "ValueSet", "CodeSystem"}
+_FHIR_TYPE = re.compile(r"^[A-Z][a-z]+(?:[A-Z][a-z]*)*$")
+_WHEN_FIELDS = ("date", "effectiveDateTime", "occurrenceDateTime", "authoredOn", "performedDateTime", "issued", "recordedDate", "recorded", "created", "started", "whenHandedOver")
+_PERIOD_FIELDS = ("period", "effectivePeriod", "occurrencePeriod", "performedPeriod")
+_CONCEPT_FIELDS = ("code", "medicationCodeableConcept", "vaccineCode", "type", "category", "relationship")
+
+
+def _keeps_as_other(rtype: Any) -> bool:
+    return isinstance(rtype, str) and rtype not in NOT_RECORDS and bool(_FHIR_TYPE.match(rtype))
+
+
+def normalize_other(res: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """A kind of resource with no fields of its own here, such as a family history or a referral. Kept whole, so it can be read and exported.
+    What it means isn't guessed at: just what it's called, its date and status, and the source's own text."""
+    if _retracted(res.get("status")):
+        return None
+    kind = re.sub(r"(?<!^)([A-Z])", lambda m: f" {m.group(1).lower()}", res["resourceType"])
+    named = ""
+    for field in _CONCEPT_FIELDS:
+        value = res.get(field)
+        value = value[0] if isinstance(value, list) and value else value
+        named = concept_text(value) if isinstance(value, dict) else ""
+        if named:
+            break
+    periods = [(res.get(f) or {}).get("start") for f in _PERIOD_FIELDS if isinstance(res.get(f), dict)]
+    prose = (res.get("text") or {}).get("div") if isinstance(res.get("text"), dict) else None
+    status = res.get("status") if isinstance(res.get("status"), str) else status_code(res.get("clinicalStatus"))
+    rec = _base(res, "other", f"{kind}: {named}" if named else kind, status=status, effective_at=_date(*(res.get(f) for f in _WHEN_FIELDS), *periods),
+                narrative=strip_html(prose) if isinstance(prose, str) else None)
+    rec["details"] = {"type": kind}
+    return rec
+
+
 def normalize_one(res: dict[str, Any], resolve: Callable[[str], Optional[dict[str, Any]]] = lambda r: None,
                   person: Optional[dict[str, Any]] = None) -> Optional[dict[str, Any]]:
     """One resource to its record, or None when it isn't one. Raises on a resource too malformed to read."""
     shaped = _from_dstu2(res)
     rtype = shaped.get("resourceType")
-    fn = NORMALIZERS.get(rtype or "")
+    fn = NORMALIZERS.get(rtype or "") or (normalize_other if _keeps_as_other(rtype) else None)
     if fn is None:
         return None
     if rtype in ("MedicationRequest", "MedicationStatement"):
@@ -1361,7 +1396,7 @@ def normalize_report(resources: list[dict[str, Any]],
         if rtype == "Patient":
             patient = normalize_patient(res)
             continue
-        if rtype not in NORMALIZERS and rtype not in _OLD_NAMES:
+        if rtype not in NORMALIZERS and rtype not in _OLD_NAMES and not _keeps_as_other(rtype):
             continue
         try:
             rec = normalize_one(res, resolve, person)

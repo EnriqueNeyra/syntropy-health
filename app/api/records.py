@@ -12,6 +12,7 @@ from app.api.labs import _check_date, _manual_connection
 from app.connectors import fhir_normalize
 from app.core import auth, context
 from app.core.db import audit, db, new_id
+from app.services import insights
 from app.store import activity, connections, record_files, record_overrides, records
 
 router = APIRouter(prefix="/api", tags=["records"], dependencies=[Depends(auth.require_user)])
@@ -59,6 +60,8 @@ def get_record(record_id: str) -> dict:
     conn = connections.get(rec["connection_id"])
     rec["editable"] = bool(conn and conn["provider"] == "manual")   # what the person typed in can be deleted
     rec["files"] = record_files.for_record(rec["connection_id"], rec["resource_type"], rec["resource_id"])
+    if rec["category"] == "medications":
+        rec["history"] = insights.medication_history(rec["profile_id"], rec)
     return rec
 
 

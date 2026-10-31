@@ -207,16 +207,25 @@ def medication_timeline(profile_id: str) -> list[dict[str, Any]]:
             continue
         by_drug[r.get("dedup_key") or r["id"]].append({**r, "day": day})
     out = []
-    for rows in by_drug.values():
+    for key, rows in by_drug.items():
         rows.sort(key=lambda r: r["day"])
         oldest, newest = rows[0], rows[-1]
         sure = not {(r.get("status") or "").lower() for r in (oldest, newest)} & UNSURE_STATUSES
         first_sure = (oldest.get("status") or "").lower() not in UNSURE_STATUSES
-        out.append({"name": newest["title"], "first": oldest["day"], "last_ordered": newest["day"],
+        out.append({"key": key, "name": newest["title"], "first": oldest["day"], "last_ordered": newest["day"],
                     "orders": len({r["day"] for r in rows}), "record_id": newest["id"], "status": newest.get("status"), "sure": sure,
                     # Only a statement says the person took it, and only with a status that says so. An order is proof of an order.
                     "reported_taking": (oldest.get("resource_type") == "MedicationStatement" or bool((oldest.get("details") or {}).get("reported"))) and first_sure})
     return out
+
+
+def medication_history(profile_id: str, rec: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """When one medication's orders began and last came, for its record: more than one order, or there's nothing to add to its date."""
+    key = rec.get("dedup_key") or rec["id"]
+    found = next((m for m in medication_timeline(profile_id) if m["key"] == key), None)
+    if not found or found["orders"] < 2:
+        return None
+    return {k: found[k] for k in ("first", "last_ordered", "orders", "reported_taking")}
 
 
 def markers(profile_id: str, start: Optional[str] = None, end: Optional[str] = None) -> list[dict[str, Any]]:
