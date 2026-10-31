@@ -180,7 +180,7 @@ export async function openLabEntry(profile, onSaved) {
     const results = rows.flatMap((r, i) => {
       if (checks[i].empty) return [];
       const v = String(r.value).trim();
-      return [{ test: r.test, loinc: r.loinc || known.get(r.test.toLowerCase())?.loinc || null,
+      return [{ test: r.matched || r.test, loinc: r.loinc || known.get(r.test.toLowerCase())?.loinc || null,
                 ...(NUMBER.test(v) ? { value: Number(v) } : { value_text: v }), unit: r.unit || null,
                 ...checks[i].bounds, flag: r.flag || null, date: r.date || null }];
     });

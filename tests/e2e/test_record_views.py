@@ -157,3 +157,27 @@ def test_an_invited_person_is_not_told_their_data_is_on_their_own_computer(brows
         s.close()
         owner.close()
         jamie.close()
+
+
+def test_a_lab_read_from_a_report_is_saved_under_the_name_the_dialog_promised(browser, fresh_server):
+    c = seed(fresh_server, simulated=False)
+    s = Session(browser, fresh_server)
+    page = s.open("#/records/labs")
+    read = {"results": [{"test": "GLUCOSE", "value": 95, "unit": "mg/dL", "loinc": "2345-7", "matched_test": "Glucose"},
+                        {"test": "ODD THING", "value": 7, "unit": "U/L"}], "collected": "2026-02-03", "method": "local"}
+    page.route("**/api/labs/extract", lambda route: route.fulfill(json=read))
+    page.locator("[data-action=add-labs]").first.click()
+    page.locator("[data-mode=report]").click()
+    page.locator("#lab-file").set_input_files({"name": "report.pdf", "mimeType": "application/pdf", "buffer": b"%PDF-1.4"})
+    page.locator("[data-read=local]").click()
+    page.wait_for_selector("[data-matched-note]")
+    assert page.locator("[data-matched-note]").inner_text() == "Filed as Glucose"
+    page.locator(".modal .btn-primary", has_text="Save").click()
+    page.wait_for_selector(".modal", state="detached")
+    labs = c.get("/api/records", params={"category": "labs", "q": ""}).json()["items"]
+    saved = {r["title"]: r for r in labs if r["effective_at"][:10] == "2026-02-03"}
+    assert set(saved) == {"Glucose", "ODD THING"}
+    assert saved["Glucose"]["value_num"] == 95 and saved["Glucose"]["unit"] == "mg/dL"
+    assert s.errors == []
+    s.close()
+    c.close()
