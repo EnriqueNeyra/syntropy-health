@@ -1106,6 +1106,11 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
   .page-head { margin-bottom: 14px; }
   h1 { font-size: 20px; }
   .hide-narrow { display: none; }
+  /* A chart's source, readings and goal go under it, so the chart itself is on the first screen. */
+  .card-pad:has(> .trend-controls) { display: flex; flex-direction: column; }
+  .trend-controls { display: contents; }
+  .trend-controls > .segmented { align-self: flex-start; margin: 4px 0 12px; }
+  .trend-tools { order: 5; margin-top: 14px; }
   /* Trends: the list and the chart take turns. */
   .split { grid-template-columns: minmax(0, 1fr); }
   .split-list { position: static; max-height: none; }

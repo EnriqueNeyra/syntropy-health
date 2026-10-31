@@ -84,6 +84,7 @@ export async function render({ el, parts, params, state, navigate }) {
   };
 
   const narrow = { kind: "", note_type: "", author: "", has: "", connection: connection || "", since: "", until: "" };
+  let datesOpen = false;
   const HAS_WORD = { documents: "With a document", corrected: "Your corrections" };
   const KIND_WORD = { lab: "Lab reports", imaging: "Imaging", other: "Other reports" };
   const select = (key, label, options) => (options.length ? html`<select class="input input-sm" data-narrow="${key}" aria-label="${label}" style="width:auto">
@@ -98,9 +99,15 @@ export async function render({ el, parts, params, state, navigate }) {
       ${select("note_type", "All note types", f.note_types.map((t) => [t, t]))}
       ${select("author", "All authors", f.authors.map((a) => [a, a]))}
       ${select("has", "All entries", (f.has || []).map((k) => [k, HAS_WORD[k]]))}
-      <label class="row small muted" style="gap:4px">From <input class="input input-sm" type="date" data-narrow="since" value="${narrow.since}" style="width:auto"></label>
-      <label class="row small muted" style="gap:4px">To <input class="input input-sm" type="date" data-narrow="until" value="${narrow.until}" style="width:auto"></label>`);
+      ${datesOpen || narrow.since || narrow.until ? html`<label class="row small muted" style="gap:4px">From <input class="input input-sm" type="date" data-narrow="since" value="${narrow.since}" style="width:auto"></label>
+        <label class="row small muted" style="gap:4px">To <input class="input input-sm" type="date" data-narrow="until" value="${narrow.until}" style="width:auto"></label>`
+        : html`<button class="btn btn-sm" type="button" data-dates>${icon("timeline")} Any date</button>`}`);
     box.querySelectorAll("[data-narrow]").forEach((c) => c.addEventListener("change", () => { narrow[c.dataset.narrow] = c.value; load(); }));
+    // An empty date box shows today in some browsers, which reads as a filter that's already on.
+    box.querySelector("[data-dates]")?.addEventListener("click", () => {
+      datesOpen = true;
+      drawFilters().then(() => box.querySelector('[data-narrow="since"]')?.focus());
+    });
   };
 
   const drawList = () => {

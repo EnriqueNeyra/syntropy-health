@@ -70,7 +70,7 @@ export async function render({ el, state }) {
             ${past.map((v) => html`<option value="${v.effective_at.slice(0, 10)}">${fmtDate(v.effective_at)} · ${v.title}${v.details?.clinicians?.[0] ? ` · ${v.details.clinicians[0]}` : ""}</option>`)}</select></label>
         <label class="stack" style="gap:4px"><span class="label">Or since a date</span><input class="input" type="date" id="prep-date" max="${today}"></label>
       </div></div>
-    <div class="report card card-pad">
+    <div class="report card card-pad" style="max-width:none">
       <section><h2>My questions</h2>
         <ol class="report-questions" id="prep-questions"></ol>
         <form class="row no-print" id="prep-form" style="margin-top:8px"><input class="input grow" id="prep-question" maxlength="500" aria-label="A question to ask" placeholder="Add a question to ask">

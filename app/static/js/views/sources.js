@@ -422,19 +422,19 @@ async function openPairing(profile) {
       ${blocked ? html`<div class="banner warn">${icon("phone")}<div class="grow"><p><b>Your phone can't reach this computer yet.</b></p>
           <div id="pair-net"></div></div></div>` : ""}
       <p class="small"><a href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">Get the app for iPhone or Android</a> if it isn't on your phone yet.</p>
-      <p class="muted">The Syntropy Health apps send your phone's health data straight to this server over your network, with no
-        cloud in between: Apple Health from the iPhone app (heart, HRV, sleep stages, steps, workouts with routes, symptoms,
-        cycle tracking, ECG and more), and Health Connect from the Android app (Fitbit, Pixel Watch, Samsung Health, Oura and
-        other apps that write to it).</p>
       <ol class="small" style="margin:0;padding-left:18px;line-height:1.8">
         <li>In the app, open <b>Settings</b> → <b>Connect to my server</b>.</li>
         <li>Server address: <code>${res.server_url}</code></li>
         <li>Sign in with your password, or choose to use a pairing code and enter:</li></ol>
       <div class="code-box">${res.code}</div>
       ${away ? html`<p class="small muted">Away from home: in the app's <b>Settings</b> → <b>Addresses</b> → <b>Away from home</b>, enter <code>${away.url}</code> to sync over Tailscale.</p>` : ""}
-      ${embedded ? "" : html`<a class="btn" href="${link}" style="align-self:center">${icon("phone")} Open in the app (when viewing this page on the phone)</a>`}
+      ${embedded || !window.matchMedia("(pointer: coarse)").matches ? "" : html`<a class="btn" href="${link}" style="align-self:center">${icon("phone")} Open in the app</a>`}
       <p class="small muted" style="text-align:center">Data is saved to <b>${profile.name}</b>. The code expires in 10 minutes and works once.
         Pairing the same phone again picks up where it left off.</p>
+      <p class="small muted">The Syntropy Health apps send your phone's health data straight to this server over your network, with no
+        cloud in between: Apple Health from the iPhone app (heart, HRV, sleep stages, steps, workouts with routes, symptoms,
+        cycle tracking, ECG and more), and Health Connect from the Android app (Fitbit, Pixel Watch, Samsung Health, Oura and
+        other apps that write to it).</p>
     </div>`);
   const panel = m.body.querySelector("#pair-net");
   if (panel && net) renderNetworkPanel(panel, net, { onChange: () => { m.close(); openPairing(profile); } });

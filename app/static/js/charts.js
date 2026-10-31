@@ -401,7 +401,7 @@ export function barChart(container, points, opts = {}) {
     return i == null ? null : pad.left + slot * i + slot / 2;
   });
   svg += rail.svg;
-  svg += `<rect class="slot" y="${pad.top}" width="${Math.max(slot, 4)}" height="${ih}" x="-99"/>`;
+  svg += `<rect class="slot" y="${pad.top}" width="${Math.max(slot, 4)}" height="${ih}" visibility="hidden"/>`;
   svg += `<rect class="hit" x="0" y="0" width="${width}" height="${height}" fill="transparent"/></svg>`;
   container.classList.add("chart");
   container.innerHTML = svg;
@@ -420,7 +420,8 @@ export function barChart(container, points, opts = {}) {
     lit.forEach((b) => b.classList.remove("lit"));
     lit = i == null ? [] : barsAt.get(String(i)) || [];
     lit.forEach((b) => b.classList.add("lit"));
-    slotEl.setAttribute("x", i == null ? -99 : pad.left + slot * i);
+    slotEl.setAttribute("visibility", i == null ? "hidden" : "visible");
+    if (i != null) slotEl.setAttribute("x", pad.left + slot * i);
   };
   pointerLayer(svgEl, width, height, {
     at: (px, py) => {
@@ -543,7 +544,7 @@ export function rangeChart(container, rows, opts = {}) {
     const bx = PAD.left + slot * i + (slot - bw) / 2, top = y(r.from), h = Math.max(2, y(r.to) - top), rr = Math.min(4, bw / 2, h / 2);
     svg += `<rect class="bar" x="${bx}" y="${top}" width="${bw}" height="${h}" rx="${rr}"/>`;
   });
-  svg += `<rect class="slot" y="${PAD.top}" width="${Math.max(slot, 4)}" height="${ih}" x="-99"/></svg>`;
+  svg += `<rect class="slot" y="${PAD.top}" width="${Math.max(slot, 4)}" height="${ih}" visibility="hidden"/></svg>`;
   container.classList.add("chart");
   container.innerHTML = svg;
   valuesTable(container, rows.map((r) => ({ day: r.day, value: `${fmt(r.from)} – ${fmt(r.to)}` })), String, wasOpen);
@@ -558,11 +559,12 @@ export function rangeChart(container, rows, opts = {}) {
     show: ({ i }) => {
       const r = rows[i];
       slotEl.setAttribute("x", PAD.left + slot * i);
+      slotEl.setAttribute("visibility", "visible");
       tip.innerHTML = `<div class="tip-when">${esc(fmtDate(r.day))}</div><b>${esc(fmt(r.from))} – ${esc(fmt(r.to))}</b>`;
       const scale = container.clientWidth / width;
       placeTip(tip, container, (PAD.left + slot * i + slot / 2) * scale, PAD.top);
     },
-    hide: () => { tip.hidden = true; slotEl.setAttribute("x", -99); },
+    hide: () => { tip.hidden = true; slotEl.setAttribute("visibility", "hidden"); },
     step: (current, by) => {
       const at = current?.i ?? (by > 0 ? -1 : rows.length);
       const i = Math.max(0, Math.min(rows.length - 1, at + by));

@@ -438,7 +438,7 @@ export async function render({ el, parts, params, state, navigate }) {
 
   const controls = (it, sources, goal) => html`<div class="row wrap between trend-controls">
       ${rangeButtons(days)}
-      <div class="row wrap" style="gap:8px">
+      <div class="row wrap trend-tools" style="gap:8px">
         ${sources.length > 1 || source ? html`<select class="input input-sm" id="tr-source" aria-label="Source" style="width:auto">
           <option value="">Best source</option>${sources.map((src) => html`<option value="${src}" ${src === source ? "selected" : ""}>${src}</option>`)}</select>` : ""}
         <button class="btn btn-sm" data-action="readings">Readings</button>
