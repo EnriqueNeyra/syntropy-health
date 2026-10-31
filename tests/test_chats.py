@@ -7,6 +7,8 @@ import io
 import json
 import zipfile
 
+from app.core import db, security
+from app.services import backup_file, backups
 from app.store import chats
 
 SAID = [{"role": "user", "content": "How did I sleep?"}, {"role": "assistant", "content": "Well, about **7 hours**.", "by": "m · Ollama"}]
@@ -139,6 +141,13 @@ def test_a_conversation_exports_as_markdown(client):
     assert "doesn't give medical advice" in r.text
 
 
+def test_exporting_a_conversation_shows_in_the_access_log(client):
+    _save(client)
+    assert client.get("/api/ai/chats/c_0123456789ab/export").status_code == 200
+    with db.read() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM audit_log WHERE action = 'export.chat'").fetchone()[0] == 1
+
+
 def test_a_title_in_another_script_still_makes_a_file_name(client):
     _save(client, title="睡眠について")
     r = client.get("/api/ai/chats/c_0123456789ab/export")
@@ -177,6 +186,36 @@ def test_an_older_archive_still_comes_in(client):
     assert (moved["pinned"], moved["title_set"]) == (False, False)
     # A title from before this is one made from the first question, so a later save can still change it.
     assert _save(client, moved["id"] if moved["id"].startswith("c_") else "c_0123456789ab", title="Newer")["title"] == "Newer"
+
+
+def test_a_backup_brings_back_names_and_pins_and_an_older_one_still_restores(client, tmp_path, monkeypatch):
+    from tests.test_backups import SECRET, _make, _move_to
+    from tests.test_migrations import _build
+    monkeypatch.setitem(backup_file._SCRYPT, "n", 2**10)
+    _save(client)
+    client.patch("/api/ai/chats/c_0123456789ab", json={"title": "Chosen", "pinned": True})
+    made = _make(tmp_path)
+    older = tmp_path / "older.db"
+    conn = _build(older, 61)
+    conn.execute("INSERT INTO profiles(id, name, relationship, is_default, created_at, updated_at) VALUES ('p', 'Old', 'self', 1, 0, 0)")
+    conn.execute("INSERT INTO chats(id, profile_id, title, messages_json, created_at, updated_at) VALUES ('c_old', 'p', 'From before', '[]', 1, 2)")
+    conn.close()
+    with monkeypatch.context() as m:
+        _move_to(m, tmp_path / "restored")
+        backups.apply(backups.check(made, passphrase=SECRET))
+        with db.read() as c:
+            assert tuple(c.execute("SELECT title, pinned, title_set FROM chats WHERE id = 'c_0123456789ab'").fetchone()) == ("Chosen", 1, 1)
+        db.reset_migration_cache()
+    with monkeypatch.context() as m:
+        _move_to(m, tmp_path / "from-older")
+        item = backups.check(older)
+        assert item.report["upgrade_needed"]
+        backups.apply(item)
+        with db.read() as c:
+            assert tuple(c.execute("SELECT title, pinned, title_set FROM chats WHERE id = 'c_old'").fetchone()) == ("From before", 0, 0)
+        db.reset_migration_cache()
+    db.reset_migration_cache()
+    security.forget_key()
 
 
 def test_a_pinned_conversation_comes_in_even_when_the_person_is_full(client, monkeypatch):

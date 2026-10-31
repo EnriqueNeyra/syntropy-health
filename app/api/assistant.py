@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import resolve_profile
 from app.core import auth, context
+from app.core.db import audit, db
 from app.services import ai, ai_agents, ai_local
 from app.store import chats
 
@@ -283,6 +284,8 @@ def export_chat(chat_id: str, profile: Optional[str] = None) -> Response:
     chat = chats.get_chat(prof["id"], _account(), chat_id)
     if not chat:
         raise HTTPException(404, "Conversation not found")
+    with db() as conn:
+        audit(conn, "user", "export.chat", None, prof["id"])
     # Only safe characters go in the header (see records' files); filename* keeps a title in another script.
     name = re.sub(r"[^\w -]+", "", chat["title"]).strip()[:60].strip() or "Conversation"
     plain = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().strip() or "Conversation"
