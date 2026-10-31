@@ -230,6 +230,7 @@ svg.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
 .sim-note { background: color-mix(in srgb, var(--warn, #b45309) 12%, var(--surface)); }
 .sim-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 :root[data-dialogs-held] .overlay { display: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .skip-link { position: absolute; left: 8px; top: -60px; z-index: 1000; padding: 8px 14px; border-radius: var(--radius); background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 .skip-link:focus { top: 8px; }
 #view:focus, #view h1:focus { outline: none; }

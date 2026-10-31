@@ -44,6 +44,10 @@ export function mount(el, content) {
   for (const h of el.querySelectorAll(".card-head h3")) h.setAttribute("aria-level", "2");
   // A table wider than a phone scrolls in its own box, which the keyboard has to be able to reach.
   for (const t of el.querySelectorAll(".table-wrap")) t.tabIndex = 0;
+  // A source's status says why in a tooltip, which only a mouse can reach.
+  for (const s of el.querySelectorAll(".src-status[title]:not([title=''])")) {
+    s.append(Object.assign(document.createElement("span"), { className: "sr-only", textContent: `. ${s.title}` }));
+  }
   // Keyboard users stay where they were when a control redraws the section it's in.
   if (key) el.querySelector(key)?.focus({ preventScroll: true });
   return el;

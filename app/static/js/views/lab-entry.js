@@ -98,7 +98,7 @@ export async function openLabEntry(profile, onSaved) {
       </div>
       <datalist id="lab-tests">${[...known.values()].map((t) => html`<option value="${t.name}">`)}</datalist>
       <div class="table-wrap"><table class="table lab-table">
-        <thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Range low</th><th>Range high</th><th></th></tr></thead>
+        <thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Range low</th><th>Range high</th><th aria-label="Remove row"></th></tr></thead>
         <tbody>${rows.map((r, i) => html`<tr class="lab-row" data-loinc="${r.loinc || ""}" data-flag="${r.flag || ""}" data-date="${r.date || ""}" data-matched="${r.matched || ""}">
           <td><input class="input" data-k="test" list="lab-tests" value="${r.test || ""}" placeholder="e.g. Ferritin" aria-label="Test">
             ${r.matched ? html`<div class="small muted" data-matched-note>Filed as ${r.matched}</div>` : ""}
