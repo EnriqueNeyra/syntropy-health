@@ -50,18 +50,18 @@ def _soft(label: str) -> str:
     return label[0].lower() + label[1:] if re.match(r"[A-Z][a-z]+(\s|$)", label) else label
 
 
-def _today() -> date:
-    return datetime.now(_tz()).date()
+def _today(profile_id: Optional[str] = None) -> date:
+    return datetime.now(_tz(profile_id)).date()
 
 
-def _window(days: int, end: Optional[date] = None) -> tuple[date, date]:
-    end = end or _today()
+def _window(days: int, end: Optional[date] = None, profile_id: Optional[str] = None) -> tuple[date, date]:
+    end = end or _today(profile_id)
     return end - timedelta(days=days - 1), end
 
 
 def journal_daily(profile_id: str, start: date, end: date) -> dict[str, dict[str, float]]:
     """Per day, the average mood (−1..1), energy and stress (1..5) from check-ins and mood entries."""
-    tz = _tz()
+    tz = _tz(profile_id)
     events = activity.list_events(profile_id, None, category="stateOfMind", start=(start - timedelta(days=1)).isoformat(),
                                   end=(end + timedelta(days=1)).isoformat(), limit=50_000)
     acc: dict[str, dict[str, list[float]]] = {"mood": defaultdict(list), "energy": defaultdict(list), "stress": defaultdict(list)}
@@ -79,7 +79,7 @@ def journal_daily(profile_id: str, start: date, end: date) -> dict[str, dict[str
 
 
 def workout_daily(profile_id: str, start: date, end: date) -> dict[str, dict[str, float]]:
-    tz = _tz()
+    tz = _tz(profile_id)
     ws = activity.list_workouts(profile_id, None, limit=100_000, start=(start - timedelta(days=1)).isoformat(),
                                 end=(end + timedelta(days=1)).isoformat())
     training._with_hr(profile_id, ws)
@@ -102,7 +102,7 @@ def workout_daily(profile_id: str, start: date, end: date) -> dict[str, dict[str
 
 def series(profile_id: str, key: str, days: int, end: Optional[date] = None) -> dict[str, Any]:
     """{label, unit, values: {day: value}} for a wearable metric, a Journal measure or workouts."""
-    start, last = _window(days, end)
+    start, last = _window(days, end, profile_id)
     if key in JOURNAL_SERIES:
         label, unit, about = JOURNAL_SERIES[key]
         return {"key": key, "label": label, "unit": unit, "about": about,
@@ -123,7 +123,7 @@ def comparable(profile_id: str) -> list[dict[str, Any]]:
     workouts once there are some."""
     out = [{"key": m["metric"], "label": m["label"], "unit": m["unit"], "group": m["group"]}
            for m in biometrics.available_metrics(profile_id) if m["days"] >= 7]
-    have = journal_daily(profile_id, *_window(180))
+    have = journal_daily(profile_id, *_window(180, profile_id=profile_id))
     for key, (label, unit, _) in JOURNAL_SERIES.items():
         if len(have[key.split(":")[1]]) >= 5:
             out.append({"key": key, "label": label, "unit": unit, "group": "journal"})
@@ -150,7 +150,7 @@ def compare(profile_id: str, a: str, b: str, days: int = 90, lag: int = 0) -> di
     day before's training is lag -1), how they move together, and ``b`` on ``a``'s higher and lower days."""
     lag = max(-7, min(int(lag), 7))
     sa = series(profile_id, a, days)
-    sb = series(profile_id, b, days + abs(lag), end=_window(1)[1])
+    sb = series(profile_id, b, days + abs(lag), end=_window(1, profile_id=profile_id)[1])
     pairs = []
     for day, x in sorted(sa["values"].items()):
         other = (date.fromisoformat(day) + timedelta(days=lag)).isoformat()
@@ -347,7 +347,7 @@ def personal_range(profile_id: str, metric: str, days: int = 90, source: Optiona
     if metric not in METRICS:
         raise ValueError("Unknown measure.")
     label, unit, _, _ = METRICS[metric]
-    today = _today()
+    today = _today(profile_id)
     span = days + BASELINE_DAYS
     points = _complete(biometrics.daily_series(profile_id, metric, days=span, source=source)["points"])
     chosen = source or _main_source(points[-RECENT_DAYS:])
@@ -436,7 +436,7 @@ def _matters(delta: float, usual: float, min_abs: Optional[float], min_rel: Opti
 
 
 def _changes(profile_id: str) -> list[dict[str, Any]]:
-    today = _today()
+    today = _today(profile_id)
     have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
     found: list[tuple[Optional[dict[str, Any]], float]] = []
     moved: dict[tuple[str, str], dict[str, Any]] = {}
@@ -564,7 +564,7 @@ Candidate = tuple[Optional[dict[str, Any]], float]
 def _feeling_links(profile_id: str, days: int = 90) -> list[Candidate]:
     """How check-ins line up with sleep the night before, with how likely each is by chance alone."""
     out: list[Candidate] = []
-    start, end = _window(days)
+    start, end = _window(days, profile_id=profile_id)
     feel = journal_daily(profile_id, start, end)
     if not any(len(v) >= MIN_LINK_PAIRS for v in feel.values()):
         return out
@@ -609,7 +609,7 @@ def _feeling_links(profile_id: str, days: int = 90) -> list[Candidate]:
 def _symptom_links(profile_id: str, days: int = 120) -> list[Candidate]:
     """Symptoms logged on many days, against sleep the night before on the days without them."""
     out: list[Candidate] = []
-    tz = _tz()
+    tz = _tz(profile_id)
     events = activity.list_events(profile_id, days, category="symptoms", limit=5000)
     by_name: dict[str, set[str]] = defaultdict(set)
     for e in events:
@@ -649,7 +649,7 @@ def _hard_day_links(profile_id: str) -> list[Candidate]:
         hrv = {p["day"]: p["value"] for p in biometrics.daily_series(profile_id, metric, days=90)["points"]}
         if len(hrv) < MIN_LINK_PAIRS:
             continue
-        start, end = _window(90)
+        start, end = _window(90, profile_id=profile_id)
         load = workout_daily(profile_id, start, end)["load"]
         trained = sorted(v for v in load.values() if v > 0)
         if not trained:
@@ -709,7 +709,7 @@ def _medication_notes(profile_id: str) -> list[dict[str, Any]]:
     """What differed in wearable measurements around the first order on record for a medication in the last year, from
     one device, with at least two weeks of data on each side. A renewal isn't a beginning, and the first order here may
     not be the true start either, since portals don't always keep old history; the wording says which it is."""
-    today = _today()
+    today = _today(profile_id)
     have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
     found: list[tuple[dict[str, Any], float]] = []
     gates = {metric: (min_abs, min_rel) for metric, _, min_abs, min_rel in WATCH}
@@ -881,7 +881,7 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
             note = _lab_note(lab, records.observation_series(profile_id, lab["code"], "labs"))
             if note:
                 found.append(note)
-    since = (_today() - timedelta(days=BACK_IN_RANGE_DAYS)).isoformat()
+    since = (_today(profile_id) - timedelta(days=BACK_IN_RANGE_DAYS)).isoformat()
     for code in records.recently_normal_lab_codes(profile_id, since, MAX_RECENT_NORMAL_CODES):
         s = records.observation_series(profile_id, code, "labs")
         pts, low, high = s["points"], s["ref_low"], s["ref_high"]
@@ -967,7 +967,7 @@ def _reading_breach(profile_id: str, metric: str, today: date) -> dict[str, Any]
 
 
 def _urgent_readings(profile_id: str) -> list[dict[str, Any]]:
-    today = _today()
+    today = _today(profile_id)
     have = {m["metric"] for m in biometrics.available_metrics(profile_id)}
     out = []
 
@@ -1006,7 +1006,7 @@ def _urgent_readings(profile_id: str) -> list[dict[str, Any]]:
 
 
 def _urgent_labs(profile_id: str) -> list[dict[str, Any]]:
-    today = _today()
+    today = _today(profile_id)
     since = (today - timedelta(days=LAB_FRESH_DAYS)).isoformat()
     out = []
     for lab in records.flagged_labs(profile_id):
@@ -1026,8 +1026,8 @@ def _urgent_labs(profile_id: str) -> list[dict[str, Any]]:
 
 
 def _urgent_notifications(profile_id: str) -> list[dict[str, Any]]:
-    today = _today()
-    tz = _tz()
+    today = _today(profile_id)
+    tz = _tz(profile_id)
     latest: dict[str, tuple[str, int]] = {}
     for e in activity.list_events(profile_id, NOTIFICATION_FRESH_DAYS, category="events", limit=500):
         if e["event_type"] in WATCH_NOTIFICATIONS and "(simulated)" not in (e.get("source_name") or ""):

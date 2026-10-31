@@ -59,7 +59,7 @@ def progress(profile_id: str, days: int = 7) -> list[dict[str, Any]]:
     """Each goal with how many of the last ``days`` complete days met it. Today's running total counts only for an "at
     least" goal it has already met: steps can still get there, but sugar so far says nothing about an "at most"."""
     out = []
-    today = datetime.now(biometrics._tz()).date().isoformat()
+    today = datetime.now(biometrics._tz(profile_id)).date().isoformat()
     for metric, goal in get(profile_id).items():
         pts = biometrics.daily_series(profile_id, metric, days=days)["points"]
         counted = [p for p in pts if not (p["day"] == today and p.get("partial")

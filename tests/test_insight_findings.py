@@ -933,3 +933,18 @@ def test_the_compare_tool_names_the_right_statistic_and_gives_its_interval(clien
     assert "Pearson" not in tool["note"] and "rank correlation" in tool["note"] and "trend" in tool["note"]
     assert "interval" in tool["note"] and "pairs" in tool["note"]
     assert tool["interval"] == direct["interval"] and tool["interval"]["low"] <= tool["r"] <= tool["interval"]["high"]
+
+
+def test_a_persons_own_time_zone_decides_what_today_is(client):
+    from zoneinfo import ZoneInfo
+    from app.core import settings
+    from app.store import goals, profiles
+    pid = _prof()
+    settings.set("display.timezone", "Pacific/Pago_Pago")       # a day behind the zone below, whatever the time
+    profiles.update_profile(pid, timezone="Pacific/Kiritimati")
+    their_today = datetime.now(ZoneInfo("Pacific/Kiritimati")).date()
+    assert insights._today(pid) == their_today and insights._today() != their_today
+    assert insights._window(1, profile_id=pid)[1] == their_today
+    assert their_today.isoformat() in ai.system_prompt(profiles.get_profile(pid)) or f"{their_today:%B}" in ai.system_prompt(profiles.get_profile(pid))
+    assert goals.progress(pid) == []
+

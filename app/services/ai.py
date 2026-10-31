@@ -921,7 +921,7 @@ def _run_tool(name: str, args: dict[str, Any], profile_id: str) -> tuple[str, bo
 
 def system_prompt(profile: dict[str, Any], snapshot: Optional[str] = None) -> str:
     """The assistant's instructions. With ``snapshot`` (for models that can't use tools) it answers from that instead."""
-    tz = settings.timezone_name()
+    tz = profile.get("timezone") or settings.timezone_name()
     try:
         today = datetime.now(ZoneInfo(tz))
     except Exception:  # noqa: BLE001

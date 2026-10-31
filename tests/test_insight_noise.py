@@ -64,7 +64,7 @@ def world(monkeypatch):
         return {"points": pts}
     monkeypatch.setattr(biometrics, "daily_series", daily_series)
     monkeypatch.setattr(biometrics, "available_metrics", lambda _p: [{"metric": m} for m in state["series"]])
-    monkeypatch.setattr(insights, "_tz", lambda: UTC)
+    monkeypatch.setattr(insights, "_tz", lambda profile_id=None: UTC)
     return state
 
 

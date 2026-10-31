@@ -363,7 +363,7 @@ def _simulator_snapshot(monkeypatch):
     out = {}
     frozen = date(2026, 6, 1)
     with monkeypatch.context() as patch:
-        patch.setattr(insights, "_today", lambda: frozen)
+        patch.setattr(insights, "_today", lambda profile_id=None: frozen)
         for key in sorted(PERSONAS):
             pid = profiles.create_profile(f"Golden {key}")["id"]
             sync.import_fhir_resources(pid, f"Imported · {key}", build_chart(key, "golden", "Golden Clinic", "epic", today=frozen))
