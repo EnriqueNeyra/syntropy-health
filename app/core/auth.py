@@ -226,7 +226,7 @@ def login(request: Request, password: str, who: Optional[str] = None) -> str:
     else:
         candidates = [a for a in accounts.list_accounts() if a["has_password"]]
         if len(candidates) > 1:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose who's signing in.")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose who's signing in. In a phone app, use a pairing code from the web app instead.")
     what = candidates[0]["id"] if candidates else "unknown"
     check_attempts(request, what)
     unreadable = next((a for a in candidates if accounts.password_unreadable(a["id"])), None)

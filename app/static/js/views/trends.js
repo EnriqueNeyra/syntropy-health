@@ -451,8 +451,8 @@ export async function render({ el, parts, params, state, navigate }) {
         ${pts.length > 1 || hasComponents ? html`<div class="chips chips-strip" style="margin-bottom:4px">${CLINICAL_PERIODS.map(([d, label]) => html`<button class="chip ${clinicalDays === d ? "active" : ""}" data-action="clinical-period" data-days="${d}">${label}</button>`)}</div>` : ""}
         ${wordsOnly ? html`<p class="small muted" style="margin:0">No chart, because these results are words rather than numbers. Every result is listed below.</p>` : html`<div id="tr-chart"></div>`}
         ${markerList(showMarkers ? clinicalMarks() : [])}
-        ${change !== null ? html`<p class="small muted" style="margin-top:8px">${Math.abs(change) < 1e-9 ? "Unchanged" : `${change > 0 ? "Up" : "Down"} ${body ? fmtNum(Math.abs(change), 1) : num(Math.abs(change))} ${unit}`}
-          since ${fmtDate(measured[0].t)} (${plural(measured.length, "measured result")}).</p>` : ""}
+        ${change !== null ? html`<p class="small muted" style="margin-top:8px">${Math.abs(change) < 1e-9 ? "Same as on" : `${change > 0 ? "Up" : "Down"} ${body ? fmtNum(Math.abs(change), 1) : num(Math.abs(change))} ${unit} since`}
+          ${fmtDate(measured[0].t)} (${plural(measured.length, "measured result")}).</p>` : ""}
         ${pts.some((p) => p.comparator) ? html`<p class="small muted" style="margin-top:4px">Hollow points are limits, like "below 5": the true value is somewhere past them.</p>` : ""}
         ${pts.some((p) => p.converted) ? html`<p class="small muted" style="margin-top:4px">Some results were reported in another unit and are converted here to ${unit}.</p>` : ""}
       </div>

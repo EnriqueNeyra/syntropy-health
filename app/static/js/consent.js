@@ -25,7 +25,7 @@ export function vendorKey(provider, agent, address) {
 
 /** Asked once for each company or server, before Ask first uses it. Resolves true once confirmed. */
 export async function confirmAiProvider(name, vendor) {
-  const ok = await confirmDialog(`Send your questions to ${name}?`, html`${name} will see your questions and the health records Ask looks
+  const ok = await confirmDialog(`Send your questions to ${name}?`, html`${name} will see your questions, your name and birth date, and the health records Ask looks
     up to answer them, and ${name}'s own terms and privacy policy apply to them, not Syntropy Health's. For answers that
     never leave your network, use a local model instead. You can take this back in Settings → AI.`, { confirmLabel: "I understand" });
   if (ok) await post("/api/ai/acknowledge", { vendor, name });

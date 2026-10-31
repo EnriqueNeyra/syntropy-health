@@ -52,7 +52,7 @@ connection and AI access are tighter. Lines under each heading are what changed 
   "Glucose" no longer joins your blood results.
 - **Reference ranges fit the person.** A range for another sex or age, or a critical range, is no longer used as the
   normal range, and with several equal candidates no flag is computed. A test's history joins its different codes.
-  Flagged results more than two years old are marked as older and left out of the bell.
+  Flagged results more than 18 months old are marked as older and left out of the bell.
 - **Medications and problems follow one rule.** Older orders, holds and plans are listed as *May be out of date* with
   the reason, drafts and proposals under *Planned*, and strengths of one drug sit side by side. Possible diagnoses and
   ones with no stated status are shown under their own names. A medication, problem or allergy that one source marks
@@ -72,6 +72,9 @@ connection and AI access are tighter. Lines under each heading are what changed 
 - **Filter and search.** Records can be filtered by source, report type, note type, author and date, and a search finds
   several words in any order across note text, report text and clinicians. A visit links to its notes and results, and a
   result shows the one before it and links to its history.
+- A file for someone born on a different day than the birth date held for this person is called out when it's imported, on Overview and on the visit summary, which no longer prints that patient's name beside this person's birth date.
+- Records and Timeline can be narrowed to entries with a document or to your corrections, and Timeline can show other records.
+- A medication or allergy name made only of spaces is stopped on the page.
 
 ### The visit summary and Overview
 
@@ -97,6 +100,10 @@ connection and AI access are tighter. Lines under each heading are what changed 
   pressure chart, and *Before and after* shows values and counts on each side of a medication's first order or a date.
   Ages under 2 show in months, every vaccine is listed, and symptoms and doses you've logged can be compared with any
   measure, by days with and without them.
+- Prepare for a visit now includes other records and documents kept with a record, and shows your own words beside an entry.
+- An entry you marked as wrong or not you no longer counts as new, and in Prepare for a visit it is listed apart from the facts.
+- The visit summary shows what you said about an entry on every table of entries, and has a section you can include for entries you corrected.
+- A visit summary printed from a phone prints as a table.
 
 ### Insights and trends
 
@@ -115,6 +122,8 @@ connection and AI access are tighter. Lines under each heading are what changed 
 - Medications are marked on charts at their first order on record, not each renewal, and only say *Started* when the
   record says you took them. Hiding an insight hides it on your other devices. Blood oxygen in text sent to AI apps
   reads 96.5%, not 9650%.
+- A lab trend shows one lab's range, never one lab's low limit with another lab's high limit.
+- With no range on record, What's changed says a result was flagged by the lab rather than calling it outside a range.
 
 ### Ask and AI apps
 
@@ -145,6 +154,8 @@ connection and AI access are tighter. Lines under each heading are what changed 
   asking for the next part; long notes and lab text can be read to the end. Search finds a word inside a longer one
   ("diabetes" finds Prediabetes). Tools say when a metric, date or name is wrong and what would work. The Anthropic
   default is now Claude Sonnet 5.5. Text inside records is flagged to the AI as information, never instructions.
+- The access log says Ask looked something up to answer a question.
+- The question before using an outside AI says it sees your name and birth date too.
 
 ### Wearables and phone data
 
@@ -222,6 +233,11 @@ connection and AI access are tighter. Lines under each heading are what changed 
 - **Syntropy Labs' registrations come with its releases only.** The Mac and Windows apps, the installers and the Docker
   image carry a key the sign-in relay and callback page check; a copy built from source, such as a fork, uses its own
   registrations and says how. The relay keeps serving releases from before the key for now.
+- People who can only view no longer see controls they aren't allowed to use.
+- Invited people are told their records are on the computer that runs Syntropy Health, not on their own device.
+- Deleting a person also clears their words from the search index, so they don't travel in later backups.
+- An archive that would unpack to more than the computer's memory can hold is refused.
+- Test names, doctors' names and note types stay out of the server's log, as search terms already did.
 
 ### Backups, restoring and upgrades
 

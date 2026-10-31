@@ -423,6 +423,9 @@ export async function render({ el, state, navigate }) {
               <button class="btn btn-sm" data-action="edit">${icon("sliders")} Edit</button>`}
         </div>
       </div>
+      ${conflict.length ? html`<div class="banner warn">${icon("alert")}<div class="grow"><b>These records name different people:</b>
+        ${conflict.map((p) => `${p.full_name || "unnamed patient"}${p.birth_date ? ` (born ${fmtDate(p.birth_date)})` : ""}`).join(", ")}.
+        <a href="#/sources">Review sources</a></div></div>` : ""}
       ${editing ? html`<div class="banner dash-hint"><div class="grow">Drag items by ${icon("grip")} to move them, choose a size, or remove them.
         Add brings back cards and numbers.</div></div>` : ""}
       ${items.length ? html`<div class="dash ${editing ? "editing" : ""}" id="dash">${items.map(({ w, out }) => html`

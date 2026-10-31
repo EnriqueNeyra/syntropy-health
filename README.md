@@ -84,8 +84,8 @@ It organizes records and doesn't give medical advice or diagnose anything.
 | **From source** | `git clone https://github.com/EnriqueNeyra/syntropy-health && cd syntropy-health && ./run.sh` |
 
 The Mac and Windows apps walk you through setup; otherwise open <http://localhost:8000> and follow it. On a server
-that has no password yet, the first password needs a one-time setup code printed in the server's log (nearby, on the
-same computer, it isn't needed). No accounts handy? Turn on developer mode in **Settings →
+that has no password yet, the first password needs a one-time setup code printed in the server's log (on the same
+computer, the home network or Tailscale, it isn't needed). No accounts handy? Turn on developer mode in **Settings →
 Developer** to connect to the built-in **EHR simulator**, and add simulated Oura or WHOOP data to explore everything with synthetic records.
 
 Syntropy Labs' registrations with health systems, Oura and WHOOP, and its sign-in relay, come with the releases above
@@ -134,7 +134,8 @@ again. `syntropy-health key new` makes a fresh key once you've decided the old o
 
 `syntropy-health accounts` lists who signs in. `accounts reset-password NAME` sets a new password for someone locked
 out, and `accounts make-owner NAME` hands the server to someone else or adds another owner. On a server that has no
-password yet, the first password needs the one-time setup code printed in the server's log.
+password yet, the first password needs the one-time setup code printed in the server's log, unless it's set from the same
+computer, the home network or Tailscale.
 
 Behind a reverse proxy (Caddy, nginx, a Cloudflare Tunnel), pass on `X-Forwarded-Proto` and `X-Forwarded-Host`, and set
 `FORWARDED_ALLOW_IPS` to the proxy's address. On your home network the connection to the server is plain HTTP unless you

@@ -1022,7 +1022,11 @@ def new_key() -> None:
           "saved with the old key stay unreadable: everyone sets a new password with `syntropy-health accounts "
           "reset-password NAME`, and sources and AI services need signing in to again.")
     print("Don't do this if you can still find the old secret.key: putting it back fixes everything.")
-    if input("Type NEW to go ahead: ").strip() != "NEW":
+    try:
+        answer = input("Type NEW to go ahead: ")
+    except EOFError:
+        sys.exit("There's no one here to type NEW, so nothing was changed. With Docker, run this with docker exec -it.")
+    if answer.strip() != "NEW":
         sys.exit("Nothing was changed.")
     moved = security.start_new_key()
     print(f"Done. The old key file was kept as {moved}." if moved else "Done.")

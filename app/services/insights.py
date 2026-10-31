@@ -885,6 +885,8 @@ def _lab_note(lab: dict[str, Any], s: dict[str, Any]) -> Optional[dict[str, Any]
     num = lambda v: f"{v:.{places}f}"  # noqa: E731
     out_word = "above" if side == "high" else "below"
     ref = _range_words(lab, s, last)
+    # With no range to hand, all that's known is what the lab said.
+    placed = f"flagged {side} by the lab" if low is None and high is None and not ref else f"{out_word} the reference range{ref}"
     moved = last["v"] - prev["v"]
     outward = (moved > 0) == (side == "high")
     big = abs(moved) >= (min(LAB_MIN_CHANGE * abs(prev["v"]), LAB_MIN_RANGE_SHARE * (high - low))
@@ -896,9 +898,9 @@ def _lab_note(lab: dict[str, Any], s: dict[str, Any]) -> Optional[dict[str, Any]
     if big and not outward:
         if lab.get("interpretation") in records.CRITICAL:
             return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention", "title": f"{s['title']} still flagged critical",
-                    "text": f"{sentence}, and still {out_word} the reference range{ref}. The lab marked this critical."}
+                    "text": f"{sentence}, and still {placed}. The lab marked this critical."}
         return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "info", "title": f"{s['title']} closer to the range",
-                "text": f"{sentence}, and still {out_word} the reference range{ref}."}
+                "text": f"{sentence}, and still {placed}."}
     dated = [p for p in pts if _iso_day(p["t"]) and not p.get("comparator")]
     if len(dated) >= DRIFT_MIN_RESULTS and _ordinal(last["t"]) - _ordinal(dated[0]["t"]) >= DRIFT_MIN_DAYS:
         ts = [float(_ordinal(p["t"])) for p in dated]
@@ -913,16 +915,16 @@ def _lab_note(lab: dict[str, Any], s: dict[str, Any]) -> Optional[dict[str, Any]
             return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention",
                     "title": f"{s['title']} has been {'rising' if side == 'high' else 'falling'}",
                     "text": (f"{s['title']} has gone from {num(dated[0]['v'])} to {num(last['v'])} {unit} over {_span_words(span)}, and "
-                             + (f"has been {out_word} the reference range{ref} since {d:%b} {d.year}." if d
-                                else f"is {out_word} the reference range{ref}.")).replace("  ", " ")}
+                             + (f"has been {placed} since {d:%b} {d.year}." if d
+                                else f"is {placed}.")).replace("  ", " ")}
     if not big or not outward:
         return None
     if _flag_side(prev.get("interpretation"), prev["v"], low, high) == side:
         return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention", "title": f"{s['title']} moving further out of range",
-                "text": f"{sentence}, and {out_word} the reference range{ref}."}
+                "text": f"{sentence}, and {placed}."}
     first = not any(_flag_side(p.get("interpretation"), p["v"], low, high) == side for p in pts[:-1])
     return {**base, "id": f"lab:{code}:{last['t'][:10]}", "tone": "attention", "title": f"{s['title']} moved out of range",
-            "text": f"{sentence}, which is {out_word} the reference range{ref}" + (", for the first time on record." if first else ".")}
+            "text": f"{sentence}, which is {placed}" + (", for the first time on record." if first else ".")}
 
 
 def _range_words(lab: dict[str, Any], series: dict[str, Any], last: dict[str, Any]) -> str:

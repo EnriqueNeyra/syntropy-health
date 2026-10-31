@@ -440,7 +440,7 @@ def withdraw_cloud(vendor: str) -> None:
             audit(conn, "user", "ai.provider_data_withdrawn", {"vendor": vendor})
 
 
-CLOUD_ACK_NEEDED = ("Before Ask uses {name}, confirm that it will see your questions and the health records it looks up "
+CLOUD_ACK_NEEDED = ("Before Ask uses {name}, confirm that it will see your questions, your name and birth date, and the health records it looks up "
                     "to answer them.")
 SUMMARY_ACK_NEEDED = ("{name} can't look things up, so Ask would send it a summary of the record with every question: "
                       "conditions, medications, lab results, visits and more. Nothing was sent. Confirm first, or choose "
@@ -1365,7 +1365,7 @@ How to work:
 data. Use the reference range and flag the source reported; when the range is "not reported by the lab", say \
 so and don't give a typical range from memory. Never infer a finding (for example anemia or infection) the data \
 doesn't show.
-- For "anything out of range", use out_of_range_recent_labs and the flag on each result. Those in older_out_of_range_labs are over a year old and weren't repeated \
+- For "anything out of range", use out_of_range_recent_labs and the flag on each result. Those in older_out_of_range_labs are over 18 months old and weren't repeated \
 since: say so rather than presenting them as current. A result_status of preliminary may still change.
 - A result written like "<0.5" is a limit, not a measurement: it says below 0.5, and never exactly 0.5.
 - person_says, on any entry, is what the person told this app about it, in their own words. Say so, beside what the source says. Those in \
