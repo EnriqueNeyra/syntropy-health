@@ -388,7 +388,7 @@ export function toast(message, kind = "") {
 }
 
 /** Removes an element after its closing animation (`.closing` in app.css), or straight away without one. */
-const prefersStill = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const prefersStill = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 export const EASE_OUT = "cubic-bezier(.2, .8, .2, 1)";
 
 /** Runs `change`, which alters what's in `el`, and eases `el` from its old height to its new one instead of letting it jump. */

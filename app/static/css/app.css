@@ -323,7 +323,10 @@ label.btn:has(input[type="file"]):focus-within { outline: 2px solid var(--accent
 .jr-kind.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); color: var(--text); }
 .jr-kind svg { width: 18px; height: 18px; }
 .jr-kind.active svg { color: var(--accent); }
-.jr-form textarea { resize: vertical; }
+.jr-form { display: flex; flex-direction: column; }
+.jr-fields { flex: 1; display: flex; flex-direction: column; animation: fade-in .14s ease-out; }
+.jr-note-field { flex: 1; display: flex; flex-direction: column; margin-bottom: 0; }
+.jr-form textarea { flex: 1; resize: none; min-height: 72px; }
 /* Mood levels, very unpleasant (1) to very pleasant (5): a diverging scale around a neutral grey. */
 .jr-top, .jr-row { --m1: var(--bad); --m2: color-mix(in srgb, var(--bad) 55%, var(--text-4)); --m3: var(--text-4);
   --m4: color-mix(in srgb, var(--good) 60%, var(--text-4)); --m5: var(--good); }
@@ -420,37 +423,67 @@ label.btn:has(input[type="file"]):focus-within { outline: 2px solid var(--accent
 /* ---------- Overview widgets ---------- */
 /* The Overview: a four-column grid packed like a masonry wall (see masonry() in overview.js). Each item spans as
    many 2px rows as it is tall; the 16px below each item is the gap between rows. */
-.dash { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 2px; grid-auto-flow: row dense;
+.dash { --dash-row: 148px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 2px; grid-auto-flow: row dense;
   column-gap: 16px; align-items: start; }
 .dash-item { min-width: 0; grid-column: span 2; }
 .dash-item.size-s { grid-column: span 1; }
 .dash-item.size-l { grid-column: span 3; }
 .dash-item.size-xl { grid-column: 1 / -1; }
 .dash-inner { position: relative; }
-.dash-inner > .card { height: auto; }
+.dash-inner > .card { height: auto; transition: box-shadow .2s ease; }
+/* Given a number of rows, a card is exactly that tall: what doesn't fit scrolls inside it, and its footer stays at the bottom. */
+.dash-item[data-rows] .dash-inner > .card { height: calc(var(--rows) * var(--dash-row) + (var(--rows) - 1) * 16px); overflow: hidden; }
+.dash-item[data-rows] .widget-card > :is(.list, .insights) { flex: 1; min-height: 0; overflow-y: auto; }
+.dash-item[data-rows] .widget-card > .card-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.dash-item[data-rows] .widget-chart { flex: 1; min-height: 0; overflow: hidden; }
+/* Changing size: the card follows its frame while it moves, rather than sticking out of it. */
+.dash-inner.morphing { overflow: hidden; border-radius: var(--radius); z-index: 1; }
+.dash-inner.morphing > .card { height: 100% !important; }
+.dash-item.is-tile { container-type: inline-size; }
 .dash-item.is-tile .tile { margin: 0; display: flex; flex-direction: column; }
-/* Tiles share one height (see masonry()): the sparkline sits at the bottom of a taller one. */
-.dash-item.is-tile .tile .spark { margin-top: auto; }
-.dash.editing .dash-inner > :not(.dash-controls) { pointer-events: none; user-select: none; }
-.dash.editing .dash-inner > .card { outline: 1.5px dashed var(--border-strong); outline-offset: 3px; }
-.dash-controls { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; align-items: center; gap: 4px; padding: 3px;
+/* Tiles share one height (see masonry()), and the small chart takes whatever room a tile has. */
+.dash-item.is-tile .tile .spark { flex: 1 0 34px; min-height: 34px; height: auto; }
+@container (min-width: 380px) { .tile .v { font-size: 36px; } .tile .k, .tile .s { font-size: 13px; } }
+.dash-controls { position: absolute; top: 8px; right: 8px; z-index: 3; display: flex; align-items: center; gap: 2px; padding: 3px;
   border-radius: 10px; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); box-shadow: var(--shadow);
-  backdrop-filter: blur(6px); }
-.dash-controls button { border: 0; background: none; color: var(--text-3); font: inherit; font-size: 11px; font-weight: 650; border-radius: 7px;
-  padding: 4px 6px; cursor: pointer; display: flex; align-items: center; }
+  backdrop-filter: blur(6px); visibility: hidden; opacity: 0; transition: opacity .18s ease, visibility .18s; }
+.dash-controls button { border: 0; background: none; color: var(--text-3); font: inherit; border-radius: 7px; padding: 4px; cursor: pointer; display: flex; align-items: center; }
 @media (hover: hover) { .dash-controls button:hover { color: var(--text); background: var(--surface-2); } }
 .dash-controls svg { width: 15px; height: 15px; }
-.dash-handle { cursor: grab !important; touch-action: none; }
-.dash-sizes { display: flex; gap: 1px; }
-.dash-sizes button.active { background: var(--text); color: var(--bg); }
+.dash-handle { touch-action: none; }
 @media (hover: hover) { .dash-remove:hover { color: var(--bad) !important; } }
-.dash-item.dragging .dash-inner { opacity: .35; }
-.dash-ghost { position: fixed; z-index: 1000; pointer-events: none; margin: 0; transform: rotate(1deg) scale(1.02); box-shadow: var(--shadow-lg);
-  border-radius: var(--radius); opacity: .95; }
-.dash-ghost .dash-inner > .card { outline: 0; }
+/* The corners: an arc that follows the card's own corner, as on a phone's widgets. Bigger to the finger than to the eye. */
+.dash-corner { position: absolute; z-index: 3; width: 30px; height: 30px; padding: 0; border: 0; background: none; touch-action: none; visibility: hidden; opacity: 0; transition: opacity .18s ease, visibility .18s; }
+.dash-corner::before { content: ""; position: absolute; width: 18px; height: 18px; border: 0 solid var(--text-3); transition: border-color .12s ease; }
+.dash-corner.tl { top: -7px; left: -7px; cursor: nwse-resize; } .dash-corner.tl::before { top: 5px; left: 5px; border-width: 3px 0 0 3px; border-top-left-radius: 15px; }
+.dash-corner.tr { top: -7px; right: -7px; cursor: nesw-resize; } .dash-corner.tr::before { top: 5px; right: 5px; border-width: 3px 3px 0 0; border-top-right-radius: 15px; }
+.dash-corner.bl { bottom: -7px; left: -7px; cursor: nesw-resize; } .dash-corner.bl::before { bottom: 5px; left: 5px; border-width: 0 0 3px 3px; border-bottom-left-radius: 15px; }
+.dash-corner.br { bottom: -7px; right: -7px; cursor: nwse-resize; } .dash-corner.br::before { bottom: 5px; right: 5px; border-width: 0 3px 3px 0; border-bottom-right-radius: 15px; }
+@media (hover: hover) { .dash-corner:hover::before { border-color: var(--accent); } }
+.dash-corner:focus-visible { outline: 0; }
+.dash-corner:focus-visible::before { border-color: var(--accent); }
+@media (pointer: coarse) { .dash-corner { width: 44px; height: 44px; } .dash-corner.tl { top: -14px; left: -14px; } .dash-corner.tr { top: -14px; right: -14px; }
+  .dash-corner.bl { bottom: -14px; left: -14px; } .dash-corner.br { bottom: -14px; right: -14px; }
+  .dash-corner.tl::before { top: 12px; left: 12px; } .dash-corner.tr::before { top: 12px; right: 12px; } .dash-corner.bl::before { bottom: 12px; left: 12px; } .dash-corner.br::before { bottom: 12px; right: 12px; } }
+.dash.editing .dash-controls, .dash.editing .dash-corner { visibility: visible; opacity: 1; }
+.dash.editing .dash-inner { cursor: grab; -webkit-user-select: none; user-select: none; }
+.dash.editing .dash-inner > .card { box-shadow: 0 0 0 1.5px var(--border-strong); }
+.dash.editing .card-head > :not(h3) { visibility: hidden; }    /* the card's controls sit there */
+/* Where the card being moved will land. */
+.dash-item.dragging .dash-inner { border-radius: var(--radius); background: color-mix(in srgb, var(--text) 5%, transparent); box-shadow: inset 0 0 0 1.5px var(--border-strong); }
+.dash-item.dragging .dash-inner > * { visibility: hidden !important; }
+.dash-ghost { position: fixed; z-index: 1000; pointer-events: none; margin: 0; transform: scale(1.03); box-shadow: var(--shadow-lg); border-radius: var(--radius); animation: dash-lift .14s ease-out both; }
+.dash-ghost .dash-inner { height: 100%; overflow: hidden; border-radius: var(--radius); }
+.dash-ghost :is(.dash-controls, .dash-corner) { display: none; }
+.dash-ghost .card { box-shadow: none !important; }
 .dash-ghost.cut { overflow: hidden; -webkit-mask-image: linear-gradient(#000 calc(100% - 48px), transparent); mask-image: linear-gradient(#000 calc(100% - 48px), transparent); }
-.dash-hint { margin-bottom: 16px; }
-.dash-hint svg { width: 14px; height: 14px; vertical-align: -2px; }
+@keyframes dash-lift { from { transform: none; box-shadow: var(--shadow); } }
+/* The corner's real position while resizing, with the size the card has snapped to. */
+.dash-sizer { position: fixed; z-index: 1000; pointer-events: none; border: 2px solid var(--accent); border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 6%, transparent); display: grid; place-items: center; }
+.dash-sizer span { padding: 3px 9px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 12px; font-weight: 600; white-space: nowrap; }
+:root.dash-resizing, :root.dash-resizing * { -webkit-user-select: none; user-select: none; }
+.dash-hint .banner { margin-bottom: 16px; }
+.dash-hint .banner > svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--text-3); }
 .dash-add-section { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-3); margin: 4px 0 8px; }
 .dash-add-section:not(:first-child) { margin-top: 20px; }
 .dash-add { width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border); font: inherit; color: inherit; }
@@ -517,6 +550,11 @@ label.btn:has(input[type="file"]):focus-within { outline: 2px solid var(--accent
   padding: 8px 11px; outline: none;
 }
 .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-2); }
+/* A menu looks the same in every browser and window, drawn with two small gradients so there's no image to load. */
+select.input { -webkit-appearance: none; appearance: none; padding-right: 30px; background-repeat: no-repeat; background-size: 6px 6px;
+  background-position: right 16px center, right 11px center;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%), linear-gradient(135deg, var(--text-3) 50%, transparent 50%); }
+select.input.input-sm { padding-right: 28px; }
 /* iPhone and iPad draw date and time fields their own way, at a width of their own: as wide as the form, text at the start. */
 .input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"]) { -webkit-appearance: none; appearance: none; display: block;
   min-width: 0; min-height: 38px; }
@@ -586,6 +624,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .tile .v { font-family: var(--font-brand); font-size: 26px; font-weight: 750; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .tile .v small { font-size: 13px; font-weight: 600; color: var(--text-3); margin-left: 3px; }
 .tile .s { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+.tile { overflow: hidden; }
 .tile .spark { position: relative; display: block; width: 100%; height: 34px; margin-top: 6px; }
 .tile .spark svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .tile .spark path { fill: none; stroke: var(--series-1); stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; }
@@ -808,7 +847,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 @media (max-width: 480px) { .segmented button { padding: 5px 9px; } }
 @media (hover: hover) { .segmented button:hover { color: var(--text); } }
 .segmented button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
-.segmented button, .seg > button, .seg > label, .jr-scale button { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+.segmented button, .seg > button, .seg > label, .jr-scale button, .jr-kind { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease, border-color .15s ease; }
 .input-sm, select.input-sm { padding: 5px 9px; font-size: 13px; }
 .input-unit { display: flex; align-items: center; gap: 8px; }
 .input-unit .input, .set-control .input-unit .input { width: 90px; min-width: 0; }
@@ -1556,7 +1595,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .goal-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--surface-3); display: inline-block; }
 .goal-dots i.met { background: var(--good); }
 .goal-dots i.open { background: transparent; box-shadow: inset 0 0 0 1.5px var(--border-strong); }
-.jr-med-chips { margin-top: 8px; align-items: center; }
+.jr-med-chips { margin-top: 8px; align-items: center; min-height: 28px; }
 .jr-med-chips .chip svg { width: 12px; height: 12px; }
 .chat-history { position: fixed; z-index: 60; padding: 6px; max-height: min(480px, 70vh); display: flex; flex-direction: column; }
 .chat-history-head { display: flex; align-items: baseline; gap: 8px; padding: 8px 10px 6px; }

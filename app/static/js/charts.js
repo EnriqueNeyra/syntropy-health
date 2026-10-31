@@ -668,13 +668,22 @@ export function sparkline(values) {
     + `<i style="left:${((last[0] / w) * 100).toFixed(2)}%;top:${((last[1] / h) * 100).toFixed(2)}%"></i></span>`;
 }
 
-/** Re-render charts when their container width changes. */
-export function responsive(container, draw) {
-  let last = 0;
+/**
+ * Draws a chart once its container has a size, and again when that changes, once it has stopped changing: redrawing on every
+ * frame of a resize is what makes it stutter, and meanwhile the drawing just stretches. `tall` follows its height too.
+ */
+export function responsive(container, draw, { tall = false } = {}) {
+  let lastWidth = 0, lastHeight = 0, timer = null;
   const ro = new ResizeObserver(() => {
-    const w = container.clientWidth;
-    if (Math.abs(w - last) > 8) { last = w; draw(); }
+    const w = container.clientWidth, h = tall ? container.clientHeight : 0;
+    if (Math.abs(w - lastWidth) <= 8 && Math.abs(h - lastHeight) <= 8) return;
+    const first = !lastWidth;
+    lastWidth = w;
+    lastHeight = h;
+    clearTimeout(timer);
+    if (first) draw();
+    else timer = setTimeout(draw, 90);
   });
   ro.observe(container);
-  return () => ro.disconnect();
+  return () => { ro.disconnect(); clearTimeout(timer); };
 }

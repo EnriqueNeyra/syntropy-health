@@ -311,6 +311,7 @@ class OverviewWidget(BaseModel):
     id: str = Field(..., max_length=60)
     visible: bool = True
     size: Optional[str] = Field(None, pattern="^(s|m|l|xl)$")      # a quarter, half, three quarters or all of the width
+    rows: Optional[int] = Field(None, ge=1, le=6)                  # how tall, once the person has set it; otherwise as its content needs
     options: dict[str, Any] = Field(default_factory=dict)
 
 

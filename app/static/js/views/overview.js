@@ -6,8 +6,8 @@ import { openRecord } from "./record-detail.js";
 import { moodLabel } from "./journal.js";
 import { duration, openWorkout } from "./workouts.js";
 import {
-  pageScroller, $, $$, age, ageText, capitalize, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw,
-  plural, recordDate, resultStatus, toast,
+  pageScroller, $, $$, EASE_OUT, ageText, capitalize, confirmDialog, easeHeight, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction,
+  plural, prefersStill, raw, recordDate, resultStatus, toast,
 } from "../ui.js";
 import { displayUnit, fmtMeasure, recordValue, unitSystem } from "../units.js";
 
@@ -193,10 +193,10 @@ export const WIDGETS = [
       ${d.sleep.points.length ? html`<div class="card-body"><div class="widget-chart" data-chart="sleep"></div></div>`
         : html`<div class="list-item muted small">No sleep recorded in the last two weeks.</div>`}
       <a class="card-foot" href="#/trends?metric=sleep_duration">Sleep trends ${icon("arrowRight")}</a></div>`,
-    draw: (el, d) => {
+    draw: (el, d, item) => {
       const box = el.querySelector("[data-chart=sleep]");
-      return box && responsive(box, () => barChart(box, d.sleep.points, { unit: "h", avg: d.sleep.stats.mean, label: "Sleep", digits: 1, height: 150,
-        format: (v) => metricValue({ unit: "h" }, v) }));
+      return box && responsive(box, () => barChart(box, d.sleep.points, { unit: "h", avg: d.sleep.stats.mean, label: "Sleep", digits: 1, noTable: true,
+        height: item.rows ? Math.max(120, box.clientHeight) : 150, format: (v) => metricValue({ unit: "h" }, v) }), { tall: Boolean(item.rows) });
     } },
   { id: "journal", title: "How you've been feeling", desc: "Your latest check-ins, moods and symptoms from the Journal", size: "m", on: true, needs: ["events"],
     render: (d) => listCard("How you've been feeling", "book", d.events.events, (e) => html`
@@ -264,10 +264,12 @@ export const WIDGETS = [
       "No sources yet.", { href: "#/sources", more: "Manage sources" }) },
 ];
 const BY_ID = new Map(WIDGETS.map((w) => [w.id, w]));
-// How wide an item is on the Overview's grid: quarter, half, three quarters or all of it (half or all on a phone).
-const SIZES = [["s", "Small"], ["m", "Medium"], ["l", "Large"], ["xl", "Full width"]];
-const TILE_SIZES = ["s", "m"];
+// How wide an item is on the Overview's grid: a quarter, half, three quarters or all of it (half or all on a phone). Its height
+// is what its content needs, until the person drags a corner to give it a number of rows.
+const SIZES = ["s", "m", "l", "xl"];
+const MAX_ROWS = 6;
 const isMetric = (id) => id.startsWith("m:");
+const rowsOf = (v) => (Number.isInteger(v) && v >= 1 && v <= MAX_ROWS ? v : undefined);
 const MAX_ITEMS = 60;
 const CORE_CARDS = ["labs", "medications", "conditions", "allergies"];
 const NEXT_CARDS = ["vitals", "visits"];
@@ -282,9 +284,9 @@ export function resolveLayout(saved, defaultMetrics) {
   if (!saved) tiles(defaultMetrics);
   for (const s of saved || []) {
     if (s.id === "today") { if (s.visible !== false) tiles(s.options?.metrics?.length ? s.options.metrics : defaultMetrics); continue; }
-    if (isMetric(s.id)) { push({ id: s.id, visible: s.visible !== false, size: TILE_SIZES.includes(s.size) ? s.size : "s" }); continue; }
+    if (isMetric(s.id)) { push({ id: s.id, visible: s.visible !== false, size: SIZES.includes(s.size) ? s.size : "s", rows: rowsOf(s.rows) }); continue; }
     const def = BY_ID.get(s.id);
-    if (def) push({ id: s.id, visible: s.visible !== false, size: SIZES.some(([k]) => k === s.size) ? s.size : def.size });
+    if (def) push({ id: s.id, visible: s.visible !== false, size: SIZES.includes(s.size) ? s.size : def.size, rows: rowsOf(s.rows) });
   }
   // New cards marked first (What's changed) go to the top, the rest after what's there.
   const front = [];
@@ -360,12 +362,32 @@ export async function render({ el, state, navigate }) {
   };
   const title = (w) => (isMetric(w.id) ? data.metrics.get(w.id.slice(2))?.label || w.id.slice(2) : BY_ID.get(w.id).title);
 
+  // Always there, shown while editing, so starting and finishing an edit changes nothing else on the page.
   const itemControls = (w) => html`<div class="dash-controls">
-    <button class="dash-handle" data-handle aria-label="Move ${title(w)}. Use the arrow keys to move it.">${icon("grip")}</button>
-    <div class="dash-sizes" role="group" aria-label="Size of ${title(w)}">${SIZES.filter(([k]) => !isMetric(w.id) || TILE_SIZES.includes(k)).map(([k, label]) => html`
-      <button class="${w.size === k ? "active" : ""}" data-action="resize" data-id="${w.id}" data-size="${k}" aria-pressed="${w.size === k}" title="${label}">${k.toUpperCase()}</button>`)}</div>
-    <button class="dash-remove" data-action="remove" data-id="${w.id}" aria-label="Remove ${title(w)}" title="Remove">${icon("x")}</button>
-  </div>`;
+      <button class="dash-handle" data-handle aria-label="Move ${title(w)}. Use the arrow keys to move it.">${icon("grip")}</button>
+      <button class="dash-remove" data-action="remove" data-id="${w.id}" aria-label="Remove ${title(w)}" title="Remove">${icon("x")}</button>
+    </div>
+    ${["tl", "tr", "bl"].map((c) => html`<span class="dash-corner ${c}" data-corner="${c}" aria-hidden="true"></span>`)}
+    <button class="dash-corner br" data-corner="br" aria-label="Resize ${title(w)}. Use the arrow keys to resize it."></button>`;
+
+  const syncPill = () => {
+    const connections = data.connections;
+    const issues = connections.filter((c) => !c.access_ended && (c.status === "needs_reauth" || c.status === "error"));
+    const syncing = connections.some((c) => c.syncing);
+    const lastSync = connections.map((c) => c.last_sync_at).filter(Boolean).sort().pop();
+    const oldest = connections.filter(isStale).sort((a, b) => a.last_sync_at - b.last_sync_at)[0];
+    const partly = connections.filter((c) => !c.access_ended && c.last_sync_status === "partial" && c.status === "active");
+    return html`<a class="sync-pill" href="#/sources"><span class="dot ${syncing ? "info pulse" : issues.length || oldest || partly.length ? "warn" : "good"}"></span>
+      ${syncing ? "Syncing…" : issues.length ? `${plural(issues.length, "source")} need${issues.length === 1 ? "s" : ""} attention`
+        : oldest ? `${oldest.display_name} last synced ${fmtAgo(oldest.last_sync_at)}`
+        : partly.length ? `${partly[0].display_name} synced in part`
+        : `${plural(connections.length, "source")}${lastSync ? ` · synced ${fmtAgo(lastSync)}` : ""}`}</a>`;
+  };
+  const headActions = () => (editing ? html`<button class="btn btn-sm btn-ghost" data-action="reset">Reset</button>
+      <button class="btn btn-sm" data-action="add">${icon("plus")} Add</button>
+      <button class="btn btn-sm btn-primary" data-action="done">${icon("check")} Done</button>`
+    : html`${syncPill()}<button class="btn btn-sm" data-action="edit">${icon("sliders")} Edit</button>`);
+  const EDIT_HINT = html`<div class="banner">${icon("grip")}<div class="grow">Drag a card to move it, and drag any of its corners to resize it. Add brings back cards and numbers.</div></div>`;
 
   const draw = () => {
     const { summary, bio, connections } = data;
@@ -400,51 +422,76 @@ export async function render({ el, state, navigate }) {
       return;
     }
 
-    const issues = connections.filter((c) => !c.access_ended && (c.status === "needs_reauth" || c.status === "error"));
-    const syncing = connections.some((c) => c.syncing);
-    const lastSync = connections.map((c) => c.last_sync_at).filter(Boolean).sort().pop();
-    const oldest = connections.filter(isStale).sort((a, b) => a.last_sync_at - b.last_sync_at)[0];
-    const partly = connections.filter((c) => !c.access_ended && c.last_sync_status === "partial" && c.status === "active");
     const items = layout.filter((w) => w.visible).map((w) => ({ w, out: content(w) })).filter((x) => x.out);
     mount(el, html`
       <div class="page-head">
         <div><h1>${heading}</h1>
           <p>${[years, identity?.gender ? identity.gender.charAt(0).toUpperCase() + identity.gender.slice(1) : null].filter(Boolean).join(" · ")}</p></div>
-        <div class="row wrap" style="gap:8px">
-          ${editing ? html`<button class="btn btn-sm btn-ghost" data-action="reset">Reset</button>
-              <button class="btn btn-sm" data-action="add">${icon("plus")} Add</button>
-              <button class="btn btn-sm btn-primary" data-action="done">${icon("check")} Done</button>`
-            : html`<a class="sync-pill" href="#/sources"><span class="dot ${syncing ? "info pulse" : issues.length || oldest || partly.length ? "warn" : "good"}"></span>
-              ${syncing ? "Syncing…" : issues.length ? `${plural(issues.length, "source")} need${issues.length === 1 ? "s" : ""} attention`
-                : oldest ? `${oldest.display_name} last synced ${fmtAgo(oldest.last_sync_at)}`
-                : partly.length ? `${partly[0].display_name} synced in part`
-                : `${plural(connections.length, "source")}${lastSync ? ` · synced ${fmtAgo(lastSync)}` : ""}`}</a>
-              <button class="btn btn-sm" data-action="edit">${icon("sliders")} Edit</button>`}
-        </div>
+        <div class="row wrap dash-actions" id="dash-actions" style="gap:8px">${headActions()}</div>
       </div>
       ${conflict.length ? html`<div class="banner warn">${icon("alert")}<div class="grow"><b>These records name different people:</b>
         ${conflict.map((p) => `${p.full_name || "unnamed patient"}${p.birth_date ? ` (born ${fmtDate(p.birth_date)})` : ""}`).join(", ")}.
         <a href="#/sources">Review sources</a></div></div>` : ""}
-      ${editing ? html`<div class="banner dash-hint"><div class="grow">Drag items by ${icon("grip")} to move them, choose a size, or remove them.
-        Add brings back cards and numbers.</div></div>` : ""}
+      <div class="dash-hint" id="dash-hint">${editing ? EDIT_HINT : ""}</div>
       ${items.length ? html`<div class="dash ${editing ? "editing" : ""}" id="dash">${items.map(({ w, out }) => html`
-          <div class="dash-item size-${w.size} ${isMetric(w.id) ? "is-tile" : ""}" data-id="${w.id}">
-            <div class="dash-inner">${editing ? itemControls(w) : ""}${out}</div></div>`)}</div>`
+          <div class="dash-item size-${w.size} ${isMetric(w.id) ? "is-tile" : ""}" data-id="${w.id}" ${raw(w.rows ? `data-rows="${w.rows}" style="--rows:${w.rows}"` : "")}>
+            <div class="dash-inner">${out}${itemControls(w)}</div></div>`)}</div>`
         : html`<div class="card">${emptyState("Nothing to show", "Every card is hidden.", html`<button class="btn btn-primary" data-action="add">${icon("plus")} Add cards</button>`)}</div>`}`);
     stopCharts.forEach((stop) => stop());
-    stopCharts = items.map(({ w }) => (!isMetric(w.id) && BY_ID.get(w.id).draw?.(el, data))).filter(Boolean);
+    stopCharts = items.map(({ w }) => (!isMetric(w.id) && BY_ID.get(w.id).draw?.(el, data, w))).filter(Boolean);
     const grid = $("#dash", el);
+    dash = null;
     if (grid) {
-      stopCharts.push(masonry(grid));
-      if (editing) sortableGrid(grid, (ids) => reorder(ids));
+      dash = masonry(grid);
+      stopCharts.push(dash.stop);
+      if (editing) quietCards(grid, true);
     }
+  };
+  let dash = null;
+  // While editing, a card is something to pick up: its own links and buttons wait.
+  const quietCards = (grid, on) => $$(".dash-inner > .card", grid).forEach((c) => { c.inert = on; });
+
+  /** Runs `change` (a card moved or resized, or the whole grid drawn again), and everything travels from where it was to where it now belongs. */
+  const glide = (change) => {
+    const measure = () => new Map($$(".dash-item", el).map((i) => [i.dataset.id, i.firstElementChild.getBoundingClientRect()]));
+    if (prefersStill() || !$("#dash", el)) { change(); return; }
+    const before = measure();       // what's still moving carries on from where it has got to
+    $$(".dash-inner", el).forEach((i) => i.getAnimations().forEach((a) => a.cancel()));
+    change();
+    dash?.layout();
+    const running = [];
+    for (const item of $$(".dash-item", el)) {
+      const inner = item.firstElementChild;
+      const from = before.get(item.dataset.id);
+      const to = inner.getBoundingClientRect();
+      if (!from) {
+        running.push(inner.animate([{ opacity: 0, transform: "scale(.94)" }, { opacity: 1, transform: "none" }], { duration: 220, easing: EASE_OUT }));
+        continue;
+      }
+      const dx = from.left - to.left, dy = from.top - to.top;
+      const resized = Math.abs(from.width - to.width) > 1 || Math.abs(from.height - to.height) > 1;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && !resized) continue;
+      const size = (r) => (resized ? { width: `${r.width}px`, height: `${r.height}px` } : {});
+      if (resized) inner.classList.add("morphing");
+      const run = inner.animate([{ transform: `translate(${dx}px, ${dy}px)`, ...size(from) }, { transform: "none", ...size(to) }], { duration: 320, easing: SPRING });
+      const finish = () => inner.classList.remove("morphing");
+      run.finished.then(finish, finish);
+      running.push(run);
+    }
+    if (!running.length || !dash) return;
+    // The cards' sizes are changing frame by frame: packing the grid to them meanwhile would make everything shake.
+    const packing = dash;
+    packing.hold(true);
+    Promise.allSettled(running.map((r) => r.finished)).then(() => {
+      if (!$$(".dash-inner", el).some((i) => i.getAnimations().length)) packing.hold(false);
+    });
   };
 
   let saveTimer = null;
   let customized = Boolean(saved.widgets);
   const sendLayout = () => {
     saveTimer = null;
-    return put(`/api/profiles/${profile.id}/overview`, { widgets: layout.map(({ id, visible, size }) => ({ id, visible, size })) })
+    return put(`/api/profiles/${profile.id}/overview`, { widgets: layout.map(({ id, visible, size, rows }) => ({ id, visible, size, rows: rows || null })) })
       .catch((err) => toast(`Couldn't save the layout: ${err.message}`, "bad"));
   };
   const save = () => {
@@ -456,7 +503,12 @@ export async function render({ el, state, navigate }) {
     layout = next;
     save();
     if (reload) await load();
-    draw();
+    redraw();
+  };
+  // The same page drawn again in place: nothing moves that hasn't changed, and the charts don't draw themselves in again.
+  const redraw = () => {
+    document.documentElement.classList.add("no-intro");
+    glide(draw);
   };
   /** The shown items in their new order; hidden cards keep their place after them. */
   const reorder = (ids) => {
@@ -480,17 +532,20 @@ export async function render({ el, state, navigate }) {
     "hide-insight": async ({ id }) => {
       await hideInsight(profile.id, id);
       if (data.insights?.insights) data.insights.insights = data.insights.insights.filter((i) => i.id !== id);
-      draw();
+      redraw();
     },
     "seen-new": async () => {
       await api(`/api/new-records/seen?profile=${encodeURIComponent(profile.id)}`, { method: "POST" });
       data.newRecords = null;
-      draw();
+      redraw();
     },
-    edit: () => { editing = true; draw(); },
-    done: () => { editing = false; draw(); },
-    resize: ({ id, size }) => apply(layout.map((w) => (w.id === id ? { ...w, size } : w))),
-    remove: ({ id }) => apply(isMetric(id) ? layout.filter((w) => w.id !== id) : layout.map((w) => (w.id === id ? { ...w, visible: false } : w))),
+    edit: () => setEditing(true),
+    done: () => setEditing(false),
+    remove: async ({ id }, btn) => {
+      const inner = btn.closest(".dash-inner");
+      if (!prefersStill()) await inner.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.94)" }], { duration: 130, easing: "ease-in", fill: "forwards" }).finished;
+      return apply(isMetric(id) ? layout.filter((w) => w.id !== id) : layout.map((w) => (w.id === id ? { ...w, visible: false } : w)));
+    },
     add: () => openAdd({ profile, getLayout: () => layout, data,
       onAdd: (id) => {
         const next = isMetric(id) ? [...layout, { id, visible: true, size: "s" }]
@@ -510,11 +565,36 @@ export async function render({ el, state, navigate }) {
       customized = false;
       layout = resolveLayout(null, defaultMetrics());
       await load();
-      draw();
+      redraw();
     },
   });
+
+  const setEditing = (on) => {
+    editing = on;
+    mount($("#dash-actions", el), headActions());
+    const grid = $("#dash", el);
+    grid?.classList.toggle("editing", on);
+    if (grid) quietCards(grid, on);
+    const hint = $("#dash-hint", el);
+    easeHeight(hint, () => mount(hint, on ? EDIT_HINT : ""));
+  };
+  const stopArranging = arrange(el, {
+    isEditing: () => editing, glide, haptic,
+    item: (id) => layout.find((w) => w.id === id),
+    title,
+    moved: reorder,
+    resized: (w, node, { size, rows }) => {
+      node.classList.remove(`size-${w.size}`);
+      node.classList.add(`size-${size}`);
+      w.size = size;
+      w.rows = rows || undefined;
+      if (rows) { node.dataset.rows = rows; node.style.setProperty("--rows", rows); }
+      else { delete node.dataset.rows; node.style.removeProperty("--rows"); }
+    },
+    saved: save,
+  });
   // Leaving straight after a change still saves it.
-  return () => { off(); if (saveTimer) { clearTimeout(saveTimer); sendLayout(); } stopCharts.forEach((stop) => stop()); };
+  return () => { off(); stopArranging(); if (saveTimer) { clearTimeout(saveTimer); sendLayout(); } stopCharts.forEach((stop) => stop()); };
 }
 
 // ------------------------------------------------------------------ adding cards and numbers
@@ -558,21 +638,26 @@ const GROUP_LABELS = { activity: "Activity", mobility: "Activity", heart: "Heart
   vitals: "Vitals", body: "Body", hearing: "Hearing", nutrition: "Nutrition" };
 
 // ------------------------------------------------------------------ layout mechanics
+const DASH_GAP = 16;
+// A touch past the mark and back, the way things settle on a phone's home screen.
+const SPRING = window.CSS?.supports?.("animation-timing-function", "linear(0, 1)")
+  ? "linear(0, .07 4%, .27 10%, .6 19%, .88 29%, 1.02 39%, 1.05 47%, 1.04 56%, 1.01 70%, 1)" : "cubic-bezier(.2, .9, .3, 1)";
+
 /**
  * Packs the items like a masonry wall: each spans as many small grid rows as its content is tall, so a number tile sits
- * next to a tall card without stretching, and the dense flow fills the gaps. Returns a function that stops watching.
+ * next to a tall card without stretching, and the dense flow fills the gaps. Items given a number of rows are that tall.
  */
 function masonry(grid) {
-  const items = $$(".dash-item", grid);
-  const cards = items.filter((i) => i.classList.contains("is-tile")).map((i) => $(".tile", i)).filter(Boolean);
   const layout = () => {
+    const items = $$(".dash-item", grid);
     // The number tiles share one height, so they line up in rows: a tile with a goal line is a little taller, and on
     // its own it pushed the next row's first tile over a column.
+    const cards = items.filter((i) => i.classList.contains("is-tile") && !i.dataset.rows).map((i) => $(".tile", i)).filter(Boolean);
     cards.forEach((c) => { c.style.minHeight = ""; });
     const tallest = Math.max(0, ...cards.map((c) => c.getBoundingClientRect().height));
     cards.forEach((c) => { c.style.minHeight = `${tallest}px`; });
     for (const item of items) {
-      item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((item.firstElementChild.getBoundingClientRect().height + 16) / 2))}`;
+      item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((item.firstElementChild.offsetHeight + DASH_GAP) / 2))}`;
     }
   };
   // The page is built before it's on screen, when nothing has a height yet: measured then, every item would span a
@@ -581,56 +666,78 @@ function masonry(grid) {
   if (grid.isConnected) layout();
   let first = !grid.isConnected;
   let queued = false;
+  let held = false;
   const ro = new ResizeObserver(() => {
     if (first) { first = false; layout(); return; }
-    if (queued) return;
+    if (queued || held) return;
     queued = true;
-    requestAnimationFrame(() => { queued = false; layout(); });
+    requestAnimationFrame(() => { queued = false; if (!held) layout(); });
   });
-  items.forEach((item) => ro.observe(item.firstElementChild));
-  return () => ro.disconnect();
+  $$(".dash-item", grid).forEach((item) => ro.observe(item.firstElementChild));
+  return { layout, stop: () => ro.disconnect(), hold: (on) => { held = on; if (!on) layout(); } };
+}
+
+const DRAG_MAX_HEIGHT = 240;     // a dragged card's copy is no taller than this (px)
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/** How many of the grid's columns a size covers, and the other way round (a phone's grid has two). */
+function spanOf(size, cols) {
+  if (cols >= 4) return SIZES.indexOf(size) + 1;
+  return size === "s" ? 1 : cols;
+}
+function sizeFor(span, cols, current) {
+  if (cols >= 4) return SIZES[span - 1];
+  return span === 1 ? "s" : current === "s" ? "m" : current;
 }
 
 /**
- * Drag items around the grid by their handle (mouse, touch and pen): the item moves in the page as it's dragged, and
- * a copy follows the pointer. The arrow keys on a handle move its item one place. Calls onReorder(ids) after a move.
+ * Editing the Overview: pick a card up and the others make way for it, or drag a corner and it snaps through the sizes the
+ * grid has while everything around it moves. A mouse can take a card anywhere; a finger on a card scrolls the page, so a
+ * finger uses its grip. The keyboard moves a card with the arrow keys on its grip, and resizes it with them on its corner.
  */
-const DRAG_MAX_HEIGHT = 240;     // a dragged card's copy is no taller than this (px)
+function arrange(root, { isEditing, glide, haptic, item, title, moved, resized, saved }) {
+  const gridOf = () => $("#dash", root);
+  const ids = () => $$(".dash-item", gridOf()).map((x) => x.dataset.id);
+  const columns = (grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length;
+  const rowHeight = (grid) => parseFloat(getComputedStyle(grid).getPropertyValue("--dash-row")) || 148;
 
-function sortableGrid(grid, onReorder) {
-  const ids = () => $$(".dash-item", grid).map((x) => x.dataset.id);
-  grid.addEventListener("pointerdown", (e) => {
-    const handle = e.target.closest("[data-handle]");
-    if (!handle || e.button > 0) return;
-    e.preventDefault();
-    const item = handle.closest(".dash-item");
+  const moveCard = (e, node) => {
+    const grid = gridOf();
     const before = ids().join();
-    const r = item.getBoundingClientRect();
-    const ghost = item.cloneNode(true);
-    ghost.className = `${item.className} dash-ghost`;
-    // The copy follows the finger from the point it was picked up by, and leans and grows around that point, so the
-    // finger stays on the handle. A long card (the full-width ones) is cut short, so the copy doesn't cover the page.
-    const dx = e.clientX - r.left, dy = e.clientY - r.top;
-    const height = Math.min(r.height, Math.max(DRAG_MAX_HEIGHT, dy + 60));
-    Object.assign(ghost.style, { width: `${r.width}px`, height: `${height}px`, left: `${r.left}px`, top: `${r.top}px`,
-                                 transformOrigin: `${dx}px ${dy}px` });
-    ghost.classList.toggle("cut", height < r.height);
-    document.body.appendChild(ghost);
-    item.classList.add("dragging");
-    haptic("medium");
     const pointer = e.pointerId;
-    let last = { x: e.clientX, y: e.clientY };
-    let raf = null;
+    const start = { x: e.clientX, y: e.clientY };
+    let last = start, ghost = null, raf = null, dx = 0, dy = 0, movedAt = 0, movedFrom = start;
+    const lift = () => {
+      const r = node.firstElementChild.getBoundingClientRect();
+      dx = start.x - r.left;
+      dy = start.y - r.top;
+      // The copy follows the finger from the point it was picked up by, and a long card is cut short, so it doesn't cover the page.
+      const height = Math.min(r.height, Math.max(DRAG_MAX_HEIGHT, dy + 60));
+      ghost = document.createElement("div");
+      ghost.className = `dash-ghost${height < r.height ? " cut" : ""}`;
+      ghost.append(node.firstElementChild.cloneNode(true));
+      Object.assign(ghost.style, { width: `${r.width}px`, height: `${height}px`, left: `${r.left}px`, top: `${r.top}px`, transformOrigin: `${dx}px ${dy}px` });
+      document.body.append(ghost);
+      node.classList.add("dragging");
+      haptic("medium");
+      raf = requestAnimationFrame(edgeScroll);
+    };
     const place = () => {
       ghost.style.left = `${last.x - dx}px`;
       ghost.style.top = `${last.y - dy}px`;
-      const target = document.elementsFromPoint(last.x, last.y).map((n) => n.closest?.(".dash-item")).find((n) => n && n !== item && grid.contains(n));
+      // Having just made room, wait for the pointer to go somewhere new: cards of different sizes would otherwise swap back and forth.
+      if (performance.now() - movedAt < 120 || Math.hypot(last.x - movedFrom.x, last.y - movedFrom.y) < 20) return;
+      const target = document.elementsFromPoint(last.x, last.y).map((n) => n.closest?.(".dash-item")).find((n) => n && n !== node && grid.contains(n));
       if (!target) return;
       const t = target.getBoundingClientRect();
       // Before the target when the pointer is in its first half (left half, or top half of a full-width item).
       const first = t.width > grid.clientWidth * 0.9 ? last.y < t.top + t.height / 2 : last.x < t.left + t.width / 2;
       const ref = first ? target : target.nextElementSibling;
-      if (ref !== item && item.nextElementSibling !== ref) { grid.insertBefore(item, ref); haptic("selection"); }
+      if (ref === node || node.nextElementSibling === ref) return;
+      glide(() => grid.insertBefore(node, ref));
+      movedAt = performance.now();
+      movedFrom = last;
+      haptic("selection");
     };
     // Scrolls the page while dragging near the top or bottom of what's visible (in the iPhone app the page runs under
     // its title and tab bars, so the visible part is the visual viewport, not the window).
@@ -641,32 +748,149 @@ function sortableGrid(grid, onReorder) {
       if (edge) { pageScroller().scrollBy(0, edge); place(); }
       raf = requestAnimationFrame(edgeScroll);
     };
-    raf = requestAnimationFrame(edgeScroll);
-    const move = (ev) => { if (ev.pointerId === pointer) { ev.preventDefault(); last = { x: ev.clientX, y: ev.clientY }; place(); } };
+    const move = (ev) => {
+      if (ev.pointerId !== pointer) return;
+      last = { x: ev.clientX, y: ev.clientY };
+      if (!ghost && Math.hypot(last.x - start.x, last.y - start.y) >= 4) lift();
+      if (ghost) { ev.preventDefault(); place(); }
+    };
     const end = (ev) => {
       if (ev.pointerId !== pointer) return;
-      cancelAnimationFrame(raf);
-      ghost.remove();
-      item.classList.remove("dragging");
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", end);
       document.removeEventListener("pointercancel", end);
-      if (ids().join() !== before) onReorder(ids());
+      if (!ghost) return;
+      cancelAnimationFrame(raf);
+      // It settles into its place rather than vanishing over it.
+      const to = node.firstElementChild.getBoundingClientRect();
+      const landed = () => { ghost.remove(); node.classList.remove("dragging"); };
+      if (prefersStill()) landed();
+      else ghost.animate([{ left: ghost.style.left, top: ghost.style.top, transform: "scale(1.03)" }, { left: `${to.left}px`, top: `${to.top}px`, transform: "none" }],
+        { duration: 180, easing: EASE_OUT, fill: "forwards" }).finished.then(landed, landed);
+      if (ids().join() !== before) moved(ids());
     };
     document.addEventListener("pointermove", move, { passive: false });
     document.addEventListener("pointerup", end);
     document.addEventListener("pointercancel", end);
-  });
-  grid.addEventListener("keydown", (e) => {
+  };
+
+  /** Applies a size if it's different, and lets the grid settle around it. */
+  const setSize = (node, w, span, rows) => {
+    const cols = columns(gridOf());
+    const size = sizeFor(span, cols, w.size);
+    if (size === w.size && (rows || undefined) === w.rows) return false;
+    glide(() => resized(w, node, { size, rows }));
+    return true;
+  };
+
+  const resizeCard = (e, corner) => {
+    const grid = gridOf();
+    const node = corner.closest(".dash-item");
+    const w = item(node.dataset.id);
+    if (!w) return;
+    const box = node.firstElementChild.getBoundingClientRect();
+    const cols = columns(grid);
+    const colWidth = (grid.clientWidth - DASH_GAP * (cols - 1)) / cols;
+    const unit = rowHeight(grid);
+    const side = corner.dataset.corner;
+    const wasRows = w.rows;
+    const was = { size: w.size, rows: w.rows };
+    const pointer = e.pointerId;
+    let span = spanOf(w.size, cols), rows = w.rows;
+    const outline = document.createElement("div");
+    outline.className = "dash-sizer";
+    const label = document.createElement("span");
+    outline.append(label);
+    document.body.append(outline);
+    const describe = () => { label.textContent = `${span} wide${rows ? ` · ${rows} tall` : ""}`; };
+    const draw = (width, height) => {
+      Object.assign(outline.style, { width: `${width}px`, height: `${height}px`,
+        left: `${side[1] === "r" ? box.left : box.right - width}px`, top: `${side[0] === "b" ? box.top : box.bottom - height}px` });
+    };
+    draw(box.width, box.height);
+    describe();
+    document.documentElement.classList.add("dash-resizing");
+    const move = (ev) => {
+      if (ev.pointerId !== pointer) return;
+      ev.preventDefault();
+      const width = Math.max(colWidth * 0.6, box.width + (side[1] === "r" ? 1 : -1) * (ev.clientX - e.clientX));
+      const height = Math.max(unit * 0.6, box.height + (side[0] === "b" ? 1 : -1) * (ev.clientY - e.clientY));
+      draw(width, height);
+      // A size is taken when the corner is well past the halfway mark, so it doesn't flicker between two at the boundary.
+      const nearSpan = (width + DASH_GAP) / (colWidth + DASH_GAP);
+      const nextSpan = Math.abs(nearSpan - span) > 0.6 ? clamp(Math.round(nearSpan), 1, cols) : span;
+      const nearRows = (height + DASH_GAP) / (unit + DASH_GAP);
+      // Sideways alone leaves a card as tall as its content needs. Its height becomes a number of rows once it's dragged to one.
+      const changedHeight = wasRows != null || Math.abs(height - box.height) > unit / 2;
+      const nextRows = !changedHeight ? undefined : rows && Math.abs(nearRows - rows) <= 0.6 ? rows : clamp(Math.round(nearRows), 1, MAX_ROWS);
+      if (nextSpan === span && nextRows === rows) return;
+      span = nextSpan;
+      rows = nextRows;
+      describe();
+      if (setSize(node, w, span, rows)) haptic("selection");
+    };
+    const end = (ev) => {
+      if (ev.pointerId !== pointer) return;
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", end);
+      document.removeEventListener("pointercancel", end);
+      document.removeEventListener("keydown", cancel, true);
+      document.documentElement.classList.remove("dash-resizing");
+      outline.remove();
+      if (w.size !== was.size || w.rows !== was.rows) saved();
+    };
+    const cancel = (ev) => {
+      if (ev.key !== "Escape") return;
+      ev.stopPropagation();
+      glide(() => resized(w, node, was));
+      end({ pointerId: pointer });
+    };
+    document.addEventListener("pointermove", move, { passive: false });
+    document.addEventListener("pointerup", end);
+    document.addEventListener("pointercancel", end);
+    document.addEventListener("keydown", cancel, true);
+  };
+
+  const pressed = (e) => {
+    if (!isEditing() || e.button > 0 || !gridOf()?.contains(e.target)) return;
+    const corner = e.target.closest("[data-corner]");
+    if (corner) { e.preventDefault(); resizeCard(e, corner); return; }
+    if (e.target.closest(".dash-remove")) return;
     const handle = e.target.closest("[data-handle]");
-    const back = e.key === "ArrowUp" || e.key === "ArrowLeft";
-    if (!handle || !(back || e.key === "ArrowDown" || e.key === "ArrowRight")) return;
+    if (e.pointerType === "touch" && !handle) return;
+    const node = e.target.closest(".dash-item");
+    if (!node) return;
     e.preventDefault();
-    const item = handle.closest(".dash-item");
-    const sibling = back ? item.previousElementSibling : item.nextElementSibling;
-    if (!sibling) return;
-    grid.insertBefore(item, back ? sibling : sibling.nextElementSibling);
-    handle.focus();
-    onReorder(ids());
-  });
+    moveCard(e, node);
+  };
+  const keys = (e) => {
+    if (!isEditing() || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
+    const grid = gridOf();
+    const handle = e.target.closest?.("[data-handle]");
+    const corner = e.target.closest?.("[data-corner]");
+    if (handle) {
+      e.preventDefault();
+      const node = handle.closest(".dash-item");
+      const back = e.key === "ArrowUp" || e.key === "ArrowLeft";
+      const sibling = back ? node.previousElementSibling : node.nextElementSibling;
+      if (!sibling) return;
+      glide(() => grid.insertBefore(node, back ? sibling : sibling.nextElementSibling));
+      handle.focus();
+      moved(ids());
+    } else if (corner) {
+      e.preventDefault();
+      const node = corner.closest(".dash-item");
+      const w = item(node.dataset.id);
+      const cols = columns(grid);
+      const unit = rowHeight(grid);
+      const rows = w.rows || clamp(Math.round((node.firstElementChild.offsetHeight + DASH_GAP) / (unit + DASH_GAP)), 1, MAX_ROWS);
+      const span = spanOf(w.size, cols);
+      const next = { ArrowLeft: [span - 1, w.rows], ArrowRight: [span + 1, w.rows], ArrowUp: [span, rows - 1], ArrowDown: [span, rows + 1] }[e.key];
+      if (setSize(node, w, clamp(next[0], 1, cols), next[1] == null ? undefined : clamp(next[1], 1, MAX_ROWS))) saved();
+      corner.focus();
+    }
+  };
+  root.addEventListener("pointerdown", pressed);
+  root.addEventListener("keydown", keys);
+  return () => { root.removeEventListener("pointerdown", pressed); root.removeEventListener("keydown", keys); };
 }

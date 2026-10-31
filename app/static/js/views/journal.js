@@ -263,11 +263,18 @@ export async function render({ el, params, state }) {
     more: () => { limit += PAGE; return reload(); },
     new: ({ kind }) => openEntry(profile, null, reloadAll, [...recent.events, ...res.events], kind),
     entry: ({ id }) => { const e = byId(id); if (e) (e.manual ? openEntry(profile, e, reloadAll, res.events) : openDeviceEntry(e)); },
-    pick: ({ field, value }) => {
+    pick: ({ field, value }, btn) => {
       draft[field] = Number(value);
       draft.note = $("#jr-quick-note", el)?.value ?? draft.note;
       keepDraft();
-      drawCheckin();
+      // Only what changed: drawing the card again would snap the choice into place rather than easing it.
+      for (const b of btn.closest("[role=radiogroup]").querySelectorAll("[role=radio]")) {
+        b.classList.toggle("active", b === btn);
+        b.setAttribute("aria-checked", String(b === btn));
+        b.tabIndex = b === btn ? 0 : -1;
+      }
+      const save = $('[data-action="save-checkin"]', el);
+      if (save) save.disabled = draft.mood == null;
     },
     "save-checkin": async (_, btn) => {
       const saved = todays();
@@ -409,25 +416,50 @@ function openEntry(profile, existing, onSaved, recent, startKind) {
     return "";
   };
 
-  const draw = () => {
+  const drawFields = () => {
+    const box = form.querySelector(".jr-fields");
     const noteValue = form.querySelector("[name=note]")?.value ?? v.note ?? "";
     const whenValue = form.querySelector("[name=when]")?.value ?? localInput(v.start_date);
-    mount(form, html`
-      ${existing ? "" : html`<div class="jr-kinds" role="tablist">${KINDS.map((k) => html`
-        <button type="button" role="tab" class="jr-kind ${k.id === kind ? "active" : ""}" data-kind="${k.id}" aria-selected="${k.id === kind}">${icon(k.icon)}<span>${k.label}</span></button>`)}</div>`}
+    mount(box, html`
       ${fields()}
       <div class="field"><label class="label" for="jr-when">When</label>
         <input class="input" id="jr-when" name="when" type="datetime-local" required value="${whenValue}" max="${localInput()}"></div>
-      <div class="field"><label class="label" for="jr-note">${kind === "note" ? "Note" : html`Note <span class="faint">(optional)</span>`}</label>
-        <textarea class="input" id="jr-note" name="note" rows="${kind === "note" ? 5 : 3}" maxlength="4000" ${kind === "note" ? "required" : ""}
+      <div class="field jr-note-field"><label class="label" for="jr-note">${kind === "note" ? "Note" : html`Note <span class="faint">(optional)</span>`}</label>
+        <textarea class="input" id="jr-note" name="note" rows="2" maxlength="4000" ${kind === "note" ? "required" : ""}
           placeholder="${kind === "note" ? "What's on your mind? How you slept, what you ate, anything worth remembering…" : "Anything that helps later: triggers, what helped, context"}">${noteValue}</textarea></div>`);
     if (kind === "medication" && !existing) medicationChips(profile, form, medNames);
   };
-  draw();
+  mount(form, html`
+    ${existing ? "" : html`<div class="jr-kinds" role="tablist">${KINDS.map((k) => html`
+      <button type="button" role="tab" class="jr-kind ${k.id === kind ? "active" : ""}" data-kind="${k.id}" aria-selected="${k.id === kind}">${icon(k.icon)}<span>${k.label}</span></button>`)}</div>`}
+    <div class="jr-fields"></div>`);
+  // Every kind gets the room the largest one needs, so moving between them doesn't change the dialog's size. The note takes up what's spare.
+  if (!existing) {
+    const chosen = kind;
+    let tallest = 0;
+    for (const k of KINDS) {
+      kind = k.id;
+      drawFields();
+      tallest = Math.max(tallest, form.scrollHeight);
+    }
+    kind = chosen;
+    form.style.minHeight = `${tallest}px`;
+  }
+  drawFields();
 
+  // Where typing starts for each kind. On a touch screen nothing opens the keyboard until it's asked for.
+  const FIRST_FIELD = { symptom: "#jr-symptom", note: "#jr-note", medication: "#jr-med", other: "#jr-name" };
+  const startTyping = () => { if (FIRST_FIELD[kind] && window.matchMedia("(hover: hover)").matches) form.querySelector(FIRST_FIELD[kind])?.focus(); };
   form.addEventListener("click", (e) => {
     const k = e.target.closest("[data-kind]");
-    if (k) { kind = k.dataset.kind; draw(); form.querySelector("input:not([type=radio]), select, textarea")?.focus(); }
+    if (!k || k.dataset.kind === kind) return;
+    kind = k.dataset.kind;
+    form.querySelectorAll("[data-kind]").forEach((b) => {
+      b.classList.toggle("active", b === k);
+      b.setAttribute("aria-selected", String(b === k));
+    });
+    drawFields();
+    startTyping();
   });
   form.addEventListener("change", (e) => {
     if (e.target.name === "symptom") form.querySelector("#jr-custom-wrap").hidden = e.target.value !== "custom";
@@ -503,5 +535,5 @@ function openEntry(profile, existing, onSaved, recent, startKind) {
       onSaved();
     } catch (err) { toast(err.message, "bad"); }
   });
-  setTimeout(() => form.querySelector("input:not([type=radio]), select, textarea")?.focus(), 30);
+  setTimeout(startTyping, 30);
 }
