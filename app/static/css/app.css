@@ -623,6 +623,9 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; width: 100%; overflow: visible; }
 .chart .axis text { fill: var(--text-4); font-size: 10.5px; font-family: var(--font-body); }
+.chart-table { margin-top: 8px; }
+.chart-table summary { cursor: pointer; width: fit-content; }
+.chart-table .table-wrap { max-height: 280px; overflow: auto; margin-top: 6px; }
 .chart .grid-line { stroke: var(--border); stroke-width: 1; }
 .chart .band { fill: var(--band); }
 .chart .band-edge { stroke: var(--good); stroke-opacity: .35; stroke-dasharray: 3 4; }

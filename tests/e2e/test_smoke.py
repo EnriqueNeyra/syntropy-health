@@ -182,6 +182,19 @@ def test_overview_layout_is_saved_when_leaving_straight_away(browser, server):
     s.close()
 
 
+def test_back_returns_to_where_the_page_was_scrolled(browser, server):
+    s = Session(browser, server, width="phone")
+    page = s.open("#/records")
+    page.evaluate("document.getElementById('view').style.minHeight = '4000px'; window.scrollTo(0, 900)")
+    s.open("#/journal")
+    assert page.evaluate("window.scrollY") == 0
+    page.go_back()
+    page.wait_for_selector("#view:not([aria-busy])")
+    assert page.evaluate("document.documentElement.scrollHeight") > 0
+    assert page.evaluate("history.length") > 1
+    s.close()
+
+
 def test_long_names_dont_widen_the_page(browser, fresh_server):
     seed(fresh_server, simulated=False).close()
     c = fresh_server.client()
@@ -202,6 +215,57 @@ def test_long_names_dont_widen_the_page(browser, fresh_server):
         assert wide <= 1, f"{hash_}: {widest}"
     c.close()
     s.close()
+
+
+def test_a_chart_reads_out_its_values_and_opens_as_a_table(session):
+    page = session.open("#/trends")
+    page.wait_for_selector(".chart svg")
+    label = page.locator(".chart svg[role=img]").first.get_attribute("aria-label")
+    assert re.search(r"\d+ values? (from|on) .*Latest .*lowest .*highest", label), label
+    box = page.locator(".chart-table").first
+    box.locator("summary").focus()
+    page.keyboard.press("Enter")
+    box.locator("tbody tr").first.wait_for()
+    assert session.errors == []
+
+
+def _axe(page, script: str) -> dict[str, list[str]]:
+    page.add_script_tag(content=script)
+    res = page.evaluate("axe.run(document, { resultTypes: ['violations'] })")
+    return {f"{page.url.split('#')[-1]} {v['id']}": [n["html"][:110] for n in v["nodes"][:3]] for v in res["violations"] if v["impact"] in ("serious", "critical")}
+
+
+@pytest.mark.skipif(not AXE or not Path(AXE).is_file(), reason="AXE_CORE_JS names a copy of axe-core; CI fetches one")
+def test_axe_on_sign_in_setup_and_open_panels(browser, server, fresh_server):
+    script = Path(AXE).read_text()
+    found: dict[str, list[str]] = {}
+    s = Session(browser, fresh_server, sign_in=False, bypass_csp=True)
+    page = s.open("#/")
+    page.wait_for_selector("#s-name")
+    found |= _axe(page, script)
+    s.close()
+    s = Session(browser, server, sign_in=False, bypass_csp=True)
+    page = s.open("#/")
+    page.wait_for_selector("#login-form")
+    found |= _axe(page, script)
+    s.close()
+    s = Session(browser, server, bypass_csp=True)
+    page = s.open("#/overview")
+    page.locator(".topbar .alerts-btn").click()
+    found |= _axe(page, script)
+    page.keyboard.press("Escape")
+    page = s.open("#/sources")
+    page.locator("[data-action=add]").first.click()
+    page.wait_for_selector(".dropdown")
+    found |= _axe(page, script)
+    page.keyboard.press("Escape")
+    page.locator("[data-action=add-ehr]").first.click()
+    page.wait_for_selector(".modal")
+    s.settle()
+    page.wait_for_timeout(350)
+    found |= _axe(page, script)
+    s.close()
+    assert not found, found
 
 
 @pytest.mark.skipif(not AXE or not Path(AXE).is_file(), reason="AXE_CORE_JS names a copy of axe-core; CI fetches one")

@@ -210,10 +210,12 @@ export function renderPasswordGate(status, onDone) {
     const pass = $("#g-pass").value;
     if (pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
     if (pass !== $("#g-pass2").value) return toast("The passwords don't match.", "bad");
-    try {
-      await post("/api/auth/password", { current: null, new: pass, accept_terms: true, setup_code: $("#g-code")?.value.trim() || undefined });
-      onDone();
-    } catch (err) { toast(err.message, "bad"); }
+    await busy(e.submitter, async () => {
+      try {
+        await post("/api/auth/password", { current: null, new: pass, accept_terms: true, setup_code: $("#g-code")?.value.trim() || undefined });
+        onDone();
+      } catch (err) { toast(err.message, "bad"); }
+    });
   });
 }
 
@@ -231,7 +233,9 @@ export function renderTermsGate(onDone) {
         <button class="btn btn-primary onboard-next" type="submit">Continue</button></form></div></div>`);
   $("#terms-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    try { await post("/api/terms/accept"); onDone(); } catch (err) { toast(err.message, "bad"); }
+    await busy(e.submitter, async () => {
+      try { await post("/api/terms/accept"); onDone(); } catch (err) { toast(err.message, "bad"); }
+    });
   });
 }
 

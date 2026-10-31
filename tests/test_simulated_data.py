@@ -1,7 +1,11 @@
 """Simulated data is for testing the app: never offered otherwise, and never shown as if it were measured."""
 from __future__ import annotations
 
+import re
+import time
 from datetime import date, timedelta
+
+import pytest
 
 from app.core.db import db
 from app.store import biometrics
@@ -48,6 +52,20 @@ def test_simulated_samples_dont_fill_gaps_beside_a_real_source(client):
     found = {m["metric"]: m for m in biometrics.available_metrics(profile)}
     assert found["resting_heart_rate"]["days"] == 1
     assert found["resting_heart_rate"]["latest_day"] == days[3]
+
+
+@pytest.mark.parametrize(("name", "content"), [("export.zip", b"this is not a zip file"), ("export.xml", b"<HealthData><Record"), ("export.xml", b"nonsense")])
+def test_a_file_that_isnt_an_export_is_explained_in_words(client, name, content):
+    r = client.post("/api/imports/apple-health", files={"file": (name, content, "application/octet-stream")})
+    assert r.status_code == 200, r.text
+    for _ in range(100):
+        job = client.get(f"/api/imports/{r.json()['job_id']}").json()
+        if job["status"] in ("completed", "error"):
+            break
+        time.sleep(0.05)
+    said = job["error"] or (job["result"] or {}).get("warning") or ""
+    assert said
+    assert not re.search(r"unclosed token|not well-formed|column \d|syntax error|BadZip", said), said
 
 
 def test_the_app_can_tell_when_a_record_holds_simulated_data(client):

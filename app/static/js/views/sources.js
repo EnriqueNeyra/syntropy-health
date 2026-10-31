@@ -449,7 +449,7 @@ function importZones() {
         ${icon("records")}<div><b>A record file from your patient portal</b><div class="small muted">A health record file you downloaded from a portal or app. Technically: a FHIR R4 Bundle (.json) or bulk-data NDJSON.</div></div>
         <input type="file" id="imp-fhir" accept=".json,.ndjson,application/json"></label>
     </div>
-    <div id="imp-status" class="src-drop-status"></div>`;
+    <div id="imp-status" class="src-drop-status" role="status"></div>`;
 }
 
 async function uploadApple(file, profile, statusEl, refresh, left) {

@@ -1,7 +1,7 @@
 // Who can reach this server: only this computer, or phones and other devices at home and on Tailscale too.
 // Used by Settings → Security, onboarding and the iPhone pairing dialog.
 import { get, post, put } from "./api.js";
-import { $, html, icon, mount, onAction, toast } from "./ui.js";
+import { $, busy, html, icon, mount, onAction, toast } from "./ui.js";
 
 export const networkStatus = () => get("/api/system/network", undefined, { fresh: true });
 
@@ -97,10 +97,12 @@ export function renderNetworkPanel(el, net, { onChange, waited = 0 } = {}) {
     const pass = $("#net-pass1", el).value;
     if (pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
     if (pass !== $("#net-pass2", el).value) return toast("The passwords don't match.", "bad");
-    try { await post("/api/auth/password", { current: null, new: pass }); }
-    catch (err) { return toast(err.message, "bad"); }
-    net = { ...net, password_set: true };
-    apply(true);
+    await busy(e.submitter, async () => {
+      try { await post("/api/auth/password", { current: null, new: pass }); }
+      catch (err) { return toast(err.message, "bad"); }
+      net = { ...net, password_set: true };
+      apply(true);
+    });
   });
   // Drawn again after each change (and while the .local name appears): one set of handlers, not one per drawing, or a
   // click would switch the network or copy an address several times over.

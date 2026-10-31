@@ -257,10 +257,12 @@ export async function render({ el, parts, state, navigate }) {
       if (next.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
       // A typo here would lock you out until someone resets it on the server's computer.
       if (next !== $("#pw-new2", body).value) return toast("The passwords don't match.", "bad");
-      try {
-        await post("/api/auth/password", { current: $("#pw-cur", body)?.value, new: next });
-        toast("Password updated", "good"); redraw();
-      } catch (err) { toast(err.message, "bad"); }
+      await busy(e.submitter, async () => {
+        try {
+          await post("/api/auth/password", { current: $("#pw-cur", body)?.value, new: next });
+          toast("Password updated", "good"); redraw();
+        } catch (err) { toast(err.message, "bad"); }
+      });
     });
     return onAction(body, {
       "end-session": async ({ id }) => {
@@ -394,7 +396,20 @@ export async function render({ el, parts, state, navigate }) {
         ${row("Health records", html`Registered with EHR vendors. Default <code>${settings.relay.default_redirect_uri}</code> forwards the one-time code to this instance; use <code>${location.origin}/callback</code> if you registered it directly.`,
           html`<input class="input" id="g-redirect" value="${settings.relay.redirect_uri}" aria-label="Health record redirect URI">`)}
         <div class="set-foot"><button class="btn btn-sm btn-primary" data-action="save-relay">Save redirect URI</button></div>`)}
+      <div id="dev-upkeep"></div>
     </div>`);
+    get("/api/health", undefined, { fresh: true }).then((health) => {
+      const box = $("#dev-upkeep", body);
+      if (!box?.isConnected) return;
+      const fixes = health.data_fixes || [];
+      const failed = fixes.filter((f) => f.state === "failed");
+      const waiting = fixes.filter((f) => f.state === "pending" || f.state === "running").length;
+      const copies = health.database?.pre_upgrade_copies || [];
+      mount(box, section("Database upkeep", "What the server has done to keep stored data correct after upgrades.", html`
+        ${row("Data corrections", failed.length ? html`Couldn't finish: ${failed.map((f) => f.name).join(", ")}. They're tried again when the server restarts.` : "",
+          html`<span>${plural(fixes.length - waiting - failed.length, "finished", "finished")}, ${plural(waiting, "waiting", "waiting")}, ${plural(failed.length, "failed", "failed")}</span>`)}
+        ${row("Copies from before upgrades", "Kept beside the database in case an upgrade has to be undone.", html`<span>${copies.length}</span>`)}`));
+    }, () => {});
     $("#dev-mode", body).addEventListener("change", async (ev) => {
       try { await put("/api/settings/developer", { enabled: ev.target.checked }); }
       catch (err) { toast(err.message, "bad"); ev.target.checked = !ev.target.checked; return; }

@@ -6,6 +6,31 @@ import { esc, fmtNum, fmtShortDate, fmtDate, parseDate } from "./ui.js";
 
 const PAD = { top: 14, right: 16, bottom: 26, left: 44 };
 
+/** What a chart shows, in words, for those who can't see it: how many values, over which dates, the latest, lowest and highest. */
+function summary(label, rows, show) {
+  const values = rows.map((r) => r.value);
+  if (!rows.length) return label;
+  const span = rows.length > 1 ? ` from ${fmtDate(rows[0].day)} to ${fmtDate(rows.at(-1).day)}` : ` on ${fmtDate(rows[0].day)}`;
+  return `${label}: ${rows.length} value${rows.length === 1 ? "" : "s"}${span}. Latest ${show(values.at(-1))}, lowest ${show(Math.min(...values))}, highest ${show(Math.max(...values))}.`;
+}
+
+/** The chart's values as a table under it, drawn when it's opened, and still open if the chart is redrawn. */
+function valuesTable(container, rows, show, wasOpen) {
+  if (!rows.length) return;
+  const box = document.createElement("details");
+  box.className = "chart-table";
+  box.innerHTML = `<summary class="small muted">Show as table</summary>`;
+  const fill = () => {
+    if (box.querySelector("table") || !box.open) return;
+    box.insertAdjacentHTML("beforeend", `<div class="table-wrap" tabindex="0"><table class="table"><thead><tr><th>Date</th><th>Value</th></tr></thead><tbody>${
+      rows.slice().reverse().map((r) => `<tr><td>${esc(fmtDate(r.day))}</td><td>${esc(show(r.value))}${r.series ? ` <span class="muted">${esc(r.series)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div>`);
+  };
+  box.addEventListener("toggle", fill);
+  box.open = !!wasOpen;
+  fill();
+  container.appendChild(box);
+}
+
 function niceTicks(min, max, count = 4) {
   if (min === max) { min -= 1; max += 1; }
   const span = max - min;
@@ -65,7 +90,11 @@ export function lineChart(container, series, opts = {}) {
   const x = (t) => PAD.left + ((t - tmin) / (tmax - tmin)) * iw;
   const y = (v) => PAD.top + ih - ((v - lo) / (hi - lo)) * ih;
 
-  let svg = `<svg class="${intro(container)}" viewBox="0 0 ${width} ${height}" height="${height}" role="img" aria-label="${esc(opts.label || series.map((s) => s.name).join(", "))}">`;
+  const showLine = (v) => `${fmtNum(v, opts.digits)}${opts.unit ? ` ${opts.unit}` : ""}`;
+  const lineRows = series.flatMap((s) => s.points.filter((p) => parseDate(p.t)).map((p) => ({ day: p.t, value: p.v, time: parseDate(p.t).getTime(), series: series.length > 1 ? s.name : "" })))
+    .sort((a, b) => a.time - b.time);
+  const lineOpen = container.querySelector(":scope > .chart-table")?.open;
+  let svg = `<svg class="${intro(container)}" viewBox="0 0 ${width} ${height}" height="${height}" role="img" aria-label="${esc(summary(opts.label || series.map((s) => s.name).join(", "), lineRows, showLine))}">`;
   svg += `<g class="axis">`;
   for (const tk of ticks) {
     svg += `<line class="grid-line" x1="${PAD.left}" x2="${width - PAD.right}" y1="${y(tk)}" y2="${y(tk)}"/>`;
@@ -109,6 +138,7 @@ export function lineChart(container, series, opts = {}) {
   svg += `<rect x="${PAD.left}" y="${PAD.top}" width="${iw}" height="${ih}" fill="transparent" data-hit/></svg>`;
   container.classList.add("chart");
   container.innerHTML = svg;
+  if (!opts.noTable) valuesTable(container, lineRows, showLine, lineOpen);
 
   const tip = tipBox(container);
   const cursor = container.querySelector(".cursor");
@@ -162,13 +192,15 @@ export function barChart(container, points, opts = {}) {
   const height = opts.height || 220;
   if (!points.length) { container.innerHTML = `<div class="empty small">No data for this range.</div>`; return; }
   const fmt = opts.format || ((v) => `${fmtNum(v, opts.digits)}${opts.unit ? ` ${opts.unit}` : ""}`);
+  const barRows = points.filter((p) => p.value != null).map((p) => ({ day: p.day, value: p.value }));
+  const barOpen = container.querySelector(":scope > .chart-table")?.open;
   const vmax = Math.max(extent(points.map((p) => p.value))[1], opts.avg || 0, opts.goal || 0);
   const { hi, ticks } = niceTicks(0, vmax * 1.08);
   const iw = width - PAD.left - PAD.right, ih = height - PAD.top - PAD.bottom;
   const slot = iw / points.length;
   const bw = Math.min(24, Math.max(2, slot - 2));
   const y = (v) => PAD.top + ih - (v / hi) * ih;
-  let svg = `<svg class="${intro(container)}" viewBox="0 0 ${width} ${height}" height="${height}" role="img" aria-label="${esc(opts.label || "Daily values")}"><g class="axis">`;
+  let svg = `<svg class="${intro(container)}" viewBox="0 0 ${width} ${height}" height="${height}" role="img" aria-label="${esc(summary(opts.label || "Daily values", barRows, fmt))}"><g class="axis">`;
   for (const tk of ticks) {
     svg += `<line class="grid-line" x1="${PAD.left}" x2="${width - PAD.right}" y1="${y(tk)}" y2="${y(tk)}"/>`;
     svg += `<text x="${PAD.left - 8}" y="${y(tk) + 3.5}" text-anchor="end">${esc(opts.tick ? opts.tick(tk) : fmtNum(tk))}</text>`;
@@ -215,6 +247,7 @@ export function barChart(container, points, opts = {}) {
   svg += `<rect x="${PAD.left}" y="${PAD.top}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
   container.classList.add("chart");
   container.innerHTML = svg;
+  if (!opts.noTable) valuesTable(container, barRows, fmt, barOpen);
   const tip = tipBox(container);
   const svgEl = container.querySelector("svg");
   svgEl.addEventListener("mousemove", (ev) => {

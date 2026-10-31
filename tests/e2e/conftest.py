@@ -13,7 +13,12 @@ from typing import Any, Iterator
 import httpx
 import pytest
 
-sync_api = pytest.importorskip("playwright.sync_api")
+try:
+    from playwright import sync_api
+except ImportError:
+    sync_api = None
+
+collect_ignore_glob = ["test_*.py"] if sync_api is None else []
 
 ROOT = Path(__file__).resolve().parents[2]
 PASSWORD = "correct horse battery"
