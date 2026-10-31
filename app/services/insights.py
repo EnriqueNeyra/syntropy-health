@@ -100,9 +100,41 @@ def workout_daily(profile_id: str, start: date, end: date) -> dict[str, dict[str
     return {"minutes": dict(minutes), "load": dict(load)}
 
 
+LOGGED_PREFIX = "logged:"
+LOGGED_CATEGORIES = ("symptoms", "medication")
+MIN_LOGGED = 3      # fewer than this and there's no pattern to look at
+
+
+def _logged_events(profile_id: str, start: date, end: date) -> list[dict[str, Any]]:
+    out = []
+    for category in LOGGED_CATEGORIES:
+        out += activity.list_events(profile_id, None, category=category, start=(start - timedelta(days=1)).isoformat(),
+                                    end=(end + timedelta(days=1)).isoformat(), limit=5000, view=None)
+    return out
+
+
+def logged_daily(profile_id: str, name: str, start: date, end: date) -> dict[str, float]:
+    """1 on days this was logged in the Journal, and 0 on the other days since the first time it was."""
+    tz = _tz(profile_id)
+    logged = set()
+    for e in _logged_events(profile_id, start, end):
+        if e["name"] == name:
+            day = datetime.fromisoformat(e["start_date"].replace("Z", "+00:00")).astimezone(tz).date()
+            if start <= day <= end:
+                logged.add(day)
+    if not logged:
+        return {}
+    return {(min(logged) + timedelta(days=i)).isoformat(): float(min(logged) + timedelta(days=i) in logged)
+            for i in range((end - min(logged)).days + 1)}
+
+
 def series(profile_id: str, key: str, days: int, end: Optional[date] = None) -> dict[str, Any]:
-    """{label, unit, values: {day: value}} for a wearable metric, a Journal measure or workouts."""
+    """{label, unit, values: {day: value}} for a wearable metric, a Journal measure, something logged in the Journal or workouts."""
     start, last = _window(days, end, profile_id)
+    if key.startswith(LOGGED_PREFIX):
+        name = key[len(LOGGED_PREFIX):]
+        return {"key": key, "label": name, "unit": "logged", "about": "1 on days this was logged, 0 on days it wasn't.",
+                "values": logged_daily(profile_id, name, start, last)}
     if key in JOURNAL_SERIES:
         label, unit, about = JOURNAL_SERIES[key]
         return {"key": key, "label": label, "unit": unit, "about": about,
@@ -129,7 +161,23 @@ def comparable(profile_id: str) -> list[dict[str, Any]]:
             out.append({"key": key, "label": label, "unit": unit, "group": "journal"})
     if activity.counts(profile_id)["workouts"]:
         out += [{"key": k, "label": label, "unit": unit, "group": "workouts"} for k, (label, unit, _) in WORKOUT_SERIES.items()]
+    counts = Counter(e["name"] for e in _logged_events(profile_id, *_window(180, profile_id=profile_id)) if e.get("name"))
+    out += [{"key": f"{LOGGED_PREFIX}{name}", "label": name, "unit": "logged", "group": "logged"}
+            for name, n in sorted(counts.items()) if n >= MIN_LOGGED and len(name) <= 70]
     return out
+
+
+def before_after_date(profile_id: str, key: str, day: str, window_days: int = 30) -> dict[str, Any]:
+    """A measure's daily values on each side of a date, which is left out as neither. Counted and left at that."""
+    pivot = date.fromisoformat(day[:10])
+    last = min(pivot + timedelta(days=window_days), _today(profile_id))
+    s = series(profile_id, key, (last - pivot).days + window_days + 1, end=last)
+
+    def side(values: list[float]) -> dict[str, Any]:
+        return {"days": len(values), "avg": round(sum(values) / len(values), 3), "low": min(values), "high": max(values)} if values else {"days": 0}
+    return {"key": key, "label": s["label"], "unit": s["unit"], "date": pivot.isoformat(), "window_days": window_days,
+            "before": side([v for d, v in s["values"].items() if d < pivot.isoformat()]),
+            "after": side([v for d, v in s["values"].items() if d > pivot.isoformat()])}
 
 
 # Fewer than this and a correlation can't be told from chance: a 30-day window has 28 or 29 once today is left out.
@@ -167,7 +215,14 @@ def compare(profile_id: str, a: str, b: str, days: int = 90, lag: int = 0) -> di
             split = {"cut": round(cut, 3), "above": round(sum(hi) / len(hi), 3), "below": round(sum(lo) / len(lo), 3),
                      "n_above": len(hi), "n_below": len(lo)}
     meta = lambda s: {k: s[k] for k in ("key", "label", "unit", "about")}   # noqa: E731
-    return {"a": meta(sa), "b": meta(sb), "lag": lag, "days": days, "pairs": pairs, "n": len(pairs),
+    with_without = None
+    if a.startswith(LOGGED_PREFIX) != b.startswith(LOGGED_PREFIX):
+        # The measure on days with the logged item and on days without: counted, with no reason given.
+        on = [p["y"] if a.startswith(LOGGED_PREFIX) else p["x"] for p in pairs if (p["x"] if a.startswith(LOGGED_PREFIX) else p["y"])]
+        off = [p["y"] if a.startswith(LOGGED_PREFIX) else p["x"] for p in pairs if not (p["x"] if a.startswith(LOGGED_PREFIX) else p["y"])]
+        with_without = {"item": (sa if a.startswith(LOGGED_PREFIX) else sb)["label"], "days_with": len(on), "days_without": len(off),
+                        "avg_with": round(sum(on) / len(on), 3) if on else None, "avg_without": round(sum(off) / len(off), 3) if off else None}
+    return {"a": meta(sa), "b": meta(sb), "lag": lag, "days": days, "pairs": pairs, "n": len(pairs), "with_without": with_without,
             "r": round(link["r"], 2) if link else None, "strength": strength(link, len(pairs)), "split": split,
             "interval": {"low": round(link["low"], 2), "high": round(link["high"], 2)} if link else None}
 

@@ -22,6 +22,7 @@ const ROUTES = {
   sources: { label: "Sources", icon: "sources", symbol: "point.3.connected.trianglepath.dotted", load: () => import("./views/sources.js") },
   report: { label: "Visit summary", icon: "printer", symbol: "doc.richtext", load: () => import("./views/report.js") },
   prepare: { label: "Prepare for a visit", icon: "note", symbol: "checklist", load: () => import("./views/prepare.js") },
+  people: { label: "Your people", icon: "users", symbol: "person.2", load: () => import("./views/people.js") },
   settings: { label: "Settings", icon: "settings", symbol: "gearshape", load: () => import("./views/settings.js") },
   // A single record as a page: the iPhone app's record screen (elsewhere records open in a drawer).
   _record: { label: "Record", icon: "records", load: () => import("./views/record-detail.js") },
@@ -321,7 +322,8 @@ function peopleMenu() {
   return html`<div class="popover-label">People</div>
     <div class="menu">${state.profiles.map((p) => html`
       <button class="menu-item ${p.id === state.profileId ? "active" : ""}" data-profile="${p.id}">
-        ${avatarOf(p)}<span class="grow truncate">${p.name}</span>${p.access === "view" ? html`<span class="menu-note">View only</span>` : ""}${p.id === state.profileId ? icon("check") : ""}</button>`)}
+        ${avatarOf(p)}<span class="grow truncate">${p.name}</span><span class="badge" data-person-count="${p.id}" hidden></span>${p.access === "view" ? html`<span class="menu-note">View only</span>` : ""}${p.id === state.profileId ? icon("check") : ""}</button>`)}
+      ${state.profiles.length > 1 ? html`<a class="menu-item" href="#/people">${icon("users")}<span>Your people</span></a>` : ""}
       <a class="menu-item" href="#/settings/people">${icon("user")}<span>People and sharing</span></a>
     </div>`;
 }
@@ -335,7 +337,15 @@ function onPersonChosen(e) {
 }
 
 function openProfileMenu(button, placement = {}) {
-  popover("profile", button, (el) => mount(el, peopleMenu()), { align: "left", ...placement })?.addEventListener("click", onPersonChosen);
+  const menu = popover("profile", button, (el) => mount(el, peopleMenu()), { align: "left", ...placement });
+  menu?.addEventListener("click", onPersonChosen);
+  if (menu && state.profiles.length > 1) {
+    get("/api/profiles/at-a-glance").then(({ people }) => people.forEach((p) => {
+      const badge = menu.querySelector(`[data-person-count="${p.id}"]`);
+      const n = p.new_records + p.flagged_labs;
+      if (badge && n) { badge.textContent = n; badge.hidden = false; badge.title = `${p.new_records} new, ${p.flagged_labs} out of range`; }
+    })).catch(() => {});
+  }
 }
 
 function openMore(button) {

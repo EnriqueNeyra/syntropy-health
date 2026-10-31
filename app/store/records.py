@@ -783,6 +783,11 @@ def visit_links(rec: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def seen_key(profile_id: str, account_id: Optional[str]) -> str:
+    """Each account's own mark: one person looking doesn't mark it for others looking after the same person."""
+    return f"records.seen.{profile_id}.{account_id or ''}"
+
+
 NEW_ITEMS_SHOWN = 5
 NEW_OLD_HISTORY_DAYS = 90       # a record dated this long before the last look is old history that has just arrived, not news
 NEW_GROUPS = [("encounters", "New visits"), ("conditions", "New diagnoses"), ("medications", "New medications"), ("allergies", "New allergies"),

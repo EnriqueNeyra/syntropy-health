@@ -151,6 +151,30 @@ export const WIDGETS = [
         ${items.length > shown ? html`<div class="card-foot muted small">${items.length - shown} more: ask about them in <a href="#/ask">Ask</a></div>` : ""}
       </div>`;
     } },
+  { id: "start", title: "Getting started", desc: "What you can add, until two sources are connected", size: "l", on: true, needs: [],
+    render: (d) => {
+      if ((d.connections || []).length >= 2) return "";
+      const kinds = new Set((d.connections || []).map((c) => c.kind));
+      const steps = [["ehr", "building", "Connect a health system", "#/sources?add=ehr"], ["device", "phone", "Pair your phone", "#/sources?add=iphone"],
+        ["wearable", "watch", "Link a wearable", "#/sources?add=wearable"], ["import", "upload", "Import a file", "#/sources?add=import"]].filter(([k]) => !kinds.has(k));
+      return html`<div class="card widget-card"><div class="card-head"><h3>${icon("plus")} Add another source</h3>
+          <button class="btn btn-ghost btn-icon btn-sm" data-action="remove" data-id="start" aria-label="Hide this" title="Hide">${icon("x")}</button></div>
+        <div class="list">${steps.map(([, ic, label, href]) => html`<a class="list-item" href="${href}"><span class="ev-icon">${icon(ic)}</span><span class="grow">${label}</span>${icon("arrowRight")}</a>`)}</div></div>`;
+    } },
+  { id: "new", title: "New since you last looked", desc: "Visits, diagnoses, medications, notes and results that have arrived", size: "xl", on: true, needs: ["newRecords"], records: true, first: true,
+    render: (d) => {
+      const n = d.newRecords;
+      if (!n || (!n.groups.length && !n.imported.length && !n.older)) return "";
+      return html`<div class="card widget-card">
+        <div class="card-head"><h3>${icon("bell")} New since you last looked</h3><button class="btn btn-sm btn-ghost" data-action="seen-new">Mark as seen</button></div>
+        <div class="list">
+          ${n.imported.map((i) => html`<div class="list-item"><span class="grow">Imported ${plural(i.count, "record")} from ${i.source}</span></div>`)}
+          ${n.groups.map((g) => html`<div class="list-item" style="display:block"><div class="title">${g.label} <span class="badge">${g.count}</span></div>
+            ${g.items.map((r) => html`<div class="meta clickable" data-action="record" data-id="${r.id}" role="link" tabindex="0">${r.title}${r.value_text ? ` ${r.value_text}` : ""} · ${fmtDate(r.effective_at)} · ${r.source_name || ""}</div>`)}
+            ${g.count > g.items.length ? html`<div class="meta">and ${g.count - g.items.length} more</div>` : ""}</div>`)}
+          ${n.older ? html`<div class="list-item small muted"><span>${plural(n.older, "older record")} also arrived.</span></div>` : ""}
+        </div></div>`;
+    } },
   { id: "goals", title: "Goals", desc: "Your daily goals and how many of the last 7 days met them", size: "m", on: true, needs: ["goals"],
     render: (d) => {
       const list = d.goals?.progress || [];
@@ -188,30 +212,6 @@ export const WIDGETS = [
         <div class="grow"><div class="title truncate">${w.name}</div><div class="meta truncate">${fmtDateTime(w.start_date)} · ${w.source_name}</div></div>
         <span class="small muted">${[w.distance_m ? fmtMeasure(w.distance_m, "m", "distance_walking_running") : null, duration(w.duration_s)].filter(Boolean).join(" · ")}</span>
       </div>`, "No workouts in the last 30 days.", { href: "#/workouts", more: "All workouts" }) },
-  { id: "start", title: "Getting started", desc: "What you can add, until two sources are connected", size: "l", on: true, needs: [],
-    render: (d) => {
-      if ((d.connections || []).length >= 2) return "";
-      const kinds = new Set((d.connections || []).map((c) => c.kind));
-      const steps = [["ehr", "building", "Connect a health system", "#/sources?add=ehr"], ["device", "phone", "Pair your phone", "#/sources?add=iphone"],
-        ["wearable", "watch", "Link a wearable", "#/sources?add=wearable"], ["import", "upload", "Import a file", "#/sources?add=import"]].filter(([k]) => !kinds.has(k));
-      return html`<div class="card widget-card"><div class="card-head"><h3>${icon("plus")} Add another source</h3>
-          <button class="btn btn-ghost btn-icon btn-sm" data-action="remove" data-id="start" aria-label="Hide this" title="Hide">${icon("x")}</button></div>
-        <div class="list">${steps.map(([, ic, label, href]) => html`<a class="list-item" href="${href}"><span class="ev-icon">${icon(ic)}</span><span class="grow">${label}</span>${icon("arrowRight")}</a>`)}</div></div>`;
-    } },
-  { id: "new", title: "New since you last looked", desc: "Visits, diagnoses, medications, notes and results that have arrived", size: "l", on: true, needs: ["newRecords"], records: true,
-    render: (d) => {
-      const n = d.newRecords;
-      if (!n || (!n.groups.length && !n.imported.length && !n.older)) return "";
-      return html`<div class="card widget-card">
-        <div class="card-head"><h3>${icon("bell")} New since you last looked</h3><button class="btn btn-sm btn-ghost" data-action="seen-new">Mark as seen</button></div>
-        <div class="list">
-          ${n.imported.map((i) => html`<div class="list-item"><span class="grow">Imported ${plural(i.count, "record")} from ${i.source}</span></div>`)}
-          ${n.groups.map((g) => html`<div class="list-item" style="display:block"><div class="title">${g.label} <span class="badge">${g.count}</span></div>
-            ${g.items.map((r) => html`<div class="meta clickable" data-action="record" data-id="${r.id}" role="link" tabindex="0">${r.title}${r.value_text ? ` ${r.value_text}` : ""} · ${fmtDate(r.effective_at)} · ${r.source_name || ""}</div>`)}
-            ${g.count > g.items.length ? html`<div class="meta">and ${g.count - g.items.length} more</div>` : ""}</div>`)}
-          ${n.older ? html`<div class="list-item small muted"><span>${plural(n.older, "older record")} also arrived.</span></div>` : ""}
-        </div></div>`;
-    } },
   { id: "labs", title: "Out-of-range results", desc: "Your latest lab results that are high or low", size: "m", on: true, needs: ["summary"], records: true,
     render: (d) => listCard("Out of range", "flask", d.summary.flagged_labs, (l) => html`
       <div class="list-item clickable ${l.older ? "muted" : ""}" data-action="lab" data-code="${l.code || ""}" data-title="${l.title}">

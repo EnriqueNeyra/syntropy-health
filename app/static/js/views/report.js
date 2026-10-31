@@ -63,9 +63,7 @@ const homeCell = (m, w) => (w?.count
 
 const sectionOn = (prefs, s) => (prefs.sections && s.id in prefs.sections ? prefs.sections[s.id] : !s.off);
 
-export function questionsBlock(questions) {
-  return questions.length ? html`<ol class="report-questions">${questions.map((q) => html`<li>${q}</li>`)}</ol>` : html`<p class="muted small">No questions added.</p>`;
-}
+const questionsBlock = (questions) => html`<ol class="report-questions">${questions.map((q) => html`<li>${q}</li>`)}</ol>`;
 
 export async function render({ el, state }) {
   mount(el, loading(4));
@@ -135,7 +133,7 @@ export async function render({ el, state }) {
           [html`${l.title} ${resultStatus(l.status)}`, l.value_text, assessedWord(l.interpretation), l.ref_text || "—", previous(l), dated(fmtDate(l.effective_at), l)]),
         r.lab_status?.total ? "Every latest result is listed above." : "No lab results on record.")}${more(r.labs_more, "more tests, in Records")}`)}
 
-      ${section("questions", "My questions", html`<div id="report-questions">${questionsBlock(prefs.questions || [])}</div>`)}
+      ${prefs.questions?.length ? section("questions", "My questions", questionsBlock(prefs.questions)) : ""}
 
       ${section("vitals", "Latest vital signs", html`${table(["Measure", "Value", "Date and source"],
         r.latest_vitals.map((v) => [v.title, recordValue(v), dated(fmtDate(v.effective_at), v)]))}${more(r.vitals_more)}`)}

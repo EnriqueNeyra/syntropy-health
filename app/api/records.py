@@ -69,7 +69,7 @@ def get_record(record_id: str) -> dict:
 
 def _seen_key(profile_id: str) -> str:
     principal = context.principal()
-    return f"records.seen.{profile_id}.{principal.account_id if principal and principal.account_id else ''}"
+    return records.seen_key(profile_id, principal.account_id if principal else None)
 
 
 @router.get("/new-records")

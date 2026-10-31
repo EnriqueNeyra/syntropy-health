@@ -91,8 +91,17 @@ export async function render({ el, parts, params, state, navigate }) {
           html`<a class="btn btn-primary" href="#/sources?add=ehr">${icon("plus")} Connect a health system</a>`));
       return;
     }
+    const doses = new Map();
+    if (category === "immunizations") {
+      for (const r of items) doses.set(r.title.trim().toLowerCase(), [...(doses.get(r.title.trim().toLowerCase()) || []), r]);
+    }
     mount(list, html`
-      <div class="list">${items.map((r) => html`
+      <div class="list">${category === "immunizations" ? [...doses.values()].map((group) => html`
+        <div class="list-item ${group.length === 1 ? "clickable" : ""}" ${group.length === 1 ? html`data-action="open" data-id="${group[0].id}"` : ""} style="${group.length > 1 ? "display:block" : ""}">
+          ${group.length === 1 ? html`<span class="ev-icon">${icon(CATEGORY_ICON.immunizations)}</span><div class="grow" style="min-width:0"><div class="title truncate">${group[0].title}</div><div class="meta truncate">${rowMeta(group[0])}</div></div>${rowRight(group[0])}`
+            : html`<div class="title">${group[0].title} <span class="badge">${group.length} doses</span></div>
+              <div class="meta">${group.map((r, i) => html`${i ? ", " : ""}<a href="#" data-action="open" data-id="${r.id}">${recordDate(r)}</a>`)}</div>`}
+        </div>`) : items.map((r) => html`
         <div class="list-item clickable" data-action="open" data-id="${r.id}">
           <span class="ev-icon">${icon(CATEGORY_ICON[r.category] || "records")}</span>
           <div class="grow" style="min-width:0"><div class="title truncate">${r.title}</div><div class="meta truncate">${rowMeta(r)}</div></div>

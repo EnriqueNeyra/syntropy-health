@@ -112,6 +112,7 @@ function sourceRow(c, devices = []) {
         ${kept ? html`<span title="The last sync didn't return these. They stay until it's clear the source really removed them.">${plural(kept, "record")} it didn't send, kept</span>` : ""}
         ${c.removed_count ? html`<span><button class="link-btn" data-action="removed" data-id="${c.id}">${c.removed_count} removed by the source</button></span>` : ""}
         ${devices.length > 1 ? html`<span class="src-extra">${devices.length} devices</span>` : ""}</div>
+      ${c.last_sync_status === "partial" && c.last_warnings?.length ? html`<div class="small muted" style="margin-top:2px">${c.last_warnings.join(" ")}</div>` : ""}
     </div>
     <div class="src-actions">
       ${needsAttention && canReconnect ? html`<button class="btn btn-sm btn-primary" data-action="reconnect" data-id="${c.id}">Reconnect</button>` : ""}

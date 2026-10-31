@@ -497,3 +497,80 @@ def test_a_source_says_what_it_brought_in(client, pid):
     _lab(pid, src, "l2", 1, "normal", code="z")
     counts = client.get(f"/api/connections/{src}").json()["record_counts"]
     assert counts == [{"category": "conditions", "label": "Conditions", "count": 1}, {"category": "labs", "label": "Lab results", "count": 2}]
+
+
+# ---------------------------------------------------------------------------
+# F270
+# ---------------------------------------------------------------------------
+
+def test_vaccines_are_not_cut_on_the_summary_and_doses_are_grouped():
+    text = (STATIC / "views/report.js").read_text(encoding="utf-8")
+    assert "slice(0, 15)" not in text and "vaccineRows(r.immunizations)" in text
+    assert "ageText(dob)" in text
+    assert "may be due" not in text.lower()
+
+
+# ---------------------------------------------------------------------------
+# F269
+# ---------------------------------------------------------------------------
+
+def test_people_at_a_glance_covers_everyone_this_account_can_see(client, pid):
+    child = client.post("/api/profiles", json={"name": "Riley", "relationship": "child"}).json()["id"]
+    src = _source(child)
+    _age_connection(src)
+    client.get("/api/new-records", params={"profile": child})
+    from datetime import date
+    _rec(child, src, "e", "encounters", "Visit", day=date.today().isoformat())
+    _lab(child, src, "k", 7, "high", day=date.today().isoformat())
+    with db.db() as conn:
+        conn.execute("UPDATE connections SET status = 'needs_reauth' WHERE id = ?", (src,))
+    people = {p["name"]: p for p in client.get("/api/profiles/at-a-glance").json()["people"]}
+    assert people["Riley"]["flagged_labs"] == 1 and people["Riley"]["new_records"] == 2 and people["Riley"]["sources_need_signing_in"] == 1
+    assert people["Alex"]["new_records"] == 0 and people["Alex"]["flagged_labs"] == 0
+
+
+# ---------------------------------------------------------------------------
+# F271
+# ---------------------------------------------------------------------------
+
+def _headaches(pid, days):
+    from app.store import activity
+    from tests.test_insight_findings import _noon
+    activity.insert_events(pid, None, [{"id": f"h{d}", "event_type": "headache", "category": "symptoms", "name": "Headache", "start": _noon(d).isoformat(),
+                                        "end": _noon(d).isoformat(), "source_name": "Syntropy"} for d in days])
+
+
+def test_something_logged_can_be_compared_with_a_measure(client, pid):
+    from tests.test_insight_findings import _daily
+    _headaches(pid, [2, 5, 8, 11])
+    _daily(pid, "sleep_duration", [7.0] * 20, unit="h")
+    measures = client.get("/api/insights/comparable", params={"profile": pid}).json()["measures"]
+    assert any(m["key"] == "logged:Headache" and m["group"] == "logged" for m in measures)
+    res = client.get("/api/insights/compare", params={"profile": pid, "a": "sleep_duration", "b": "logged:Headache", "days": 30}).json()
+    ww = res["with_without"]
+    assert ww["item"] == "Headache" and ww["days_with"] == 4 and ww["avg_with"] == 7 and ww["days_without"] >= 1
+
+
+def test_logged_once_or_twice_is_not_offered(client, pid):
+    _headaches(pid, [2, 5])
+    measures = client.get("/api/insights/comparable", params={"profile": pid}).json()["measures"]
+    assert not any(m["key"].startswith("logged:") for m in measures)
+
+
+def test_before_and_after_a_date_for_a_measure(client, pid):
+    from datetime import date, timedelta
+    from tests.test_insight_findings import _daily
+    _daily(pid, "resting_heart_rate", [70] * 10 + [60] * 10, unit="bpm")
+    pivot = (date.today() - timedelta(days=10)).isoformat()
+    res = client.get("/api/insights/before-after", params={"profile": pid, "measure": "resting_heart_rate", "date": pivot, "window": 30}).json()
+    assert res["before"]["avg"] == 70 and res["before"]["days"] >= 8
+    assert res["after"]["avg"] == 60 and res["after"]["days"] >= 8
+    assert client.get("/api/insights/before-after", params={"profile": pid, "measure": "resting_heart_rate", "date": "soon"}).status_code == 400
+
+
+def test_comparison_wording_stays_with_counts():
+    text = (STATIC / "views/trend-tools.js").read_text(encoding="utf-8")
+    start = text.index("function withWithout")
+    words = text[start:text.index("function describe", start)].lower()
+    for word in ("because", "caused", "triggers", "effect", "improved"):
+        assert word not in words
