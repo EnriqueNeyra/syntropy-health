@@ -318,7 +318,9 @@ function popover(name, button, fill, { align = "right", sheet = false, above = f
     if (dismissBtn) { dismiss(dismissBtn.dataset.dismiss); fill(el); return; }
     if (e.target.closest("a[href], [data-close-popover]")) closePopover();
   });
-  setTimeout(() => { document.addEventListener("mousedown", onOutside, true); document.addEventListener("keydown", onEscape); });
+  document.addEventListener("keydown", onEscape);
+  // After this click has finished, or it would count as a click outside.
+  setTimeout(() => document.addEventListener("mousedown", onOutside, true));
   return el;
 }
 

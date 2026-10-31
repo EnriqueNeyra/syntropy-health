@@ -337,6 +337,7 @@ label.btn:has(input[type="file"]):focus-within { outline: 2px solid var(--accent
 .jr-mood svg { width: 30px; height: 30px; stroke-width: 1.6; }
 @media (hover: hover) { .jr-mood:hover { border-color: var(--border-strong); color: var(--text); } }
 .jr-mood span { text-align: center; line-height: 1.2; }
+@media (max-width: 480px) { .jr-mood { padding-inline: 1px; font-size: 11px; } }
 .jr-mood.m1 { --c: var(--m1); } .jr-mood.m2 { --c: var(--m2); } .jr-mood.m3 { --c: var(--m3); }
 .jr-mood.m4 { --c: var(--m4); } .jr-mood.m5 { --c: var(--m5); }
 .jr-mood.active svg { color: var(--c); }
@@ -1464,6 +1465,8 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .chart svg.intro .bar { transform-box: fill-box; transform-origin: 50% 100%; animation: grow-bar .5s cubic-bezier(.2, .8, .2, 1) var(--d, 0ms) both; }
 svg.spark.intro { animation: wipe .8s cubic-bezier(.4, 0, .2, 1) both; }
 :root.no-intro svg.intro, :root.no-intro svg.intro * { animation: none !important; }
+/* The line waits behind its dash for the animation to reveal it: with no animation it has to start revealed. */
+:root.no-intro .chart svg.intro .line { stroke-dasharray: none; stroke-dashoffset: 0; }
 @keyframes draw-line { to { stroke-dashoffset: 0; } }
 @keyframes grow-bar { from { transform: scaleY(0); } }
 @keyframes appear { from { opacity: 0; } }
