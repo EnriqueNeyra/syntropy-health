@@ -423,6 +423,16 @@ _ENTRY_FIELDS = ("event_type", "category", "name", "value", "value_label", "note
 # An entry may also carry ``details`` (a check-in's energy and stress, 1-5), kept as its metadata.
 
 
+def logged_summary(profile_id: str, days: int = 90, start: Optional[str] = None) -> list[dict[str, Any]]:
+    """Symptoms the person logged: what, how many times and when last. Words they chose, counted, and nothing more."""
+    named: dict[str, dict[str, Any]] = {}
+    for event in list_events(profile_id, days=None if start else days, start=start, category="symptoms", limit=2000):
+        row = named.setdefault(event["name"], {"name": event["name"], "count": 0, "last_at": event["start_date"]})
+        row["count"] += 1
+        row["last_at"] = max(row["last_at"], event["start_date"])
+    return sorted(named.values(), key=lambda r: r["last_at"], reverse=True)
+
+
 def create_entry(profile_id: str, entry: dict[str, Any]) -> dict[str, Any]:
     start = to_utc_iso(entry["start"])
     end = to_utc_iso(entry["end"]) if entry.get("end") else start

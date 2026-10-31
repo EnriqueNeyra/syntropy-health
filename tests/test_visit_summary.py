@@ -152,3 +152,101 @@ def test_connections_list_carries_the_last_warnings_for_alerts(client, pid):
 def test_stale_sources_are_flagged_by_kind_in_alerts():
     text = (STATIC / "alerts.js").read_text(encoding="utf-8")
     assert "ehr: 7, wearable: 3" in text and "synced in part" in text
+
+
+# ---------------------------------------------------------------------------
+# F072, F122, F308, F127
+# ---------------------------------------------------------------------------
+
+def _report(client, pid):
+    return client.get("/api/report", params={"profile": pid}).json()
+
+
+def test_nothing_is_cut_without_saying_how_much(client, pid):
+    src = _source(pid)
+    for i in range(45):
+        _lab(pid, src, f"t{i}", 5, "normal")
+    report = _report(client, pid)
+    assert len(report["recent_labs"]) == 40 and report["labs_more"] == 5
+    assert report["lab_status"]["total"] == 45
+    assert len(records.summary(pid)["recent_labs"]) == 12
+
+
+def test_a_lab_carries_its_previous_result(client, pid):
+    src = _source(pid)
+    _lab(pid, src, "a1", 7.0, "high", code="4548-4", title="A1c", day="2026-09-01")
+    _lab(pid, src, "a2", 8.0, "high", code="4548-4", title="A1c", day="2026-03-01")
+    latest = _report(client, pid)["recent_labs"][0]
+    assert latest["value_text"] == "7.0" and latest["previous"]["value_text"] == "8.0" and latest["previous"]["effective_at"].startswith("2026-03-01")
+
+
+def test_more_than_a_hundred_vaccines_are_all_there(client, pid):
+    src = _source(pid)
+    records.upsert_records(pid, src, "Clinic", [{"resource_type": "Immunization", "resource_id": f"v{i}", "category": "immunizations",
+                                                 "title": f"Vaccine {i}", "status": "completed", "effective_at": "2026-01-01", "dedup_key": f"v{i}"} for i in range(120)])
+    assert len(_report(client, pid)["immunizations"]) == 120
+
+
+def test_device_scores_are_not_on_the_summary(client, pid):
+    from tests.test_insight_findings import _daily
+    _daily(pid, "strain_score", [10, 11, 12], unit="score")
+    _daily(pid, "resting_heart_rate", [60, 61, 62], unit="bpm")
+    assert [b["metric"] for b in _report(client, pid)["biometrics"]] == ["resting_heart_rate"]
+
+
+def test_home_readings_give_averages_counts_ranges_and_source(client, pid):
+    from tests.test_insight_findings import _daily
+    _daily(pid, "blood_pressure_systolic", [120] * 17 + [130] * 10, unit="mmHg", source="Omron")
+    _daily(pid, "blood_pressure_diastolic", [80] * 27, unit="mmHg", source="Omron")
+    _daily(pid, "blood_glucose", [100, 120], unit="mg/dL", source="Dexcom")
+    home = {m["metric"]: m for m in _report(client, pid)["home_readings"]}
+    systolic = home["blood_pressure_systolic"]
+    assert systolic["d7"]["count"] in (7, 8) and systolic["d7"]["avg"] == 130 and systolic["d30"]["count"] == 27
+    assert (systolic["d30"]["low"], systolic["d30"]["high"]) == (120, 130) and systolic["sources"] == ["Omron"]
+    assert home["blood_glucose"]["d30"]["avg"] == 110 and home["blood_glucose"]["unit"] == "mg/dL"
+
+
+def test_home_readings_leave_out_simulated_and_doubled_ones(client, pid):
+    from tests.test_insight_findings import _daily
+    _daily(pid, "blood_glucose", [100], unit="mg/dL", source="Demo (simulated)")
+    assert _report(client, pid)["home_readings"] == []
+    _daily(pid, "blood_glucose", [100], unit="mg/dL", source="A")
+    _daily(pid, "blood_glucose", [100], unit="mg/dL", source="B")
+    assert _report(client, pid)["home_readings"][0]["d30"]["count"] == 1
+
+
+def test_report_includes_procedures_imaging_smoking_and_journal(client, pid):
+    src = _source(pid)
+    records.upsert_records(pid, src, "Clinic", [
+        {"resource_type": "Procedure", "resource_id": "p", "category": "procedures", "title": "Total knee replacement", "effective_at": "2024-01-01", "dedup_key": "p"},
+        {"resource_type": "DiagnosticReport", "resource_id": "e", "category": "reports", "title": "Echo", "effective_at": "2025-01-01", "narrative": "EF 55-60%", "details": {"kind": "imaging"}, "dedup_key": "e"},
+        {"resource_type": "DiagnosticReport", "resource_id": "l", "category": "reports", "title": "Lipid panel", "effective_at": "2025-01-01", "details": {"kind": "lab"}, "dedup_key": "l"},
+        {"resource_type": "Observation", "resource_id": "s", "category": "observations", "title": "Smoking status", "code": "72166-2", "value_text": "Former smoker", "effective_at": "2025-06-01", "dedup_key": "s"}])
+    from app.store import activity
+    from tests.test_insight_findings import _noon
+    activity.insert_events(pid, None, [{"id": f"h{i}", "event_type": "headache", "category": "symptoms", "name": "Headache", "start": _noon(i + 1).isoformat(),
+                                        "end": _noon(i + 1).isoformat(), "source_name": "Syntropy"} for i in range(3)])
+    report = _report(client, pid)
+    assert [p["title"] for p in report["procedures"]] == ["Total knee replacement"]
+    assert [p["title"] for p in report["imaging"]] == ["Echo"]
+    assert report["smoking"]["value_text"] == "Former smoker"
+    assert report["journal"][0]["name"] == "Headache" and report["journal"][0]["count"] == 3
+
+
+def test_choices_and_questions_are_remembered_per_person_and_go_with_them(client, pid):
+    assert client.get("/api/report/preferences", params={"profile": pid}).json() == {"sections": {}, "questions": []}
+    res = client.put("/api/report/preferences", json={"profile_id": pid, "sections": {"insurance": True, "BAD KEY": True}, "questions": ["  Why this dose?  ", " "]})
+    assert res.status_code == 200 and res.json() == {"sections": {"insurance": True}, "questions": ["Why this dose?"]}
+    client.put("/api/report/preferences", json={"profile_id": pid, "sections": {"insurance": False}})
+    assert client.get("/api/report/preferences", params={"profile": pid}).json() == {"sections": {"insurance": False}, "questions": ["Why this dose?"]}
+    from app.core import settings
+    with db.db() as conn:
+        profiles._person_settings(conn, pid)
+    assert settings.get(f"report.preferences.{pid}") is None
+
+
+def test_insurance_starts_off_and_the_summary_stops_promising_one_page():
+    text = (STATIC / "views/report.js").read_text(encoding="utf-8")
+    assert '{ id: "insurance", title: "Insurance", off: true }' in text and "one-page" not in text
+    assert "one-page" not in (STATIC / "views/records.js").read_text(encoding="utf-8")
+    assert "one-page" not in (STATIC / "views/settings.js").read_text(encoding="utf-8")

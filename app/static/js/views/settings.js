@@ -287,7 +287,7 @@ export async function render({ el, parts, state, navigate }) {
     const failing = backup?.schedule.state?.last_error;
     mount(body, html`<div class="stack">
       ${section(`Export ${p.name}'s data`, "Files download straight from this machine, and aren't encrypted.", html`
-        ${row("Visit summary", "A one-page summary to print or save as PDF for appointments.", html`<a class="btn btn-sm" href="#/report">${icon("printer")} Open</a>`)}
+        ${row("Visit summary", "A summary to print or save as PDF for appointments.", html`<a class="btn btn-sm" href="#/report">${icon("printer")} Open</a>`)}
         ${p.access === "manage" ? row("Everything, in one file", html`Records, wearable samples, workouts with routes, the journal, goals and your conversations with the assistant. Another Syntropy Health can import it.`,
           dl(`/api/export/archive?profile=${p.id}`)) : ""}
         ${row("Patient summary (FHIR)", "An International Patient Summary: current conditions, medications, allergies and results, in the format clinicians' systems read.", dl(`/api/export/ips?profile=${p.id}`))}

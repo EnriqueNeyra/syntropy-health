@@ -6,7 +6,7 @@ import { openRecord } from "./record-detail.js";
 import { moodLabel } from "./journal.js";
 import { duration, openWorkout } from "./workouts.js";
 import {
-  pageScroller, $, $$, age, capitalize, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw,
+  pageScroller, $, $$, age, ageText, capitalize, confirmDialog, emptyState, flagBadge, fmtAgo, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, onAction, raw,
   plural, recordDate, resultStatus, toast,
 } from "../ui.js";
 import { displayUnit, fmtMeasure, recordValue, unitSystem } from "../units.js";
@@ -342,7 +342,7 @@ export async function render({ el, state, navigate }) {
     const { summary, bio, connections } = data;
     const conflict = summary.identity_conflict || [];
     const identity = conflict.length ? null : summary.identities[0];   // don't guess age/sex from someone else's chart
-    const years = age(profile.birth_date || identity?.birth_date);
+    const years = ageText(profile.birth_date || identity?.birth_date);
     const first = profile.name.split(" ")[0];
     // Someone else's Overview (a child, a parent you look after, someone who shares with you) is headed with their name:
     // the greeting is for whoever is signed in.
@@ -379,7 +379,7 @@ export async function render({ el, state, navigate }) {
     mount(el, html`
       <div class="page-head">
         <div><h1>${heading}</h1>
-          <p>${[years != null ? `${years} years` : null, identity?.gender ? identity.gender.charAt(0).toUpperCase() + identity.gender.slice(1) : null].filter(Boolean).join(" · ")}</p></div>
+          <p>${[years, identity?.gender ? identity.gender.charAt(0).toUpperCase() + identity.gender.slice(1) : null].filter(Boolean).join(" · ")}</p></div>
         <div class="row wrap" style="gap:8px">
           ${editing ? html`<button class="btn btn-sm btn-ghost" data-action="reset">Reset</button>
               <button class="btn btn-sm" data-action="add">${icon("plus")} Add</button>

@@ -54,6 +54,7 @@ LIST_COLUMNS = (
 _LAB_FLAG_COLUMNS = ("id, connection_id, title, code, code_system, code_display, unit, value_num, value_text, effective_at, status, "
                      "interpretation, ref_text, dedup_key, source_name")
 SUMMARY_LABS = 2000
+SMOKING_STATUS_CODE = "72166-2"
 SERIES_COLUMNS = ("id, connection_id, title, category, code, code_system, effective_at, status, value_num, value_text, unit, value_norm, unit_norm, "
                   "ref_low, ref_high, interpretation, details_json, dedup_key, source_name")
 
@@ -1001,10 +1002,14 @@ def _first(rows: list[dict[str, Any]], n: int) -> list[dict[str, Any]]:
 
 
 def _latest_labs(labs: list[dict[str, Any]]) -> "OrderedDict[str, dict[str, Any]]":
+    """Newest first going in. Each keeps the result before it, from an earlier day."""
     latest_by_code: "OrderedDict[str, dict[str, Any]]" = OrderedDict()
     for lab in labs:
-        if not _unnamed(lab):
-            latest_by_code.setdefault(_row_key(lab), lab)
+        if _unnamed(lab):
+            continue
+        latest = latest_by_code.setdefault(_row_key(lab), lab)
+        if latest is not lab and "previous" not in latest and str(lab.get("effective_at") or "")[:10] != str(latest.get("effective_at") or "")[:10]:
+            latest["previous"] = {"value_text": lab.get("value_text"), "effective_at": lab.get("effective_at"), "interpretation": lab.get("interpretation")}
     return latest_by_code
 
 
@@ -1035,6 +1040,15 @@ def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
             f"SELECT {_LAB_FLAG_COLUMNS} FROM clinical_records WHERE profile_id = ? AND category = 'labs' "
             "ORDER BY coalesce(effective_at, '') DESC, updated_at DESC", (profile_id,)).fetchall())
     return _out_of_range(_latest_labs(_dedupe(rows)[:SUMMARY_LABS]))
+
+
+def report_history(profile_id: str) -> dict[str, Any]:
+    """What a visit summary adds to the Overview's summary: surgery, imaging and smoking status."""
+    procedures = list_records(profile_id, "procedures", limit=10)
+    imaging = [r for r in list_records(profile_id, "reports", limit=500)["items"] if (r.get("details") or {}).get("kind") == "imaging"]
+    smoking = list_records(profile_id, code=SMOKING_STATUS_CODE, limit=1)["items"]
+    return {"procedures": procedures["items"], "procedures_more": max(0, procedures["total"] - len(procedures["items"])),
+            "imaging": imaging[:5], "imaging_more": max(0, len(imaging) - 5), "smoking": smoking[0] if smoking else None}
 
 
 def recently_normal_lab_codes(profile_id: str, since: str, limit: int) -> list[str]:
@@ -1140,7 +1154,7 @@ def medication_lists(rows: list[dict[str, Any]], today: Optional[date] = None) -
     return tiers
 
 
-def summary(profile_id: str) -> dict[str, Any]:
+def summary(profile_id: str, lab_rows: int = 12) -> dict[str, Any]:
     today = date.today()
     conds = list_records(profile_id, "conditions", limit=500)["items"]
     by_class: dict[str, list[dict[str, Any]]] = {"active": [], "unconfirmed": [], "unknown": [], "visit": [], "inactive": []}
@@ -1169,9 +1183,10 @@ def summary(profile_id: str) -> dict[str, Any]:
     planned = lambda e: (e.get("status") or "").lower() == "planned"  # noqa: E731
     upcoming = [e for e in visits if str(e.get("effective_at") or "") > soon or (planned(e) and str(e.get("effective_at") or "")[:10] >= today.isoformat())]
     happened = [e for e in visits if str(e.get("effective_at") or "") <= soon and not planned(e)]
-    vaccines = list_records(profile_id, "immunizations", limit=100)["items"]
+    vaccines = list_records(profile_id, "immunizations", limit=1000)["items"]
+    counts = category_counts(profile_id)
     return {
-        "counts": category_counts(profile_id),
+        "counts": counts,
         "active_conditions": by_class["active"],
         "unconfirmed_conditions": by_class["unconfirmed"],
         "conditions_status_unknown": by_class["unknown"],
@@ -1183,9 +1198,12 @@ def summary(profile_id: str) -> dict[str, Any]:
         "allergy_note": allergy_note,
         "flagged_labs": flagged,
         "lab_status": lab_status(latest_by_code),
-        "recent_labs": _first(list(latest_by_code.values()), 12),
+        "recent_labs": _first(list(latest_by_code.values()), lab_rows),
+        "labs_more": max(0, len(latest_by_code) - lab_rows),
         "latest_vitals": list(vitals_latest.values())[:12],
+        "vitals_more": max(0, len(vitals_latest) - 12),
         "recent_encounters": happened[:5],
+        "encounters_more": max(0, counts.get("encounters", 0) - len(upcoming) - 5),
         "upcoming_encounters": sorted(upcoming, key=lambda e: e["effective_at"])[:5],
         "immunizations": [i for i in vaccines if (i.get("status") or "").lower() != "not-done"],
         "immunizations_not_given": [i for i in vaccines if (i.get("status") or "").lower() == "not-done"],

@@ -14,12 +14,13 @@ from typing import Any, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel, Field
 
 from app.api.deps import check_access, resolve_profile
-from app.core import auth, context
+from app.core import auth, context, settings
 from app.core.db import audit, db, new_id
 from app.services import exports, imports
-from app.store import accounts, biometrics, connections, profiles, records
+from app.store import accounts, activity, biometrics, connections, profiles, records
 
 router = APIRouter(prefix="/api", tags=["data"], dependencies=[Depends(auth.require_user)])
 
@@ -165,15 +166,51 @@ def wipe_profile_data(profile_id: str) -> dict:
     return {"ok": True}
 
 
+REPORT_LABS = 40
+# Measurements a clinician can read. A device's own scores (strain, readiness) mean nothing outside its app.
+REPORT_METRICS = ["body_mass", "resting_heart_rate", "oxygen_saturation", "respiratory_rate", "sleep_duration", "step_count", "hrv_rmssd", "vo2_max"]
+REPORT_SECTIONS = re.compile(r"^[a-z_]{1,30}$")
+
+
+class ReportPreferences(BaseModel):
+    profile_id: Optional[str] = None
+    sections: Optional[dict[str, bool]] = Field(None, max_length=40)
+    questions: Optional[list[str]] = Field(None, max_length=50)
+
+
+def _report_preferences(profile_id: str) -> dict:
+    return settings.get(f"report.preferences.{profile_id}") or {"sections": {}, "questions": []}
+
+
+@router.get("/report/preferences")
+def get_report_preferences(profile: Optional[str] = None) -> dict:
+    return _report_preferences(resolve_profile(profile)["id"])
+
+
+@router.put("/report/preferences")
+def set_report_preferences(req: ReportPreferences) -> dict:
+    """What a person's summary includes, and the questions they want to ask. Kept per person, so anyone looking after them sees the same."""
+    pid = resolve_profile(req.profile_id, "manage")["id"]
+    current = _report_preferences(pid)
+    if req.sections is not None:
+        current["sections"] = {k: v for k, v in req.sections.items() if REPORT_SECTIONS.match(k)}
+    if req.questions is not None:
+        current["questions"] = [q.strip()[:500] for q in req.questions if q.strip()]
+    settings.set(f"report.preferences.{pid}", current)
+    return current
+
+
 @router.get("/report")
 def visit_report(profile: Optional[str] = None) -> dict:
     """Everything the printable visit summary needs, in one call."""
     prof = resolve_profile(profile)
-    summary = records.summary(prof["id"])
-    return {"profile": prof, "generated_at": time.time(), **summary,
+    summary = records.summary(prof["id"], lab_rows=REPORT_LABS)
+    return {"profile": prof, "generated_at": time.time(), **summary, **records.report_history(prof["id"]),
             # A summary for clinicians never shows demo data as if it were measured.
-            "biometrics": [h for h in biometrics.headline(prof["id"])
+            "biometrics": [h for h in biometrics.headline(prof["id"], REPORT_METRICS)
                            if "(simulated)" not in ((h.get("latest") or {}).get("source") or "")],
+            "home_readings": biometrics.home_readings(prof["id"]),
+            "journal": activity.logged_summary(prof["id"]),
             "source_status": connections.source_status(prof["id"]),
             "care_team": records.list_records(prof["id"], "care_team", limit=20)["items"],
             "coverage": records.list_records(prof["id"], "coverage", limit=10)["items"]}
