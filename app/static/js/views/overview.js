@@ -661,14 +661,13 @@ function masonry(grid) {
     }
   };
   // The page is built before it's on screen, when nothing has a height yet: measured then, every item would span a
-  // sliver and the first frame shown would be a pile of collapsed cards. So the first layout runs as soon as the items
-  // have a size (the observer's first answer comes before that frame is painted), later ones once per frame.
+  // sliver and the first frame shown would be a pile of collapsed cards. So the first layout runs the moment it arrives,
+  // later ones once per frame.
   if (grid.isConnected) layout();
-  let first = !grid.isConnected;
+  else grid.parentElement?.addEventListener("page-shown", layout, { once: true });
   let queued = false;
   let held = false;
   const ro = new ResizeObserver(() => {
-    if (first) { first = false; layout(); return; }
     if (queued || held) return;
     queued = true;
     requestAnimationFrame(() => { queued = false; if (!held) layout(); });

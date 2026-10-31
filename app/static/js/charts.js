@@ -674,7 +674,7 @@ export function sparkline(values) {
  */
 export function responsive(container, draw, { tall = false } = {}) {
   let lastWidth = 0, lastHeight = 0, timer = null;
-  const ro = new ResizeObserver(() => {
+  const check = () => {
     const w = container.clientWidth, h = tall ? container.clientHeight : 0;
     if (Math.abs(w - lastWidth) <= 8 && Math.abs(h - lastHeight) <= 8) return;
     const first = !lastWidth;
@@ -683,7 +683,11 @@ export function responsive(container, draw, { tall = false } = {}) {
     clearTimeout(timer);
     if (first) draw();
     else timer = setTimeout(draw, 90);
-  });
+  };
+  const ro = new ResizeObserver(check);
   ro.observe(container);
-  return () => { ro.disconnect(); clearTimeout(timer); };
+  // A page is built before it's on screen. Drawn the moment it arrives, its first frame already has the chart.
+  const page = container.closest("main.content");
+  page?.addEventListener("page-shown", check, { once: true });
+  return () => { ro.disconnect(); clearTimeout(timer); page?.removeEventListener("page-shown", check); };
 }

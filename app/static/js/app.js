@@ -616,6 +616,8 @@ async function route(opts) {
       next.addEventListener("animationend", () => next.classList.remove("page-enter"), { once: true });
     }
     current.replaceWith(next);
+    // What needs a size to lay itself out (charts, the Overview's grid) does it now, before this page is ever painted half done.
+    next.dispatchEvent(new Event("page-shown"));
     if (!keepScroll) scrollToTop();
     if (restoreTo) pageScroller().scrollTop = restoreTo;
   };
