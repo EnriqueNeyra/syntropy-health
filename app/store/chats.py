@@ -61,7 +61,7 @@ def _folded(text: str) -> str:
 
 def _snippet(content: str, word: str) -> str:
     """The part of a message around a word, on one line, without the marks that format it."""
-    flat = re.sub(r"\s+", " ", re.sub(r"[*`#|]+", "", content)).strip()
+    flat = re.sub(r"\s+", " ", re.sub(r"[*`#|]+|:?-{3,}:?", "", content)).strip()
     start = max(_folded(flat).find(word) - SNIPPET_CHARS // 3, 0)
     if start:
         start = flat.find(" ", start) + 1 or start

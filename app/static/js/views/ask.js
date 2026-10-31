@@ -142,7 +142,7 @@ export async function render({ el, state, params, navigate }) {
     <div class="chat-log" id="chat-log" aria-live="polite"></div>
     ${foot}`);
   else mount(el, html`
-    <div class="page-head">
+    <div class="page-head ask-head">
       <div><h1>Ask</h1><p class="small ask-privacy" id="ask-privacy"></p></div>
       <div class="row"><button class="model-btn" id="model-btn" aria-haspopup="true" aria-expanded="false"></button></div>
     </div>
@@ -151,7 +151,7 @@ export async function render({ el, state, params, navigate }) {
       <div class="ask-scrim" id="ask-scrim"></div>
       <aside class="ask-side" id="ask-side" aria-label="Conversations">
         <div class="ask-side-head">
-          <button class="btn ask-side-new" id="ask-new" type="button" title="New chat (${NEW_KEY})">${icon("pencil")}<span>New chat</span></button>
+          <button class="btn ask-side-new" id="ask-new" type="button" title="New chat (${NEW_KEY})">${icon("plus")}<span>New chat</span></button>
           <button class="btn btn-ghost btn-icon ask-side-close" id="ask-side-close" type="button" aria-label="Close conversations" title="Close">${icon("x")}</button>
         </div>
         <div class="search ask-search">${icon("search")}<input class="input" id="ask-search" type="search" placeholder="Search conversations" aria-label="Search conversations" aria-keyshortcuts="${MAC_KEYS ? "Meta+K" : "Control+K"}" autocomplete="off"><kbd class="ask-kbd" aria-hidden="true">${keyName("K")}</kbd></div>
@@ -160,11 +160,11 @@ export async function render({ el, state, params, navigate }) {
       <section class="chat" id="ask-chat" aria-label="Conversation">
         <div class="ask-bar">
           <h2 class="ask-title" id="ask-title"><button class="ask-title-btn truncate" id="ask-title-btn" type="button"></button></h2>
+          <button class="btn btn-ghost btn-icon ask-bar-new" id="ask-bar-new" type="button" aria-label="New chat" title="New chat (${NEW_KEY})">${icon("plus")}</button>
           <button class="btn btn-ghost btn-icon ask-bar-more" id="ask-bar-more" type="button" aria-label="More for this conversation" title="More" aria-haspopup="menu" aria-expanded="false">${icon("more")}</button>
-          <button class="btn btn-ghost btn-icon ask-bar-new" id="ask-bar-new" type="button" aria-label="New chat" title="New chat (${NEW_KEY})">${icon("pencil")}</button>
         </div>
         <div class="chat-log" id="chat-log" aria-live="polite"><div class="chat-thread" id="chat-thread"></div></div>
-        <div class="chat-latest-wrap" id="chat-latest-wrap"><button class="btn btn-icon chat-latest" id="chat-latest" type="button" aria-label="Scroll to the latest message" title="Scroll to the latest message" tabindex="-1">${icon("arrowDown")}</button></div>
+        <div class="chat-latest-wrap" id="chat-latest-wrap"><button class="btn btn-icon chat-latest" id="chat-latest" type="button" aria-label="Scroll to the latest message" title="Scroll to the latest message">${icon("arrowDown")}</button></div>
         <form class="chat-input" id="chat-form">
           <span class="chat-input-bg" id="chat-input-bg"></span>
           <textarea class="input" id="chat-text" rows="1" placeholder="Ask about your health data…" aria-label="Your question"></textarea>
@@ -543,6 +543,11 @@ export async function render({ el, state, params, navigate }) {
       if (follow) toBottom(true, true);
       if (onScreen && text && reply.error && !reply.stopped && !text.value.trim()) { text.value = asked; autosize(); }
       if (onScreen) focusText();
+      // Nobody's looking at this one: say so, and don't list a conversation there's nothing saved of.
+      if (!onScreen && reply.error && !left && !gone) {
+        toast(`The answer in your other conversation didn't finish: ${reply.error}`, "bad");
+        unsaved.delete(heldId);
+      }
       panel?.draw();
       // A failed second try leaves the answer already saved in place, for the next time this conversation is opened.
       if (!gone && !(again && reply.error)) saveChat(heldId, held);
@@ -575,8 +580,8 @@ export async function render({ el, state, params, navigate }) {
     fit();
     field.focus({ preventScroll: true });
     field.setSelectionRange(field.value.length, field.value.length);
-    if (m === messages.at(-1) || m === messages.at(-2)) toBottom(false);
-    const close = () => { form.remove(); node.classList.remove("editing"); $('[data-tool="edit"]', node)?.focus({ preventScroll: true }); };
+    form.scrollIntoView({ block: "nearest" });
+    const close =() => { form.remove(); node.classList.remove("editing"); $('[data-tool="edit"]', node)?.focus({ preventScroll: true }); };
     field.addEventListener("input", fit);
     field.addEventListener("keydown", (e) => {
       if (e.isComposing) return;
@@ -647,6 +652,7 @@ export async function render({ el, state, params, navigate }) {
     drawAll();
     if (!native && !REDUCED_MOTION()) thread.animate([{ opacity: .55 }, { opacity: 1 }], { duration: 140, easing: "ease-out" });
     panel?.draw({ glide: false });
+    panel?.reveal();
     drawBar();
     showAddress();
     if (text) { text.value = drafts.get(id) || ""; autosize(); }
@@ -868,7 +874,7 @@ export async function render({ el, state, params, navigate }) {
    */
   const slideParts = () => [
     [thread, "middle"], [$("#chat-latest-wrap", el), "middle"], [$("#chat-input-bg", el), "stretch"], [text, "start"], [send, "end"],
-    [$("#ask-title", el), "start"], [barMore, "end"],
+    [$("#ask-title", el), "start"],
   ];
   const setSide = (open, { remember = true } = {}) => {
     if (sideOpen === open) return;
@@ -884,8 +890,7 @@ export async function render({ el, state, params, navigate }) {
     const parts = glide ? slideParts() : [];
     const before = parts.map(([part]) => part.getBoundingClientRect());
     const place = readingPlace();
-    const sideFrom = getComputedStyle(side);
-    const sideWas = { transform: sideFrom.transform, opacity: sideFrom.opacity };
+    const sideWas = getComputedStyle(side).transform;
     for (const [part] of parts) part.getAnimations().forEach((a) => a.cancel());
     side.getAnimations().forEach((a) => a.cancel());
     split.classList.toggle("side-gliding", glide);
@@ -900,11 +905,13 @@ export async function render({ el, state, params, navigate }) {
       const shift = how === "middle" ? was.left + was.width / 2 - (now.left + now.width / 2) : how === "end" ? was.right - now.right : was.left - now.left;
       const from = how === "stretch" ? `translateX(${shift}px) scaleX(${was.width / now.width})` : `translateX(${shift}px)`;
       if (Math.abs(shift) < .5 && Math.abs(was.width - now.width) < .5) return;
-      part.animate([{ transform: from }, { transform: "none" }], SLIDE);
+      // Text that has taken a new width rises into place, rather than being seen to jump to its new lines.
+      const rewrapped = part === thread && Math.abs(was.width - now.width) > 1;
+      part.animate([{ transform: from, ...(rewrapped ? { opacity: .35 } : {}) }, { transform: "none", ...(rewrapped ? { opacity: 1 } : {}) }], SLIDE);
     });
-    const hiddenSide = { transform: "translateX(-100%)", opacity: 0 };
-    const startSide = sideWas.transform !== "none" ? sideWas : open ? hiddenSide : { transform: "none", opacity: 1 };
-    const moving = side.animate([startSide, open ? { transform: "none", opacity: 1 } : hiddenSide], SLIDE);
+    if (!open) $("#ask-bar-new", el).animate([{ opacity: 0 }, { opacity: 1 }], SLIDE);
+    const hidden = "translateX(-100%)";
+    const moving = side.animate([{ transform: sideWas !== "none" ? sideWas : open ? hidden : "none" }, { transform: open ? "none" : hidden }], SLIDE);
     moving.finished.then(() => { split.classList.remove("side-gliding", "side-leaving"); drawLatest(); }, () => {});
   };
   const onNarrowChange = () => { sideOpen = !narrow.matches && !rememberedClosed(); drawSide(); };
@@ -972,7 +979,8 @@ export async function render({ el, state, params, navigate }) {
   drawBar();
   panel.draw({ glide: false });
   showAddress();
-  text.focus();
+  // The page isn't on screen until this returns: then the list can bring the open conversation into view.
+  requestAnimationFrame(() => { panel.reveal(); if (!document.querySelector(".overlay")) focusText(); });
   return () => {
     left = true; stopRefreshing(); closeMenu?.(); controller?.abort(); threadSize.disconnect();
     document.removeEventListener("keydown", onKeys);

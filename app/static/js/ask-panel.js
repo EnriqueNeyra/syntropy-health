@@ -48,7 +48,7 @@ export function renameInPlace(shown, value, { save, done }) {
 /**
  * `list` is the element to draw in, `searchBox` the search field. `chats()` gives the conversations (newest first),
  * `currentId()` the one open, `liveId()` the one being answered. `onOpen(id)`, `onMenu(chat, button, at)` act on a row and
- * `find(words)` asks the server. Returns { draw, rename, focusSearch, clearSearch, searching, destroy }.
+ * `onRename(id, title)` and `find(words)` go to the server. Returns what the page asks of the list.
  */
 export function conversationList({ list, searchBox, chats, currentId, liveId, onOpen, onMenu, find, onRename }) {
   const rows = new Map();     // conversation id → its row, kept between draws
@@ -85,7 +85,6 @@ export function conversationList({ list, searchBox, chats, currentId, liveId, on
     node.classList.toggle("current", current);
     if (current) open.setAttribute("aria-current", "true"); else open.removeAttribute("aria-current");
     node.classList.toggle("live", chat.id === liveId());
-    node.classList.toggle("pinned", !!chat.pinned);
     more.hidden = !!chat.draft;       // not saved yet: there's nothing to rename, pin or delete on the server
     const line = node.querySelector(".ask-item-snippet");
     line.hidden = !snippet;
@@ -152,13 +151,9 @@ export function conversationList({ list, searchBox, chats, currentId, liveId, on
       const r = node.getBoundingClientRect();
       if (r.bottom < view.top || r.top > view.bottom) continue;
       const was = before.get(node);
-      if (was === undefined) {
-        if (list.dataset.drawn && node.isConnected && !found) node.animate([{ opacity: 0 }, { opacity: 1 }], MOVE);
-      } else if (Math.abs(was - r.top) > 1) {
-        node.animate([{ transform: `translateY(${was - r.top}px)` }, { transform: "none" }], MOVE);
-      }
+      if (was === undefined) node.animate([{ opacity: 0 }, { opacity: 1 }], MOVE);
+      else if (Math.abs(was - r.top) > 1) node.animate([{ transform: `translateY(${was - r.top}px)` }, { transform: "none" }], MOVE);
     }
-    list.dataset.drawn = "1";
   };
 
   const search = debounce(async () => {
@@ -210,13 +205,21 @@ export function conversationList({ list, searchBox, chats, currentId, liveId, on
   list.addEventListener("click", onClick);
   list.addEventListener("contextmenu", onContext);
 
+  /** Scrolls the list, and only the list, far enough to show a row. */
+  const show = (node) => {
+    if (!node?.isConnected) return;
+    const r = node.getBoundingClientRect(), box = list.getBoundingClientRect();
+    if (r.top < box.top) list.scrollTop -= box.top - r.top + 8;
+    else if (r.bottom > box.bottom) list.scrollTop += r.bottom - box.bottom + 8;
+  };
+
   const rename = (id) => {
     const node = rows.get(id);
     const chat = chatOf(id);
     if (!node?.isConnected || !chat || renaming === id) return false;
     renaming = id;
     node.classList.add("renaming");
-    node.scrollIntoView({ block: "nearest" });
+    show(node);
     renameInPlace(node.querySelector(".ask-item-open"), chat.title, {
       save: (title) => onRename(id, title),
       done: () => { renaming = null; node.classList.remove("renaming"); },
@@ -226,12 +229,11 @@ export function conversationList({ list, searchBox, chats, currentId, liveId, on
 
   return {
     draw, rename, clearSearch,
-    searching: () => !!found,
+    reveal: () => show(rows.get(currentId())),
     focusSearch: () => { searchBox.focus(); searchBox.select(); },
     /** What a search shows follows a rename or a pin straight away too. */
     change(id, fields) { const c = found?.find((x) => x.id === id); if (c) Object.assign(c, fields); },
     forget(id) { if (found) found = found.filter((c) => c.id !== id); rows.delete(id); },
-    destroy() { list.replaceChildren(); },
   };
 }
 

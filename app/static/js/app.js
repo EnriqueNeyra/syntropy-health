@@ -581,7 +581,6 @@ async function route(opts) {
   }
   const def = ROUTES[name];
   if (!def) return redirect("#/overview");
-  if (!keepScroll && ownAddress?.(name, params)) { shownHash = location.hash; return; }
   ownAddress = null;
   closePopover();
   // A dialog left open (Back, a link inside it, the address changed) would cover the next page.
@@ -1056,7 +1055,11 @@ window.addEventListener("pageshow", (e) => {
 });
 window.addEventListener("hashchange", () => {
   if (parseHash().route === "join" && !embedded) boot();     // an invitation link opened in this tab
-  else if (state.status?.authenticated) route();
+  else if (state.status?.authenticated) {
+    const { route: name, params } = parseHash();
+    if (ownAddress?.(name, params)) shownHash = location.hash;
+    else route();
+  }
 });
 boot();
 

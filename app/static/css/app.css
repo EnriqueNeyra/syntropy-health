@@ -1086,13 +1086,14 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 
 /* Ask (assistant chat) */
 /* One card holding the conversations and the conversation: its outer edges never move when the panel opens or closes. */
-.ask-split { --ask-col: 720px; --ask-side: 264px; position: relative; display: flex; height: calc(100vh - 210px); min-height: 420px; overflow: hidden; }
+.ask-split { --ask-col: 720px; --ask-side: 264px; position: relative; display: flex; overflow: hidden; }
 .chat { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-/* Pages that fill the window and scroll inside themselves (Ask): the page never scrolls, so there's one scrollbar. */
+/* Pages that fill the window and scroll inside themselves (Ask): the page never scrolls, so there's one scrollbar. A window
+   too short to hold it all (a phone on its side) is the exception: the message field must still be reachable. */
 .main:has(> .content.page-fill) { height: 100vh; height: 100dvh; overflow: hidden; }
-.content.page-fill { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; }
+.content.page-fill { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; overflow-y: auto; }
 .content.page-fill > .page-head, .content.page-fill > .chat-foot { flex: none; }
-.content.page-fill > .ask-split { flex: 1; height: auto; min-height: 280px; }
+.content.page-fill > .ask-split { flex: 1; min-height: 280px; }
 .chat-foot { margin-top: 8px; }
 @media (min-width: 1081px) { .content.page-fill { padding-bottom: 18px; } }
 .chat-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 14px; scrollbar-gutter: stable both-edges; }
@@ -1153,7 +1154,8 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .ask-rename { padding: 3px 7px; font-size: inherit; font-weight: inherit; }
 .ask-bar .ask-rename { flex: 1; margin-left: -8px; }
 /* The panel of conversations. */
-.ask-toggle { position: absolute; top: 10px; left: 10px; z-index: 3; }
+/* Stays put as the panel slides under it. */
+.ask-toggle { position: absolute; top: 10px; left: 10px; z-index: 3; background: var(--surface); }
 .ask-side { position: relative; z-index: 2; flex: none; width: var(--ask-side); min-height: 0; display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--border); }
 .ask-split[data-side="closed"] .ask-side { display: none; }
 .ask-split.side-leaving .ask-side { display: flex; position: absolute; inset: 0 auto 0 0; }
@@ -1198,6 +1200,7 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
   .ask-item-more::before { display: none; }
   .ask-item-open { padding-right: 34px; }
 }
+:root[data-shell] .ask-group { -webkit-user-select: none; user-select: none; }
 :root[data-shell="mac"] .ask-group { text-transform: none; letter-spacing: 0; color: var(--text-3); }
 /* Too narrow for it to sit beside the conversation: it slides over everything, and is closed until asked for. */
 @media (max-width: 1023px) {
@@ -1233,7 +1236,14 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .chat-empty .chips { justify-content: center; }
 .chat-empty-icon { display: inline-flex; padding: 12px; border-radius: 14px; background: var(--accent-2); color: var(--accent); }
 .chat-empty-icon .ic { width: 22px; height: 22px; }
-@media (max-width: 760px) { .ask-split { height: calc(100dvh - 330px); min-height: 340px; } .chat-log { padding: 4px 12px 12px; } .chat-input { width: calc(100% - 16px); margin-bottom: 8px; } }
+@media (max-width: 760px) {
+  .chat-log { padding: 4px 12px 12px; }
+  .chat-input { width: calc(100% - 16px); margin-bottom: 8px; }
+  /* The heading and the AI in use share a line on a phone, so the conversation gets the room. */
+  .ask-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; margin-bottom: 10px; }
+  .ask-head > :first-child { display: contents; }
+  .ask-head .ask-privacy { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+}
 
 /* Messages ease in; the answer shows a caret while it's being written. */
 .msg.enter, .msg-q.enter { animation: msg-in .32s cubic-bezier(.2, .8, .2, 1) both; }
