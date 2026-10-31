@@ -519,6 +519,10 @@ function group(title, hint, action, body) {
   </section>`;
 }
 
+// What went wrong with the last sign-in, for a little while, in case this page is drawn afresh just after coming back.
+let lastProblem = null;
+const PROBLEM_STAYS_MS = 60000;
+
 export async function render({ el, params, state }) {
   const profile = state.profile;
   mount(el, loading(4));
@@ -655,20 +659,24 @@ export async function render({ el, params, state }) {
     }
     // Only words this server signed: anyone can make a link to this page.
     if (params.get("problem") || params.get("failed") || params.get("error")) {
-      const say = (text) => html`<div class="banner bad">${icon("alert")}<div class="grow"><b>The connection didn't complete.</b><p>${text}</p></div></div>`;
-      bannerShown = say("Try connecting again.");
-      mount(box, bannerShown);
+      const say = (text) => {
+        bannerShown = html`<div class="banner bad">${icon("alert")}<div class="grow"><b>The connection didn't complete.</b><p>${text}</p></div></div>`;
+        // The page can be drawn afresh in a moment (coming back to the window, the phone app's refresh): this has to survive it.
+        lastProblem = { html: bannerShown, at: Date.now() };
+        if (box.isConnected) mount(box, bannerShown);
+      };
+      say("Try connecting again.");
       if (params.get("problem")) {
-        get("/api/sign-in-problem", { token: params.get("problem") }, { fresh: true }).then(({ message }) => {
-          if (!message) return;
-          bannerShown = say(message);
-          if (box.isConnected) mount(box, bannerShown);
-        }, () => {});
+        get("/api/sign-in-problem", { token: params.get("problem") }, { fresh: true }).then(({ message }) => { if (message) say(message); }, () => {});
       }
     } else if (params.get("connected")) {
       toast("Connected. Downloading records…", "good");
       bannerShown = true;
       arriving = params.get("connected");
+    } else if (lastProblem && Date.now() - lastProblem.at < PROBLEM_STAYS_MS) {
+      bannerShown = lastProblem.html;
+      mount(box, bannerShown);
+      return;
     } else return;
     // A reload shouldn't say it again. (Only while this page is still the one on screen.)
     if (location.hash.startsWith("#/sources")) history.replaceState(null, "", "#/sources");
