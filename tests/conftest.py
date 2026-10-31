@@ -122,8 +122,13 @@ def isolated_data(tmp_path, monkeypatch):
 
 @pytest.fixture
 def raw_client():
+    from app.core import data_fixes
     from app.main import create_app
     with TestClient(create_app(), base_url=BASE, client=LOCAL_CLIENT) as c:
+        # Fixes run in the background at start-up. Left running, working out daily rollups again can remove a row a test has
+        # just written.
+        if data_fixes._thread:
+            data_fixes._thread.join(30)
         yield c
 
 
