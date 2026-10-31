@@ -31,7 +31,7 @@ from typing import Any, Iterator, Optional
 from app.core import config, db
 from app.core.db import read
 from app.services.sync import SOURCE_TAG, SOURCE_URN
-from app.store import activity, biometrics, chats, connections, goals, record_overrides, records
+from app.store import activity, biometrics, chats, connections, goals, record_files, record_overrides, records
 
 log = logging.getLogger("syntropy.exports")
 
@@ -120,6 +120,16 @@ def _with_note_text(res: dict[str, Any], narrative: Optional[str]) -> dict[str, 
     return res
 
 
+def _report_body(res: dict[str, Any], details_json: Optional[str]) -> Optional[str]:
+    """A report with a conclusion can also have its full text, fetched separately."""
+    if res.get("resourceType") != "DiagnosticReport" or not res.get("conclusion") or not details_json:
+        return None
+    try:
+        return json.loads(details_json).get("full_text")
+    except ValueError:
+        return None
+
+
 # The resources with an Annotation note: what a person said about a record stays beside it in the file, and is labelled.
 _TAKES_A_NOTE = {"MedicationRequest", "MedicationStatement", "Condition", "AllergyIntolerance", "Observation", "Immunization", "Procedure", "DiagnosticReport"}
 
@@ -162,7 +172,7 @@ def _collect(profile_id: str) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]
             "SELECT f.connection_id, f.resource_type, f.resource_id, f.raw_json FROM fhir_references f "
             "JOIN connections c ON c.id = f.connection_id WHERE c.profile_id = ?", (profile_id,)).fetchall()
         rows = conn.execute(
-            "SELECT id, dedup_key, raw_json, narrative, connection_id, category, title, code_system, code, code_display, resource_type FROM clinical_records "
+            "SELECT id, dedup_key, raw_json, narrative, details_json, connection_id, category, title, code_system, code, code_display, resource_type FROM clinical_records "
             "WHERE profile_id = ? AND raw_json IS NOT NULL ORDER BY category, effective_at", (profile_id,)).fetchall()
 
     said = record_overrides.for_profile(profile_id)
@@ -190,7 +200,8 @@ def _collect(profile_id: str) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]
             if made := _medication_from_record(key, dict(row)):
                 have.add((row["connection_id"], key))
                 yield made, source
-        yield _with_person_note(_with_note_text(res, row["narrative"]), said.get(record_overrides.key_for(dict(row)))), source
+        text = _report_body(res, row["details_json"]) or row["narrative"]
+        yield _with_person_note(_with_note_text(res, text), said.get(record_overrides.key_for(dict(row)))), source
 
 
 def entries(profile_id: str) -> Iterator[dict[str, Any]]:
@@ -489,6 +500,7 @@ events.csv        the journal and device events, one row each
 samples.ndjson    every wearable sample, one JSON object per line
 workouts.ndjson   every workout with its heart rate and route, one JSON object per line
 journal.ndjson    the journal and device events with notes, one JSON object per line
+documents/        PDFs, images and original health summaries that came with records; documents.json says whose
 corrections.json  what this person said about entries in their record: not taking, taken differently, wrong, or a note
 goals.json        daily goals
 chats.ndjson      {whose} conversations with the assistant, one JSON object per line
@@ -546,6 +558,44 @@ def _write_lines(z: zipfile.ZipFile, name: str, rows: Iterator[dict[str, Any]]) 
     return count
 
 
+def _write_documents(z: zipfile.ZipFile, profile_id: str) -> int:
+    """PDFs, images and original health summaries, one at a time, with an index saying which record each belongs to."""
+    index = []
+    for found in record_files.all_for_profile(profile_id):
+        extension = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp",
+                     "image/tiff": ".tif", "application/xml": ".xml"}.get(found["content_type"], "")
+        path = f"documents/{found['id']}{extension}"
+        z.writestr(path, found["data"])
+        index.append({"path": path, **{k: found.get(k) for k in ("resource_type", "resource_id", "name", "content_type")}})
+    z.writestr("documents.json", json.dumps(index, indent=2, ensure_ascii=False))
+    return len(index)
+
+
+def _read_documents(z: zipfile.ZipFile, profile_id: str) -> int:
+    try:
+        index = json.loads(z.read("documents.json"))
+    except (KeyError, ValueError):
+        return 0
+    added = 0
+    for item in index if isinstance(index, list) else []:
+        if not isinstance(item, dict) or not isinstance(item.get("path"), str) or not isinstance(item.get("content_type"), str):
+            continue
+        with read() as conn:
+            row = conn.execute("SELECT connection_id FROM clinical_records WHERE profile_id = ? AND resource_type = ? AND resource_id = ?",
+                               (profile_id, item.get("resource_type"), item.get("resource_id"))).fetchone()
+        try:
+            if not row or z.getinfo(item["path"]).file_size > record_files.MAX_FILE:
+                continue
+            with z.open(item["path"]) as member:
+                data = member.read(record_files.MAX_FILE + 1)
+        except (KeyError, zipfile.BadZipFile, RuntimeError, OSError):
+            continue
+        if len(data) <= record_files.MAX_FILE:
+            record_files.save(profile_id, row["connection_id"], item["resource_type"], item["resource_id"], item.get("name"), item["content_type"], data)
+            added += 1
+    return added
+
+
 def build_archive(profile: dict[str, Any], account_id: Optional[str]) -> Path:
     """On disk, private, in a folder of its own that the caller removes (and a crash leaves for clean_leftovers). A chat
     belongs to the account that had it, so only this account's are in here."""
@@ -569,6 +619,7 @@ def build_archive(profile: dict[str, Any], account_id: Optional[str]) -> Path:
             person_goals = goals.get(profile_id)
             z.writestr("goals.json", json.dumps(person_goals, indent=2))
             counts["goals"] = len(person_goals)
+            counts["documents"] = _write_documents(z, profile_id)
             said = list(record_overrides.for_profile(profile_id).values())
             z.writestr("corrections.json", json.dumps(said, indent=2, ensure_ascii=False))
             counts["corrections"] = len(said)
@@ -685,6 +736,7 @@ def import_archive(profile_id: str, account_id: Optional[str], path: Path, on_pr
                     pass
         for chat in _lines(z, "chats.ndjson"):
             out[_bring_in_chat(profile_id, account_id, chat)] += 1
+        out["documents"] = _read_documents(z, profile_id)
         if "corrections.json" in z.namelist():
             wanted = json.loads(z.read("corrections.json"))
             out["corrections"] = record_overrides.bring_in(profile_id, wanted if isinstance(wanted, list) else [])

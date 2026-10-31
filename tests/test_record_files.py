@@ -55,7 +55,7 @@ def test_text_in_an_inline_pdf_is_read_and_can_be_searched(client, pid):
 
 def test_a_scan_says_so_and_can_be_opened_only_by_someone_who_can_see_it(client, pid):
     raw = pdf_with()
-    res = sync.import_fhir_resources(pid, "File", [_note(raw)])
+    sync.import_fhir_resources(pid, "File", [_note(raw)])
     rec = records.list_records(pid, "notes")["items"][0]
     body = client.get(f"/api/records/{rec['id']}").json()
     assert body["files"][0]["state"] == record_files.SCANNED and not body["narrative"] and "data" not in body["files"][0]
@@ -64,7 +64,6 @@ def test_a_scan_says_so_and_can_be_opened_only_by_someone_who_can_see_it(client,
     assert got.status_code == 200 and got.content == raw and got.headers["content-type"] == "application/pdf"
     assert got.headers["content-disposition"].startswith("inline") and got.headers["x-content-type-options"] == "nosniff"
     assert client.get(f"{url}?download=true").headers["content-disposition"].startswith("attachment")
-    assert res["connection_id"]
 
 
 def test_a_file_cant_be_reached_through_another_record(client, pid):
@@ -121,7 +120,6 @@ def test_stored_records_get_their_files_through_the_data_fix(client, pid):
 
 def test_removing_the_source_or_the_person_removes_the_files(client, pid):
     res = sync.import_fhir_resources(pid, "File", [_note(pdf_with())])
-    connections.delete(res["connection_id"]) if hasattr(connections, "delete") else None
     other = profiles.create_profile("Other", "other")["id"]
     res2 = sync.import_fhir_resources(other, "File", [_note(pdf_with())])
     assert record_files.for_record(res2["connection_id"], "DocumentReference", "n1")

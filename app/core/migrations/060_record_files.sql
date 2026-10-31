@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS record_files (
     sha256         TEXT,
     fingerprint    TEXT,
     state          TEXT NOT NULL,
+    text           TEXT,
     stored_at      REAL NOT NULL,
     data           BLOB
 );

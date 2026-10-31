@@ -248,6 +248,11 @@ def reconcile(connection_id: str, seen_ids: set[str], verdict: Any, retracted: I
     with db() as conn:
         conn.execute("DELETE FROM clinical_records_removed WHERE connection_id = ? AND removed_at < ?",
                      (connection_id, now - REMOVED_KEEP_DAYS * 86400))
+        # A document stays as long as its record could be put back.
+        conn.execute("""DELETE FROM record_files WHERE connection_id = ?1 AND NOT EXISTS (SELECT 1 FROM clinical_records r WHERE r.connection_id = ?1
+                            AND r.resource_type = record_files.resource_type AND r.resource_id = record_files.resource_id)
+                        AND NOT EXISTS (SELECT 1 FROM clinical_records_removed x WHERE x.connection_id = ?1
+                            AND x.resource_type = record_files.resource_type AND x.resource_id = record_files.resource_id)""", (connection_id,))
     return {"removed": len(took_back) + len(removing), "retracted": len(took_back), "held": held, "missing": len(newly_missing)}
 
 
@@ -349,6 +354,7 @@ def delete_for_connection(connection_id: str) -> None:
     with db() as conn:
         conn.execute("DELETE FROM clinical_records WHERE connection_id = ?", (connection_id,))
         conn.execute("DELETE FROM clinical_records_removed WHERE connection_id = ?", (connection_id,))
+        conn.execute("DELETE FROM record_files WHERE connection_id = ?", (connection_id,))
         conn.execute("DELETE FROM sync_query_state WHERE connection_id = ?", (connection_id,))
         conn.execute("DELETE FROM patient_identities WHERE connection_id = ?", (connection_id,))
 

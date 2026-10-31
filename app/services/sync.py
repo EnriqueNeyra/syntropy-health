@@ -173,6 +173,7 @@ async def _sync_ehr(conn: dict[str, Any]) -> dict[str, Any]:
     unreadable: list[str] = []
     everything = ([fetched.patient] if fetched.patient else []) + fetched.resources
     patient, recs, problems = await asyncio.to_thread(fhir_normalize.normalize_report, everything, unreadable)
+    await asyncio.to_thread(record_files.take_inline, conn["profile_id"], conn["id"], recs)
     notes = await _fetch_note_bodies(conn, client, recs, simulated)
 
     returned = {f"{r['resourceType']}/{r.get('id')}": r for r in fetched.resources}
@@ -290,10 +291,11 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
     the source changed the note: an amended note under its old text says the wrong thing. The stored text is kept until a new one
     arrives, and a note that couldn't be fetched this time keeps its old mark, so the next sync tries again."""
     done: dict[str, Any] = {"fetched": 0, "pending": 0, "problem": None}
-    pending = [r for r in recs if r["category"] in ("notes", "reports") and not r.get("narrative")
-               and (r.get("details") or {}).get("attachments")]
+    pending = [r for r in recs if r["category"] in ("notes", "reports") and not record_files.has_text(r)
+               and any(a.get("url") for a in (r.get("details") or {}).get("attachments") or [])]
     if not pending:
         return done
+    filed = record_files.fingerprints(conn["id"])
     existing: dict[tuple[str, str], Any] = {}
     with read() as c:       # without the write lock: this runs on the event loop, and a big upload may hold it
         rows = c.execute(
@@ -306,11 +308,12 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
     changed, new = [], []
     for rec in pending:
         rec["details"]["body_fingerprint"] = fingerprint = fhir_normalize.body_fingerprint(rec.get("raw"))
-        row = existing.get((rec["resource_type"], rec["resource_id"]))
-        if row is None:
-            new.append(rec)
+        key = (rec["resource_type"], rec["resource_id"])
+        row = existing.get(key)
+        if row is None or not _restore_body(rec, row):
+            if filed.get(key) != fingerprint:   # a scan with no text in it has no body to find, and is already here
+                new.append(rec)
             continue
-        rec["narrative"] = row["narrative"]
         stored = _stored_fingerprint(row)
         if stored != fingerprint:
             rec["details"]["body_fingerprint"] = stored     # until the new text is here
@@ -325,13 +328,21 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
                 done["pending"] = len(wanted) - position
                 break
             attempts += 1
-            attachments = sorted(rec["details"].get("attachments") or [], key=lambda a: fhir_normalize.text_preference(a.get("content_type")))
+            # Text first, whatever order the source lists them in: a PDF of the same note adds nothing that's worth keeping twice.
+            attachments = sorted(rec["details"].get("attachments") or [], key=lambda a: (record_files.is_file_type(a.get("content_type")),
+                                                                                         fhir_normalize.text_preference(a.get("content_type"))))
             for att in attachments:
                 ctype = (att.get("content_type") or "").lower()
-                if not att.get("url") or not (ctype.startswith("text/") or "rtf" in ctype or "xml" in ctype or not ctype):
+                as_file = record_files.is_file_type(ctype)
+                if not att.get("url") or not (as_file or ctype.startswith("text/") or "rtf" in ctype or "xml" in ctype or not ctype):
                     continue
                 try:
-                    body = await client.read_binary_text(http, att["url"])
+                    body = await (client.read_binary_file(http, att["url"], record_files.MAX_FILE) if as_file else client.read_binary_text(http, att["url"]))
+                except smart.BinaryTooLarge as exc:
+                    await asyncio.to_thread(record_files.note_too_large, conn["profile_id"], conn["id"], rec["resource_type"], rec["resource_id"],
+                                            att.get("title"), ctype, exc.args[0], fingerprint)
+                    rec["details"]["body_fingerprint"] = fingerprint
+                    break
                 except SmartError as exc:
                     # Access has gone: the other notes would only fail the same way. They come with a later sync.
                     log.info("Stopped fetching note text from %s: %s", conn["display_name"], exc)
@@ -343,12 +354,33 @@ async def _fetch_note_bodies(conn: dict[str, Any], client: smart.FhirClient, rec
                     body = None
                 if body:
                     content_type, raw = body
-                    rec["narrative"] = fhir_normalize.decode_body(raw, content_type)[:200_000]
+                    if record_files.is_file_type(content_type):
+                        text, _ = await asyncio.to_thread(record_files.save, conn["profile_id"], conn["id"], rec["resource_type"], rec["resource_id"],
+                                                          att.get("title"), content_type, raw, fingerprint)
+                    else:
+                        text = fhir_normalize.decode_body(raw, content_type)[:200_000]
+                    record_files.put_text(rec, text)
                     rec["details"]["body_fingerprint"] = fingerprint
                     rec["details"].pop("body_stale", None)
                     done["fetched"] += 1
                     break
     return done
+
+
+def _restore_body(rec: dict[str, Any], row: Any) -> bool:
+    """Puts the body already here back on a record about to be stored. A report's stored narrative may only be its conclusion, which
+    says nothing about whether the report itself was ever fetched."""
+    if rec["category"] == "reports" and (rec.get("raw") or {}).get("conclusion"):
+        try:
+            full = (json.loads(row["details_json"]) if row["details_json"] else {}).get("full_text")
+        except ValueError:
+            full = None
+        if not full:
+            return False
+        rec["details"]["full_text"] = full
+        return True
+    rec["narrative"] = row["narrative"]
+    return True
 
 
 def _stored_fingerprint(row: Any) -> Optional[str]:

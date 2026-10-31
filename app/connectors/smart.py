@@ -652,6 +652,10 @@ def _page_link(current: str, link: Any) -> str:
     return url
 
 
+class BinaryTooLarge(Exception):
+    """An attachment over the limit asked for. Holds its size."""
+
+
 class FhirClient:
     def __init__(self, base_url: str, credentials: dict[str, Any], patient_id: str, simulated: bool = False,
                  on_refresh: Optional[Callable[[dict[str, Any]], Awaitable[None]]] = None):
@@ -728,22 +732,35 @@ class FhirClient:
             return None
 
     async def read_binary_text(self, client: Any, url: str, max_bytes: int = 512_000) -> Optional[tuple[str, bytes]]:
+        try:
+            return await self.read_binary_file(client, url, max_bytes, "application/fhir+json, text/*")
+        except BinaryTooLarge:
+            return None
+
+    async def read_binary_file(self, client: Any, url: str, max_bytes: int, accept: str = "application/fhir+json, application/pdf, image/*") -> Optional[tuple[str, bytes]]:
+        """An attachment and its type, by the same rule as a note's text. Raises BinaryTooLarge for one that's over the limit."""
         target = url if url.startswith("http") else f"{self.base}/{url.lstrip('/')}"
         if not self.simulated and not _same_server(target, self.base):
             return None         # an attachment elsewhere never gets this source's access token (as with paging links)
         try:
-            resp = await self._get(client, target, headers={"Accept": "application/fhir+json, text/*"})
+            resp = await self._get(client, target, headers={"Accept": accept})
         except BlockedAddress as exc:
             log.warning("A note attachment led somewhere it can't go: %s", exc)
             return None
-        if resp.status_code != 200 or len(resp.content) > max_bytes:
+        if resp.status_code != 200:
             return None
         ctype = resp.headers.get("content-type", "")
+        # A FHIR Binary carries its bytes as base64, a third longer.
+        if len(resp.content) > (max_bytes * 4 // 3 + 1024 if "json" in ctype else max_bytes):
+            raise BinaryTooLarge(len(resp.content))
         if "json" in ctype:
             try:
                 body = resp.json()
                 if isinstance(body, dict) and body.get("resourceType") == "Binary" and body.get("data"):
-                    return body.get("contentType") or "text/plain", base64.b64decode(body["data"])
+                    raw = base64.b64decode(body["data"])
+                    if len(raw) > max_bytes:
+                        raise BinaryTooLarge(len(raw))
+                    return body.get("contentType") or "text/plain", raw
             except (ValueError, TypeError):
                 pass
             return None

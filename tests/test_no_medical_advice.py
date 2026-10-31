@@ -77,7 +77,7 @@ def test_the_phrase_check_would_catch_what_used_to_be_said():
 @pytest.mark.parametrize("path", [
     "services/insights.py", "services/ai.py", "mcp_server.py", "static/js/alerts.js", "static/js/onboarding.js", "static/js/views/ask.js",
     "static/js/views/overview.js", "static/js/views/report.js", "static/js/views/sleep-view.js", "static/js/views/trends.js",
-    "static/js/views/workouts.js",
+    "static/js/views/workouts.js", "static/js/views/record-detail.js", "store/record_overrides.py", "services/ccda.py",
 ])
 def test_no_advice_is_written_into_the_apps_text(path):
     text = (APP / path).read_text(encoding="utf-8").lower()
@@ -85,6 +85,13 @@ def test_no_advice_is_written_into_the_apps_text(path):
                    "worth raising", "check with your", "talk it over", "common approach", "how fitness grows", "good for recovery",
                    "more restful", "tends to help", "a prompt to pay attention", "coach", "urgent"):
         assert phrase not in text, phrase
+
+
+def test_what_a_correction_says_only_repeats_what_the_person_said():
+    from app.store import record_overrides
+
+    for words in record_overrides.WORDS.values():
+        assert not ADVICE.search(words), words
 
 
 def test_the_urgent_route_is_gone():

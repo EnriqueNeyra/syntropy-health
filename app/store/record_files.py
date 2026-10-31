@@ -77,7 +77,7 @@ def _read_state(data: bytes, content_type: str, seconds: float = READ_SECONDS) -
 
 
 def _write(conn: Any, profile_id: str, connection_id: str, resource_type: str, resource_id: str, name: Optional[str],
-           content_type: str, data: bytes, state: str, fingerprint: Optional[str]) -> None:
+           content_type: str, data: bytes, text: str, state: str, fingerprint: Optional[str]) -> None:
     keep = state != TOO_LARGE
     digest = hashlib.sha256(data).hexdigest() if keep else None
     where = "connection_id = ? AND resource_type = ? AND resource_id = ?"
@@ -88,17 +88,22 @@ def _write(conn: Any, profile_id: str, connection_id: str, resource_type: str, r
     if fingerprint:     # the source changed this record: the file that was its earlier version goes
         conn.execute(f"DELETE FROM record_files WHERE {where} AND coalesce(fingerprint, '') != ?", (*key, fingerprint))
     conn.execute("""INSERT INTO record_files(id, profile_id, connection_id, resource_type, resource_id, name, content_type, size, sha256,
-                        fingerprint, state, stored_at, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        fingerprint, state, text, stored_at, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                  (new_id("file"), profile_id, connection_id, resource_type, resource_id, (name or "")[:200] or None, content_type, len(data), digest,
-                  fingerprint, state, time.time(), data if keep else None))
+                  fingerprint, state, text or None, time.time(), data if keep else None))
 
 
 def save(profile_id: str, connection_id: str, resource_type: str, resource_id: str, name: Optional[str], content_type: str,
          data: bytes, fingerprint: Optional[str] = None) -> tuple[str, str]:
-    """Keeps a file, and returns the text in it and its state. The reading happens before the write lock is taken."""
-    text, state = _read_state(data, content_type)
+    """Keeps a file, and returns the text in it and its state. A file already here isn't read again: a source sending a PDF inside
+    a note sends it at every sync. The reading happens before the write lock is taken."""
+    digest = hashlib.sha256(data).hexdigest()
+    with read() as conn:
+        known = conn.execute("SELECT text, state FROM record_files WHERE connection_id = ? AND resource_type = ? AND resource_id = ? AND sha256 = ?",
+                             (connection_id, resource_type, resource_id, digest)).fetchone()
+    text, state = (known["text"] or "", known["state"]) if known else _read_state(data, content_type)
     with db() as conn:
-        _write(conn, profile_id, connection_id, resource_type, resource_id, name, media_type(content_type), data, state, fingerprint)
+        _write(conn, profile_id, connection_id, resource_type, resource_id, name, media_type(content_type), data, text, state, fingerprint)
     return text, state
 
 
@@ -138,7 +143,7 @@ def _decode(att: dict[str, Any]) -> Optional[bytes]:
         return None
 
 
-def _has_text(rec: dict[str, Any]) -> bool:
+def has_text(rec: dict[str, Any]) -> bool:
     if rec.get("category") == "reports" and (rec.get("raw") or {}).get("conclusion"):
         return bool((rec.get("details") or {}).get("full_text"))
     return bool(rec.get("narrative"))
@@ -156,7 +161,7 @@ def take_inline(profile_id: str, connection_id: str, recs: Iterable[dict[str, An
                 continue
             text, _ = save(profile_id, connection_id, rec["resource_type"], rec["resource_id"], att.get("title"), att.get("contentType"), data)
             kept += 1
-            if text and not _has_text(rec):
+            if text and not has_text(rec):
                 put_text(rec, text)
     return kept
 
@@ -213,8 +218,8 @@ def _keep_inline_files(conn: Any, cursor: Any, size: int) -> Any:
                 continue
             text, state = _read_state(data, att.get("contentType") or "", seconds=2.0)
             _write(conn, row["profile_id"], row["connection_id"], row["resource_type"], row["resource_id"], att.get("title"),
-                   media_type(att.get("contentType")), data, state, None)
-            if text and not _has_text(rec):
+                   media_type(att.get("contentType")), data, text, state, None)
+            if text and not has_text(rec):
                 put_text(rec, text)
                 conn.execute("UPDATE clinical_records SET narrative = ?, details_json = ? WHERE rowid = ?",
                              (rec["narrative"], json.dumps(rec["details"]), row["rowid"]))
