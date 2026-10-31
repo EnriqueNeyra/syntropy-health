@@ -4,7 +4,7 @@ import { openLabEntry } from "./lab-entry.js";
 import { openRecord } from "./record-detail.js";
 import { recordValue } from "../units.js";
 import {
-  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loadInto, loading, mount, onAction, recordDate, resultStatus, statusBadge,
+  $, CATEGORY_ICON, debounce, emptyState, flagBadge, html, icon, loadInto, loading, mount, onAction, parseDate, recordDate, resultStatus, showActiveChip, statusBadge,
 } from "../ui.js";
 
 const PAGE = 100;
@@ -21,6 +21,18 @@ function rowMeta(r) {
   const n = (r.sources || []).length;
   bits.push(n > 1 ? `${n} sources` : r.source_name);
   return bits.filter(Boolean).join(" · ");
+}
+
+/** The list by month, newest first, as the server sends it. A search answers by match, so it stays one list. */
+function byMonth(items, q) {
+  const months = [];
+  for (const r of items) {
+    const d = q ? null : parseDate(r.effective_at);
+    const label = q ? "" : d ? d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "No date";
+    if (months.at(-1)?.label !== label) months.push({ label, items: [] });
+    months.at(-1).items.push(r);
+  }
+  return months.length === 1 && months[0].label === "No date" ? [{ label: "", items }] : months;
 }
 
 function rowRight(r) {
@@ -55,14 +67,17 @@ export async function render({ el, parts, params, state, navigate }) {
         ${appBar ? "" : html`<a class="btn" href="#/report" title="A one-page summary to print or save as PDF">${icon("printer")} Visit summary</a>
         <button class="btn btn-primary" data-action="add-labs">${icon("plus")} Add lab results</button>`}</div></div>
     ${connection ? html`<div class="banner info"><div class="grow">Showing records from one source only.</div><a class="btn btn-sm" href="#/records">Show all</a></div>` : ""}
-    <div class="chips" id="rec-cats" style="margin-bottom:16px"></div>
+    <div class="chips chips-strip" id="rec-cats" style="margin-bottom:16px"></div>
     <div class="card" id="rec-list"></div>`);
 
-  const drawCats = () => mount($("#rec-cats", el), [
-    html`<button class="chip ${category === "" ? "active" : ""}" data-action="cat" data-cat="">All</button>`,
-    ...nonEmpty.map((c) => html`<button class="chip ${category === c.key ? "active" : ""}" data-action="cat" data-cat="${c.key}">
-      ${c.label}<span class="n">${c.count}</span></button>`),
-  ]);
+  const drawCats = () => {
+    mount($("#rec-cats", el), [
+      html`<button class="chip ${category === "" ? "active" : ""}" data-action="cat" data-cat="">All</button>`,
+      ...nonEmpty.map((c) => html`<button class="chip ${category === c.key ? "active" : ""}" data-action="cat" data-cat="${c.key}">
+        ${c.label}<span class="n">${c.count}</span></button>`),
+    ]);
+    showActiveChip($("#rec-cats", el));
+  };
 
   const drawList = () => {
     const list = $("#rec-list", el);
@@ -73,12 +88,13 @@ export async function render({ el, parts, params, state, navigate }) {
       return;
     }
     mount(list, html`
-      <div class="list">${items.map((r) => html`
+      ${byMonth(items, q).map((m) => html`${m.label ? html`<div class="list-head"><b>${m.label}</b></div>` : ""}
+      <div class="list">${m.items.map((r) => html`
         <div class="list-item clickable" data-action="open" data-id="${r.id}">
           <span class="ev-icon">${icon(CATEGORY_ICON[r.category] || "records")}</span>
           <div class="grow" style="min-width:0"><div class="title truncate">${r.title}</div><div class="meta truncate">${rowMeta(r)}</div></div>
           ${rowRight(r)}
-        </div>`)}</div>
+        </div>`)}</div>`)}
       <div class="card-body row between small muted"><span>${items.length} of ${total}</span>
         ${items.length < total ? html`<button class="btn btn-sm" data-action="more">Load more</button>` : ""}</div>`);
   };
