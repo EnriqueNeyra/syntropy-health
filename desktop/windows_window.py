@@ -101,6 +101,7 @@ class WindowsWindow:
         self.away = False
         self.bar: Any = None
         self.bar_label: Any = None
+        self.home_colour: Any = None
         self.lock = threading.Lock()
 
     def guard(self) -> None:
@@ -143,9 +144,22 @@ class WindowsWindow:
                 self.build_bar(form)
             self.bar_label.Text = f"You're on {name}" if name else ""
             self.bar.Visible = bool(name)
+            self.paint_behind(form, bool(name))
 
         from System import Func, Type
         form.Invoke(Func[Type](update))
+
+    def paint_behind(self, form: Any, away: bool) -> None:
+        """A site with no background of its own expects white, not the dark this window opened with in dark mode."""
+        try:
+            from System.Drawing import Color
+
+            view = form.browser.webview
+            if self.home_colour is None:
+                self.home_colour = view.DefaultBackgroundColor
+            view.DefaultBackgroundColor = Color.White if away else self.home_colour
+        except Exception:  # noqa: BLE001 - only the colour behind a page
+            log.exception("Couldn't set the colour behind the page")
 
     def build_bar(self, form: Any) -> None:
         import System.Windows.Forms as WinForms

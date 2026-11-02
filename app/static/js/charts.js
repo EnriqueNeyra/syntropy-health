@@ -691,5 +691,7 @@ export function responsive(container, draw, { tall = false } = {}) {
   // A page is built before it's on screen. Drawn the moment it arrives, its first frame already has the chart.
   const page = container.closest("main.content");
   page?.addEventListener("page-shown", check, { once: true });
+  // Already on screen, it's drawn now rather than from the observer, where the chart's own height would set it off again.
+  if (container.isConnected) check();
   return () => { ro.disconnect(); clearTimeout(timer); page?.removeEventListener("page-shown", check); };
 }

@@ -75,6 +75,8 @@ runs the server can read everything. Every route and AI tool was checked for rea
 - **Removing a source says so straight away,** rather than looking as if nothing happened while a phone's years of samples are deleted.
 
 ### Records and portals
+- Records' counts by kind change as soon as something is added or deleted, rather than on the next visit.
+- On a phone's browser, Back closes Ask's list of conversations rather than leaving Ask.
 - **Ranges a lab writes in words are read.** "> OR = 30", "Normal: 30-100" and a lab's bands like "Deficient: <20; Sufficient: 30-100",
   which is how vitamin D often arrives, were kept as text, so the result had no range on its chart and was never compared with it. They're
   read now, including results already stored, and the record still shows what the lab wrote. Where a range can't be read, Trends shows the lab's

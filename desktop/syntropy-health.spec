@@ -27,7 +27,7 @@ elif sys.platform == "darwin":
     hidden += ["webview.platforms.cocoa", "mac_window", "mac_sign_in", *collect_submodules("Vision"), *collect_submodules("CoreML"), *collect_submodules("Quartz")]
 
 a = Analysis([str(DESKTOP / "syntropy_desktop.py")], pathex=[str(ROOT), str(DESKTOP)], datas=datas,
-             hiddenimports=hidden, excludes=["tkinter", "pytest", "IPython"], noarchive=False)
+             hiddenimports=hidden, excludes=["tkinter", "pytest", "IPython", *(["pi_heif", "pillow_heif"] if sys.platform == "darwin" else [])], noarchive=False)
 pyz = PYZ(a.pure)
 
 app_exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="Syntropy Health", console=False,

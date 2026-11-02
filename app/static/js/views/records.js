@@ -59,8 +59,8 @@ export async function render({ el, parts, params, state, navigate }) {
   let items = [];
   let total = 0;
 
-  const cats = (await get("/api/categories", { profile: profile.id })).categories;
-  const nonEmpty = cats.filter((c) => c.count > 0);
+  const countsNow = async () => (await get("/api/categories", { profile: profile.id })).categories.filter((c) => c.count > 0);
+  let nonEmpty = await countsNow();
   if (!category && nonEmpty.length) category = "";
 
   // In the iPhone app, the visit summary and adding lab results are in the title bar.
@@ -167,6 +167,11 @@ export async function render({ el, parts, params, state, navigate }) {
     drawList();
   };
 
+  const recount = async () => {
+    nonEmpty = await countsNow();
+    if ($("#rec-cats", el)) drawCats();
+  };
+
   drawCats();
   drawFilters();
   await load();
@@ -182,10 +187,10 @@ export async function render({ el, parts, params, state, navigate }) {
       history.replaceState(null, "", `#/records${cat ? "/" + cat : ""}`);
       load();
     },
-    open: ({ id }) => openRecord(id, () => { drawFilters(); load(); }),
+    open: ({ id }) => openRecord(id, () => { drawFilters(); load(); recount(); }),
     "add-labs": () => openLabEntry(profile, (address) => navigate(address)),
     "add-report": () => openLabEntry(profile, (address) => navigate(address), { report: true }),
-    "add-own": () => openSelfReported(profile, () => load()),
+    "add-own": () => openSelfReported(profile, () => { load(); recount(); }),
     more: () => { offset += PAGE; return load(true); },
   });
 }

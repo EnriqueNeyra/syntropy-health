@@ -21,6 +21,8 @@ export function leaveForSignIn(url, restore = () => {}) {
     <p class="muted">You'll come back here when you're done.</p>
     <button class="btn btn-sm" type="button">Stay here</button></div>`);
   document.body.append(box);
+  // A phone app tells a sign-in from a link to another site by this, so the sign-in stays in the app and comes back to it.
+  window.webkit?.messageHandlers?.syntropy?.postMessage({ type: "leaving", url: there.href });
   const going = setTimeout(() => window.location.assign(url), FADE_MS);
   const back = () => {
     clearTimeout(going);

@@ -717,6 +717,21 @@ if (nativeNav) {
   });
   // Saved changes may show on the app's other screens (a new lab result on Overview); it refreshes them.
   onDataChanged(() => appBridge({ type: "changed" }));
+  // iOS's swipe back starts anywhere on a screen. Something that drags sideways keeps the drag while it's held.
+  const DRAGS_SIDEWAYS = ".chart svg, .dash-handle, .dash-corner";
+  let holdingSwipe = false;
+  document.addEventListener("touchstart", (e) => {
+    if (!e.target.closest?.(DRAGS_SIDEWAYS)) return;
+    holdingSwipe = true;
+    appBridge({ type: "swipeBack", enabled: false });
+  }, { capture: true, passive: true });
+  const letSwipeGo = (e) => {
+    if (!holdingSwipe || e.touches.length) return;
+    holdingSwipe = false;
+    appBridge({ type: "swipeBack", enabled: true });
+  };
+  document.addEventListener("touchend", letSwipeGo, { capture: true, passive: true });
+  document.addEventListener("touchcancel", letSwipeGo, { capture: true, passive: true });
   document.addEventListener("click", (e) => {
     const b = e.target.closest(".alerts-page [data-dismiss]");
     if (b) { dismiss(b.dataset.dismiss); renderAlertsPage(); }

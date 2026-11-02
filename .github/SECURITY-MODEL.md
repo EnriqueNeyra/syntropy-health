@@ -20,7 +20,7 @@ Reporting a problem: see [SECURITY.md](SECURITY.md).
 
 ## Who might get at the data
 
-"Before" is the last version with an unencrypted database. "After" is this version once the first start has finished.
+"Before" is the last version with an unencrypted database, and a database from then that hasn't been converted yet. "After" is an encrypted one: a new install, or one converted when its owner chose to.
 
 | Who | Before | After |
 |---|---|---|
@@ -108,7 +108,7 @@ can't make an encrypted database readable, and it says so rather than pretending
 
 ## Encrypting a database that's already here
 
-On the first start of this version (the Mac and Windows apps show progress on the start page), the server:
+A new install is encrypted from the start. A database that's already here stays as it is until its owner chooses *Encrypt my records* in Settings → Security, or sets `SYNTROPY_DATABASE_ENCRYPTION=1`, so a backup can be made first. On the next start (the Mac and Windows apps show progress on the start page), the server:
 
 1. Saves the key in the Keychain or DPAPI and reads it back.
 2. Checks there's room for a second copy. If there isn't, or another program has the database open, it carries on

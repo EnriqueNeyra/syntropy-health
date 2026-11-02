@@ -61,3 +61,7 @@ The AI provider and app logos in app/static/js/ai-logos.js come from LobeHub Ico
   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 The names and logos are trademarks of their owners, shown only to identify their services.
+
+The Windows app and the Docker image read iPhone photos (HEIC) with libheif (https://github.com/strukturag/libheif) and libde265
+(https://github.com/strukturag/libde265), through pi-heif, under the GNU Lesser General Public License version 3. The Mac app
+reads them with macOS and includes neither.

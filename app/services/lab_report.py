@@ -150,9 +150,9 @@ def _heic_to_jpeg(data: bytes) -> bytes:
     if found := _heic_from_macos(data):
         return found
     try:
-        import pillow_heif
+        import pi_heif
 
-        img = pillow_heif.open_heif(data).to_pillow()
+        img = pi_heif.open_heif(data).to_pillow()
     except Exception as exc:  # noqa: BLE001 - not installed, or a damaged or unusual file
         raise ReportError("Couldn't open that HEIC photo. Save it as JPEG or PNG and try again.") from exc
     buf = io.BytesIO()

@@ -40,7 +40,7 @@ dependencies = [
     "pypdf>=6.21.2",
     "pypdfium2>=5.14.0",    # draws a PDF's pages, for reading scans and for showing the page beside what was read from it
     "Pillow>=13.0.0",
-    "pillow-heif>=1.8.1; sys_platform != 'darwin'",         # reads iPhone photos (HEIC); macOS does that itself
+    "pi-heif>=1.4.0; sys_platform != 'darwin'",             # reads iPhone photos (HEIC); macOS does that itself. Reading only: no x265 encoder
     "pyobjc-framework-Vision>=13.0; sys_platform == 'darwin'",      # reads photos and scans with the OCR built into macOS
     "zeroconf>=0.136",      # announces syntropyhealth.local on the home network
     "tzdata>=2024.1",       # time zones where the system has none (Windows, slim containers)

@@ -44,13 +44,17 @@ def quick_password_locks(monkeypatch):
     monkeypatch.setattr(keystore, "WRAP_N", 2**10)
 
 
-@pytest.fixture
-def keychain(tmp_path, monkeypatch):
-    """A keychain file of its own, unlocked, in the test's folder."""
-    path = tmp_path.parent / f"{tmp_path.name}.keychain-db"
+def _new_keychain(path: Path) -> Path:
     subprocess.run([keystore.SECURITY_TOOL, "create-keychain", "-p", "test", str(path)], check=True, capture_output=True)
     subprocess.run([keystore.SECURITY_TOOL, "unlock-keychain", "-p", "test", str(path)], check=True, capture_output=True)
     subprocess.run([keystore.SECURITY_TOOL, "set-keychain-settings", str(path)], check=True, capture_output=True)
+    return path
+
+
+@pytest.fixture
+def keychain(tmp_path, monkeypatch):
+    """A keychain file of its own, unlocked, in the test's folder."""
+    path = _new_keychain(tmp_path.parent / f"{tmp_path.name}.keychain-db")
     monkeypatch.setenv("SYNTROPY_KEYCHAIN_FILE", str(path))
     monkeypatch.setenv("SYNTROPY_KEY_STORE", keystore.KEYCHAIN)
     yield path
@@ -147,14 +151,19 @@ def test_a_copy_of_the_folder_without_the_keychain_opens_nothing(keychain, tmp_p
     db.checkpoint()
     elsewhere = tmp_path.parent / f"{tmp_path.name}-copy"
     shutil.copytree(tmp_path, elsewhere)
-    keystore.forget()
+    # Another computer: the copy's own key.json, and a keychain that has never held its key.
+    other = _new_keychain(tmp_path.parent / f"{tmp_path.name}-other.keychain-db")
+    monkeypatch.setenv("SYNTROPY_KEYCHAIN_FILE", str(other))
     monkeypatch.setenv("SYNTROPY_DATA_DIR", str(elsewhere))
     _fresh_start()
-    with _start() as c:
-        assert c.app.state.problem_kind == "key"
-        assert c.get("/health").status_code == 503
-    assert not (elsewhere / "secret.key").exists()
-    shutil.rmtree(elsewhere)
+    try:
+        with _start() as c:
+            assert c.app.state.problem_kind == "key"
+            assert c.get("/health").status_code == 503
+        assert not (elsewhere / "secret.key").exists()
+    finally:
+        subprocess.run([keystore.SECURITY_TOOL, "delete-keychain", str(other)], capture_output=True)
+        shutil.rmtree(elsewhere)
 
 
 @on_a_mac
