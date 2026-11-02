@@ -122,7 +122,7 @@ def written_ranges_step(conn: sqlite3.Connection, cursor: Any, size: int) -> Any
     if top is None:
         return None
     rows = conn.execute("SELECT * FROM clinical_records WHERE rowid > ? AND rowid <= ? AND raw_json IS NOT NULL AND ref_text IS NOT NULL "
-                        "AND ref_low IS NULL AND ref_high IS NULL AND ref_text GLOB '*[0-9]*'", (after, top)).fetchall()
+                        "AND ref_low IS NULL AND ref_high IS NULL AND (ref_text GLOB '*[0-9]*' OR ref_text = 'Several ranges, see the record')", (after, top)).fetchall()
     people: dict[str, Any] = {}
     now = time.time()
     for raw_row in rows:
@@ -136,3 +136,4 @@ def written_ranges_step(conn: sqlite3.Connection, cursor: Any, size: int) -> Any
 
 data_fixes.register(NAME, step)
 data_fixes.register("records-written-ranges-compared", written_ranges_step)
+data_fixes.register("records-worded-ranges-compared", written_ranges_step)       # "> OR = 30", "Sufficient: 30-100"

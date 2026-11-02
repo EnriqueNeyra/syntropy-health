@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.connectors import fhir_normalize as fn
-from app.core import db, settings
+from app.core import data_fixes, db, settings
 from app.services import renormalize
 from app.store import connections, profiles, records
 
@@ -105,6 +105,35 @@ def test_stored_written_ranges_are_compared_once(pid):
     with db.read() as conn:
         row = conn.execute("SELECT interpretation, ref_high FROM clinical_records").fetchone()
     assert row["interpretation"] == "high" and row["ref_high"] == 99
+
+
+def test_stored_ranges_in_words_are_read_once_more(pid):
+    res = {"resourceType": "Observation", "id": "d", "status": "final", "category": [{"coding": [{"code": "laboratory"}]}],
+           "code": {"text": "Vitamin D"}, "effectiveDateTime": "2026-01-01", "valueQuantity": {"value": 24, "unit": "ng/mL"},
+           "referenceRange": [{"text": "Insufficient 20-29"}, {"text": "Sufficient 30-100"}]}
+    src = _source(pid)
+    rec = fn.normalize_observation(res)
+    rec.update(resource_type="Observation", resource_id="d", raw=res, interpretation=None, ref_low=None, ref_high=None, ref_text="Several ranges, see the record")
+    records.upsert_records(pid, src, "Lab", [rec])
+    assert "records-worded-ranges-compared" in data_fixes._fixes
+    cursor = None
+    while True:
+        with db.db() as conn:
+            cursor = renormalize.written_ranges_step(conn, cursor, 100)
+        if cursor is None:
+            break
+    series = records.observation_series(pid, None, "labs", title="Vitamin D")
+    assert (series["ref_low"], series["ref_high"], series["ref_text"]) == (30, 100, "Sufficient 30-100")
+
+
+def test_a_range_only_in_words_reaches_the_chart_as_words(pid):
+    res = {"resourceType": "Observation", "id": "w", "status": "final", "category": [{"coding": [{"code": "laboratory"}]}],
+           "code": {"text": "Lp(a)"}, "effectiveDateTime": "2026-01-01", "valueQuantity": {"value": 24, "unit": "nmol/L"}, "referenceRange": [{"text": "See comment"}]}
+    rec = fn.normalize_observation(res)
+    rec.update(resource_type="Observation", resource_id="w", raw=res)
+    records.upsert_records(pid, _source(pid), "Lab", [rec])
+    series = records.observation_series(pid, None, "labs", title="Lp(a)")
+    assert series["ref_low"] is None and series["ref_high"] is None and series["ref_text"] == "See comment"
 
 
 def test_the_all_in_range_sentences_are_gone():

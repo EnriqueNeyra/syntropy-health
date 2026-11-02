@@ -633,14 +633,51 @@ def _bounds(rr: dict[str, Any]) -> tuple[Optional[float], Optional[float]]:
 
 
 _NUMBER = r"(\d+(?:\.\d+)?|\.\d+)"
-_WRITTEN_RANGE = re.compile(rf"^\s*(?:{_NUMBER}\s*(?:-|–|—|to)\s*{_NUMBER}|(<=|>=|≤|≥|<|>)\s*{_NUMBER})\s*(\S+)?\s*$")
+_WRITTEN_RANGE = re.compile(rf"^\s*(?:{_NUMBER}\s*(?:-|–|—|to)\s*{_NUMBER}|(<=|>=|≤|≥|<|>)\s*{_NUMBER})\s*(\S+)?\s*$", re.I)
+# Limits as labs spell them out: "> OR = 30", ">/=30", "=>30", "greater than or equal to 30", "30 ng/mL or greater".
+_SPELLED_LIMITS = ((re.compile(r"(?:>\s*(?:or|/)\s*=|=>|greater than or equal to|at least)\s*", re.I), ">="),
+                   (re.compile(r"(?:<\s*(?:or|/)\s*=|=<|less than or equal to|up to|no more than)\s*", re.I), "<="),
+                   (re.compile(r"greater than\s*", re.I), ">"), (re.compile(r"less than\s*", re.I), "<"))
+_LIMIT_AFTER = re.compile(rf"^\s*{_NUMBER}\s*(\S+)?\s+or\s+(greater|higher|more|above|less|lower|below)\s*$", re.I)
+# A range whose label says it's the usual one, among the lab's bands: "Deficient: <20; Sufficient: 30-100". Exact words only:
+# "near optimal" is another band, and "normal adults" is someone else's range.
+_USUAL_BAND = {"normal", "normal range", "reference", "reference range", "reference interval", "ref range", "range", "sufficient", "sufficiency",
+               "optimal", "desirable", "adequate"}
+_BAND_SPLIT = re.compile(r"\s*(?:[;\n|]|,(?!\d))\s*")
+_BAND_FIRST = re.compile(r"^([a-z][a-z ]*?)\s*(?::|=|\s-\s|\s)\s*(?=[\d<>≤≥.=])(.+)$", re.I)
+_BAND_AFTER = re.compile(rf"^([\d<>≤≥.=].*?)\s*[(:-]?\s*\b({'|'.join(sorted(_USUAL_BAND, key=len, reverse=True))})\)?$", re.I)
+
+
+def _plain_limits(text: str) -> str:
+    found = _LIMIT_AFTER.match(text)
+    if found:
+        below = found.group(3).lower() in ("less", "lower", "below")
+        return f"{'<=' if below else '>='}{found.group(1)} {found.group(2) or ''}"
+    for spelled, sign in _SPELLED_LIMITS:
+        text = spelled.sub(sign, text)
+    return text
+
+
+def _usual_band(text: str) -> Optional[str]:
+    """The one band a lab's wording marks as the usual range, or None when it doesn't mark exactly one."""
+    usual = []
+    for part in _BAND_SPLIT.split(text.strip()):
+        part = part.rstrip(".")
+        first, after = _BAND_FIRST.match(part), _BAND_AFTER.match(part)
+        label, value = (first.group(1), first.group(2)) if first else (after.group(2), after.group(1)) if after else (None, None)
+        if label and label.strip().lower() in _USUAL_BAND:
+            usual.append(value)
+    return usual[0] if len(usual) == 1 else None
 
 
 def _written_bounds(rr: dict[str, Any]) -> Optional[tuple[Optional[float], Optional[float], bool, Optional[str]]]:
-    """A range given only as text, when it's plainly numbers: "70-99 mg/dL", "<5.7", ">=60". Low, high, whether the limit itself is
-    outside the range, and the unit written. Anything with more words ("NON-REACTIVE", "Adults: 70-99", "<5.7 if diabetic") stays unread."""
+    """A range given only as text, when it's plainly numbers or says plainly which numbers are usual: "70-99 mg/dL", "<5.7", "> OR = 30",
+    "Deficient: <20; Sufficient: 30-100". Low, high, whether the limit itself is outside the range, and the unit written. Anything else
+    ("NON-REACTIVE", "Adults: 70-99", "<5.7 if diabetic") stays unread."""
     text = rr.get("text")
-    match = _WRITTEN_RANGE.match(text) if isinstance(text, str) else None
+    if not isinstance(text, str):
+        return None
+    match = _WRITTEN_RANGE.match(_plain_limits(_usual_band(text) or text))
     if not match:
         return None
     if match.group(1):
@@ -667,7 +704,9 @@ def _choose_range(ranges: list[dict[str, Any]], person: Optional[dict[str, Any]]
     def one(candidates: list[dict[str, Any]]) -> tuple[Optional[dict[str, Any]], bool]:
         if len({_bounds(rr) + (rr.get("text"),) for rr in candidates}) == 1:
             return candidates[0], False
-        return None, True
+        # A lab's bands sent one to an entry: "Insufficient 20-29", "Sufficient 30-100".
+        marked = [rr for rr in candidates if isinstance(rr.get("text"), str) and _usual_band(rr["text"])]
+        return (marked[0], False) if len(marked) == 1 else (None, True)
 
     verdicts = [(rr, _range_population(rr, person, when)) for rr in pool]
     for_this_person = [rr for rr, v in verdicts if v is True]
@@ -771,8 +810,9 @@ def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] 
         low, high = _bounds(chosen)
         range_unit = _range_unit(chosen)
         written = _written_bounds(chosen) if low is None and high is None and value is not None else None
-        if written and (not written[3] or units.unit_key(written[3]) in (units.unit_key(unit), units.unit_key(reported["convert_unit"]))):
-            low, high, open_limit, _ = written
+        if written:
+            low, high, open_limit, written_unit = written
+            range_unit = written_unit or range_unit
         same_unit = not range_unit or units.unit_key(range_unit) in (units.unit_key(unit), units.unit_key(reported["convert_unit"])) or value is None
         if same_unit:
             # Converted with the value; compared as reported, before rounding can move a result across a limit.

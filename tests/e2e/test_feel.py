@@ -288,3 +288,30 @@ def test_search_shows_records_as_you_type_and_the_keys_choose_one(session):
     page.wait_for_selector("#rec-list .list-item")
     assert "q=gluc" in page.url
     assert session.errors == []
+
+
+@pytest.mark.parametrize("pick", [False, True])
+def test_back_closes_asks_panel_on_a_phone_and_then_leaves_ask(browser, server, pick):
+    s = Session(browser, server, width="phone")
+    try:
+        s.ctx.route("**/api/ai/config*", lambda route: route.fulfill(json={"configured": True, "provider": "anthropic", "model": "test", "options": []}))
+        page = s.open("#/records")
+        page.evaluate("location.hash = '#/ask'")
+        page.wait_for_selector("#ask-side-close", state="attached")
+        panel = lambda: page.evaluate("document.querySelector('[data-side]').dataset.side")
+        page.get_by_role("button", name="Show conversations").click()
+        page.wait_for_timeout(100)
+        assert panel() == "open"
+        if pick:
+            page.locator("#ask-side-close").click()
+        else:
+            page.go_back()
+        page.wait_for_timeout(200)
+        assert panel() == "closed" and "#/ask" in page.url and page.evaluate("history.state?.askPanel") in (None, False)
+        page.go_back()
+        page.wait_for_selector(".content")
+        page.wait_for_timeout(200)
+        assert "#/records" in page.url
+        assert s.errors == []
+    finally:
+        s.close()

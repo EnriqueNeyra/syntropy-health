@@ -639,7 +639,13 @@ export async function render({ el, state, params, navigate }) {
 
   // The address says which conversation is open, so a reload or Back returns to it. Replaced, not added to: Back leaves
   // Ask rather than going through every conversation looked at.
-  const showAddress = () => { if (!native && !left) history.replaceState(history.state, "", chats.some((c) => c.id === chatId) ? `#/ask?chat=${chatId}` : "#/ask"); };
+  // Closing the panel on a phone takes back the entry it added, which isn't finished until popstate: the address waits for that.
+  let leavingPanelEntry = false, addressWaiting = false;
+  const showAddress = () => {
+    if (native || left) return;
+    if (leavingPanelEntry) { addressWaiting = true; return; }
+    history.replaceState(history.state, "", chats.some((c) => c.id === chatId) ? `#/ask?chat=${chatId}` : "#/ask");
+  };
 
   /** Puts a conversation on screen: instantly, with what's there going straight to what's next. */
   let opening = 0, openingId = null;
@@ -884,6 +890,9 @@ export async function render({ el, state, params, navigate }) {
       drawSide();
       if (open) { if (hasHover()) panel.focusSearch(); else $("#ask-side-close", el).focus({ preventScroll: true }); }
       else if (side.contains(document.activeElement)) toggle.focus({ preventScroll: true });
+      // Over everything else, the panel is a screen of its own to the Back button: Back closes it, and doesn't leave Ask.
+      if (open) history.pushState({ ...history.state, askPanel: true }, "");
+      else if (history.state?.askPanel) { leavingPanelEntry = true; history.back(); }
       return;
     }
     if (remember) { try { localStorage.setItem(SIDE_CLOSED_KEY, open ? "0" : "1"); } catch { /* it just won't be remembered */ } }
@@ -917,6 +926,14 @@ export async function render({ el, state, params, navigate }) {
   };
   const onNarrowChange = () => { sideOpen = !narrow.matches && !rememberedClosed(); drawSide(); };
   narrow.addEventListener("change", onNarrowChange);
+  const onBack = () => {
+    if (leavingPanelEntry) {
+      leavingPanelEntry = false;
+      if (addressWaiting) { addressWaiting = false; showAddress(); }
+    } else if (sideOpen && narrow.matches && !history.state?.askPanel) setSide(false);
+  };
+  window.addEventListener("popstate", onBack);
+  if (history.state?.askPanel) history.replaceState({ ...history.state, askPanel: false }, "");    // back here from another page
   drawSide();
   toggle.addEventListener("click", () => setSide(!sideOpen));
   $("#ask-side-close", el).addEventListener("click", () => setSide(false));
@@ -988,6 +1005,7 @@ export async function render({ el, state, params, navigate }) {
     left = true; stopRefreshing(); closeMenu?.(); controller?.abort(); threadSize.disconnect();
     document.removeEventListener("keydown", onKeys);
     narrow.removeEventListener("change", onNarrowChange);
+    window.removeEventListener("popstate", onBack);
   };
 }
 

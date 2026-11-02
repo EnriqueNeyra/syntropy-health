@@ -688,6 +688,9 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .chart-table .table-wrap { max-height: 280px; overflow: auto; margin-top: 6px; }
 .chart .grid-line { stroke: var(--border); stroke-width: 1; }
 .chart .band { fill: var(--band); }
+/* A test's own chart says which results are out of range in red, so its line can't be the accent's red as well. */
+.clinical-detail { --series-1: var(--stage-rem); }
+.ref-line { overflow-wrap: anywhere; }
 .chart .line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .chart .line.alt { stroke: var(--series-2); }
 .chart .fade-top { stop-color: var(--series-1); stop-opacity: .16; }

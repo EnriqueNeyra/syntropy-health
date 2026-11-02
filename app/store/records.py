@@ -56,7 +56,7 @@ _LAB_FLAG_COLUMNS = ("id, connection_id, title, code, code_system, code_display,
 SUMMARY_LABS = 2000
 SMOKING_STATUS_CODE = "72166-2"
 SERIES_COLUMNS = ("id, connection_id, title, category, code, code_system, effective_at, status, value_num, value_text, unit, value_norm, unit_norm, "
-                  "ref_low, ref_high, interpretation, details_json, dedup_key, source_name")
+                  "ref_low, ref_high, ref_text, interpretation, details_json, dedup_key, source_name")
 
 SHRINK_FLOOR = 3                # up to this many records can go at once: the source correcting a few things is normal
 SHRINK_FRACTION = 0.25          # more than this share of a category vanishing looks like the source's trouble, not corrections
@@ -1200,13 +1200,14 @@ def _unit_series(rows: list[dict[str, Any]]) -> dict[str, Any]:
     reported = {units.unit_key(r.get("unit")) for r in rows}
     as_reported = len(reported) == 1 and all(r.get("category") == "labs" and _range_fits_reported_unit(r) for r in rows)
     points = []
-    ref_low = ref_high = unit = None
+    ref_low = ref_high = ref_text = unit = None
     for r in rows:
         source_range = (r.get("details") or {}).get("source_range") if as_reported else None
         low, high = (source_range["low"], source_range["high"]) if source_range else (r.get("ref_low"), r.get("ref_high"))
         unit = (r.get("unit") if as_reported and units.converted(r.get("unit"), r.get("unit_norm")) else r.get("unit_norm") or r.get("unit")) or unit
         if low is not None or high is not None:     # as a pair, from one lab: two labs' limits don't make a range
             ref_low, ref_high = low, high
+        ref_text = r.get("ref_text") or ref_text
         value = r["value_num"] if as_reported else _row_value(r)
         point = {
             "t": r["effective_at"], "v": value, "interpretation": r.get("interpretation"),
@@ -1218,7 +1219,7 @@ def _unit_series(rows: list[dict[str, Any]]) -> dict[str, Any]:
         if not as_reported and units.converted(r.get("unit"), unit):
             point["converted"] = True
         points.append(point)
-    return {"unit": unit, "ref_low": ref_low, "ref_high": ref_high, "points": points}
+    return {"unit": unit, "ref_low": ref_low, "ref_high": ref_high, "ref_text": ref_text, "points": points}
 
 
 def _side(points: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1287,7 +1288,7 @@ def observation_series(profile_id: str, code: Optional[str] = None, category: Op
     main_key = _unit_group(numeric[-1]) if numeric else None
     if main_key not in groups and named:
         main_key = named[0]
-    main = _unit_series(groups[main_key]) if main_key in groups else {"unit": None, "ref_low": None, "ref_high": None, "points": []}
+    main = _unit_series(groups[main_key]) if main_key in groups else {"unit": None, "ref_low": None, "ref_high": None, "ref_text": None, "points": []}
     return {
         "code": code or (rows[-1].get("code") if rows else None), "code_system": rows[-1].get("code_system") if rows else None,
         "title": rows[-1]["title"] if rows else (title or code),

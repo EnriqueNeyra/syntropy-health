@@ -252,7 +252,7 @@ export function lineChart(container, series, opts = {}) {
     const roomy = pts.length <= 40 && (iw - inset * 2) / pts.length >= 16;
     pts.forEach((p, n) => {
       if (roomy || p.flag || p.bound || n === pts.length - 1) {
-        svg += `<circle class="pt${s.alt ? " alt" : ""}${p.flag ? " flag" : ""}${p.bound ? " bound" : ""}" cx="${x(p.time)}" cy="${y(p.v)}" r="4"/>`;
+        svg += `<circle class="pt${s.alt ? " alt" : ""}${p.flag ? " flag" : ""}${p.bound ? " bound" : ""}" cx="${x(p.time)}" cy="${y(p.v)}" r="${p.flag ? 5.5 : 4}"/>`;
       }
     });
   });

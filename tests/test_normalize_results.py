@@ -367,3 +367,45 @@ def test_code_systems_written_as_oids():
                               {"system": "urn:oid:2.16.840.1.113883.6.1", "code": "2345-7", "display": "Glucose"}]}
     r = fn.normalize_observation(res)
     assert r["code"] == loinc["code"] and r["code_system"] == fn.LOINC
+
+
+# ---- Ranges labs write in words, vitamin D's above all
+
+def vitamin_d(ranges, value=24, unit="ng/mL"):
+    return norm(code="1989-3", display="Vitamin D, 25-hydroxy", valueQuantity={"value": value, "unit": unit}, referenceRange=ranges)
+
+
+@pytest.mark.parametrize("text, low, high", [
+    ("> OR = 30", 30, None), (">OR=30 ng/mL", 30, None), (">/=30", 30, None), ("=>30", 30, None), ("greater than or equal to 30", 30, None),
+    ("at least 30", 30, None), ("30 or greater", 30, None), ("30 ng/mL or higher", 30, None), ("< OR = 100", None, 100), ("up to 100", None, 100),
+    ("Normal: 30-100", 30, 100), ("Reference range: 30-100 ng/mL", 30, 100), ("Sufficient 30-100", 30, 100), ("30-100 ng/mL Optimal", 30, 100),
+    ("30-100 (normal)", 30, 100), ("Deficient: <20; Insufficient: 20-29; Sufficient: 30-100", 30, 100),
+    ("Deficiency: <20 ng/mL\nInsufficiency: 20-29 ng/mL\nOptimal: 30-80 ng/mL", 30, 80),
+    ("<20 Deficient, 20-29 Insufficient, 30-100 Sufficient", 30, 100), ("Desirable: >=30, Low: <30", 30, None),
+])
+def test_a_range_in_words_is_read_and_kept_as_written(text, low, high):
+    r = vitamin_d([{"text": text}])
+    assert (r["ref_low"], r["ref_high"]) == (low, high)
+    assert r["interpretation"] == "low" if low else r["interpretation"] == "normal"
+    assert r["ref_text"].replace("–", "-") == text.replace("–", "-")
+
+
+@pytest.mark.parametrize("text", [
+    "See comment", "Adults: 30-100", "Normal adults: 30-100", "Normal: 30-100 if fasting", "Near optimal: 30-100", "Male: 30-100; Female: 20-80",
+    "Normal: 30-100; Sufficient: 25-90", "20-29 Insufficient", "Insufficient: 20-29", "30-100 near optimal",
+])
+def test_words_that_dont_mark_one_usual_range_stay_unread(text):
+    r = vitamin_d([{"text": text}])
+    assert r["ref_low"] is None and r["ref_high"] is None and r["interpretation"] is None
+
+
+def test_a_labs_bands_sent_as_separate_ranges_are_read_too():
+    r = vitamin_d([{"text": "Deficient <20"}, {"text": "Insufficient 20-29"}, {"text": "Sufficient 30-100"}])
+    assert (r["ref_low"], r["ref_high"]) == (30, 100) and r["ref_text"] == "Sufficient 30-100"
+
+
+def test_a_written_range_in_another_unit_converts_with_the_result():
+    r = vitamin_d([{"text": "75-250 nmol/L"}])
+    assert r["ref_low"] == pytest.approx(30.05) and r["ref_high"] == pytest.approx(100.16) and r["interpretation"] == "low"
+    r = vitamin_d([{"text": "30-100 ng/mL"}], value=74.88, unit="nmol/L")
+    assert (r["ref_low"], r["ref_high"]) == (30, 100) and r["interpretation"] == "normal"

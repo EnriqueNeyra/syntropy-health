@@ -392,12 +392,16 @@ export async function render({ el, parts, params, state, navigate }) {
     const refNum = (v) => (body ? fmtNum(v) : fmtFixed(v, Math.max(places, decimals(v))));
     const ref = s.ref_low != null || s.ref_high != null
       ? `Range ${s.ref_low != null ? refNum(s.ref_low) : ""}${s.ref_low != null && s.ref_high != null ? "–" : s.ref_high != null ? "≤ " : "+"}${s.ref_high != null ? refNum(s.ref_high) : ""} ${unit}` : null;
+    // The lab's words when they aren't numbers a chart can draw, and plain words when no range came at all.
+    const refWords = ref || hasComponents || !rows.length || it.category !== "labs" ? null
+      : !s.ref_text ? "No reference range came with these results"
+      : s.ref_text.startsWith("Several ranges") ? s.ref_text : `Range as the lab wrote it: ${s.ref_text}`;
     mount(detail, html`
       ${backBar()}
-      <div class="card card-pad">
+      <div class="card card-pad clinical-detail">
         <div class="detail-head">
           <div class="grow"><div class="eyebrow">${it.category === "labs" ? "Lab result" : "Measured at visits"}</div><h2>${s.title}</h2>
-            <div class="small muted">${[ref, codeLabel(it, all.codes)].filter(Boolean).join(" · ")}</div></div>
+            <div class="small muted ref-line">${[ref || refWords, codeLabel(it, all.codes)].filter(Boolean).join(" · ")}</div></div>
           ${latestText ? html`<div class="detail-value"><div class="v">${latestText}</div>
             <div class="small muted">${fmtDate(hasComponents ? rows[rows.length - 1]?.t : lastRow?.t)} ${resultStatus(wordsOnly ? lastRow.status : latest?.status)} ${flagBadge(wordsOnly ? lastRow.interpretation : latest?.interpretation)}</div></div>` : ""}
         </div>
