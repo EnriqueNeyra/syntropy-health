@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+from playwright import sync_api
 
 from tests.e2e.conftest import CSRF, Session
 
@@ -26,7 +27,8 @@ def editing_overview(session):
 
 def first_tile(page):
     tile = page.locator(".dash-item.is-tile").first
-    tile.scroll_into_view_if_needed()
+    # With room below it: a drag that leaves the window isn't reported the same way by every browser's automation.
+    tile.evaluate("(n) => n.scrollIntoView({ block: 'start' })")
     return tile
 
 
@@ -57,7 +59,7 @@ def test_a_card_snaps_through_sizes_from_its_corner_and_keeps_them(session):
     id_ = tile.get_attribute("data-id")
     box = tile.locator(".dash-inner").bounding_box()
     drag_corner(page, tile, box["width"] + 20, 170)
-    assert page.locator(".dash-sizer").inner_text() == "2 wide · 2 tall"
+    sync_api.expect(page.locator(".dash-sizer")).to_have_text("2 wide · 2 tall")
     page.mouse.up()
     assert page.locator(".dash-sizer").count() == 0
     item = page.locator(f'.dash-item[data-id="{id_}"]')
@@ -73,6 +75,27 @@ def test_a_card_snaps_through_sizes_from_its_corner_and_keeps_them(session):
     client = session.ctx.request
     pid = client.get(f"{session.server.url}/api/profiles").json()["profiles"][0]["id"]
     assert client.delete(f"{session.server.url}/api/profiles/{pid}/overview", headers=CSRF).ok
+    assert session.errors == []
+
+
+def test_the_page_follows_a_corner_held_near_the_bottom_of_the_window(session):
+    page = editing_overview(session)
+    tile = first_tile(page)
+    scroller = "document.scrollingElement.scrollTop"
+    before = page.evaluate(scroller)
+    x, y = to_center(tile.locator('[data-corner="br"]').bounding_box())
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.mouse.move(x, page.viewport_size["height"] - 20, steps=8)
+    page.wait_for_timeout(500)
+    assert page.evaluate(scroller) > before
+    page.mouse.move(x, 300)         # away from the edge, so the page holds still to be measured
+    page.wait_for_timeout(100)
+    sizer = page.locator(".dash-sizer").bounding_box()
+    box = tile.locator(".dash-inner").bounding_box()
+    assert abs(sizer["y"] - box["y"]) < 4          # the outline moved with the card
+    page.keyboard.press("Escape")
+    page.mouse.up()
     assert session.errors == []
 
 
@@ -271,8 +294,7 @@ def test_search_shows_records_as_you_type_and_the_keys_choose_one(session):
     page.keyboard.press("ArrowDown")
     assert page.locator(".search-row.active").count() == 1
     page.keyboard.press("Enter")
-    page.wait_for_selector(".drawer")
-    assert "Glucose" in page.locator(".drawer").inner_text()
+    sync_api.expect(page.locator(".drawer")).to_contain_text("Glucose")
     page.keyboard.press("Escape")
     page.wait_for_selector(".drawer", state="detached")
     box.click()

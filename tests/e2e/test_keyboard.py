@@ -109,7 +109,8 @@ def test_a_new_section_is_announced_by_moving_focus_to_its_heading(session):
 
 def test_a_skip_link_goes_to_the_content(session):
     page = session.open("#/overview")
-    page.keyboard.press("Tab")
+    # Safari's Tab stops only on form fields unless Option is held or Full Keyboard Access is on.
+    page.keyboard.press("Alt+Tab" if page.context.browser.browser_type.name == "webkit" else "Tab")
     assert page.evaluate("document.activeElement.classList.contains('skip-link')")
     page.keyboard.press("Enter")
     assert page.evaluate("!!document.activeElement.closest('#view')")

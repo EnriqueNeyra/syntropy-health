@@ -93,10 +93,12 @@ def seed(server: Server, *, simulated: bool = True) -> httpx.Client:
 @pytest.fixture(scope="module")
 def browser() -> Iterator[Any]:
     with sync_api.sync_playwright() as p:
+        # E2E_ENGINE=firefox or webkit: the other engines people use this with, where they're installed.
+        engine = os.environ.get("E2E_ENGINE")
         try:
-            chrome = p.chromium.launch(channel="chrome", headless=True)
+            chrome = getattr(p, engine).launch(headless=True) if engine else p.chromium.launch(channel="chrome", headless=True)
         except sync_api.Error as exc:
-            pytest.skip(f"No Chrome here: {exc}")
+            pytest.skip(f"No {engine or 'Chrome'} here: {exc}")
         yield chrome
         chrome.close()
 

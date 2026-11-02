@@ -806,18 +806,20 @@ function arrange(root, { isEditing, glide, haptic, item, title, moved, resized, 
     outline.append(label);
     document.body.append(outline);
     const describe = () => { label.textContent = `${span} wide${rows ? ` · ${rows} tall` : ""}`; };
+    const scroller = pageScroller();
+    const scrollStart = scroller.scrollTop;
+    const scrolled = () => scroller.scrollTop - scrollStart;
     const draw = (width, height) => {
       Object.assign(outline.style, { width: `${width}px`, height: `${height}px`,
-        left: `${side[1] === "r" ? box.left : box.right - width}px`, top: `${side[0] === "b" ? box.top : box.bottom - height}px` });
+        left: `${side[1] === "r" ? box.left : box.right - width}px`, top: `${(side[0] === "b" ? box.top : box.bottom - height) - scrolled()}px` });
     };
     draw(box.width, box.height);
     describe();
     document.documentElement.classList.add("dash-resizing");
-    const move = (ev) => {
-      if (ev.pointerId !== pointer) return;
-      ev.preventDefault();
-      const width = Math.max(colWidth * 0.6, box.width + (side[1] === "r" ? 1 : -1) * (ev.clientX - e.clientX));
-      const height = Math.max(unit * 0.6, box.height + (side[0] === "b" ? 1 : -1) * (ev.clientY - e.clientY));
+    let last = e, raf = null;
+    const apply = () => {
+      const width = Math.max(colWidth * 0.6, box.width + (side[1] === "r" ? 1 : -1) * (last.clientX - e.clientX));
+      const height = Math.max(unit * 0.6, box.height + (side[0] === "b" ? 1 : -1) * (last.clientY + scrolled() - e.clientY));
       draw(width, height);
       // A size is taken when the corner is well past the halfway mark, so it doesn't flicker between two at the boundary.
       const nearSpan = (width + DASH_GAP) / (colWidth + DASH_GAP);
@@ -832,8 +834,24 @@ function arrange(root, { isEditing, glide, haptic, item, title, moved, resized, 
       describe();
       if (setSize(node, w, span, rows)) haptic("selection");
     };
+    const move = (ev) => {
+      if (ev.pointerId !== pointer) return;
+      ev.preventDefault();
+      last = ev;
+      apply();
+    };
+    // The page follows a corner held near the top or bottom of what's visible, as it does a card being moved.
+    const edgeScroll = () => {
+      const vv = window.visualViewport;
+      const top = (vv?.offsetTop || 0) + 70, bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 70;
+      const edge = last.clientY < top ? -10 : last.clientY > bottom ? 10 : 0;
+      if (edge) { scroller.scrollBy(0, edge); apply(); }
+      raf = requestAnimationFrame(edgeScroll);
+    };
+    raf = requestAnimationFrame(edgeScroll);
     const end = (ev) => {
       if (ev.pointerId !== pointer) return;
+      cancelAnimationFrame(raf);
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", end);
       document.removeEventListener("pointercancel", end);
