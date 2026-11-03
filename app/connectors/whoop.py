@@ -27,17 +27,18 @@ API_BASE = "https://api.prod.whoop.com/developer/v2"
 SCOPES = "offline read:recovery read:cycles read:workout read:sleep"
 SOURCE = "WHOOP"
 ENDPOINTS = {"recovery": "recovery", "cycle": "cycle", "sleep": "activity/sleep", "workout": "activity/workout"}
+ENDPOINT_SCOPES = {"recovery": "read:recovery", "cycle": "read:cycles", "sleep": "read:sleep", "workout": "read:workout"}
 
 
-def authorization_url(state: str) -> str:
+def authorization_url(state: str, redirect: Optional[str] = None) -> str:
     creds = settings.wearable_credentials("whoop")
     if not creds["client_id"]:
-        raise SmartError("WHOOP is not configured. Add the WHOOP client ID in Settings → Wearables.", "error")
-    return f"{AUTH_URL}?{urlencode({'response_type': 'code', 'client_id': creds['client_id'], 'redirect_uri': wc.redirect_uri(), 'scope': SCOPES, 'state': state})}"
+        raise SmartError(wc.not_configured("WHOOP"), "error")
+    return f"{AUTH_URL}?{urlencode({'response_type': 'code', 'client_id': creds['client_id'], 'redirect_uri': redirect or wc.redirect_uri('whoop'), 'scope': SCOPES, 'state': state})}"
 
 
-async def exchange_code(code: str) -> dict[str, Any]:
-    return await wc.exchange_code_local(TOKEN_URL, "whoop", code, wc.redirect_uri())
+async def exchange_code(code: str, redirect: Optional[str] = None) -> dict[str, Any]:
+    return await wc.exchange_code_local(TOKEN_URL, "whoop", code, redirect or wc.redirect_uri("whoop"))
 
 
 async def refresh(credentials: dict[str, Any]) -> dict[str, Any]:
@@ -56,76 +57,125 @@ async def _fetch(client: httpx.AsyncClient, token: str, path: str, since: date, 
         resp = await client.get(f"{API_BASE}/{path}", params=q, headers={"Authorization": f"Bearer {token}"})
         if resp.status_code == 401:
             raise SmartError("WHOOP rejected the access token.", "auth")
-        if resp.status_code in (403, 404):
+        if resp.status_code == 403:
+            raise wc.Refused(path.rsplit("/", 1)[-1])
+        if resp.status_code == 404:
             return out
         resp.raise_for_status()
         body = resp.json()
         out.extend(body.get("records") or [])
         next_token = body.get("next_token")
         if not next_token:
-            break
-    return out
+            return out
+    raise wc.too_many_pages("WHOOP", path.rsplit("/", 1)[-1])
 
 
 async def fetch_live(credentials: dict[str, Any], since: date, until: date) -> dict[str, list[dict[str, Any]]]:
+    data: dict[str, Any] = {}
+    refused: list[wc.Refused] = []
     async with httpx.AsyncClient(timeout=30.0, headers={"User-Agent": USER_AGENT}) as client:
-        return {key: await _fetch(client, credentials["access_token"], path, since, until) for key, path in ENDPOINTS.items()}
+        for key, path in ENDPOINTS.items():
+            try:
+                data[key] = await _fetch(client, credentials["access_token"], path, since, until)
+            except wc.Refused as exc:
+                refused.append(exc)
+                data[key] = []
+    data["_warnings"] = wc.refusals("WHOOP", refused, len(ENDPOINTS), credentials.get("scope"), ENDPOINT_SCOPES)
+    return data
 
 
 def _sample(sid: str, metric: str, value: float, unit: str, start: str, end: Optional[str] = None,
-            meta: Optional[dict[str, Any]] = None) -> dict[str, Any]:
-    return {"id": sid, "metric_type": metric, "hk_identifier": f"WHOOP.{metric}", "value": float(value), "unit": unit,
-            "start_date": start, "end_date": end or start, "source_name": SOURCE, "device_name": "WHOOP",
-            "metadata": meta}
+            meta: Optional[dict[str, Any]] = None, offset: Optional[int] = None) -> dict[str, Any]:
+    sample = {"id": sid, "metric_type": metric, "hk_identifier": f"WHOOP.{metric}", "value": float(value), "unit": unit,
+              "start_date": start, "end_date": end or start, "source_name": SOURCE, "device_name": "WHOOP",
+              "device_kind": "ring", "metadata": meta}
+    if offset is not None:
+        sample["tz_offset_min"] = offset
+    return sample
+
+
+def _parse(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _stamp(value: datetime) -> str:
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def _cycle_day_anchor(cycle: dict[str, Any], woke: Optional[str]) -> str:
+    """When a cycle's strain and energy count. A WHOOP cycle runs from falling asleep to falling asleep, so its start is
+    usually the evening before the day it's about. It counts at the wake-up of its sleep, the same morning as its recovery;
+    without one, around the middle of the cycle (one still open is taken to last a day)."""
+    if woke:
+        return woke
+    start = _parse(cycle["start"])
+    end = _parse(cycle["end"]) if cycle.get("end") else start + timedelta(hours=24)
+    return _stamp(start + (end - start) / 2)
 
 
 def normalize(data: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    cycles = {c.get("id"): c for c in data.get("cycle", [])}
+    sleeps = {s.get("id"): s for s in data.get("sleep", [])}
+    night_of_cycle = {s.get("cycle_id"): s for s in data.get("sleep", []) if not s.get("nap") and s.get("end")}
+    offsets = {c.get("id"): wc.clock_offset_minutes(c.get("timezone_offset")) for c in data.get("cycle", [])}
     for r in data.get("recovery", []):
         score = r.get("score") or {}
         if r.get("score_state") not in (None, "SCORED"):
             continue
-        cycle = cycles.get(r.get("cycle_id")) or {}
-        ts = cycle.get("start") or r.get("created_at")
+        # The morning of the sleep it scores, so it lands on the same day as that sleep. It's never the cycle's start, which is
+        # the evening before; created_at is shortly after waking.
+        night = sleeps.get(r.get("sleep_id")) or night_of_cycle.get(r.get("cycle_id")) or {}
+        ts = night.get("end") or r.get("created_at")
+        if not ts:
+            continue
+        offset = wc.clock_offset_minutes(night.get("timezone_offset")) or offsets.get(r.get("cycle_id"))
         key = f"whoop-rec-{r.get('cycle_id')}"
         for field, metric, unit in (("recovery_score", "recovery_score", "score"),
                                     ("resting_heart_rate", "resting_heart_rate", "count/min"),
                                     ("hrv_rmssd_milli", "hrv_rmssd", "ms"),
-                                    ("spo2_percentage", "oxygen_saturation", "%")):
+                                    ("spo2_percentage", "oxygen_saturation", "%"),
+                                    ("skin_temp_celsius", "skin_temperature", "degC")):
             if score.get(field) is not None:
-                out.append(_sample(f"{key}-{metric}", metric, score[field], unit, ts))
+                out.append(_sample(f"{key}-{metric}", metric, score[field], unit, ts, offset=offset))
     for c in data.get("cycle", []):
         score = c.get("score") or {}
         if c.get("score_state") not in (None, "SCORED") or not c.get("start"):
             continue
-        end = c.get("end") or c["start"]
+        at = _cycle_day_anchor(c, (night_of_cycle.get(c.get("id")) or {}).get("end"))
+        offset = offsets.get(c.get("id"))
         if score.get("strain") is not None:
-            out.append(_sample(f"whoop-cyc-{c['id']}-strain", "strain_score", score["strain"], "score", c["start"], end))
+            out.append(_sample(f"whoop-cyc-{c['id']}-strain", "strain_score", score["strain"], "score", at, offset=offset))
         if score.get("kilojoule") is not None:
-            out.append(_sample(f"whoop-cyc-{c['id']}-energy", "total_energy", round(score["kilojoule"] / 4.184, 1), "kcal", c["start"], end))
+            out.append(_sample(f"whoop-cyc-{c['id']}-energy", "total_energy", round(score["kilojoule"] / 4.184, 1), "kcal", at, offset=offset))
         if score.get("average_heart_rate") is not None:
-            out.append(_sample(f"whoop-cyc-{c['id']}-hr", "heart_rate", score["average_heart_rate"], "count/min", c["start"], end))
+            out.append(_sample(f"whoop-cyc-{c['id']}-hr", "heart_rate", score["average_heart_rate"], "count/min", at, offset=offset))
+        if c.get("step_count") is not None:
+            out.append(_sample(f"whoop-cyc-{c['id']}-steps", "step_count", c["step_count"], "count", at, offset=offset))
     for s in data.get("sleep", []):
         score = s.get("score") or {}
-        if s.get("nap") or s.get("score_state") not in (None, "SCORED") or not s.get("start"):
+        if s.get("score_state") not in (None, "SCORED") or not s.get("start"):
             continue
         stages = score.get("stage_summary") or {}
         start, end = s["start"], s.get("end") or s["start"]
+        offset = wc.clock_offset_minutes(s.get("timezone_offset"))
         in_bed = stages.get("total_in_bed_time_milli")
         awake = stages.get("total_awake_time_milli") or 0
         key = f"whoop-slp-{s['id']}"
+        if s.get("nap"):
+            if in_bed is not None:      # apart from the night
+                out.append(_sample(f"{key}-nap", "sleep_nap", (in_bed - awake) / 1000, "s", start, end, offset=offset))
+            continue
         if in_bed is not None:
-            out.append(_sample(f"{key}-total", "sleep_total_duration", (in_bed - awake) / 1000, "s", start, end))
+            out.append(_sample(f"{key}-total", "sleep_total_duration", (in_bed - awake) / 1000, "s", start, end, offset=offset))
         for field, metric in (("total_slow_wave_sleep_time_milli", "sleep_deep"), ("total_rem_sleep_time_milli", "sleep_rem"),
                               ("total_light_sleep_time_milli", "sleep_light"), ("total_awake_time_milli", "sleep_awake")):
             if stages.get(field) is not None:
-                out.append(_sample(f"{key}-{metric}", metric, stages[field] / 1000, "s", start, end))
+                out.append(_sample(f"{key}-{metric}", metric, stages[field] / 1000, "s", start, end, offset=offset))
         if score.get("sleep_performance_percentage") is not None:
             out.append(_sample(f"{key}-perf", "sleep_score", score["sleep_performance_percentage"], "score", end, end,
-                               meta={"kind": "sleep_performance"}))
+                               meta={"kind": "sleep_performance"}, offset=offset))
         if score.get("respiratory_rate") is not None:
-            out.append(_sample(f"{key}-resp", "respiratory_rate", score["respiratory_rate"], "count/min", start, end))
+            out.append(_sample(f"{key}-resp", "respiratory_rate", score["respiratory_rate"], "count/min", start, end, offset=offset))
     return out
 
 
@@ -150,40 +200,50 @@ def normalize_workouts(data: dict[str, list[dict[str, Any]]]) -> list[dict[str, 
                     "duration_s": duration, "total_energy_kcal": round(kj / 4.184, 1) if kj is not None else None,
                     "distance_m": score.get("distance_meter"), "avg_hr": score.get("average_heart_rate"),
                     "max_hr": score.get("max_heart_rate"), "elevation_ascent_m": score.get("altitude_gain_meter"),
-                    "source_name": SOURCE, "device_name": "WHOOP", "metadata": meta or None})
+                    "source_name": SOURCE, "device_name": "WHOOP", "metadata": meta or None,
+                    **({"tz_offset_min": offset} if (offset := wc.clock_offset_minutes(w.get("timezone_offset"))) is not None else {})})
     return out
 
 
 def simulate(days: int = 90, until: Optional[date] = None, seed: str = "whoop",
              tz: tzinfo = timezone.utc) -> dict[str, list[dict[str, Any]]]:
     """``days`` ending ``until``, on the clock in ``tz``: waking around 6:45, workouts later in the day. A day whose
-    sleep hasn't ended yet has no cycle, recovery or sleep, as with a real strap."""
+    sleep hasn't ended yet has no cycle, recovery or sleep, as with a real strap. As WHOOP documents them, a cycle runs from
+    falling asleep to next falling asleep, and is still open (no end) until then."""
     now = datetime.now(timezone.utc)
     until = until or now.astimezone(tz).date()
-    rng = random.Random(seed)
     out: dict[str, list[dict[str, Any]]] = {"recovery": [], "cycle": [], "sleep": [], "workout": []}
+
+    def night(d: date) -> dict[str, Any]:
+        # By the date alone, so syncing again over a different span of days gives the same figures for a day.
+        rng = random.Random(f"{seed}-{d.isoformat()}")
+        load = max(0.0, math.sin(d.toordinal() / 17 * 2 * math.pi)) + rng.uniform(0, 0.4)
+        sleep_ms = int((7.1 + rng.gauss(0, 0.6) - load * 0.3) * 3600 * 1000)
+        awake_ms = int(max(300_000, rng.gauss(1_800_000, 600_000)))
+        wake = wc.simulated_wake(d, 6, 45, tz, seed)
+        return {"rng": rng, "load": load, "sleep_ms": sleep_ms, "awake_ms": awake_ms, "wake": wake,
+                "bed": wake - timedelta(milliseconds=sleep_ms + awake_ms)}
+
     for i in range(days):
         d = until - timedelta(days=days - 1 - i)
         cid = 900000 + (d - date(2020, 1, 1)).days
-        load = max(0.0, math.sin(i / 17 * 2 * math.pi)) + rng.uniform(0, 0.4)
+        tonight = night(d)
+        rng, load = tonight["rng"], tonight["load"]
+        sleep_ms, awake_ms, wake, bed = tonight["sleep_ms"], tonight["awake_ms"], tonight["wake"], tonight["bed"]
         strain = round(min(20.5, max(4.0, 11.5 + load * 4 + rng.gauss(0, 1.8))), 1)
         hrv = round(max(25, 68 - load * 16 + rng.gauss(0, 5)), 1)
         rhr = round(52 + load * 5 + rng.gauss(0, 1.3))
         recovery = int(min(99, max(8, 70 + (hrv - 60) * 1.4 - load * 10 + rng.gauss(0, 6))))
-        sleep_ms = int((7.1 + rng.gauss(0, 0.6) - load * 0.3) * 3600 * 1000)
-        awake_ms = int(max(300_000, rng.gauss(1_800_000, 600_000)))
-        wake = wc.simulated_wake(d, 6, 45, tz, seed)
-        bed = wake - timedelta(milliseconds=sleep_ms + awake_ms)
-        cycle_end = wake + timedelta(hours=16)
+        next_bed = night(d + timedelta(days=1))["bed"]
         fmt = "%Y-%m-%dT%H:%M:%S.000Z"
-        cycle = {"id": cid, "start": wake.strftime(fmt), "end": cycle_end.strftime(fmt), "score_state": "SCORED",
+        cycle = {"id": cid, "start": bed.strftime(fmt), "end": next_bed.strftime(fmt) if next_bed <= now else None, "score_state": "SCORED",
                  "score": {"strain": strain, "kilojoule": round(8400 + strain * 310 + rng.gauss(0, 250), 1),
                            "average_heart_rate": int(66 + strain + rng.gauss(0, 2)), "max_heart_rate": int(150 + strain * 2)}}
         recovered = {"cycle_id": cid, "sleep_id": f"sim-{cid}", "created_at": wake.strftime(fmt), "score_state": "SCORED",
                      "score": {"recovery_score": recovery, "resting_heart_rate": rhr, "hrv_rmssd_milli": hrv,
                                "spo2_percentage": round(96.5 + rng.gauss(0, 0.8), 1),
                                "skin_temp_celsius": round(33.4 + rng.gauss(0, 0.3), 2)}}
-        sleep = {"id": f"sim-{cid}", "start": bed.strftime(fmt), "end": wake.strftime(fmt), "nap": False, "score_state": "SCORED",
+        sleep = {"id": f"sim-{cid}", "cycle_id": cid, "start": bed.strftime(fmt), "end": wake.strftime(fmt), "nap": False, "score_state": "SCORED",
                  "score": {"stage_summary": {"total_in_bed_time_milli": sleep_ms + awake_ms, "total_awake_time_milli": awake_ms,
                                              "total_light_sleep_time_milli": int(sleep_ms * 0.52),
                                              "total_slow_wave_sleep_time_milli": int(sleep_ms * 0.23),

@@ -4,9 +4,9 @@ built from workouts after duplicates are folded (``activity.list_workouts``), so
 counts once.
 
 Load follows Edwards' summated heart-rate zones: minutes in each zone of maximum heart rate weighted 1 (50–60%) to
-5 (90% and up). A workout with minute-by-minute heart rate uses it; one with only an average uses that for its whole
-length; one without heart rate counts as zone 2. Maximum heart rate is the highest recorded in a workout in the last
-year when that's plausible, otherwise 220 minus age.
+5 (90% and up). A workout with a heart-rate series uses it, each reading standing for the time until the next; one with
+only an average uses that for its whole length; one without heart rate counts as zone 2. Maximum heart rate is what the
+person set, or else the second-highest peak of the last year when that's plausible, otherwise 220 minus age.
 """
 
 from __future__ import annotations
@@ -14,19 +14,35 @@ from __future__ import annotations
 import json
 import math
 from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
+from app.core import settings
 from app.core.db import read
 from app.store import activity, profiles
-from app.store.biometrics import _tz, parse_ts
+from app.store.biometrics import _tz, parse_ts, zone_at
 
 ZONES = [(0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 9.0)]
 ZONE_NAMES = ["Easy", "Light", "Moderate", "Hard", "Maximum"]
 NO_HR_WEIGHT = 2
+# A point of a heart-rate series stands for the time until the next one, up to this; a gap longer than that is a pause.
+SERIES_POINT_MAX_MIN = 5.0
 # Kinds of workout where distance and pace mean something, and the distance a best effort has to cover.
 PACE_KINDS = ("run", "walk", "hik", "cycl", "bik", "swim", "row", "ski", "wheelchair")
 MIN_BEST_DISTANCE_M = 1000
+# How far a recorded peak can sit above 220 minus age and still be believed: two standard deviations of that estimate,
+# which is 10-12 bpm (Robergs & Landwehr, Journal of Exercise Physiology, 2002).
+MAX_HR_ABOVE_ESTIMATE = 20
+MAX_HR_SET_RANGE = (100, 240)
+# A reading stands for the time until the next, up to this: a sensor that dropped out says nothing about the gap.
+HR_POINT_MAX_MINUTES = 5.0
+# What the acute:chronic comparison needs. Below these the ratio is mostly arithmetic on a tiny number (Impellizzeri et
+# al., Sports Medicine, 2021), so there's no "usual" to compare with yet.
+LOAD_HISTORY_DAYS = 28
+MIN_USUAL_WEEK_LOAD = 60
+# With fewer of the four usual weeks trained than this, an ordinary week back reads as a jump: 4/3 is under the 1.5 for a
+# spike, 4/2 is over it.
+MIN_USUAL_WEEKS_TRAINED = 3
 
 
 def _age(birth: Optional[str]) -> Optional[int]:
@@ -38,16 +54,32 @@ def _age(birth: Optional[str]) -> Optional[int]:
     return t.year - b.year - ((t.month, t.day) < (b.month, b.day))
 
 
+def _max_hr_key(profile_id: str) -> str:
+    return f"training.max_hr.{profile_id}"
+
+
+def set_max_heart_rate(profile_id: str, bpm: Optional[float]) -> dict[str, Any]:
+    """The person's own figure, from a test or their clinician. None goes back to working it out."""
+    if bpm is not None and not MAX_HR_SET_RANGE[0] <= bpm <= MAX_HR_SET_RANGE[1]:
+        raise ValueError(f"Maximum heart rate must be between {MAX_HR_SET_RANGE[0]} and {MAX_HR_SET_RANGE[1]}.")
+    settings.set(_max_hr_key(profile_id), None if bpm is None else round(bpm))
+    return max_heart_rate(profile_id)
+
+
 def max_heart_rate(profile_id: str) -> dict[str, Any]:
-    since = (datetime.now(timezone.utc) - timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    with read() as conn:
-        row = conn.execute("SELECT MAX(max_hr) FROM workouts WHERE profile_id = ? AND start_date >= ? AND max_hr < 230",
-                           (profile_id, since)).fetchone()
-    seen = row[0] if row else None
+    chosen = settings.get(_max_hr_key(profile_id))
+    if chosen:
+        return {"bpm": chosen, "basis": "set by you", "set_by_person": True}
+    rows = activity.list_workouts(profile_id, 365, limit=100_000, dedupe=False)
+    # Folded first, since a workout two sources recorded is still one workout, whichever of them has the peak.
+    recorded = activity.dedupe_workouts([w for w in rows if w["max_hr"] and w["max_hr"] < 230])
     age = _age((profiles.get_profile(profile_id) or {}).get("birth_date"))
     estimate = 220 - age if age else None
+    # An optical sensor spike lasts one workout, so the second-highest peak is the highest that happened twice.
+    peaks = sorted((w["max_hr"] for w in recorded if estimate is None or w["max_hr"] <= estimate + MAX_HR_ABOVE_ESTIMATE), reverse=True)
+    seen = peaks[1] if len(peaks) > 1 else None
     if seen and seen >= 150 and (estimate is None or seen >= estimate - 15):
-        return {"bpm": round(seen), "basis": "highest recorded in a workout"}
+        return {"bpm": round(seen), "basis": "from your hardest workouts"}
     if estimate:
         return {"bpm": estimate, "basis": "estimated from age (220 − age)"}
     return {"bpm": round(seen) if seen and seen >= 140 else 185, "basis": "estimated"}
@@ -64,19 +96,45 @@ def _zone(hr: Optional[float], max_hr: float) -> Optional[int]:
 
 
 def zone_minutes(w: dict[str, Any], max_hr: float) -> list[float]:
-    """Minutes in each zone. Per-minute heart rate when the workout has it, else its average for the whole time."""
+    """Minutes in each zone. By the heart-rate series when the workout has one (the phones send a point a minute, other
+    clients as they like), else its average for the whole time."""
     mins = [0.0] * len(ZONES)
     series = w.get("heart_rate") or []
     if series:
-        for p in series:
+        for p, minutes in zip(series, _point_minutes(series, w.get("duration_s"))):
             z = _zone(p.get("avg"), max_hr)
             if z is not None:
-                mins[z] += 1
+                mins[z] += minutes
         return mins
     z = _zone(w.get("avg_hr"), max_hr)
     if z is not None:
         mins[z] += (w.get("duration_s") or 0) / 60
     return mins
+
+
+def _timestamp(value: Any) -> Optional[float]:
+    try:
+        return parse_ts(value).timestamp()
+    except (ValueError, TypeError, AttributeError, OverflowError):
+        return None
+
+
+def _point_minutes(series: list[dict[str, Any]], duration_s: Optional[float] = None) -> list[float]:
+    """The minutes each reading of a heart-rate series stands for, adding up to the workout. Sources sample anywhere from every
+    few seconds to every few minutes, so counting points would only be right for one of them. Without readable times, a
+    minute each; the last reading as long as the one before."""
+    times = [_timestamp(p.get("t")) for p in series]
+    out: list[float] = []
+    for i, t in enumerate(times):
+        following = times[i + 1] if i + 1 < len(times) else None
+        if t is not None and following is not None and following > t:
+            out.append(min((following - t) / 60, SERIES_POINT_MAX_MIN))
+        else:
+            out.append(out[-1] if out and following is None else 1.0)
+    total = sum(out)
+    if duration_s and total:
+        out = [m * (duration_s / 60) / total for m in out]
+    return out
 
 
 def workout_load(w: dict[str, Any], max_hr: float) -> float:
@@ -108,10 +166,16 @@ def _week_start(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
+def _days_of_history(profile_id: str, today: date, tz: Any) -> int:
+    with read() as conn:
+        first = conn.execute("SELECT MIN(start_date) FROM workouts WHERE profile_id = ?", (profile_id,)).fetchone()[0]
+    return (today - datetime.fromtimestamp(parse_ts(first).timestamp(), tz).date()).days if first else 0
+
+
 def summary(profile_id: str, weeks: int = 12, name: Optional[str] = None) -> dict[str, Any]:
     """Weekly volume and load for the last ``weeks`` weeks (this week included), this week's load against the four
     before it, and, for one kind of workout, each session's pace and heart rate and the best efforts."""
-    tz = _tz()
+    tz = _tz(profile_id)
     today = datetime.now(tz).date()
     first = _week_start(today) - timedelta(weeks=weeks - 1)
     # Enough history for the weeks shown and for the four weeks before this one (the load comparison).
@@ -125,7 +189,7 @@ def summary(profile_id: str, weeks: int = 12, name: Optional[str] = None) -> dic
                        "zones": [0.0] * len(ZONES)}
     daily_load: dict[date, float] = defaultdict(float)
     for w in workouts:
-        d = datetime.fromtimestamp(parse_ts(w["start_date"]).timestamp(), tz).date()
+        d = datetime.fromtimestamp(parse_ts(w["start_date"]).timestamp(), zone_at(w.get("tz_offset_min"), tz)).date()
         w["_day"] = d
         load = workout_load(w, mhr["bpm"])
         w["load"] = round(load)
@@ -144,8 +208,11 @@ def summary(profile_id: str, weeks: int = 12, name: Optional[str] = None) -> dic
 
     acute = sum(v for d, v in daily_load.items() if (today - d).days < 7)
     chronic = sum(v for d, v in daily_load.items() if 7 <= (today - d).days < 35) / 4
-    ratio = acute / chronic if chronic else None
-    status = ("none" if not acute and not chronic else "new" if not chronic
+    trained = {((today - d).days - 7) // 7 for d, v in daily_load.items() if v and 7 <= (today - d).days < 35}
+    learning = bool(chronic) and (_days_of_history(profile_id, today, tz) < LOAD_HISTORY_DAYS
+                                  or len(trained) < MIN_USUAL_WEEKS_TRAINED or chronic < MIN_USUAL_WEEK_LOAD)
+    ratio = acute / chronic if chronic and not learning else None
+    status = ("none" if not acute and not chronic else "new" if not chronic else "learning" if learning
               else "spike" if ratio > 1.5 else "building" if ratio > 1.2 else "easing" if ratio < 0.8 else "steady")
 
     out: dict[str, Any] = {
@@ -207,7 +274,7 @@ def _haversine(a: dict[str, Any], b: dict[str, Any]) -> float:
 
 def splits(route: list[dict[str, Any]], unit_m: float = 1000.0) -> list[dict[str, Any]]:
     """Time for each full kilometre (or ``unit_m``) along a timed route, and the part left over at the end."""
-    pts = [p for p in route if p.get("t")]
+    pts = [p for p in route if _timestamp(p.get("t")) is not None]
     if len(pts) < 2:
         return []
     out, dist, mark, mark_t = [], 0.0, unit_m, parse_ts(pts[0]["t"]).timestamp()

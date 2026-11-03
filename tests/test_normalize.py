@@ -90,12 +90,13 @@ def test_weight_and_temperature_units():
     assert units.normalize("9999-9", 5, "x") == (5, "x")
 
 
-def test_display_value_uses_canonical_unit():
+def test_display_value_is_as_reported_with_the_normalized_value_beside_it():
     r = fn.normalize_observation(obs(
         category=[{"coding": [{"code": "vital-signs"}]}],
         code={"coding": [{"system": "http://loinc.org", "code": "29463-7", "display": "Body weight"}]},
         valueQuantity={"value": 200, "unit": "lb", "code": "[lb_av]"}))
-    assert r["value_text"] == "90.7 kg" and r["details"]["original_value"] == "200 lb"
+    assert r["value_text"] == "200 lb" and r["details"]["converted_value"] == "90.72 kg"
+    assert r["value_norm"] == 90.718 and r["unit_norm"] == "kg"
 
 
 def test_no_allergy_statements_are_not_allergies():

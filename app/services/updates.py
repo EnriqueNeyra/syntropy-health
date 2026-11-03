@@ -16,15 +16,22 @@ Checks can be turned off in Settings, or for the whole installation with SYNTROP
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
+import json
 import logging
+import os
 import re
 import sys
 import threading
 import time
 from pathlib import Path
 from typing import Any, Callable, Optional
+from urllib.parse import urlsplit
 
 import httpx
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from app.core import config, settings
 
@@ -33,8 +40,6 @@ log = logging.getLogger("syntropy.updates")
 REPO = "EnriqueNeyra/syntropy-health"
 LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{REPO}/releases"
-# Installs follow the latest release; without one yet, the latest code on main.
-MAIN_SOURCE = f"syntropy-health @ https://github.com/{REPO}/archive/refs/heads/main.tar.gz"
 
 CHECK_EVERY = 24 * 3600
 TICK_SECONDS = 3600
@@ -44,6 +49,13 @@ RETRY_FAILED_AFTER = 24 * 3600
 MAC_ASSET = "Syntropy-Health-mac-arm64.dmg"
 WINDOWS_ASSET = "Syntropy-Health-windows-x64-setup.exe"
 CHECKSUMS_ASSET = "SHA256SUMS"
+SIGNATURE_ASSET = "SHA256SUMS.sig"
+REQUIREMENTS_ASSET = "Syntropy-Health-requirements.txt"
+
+# The key that signs each release's SHA256SUMS (scripts/new_release_key.py makes it), base64. Empty until the owner makes
+# one. With it, the apps install only releases carrying its signature: someone who can publish to the repository, but
+# doesn't hold the key, can't reach every computer with automatic updates on.
+RELEASE_PUBLIC_KEY = ""
 
 LINUX_VENV = Path("/opt/syntropy-health/venv")
 LINUX_TIMER = Path("/etc/systemd/system/syntropy-health-update.timer")
@@ -107,11 +119,128 @@ def fetch_latest() -> Optional[dict[str, Any]]:
         raise CheckFailed("GitHub's answer wasn't understood.") from exc
 
 
-def package_source(release: dict[str, Any]) -> str:
-    """What pip or uv installs for a release: its wheel, else its source archive."""
-    wheel = release.get("assets", {}).get(f"syntropy_health-{release['version']}-py3-none-any.whl")
-    archive = f"https://github.com/{REPO}/archive/refs/tags/{release['tag']}.tar.gz"
-    return f"syntropy-health @ {wheel or archive}"
+def trusted_asset_url(url: str) -> bool:
+    """Release files come from GitHub, over https: the address is read back from the settings table, and a redirect
+    could say anything."""
+    try:
+        parts = urlsplit(url)
+        host = (parts.hostname or "").lower()
+    except ValueError:
+        return False
+    return parts.scheme == "https" and (host == "github.com" or host.endswith(".githubusercontent.com"))
+
+
+def signature_is_valid(sums: bytes, signature: bytes, public_key: Optional[str] = None) -> bool:
+    try:
+        key = Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key or RELEASE_PUBLIC_KEY, validate=True))
+        key.verify(signature, sums)
+        return True
+    except (InvalidSignature, ValueError):
+        return False
+
+
+def wheel_name(version: str) -> str:
+    return f"syntropy_health-{version}-py3-none-any.whl"
+
+
+def _download(url: str) -> bytes:
+    try:
+        with httpx.Client(timeout=60.0, follow_redirects=True) as client:
+            resp = client.get(url, headers={"User-Agent": "Syntropy-Health-update"})
+    except httpx.HTTPError as exc:
+        raise InstallFailed("GitHub couldn't be reached. Try again later.") from exc
+    if resp.status_code != 200:
+        raise InstallFailed(f"GitHub answered {resp.status_code} for {url.rsplit('/', 1)[-1]}. Try again later.")
+    return resp.content
+
+
+def fetch_checksums(version: str) -> dict[str, str]:
+    """File name → SHA-256, from the SHA256SUMS the release workflow publishes with every release."""
+    raw = _download(f"https://github.com/{REPO}/releases/download/v{version}/{CHECKSUMS_ASSET}")
+    # With a release key, as the Mac and Windows apps ask: someone who can publish but doesn't hold it reaches no one.
+    if RELEASE_PUBLIC_KEY and not signature_is_valid(raw, _download(f"https://github.com/{REPO}/releases/download/v{version}/{SIGNATURE_ASSET}")):
+        raise InstallFailed(f"Version {version} isn't signed with the release key, so nothing was installed.")
+    sums = raw.decode("utf-8", "replace")
+    found = (line.split(None, 1) for line in sums.splitlines() if line.strip())
+    return {name.strip().lstrip("*"): digest.lower() for digest, name in found}
+
+
+def fetch_requirements(version: str, checksums: dict[str, str], folder: Path) -> Optional[Path]:
+    """The exact dependencies a release was built and tested with, checked, so that the same version number means the
+    same software everywhere. None for a release from before they were published."""
+    expected = checksums.get(REQUIREMENTS_ASSET)
+    if not expected:
+        return None
+    content = _download(f"https://github.com/{REPO}/releases/download/v{version}/{REQUIREMENTS_ASSET}")
+    if hashlib.sha256(content).hexdigest() != expected:
+        raise InstallFailed(f"The dependency list of version {version} doesn't match its checksum, so nothing was installed.")
+    path = folder / REQUIREMENTS_ASSET
+    path.write_bytes(content)
+    return path
+
+
+def package_source(release: dict[str, Any], checksums: dict[str, str]) -> str:
+    """What pip or uv installs for a release: its wheel, which they check against its checksum. Never its source archive,
+    which lacks the relay key the release workflow builds into the wheel (config.relay_key), so it would lose Syntropy's
+    sign-in registrations."""
+    name = wheel_name(release["version"])
+    wheel, digest = release.get("assets", {}).get(name), checksums.get(name)
+    if not wheel or not digest:
+        raise InstallFailed(f"Version {release['version']} has no package for this computer yet. Try again later.")
+    return f"syntropy-health @ {wheel}#sha256={digest}"
+
+
+def package_source_for(version: str, checksums: dict[str, str]) -> str:
+    """A release's wheel by its version, to go back to one (scripts/install.sh builds the same address)."""
+    name = wheel_name(version)
+    if not checksums.get(name):
+        raise InstallFailed(f"Version {version} has no package for this computer.")
+    return f"syntropy-health @ https://github.com/{REPO}/releases/download/v{version}/{name}#sha256={checksums[name]}"
+
+
+# ---------------------------------------------------------------------------
+# An update that didn't start: kept in a file, not the database, because whoever runs the update may be root, and the
+# database was just put back. With it the nightly timer doesn't retry the same release, and the owner is told.
+# ---------------------------------------------------------------------------
+
+def _failed_file() -> Path:
+    return config.data_dir() / "update-failed.json"
+
+
+def note_failed_update(version: Optional[str], detail: str) -> None:
+    path = _failed_file()
+    path.write_text(json.dumps({"version": version, "at": time.time(), "detail": detail}))
+    try:
+        owner = config.data_dir().stat()
+        os.chown(path, owner.st_uid, owner.st_gid)
+    except (OSError, AttributeError):       # not root, or Windows
+        pass
+
+
+def failed_update() -> Optional[dict[str, Any]]:
+    try:
+        return json.loads(_failed_file().read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def clear_failed_update() -> None:
+    _failed_file().unlink(missing_ok=True)
+
+
+def failed_lately(version: str) -> bool:
+    """Whether this release failed to install within the last day, even in an earlier run of the app: left to itself it
+    would quit, download the whole app and reopen every few minutes, for as long as the cause lasts."""
+    failed = failed_update()
+    return bool(failed and failed.get("version") == version and time.time() - float(failed.get("at") or 0) < RETRY_FAILED_AFTER)
+
+
+def problems() -> list[dict[str, str]]:
+    failed = failed_update()
+    if not failed or (failed.get("version") and not is_newer(failed["version"])) or time.time() - failed.get("at", 0) > 30 * 86400:
+        return []      # since then, that version or a newer one has been installed, or it's old news
+    return [{"id": f"update-failed-{failed.get('version')}", "title": f"The update to {failed.get('version') or 'a new version'} didn't start",
+             "text": f"Syntropy Health went back to the version that worked, so nothing is lost. What happened: {failed.get('detail')}"}]
 
 
 # ---------------------------------------------------------------------------
@@ -210,9 +339,14 @@ def install(automatic: bool = False) -> dict[str, Any]:
     if not _installer:
         raise RuntimeError("This installation doesn't install updates itself.")
     with _lock:
+        if not automatic and _progress.get("state") == "waiting" and hasattr(_installer, "install_now"):
+            _installer.install_now()      # downloaded and waiting for the window to close: the owner says now
+            return status()
         if _progress.get("state") not in (None, "failed"):
             return status()
         set_progress("downloading")
+    if not automatic:
+        clear_failed_update()
     threading.Thread(target=_run_installer, args=(_installer, latest, automatic), daemon=True, name="update").start()
     return status()
 
@@ -240,7 +374,8 @@ async def tick() -> None:
         await asyncio.to_thread(check)
     if _progress.get("state") == "failed" and time.time() - _progress["at"] >= RETRY_FAILED_AFTER:
         set_progress(None)
-    if auto_on() and _installer and not _progress and status()["available"]:
+    update = status()
+    if auto_on() and _installer and not _progress and update["available"] and not failed_lately(update["latest"]["version"]):
         install(automatic=True)
 
 

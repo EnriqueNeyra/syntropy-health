@@ -27,24 +27,37 @@ def _decorate(inst: dict, cfgs: dict[str, dict[str, Any]]) -> dict:
     mode = cfg["mode"] if cfg else "production"
     return {**inst, "platform_label": preset.get("label", inst["platform"]), "portal": inst.get("portal") or preset.get("portal"),
             "mode": mode, "available": cfg["available"] if cfg else True,
+            "needs_release_build": bool(cfg and cfg["needs_release_build"]),
             "production_available": bool(inst.get("fhir_base_url")), "one_time": bool(preset.get("one_time")),
             "sign_in_problem": directory.sign_in_problem(inst) if mode == "production" else None,
             "sandbox_hint": preset.get("sandbox_hint") if mode == "sandbox" else None}
 
 
 @router.get("")
-def search(q: Optional[str] = None, platform: Optional[str] = None, limit: int = Query(25, ge=1, le=200)) -> dict:
+def search(q: Optional[str] = Query(None, max_length=200), platform: Optional[str] = None, limit: int = Query(25, ge=1, le=200),
+           state: Optional[str] = Query(None, max_length=2), offset: int = Query(0, ge=0, le=100000)) -> dict:
     cfgs = _platforms()
     hidden = _hidden(cfgs)
-    res = directory.search(q, platform, limit, available={k for k, c in cfgs.items() if c["available"]}, hidden=hidden)
-    return {"total": res["total"], "results": [_decorate(i, cfgs) for i in res["results"]], "platforms": directory.stats(hidden)}
+    res = directory.search(q, platform, limit, available={k for k, c in cfgs.items() if c["available"]}, hidden=hidden,
+                           state=state, offset=offset)
+    out = {"total": res["total"], "results": [_decorate(i, cfgs) for i in res["results"]], "platforms": directory.stats(hidden),
+           "states": res["states"], "problem": directory.problem_for_people()}
+    for extra in ("corrected", "as_typed", "no_state"):
+        if extra in res:
+            out[extra] = res[extra]
+    return out
 
 
 @router.get("/featured")
 def featured() -> dict:
     cfgs = _platforms()
     picks = directory.featured(available={k for k, c in cfgs.items() if c["available"]})
-    return {"results": [_decorate(i, cfgs) for i in picks], "total": sum(directory.stats(_hidden(cfgs)).values())}
+    directory.warm()        # whoever opened the list is about to type
+    stats = directory.stats(_hidden(cfgs))
+    return {"results": [_decorate(i, cfgs) for i in picks], "total": sum(stats.values()),
+            "connectable": sum(n for p, n in stats.items() if cfgs[p]["available"]) if cfgs else 0,
+            "athena": _decorate(athena, cfgs) if (athena := directory.get_institution("athenahealth")) else None,
+            "problem": directory.problem_for_people()}
 
 
 @router.get("/{inst_id}")

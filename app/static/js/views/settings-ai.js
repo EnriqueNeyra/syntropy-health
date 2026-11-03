@@ -3,7 +3,7 @@
 // connected; Ask's model menu switches between all of them.
 import { del, get, post, put } from "../api.js";
 import { $, confirmDialog, fmtAgo, fmtDate, html, icon, modal, mount, onAction, plural, toast } from "../ui.js";
-import { confirmAiProvider } from "../consent.js";
+import { confirmAiProvider, vendorKey } from "../consent.js";
 import { logo, logoId } from "../ai-logos.js";
 import { openModelPicker } from "../model-picker.js";
 
@@ -13,13 +13,14 @@ const NAME = { anthropic: "Anthropic", openai: "OpenAI", gemini: "Google Gemini"
   mistral: "Mistral", groq: "Groq", deepseek: "DeepSeek", together: "Together AI", fireworks: "Fireworks AI", cerebras: "Cerebras",
   custom: "Other service" };
 const BLURB = { anthropic: "Claude", openai: "GPT and o-series", gemini: "Gemini", openrouter: "Hundreds of models, one key",
-  xai: "Grok", mistral: "Mistral and Codestral", groq: "Fast open models", deepseek: "DeepSeek V and R", together: "Open models",
+  xai: "Grok", mistral: "Mistral and Codestral", groq: "Fast open models", deepseek: "DeepSeek's own models", together: "Open models",
   fireworks: "Open models", cerebras: "Fast open models", custom: "Any OpenAI-compatible API" };
 const KEY_URL = { anthropic: "https://console.anthropic.com/settings/keys", openai: "https://platform.openai.com/api-keys",
   gemini: "https://aistudio.google.com/apikey", openrouter: "https://openrouter.ai/keys", xai: "https://console.x.ai",
   mistral: "https://console.mistral.ai/api-keys", groq: "https://console.groq.com/keys", deepseek: "https://platform.deepseek.com/api_keys",
   together: "https://api.together.ai/settings/api-keys", fireworks: "https://fireworks.ai/account/api-keys", cerebras: "https://cloud.cerebras.ai" };
 
+const SMALL_WINDOW = 8000;     // tokens; below this Ask offers the model fewer lookups
 const gb = (bytes) => (bytes ? `${(bytes / 1e9).toFixed(bytes >= 1e10 ? 0 : 1)} GB` : "");
 
 function toolsBadge(tools) {
@@ -35,6 +36,7 @@ function whereText(c) {
     return c.address?.private ? html`${icon("shieldCheck")}<span>Runs on your own hardware. Nothing leaves your network.</span>`
       : html`${icon("globe")}<span>Runs on a server you chose, at ${c.base_url}.</span>`;
   }
+  if (c.tools === false) return html`${icon("globe")}<span>This model can't look things up, so questions and a summary of the record go to ${c.label}, billed to your account.</span>`;
   return html`${icon("globe")}<span>Questions and only the records it looks up go to ${c.label}, billed to your account.</span>`;
 }
 
@@ -49,8 +51,8 @@ function snippets(url, token, local) {
   const json = (v) => JSON.stringify(v, null, 2);
   const httpServer = { url, headers: { Authorization: `Bearer ${t}` } };
   return [
-    ...(local ? [["Claude Desktop", `${desktopHow} This runs on the computer with Syntropy Health: no token needed, and it can read `
-      + "everyone's records.", json({ mcpServers: { "syntropy-health": local } }), false]] : []),
+    ...(local ? [["Claude Desktop", `${desktopHow} This runs on the computer with Syntropy Health and needs no token, so it can't be `
+      + "revoked from here: to stop it, take it back out of that file.", json({ mcpServers: { "syntropy-health": local } }), false]] : []),
     ["Claude Code", "Run in a terminal. It's then available in every project; remove it with: claude mcp remove syntropy-health",
       `claude mcp add --scope user --transport http syntropy-health ${url} --header "Authorization: Bearer ${t}"`, true],
     ["Codex CLI", "Run in a terminal, then start codex. Keep the token in SYNTROPY_TOKEN (for example in your shell profile).",
@@ -76,25 +78,33 @@ function snippets(url, token, local) {
 }
 
 export async function renderAiTab(body, { state, redraw }) {
-  const cfg = await get("/api/ai/config");
+  const cfg = await get("/api/ai/config", { chat: true }, { fresh: true });
   // Connecting an AI is the owner's (it serves everyone); anyone switches between them and agrees for themselves.
   const owner = cfg.can_configure !== false;
-  const [{ tokens }, { profiles }, local, agentInfo] = await Promise.all([get("/api/agents/tokens"), get("/api/profiles"),
-    owner ? get("/api/agents/local-command") : null, owner ? get("/api/ai/agents", null, { fresh: true }) : { agents: [] }]);
+  const [{ tokens }, { profiles }, local] = await Promise.all([get("/api/agents/tokens"), get("/api/profiles"),
+    owner ? get("/api/agents/local-command") : null]);
   const url = `${location.origin}/mcp`;
   const providers = Object.fromEntries(cfg.providers.map((p) => [p.id, p]));
-  let agents = agentInfo;
+  // Finding AI apps means asking each one's own program, which can take seconds: the page doesn't wait for that.
+  let agents = { agents: [], available: owner, looking: owner };
   let detected = null;          // local AI servers found on this computer, once the scan finishes
   let scanning = true;
 
-  const consent = async (name) => {
-    if (cfg.cloud_ack) return true;
-    const ok = await confirmAiProvider(name);
-    if (ok) cfg.cloud_ack = true;
+  const consent = async (name, vendor) => {
+    if (cfg.cloud_acks.some((a) => a.vendor === vendor)) return true;
+    const ok = await confirmAiProvider(name, vendor);
+    if (ok) cfg.cloud_acks.push({ vendor, name, at: Date.now() / 1000 });
     return ok;
   };
   const isDefault = (id, agent) => cfg.configured && (agent ? cfg.provider === "agent" && cfg.agent_id === agent : cfg.provider === id);
 
+  // A local model with little room at once: what that does to answers, and how to give it more.
+  let context = null;
+  const windowNote = () => {
+    if (!context?.tokens || context.tokens >= SMALL_WINDOW) return "";
+    return html`<p class="small muted" style="margin-top:8px" id="ai-window">${cfg.model} has room for about ${context.tokens.toLocaleString()} tokens at a time, so long lookups are cut down and some can't run, and answers can miss things.
+      ${context.server === "ollama" ? "To give it more, set OLLAMA_CONTEXT_LENGTH=16384 before starting Ollama, or use the context length slider in Ollama's settings. A larger window uses more memory." : "To give it more, load the model with a larger context length in its server's settings. A larger window uses more memory."}</p>`;
+  };
   // ------------------------------------------------------------------ the default
   const defaultCard = () => {
     if (!cfg.configured && connectedRows().length) {
@@ -115,11 +125,12 @@ export async function renderAiTab(body, { state, redraw }) {
     return html`<section class="card ai-default">
       <span class="ai-default-logo">${logo(id, cfg.label, "", cfg.kind === "local" ? "monitor" : "globe")}</span>
       <div class="grow" style="min-width:0">
-        <div class="eyebrow">Default for Ask</div>
+        <div class="eyebrow">${owner ? "Default for Ask" : "Your questions in Ask"}</div>
         <button class="ai-default-pick" id="default-pick" aria-haspopup="dialog" aria-expanded="false">
           <span class="truncate">${model}</span><span class="muted truncate">${cfg.label}</span>${icon("chevronDown")}</button>
         <div class="ai-where ${cfg.kind === "local" && cfg.address?.private ? "private" : ""}">${whereText(cfg)}</div>
         ${cfg.kind !== "agent" && cfg.tools != null ? html`<div style="margin-top:8px">${toolsBadge(cfg.tools)}</div>` : ""}
+        ${windowNote()}
       </div>
       ${owner ? html`<button class="btn btn-sm" data-action="test-ai">Test</button>` : ""}
     </section>`;
@@ -133,7 +144,7 @@ export async function renderAiTab(body, { state, redraw }) {
       const meta = p.id === "local" ? `${p.base_url.replace(/^https?:\/\//, "").replace(/\/v1$/, "")}${p.saved_model ? ` · ${p.saved_model}` : ""}`
         : [p.models ? plural(p.models, "model") : null, p.id === "custom" ? p.base_url.replace(/^https?:\/\//, "") : null, "Key saved"].filter(Boolean).join(" · ");
       rows.push({ id: p.id, logo: logoId({ provider: p.id, label: p.label }), label: p.id === "custom" || p.id === "local" ? p.label : NAME[p.id] || p.label,
-        meta, kind: p.id === "local" ? "local" : "key", isDefault: isDefault(p.id) });
+        meta, kind: p.id === "local" ? "local" : "key", private: p.private === true, isDefault: isDefault(p.id) });
     }
     for (const a of agents.agents || []) {
       if (!a.installed || a.signed_in === false) continue;
@@ -152,7 +163,7 @@ export async function renderAiTab(body, { state, redraw }) {
         <span class="ai-conn-logo">${logo(r.logo, r.label, "", r.kind === "local" ? "monitor" : "globe")}</span>
         <div class="grow" style="min-width:0"><div class="row" style="gap:8px"><b class="truncate">${r.label}</b>
           ${r.isDefault ? html`<span class="badge accent">Default</span>` : ""}
-          ${r.kind === "local" ? html`<span class="badge good">Private</span>` : ""}</div>
+          ${r.private ? html`<span class="badge good">Private</span>` : ""}</div>
           <div class="meta truncate">${r.meta}</div></div>
         ${owner ? html`<div class="row" style="gap:6px;flex:none">
           ${r.isDefault ? "" : html`<button class="btn btn-sm btn-ghost hide-narrow" data-action="make-default" data-id="${r.id}">Make default</button>`}
@@ -188,8 +199,8 @@ export async function renderAiTab(body, { state, redraw }) {
           <button class="link-btn small" data-action="scan" ${scanning ? "disabled" : ""}>${scanning ? "Looking…" : "Scan again"}</button></div>
         <div class="ai-tiles">${localTiles}</div></div>
       ${agents.available ? html`<div class="ai-add-group"><div class="ai-add-head">${icon("code")} AI apps you're signed in to <span>Uses your existing plan</span>
-          <button class="link-btn small" data-action="agents-refresh">Check again</button></div>
-        <div class="ai-tiles">${agentTiles}</div></div>` : ""}
+          <button class="link-btn small" data-action="agents-refresh" ${agents.looking ? "disabled" : ""}>${agents.looking ? "Looking…" : "Check again"}</button></div>
+        ${agents.looking ? html`<p class="small muted" style="margin:0">Looking for them on this computer…</p>` : html`<div class="ai-tiles">${agentTiles}</div>`}</div>` : ""}
       <div class="ai-add-group"><div class="ai-add-head">${icon("key")} With your own API key <span>Billed to your account</span></div>
         <div class="ai-tiles">${keyTiles}</div></div>
     </section>`;
@@ -206,21 +217,26 @@ export async function renderAiTab(body, { state, redraw }) {
         <span class="ai-token-icon">${icon("key")}</span>
         <div class="grow" style="min-width:0"><b>${t.name}</b><div class="meta">${t.profile_name ? `Only ${t.profile_name}` : "Everyone you can see"} ·
           ${t.last_call ? html`last looked up ${t.last_call.replaceAll("_", " ")} ${fmtAgo(t.last_call_at)}`
-            : t.last_used_at ? `connected ${fmtAgo(t.last_used_at)}` : `created ${fmtDate(t.created_at)}, not connected yet`}</div></div>
+            : t.last_used_at ? `connected ${fmtAgo(t.last_used_at)}` : `created ${fmtDate(t.created_at)}, not connected yet`}
+          ${t.expires_at ? (t.expires_at * 1000 < Date.now() ? ` · expired ${fmtDate(t.expires_at)}` : ` · works until ${fmtDate(t.expires_at)}`) : ""}</div></div>
         <button class="btn btn-sm btn-ghost" data-action="check-tokens" title="See the latest lookup" aria-label="See ${t.name}'s latest lookup">${icon("sync")}</button>
         <button class="btn btn-sm btn-ghost btn-danger" data-action="revoke" data-id="${t.id}" data-name="${t.name}">Revoke</button></div>`)}</div>`
       : html`<p class="small muted" style="padding:0 18px 16px">No apps connected yet.</p>`}
   </section>`;
 
-  // Someone who isn't the owner: their own agreement to an online AI.
-  const memberCard = () => html`<section class="card set-card"><header><h3>Your records and online AI</h3>
-      <p>${cfg.cloud_ack ? "You've agreed that an AI outside your network may see your questions and the records Ask looks up. The people you share with can ask about you with it too."
-        : "Before Ask sends your questions and records to an AI outside your network, it asks you once. Until you agree, others you share with can only ask about you with a local model."}</p></header>
-    <div class="set-foot small muted">The server's owner chooses which AIs are connected. Switch between them from Ask's model menu.</div></section>`;
+  // Each person's own agreements to AIs outside their network, and taking one back.
+  const agreementsCard = () => html`<section class="card set-card"><header><h3>Your records and online AI</h3>
+      <p>${cfg.cloud_acks.length ? "These can see your questions and the records Ask looks up. The people you share with can ask about you with them too. If you take one back, nothing more is sent to it for you until you agree again. What it has already received stays under its own terms."
+        : "Before Ask sends your questions and records to an AI outside your network, it asks you, once for each one. Until you agree, others you share with can only ask about you with a local model."}</p></header>
+    ${cfg.cloud_acks.length ? html`<div class="list" style="border-top:1px solid var(--border)">${cfg.cloud_acks.map((a) => html`<div class="list-item">
+      <div class="grow" style="min-width:0"><b class="truncate">${a.name}</b>${a.at ? html`<div class="meta">Agreed ${fmtDate(a.at)}${a.summary ? ", including a summary of the record" : ""}</div>` : ""}</div>
+      <button class="btn btn-sm btn-ghost btn-danger" data-action="withdraw-ai" data-id="${a.vendor}" data-name="${a.name}">Take back</button></div>`)}</div>` : ""}
+    ${owner ? "" : html`<div class="set-foot small muted">The server's owner chooses which AIs are connected. Your choice in Ask's model menu is only for your own questions.</div>`}</section>`;
 
   const draw = () => mount(body, html`<div class="stack ai-settings">
     ${defaultCard()}
-    ${owner ? html`${connectedCard()}${addCard()}` : memberCard()}
+    ${owner ? html`${connectedCard()}${addCard()}` : ""}
+    ${agreementsCard()}
     ${appsCard()}</div>`);
   draw();
 
@@ -231,16 +247,20 @@ export async function renderAiTab(body, { state, redraw }) {
     scanning = false;
     draw();
   };
-  if (owner) scan();
+  if (owner) {
+    scan();
+    get("/api/ai/agents", null, { fresh: true }).then((found) => { agents = found; }, () => { agents = { agents: [], available: false }; }).then(() => { if (body.isConnected) draw(); });
+  }
+  if (cfg.provider === "local" && cfg.configured) get("/api/ai/local/context", null, { fresh: true }).then((r) => { context = r; draw(); }, () => {});
 
   /** Makes a connected AI the default for Ask. */
   const choose = async (choice, label) => {
     const { provider, agent, model } = choice;
     // A local model on the home network needs no agreement; one on the internet is confirmed when Ask first uses it.
-    if (provider !== "local" && !(await consent(label))) return;
+    if (provider !== "local" && !(await consent(choice.vendor_name || label, choice.vendor_key || vendorKey(provider, agent, providers[provider]?.base_url || "")))) return;
     try {
       await put("/api/ai/config", provider === "agent" ? { provider, agent, model: model ?? undefined } : { provider, model });
-      toast(`${label} is now the default`, "good");
+      toast(owner ? `${label} is now the default` : `Ask now uses ${label} for your questions`, "good");
     } catch (err) { toast(err.message, "bad"); return; }
     redraw();
   };
@@ -253,7 +273,7 @@ export async function renderAiTab(body, { state, redraw }) {
   body.addEventListener("click", (e) => {
     const pickBtn = e.target.closest("#default-pick");
     if (!pickBtn) return;
-    openModelPicker(pickBtn, { onPick: (o, g) => choose(o, g.label) });
+    openModelPicker(pickBtn, { onPick: (o, g) => choose({ ...o, vendor_key: g.vendor_key, vendor_name: g.vendor_name }, g.label) });
   });
 
   return onAction(body, {
@@ -275,11 +295,16 @@ export async function renderAiTab(body, { state, redraw }) {
         const r = await post("/api/ai/test");
         toast(cfg.kind === "agent" ? `Working: ${r.model} replied in ${r.seconds}s.`
           : r.tools ? `Working: ${r.model} can look things up (${r.seconds}s).`
-            : `Working: ${r.model} answers from a summary of your data (${r.seconds}s).`, "good");
+            : r.tools === false ? `Working: ${r.model} answers from a summary of your data (${r.seconds}s).`
+              : `Working: ${r.model} replied in ${r.seconds}s. This test couldn't tell whether it can look things up.`, "good");
         if (cfg.kind !== "agent" && r.tools !== cfg.tools) return redraw();
       } catch (err) { toast(err.message, "bad"); }
       btn.disabled = false;
       btn.textContent = "Test";
+    },
+    "withdraw-ai": async ({ id, name }) => {
+      if (!(await confirmDialog(`Take back your agreement with ${name}?`, "Nothing more is sent to it for you until you agree again. What it has already received stays under its own terms.", { confirmLabel: "Take back", danger: true }))) return;
+      try { await del("/api/ai/acknowledge", { vendor: id }); redraw(); } catch (err) { toast(err.message, "bad"); }
     },
     "connect-app": () => connectApp({ url, local, profiles, state, onToken: (t) => { tokens.unshift(t); draw(); } }),
     "check-tokens": async () => {
@@ -301,6 +326,7 @@ export async function renderAiTab(body, { state, redraw }) {
 function connectModal({ logoKey, title, lead, connected, onDisconnect, fallback = "globe" }) {
   const m = modal({
     title: "",
+    dirty: true,
     body: html`<div class="ai-connect-head"><span class="ai-connect-logo">${logo(logoKey, title, "", fallback)}</span>
         <div><h2>${title}</h2>${lead ? html`<p class="small muted">${lead}</p>` : ""}</div></div>
       <div class="ai-connect-form"></div>`,
@@ -339,7 +365,7 @@ function connectKey({ id, cfg, providers, consent, done }) {
   const name = custom ? (p.connected ? p.label : "Another service") : NAME[id];
   const { m, form, connectBtn } = connectModal({
     logoKey: custom ? logoId({ provider: "custom", label: p.label }) : id, title: p.connected ? name : `Connect ${name}`,
-    lead: "Billed to your account with the provider. It receives your questions and only the records Ask looks up, which it can read but never change.",
+    lead: "Billed to your account with the provider. It receives your questions and the records Ask looks up, which it can read but never change.",
     connected: p.connected, onDisconnect: async () => { await del(`/api/ai/providers/${id}`); toast(`${name} disconnected`); done(); },
   });
   let models = null;      // null until listed
@@ -357,7 +383,7 @@ function connectKey({ id, cfg, providers, consent, done }) {
         <p class="hint" style="margin:-6px 0 12px">Where the service's /chat/completions lives. Azure OpenAI: https://YOUR-RESOURCE.openai.azure.com/openai/v1.</p>` : ""}
       <div class="field"><label class="label" for="ai-key">API key ${p.has_key ? html`<span class="badge good">Saved</span>` : ""}</label>
         <div class="row"><input class="input grow" id="ai-key" type="password" autocomplete="off" value="${keep.key}"
-            placeholder="${p.has_key ? "Saved. Paste a new one to replace it" : custom ? "If the service needs one" : "Paste your key"}">
+            placeholder="${p.has_key ? (custom ? "Saved, for this address only. Paste a new one to replace it" : "Saved. Paste a new one to replace it") : custom ? "If the service needs one" : "Paste your key"}">
           <button class="btn" type="button" data-list>${models ? "Check again" : "Continue"}</button></div>
         <div class="hint">${KEY_URL[id] ? html`Get one at <a href="${KEY_URL[id]}" target="_blank" rel="noopener">${KEY_URL[id].replace(/^https:\/\//, "").split("/")[0]}</a>. ` : ""}Stored encrypted on this computer.</div></div>
       ${models ? models.length ? html`<div class="field"><label class="label" for="ai-model">Model</label>
@@ -391,7 +417,8 @@ function connectKey({ id, cfg, providers, consent, done }) {
   form.addEventListener("input", (e) => { if (e.target.id === "ai-key" && models) { models = null; draw(); $("#ai-key", form).focus(); } });
   connectBtn.addEventListener("click", async () => {
     const label = custom ? ($("#custom-label", form).value.trim() || "That service") : name;
-    if (!(await consent(label))) return;
+    const vendor = vendorKey(id, null, custom ? $("#custom-url", form).value : "");
+    if (!(await consent(custom ? `${label} (${vendor.slice(5)})` : label, vendor))) return;
     const key = $("#ai-key", form).value.trim();
     const makeDefault = !cfg.configured || isDefault || !!$("#make-default", form)?.checked;
     const body = { provider: id, model: $("#ai-model", form).value, make_default: makeDefault, ...(key ? { api_key: key } : {}),
@@ -416,7 +443,7 @@ async function afterConnect(label, isDefault) {
   try {
     const r = await post("/api/ai/test");
     toast(r.tools === false ? `${label} works. ${r.model} can't use tools, so it answers from a summary of your data.`
-      : `${label} works and can look things up (${r.seconds}s).`, "good");
+      : r.tools ? `${label} works and can look things up (${r.seconds}s).` : `${label} works (${r.seconds}s).`, "good");
   } catch (err) { toast(err.message, "bad"); }
 }
 
@@ -456,7 +483,7 @@ function connectLocal({ address, cfg, detected, consent, done }) {
               <button class="btn btn-sm" type="button" data-check>Connect</button></div>
             <div class="hint">Its name or address and port. The server must accept connections from other devices.</div></div>
           <div class="field"><label class="label" for="local-key">API key <span class="small muted">(optional)</span></label>
-            <input class="input" id="local-key" type="password" autocomplete="off" value="${keep.key}" placeholder="${saved.has_key ? "Saved" : "Only if the server needs one"}"></div>
+            <input class="input" id="local-key" type="password" autocomplete="off" value="${keep.key}" placeholder="${saved.has_key ? "Saved, for this address only" : "Only if the server needs one"}"></div>
         </div></details>
       ${st.models.length ? html`<div class="field" style="margin-top:12px"><label class="label" for="local-model">Model</label>
           ${modelSelect("local-model", st.models.map((x) => ({ ...x, name: x.id })), st.models.some((x) => x.id === st.model) ? st.model : st.models[0].id)}
@@ -466,6 +493,9 @@ function connectLocal({ address, cfg, detected, consent, done }) {
       ${st.models.length ? defaultToggle(cfg, isDefault) : ""}
       <p class="small muted ai-status-line" id="local-status"></p>`);
     if (keep.def) { const d = $("#make-default", form); if (d) d.checked = true; }
+    const lead = $(".ai-connect-head p", m.el);
+    if (lead) lead.textContent = st.private === false ? "This address is on the internet. Your questions and the records Ask looks up go to that server."
+      : "Ollama, LM Studio, Jan, llama.cpp or vLLM, on this computer or another at home. Nothing leaves your network.";
     connectBtn.disabled = !st.models.length;
   };
   const check = async (addr, name) => {
@@ -488,7 +518,8 @@ function connectLocal({ address, cfg, detected, consent, done }) {
     if (e.target.closest("[data-check]")) check($("#local-url", form).value, "");
   });
   connectBtn.addEventListener("click", async () => {
-    if (st.private === false && !(await consent(st.name || "That server"))) return;
+    const vendor = vendorKey("local", null, st.address);
+    if (st.private === false && !(await consent(`${st.name || "That server"} (${vendor.slice(5)})`, vendor))) return;
     const key = $("#local-key", form)?.value;
     const makeDefault = !cfg.configured || isDefault || !!$("#make-default", form)?.checked;
     connectBtn.disabled = true;
@@ -538,7 +569,7 @@ function connectAgent({ agent, cfg, consent, done, refresh }) {
     if (e.target.closest("[data-refresh]")) { a = (await refresh()) || a; draw(); }
   });
   connectBtn.addEventListener("click", async () => {
-    if (!(await consent(a.vendor))) return;
+    if (!(await consent(a.vendor, vendorKey("agent", a.id)))) return;
     const makeDefault = !cfg.configured || isDefault || !!$("#make-default", form)?.checked;
     try {
       await put("/api/ai/config", { provider: "agent", agent: a.id, model: $("#agent-model", form).value, make_default: makeDefault });
@@ -557,16 +588,18 @@ const APP_LOGO = { "Claude Desktop": "claude", "Claude Code": "claudecode", "Cod
 function connectApp({ url, local, profiles, state, onToken }) {
   let app = null;        // index into snippets()
   let token = null;
+  let localNow = local;  // the setup for whoever the connection on this computer is limited to
+  let localWho = profiles.find((p) => p.is_self)?.id || profiles[0]?.id || "";
   const m = modal({ title: "Connect an app", wide: true, body: "" });
   const copy = async (text) => {
     try { await navigator.clipboard.writeText(text); toast("Copied"); }
     catch { toast("Copy isn't available here; select the text instead.", "bad"); }
   };
   const draw = () => {
-    const list = snippets(url, token?.token, local);
+    const list = snippets(url, token?.token, localNow);
     if (app == null) {
       m.setBody(html`<p class="muted" style="margin-bottom:14px">Which app should read your records? It gets read-only access, and
-          you can revoke it at any time.</p>
+          access through a token can be revoked at any time.</p>
         <div class="ai-app-grid">${list.map(([name], i) => html`<button class="ai-app" data-i="${i}">${logo(APP_LOGO[name] || "", name)}<span>${name}</span></button>`)}</div>`);
       return;
     }
@@ -577,12 +610,18 @@ function connectApp({ url, local, profiles, state, onToken }) {
             <input class="input" id="tok-name" value="${name}" maxlength="80"></div>
           <div class="field"><label class="label" for="tok-profile">Can read</label>
             <select class="input" id="tok-profile"><option value="">${profiles.length > 1 ? "Everyone you can see" : "Your records"}</option>
-              ${profiles.map((p) => html`<option value="${p.id}" ${p.id === state.profile?.id && profiles.length > 1 ? "selected" : ""}>Only ${p.name}'s records</option>`)}</select></div></div>
+              ${profiles.map((p) => html`<option value="${p.id}" ${p.id === state.profile?.id && profiles.length > 1 ? "selected" : ""}>Only ${p.name}'s records</option>`)}</select></div>
+          <div class="field"><label class="label" for="tok-expires">Works for</label>
+            <select class="input" id="tok-expires"><option value="">Until you revoke it</option><option value="30">30 days</option>
+              <option value="90">90 days</option><option value="365">A year</option></select></div></div>
         <div class="row"><button class="btn btn-primary" data-step="create">${icon("key")} Create access</button>
           <span class="small muted">Creates a token for ${name}, shown once.</span></div>`
       : html`${token ? html`<div class="banner good"><div class="grow"><b>Access created.</b> The token is filled in below and won't be shown
           again; copy the setup now.</div></div>` : ""}
         <p class="small" style="margin-bottom:8px">${how}</p>
+        ${code && !needsToken ? html`<div class="field"><label class="label" for="local-who">Can read</label>
+          <select class="input" id="local-who">${profiles.map((p) => html`<option value="${p.id}" ${p.id === localWho ? "selected" : ""}>Only ${p.name}'s records</option>`)}
+            <option value="everyone" ${localWho === "everyone" ? "selected" : ""}>Everyone on this computer, including people who have their own sign-in</option></select></div>` : ""}
         ${code ? html`<div class="snippet"><pre>${code}</pre><button class="btn btn-sm" data-copy>${icon("copy")} Copy</button></div>
           <p class="hint">Then ask it something like "Summarize my latest lab results". Its lookups appear under Other AI apps.</p>` : ""}
         <div class="field" style="margin-top:14px"><div class="label">Server address</div>
@@ -590,15 +629,26 @@ function connectApp({ url, local, profiles, state, onToken }) {
     m.setBody(html`<button class="link-btn small" data-back>${icon("chevronLeft")} All apps</button>
       <h3 style="margin:10px 0 12px">${name}</h3>${step}`);
   };
+  m.body.addEventListener("change", async (e) => {
+    if (e.target.id !== "local-who") return;
+    const who = e.target.value;
+    try {
+      localNow = await get("/api/agents/local-command", who === "everyone" ? { everyone: true } : { profile_id: who }, { fresh: true });
+      localWho = who;
+    } catch (err) { toast(err.message, "bad"); }
+    draw();
+  });
   m.body.addEventListener("click", async (e) => {
     const pick = e.target.closest("[data-i]");
     if (pick) { app = Number(pick.dataset.i); draw(); return; }
     if (e.target.closest("[data-back]")) { app = null; token = null; draw(); return; }
-    if (e.target.closest("[data-copy]")) { copy(snippets(url, token?.token, local)[app][2]); return; }
+    if (e.target.closest("[data-copy]")) { copy(snippets(url, token?.token, localNow)[app][2]); return; }
     if (e.target.closest("[data-copy-url]")) { copy(url); return; }
     if (e.target.closest("[data-step=create]")) {
       try {
-        token = await post("/api/agents/tokens", { name: $("#tok-name", m.el).value.trim() || "AI app", profile_id: $("#tok-profile", m.el).value || null });
+        const days = Number($("#tok-expires", m.el).value);
+        token = await post("/api/agents/tokens", { name: $("#tok-name", m.el).value.trim() || "AI app", profile_id: $("#tok-profile", m.el).value || null,
+          ...(days ? { expires_days: days } : {}) });
         onToken({ ...token, profile_name: profiles.find((p) => p.id === token.profile_id)?.name });
         draw();
       } catch (err) { toast(err.message, "bad"); }

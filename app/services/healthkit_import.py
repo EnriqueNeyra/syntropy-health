@@ -5,17 +5,26 @@ Accepts the ``{"data": {"metrics": [...], "workouts": [...], ...}}`` layout prod
 Syntropy iPhone app's JSON export and by other HealthKit export apps' REST automations,
 and stores it as samples, workouts and events. Metric names map to the same identifiers the
 iPhone app uses, so data arriving through both paths de-duplicates.
+
+A row that's a group of readings (an hour's or a day's steps) grows as the day goes on and is sent again and again, so a new
+value replaces the last rather than adding to it. The iPhone app says which it's sending in the ``automation-aggregation``
+header. With no header, a row with no end date is taken to be a group, as Health Auto Export's are; rows with the same date in
+one request are then different readings, and are added together. A summed row at midnight alone on its date is then either a
+whole day or the first hour of one, which only what else arrives for that day can settle (see ``biometrics._rollup``). A plain
+sample keeps its own identity, value included, so two entries at one moment both count. Aggregated sleep belongs to its day,
+wherever its start and end move.
 """
 
 from __future__ import annotations
 
 import math
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from app.connectors.apple_health import convert_unit
 from app.store import activity, biometrics
+from app.store.metric_registry import METRICS
 
 # Export metric name -> Syntropy metric_type
 METRIC_NAMES: dict[str, str] = {
@@ -220,6 +229,8 @@ SLEEP_STAGES = {
 }
 
 _TEMP_UNITS = {"degF", "°F", "F"}
+# What the automation-aggregation header says when rows are groups of readings.
+GROUPED_GRAINS = {"minutes", "hours", "days", "weeks", "months", "years"}
 
 
 def slug(name: str) -> str:
@@ -242,17 +253,23 @@ def _rows(v: Any) -> list[dict[str, Any]]:
 
 
 def _ts(v: Any):
-    """Parsed timestamp, or None when missing or unreadable (the row is then skipped)."""
+    """Parsed timestamp, or None when missing, unreadable or past either end of the calendar in UTC (the row then goes alone)."""
     if not isinstance(v, str) or not v.strip():
         return None
     try:
-        return biometrics.parse_ts(v)
-    except ValueError:
+        parsed = biometrics.parse_ts(v)
+        parsed.astimezone(timezone.utc)
+    except (ValueError, OverflowError):
         return None
+    return parsed
 
 
-def _text(v: Any) -> Optional[str]:
-    return v if isinstance(v, str) and v.strip() else None
+def _after(start: datetime, seconds: float) -> Optional[datetime]:
+    """The time a length after ``start``, or None when a length that long can't be one."""
+    try:
+        return start + timedelta(seconds=seconds)
+    except OverflowError:
+        return None
 
 
 def _qty(obj: Any) -> tuple[Optional[float], str]:
@@ -262,25 +279,69 @@ def _qty(obj: Any) -> tuple[Optional[float], str]:
     return _num(obj), ""
 
 
-def _metric_value(metric: str, value: float, units: str) -> tuple[float, str]:
-    value, unit = convert_unit(metric, value, units)
+def _text(v: Any) -> Optional[str]:
+    """A name or label as text. A number reads fine as one; a list or an object isn't a name at all."""
+    if isinstance(v, str):
+        return v
+    return str(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def _sample_unit(metric: str, value: float, units: str) -> str:
+    """The unit to store a row under. These rows' percentages are 0–100, unlike the fractions the phones send."""
     if metric in biometrics.FRACTION_METRICS and (units == "%" or value > 1.0):
-        value = value / 100.0  # "%" rows are 0–100; the ingest path expects HealthKit-style fractions
-    if metric in ("sleeping_wrist_temperature", "basal_body_temperature") and units in _TEMP_UNITS:
-        value, unit = (value - 32) * 5 / 9, "degC"
-    return value, unit
+        return "percent"
+    return units
 
 
-def convert(payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+def _settle_groups(samples: list[dict[str, Any]], grain: str) -> list[dict[str, Any]]:
+    """Rows of a group sharing a date in one request add up (or the later one stands, for what isn't a total). A summed row is
+    the whole day's when the automation says so. With nothing said, one at midnight and alone on its date is the whole day's
+    only as long as no other hour of that day turns up."""
+    settled: dict[str, dict[str, Any]] = {}
+    out: list[dict[str, Any]] = []
+    for s in samples:
+        if not s.get("replaces") or (s.get("metadata") or {}).get("day"):     # a night is one row; there's nothing to add up
+            out.append(s)
+        elif s["id"] in settled:
+            if METRICS.get(s["metric_type"], ("", "", ""))[2] == "sum":
+                settled[s["id"]]["value"] += s["value"]
+            else:
+                settled[s["id"]]["value"] = s["value"]
+        else:
+            settled[s["id"]] = s
+            out.append(s)
+    on_date: dict[tuple[str, str, str], int] = {}
+    for s in settled.values():
+        key = (s["metric_type"], s["source_name"], str(s["start_date"])[:10])
+        on_date[key] = on_date.get(key, 0) + 1
+    for s in settled.values():
+        if METRICS.get(s["metric_type"], ("", "", ""))[2] != "sum":
+            continue
+        at = biometrics.parse_ts(s["start_date"])
+        alone = on_date[(s["metric_type"], s["source_name"], str(s["start_date"])[:10])] == 1
+        if grain == "days":
+            s["metadata"] = {**(s.get("metadata") or {}), "daily_total": True}
+        elif not grain and alone and not at.hour and not at.minute:
+            s["metadata"] = {**(s.get("metadata") or {}), "daily_total_if_alone": True}
+    return out
+
+
+def convert(payload: dict[str, Any], grain: Optional[str] = None) -> dict[str, list[dict[str, Any]]]:
+    grain = (grain or "").strip().lower()
     data = payload.get("data", payload) if isinstance(payload, dict) else {}
     if not isinstance(data, dict):
         data = {}
     samples: list[dict[str, Any]] = []
     workouts: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
+    deleted_ids: list[str] = []
 
-    def event(event_type: str, category: str, name: str, start: str, end: Optional[str], source: Optional[str],
-              value: Optional[float] = None, label: Optional[str] = None, metadata: Optional[dict] = None) -> None:
+    def is_group(row: dict[str, Any]) -> bool:
+        return (grain in GROUPED_GRAINS or (not grain and not row.get("endDate"))) and _ts(row.get("date")) is not None
+
+    def event(event_type: str, category: str, name: str, start: str, end: Optional[str], source: Any,
+              value: Optional[float] = None, label: Any = None, metadata: Optional[dict] = None) -> None:
+        source, label, name = _text(source), _text(label), _text(name) or event_type
         events.append({
             "id": activity.stable_id("ev", event_type, start, end, source, label), "event_type": event_type,
             "category": category, "name": name, "start": start, "end": end or start, "value": value,
@@ -292,22 +353,22 @@ def convert(payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
         units = str(m.get("units") or "")
         rows = _rows(m.get("data"))
         if name == "sleep_analysis":
-            _sleep(rows, samples)
+            _sleep(rows, samples, deleted_ids)
             continue
         if name == "blood_pressure":
             for r in rows:
                 for field, metric in (("systolic", "blood_pressure_systolic"), ("diastolic", "blood_pressure_diastolic")):
                     v = _num(r.get(field))
                     if v is not None and r.get("date"):
-                        samples.append(_sample(metric, v, "mmHg", r["date"], r.get("endDate"), r.get("source")))
+                        samples.append(_sample(metric, v, "mmHg", r["date"], r.get("endDate"), r.get("source"), group=is_group(r)))
             continue
         if name == "mindful_minutes":
             for r in rows:
                 v = _num(r.get("qty"))
                 start = _ts(r.get("date"))
-                if start is not None and v is not None:
-                    end = (start + timedelta(minutes=v)).isoformat()
-                    event("mindful_session", "mindfulness", "Mindful Minutes", start.isoformat(), end, r.get("source"),
+                end = _after(start, v * 60) if start is not None and v is not None else None
+                if end is not None:
+                    event("mindful_session", "mindfulness", "Mindful Minutes", start.isoformat(), end.isoformat(), r.get("source"),
                           value=v, label=f"{v:g} min")
             continue
         metric = METRIC_NAMES.get(name) or slug(name)
@@ -328,8 +389,8 @@ def convert(payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
                 meta = None
             if v is None:
                 continue
-            value, unit = _metric_value(metric, v, units)
-            samples.append(_sample(metric, value, unit, r["date"], r.get("endDate"), r.get("source"), meta))
+            samples.append(_sample(metric, v, _sample_unit(metric, v, units), r["date"], r.get("endDate"), r.get("source"), meta,
+                                   group=is_group(r)))
 
     for w in _rows(data.get("workouts")):
         converted = _workout(w)
@@ -358,21 +419,29 @@ def convert(payload: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
             event("state_of_mind", "stateOfMind", "Daily Mood" if r.get("kind") == "dailyMood" else "Emotion", r["start"],
                   r.get("end"), r.get("source"), value=_num(r.get("valence")), label=r.get("valenceClassification"), metadata=meta)
 
-    return {"samples": samples, "workouts": workouts, "events": events}
+    return {"samples": _settle_groups(samples, grain), "workouts": workouts, "events": events, "deleted_ids": deleted_ids}
 
 
-def _sample(metric: str, value: float, unit: str, start: str, end: Optional[str], source: Optional[str],
-            metadata: Optional[dict] = None) -> dict[str, Any]:
-    return {
+def _sample(metric: str, value: float, unit: str, start: str, end: Optional[str], source: Any,
+            metadata: Optional[dict] = None, group: bool = False) -> dict[str, Any]:
+    source = _text(source) or "HealthKit export"
+    sample = {
         "id": activity.stable_id("s", metric, start, end, source, value), "metric_type": metric, "value": value,
-        "unit": unit, "start_date": start, "end_date": end or start, "source_name": source or "HealthKit export",
+        "unit": unit, "start_date": start, "end_date": end or start, "source_name": source, "strict_units": True,
         "metadata": {k: v for k, v in (metadata or {}).items() if v is not None} or None,
     }
+    if group:
+        sample["id"] = activity.stable_id("a", metric, biometrics.to_utc_iso(start), source)
+        sample["replaces"] = True
+        # A group is dated by the clock where it was counted, so its offset is what says which day it is.
+        if (offset := biometrics.offset_of(start)) is not None:
+            sample["tz_offset_min"] = offset
+    return sample
 
 
-def _sleep(rows: list[dict[str, Any]], samples: list[dict[str, Any]]) -> None:
+def _sleep(rows: list[dict[str, Any]], samples: list[dict[str, Any]], deleted_ids: list[str]) -> None:
     for r in rows:
-        source = r.get("source") or "HealthKit export"
+        source = _text(r.get("source")) or "HealthKit export"
         if r.get("startDate") and r.get("value"):
             stage = SLEEP_STAGES.get(str(r["value"]).lower())
             if not stage:
@@ -395,8 +464,11 @@ def _sleep(rows: list[dict[str, Any]], samples: list[dict[str, Any]]) -> None:
         for metric, hours in (("sleep_total_duration", total), ("sleep_deep", _num(r.get("deep"))),
                               ("sleep_rem", _num(r.get("rem"))), ("sleep_light", _num(r.get("core"))),
                               ("sleep_awake", _num(r.get("awake")))):
+            sample_id = activity.stable_id("n", metric, day, source)
             if hours:
-                samples.append(_sample(metric, hours * 3600, "s", start, end, source, {"day": day}))
+                samples.append({**_sample(metric, hours * 3600, "s", start, end, source, {"day": day}), "id": sample_id, "replaces": True})
+            elif hours == 0:
+                deleted_ids.append(sample_id)      # a stage that's been revised down to nothing doesn't keep its old figure
 
 
 def _workout(w: dict[str, Any]) -> Optional[dict[str, Any]]:
@@ -404,7 +476,7 @@ def _workout(w: dict[str, Any]) -> Optional[dict[str, Any]]:
     if not start:
         return None
     name = str(w.get("name") or "Workout")
-    source = w.get("source") or "HealthKit export"
+    source = _text(w.get("source")) or "HealthKit export"
 
     def measure(*keys: str, metric: str) -> Optional[float]:
         for k in keys:
@@ -421,7 +493,10 @@ def _workout(w: dict[str, Any]) -> Optional[dict[str, Any]]:
         duration = (ended - started).total_seconds()
     if ended is None:
         # Keep the workout even if its end time is missing or unreadable.
-        end = (started + timedelta(seconds=duration or 0)).isoformat()
+        finished = _after(started, duration or 0)
+        if finished is None:
+            duration, finished = None, started
+        end = finished.isoformat()
     hr = w.get("heartRate") if isinstance(w.get("heartRate"), dict) else {}
     avg_hr = _qty(hr.get("avg"))[0] if hr else _qty(w.get("avgHeartRate"))[0]
     max_hr = _qty(hr.get("max"))[0] if hr else _qty(w.get("maxHeartRate"))[0]
@@ -453,7 +528,8 @@ def _workout(w: dict[str, Any]) -> Optional[dict[str, Any]]:
         "distance_m": measure("distance", metric="distance_walking_running"),
         "step_count": _qty(w.get("stepCount"))[0],
         "avg_hr": avg_hr, "max_hr": max_hr, "min_hr": min_hr,
-        "elevation_ascent_m": _qty(w.get("elevationUp"))[0], "elevation_descent_m": _qty(w.get("elevationDown"))[0],
+        "elevation_ascent_m": measure("elevationUp", metric="six_minute_walk_distance"),
+        "elevation_descent_m": measure("elevationDown", metric="six_minute_walk_distance"),
         "indoor": True if location == "indoor" else False if location == "outdoor" else None,
         "temperature_c": temp, "humidity_pct": humidity, "source_name": source,
         "metadata": w.get("metadata") if isinstance(w.get("metadata"), dict) else None,

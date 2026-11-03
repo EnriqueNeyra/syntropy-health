@@ -1,4 +1,5 @@
 {
+ "checked": "2026-10-03",
  "servers": {
   "https://arrprd.kdmc.net/fhir/api/fhir/r4": {
    "status": "client_unknown",

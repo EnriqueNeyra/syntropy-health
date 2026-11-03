@@ -13,10 +13,10 @@ from app.core import settings
 from app.store import biometrics
 
 MAX_GOALS = 20
-# Offered when someone sets a goal for these, and the direction that means "better".
+# Offered when someone sets a goal for these, and which way it usually runs.
 SUGGESTED = {
     "sleep_duration": (7.5, "min"), "step_count": (8000, "min"), "apple_exercise_time": (30, "min"),
-    "active_energy": (500, "min"), "resting_heart_rate": (60, "max"), "apple_stand_time": (720, "min"),
+    "active_energy": (500, "min"), "resting_heart_rate": (None, "max"), "apple_stand_time": (720, "min"),
     "time_in_daylight": (30, "min"), "dietary_water": (2000, "min"), "flights_climbed": (10, "min"),
     "body_mass": (None, "max"), "hrv_rmssd": (None, "min"), "hrv_sdnn": (None, "min"),
 }
@@ -56,13 +56,14 @@ def met(goal: dict[str, Any], value: Optional[float]) -> Optional[bool]:
 
 
 def progress(profile_id: str, days: int = 7) -> list[dict[str, Any]]:
-    """Each goal with how many of the last ``days`` complete days met it (today counts only once it's met, since a
-    running total like steps can still get there)."""
+    """Each goal with how many of the last ``days`` complete days met it. Today's running total counts only for an "at
+    least" goal it has already met: steps can still get there, but sugar so far says nothing about an "at most"."""
     out = []
-    today = datetime.now(biometrics._tz()).date().isoformat()
+    today = datetime.now(biometrics._tz(profile_id)).date().isoformat()
     for metric, goal in get(profile_id).items():
         pts = biometrics.daily_series(profile_id, metric, days=days)["points"]
-        counted = [p for p in pts if not (p["day"] == today and p.get("partial") and not met(goal, p["value"]))]
+        counted = [p for p in pts if not (p["day"] == today and p.get("partial")
+                                          and (goal["direction"] != "min" or not met(goal, p["value"])))]
         hits = sum(1 for p in counted if met(goal, p["value"]))
         streak = 0
         for p in reversed(counted):

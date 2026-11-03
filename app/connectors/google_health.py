@@ -3,9 +3,9 @@ Google Health API (v4) connector — Fitbit trackers, Pixel Watch and apps that 
 
 The Google Health API replaced the Fitbit Web API (turned down in September 2026) and is the cloud route to
 Google's health data; Health Connect, the other Google store, lives only on an Android phone. It uses Google
-OAuth 2.0 with a client secret, so like Oura and WHOOP the secret is held by the relay worker or by this
-instance (your own Google Cloud OAuth client). All ``googlehealth.*`` scopes are *restricted*: a public app
-needs Google's security review, while a Google Cloud project in "Testing" works for up to 100 named test users.
+OAuth 2.0 with a client secret, held by this instance (your own Google Cloud OAuth client), and never goes through
+the relay worker. All ``googlehealth.*`` scopes are *restricted*: a public app needs Google's security review, while
+a Google Cloud project in "Testing" works for up to 100 named test users.
 
 Daily totals (steps, distance, energy, floors) come from ``dataPoints:dailyRollUp``, which reconciles every
 source Google holds without double counting. Daily summaries, measurements, sleep sessions and exercises come
@@ -53,21 +53,24 @@ LISTS: dict[str, str] = {
 }
 PAGE_SIZE = {"sleep": 25, "exercise": 25}    # the API's maximum for sessions; other types allow 10,000
 MAX_PAGES = 40
+_ACTIVITY, _METRICS, _SLEEP = (_SCOPE + s for s in ("activity_and_fitness.readonly", "health_metrics_and_measurements.readonly", "sleep.readonly"))
+ENDPOINT_SCOPES = {**{t: _ACTIVITY for t in ROLLUPS}, "exercise": _ACTIVITY, "sleep": _SLEEP,
+                   **{t: _METRICS for t in LISTS if t not in ("sleep", "exercise")}}
 
 
-def authorization_url(state: str) -> str:
+def authorization_url(state: str, redirect: Optional[str] = None) -> str:
     creds = settings.wearable_credentials("google")
-    if not creds["client_id"]:
+    if not creds["client_id"] or not creds["client_secret"]:
         raise SmartError("Google Health isn't set up yet. Add your Google Cloud OAuth client ID and secret in "
                          "Settings → Wearables.", "error")
     return f"{AUTH_URL}?" + urlencode({
-        "response_type": "code", "client_id": creds["client_id"], "redirect_uri": wc.redirect_uri(), "scope": SCOPES,
+        "response_type": "code", "client_id": creds["client_id"], "redirect_uri": redirect or wc.redirect_uri("google"), "scope": SCOPES,
         "state": state, "access_type": "offline", "prompt": "consent",   # a refresh token on every consent
     })
 
 
-async def exchange_code(code: str) -> dict[str, Any]:
-    return await wc.exchange_code_local(TOKEN_URL, "google", code, wc.redirect_uri())
+async def exchange_code(code: str, redirect: Optional[str] = None) -> dict[str, Any]:
+    return await wc.exchange_code_local(TOKEN_URL, "google", code, redirect or wc.redirect_uri("google"))
 
 
 async def refresh(credentials: dict[str, Any]) -> dict[str, Any]:
@@ -79,38 +82,45 @@ async def refresh(credentials: dict[str, Any]) -> dict[str, Any]:
 # Fetching
 # ---------------------------------------------------------------------------
 
-def _filter(dtype: str, kind: str, since: date) -> str:
+def _filter(dtype: str, kind: str, since: date, before: Optional[date] = None) -> str:
+    """``before`` only for a stretch of older days; the usual window asks for everything since."""
     name = dtype.replace("-", "_")
-    if kind == "daily":
-        return f'{name}.date >= "{since.isoformat()}"'
-    if kind == "sample":
-        return f'{name}.sample_time.physical_time >= "{since.isoformat()}T00:00:00Z"'
-    if kind == "sleep":
-        return f'sleep.interval.civil_end_time >= "{since.isoformat()}"'
-    return f'{name}.interval.civil_start_time >= "{since.isoformat()}"'
+    field, form = {"daily": (f"{name}.date", "{}"), "sample": (f"{name}.sample_time.physical_time", "{}T00:00:00Z"),
+                   "sleep": ("sleep.interval.civil_end_time", "{}")}.get(kind, (f"{name}.interval.civil_start_time", "{}"))
+    text = f'{field} >= "{form.format(since.isoformat())}"'
+    return f'{text} AND {field} < "{form.format(before.isoformat())}"' if before else text
 
 
 async def _request(client: httpx.AsyncClient, method: str, url: str, token: str, **kwargs: Any) -> Optional[dict[str, Any]]:
     resp = await client.request(method, url, headers={"Authorization": f"Bearer {token}"}, **kwargs)
     if resp.status_code == 401:
         raise SmartError("Google rejected the access token.", "auth")
-    if resp.status_code in (403, 404):
-        return None          # scope not granted, or no such data for this account
+    if resp.status_code == 403:
+        dtype = url.rsplit("/dataTypes/", 1)[-1].split("/", 1)[0]
+        if "ACCESS_TOKEN_SCOPE_INSUFFICIENT" in resp.text:
+            return None      # not granted when they connected, which is their choice
+        raise wc.Refused(dtype, "Google says the Google Health API isn't turned on for your Google Cloud project. Turn it on in the "
+                                "Google Cloud console (APIs & Services), then sync again." if "SERVICE_DISABLED" in resp.text else "")
+    if resp.status_code == 404:
+        return None          # no such data for this account
     resp.raise_for_status()
     return resp.json()
 
 
-async def _list(client: httpx.AsyncClient, token: str, dtype: str, kind: str, since: date) -> list[dict[str, Any]]:
+async def _list(client: httpx.AsyncClient, token: str, dtype: str, kind: str, since: date,
+                before: Optional[date] = None) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    params = {"filter": _filter(dtype, kind, since), "pageSize": str(PAGE_SIZE.get(dtype, 10000))}
+    params = {"filter": _filter(dtype, kind, since, before), "pageSize": str(PAGE_SIZE.get(dtype, 10000))}
     for _ in range(MAX_PAGES):
         body = await _request(client, "GET", f"{API_BASE}/{dtype}/dataPoints", token, params=params)
         if body is None:
             break
         out.extend(body.get("dataPoints") or [])
         if not body.get("nextPageToken"):
-            break
+            return out
         params["pageToken"] = body["nextPageToken"]
+    else:
+        raise wc.too_many_pages("Google Health", dtype.replace("-", " "))
     return out
 
 
@@ -125,7 +135,7 @@ async def _rollup(client: httpx.AsyncClient, token: str, dtype: str, since: date
         end = min(until + timedelta(days=1), start + timedelta(days=chunk))
         body = await _request(client, "POST", f"{API_BASE}/{dtype}/dataPoints:dailyRollUp", token,
                               json={"range": {"start": _civil(start), "end": _civil(end)}, "windowSizeDays": 1,
-                                    "pageSize": 10000})
+                                    "pageSize": chunk})
         if body is None:
             break
         out.extend(body.get("rollupDataPoints") or [])
@@ -133,14 +143,30 @@ async def _rollup(client: httpx.AsyncClient, token: str, dtype: str, since: date
     return out
 
 
-async def fetch_live(credentials: dict[str, Any], since: date, until: date) -> dict[str, list[dict[str, Any]]]:
+async def fetch_stretch(credentials: dict[str, Any], since: date, until: date) -> dict[str, list[dict[str, Any]]]:
+    """Just these older days. The lists otherwise go from ``since`` up to now."""
+    return await fetch_live(credentials, since, until, bounded=True)
+
+
+async def fetch_live(credentials: dict[str, Any], since: date, until: date, bounded: bool = False) -> dict[str, list[dict[str, Any]]]:
     token = credentials["access_token"]
-    data: dict[str, list[dict[str, Any]]] = {}
+    before = until + timedelta(days=1) if bounded else None
+    data: dict[str, Any] = {}
+    refused: list[wc.Refused] = []
     async with httpx.AsyncClient(timeout=30.0, headers={"User-Agent": USER_AGENT}) as client:
         for dtype, spec in ROLLUPS.items():
-            data[f"rollup:{dtype}"] = await _rollup(client, token, dtype, since, until, spec[5])
+            try:
+                data[f"rollup:{dtype}"] = await _rollup(client, token, dtype, since, until, spec[5])
+            except wc.Refused as exc:
+                refused.append(exc)
+                data[f"rollup:{dtype}"] = []
         for dtype, kind in LISTS.items():
-            data[dtype] = await _list(client, token, dtype, kind, since)
+            try:
+                data[dtype] = await _list(client, token, dtype, kind, since, before)
+            except wc.Refused as exc:
+                refused.append(exc)
+                data[dtype] = []
+    data["_warnings"] = wc.refusals("Google Health", refused, len(ROLLUPS) + len(LISTS), credentials.get("scope"), ENDPOINT_SCOPES)
     return data
 
 
@@ -179,13 +205,23 @@ def _device(point: dict[str, Any]) -> str:
 
 
 def _sample(sid: str, metric: str, value: float, unit: str, start: str, end: Optional[str] = None,
-            day: Optional[str] = None, device: str = SOURCE, meta: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+            day: Optional[str] = None, device: str = SOURCE, meta: Optional[dict[str, Any]] = None,
+            offset: Optional[int] = None) -> dict[str, Any]:
     metadata = dict(meta or {})
     if day:
         metadata["day"] = day
-    return {"id": sid, "metric_type": metric, "hk_identifier": f"GoogleHealth.{metric}", "value": float(value),
-            "unit": unit, "start_date": start, "end_date": end or start, "source_name": SOURCE,
-            "device_name": device, "metadata": metadata or None}
+    sample = {"id": sid, "metric_type": metric, "hk_identifier": f"GoogleHealth.{metric}", "value": float(value),
+              "unit": unit, "start_date": start, "end_date": end or start, "source_name": SOURCE,
+              "device_name": device, "device_kind": "ring", "metadata": metadata or None}
+    if offset is not None:
+        sample["tz_offset_min"] = offset
+    return sample
+
+
+def _utc_offset(duration: Any) -> Optional[int]:
+    """A session's ``endUtcOffset``, a protobuf duration such as "-14400s". Zero is left to the person's home zone."""
+    seconds = _seconds(duration)
+    return int(seconds // 60) or None if seconds is not None else None
 
 
 # Daily summaries: data type -> (payload field, value field, metric, unit)
@@ -236,19 +272,24 @@ def normalize(data: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
         body = p.get("sleep") or {}
         interval = body.get("interval") or {}
         start, end = interval.get("startTime"), interval.get("endTime")
-        if not start or not end or (body.get("metadata") or {}).get("nap"):
-            continue      # naps are not the night's sleep
+        if not start or not end:
+            continue
         civil_end = ((interval.get("civilEndTime") or {}).get("date"))
         day = _day(civil_end)
+        offset = _utc_offset(interval.get("endUtcOffset"))
         key = f"gh-sleep-{_point_id(p, start)}"
         summary = body.get("summary") or {}
         asleep = _num(summary.get("minutesAsleep"))
+        if (body.get("metadata") or {}).get("nap"):
+            if asleep is not None:      # apart from the night
+                out.append(_sample(f"{key}-nap", "sleep_nap", asleep * 60, "s", start, end, day=day, device=_device(p), offset=offset))
+            continue
         if asleep is not None:
-            out.append(_sample(f"{key}-total", "sleep_total_duration", asleep * 60, "s", start, end, day=day, device=_device(p)))
+            out.append(_sample(f"{key}-total", "sleep_total_duration", asleep * 60, "s", start, end, day=day, device=_device(p), offset=offset))
         for stage in summary.get("stagesSummary") or []:
             metric, minutes = SLEEP_STAGES.get(stage.get("type")), _num(stage.get("minutes"))
             if metric and minutes is not None:
-                out.append(_sample(f"{key}-{metric}", metric, minutes * 60, "s", start, end, day=day, device=_device(p)))
+                out.append(_sample(f"{key}-{metric}", metric, minutes * 60, "s", start, end, day=day, device=_device(p), offset=offset))
     return out
 
 
@@ -280,7 +321,8 @@ def normalize_workouts(data: dict[str, list[dict[str, Any]]]) -> list[dict[str, 
                     "step_count": int(steps) if steps is not None else None,
                     "avg_hr": _num(m.get("averageHeartRateBeatsPerMinute")),
                     "elevation_ascent_m": round(elevation / 1000, 1) if elevation is not None else None,
-                    "source_name": SOURCE, "device_name": _device(p), "metadata": meta or None})
+                    "source_name": SOURCE, "device_name": _device(p), "metadata": meta or None,
+                    **({"tz_offset_min": offset} if (offset := _utc_offset(interval.get("startUtcOffset"))) is not None else {})})
     return out
 
 
@@ -294,13 +336,13 @@ def simulate(days: int = 90, until: Optional[date] = None, seed: str = "google",
     sleep measures (heart rate variability, oxygen, breathing, temperature) isn't there before that night ends."""
     now = datetime.now(timezone.utc)
     until = until or now.astimezone(tz).date()
-    rng = random.Random(seed)
     device = {"device": {"formFactor": "WATCH", "manufacturer": "Google", "displayName": "Pixel Watch 3"}}
     out: dict[str, list[dict[str, Any]]] = {f"rollup:{t}": [] for t in ROLLUPS} | {t: [] for t in LISTS}
     fmt = "%Y-%m-%dT%H:%M:%SZ"
-    weight = 78.0
     for i in range(days):
         d = until - timedelta(days=days - 1 - i)
+        # By the date alone, so syncing again over a different span of days gives the same figures for a day.
+        rng = random.Random(f"{seed}-{d.isoformat()}")
         dd = {"year": d.year, "month": d.month, "day": d.day}
         span = {"civilStartTime": {"date": dd}, "civilEndTime": {"date": dd}}
         steps = max(1500, int(rng.gauss(8800, 2600)))
@@ -318,7 +360,7 @@ def simulate(days: int = 90, until: Optional[date] = None, seed: str = "google",
             ("daily-sleep-temperature-derivations", {"dataSource": device, "dailySleepTemperatureDerivations": {
                 "date": dd, "nightlyTemperatureCelsius": round(34.1 + rng.gauss(0, 0.25), 2), "baselineTemperatureCelsius": 34.1}}),
         ]
-        if i % 7 == 0:
+        if d.toordinal() % 7 == 0:
             out["daily-vo2-max"].append({"dataSource": device, "dailyVo2Max": {"date": dd, "vo2Max": round(rng.gauss(44, 1), 1)}})
         wake = wc.simulated_wake(d, 7, 30, tz, seed)
         asleep = int(rng.gauss(430, 35))
@@ -331,8 +373,8 @@ def simulate(days: int = 90, until: Optional[date] = None, seed: str = "google",
             "summary": {"minutesAsleep": str(asleep), "minutesAwake": str(awake),
                         "stagesSummary": [{"type": t, "minutes": str(int(asleep * share))} for t, share in stages]
                                          + [{"type": "AWAKE", "minutes": str(awake)}]}}}))
-        if i % 3 == 0:
-            weight += rng.gauss(-0.05, 0.3)
+        if d.toordinal() % 3 == 0:
+            weight = 78.0 + math.sin(d.toordinal() / 40) + rng.gauss(0, 0.2)
             nightly.append(("weight", {"dataSource": {"device": {"displayName": "Withings Body+"}}, "weight": {
                 "sampleTime": {"physicalTime": (wake + timedelta(minutes=20)).strftime(fmt)}, "weightGrams": round(weight * 1000)}}))
         if wake <= now:

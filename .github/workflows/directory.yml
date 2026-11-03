@@ -1,10 +1,10 @@
 name: Directory refresh
 
-# Every Monday, rebuilds the health-system directory (app/data/institutions/) from each vendor's published endpoint
-# list (Epic, Oracle Health, eClinicalWorks, TruBridge, Greenway, ModMed, NextGen, Practice Fusion and MEDHOST;
-# scripts/refresh_directory.py), and opens or updates one pull request,
-# "directory-refresh", when anything changed. It merges by itself once checks pass, unless the refresh dropped
-# institutions: then it waits for a person to look, since a saved connection may point at one.
+# Every Monday, rebuilds the health-system directory (app/data/institutions/ and app/data/facilities.tsv) from each
+# vendor's published endpoint list (Epic, Oracle Health, eClinicalWorks, TruBridge, Greenway, ModMed, NextGen, Practice
+# Fusion and MEDHOST; scripts/refresh_directory.py), and opens or updates one pull request, "directory-refresh", when
+# anything changed. It merges by itself once checks pass, unless a person should look first: institutions were dropped, a
+# listing's sign-in moved to another host, or many addresses changed at once.
 # Installed apps get the new directory with their next update.
 #
 # It then checks that every Epic, Oracle Health and eClinicalWorks health system still reaches its sign-in
@@ -12,8 +12,12 @@ name: Directory refresh
 # eClinicalWorks's 17,000 practices) and records the ones that don't in app/data/sign_in_status.json, so the app warns
 # before sending someone to a sign-in that won't work.
 #
-# Needs DIRECTORY_TOKEN, a fine-grained token for this repository with Contents and Pull requests read and write: a
-# pull request opened with the workflow's own token doesn't start CI, so its required checks would never report.
+# A vendor that can't be refreshed keeps its last list. The others carry on, and the job fails at the end, saying which.
+# The result is always kept as this run's "directory" artifact.
+#
+# Opening the pull request needs DIRECTORY_TOKEN, a fine-grained token for this repository with Contents and Pull requests
+# read and write: a pull request opened with the workflow's own token doesn't start CI, so its required checks would
+# never report. Without it everything else still runs, and the job fails at the end saying so.
 on:
   schedule:
     - cron: "17 9 * * 1"
@@ -26,15 +30,16 @@ concurrency:
   group: directory
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash       # bash -eo pipefail: a crash before `| tee` fails the step
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
     env:
       HAS_TOKEN: ${{ secrets.DIRECTORY_TOKEN != '' }}
     steps:
-      - name: No token
-        if: env.HAS_TOKEN != 'true'
-        run: echo "::error::DIRECTORY_TOKEN isn't set, so the refresh can't open a pull request" && exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -42,55 +47,46 @@ jobs:
         with:
           python-version: "3.12"
       - name: Refresh
-        run: python scripts/refresh_directory.py 2>&1 | tee "$RUNNER_TEMP/refresh.log"
+        id: refresh
+        continue-on-error: true       # what did refresh is still worth keeping; the last step fails the job
+        run: python scripts/refresh_directory.py --failures "$RUNNER_TEMP/failed-vendors.txt" 2>&1 | tee "$RUNNER_TEMP/refresh.log"
       - name: Check sign-ins
+        id: sign_ins
+        continue-on-error: true
         # Chrome comes with the runner, so Playwright needs no browser download. A failing health system isn't a
-        # failed job: it's what the status file records.
+        # failed job, it's what the status file records; with --write-status only a crash exits with an error.
         run: |
           pip install -q -e ".[checks]"
-          python scripts/check_sign_in.py --write-status --json "$RUNNER_TEMP/sign-in.json" | tee "$RUNNER_TEMP/sign-in.log" || true
+          python scripts/check_sign_in.py --write-status --json "$RUNNER_TEMP/sign-in.json" | tee "$RUNNER_TEMP/sign-in.log"
       - name: Summarize
         id: summary
         run: |
-          python - <<'EOF' > "$RUNNER_TEMP/body.md"
-          import json, subprocess
-          from pathlib import Path
-          dropped = 0
-          print("Rebuilt from each vendor's published endpoint list by the weekly Directory refresh workflow.\n")
-          print("| File | Institutions | Added | Dropped | New address |\n|---|---|---|---|---|")
-          for path in sorted(Path("app/data/institutions").glob("*.json")):
-              if path.name == "curated.json":
-                  continue
-              old = {i["id"]: i for i in json.loads(subprocess.run(["git", "show", f"HEAD:{path}"], capture_output=True,
-                                                                   text=True, check=True).stdout)}
-              new = {i["id"]: i for i in json.loads(path.read_text())}
-              resolvable = set(new) | {f for i in new.values() for f in i.get("former_ids", ())}
-              gone = set(old) - resolvable
-              moved = sum(1 for k in old if k in new and old[k]["fhir_base_url"] != new[k]["fhir_base_url"])
-              dropped += len(gone)
-              print(f"| {path.name} | {len(new)} | {len(set(new) - set(old))} | {len(gone)} | {moved} |")
-          report = Path(__import__("os").environ["RUNNER_TEMP"]) / "sign-in.json"
-          if report.exists():
-              results = json.loads(report.read_text())
-              failing = [r for r in results if r["status"] not in ("ok", "blocked", "unclear")]
-              print(f"\n**Sign-in check:** {len(results) - len(failing)} of {len(results)} servers reach their sign-in "
-                    "or couldn't be judged.\n")
-              for r in sorted(failing, key=lambda r: (r["status"], r["names"][0])):
-                  more = f" (+{len(r['names']) - 1})" if len(r["names"]) > 1 else ""
-                  print(f"- `{r['status']}` {r['names'][0]}{more} ({r['platform']}): {r['detail'][:160]}")
-          if dropped:
-              print(f"\n{dropped} institutions are no longer published, so this waits for review before merging. "
-                    "A saved connection to one keeps its address, but the directory can't find it by id any more.")
-          with open(__import__("os").environ["GITHUB_OUTPUT"], "a") as out:
-              out.write(f"dropped={dropped}\n")
-          EOF
+          python scripts/refresh_directory.py --summarize --sign-in-report "$RUNNER_TEMP/sign-in.json" \
+            --failures "$RUNNER_TEMP/failed-vendors.txt" --github-output "$GITHUB_OUTPUT" > "$RUNNER_TEMP/body.md"
           cat "$RUNNER_TEMP/body.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: directory
+          if-no-files-found: warn
+          path: |
+            app/data/institutions
+            app/data/facilities.tsv
+            app/data/sign_in_status.json
+            ${{ runner.temp }}/refresh.log
+            ${{ runner.temp }}/sign-in.log
+            ${{ runner.temp }}/sign-in.json
+            ${{ runner.temp }}/failed-vendors.txt
+            ${{ runner.temp }}/body.md
       - name: Open or update the pull request
+        if: env.HAS_TOKEN == 'true'
         env:
           GH_TOKEN: ${{ secrets.DIRECTORY_TOKEN }}
-          DROPPED: ${{ steps.summary.outputs.dropped }}
+          REVIEW: ${{ steps.summary.outputs.review }}
+          REFRESH: ${{ steps.refresh.outcome }}
         run: |
-          if git diff --quiet -- app/data/institutions app/data/sign_in_status.json; then
+          if git diff --quiet -- app/data/institutions app/data/facilities.tsv app/data/sign_in_status.json; then
             echo "The directory is already current."
             exit 0
           fi
@@ -98,7 +94,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$branch"
-          git add app/data/institutions app/data/sign_in_status.json
+          git add app/data/institutions app/data/facilities.tsv app/data/sign_in_status.json
           git commit -qm "Refresh the health-system directory" -m "From each vendor's published endpoint list, with the sign-in check ($(date -u +%Y-%m-%d))."
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
           if ! gh pr view "$branch" --json state -q .state 2>/dev/null | grep -q OPEN; then
@@ -106,8 +102,28 @@ jobs:
           else
             gh pr edit "$branch" --body-file "$RUNNER_TEMP/body.md"
           fi
-          if [ "$DROPPED" = 0 ]; then
+          if [ "$REVIEW" = 0 ] && [ "$REFRESH" = success ]; then
             gh pr merge "$branch" --auto --rebase
           else
-            gh pr merge "$branch" --disable-auto || true
+            gh pr merge "$branch" --disable-auto || echo "Auto-merge wasn't on."
           fi
+      - name: Report what went wrong
+        if: always()
+        env:
+          REFRESH: ${{ steps.refresh.outcome }}
+          SIGN_INS: ${{ steps.sign_ins.outcome }}
+        run: |
+          status=0
+          if [ "$REFRESH" != success ]; then
+            echo "::error::These vendors couldn't be refreshed and keep their last list: $(tr '\n' ';' < "$RUNNER_TEMP/failed-vendors.txt" 2>/dev/null || echo 'see the Refresh step')"
+            status=1
+          fi
+          if [ "$SIGN_INS" != success ]; then
+            echo "::error::The sign-in check stopped before it finished, so its warnings weren't updated. See the Check sign-ins step."
+            status=1
+          fi
+          if [ "$HAS_TOKEN" != true ]; then
+            echo "::error::DIRECTORY_TOKEN isn't set, so nothing reached the app. The repository's owner adds it under Settings, Secrets and variables, Actions: a fine-grained token for this repository with Contents and Pull requests read and write. This run's result is in its directory artifact."
+            status=1
+          fi
+          exit "$status"

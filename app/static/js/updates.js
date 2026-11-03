@@ -6,7 +6,7 @@ import { fmtDateTime, html, icon, mount, toast } from "./ui.js";
 
 const PROGRESS = {
   downloading: "Downloading the update…",
-  waiting: "Downloaded. It installs when you close the window.",
+  waiting: "Downloaded. It installs when you close the window, or now if you choose Install and restart.",
   installing: "Installing… Syntropy Health opens again in a moment.",
 };
 
@@ -39,7 +39,7 @@ export async function renderUpdates(el) {
 
 function draw(el, u) {
   const m = u.method;
-  const busy = u.progress && u.progress.state !== "failed";
+  const busy = u.progress && !["failed", "waiting"].includes(u.progress.state);
   const checked = u.checked_at ? html` Checked ${fmtDateTime(u.checked_at)}${u.error ? html` (the last check failed: ${u.error})` : ""}.` : "";
   const notes = u.available && u.latest.url ? html` <a href="${u.latest.url}" target="_blank" rel="noopener">What's new</a>` : "";
   let action = html`<button class="btn btn-sm" data-upd="check" ${busy || !u.check_allowed ? "disabled" : ""}>${icon("sync")} Check now</button>`;

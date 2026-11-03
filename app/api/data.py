@@ -1,32 +1,49 @@
-"""Imports (Apple Health, FHIR files) and exports (FHIR bundle, CSV, full backup)."""
+"""Imports (Apple Health, FHIR files, archives) and exports (FHIR, CSV, archive)."""
 
 from __future__ import annotations
 
-import csv
-import io
+import errno
 import json
 import re
 import shutil
-import sqlite3
-import tempfile
 import time
 import unicodedata
+from datetime import date
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from app.api.deps import check_access, resolve_profile
-from app.core import auth, config
-from app.core.db import audit, db, new_id, read
-from app.services import imports
-from app.store import activity, biometrics, records, sample_counts
+from app.core import auth, context, private_files, settings
+from app.core.db import audit, db, new_id
+from app.services import exports, imports, visit_prep
+from app.store import accounts, activity, biometrics, connections, profiles, records
 
 router = APIRouter(prefix="/api", tags=["data"], dependencies=[Depends(auth.require_user)])
 
 MAX_FHIR_UPLOAD = 200 * 1024 * 1024
+
+
+async def _keep_upload(file: UploadFile, dest: Path) -> None:
+    """Encrypted as it's written (app.core.private_files), since it can be a whole health record, and it waits on the disk while
+    the import reads it."""
+    out = None
+    try:
+        out = private_files.create(dest)
+        while chunk := await file.read(1024 * 1024):
+            await run_in_threadpool(out.write, chunk)
+        private_files.keep(dest, out)
+    except BaseException as exc:
+        if out:
+            out.close()
+        dest.unlink(missing_ok=True)
+        if isinstance(exc, OSError) and exc.errno in (errno.ENOSPC, errno.EDQUOT):
+            raise HTTPException(507, imports.NO_ROOM) from exc
+        raise
 
 
 @router.post("/imports/fhir")
@@ -46,11 +63,27 @@ async def import_fhir(file: UploadFile = File(...), profile_id: Optional[str] = 
 async def import_apple_health(file: UploadFile = File(...), profile_id: Optional[str] = Form(None)) -> dict:
     prof = resolve_profile(profile_id)
     dest = imports.upload_dir() / f"{new_id('upload')}{Path(file.filename or 'export.zip').suffix or '.zip'}"
-    with open(dest, "wb") as fh:
-        while chunk := await file.read(1024 * 1024):
-            fh.write(chunk)
-    job_id = imports.start_apple_health_import(prof["id"], dest, file.filename or "export.zip")
+    imports.check_room(file.size)
+    await _keep_upload(file, dest)
+    job_id = await imports.start_apple_health_import(prof["id"], dest, file.filename or "export.zip")
     return {"job_id": job_id}
+
+
+@router.get("/imports")
+def list_imports(profile: Optional[str] = None) -> dict:
+    """This person's recent Apple Health imports, so a page can find one again after being left or after a restart."""
+    prof = resolve_profile(profile)
+    return {"imports": imports.recent_jobs(prof["id"])}
+
+
+@router.post("/imports/archive")
+async def import_archive(file: UploadFile = File(...), profile_id: Optional[str] = Form(None)) -> dict:
+    prof = resolve_profile(profile_id, "manage")
+    principal = context.principal()
+    dest = imports.upload_dir() / f"{new_id('upload')}.zip"
+    imports.check_room(file.size)
+    await _keep_upload(file, dest)
+    return {"job_id": await imports.start_archive_import(prof["id"], principal.account_id if principal else None, dest, file.filename or "archive.zip")}
 
 
 @router.get("/imports/{job_id}")
@@ -79,137 +112,138 @@ def _person(prof: dict[str, Any]) -> str:
 
 @router.get("/export/fhir")
 def export_fhir(profile: Optional[str] = None) -> StreamingResponse:
+    auth.refuse_if_limited(context.principal())      # as for anything that passes someone's data on (auth.require_whole_account)
     prof = resolve_profile(profile)
-
-    def stream() -> Iterator[bytes]:
-        yield json.dumps({"resourceType": "Bundle", "type": "collection",
-                          "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                          "meta": {"tag": [{"system": "urn:syntropy-health", "code": "export"}]}})[:-1].encode()
-        yield b',"entry":['
-        first = True
-        for res in records.raw_resources(prof["id"]):
-            yield (b"" if first else b",") + json.dumps({"resource": res}).encode()
-            first = False
-        yield b"]}"
-
     with db() as conn:
         audit(conn, "user", "export.fhir", None, prof["id"])
     filename = f"syntropy-{_person(prof)}-fhir-{_stamp()}.json"
-    return StreamingResponse(stream(), media_type="application/fhir+json",
+    return StreamingResponse(exports.bundle_stream(prof["id"]), media_type="application/fhir+json",
                              headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
-class _SafeWriter:
-    """csv.writer that neutralizes spreadsheet formulas in text cells (CSV injection): a leading
-    = + - @ tab or CR is prefixed with an apostrophe. Numbers are written unchanged."""
-
-    def __init__(self, buf: io.StringIO) -> None:
-        self._w = csv.writer(buf)
-
-    @staticmethod
-    def _cell(v: Any) -> Any:
-        if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
-            return "'" + v
-        return v
-
-    def writerow(self, row: list[Any]) -> None:
-        self._w.writerow([self._cell(v) for v in row])
+@router.get("/export/ips")
+def export_patient_summary(profile: Optional[str] = None) -> Response:
+    """An International Patient Summary, for a clinician anywhere."""
+    auth.refuse_if_limited(context.principal())
+    prof = resolve_profile(profile)
+    document = exports.patient_summary(prof)
+    with db() as conn:
+        audit(conn, "user", "export.ips", None, prof["id"])
+    return Response(json.dumps(document, ensure_ascii=False), media_type="application/fhir+json",
+                    headers={"Content-Disposition": f'attachment; filename="syntropy-{_person(prof)}-summary-{_stamp()}.json"'})
 
 
 @router.get("/export/csv")
 def export_csv(kind: str = "records", profile: Optional[str] = None) -> StreamingResponse:
+    auth.refuse_if_limited(context.principal())
     prof = resolve_profile(profile)
-    buf = io.StringIO()
-    writer = _SafeWriter(buf)
-    if kind == "records":
-        writer.writerow(["category", "title", "code_system", "code", "effective_at", "status", "value", "unit",
-                         "value_normalized", "unit_normalized", "reference_low", "reference_high", "interpretation",
-                         "source", "narrative"])
-        for r in records.list_records(prof["id"], dedupe=False, limit=10**7)["items"]:
-            writer.writerow([r["category"], r["title"], r.get("code_system"), r.get("code"), r.get("effective_at"),
-                             r.get("status"), r.get("value_num") if r.get("value_num") is not None else r.get("value_text"),
-                             r.get("unit"), r.get("value_norm"), r.get("unit_norm"), r.get("ref_low"), r.get("ref_high"),
-                             r.get("interpretation"), r.get("source_name"), (r.get("narrative") or "")[:2000]])
-    elif kind == "daily":
-        writer.writerow(["day", "metric", "source", "value", "unit", "min", "max", "samples"])
-        with read() as conn:
-            for row in conn.execute("SELECT * FROM biometric_daily WHERE profile_id = ? ORDER BY day, metric_type",
-                                    (prof["id"],)):
-                writer.writerow([row["day"], row["metric_type"], row["source_name"], row["value"], row["unit"],
-                                 row["min_value"], row["max_value"], row["sample_count"]])
-    elif kind == "workouts":
-        writer.writerow(["start", "end", "name", "duration_min", "distance_km", "active_energy_kcal", "total_energy_kcal",
-                         "avg_hr", "max_hr", "elevation_gain_m", "indoor", "source", "id"])
-        for w in activity.list_workouts(prof["id"], None, 10**7, dedupe=False):   # every recording, as stored
-            writer.writerow([w["start_date"], w["end_date"], w["name"],
-                             round(w["duration_s"] / 60, 2) if w["duration_s"] is not None else None,
-                             round(w["distance_m"] / 1000, 3) if w["distance_m"] is not None else None,
-                             *[round(w[k], 1) if w[k] is not None else None
-                               for k in ("active_energy_kcal", "total_energy_kcal", "avg_hr", "max_hr", "elevation_ascent_m")],
-                             w["indoor"], w["source_name"], w["id"]])
-    elif kind == "events":
-        writer.writerow(["start", "end", "category", "type", "name", "value", "label", "source"])
-        for e in reversed(activity.list_events(prof["id"], None, limit=10**7)):
-            writer.writerow([e["start_date"], e["end_date"], e["category"], e["event_type"], e["name"], e["value"],
-                             e["value_label"], e["source_name"]])
-    else:
+    if kind not in exports.CSV_KINDS:
         raise HTTPException(400, "kind must be 'records', 'daily', 'workouts' or 'events'")
+    data = exports.csv_bytes(kind, prof["id"])
     with db() as conn:
         audit(conn, "user", f"export.csv.{kind}", None, prof["id"])
-    data = buf.getvalue().encode()
     return StreamingResponse(iter([data]), media_type="text/csv",
                              headers={"Content-Disposition": f'attachment; filename="syntropy-{_person(prof)}-{kind}-{_stamp()}.csv"'})
 
 
-@router.get("/export/backup", dependencies=[Depends(auth.require_owner)])
-def export_backup(background: BackgroundTasks) -> FileResponse:
-    """Consistent online snapshot of the whole database (includes encrypted tokens; keep it safe). It holds everyone's
-    data, so it's for owners (who can copy the database file anyway)."""
-    tmp = Path(tempfile.mkdtemp()) / f"syntropy-backup-{_stamp()}.db"
-    src = sqlite3.connect(str(config.db_path()))
-    dst = sqlite3.connect(str(tmp))
-    try:
-        src.backup(dst)
-    finally:
-        dst.close()
-        src.close()
+@router.get("/export/archive")
+def export_archive(background: BackgroundTasks, profile: Optional[str] = None) -> StreamingResponse:
+    """Everything kept about one person, for whoever manages them. Their chats are per account: this account's come along."""
+    prof = resolve_profile(profile, "manage")
+    principal = context.principal()
+    auth.refuse_if_limited(principal)        # it holds this account's conversations
+    built = exports.build_archive(prof, principal.account_id if principal else None)
     with db() as conn:
-        audit(conn, "user", "export.backup")
-    background.add_task(shutil.rmtree, tmp.parent, ignore_errors=True)     # the snapshot and its folder
-    return FileResponse(tmp, media_type="application/vnd.sqlite3", filename=tmp.name)
+        audit(conn, "user", "export.archive", None, prof["id"])
+    background.add_task(shutil.rmtree, built.folder, ignore_errors=True)
+    filename = f"syntropy-{_person(prof)}-archive-{_stamp()}.zip"
+    return StreamingResponse(private_files.stream(built.file), media_type="application/zip",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"', "Content-Length": str(built.file.size)})
 
 
 @router.delete("/profiles/{profile_id}/data")
 def wipe_profile_data(profile_id: str) -> dict:
-    """Deletes all records, samples and connections for a profile but keeps the profile itself."""
+    """Deletes everything kept about a person but keeps the person. Takes a while with millions of samples, a little at
+    a time, while other requests carry on."""
     prof = resolve_profile(profile_id)
-    with db() as conn:
-        conn.execute("DELETE FROM clinical_records WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM patient_identities WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM biometric_samples WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM biometric_daily WHERE profile_id = ?", (prof["id"],))
-        biometrics.mark_daily_changed(conn, prof["id"])
-        conn.execute("DELETE FROM sync_batches WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM workouts WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM health_events WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM chats WHERE profile_id = ?", (prof["id"],))
-        # The paired phones' Syntropy tabs are signed out along with their tokens.
-        conn.execute("DELETE FROM user_sessions WHERE device_id IN (SELECT id FROM devices WHERE profile_id = ?)", (prof["id"],))
-        conn.execute("DELETE FROM devices WHERE profile_id = ?", (prof["id"],))
-        conn.execute("DELETE FROM connections WHERE profile_id = ?", (prof["id"],))
-        audit(conn, "user", "profile.data_deleted", None, prof["id"])
-    sample_counts.forget()
+    principal = context.principal()
+    auth.refuse_if_limited(principal)
+    account = accounts.for_profile(prof["id"])
+    if principal and account and account["id"] != principal.account_id:
+        raise HTTPException(403, f"Only {prof['name']} can delete all of their own data.")
+    profiles.delete_all_data(prof["id"])
     return {"ok": True}
+
+
+REPORT_LABS = 40
+# Measurements a clinician can read. A device's own scores (strain, readiness) mean nothing outside its app.
+REPORT_METRICS = ["body_mass", "resting_heart_rate", "oxygen_saturation", "respiratory_rate", "sleep_duration", "step_count", "hrv_rmssd", "vo2_max"]
+REPORT_SECTIONS = re.compile(r"^[a-z_]{1,30}$")
+
+
+class ReportPreferences(BaseModel):
+    profile_id: Optional[str] = None
+    sections: Optional[dict[str, bool]] = Field(None, max_length=40)
+    questions: Optional[list[str]] = Field(None, max_length=50)
+
+
+def _report_preferences(profile_id: str) -> dict:
+    return settings.get(f"report.preferences.{profile_id}") or {"sections": {}, "questions": []}
+
+
+@router.get("/report/preferences")
+def get_report_preferences(profile: Optional[str] = None) -> dict:
+    return _report_preferences(resolve_profile(profile)["id"])
+
+
+@router.put("/report/preferences")
+def set_report_preferences(req: ReportPreferences) -> dict:
+    """What a person's summary includes, and the questions they want to ask. Kept per person, so anyone looking after them sees the same."""
+    pid = resolve_profile(req.profile_id, "manage")["id"]
+    current = _report_preferences(pid)
+    if req.sections is not None:
+        current["sections"] = {k: v for k, v in req.sections.items() if REPORT_SECTIONS.match(k)}
+    if req.questions is not None:
+        current["questions"] = [q.strip()[:500] for q in req.questions if q.strip()]
+    settings.set(f"report.preferences.{pid}", current)
+    return current
+
+
+@router.get("/visit-prep")
+def visit_prep_digest(since: str, profile: Optional[str] = None) -> dict:
+    """What's on record since a visit or a date: the same list every time, with nothing chosen or suggested."""
+    prof = resolve_profile(profile)
+    try:
+        date.fromisoformat(since[:10])
+    except ValueError:
+        raise HTTPException(422, "Say since when, as a date.") from None
+    return visit_prep.changes_since(prof["id"], since)
+
+
+def _named_by_custodian(value: Any, names: dict[str, str]) -> Any:
+    """Every source name in a report, as the organization the file says keeps the record."""
+    if isinstance(value, list):
+        return [_named_by_custodian(v, names) for v in value]
+    if isinstance(value, dict):
+        return {k: names.get(v, v) if k == "source_name" and isinstance(v, str) else _named_by_custodian(v, names) for k, v in value.items()}
+    return value
 
 
 @router.get("/report")
 def visit_report(profile: Optional[str] = None) -> dict:
-    """Everything the printable visit summary needs, in one call."""
+    """Everything the printable visit summary needs, in one call. An imported file reads as who keeps the record, not as a
+    file name, where the file says who that is."""
     prof = resolve_profile(profile)
-    summary = records.summary(prof["id"])
-    return {"profile": prof, "generated_at": time.time(), **summary,
+    summary = records.summary(prof["id"], lab_rows=REPORT_LABS)
+    names = {c["display_name"]: c["metadata"]["custodian"] for c in connections.list_for_profile(prof["id"], "import")
+             if (c.get("metadata") or {}).get("custodian")}
+    status = [{**s, "name": names.get(s["name"], s["name"])} for s in connections.source_status(prof["id"])]
+    return _named_by_custodian({"profile": prof, "generated_at": time.time(), **summary, **records.report_history(prof["id"]),
             # A summary for clinicians never shows demo data as if it were measured.
-            "biometrics": [h for h in biometrics.headline(prof["id"])
+            "biometrics": [h for h in biometrics.headline(prof["id"], REPORT_METRICS)
                            if "(simulated)" not in ((h.get("latest") or {}).get("source") or "")],
+            "home_readings": biometrics.home_readings(prof["id"]),
+            "journal": activity.logged_summary(prof["id"]),
+            "source_status": status,
             "care_team": records.list_records(prof["id"], "care_team", limit=20)["items"],
-            "coverage": records.list_records(prof["id"], "coverage", limit=10)["items"]}
+            "coverage": records.list_records(prof["id"], "coverage", limit=10)["items"]}, names)

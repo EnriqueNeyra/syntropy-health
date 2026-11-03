@@ -1,7 +1,9 @@
-# Syntropy Health with Docker:  docker compose up -d
+# Syntropy Health with Docker:  mkdir -p data && docker compose up -d
 # Update:  docker compose pull && docker compose up -d
 # The published image (amd64 and arm64) is used; in a clone of the repository, `docker compose up -d --build` (or
 # ./run.sh docker) builds your checkout instead.
+# Back up while it runs:  docker exec -it syntropy-health syntropy-health backup /data/backups
+# Forgotten password:     docker exec -it syntropy-health syntropy-health accounts reset-password NAME
 services:
   syntropy:
     image: ghcr.io/enriqueneyra/syntropy-health:latest
@@ -13,12 +15,69 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"   # lets the assistant reach Ollama or LM Studio on this machine (Linux)
     volumes:
-      - ./data:/data           # database, encryption key (secret.key) — back this directory up
-    env_file:
-      - path: .env
-        required: false
+      # The encrypted database and, by default, its key (secret.key). To back up: docker compose exec syntropy syntropy-health backup /data/backups
+      # With the key in the same folder, anyone with a copy of it can read your records. To keep them apart, see SYNTROPY_KEY_FILE below.
+      # Make it yourself before the first start (mkdir data), so it stays yours. If Docker makes it, it ends up owned by user id 10001 and reading it takes sudo.
+      - ./data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # The entrypoint needs these four as root, to pick the data folder's owner and become it. The server has none.
+    # With `user:` set to your own id, cap_add can go; `--cap-drop ALL` alone fails with "setpriv: setresuid failed".
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_READ_SEARCH
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    # Names with no value are taken from a .env file beside this one, or the shell, and left unset if neither has them.
     environment:
-      SYNTROPY_DATA_DIR: /data
-      TZ: ${TZ:-UTC}
+      - SYNTROPY_DATA_DIR=/data
+      - TZ=${TZ:-UTC}
       # Trust X-Forwarded-* only from these addresses (set to your reverse proxy, or "*" on a private network).
-      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      - FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      - SYNTROPY_DB_PATH
+      - SYNTROPY_SECRET_KEY
+      # A file holding the key, outside ./data, such as /run/secrets/syntropy_key with a Docker secret. Keep a copy somewhere safe, or a
+      # backup: without it your records can't be read. Make one with: openssl rand -base64 32 > syntropy_key
+      - SYNTROPY_KEY_FILE
+      # Set to 0 to leave a database unencrypted, if the disk is already encrypted and you want to read it with other tools.
+      - SYNTROPY_DATABASE_ENCRYPTION
+      - SYNTROPY_ALLOWED_HOSTS
+      - SYNTROPY_ALLOW_NO_PASSWORD
+      - SYNTROPY_UPDATE_CHECK
+      - SYNTROPY_SCHEDULER
+      - SYNTROPY_MDNS
+      - SYNTROPY_RELAY_KEY
+      # Your own registrations with health systems and wearables (or set them in Settings).
+      - EPIC_CLIENT_ID
+      - EPIC_SANDBOX_CLIENT_ID
+      - CERNER_CLIENT_ID
+      - CERNER_SANDBOX_CLIENT_ID
+      - ATHENA_CLIENT_ID
+      - ATHENA_SANDBOX_CLIENT_ID
+      - HEALOW_CLIENT_ID
+      - HEALOW_SANDBOX_CLIENT_ID
+      - TRUBRIDGE_CLIENT_ID
+      - TRUBRIDGE_SANDBOX_CLIENT_ID
+      - GREENWAY_CLIENT_ID
+      - GREENWAY_SANDBOX_CLIENT_ID
+      - MODMED_CLIENT_ID
+      - MODMED_SANDBOX_CLIENT_ID
+      - NEXTGEN_CLIENT_ID
+      - NEXTGEN_SANDBOX_CLIENT_ID
+      - PRACTICEFUSION_CLIENT_ID
+      - PRACTICEFUSION_SANDBOX_CLIENT_ID
+      - MEDHOST_CLIENT_ID
+      - MEDHOST_SANDBOX_CLIENT_ID
+      - OURA_CLIENT_ID
+      - OURA_CLIENT_SECRET
+      - WHOOP_CLIENT_ID
+      - WHOOP_CLIENT_SECRET
+      - GOOGLE_HEALTH_CLIENT_ID
+      - GOOGLE_HEALTH_CLIENT_SECRET

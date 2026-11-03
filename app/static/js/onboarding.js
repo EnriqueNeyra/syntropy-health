@@ -1,18 +1,27 @@
 // First run: welcome and name, a password, then (once the record exists) other devices, bringing in data and AI.
 import { get, post } from "./api.js";
 import { networkStatus, renderNetworkPanel } from "./network.js";
-import { $, html, icon, mount, onAction, toast, wordmark } from "./ui.js";
+import { $, EASE_OUT, busy, html, icon, mount, onAction, prefersStill, toast, wordmark } from "./ui.js";
 import { termsCheckbox } from "./consent.js";
+import { restoreSteps } from "./backup.js";
 
 const STEPS = 5;
 
 function screen(step, content) {
+  const before = $(".onboard-card")?.getBoundingClientRect().height;
   mount(document.getElementById("root"), html`
-    <div class="auth-wrap"><div class="card auth-card onboard-card">
+    <div class="auth-wrap" role="main"><div class="card auth-card onboard-card">
       <div class="onboard-top"><div class="brand">${wordmark()}</div>
-        ${step ? html`<div class="onboard-dots" aria-label="Step ${step} of ${STEPS}">${Array.from({ length: STEPS }, (_, i) => html`<span class="${i < step ? "on" : ""}"></span>`)}</div>` : ""}</div>
+        ${step ? html`<div class="onboard-dots" role="img" aria-label="Step ${step} of ${STEPS}">${Array.from({ length: STEPS }, (_, i) => html`<span class="${i < step ? "on" : ""}"></span>`)}</div>` : ""}</div>
       ${content}
     </div></div>`);
+  // One card that changes from step to step: it eases to the new size and its contents fade over, rather than jumping.
+  const card = $(".onboard-card");
+  if (!before || !card || prefersStill()) return;
+  card.style.overflow = "hidden";
+  const settled = () => { card.style.overflow = ""; };
+  card.animate([{ height: `${before}px` }, { height: `${card.getBoundingClientRect().height}px` }], { duration: 240, easing: EASE_OUT }).finished.then(settled, settled);
+  [...card.children].slice(1).forEach((part) => part.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: "ease-out" }));
 }
 
 // ------------------------------------------------------------------ before the record exists
@@ -29,7 +38,7 @@ export function renderSetup(status, onDone) {
     screen(null, html`
       <h1>Welcome to Syntropy Health</h1>
       <p class="muted onboard-lede">Your household keeps its health records on one computer, the server. Each person signs in as
-        themselves, from any computer or iPhone.</p>
+        themselves, from any computer or phone.</p>
       <div id="ob-found"></div>
       <div class="onboard-tiles">
         <button class="onboard-tile" type="button" data-action="join"><span class="ev-icon">${icon("users")}</span>
@@ -38,8 +47,11 @@ export function renderSetup(status, onDone) {
         <button class="onboard-tile" type="button" data-action="host"><span class="ev-icon">${icon("monitor")}</span>
           <span class="grow"><b>Set it up on this Mac</b><span class="small muted">This Mac becomes the server: it keeps everyone's
             records and should stay on for your phone to sync.</span></span>${icon("chevronRight")}</button>
+        <button class="onboard-tile" type="button" data-action="restore"><span class="ev-icon">${icon("upload")}</span>
+          <span class="grow"><b>Restore from a backup</b><span class="small muted">Bring back everything from a backup file you made
+            with Syntropy Health.</span></span>${icon("chevronRight")}</button>
       </div>`);
-    onAction($(".onboard-card"), { join, host: welcome });
+    onAction($(".onboard-card"), { join, host: welcome, restore: () => restore(choose) });
     looking.then((found) => {
       const box = $("#ob-found");
       if (!box || !found.length) return;
@@ -85,6 +97,14 @@ export function renderSetup(status, onDone) {
     } catch (err) { toast(err.message, "bad"); }
   };
 
+  const restore = (back) => {
+    screen(null, html`
+      <h1>Restore from a backup</h1>
+      <p class="muted onboard-lede">Everything comes back as it was when the backup was made: records, people, passwords and saved sign-ins.</p>
+      <div id="ob-restore"></div>`);
+    restoreSteps($("#ob-restore"), { onCancel: back, onRestored: () => { history.replaceState(null, "", "#/"); location.reload(); } });
+  };
+
   const welcome = () => {
     screen(1, html`
       <h1>Welcome</h1>
@@ -98,11 +118,19 @@ export function renderSetup(status, onDone) {
         <div class="field"><label class="label" for="s-name">Your first name</label>
           <input class="input" id="s-name" required maxlength="80" placeholder="e.g. Alex" autocomplete="given-name" value="${draft.name}" autofocus></div>
         <button class="btn btn-primary onboard-next" type="submit">Get started</button>
-      </form>`);
+      </form>
+      <p class="small muted" style="margin-top:14px;text-align:center">Moving from another computer?
+        <button class="link-btn" type="button" data-action="restore">Restore from a backup</button></p>`);
     $("#s-name").focus();
+    onAction($(".onboard-card"), { restore: () => restore(welcome) });
     $("#ob-name").addEventListener("submit", (e) => {
       e.preventDefault();
       draft.name = $("#s-name").value.trim();
+      if (!draft.name) {
+        toast("Enter your first name.", "bad");
+        $("#s-name").focus();
+        return;
+      }
       password();
     });
   };
@@ -115,9 +143,10 @@ export function renderSetup(status, onDone) {
       <form id="setup-form">
         <div class="field"><label class="label" for="s-pass">Password</label>
           <input class="input" id="s-pass" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
-          <div class="hint">There is no recovery, so keep it in your password manager.</div></div>
+          <div class="hint">${RECOVERY_HINT}</div></div>
         <div class="field"><label class="label" for="s-pass2">Confirm password</label>
           <input class="input" id="s-pass2" type="password" autocomplete="new-password"></div>
+        ${status?.setup_code_needed ? setupCodeField("s-code") : ""}
         ${status?.password_optional ? html`<label class="checkbox small muted field"><input type="checkbox" id="s-nopass">
           <span>Development mode: don't use a password.</span></label>` : ""}
         <div class="field">${termsCheckbox()}</div>
@@ -135,10 +164,17 @@ export function renderSetup(status, onDone) {
       const pass = $("#s-pass").value;
       if (!skip && pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
       if (!skip && pass !== $("#s-pass2").value) return toast("The passwords don't match.", "bad");
-      try {
-        await post("/api/setup", { profile_name: draft.name || "Me", password: skip ? null : pass, timezone: tz, accept_terms: true });
-        onDone();
-      } catch (err) { toast(err.message, "bad"); }
+      await busy(e.submitter, async () => {
+        try {
+          await post("/api/setup", { profile_name: draft.name, password: skip ? null : pass, timezone: tz, accept_terms: true,
+                                     setup_code: $("#s-code")?.value.trim() || undefined });
+          onDone();
+        } catch (err) {
+          // A second submit that crossed the first: the record exists, so carry on.
+          if (err.status === 409 && (await get("/api/status", undefined, { fresh: true }).catch(() => null))?.setup_complete) return onDone();
+          toast(err.message, "bad");
+        }
+      });
     });
   };
 
@@ -146,11 +182,22 @@ export function renderSetup(status, onDone) {
 }
 
 
+const RECOVERY_HINT = "Keep it in your password manager. Syntropy Labs can't recover it, but someone at the computer this server runs on can set a new one.";
+
+/** Setting up from somewhere other than this computer or the home network takes the code the server printed to its log. */
+function setupCodeField(id) {
+  return html`<div class="field"><label class="label" for="${id}">Setup code</label>
+    <input class="input mono" id="${id}" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required placeholder="ABCD-EFGH">
+    <div class="hint">You're not on this server's computer or its home network, so it asks for proof it's yours. The code is in the server's log, printed when it started
+      (for Docker: <code>docker logs syntropy-health</code>).</div></div>`;
+}
+
+
 // ------------------------------------------------------------------ set up before a password was required
 /** Asks for the password an older setup doesn't have (and the agreement, if not given yet) before anything opens. */
 export function renderPasswordGate(status, onDone) {
   mount(document.getElementById("root"), html`
-    <div class="auth-wrap"><div class="card auth-card onboard-card">
+    <div class="auth-wrap" role="main"><div class="card auth-card onboard-card">
       <div class="onboard-top"><div class="brand">${wordmark()}</div></div>
       <h1>Add a password</h1>
       <p class="muted onboard-lede">Syntropy Health now asks for a password, because it holds your health records. Everything else
@@ -158,9 +205,10 @@ export function renderPasswordGate(status, onDone) {
       <form id="gate-form">
         <div class="field"><label class="label" for="g-pass">Password</label>
           <input class="input" id="g-pass" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" required>
-          <div class="hint">There is no recovery, so keep it in your password manager.</div></div>
+          <div class="hint">${RECOVERY_HINT}</div></div>
         <div class="field"><label class="label" for="g-pass2">Confirm password</label>
           <input class="input" id="g-pass2" type="password" autocomplete="new-password" required></div>
+        ${status.setup_code_needed ? setupCodeField("g-code") : ""}
         ${status.terms_accepted ? "" : html`<div class="field">${termsCheckbox("g-terms")}</div>`}
         <button class="btn btn-primary onboard-next" type="submit">Save password</button>
       </form></div></div>`);
@@ -170,28 +218,32 @@ export function renderPasswordGate(status, onDone) {
     const pass = $("#g-pass").value;
     if (pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
     if (pass !== $("#g-pass2").value) return toast("The passwords don't match.", "bad");
-    try {
-      await post("/api/auth/password", { current: null, new: pass, accept_terms: true });
-      onDone();
-    } catch (err) { toast(err.message, "bad"); }
+    await busy(e.submitter, async () => {
+      try {
+        await post("/api/auth/password", { current: null, new: pass, accept_terms: true, setup_code: $("#g-code")?.value.trim() || undefined });
+        onDone();
+      } catch (err) { toast(err.message, "bad"); }
+    });
   });
 }
 
 /** Once, for instances set up before the agreement was asked for. */
 export function renderTermsGate(onDone) {
   mount(document.getElementById("root"), html`
-    <div class="auth-wrap"><div class="card auth-card onboard-card">
+    <div class="auth-wrap" role="main"><div class="card auth-card onboard-card">
       <div class="onboard-top"><div class="brand">${wordmark()}</div></div>
       <h1>Before you continue</h1>
       <ul class="check-list onboard-points">
         <li>Your health records are stored on this computer, not with us. Keeping it secure, updated and backed up is up to you.</li>
         <li>If you connect an AI provider, it sees your questions and the records it looks up to answer them.</li>
-        <li>Syntropy Health organizes your information; it isn't medical advice. Check anything important with your care team.</li></ul>
+        <li>Syntropy Health organizes your records and doesn't give medical advice.</li></ul>
       <form id="terms-form"><div class="field">${termsCheckbox("t-terms")}</div>
         <button class="btn btn-primary onboard-next" type="submit">Continue</button></form></div></div>`);
   $("#terms-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    try { await post("/api/terms/accept"); onDone(); } catch (err) { toast(err.message, "bad"); }
+    await busy(e.submitter, async () => {
+      try { await post("/api/terms/accept"); onDone(); } catch (err) { toast(err.message, "bad"); }
+    });
   });
 }
 
@@ -225,20 +277,20 @@ export function renderOnboarding(status, onDone) {
   const data = () => {
     screen(owner ? 4 : null, html`
       <h1>${owner ? "Bring in your data" : `Welcome, ${status.account?.name || ""}`}</h1>
-      <p class="muted onboard-lede">${owner ? "Start with whatever you have." : "Your health data is yours here: only you see it, unless you share it. Start with whatever you have."}
+      <p class="muted onboard-lede">${owner ? "Start with whatever you have." : "Your health data is yours here: nobody sees it in the app unless you share it. Start with whatever you have."}
         You can add the rest any time from Sources.</p>
       <div class="onboard-tiles">
+        ${tile("ehr", "records", "Doctors and hospitals", "MyChart and other patient portals: visits, labs, medications")}
         ${tile("iphone", "phone", "Your phone and watch", "Heart, sleep, workouts and more from Apple Health or Health Connect, with the Syntropy Health app")}
         ${tile("wearables", "watch", "Oura, WHOOP or Google Health", "Sign in once; new days sync on their own")}
-        ${tile("ehr", "records", "Doctors and hospitals", "MyChart and other patient portals: visits, labs, medications")}
-        ${tile("import", "upload", "Files", "An Apple Health export, a FHIR file or a lab report PDF")}
+        ${tile("import", "upload", "Files", "An Apple Health export, a portal health summary, a FHIR file or a lab report PDF")}
       </div>
       <div class="onboard-foot">${owner ? html`<button class="btn" data-action="back">Back</button>` : ""}<span class="grow"></span>
         <button class="btn" data-action="next">Skip for now</button></div>`);
     onAction($(".onboard-card"), {
       back: devices, next: owner ? ai : () => finish("#/overview"),
       iphone: () => finish("#/sources?add=iphone"),
-      wearables: () => finish("#/sources"),
+      wearables: () => finish("#/sources?add=wearable"),
       ehr: () => finish("#/sources?add=ehr"),
       import: () => finish("#/sources?add=import"),
     });

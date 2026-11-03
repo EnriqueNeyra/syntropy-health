@@ -14,9 +14,10 @@ from typing import Any, Optional
 from app.core import config, security
 from app.core.db import db, read
 
-# Platforms that authenticate via SMART on FHIR. Each has a production and a sandbox client ID: Syntropy Health's own
-# registration where there is one (public clients' IDs aren't secret), else one from Settings or the environment
-# (``env`` for production, ``sandbox_env`` for the vendor's sandbox).
+# Platforms that authenticate via SMART on FHIR. Each has a production and a sandbox client ID: one from Settings or the
+# environment (``env`` for production, ``sandbox_env`` for the vendor's sandbox), else Syntropy Health's own
+# registration where there is one. Public clients' IDs aren't secret, but those registrations are Syntropy Labs', so only
+# its release builds offer them (config.official_build()); a build from the source uses its own.
 EHR_PLATFORMS: dict[str, dict[str, Any]] = {
     "epic": {"label": "Epic (MyChart)", "env": "EPIC_CLIENT_ID", "sandbox_env": "EPIC_SANDBOX_CLIENT_ID", "default_mode": "sandbox",
              "default_client_ids": {"sandbox": "280d55bb-e8a2-45b0-8a7b-2e3826ef5e9c",
@@ -44,8 +45,8 @@ EHR_PLATFORMS: dict[str, dict[str, Any]] = {
 
 CONNECTION_MODES = ("simulated", "sandbox", "production")
 
-# Client IDs of the Syntropy apps registered with Oura and WHOOP. Their secrets live only on the
-# relay worker (see cloudflare-worker/), which performs the code exchange for these IDs. Google Health has
+# Client IDs of the Syntropy apps registered with Oura and WHOOP, offered by release builds only. Their secrets live
+# only on the relay worker (see cloudflare-worker/), which performs the code exchange for these IDs. Google Health has
 # no Syntropy app yet (its scopes need Google's restricted-scope review), so it needs your own OAuth client.
 WEARABLES: dict[str, dict[str, str]] = {
     "oura": {"label": "Oura Ring", "id_env": "OURA_CLIENT_ID", "secret_env": "OURA_CLIENT_SECRET",
@@ -65,10 +66,10 @@ def _is_secret(key: str) -> bool:
 
 DEFAULTS: dict[str, Any] = {
     "setup.completed": False,
+    "people.adult_age": 18,     # when to suggest someone looked after gets their own sign-in (varies by place)
     "developer.mode": False,    # off: health systems connect for real; on: each platform's own mode (simulator, sandbox)
     "auth.required": True,
     "relay.redirect_uri": config.DEFAULT_RELAY_URL,
-    "relay.wearable_redirect_uri": config.DEFAULT_WEARABLE_RELAY_URL,
     "sync.ehr_interval_hours": 24,
     "sync.wearable_interval_hours": 4,
     "display.timezone": None,
@@ -112,10 +113,14 @@ def set(key: str, value: Any) -> None:  # noqa: A001 - mirrors dict API
 
 
 def delete_prefix(prefix: str) -> None:
-    """Removes a key and every key under it (``prefix`` and ``prefix.*``)."""
     with db() as conn:
-        conn.execute("DELETE FROM app_settings WHERE key = ? OR key LIKE ? ESCAPE '\\'",
-                     (prefix, prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + ".%"))
+        delete_prefix_in(conn, prefix)
+
+
+def delete_prefix_in(conn: Any, prefix: str) -> None:
+    """Removes a key and every key under it (``prefix`` and ``prefix.*``), as part of a transaction."""
+    conn.execute("DELETE FROM app_settings WHERE key = ? OR key LIKE ? ESCAPE '\\'",
+                 (prefix, prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + ".%"))
 
 
 def timezone_name() -> str:
@@ -140,9 +145,10 @@ def _client_id(platform: str, mode: str) -> tuple[str, Optional[str]]:
         return "", None
     meta = EHR_PLATFORMS[platform]
     env_name = meta["env"] if mode == "production" else meta["sandbox_env"]
+    built_in = meta.get("default_client_ids", {}).get(mode, "") if config.official_build() else ""
     for value, source in ((get(f"platform.{platform}.{mode}_client_id"), "settings"),
                           (config.env(env_name) if env_name else "", "env"),
-                          (meta.get("default_client_ids", {}).get(mode, ""), "default")):
+                          (built_in, "default")):
         if value := config.clean_credential(value):
             return value, source
     return "", None
@@ -187,6 +193,8 @@ def platform_config(platform: str, mode: Optional[str] = None) -> dict[str, Any]
         # Whether choosing one of its health systems can start a sign-in.
         "available": mode == "simulated" or (bool(client_id) and (developer or not developer_only)),
         "production_ready": mode == "production" and bool(client_id),
+        # Syntropy Health is registered with this platform, but this build is from the source and can't offer it.
+        "needs_release_build": bool(meta.get("default_client_ids", {}).get(mode)) and not config.official_build(),
     }
 
 
@@ -208,7 +216,8 @@ def set_platform_config(platform: str, mode: Optional[str] = None, sandbox_clien
 def wearable_credentials(provider: str) -> dict[str, str]:
     meta = WEARABLES[provider]
     client_id = (config.clean_credential(get(f"wearable.{provider}.client_id"))
-                 or config.clean_credential(config.env(meta["id_env"])) or meta["default_client_id"])
+                 or config.clean_credential(config.env(meta["id_env"]))
+                 or (meta["default_client_id"] if config.official_build() else ""))
     secret = config.clean_credential(get(f"wearable.{provider}.client_secret")) or config.clean_credential(config.env(meta["secret_env"]))
     return {"client_id": client_id, "client_secret": secret}
 

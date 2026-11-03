@@ -36,6 +36,7 @@
   "panel": "Complete blood count",
   "aliases": [
    "RBC",
+   "Red blood cell count",
    "Erythrocytes"
   ]
  },
@@ -113,9 +114,15 @@
   "panel": "Metabolic panel",
   "aliases": [
    "BUN",
-   "Urea",
-   "Urea nitrogen"
+   "Urea nitrogen",
+   "Blood urea nitrogen"
   ]
+ },
+ {
+  "name": "Urea",
+  "loinc": "3091-6",
+  "unit": "mg/dL",
+  "panel": "Metabolic panel"
  },
  {
   "name": "Creatinine",
@@ -129,8 +136,20 @@
   "unit": "mL/min/{1.73_m2}",
   "panel": "Metabolic panel",
   "aliases": [
-   "eGFR",
-   "GFR"
+   "eGFR CKD-EPI 2021",
+   "eGFR (CKD-EPI 2021)"
+  ]
+ },
+ {
+  "name": "eGFR",
+  "loinc": "69405-9",
+  "unit": "mL/min/{1.73_m2}",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "GFR",
+   "Estimated GFR",
+   "GFR, estimated",
+   "Glomerular filtration rate"
   ]
  },
  {
@@ -195,6 +214,17 @@
   "panel": "Metabolic panel",
   "aliases": [
    "Bilirubin"
+  ]
+ },
+ {
+  "name": "Bilirubin, direct",
+  "loinc": "1968-7",
+  "unit": "mg/dL",
+  "panel": "Metabolic panel",
+  "aliases": [
+   "Direct bilirubin",
+   "Conjugated bilirubin",
+   "Bilirubin, conjugated"
   ]
  },
  {
@@ -286,7 +316,10 @@
   "aliases": [
    "LDL",
    "LDL-C",
-   "LDL cholesterol"
+   "LDL cholesterol",
+   "LDL cholesterol, direct",
+   "LDL, direct",
+   "LDL-C, direct"
   ]
  },
  {
@@ -351,12 +384,13 @@
   ]
  },
  {
-  "name": "Insulin, fasting",
+  "name": "Insulin",
   "loinc": "20448-7",
   "unit": "u[IU]/mL",
   "panel": "Blood sugar",
   "aliases": [
-   "Insulin"
+   "Insulin, fasting",
+   "Fasting insulin"
   ]
  },
  {
@@ -558,7 +592,20 @@
   "aliases": [
    "UACR",
    "ACR",
-   "Microalbumin"
+   "Microalbumin/creatinine ratio",
+   "Albumin/creatinine ratio"
+  ]
+ },
+ {
+  "name": "Microalbumin (urine)",
+  "loinc": "14957-5",
+  "unit": "mg/L",
+  "panel": "Urine",
+  "aliases": [
+   "Microalbumin",
+   "Urine microalbumin",
+   "Microalbumin, urine",
+   "Albumin, urine"
   ]
  }
 ]

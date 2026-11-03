@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 import pytest
@@ -49,11 +50,13 @@ def test_versions():
     assert not updates.is_newer("nightly", "1.0.0")
 
 
-def test_package_source_prefers_the_wheel():
+def test_package_source_is_the_wheel_never_the_source():
     rel = updates._release(RELEASE)
-    assert updates.package_source(rel) == "syntropy-health @ https://example.test/w.whl"
-    rel["assets"] = {}
-    assert updates.package_source(rel).endswith("/archive/refs/tags/v9.1.0.tar.gz")
+    sums = {f"syntropy_health-{rel['version']}-py3-none-any.whl": "ab12"}
+    assert updates.package_source(rel, sums) == "syntropy-health @ https://example.test/w.whl#sha256=ab12"
+    rel["assets"] = {}      # the source archive would install a build without the relay key
+    with pytest.raises(updates.InstallFailed):
+        updates.package_source(rel, sums)
 
 
 def test_owner_sees_an_update(client, latest):
@@ -153,7 +156,7 @@ def test_unexpected_install_error_stays_in_the_log(client, latest):
 async def test_daily_tick_checks_once_and_installs_automatically(client, latest):
     got = []
     updates.set_installer(lambda release, automatic: got.append(automatic))
-    settings.set("updates.auto", True)
+    await asyncio.to_thread(settings.set, "updates.auto", True)
     await updates.tick()
     await updates.tick()
     assert latest["calls"] == 1

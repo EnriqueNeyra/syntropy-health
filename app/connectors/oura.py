@@ -20,6 +20,7 @@ import httpx
 from app.connectors import wearable_common as wc
 from app.connectors.smart import SmartError, USER_AGENT
 from app.core import settings
+from app.store.biometrics import offset_of as biometric_offset
 
 AUTH_URL = "https://cloud.ouraring.com/oauth/authorize"
 TOKEN_URL = "https://api.ouraring.com/oauth/token"
@@ -28,17 +29,19 @@ API_BASE = "https://api.ouraring.com/v2/usercollection"
 SCOPES = "daily heartrate workout spo2"
 SOURCE = "Oura Ring"
 DAILY_ENDPOINTS = ["daily_sleep", "sleep", "daily_readiness", "daily_activity", "daily_spo2", "workout"]
+ENDPOINT_SCOPES = {"daily_sleep": "daily", "sleep": "daily", "daily_readiness": "daily", "daily_activity": "daily",
+                   "daily_spo2": "spo2", "workout": "workout", "heartrate": "heartrate"}
 
 
-def authorization_url(state: str) -> str:
+def authorization_url(state: str, redirect: Optional[str] = None) -> str:
     creds = settings.wearable_credentials("oura")
     if not creds["client_id"]:
-        raise SmartError("Oura is not configured. Add the Oura client ID in Settings → Wearables.", "error")
-    return f"{AUTH_URL}?{urlencode({'response_type': 'code', 'client_id': creds['client_id'], 'redirect_uri': wc.redirect_uri(), 'scope': SCOPES, 'state': state})}"
+        raise SmartError(wc.not_configured("Oura"), "error")
+    return f"{AUTH_URL}?{urlencode({'response_type': 'code', 'client_id': creds['client_id'], 'redirect_uri': redirect or wc.redirect_uri('oura'), 'scope': SCOPES, 'state': state})}"
 
 
-async def exchange_code(code: str) -> dict[str, Any]:
-    return await wc.exchange_code_local(TOKEN_URL, "oura", code, wc.redirect_uri())
+async def exchange_code(code: str, redirect: Optional[str] = None) -> dict[str, Any]:
+    return await wc.exchange_code_local(TOKEN_URL, "oura", code, redirect or wc.redirect_uri("oura"))
 
 
 async def refresh(credentials: dict[str, Any]) -> dict[str, Any]:
@@ -55,15 +58,17 @@ async def _fetch(client: httpx.AsyncClient, token: str, endpoint: str, params: d
         resp = await client.get(f"{API_BASE}/{endpoint}", params=q, headers={"Authorization": f"Bearer {token}"})
         if resp.status_code == 401:
             raise SmartError("Oura rejected the access token.", "auth")
-        if resp.status_code in (403, 404):
-            return out          # scope not granted / endpoint unavailable for this ring
+        if resp.status_code == 403:     # Oura: "usually means the user's subscription to Oura has expired"
+            raise wc.Refused(endpoint)
+        if resp.status_code == 404:
+            return out          # endpoint unavailable for this ring
         resp.raise_for_status()
         body = resp.json()
         out.extend(body.get("data") or [])
         next_token = body.get("next_token")
         if not next_token:
-            break
-    return out
+            return out
+    raise wc.too_many_pages("Oura", endpoint.replace("_", " "))
 
 
 async def fetch_live(credentials: dict[str, Any], since: date, until: date) -> dict[str, list[dict[str, Any]]]:
@@ -80,27 +85,67 @@ async def fetch_live(credentials: dict[str, Any], since: date, until: date) -> d
         )
     data: dict[str, list[dict[str, Any]]] = {}
     failed = []
+    refused: list[wc.Refused] = []
     for ep, res in zip(DAILY_ENDPOINTS + ["heartrate"], results):
         if isinstance(res, SmartError):
             raise res
+        if isinstance(res, wc.Refused):
+            refused.append(res)
+            data[ep] = []
+            continue
         if isinstance(res, BaseException):
             failed.append(ep)
             continue
         data[ep] = res
     if failed:
         # Counted as a success, the next sync would start after the days these didn't bring; as an error it retries.
-        raise SmartError(f"Oura didn't answer for {', '.join(failed)}. Syntropy Health will try again.", "error")
+        raise SmartError(f"Oura didn't answer for {', '.join(failed)}. Syntropy Health will try again.", "network")
+    data["_warnings"] = wc.refusals("Oura", refused, len(results), credentials.get("scope"), ENDPOINT_SCOPES)    # type: ignore[assignment]
     return data
 
 
 def _sample(sid: str, metric: str, value: float, unit: str, start: str, end: Optional[str] = None,
-            day: Optional[str] = None, hk: Optional[str] = None, meta: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+            day: Optional[str] = None, hk: Optional[str] = None, meta: Optional[dict[str, Any]] = None,
+            one_per_day: bool = False, offset: Optional[int] = None) -> dict[str, Any]:
     metadata = dict(meta or {})
     if day:
         metadata["day"] = day
-    return {"id": sid, "metric_type": metric, "hk_identifier": hk or f"Oura.{metric}", "value": float(value),
-            "unit": unit, "start_date": start, "end_date": end or start, "source_name": SOURCE,
-            "device_name": "Oura Ring", "metadata": metadata or None}
+    sample = {"id": sid, "metric_type": metric, "hk_identifier": hk or f"Oura.{metric}", "value": float(value),
+              "unit": unit, "start_date": start, "end_date": end or start, "source_name": SOURCE,
+              "device_name": "Oura Ring", "device_kind": "ring", "metadata": metadata or None}
+    if one_per_day:
+        sample["one_per_day"] = True
+    if offset is not None:
+        sample["tz_offset_min"] = offset
+    return sample
+
+
+def _night_ids(rows: list[dict[str, Any]]) -> set[Any]:
+    """Which sleep periods are nights. Oura's "long_sleep" is the night, and "sleep" a confirmed nap or short sleep of up to 3
+    hours; on a day with no long sleep the longest of those is the only night there was."""
+    nights = {r.get("id") for r in rows if r.get("type") in (None, "long_sleep")}
+    covered = {r.get("day") for r in rows if r.get("id") in nights}
+    best: dict[Any, dict[str, Any]] = {}
+    for r in rows:
+        if r.get("type") == "sleep" and r.get("day") not in covered:
+            cur = best.get(r.get("day"))
+            if cur is None or (r.get("total_sleep_duration") or 0) > (cur.get("total_sleep_duration") or 0):
+                best[r.get("day")] = r
+    return nights | {r.get("id") for r in best.values()}
+
+
+def deleted_prefixes(data: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """Readings to take away: a period Oura now says was deleted, and what earlier versions stored for a nap as if it were the
+    night. Another period can only look like a repeat of one of these, so these go first (see insert_samples)."""
+    rows = [r for r in data.get("sleep", []) if r.get("id")]
+    nights = _night_ids(rows)
+    out = []
+    for r in rows:
+        if r["id"] not in nights:
+            out.append(f"oura-{r['id']}-")
+        if r["id"] in nights or r.get("type") not in ("sleep", "late_nap"):
+            out.append(f"oura--nap-{r['id']}")
+    return out
 
 
 def normalize(data: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
@@ -109,43 +154,48 @@ def normalize(data: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
         if r.get("score") is not None:
             out.append(_sample(f"oura-{r['id']}-sleep-score", "sleep_score", r["score"], "score",
                                r.get("timestamp") or f"{r['day']}T12:00:00Z", day=r["day"],
-                               meta={"contributors": r.get("contributors")}))
+                               meta={"contributors": r.get("contributors")}, one_per_day=True))
+    nights = _night_ids(data.get("sleep", []))
     for r in data.get("sleep", []):
-        if r.get("type") not in (None, "long_sleep", "sleep"):
-            continue  # naps and rest periods are not counted as the night's sleep
         start, end = r.get("bedtime_start"), r.get("bedtime_end")
         if not start or not end:
             continue
         day = r.get("day")
+        offset = biometric_offset(end)
+        if r.get("id") not in nights:
+            # Apart from the night, and its heart rate and breathing aren't the overnight figures.
+            if r.get("type") in ("sleep", "late_nap") and r.get("total_sleep_duration") is not None:
+                out.append(_sample(f"oura--nap-{r['id']}", "sleep_nap", r["total_sleep_duration"], "s", start, end, day=day, offset=offset))
+            continue
         for field, metric in (("total_sleep_duration", "sleep_total_duration"), ("deep_sleep_duration", "sleep_deep"),
                               ("rem_sleep_duration", "sleep_rem"), ("light_sleep_duration", "sleep_light"),
                               ("awake_time", "sleep_awake")):
             if r.get(field) is not None:
-                out.append(_sample(f"oura-{r['id']}-{metric}", metric, r[field], "s", start, end, day=day))
+                out.append(_sample(f"oura-{r['id']}-{metric}", metric, r[field], "s", start, end, day=day, offset=offset))
         if r.get("lowest_heart_rate") is not None:
             out.append(_sample(f"oura-{r['id']}-rhr", "resting_heart_rate", r["lowest_heart_rate"], "count/min",
-                               start, end, day=day, hk="HKQuantityTypeIdentifierRestingHeartRate"))
+                               start, end, day=day, hk="HKQuantityTypeIdentifierRestingHeartRate", offset=offset))
         if r.get("average_hrv") is not None:
-            out.append(_sample(f"oura-{r['id']}-hrv", "hrv_rmssd", r["average_hrv"], "ms", start, end, day=day))
+            out.append(_sample(f"oura-{r['id']}-hrv", "hrv_rmssd", r["average_hrv"], "ms", start, end, day=day, offset=offset))
         if r.get("average_breath") is not None:
-            out.append(_sample(f"oura-{r['id']}-resp", "respiratory_rate", r["average_breath"], "count/min", start, end, day=day))
+            out.append(_sample(f"oura-{r['id']}-resp", "respiratory_rate", r["average_breath"], "count/min", start, end, day=day, offset=offset))
     for r in data.get("daily_readiness", []):
         ts = r.get("timestamp") or f"{r['day']}T12:00:00Z"
         if r.get("score") is not None:
             out.append(_sample(f"oura-{r['id']}-readiness", "readiness_score", r["score"], "score", ts, day=r["day"],
-                               meta={"contributors": r.get("contributors")}))
+                               meta={"contributors": r.get("contributors")}, one_per_day=True))
         if r.get("temperature_deviation") is not None:
-            out.append(_sample(f"oura-{r['id']}-temp", "body_temperature_deviation", r["temperature_deviation"], "degC", ts, day=r["day"]))
+            out.append(_sample(f"oura-{r['id']}-temp", "body_temperature_deviation", r["temperature_deviation"], "degC", ts, day=r["day"], one_per_day=True))
     for r in data.get("daily_activity", []):
         ts = r.get("timestamp") or f"{r['day']}T12:00:00Z"
         for field, metric, unit in (("steps", "step_count", "count"), ("active_calories", "active_energy", "kcal"),
                                     ("total_calories", "total_energy", "kcal"), ("score", "activity_score", "score")):
             if r.get(field) is not None:
-                out.append(_sample(f"oura-{r['id']}-{metric}", metric, r[field], unit, ts, day=r["day"]))
+                out.append(_sample(f"oura-{r['id']}-{metric}", metric, r[field], unit, ts, day=r["day"], one_per_day=True))
     for r in data.get("daily_spo2", []):
         avg = (r.get("spo2_percentage") or {}).get("average")
         if avg:
-            out.append(_sample(f"oura-{r['id']}-spo2", "oxygen_saturation", avg, "%", f"{r['day']}T06:00:00Z", day=r["day"]))
+            out.append(_sample(f"oura-{r['id']}-spo2", "oxygen_saturation", avg, "%", f"{r['day']}T06:00:00Z", day=r["day"], one_per_day=True))
     for r in data.get("heartrate", []):
         if r.get("bpm") is not None and r.get("timestamp"):
             out.append(_sample(f"oura-hr-{r['timestamp']}", "heart_rate", r["bpm"], "count/min", r["timestamp"],
@@ -182,10 +232,12 @@ def simulate(days: int = 90, until: Optional[date] = None, seed: str = "oura",
     ended yet (today, before waking) isn't there, as with the real ring."""
     now = datetime.now(timezone.utc)
     until = until or now.astimezone(tz).date()
-    rng = random.Random(seed)
     data: dict[str, list[dict[str, Any]]] = {k: [] for k in DAILY_ENDPOINTS + ["heartrate"]}
-    for i in range(days):
-        d = until - timedelta(days=days - 1 - i)
+    for offset in range(days):
+        d = until - timedelta(days=days - 1 - offset)
+        i = d.toordinal()
+        # By the date alone, so syncing again over a different span of days gives the same figures for a day.
+        rng = random.Random(f"{seed}-{d.isoformat()}")
         ds = d.isoformat()
         weekly = math.sin(i / 7 * 2 * math.pi)
         fatigue = max(0.0, math.sin(i / 23 * 2 * math.pi)) * 0.6 + rng.uniform(0, 0.35)
@@ -236,6 +288,7 @@ def simulate(days: int = 90, until: Optional[date] = None, seed: str = "oura",
     for h in range(0, 24 * 3):   # three days of hourly heart rate for the intraday chart
         t = datetime(until.year, until.month, until.day, tzinfo=tz) - timedelta(hours=72 - h)
         base = 58 if t.hour < 7 else 72
+        rng = random.Random(f"{seed}-{t.isoformat()}-hr")
         data["heartrate"].append({"bpm": int(base + rng.gauss(0, 5)), "source": "awake" if t.hour >= 7 else "rest",
                                   "timestamp": t.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")})
     return data

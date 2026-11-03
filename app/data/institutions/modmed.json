@@ -717,34 +717,6 @@
 "fhir_base_url": "https://adlakhaplasticsurgery.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-admin",
-"name": "admin",
-"location": "boca raton blvd, FL",
-"platform": "modmed",
-"fhir_base_url": "https://ophthtestpod3.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-admin-2",
-"name": "admin",
-"location": "boca raton blvd, FL",
-"platform": "modmed",
-"fhir_base_url": "https://ophthpod05.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-admin-3",
-"name": "admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod03admin.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-admin-firm",
-"name": "admin firm",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://eapod02admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-adobe-ent-and-allergy",
 "name": "Adobe ENT and Allergy",
 "location": "Glendale, AZ",
@@ -757,20 +729,6 @@
 "location": "Yuma, AZ",
 "platform": "modmed",
 "fhir_base_url": "https://adobeeyecarecenter.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-adpod01admin",
-"name": "adpod01admin",
-"location": "Abbeville, LA",
-"platform": "modmed",
-"fhir_base_url": "https://adpod01admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-adpod01test",
-"name": "adpod01test",
-"location": "Fallon, NV",
-"platform": "modmed",
-"fhir_base_url": "https://adpod01test.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-adrian-l-connolly-m-d",
@@ -844,7 +802,7 @@
 {
 "id": "modmed-advanced-aesthetics",
 "name": "Advanced Aesthetics",
-"location": "Atlanta , GA",
+"location": "Atlanta, GA",
 "platform": "modmed",
 "fhir_base_url": "https://advancedaesthetics.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -1305,7 +1263,7 @@
 {
 "id": "modmed-advanced-eyecare-clinic-inc",
 "name": "Advanced Eyecare Clinic Inc",
-"location": "Lake In The Hills, IL",
+"location": "Lake In the Hills, IL",
 "platform": "modmed",
 "fhir_base_url": "https://advancedeyecareclinic.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -1394,7 +1352,7 @@
 },
 {
 "id": "modmed-advanced-family-eyecare-co",
-"name": "Advanced Family Eyecare Co",
+"name": "Advanced Family Eyecare CO",
 "location": "Littleton, CO",
 "platform": "modmed",
 "fhir_base_url": "https://advancedfamilyeyecareco.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -1555,7 +1513,7 @@
 },
 {
 "id": "modmed-advanced-laser-and-cataract-center-chickasha-vision-center",
-"name": "Advanced Laser and Cataract Center                                                                                       Chickasha Vision Center",
+"name": "Advanced Laser and Cataract Center Chickasha Vision Center",
 "location": "Chickasha, OK",
 "platform": "modmed",
 "fhir_base_url": "https://alcok.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -1824,13 +1782,6 @@
 "fhir_base_url": "https://advancedmacombfoot.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-advancedmd-sftp",
-"name": "AdvancedMD SFTP",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://adpdemo-sftp.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-advances-in-sight-vision",
 "name": "Advances in Sight Vision",
 "location": "Lakewood, CO",
@@ -1867,7 +1818,7 @@
 },
 {
 "id": "modmed-advent-ent",
-"name": "Advent Ent",
+"name": "Advent ENT",
 "location": "Milwaukee, WI",
 "platform": "modmed",
 "fhir_base_url": "https://advent.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -1896,7 +1847,7 @@
 {
 "id": "modmed-aesthetic-dermatology",
 "name": "Aesthetic Dermatology",
-"location": "san francisco, CA",
+"location": "San Francisco, CA",
 "platform": "modmed",
 "fhir_base_url": "https://aestheticdermatology.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -2175,7 +2126,7 @@
 },
 {
 "id": "modmed-al-xbridge-1",
-"name": "Al Xbridge 1",
+"name": "AL XBRIDGE 1",
 "location": "Test, IL",
 "platform": "modmed",
 "fhir_base_url": "https://alxbridge1.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -2342,13 +2293,13 @@
 },
 {
 "id": "modmed-alan-b-schlussel-od",
-"name": "Alan B Schlussel Od",
+"name": "Alan B Schlussel OD",
 "platform": "modmed",
 "fhir_base_url": "https://drschlussel.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-alan-b-schlussel-od-2",
-"name": "Alan B Schlussel Od",
+"name": "Alan B Schlussel OD",
 "platform": "modmed",
 "fhir_base_url": "https://alanbschlusselod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -2570,7 +2521,7 @@
 },
 {
 "id": "modmed-alissa-m-irons",
-"name": "Alissa M Irons",
+"name": "ALISSA M IRONS",
 "location": "Lake Katrine, NY",
 "platform": "modmed",
 "fhir_base_url": "https://blinknm.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -2911,6 +2862,13 @@
 "fhir_base_url": "https://alliedderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-monmouth-gastroenterology",
+"name": "Allied Digestive Health",
+"location": "West Long Branch, NJ",
+"platform": "modmed",
+"fhir_base_url": "https://f38ac744-a7d6-40eb-90d2-d1fbc9f35944.gastro.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-allied-eye-care-of-doylestown",
 "name": "Allied Eye Care Of Doylestown",
 "location": "Doylestown, PA",
@@ -3225,7 +3183,7 @@
 },
 {
 "id": "modmed-amd",
-"name": "Amd",
+"name": "AMD",
 "location": "Boca Raton, FL",
 "platform": "modmed",
 "fhir_base_url": "https://amd.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -3337,7 +3295,7 @@
 },
 {
 "id": "modmed-ami-c-ranani-od",
-"name": "Ami C Ranani Od",
+"name": "AMI C RANANI OD",
 "location": "Somers, NY",
 "platform": "modmed",
 "fhir_base_url": "https://amirananiod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -3365,7 +3323,7 @@
 },
 {
 "id": "modmed-amy-tae-kim-od",
-"name": "Amy Tae Kim Od",
+"name": "AMY TAE KIM OD",
 "location": "Torrance, CA",
 "platform": "modmed",
 "fhir_base_url": "https://amytaekimod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -3407,7 +3365,7 @@
 },
 {
 "id": "modmed-anastasios-fokas-od-pc",
-"name": "Anastasios Fokas Od PC",
+"name": "ANASTASIOS FOKAS OD PC",
 "location": "Astoria, NY",
 "platform": "modmed",
 "fhir_base_url": "https://fokaseyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -3415,7 +3373,7 @@
 {
 "id": "modmed-anaya-women-s-ob-gyn-group",
 "name": "Anaya Women's OB/GYN Group",
-"location": "Apple Valley, CA",
+"location": "Victorville, CA",
 "platform": "modmed",
 "fhir_base_url": "https://anayawomensobgyn.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -3512,7 +3470,7 @@
 },
 {
 "id": "modmed-andrea-e-carter-od-pa",
-"name": "Andrea E Carter Od PA",
+"name": "Andrea E Carter OD PA",
 "location": "Stuart, FL",
 "platform": "modmed",
 "fhir_base_url": "https://andreaecarterodpa.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -3589,7 +3547,7 @@
 },
 {
 "id": "modmed-andrew-y-maeda-od-ltd",
-"name": "Andrew Y Maeda Od LTD",
+"name": "Andrew y Maeda OD Ltd",
 "location": "Avehilo, HI",
 "platform": "modmed",
 "fhir_base_url": "https://maedaodinc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -3644,7 +3602,7 @@
 },
 {
 "id": "modmed-anita-cranford-od",
-"name": "Anita Cranford Od",
+"name": "Anita Cranford OD",
 "location": "Franklin, TN",
 "platform": "modmed",
 "fhir_base_url": "https://anitacranfordod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -3735,7 +3693,7 @@
 },
 {
 "id": "modmed-ann-a-easly-od",
-"name": "Ann A Easly Od",
+"name": "ANN A EASLY OD",
 "location": "Ontario, OR",
 "platform": "modmed",
 "fhir_base_url": "https://treasureyoureyes.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -3881,7 +3839,7 @@
 },
 {
 "id": "modmed-anthony-foti-od",
-"name": "Anthony Foti Od",
+"name": "Anthony Foti OD",
 "location": "Wilmington, MA",
 "platform": "modmed",
 "fhir_base_url": "https://afotieyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -3902,7 +3860,7 @@
 },
 {
 "id": "modmed-antioch-eye-associates-od",
-"name": "Antioch Eye Associates Od",
+"name": "Antioch Eye Associates OD",
 "location": "Antioch, IL",
 "platform": "modmed",
 "fhir_base_url": "https://antiocheyeassociatesod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -4020,7 +3978,7 @@
 },
 {
 "id": "modmed-appalachian-eye-associates-od",
-"name": "Appalachian Eye Associates Od",
+"name": "Appalachian Eye Associates OD",
 "location": "Spruce Pine, NC",
 "platform": "modmed",
 "fhir_base_url": "https://appalachianeye.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -4045,13 +4003,6 @@
 "location": "Apple Valley, CA",
 "platform": "modmed",
 "fhir_base_url": "https://applevalleyfamilyeyecareoptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-application-administrator",
-"name": "Application Administrator",
-"location": "Peoria, IL",
-"platform": "modmed",
-"fhir_base_url": "https://appadmin.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-apr-s-dermatology",
@@ -4272,7 +4223,7 @@
 {
 "id": "modmed-arizona-gastroenterology-liver-clinic",
 "name": "Arizona Gastroenterology & Liver Clinic",
-"location": "peoria, AZ",
+"location": "Peoria, AZ",
 "platform": "modmed",
 "fhir_base_url": "https://c7ac63f7-069d-45c9-bd61-938bc057a44c.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -4366,13 +4317,6 @@
 "fhir_base_url": "https://abj.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-arkansas-center-ent-allergy",
-"name": "Arkansas Center ENT & Allergy",
-"location": "Fort Smith, AR",
-"platform": "modmed",
-"fhir_base_url": "https://acenta.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-arkansas-dermatology-pllc",
 "name": "Arkansas Dermatology PLLC",
 "location": "Little Rock, AR",
@@ -4437,7 +4381,7 @@
 },
 {
 "id": "modmed-arlene-e-schwartz-od",
-"name": "Arlene E Schwartz Od",
+"name": "Arlene E Schwartz OD",
 "location": "Forest Hills, NY",
 "platform": "modmed",
 "fhir_base_url": "https://drarleneschwartz.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -4556,7 +4500,7 @@
 },
 {
 "id": "modmed-arthur-j-friedman-od",
-"name": "Arthur J Friedman Od",
+"name": "Arthur J Friedman OD",
 "location": "Test, NY",
 "platform": "modmed",
 "fhir_base_url": "https://drarthurjfriedman.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -4585,13 +4529,14 @@
 {
 "id": "modmed-artius-dermatology-associates-p-c",
 "name": "Artius Dermatology Associates, P.C",
-"location": "Mcallen, TX",
+"location": "McAllen, TX",
 "platform": "modmed",
 "fhir_base_url": "https://artiusderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-arvada-optometric-center",
 "name": "Arvada Optometric Center",
+"location": "Arvada, CO",
 "platform": "modmed",
 "fhir_base_url": "https://arvadaeyes.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -4611,20 +4556,20 @@
 },
 {
 "id": "modmed-asc",
-"name": "Asc",
+"name": "ASC",
 "platform": "modmed",
 "fhir_base_url": "https://5cc5b0f5-7f09-456c-89ca-c1e07ac034a2.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-asc-2",
-"name": "Asc",
+"name": "ASC",
 "location": "Boca Raton, FL",
 "platform": "modmed",
 "fhir_base_url": "https://7ae416ce-b209-488d-8bca-a3437c020066.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-asc-tcg-llc",
-"name": "Asc TCG LLC",
+"name": "ASC TCG LLC",
 "location": "Clinton Township, MI",
 "platform": "modmed",
 "fhir_base_url": "https://d4f6f003-937f-42bb-b631-506a99cb0260.gastro.prod.fhir.ema-api.com/fhir/r4/"
@@ -4842,13 +4787,6 @@
 "location": "Livingston, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://associatesinophth.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-associates-in-orthopaedics-inc",
-"name": "Associates in Orthopaedics, Inc",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://mackelsandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-associates-in-orthopaedics-inc-2",
@@ -5399,13 +5337,6 @@
 "fhir_base_url": "https://zimbelman.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-automatedtesting",
-"name": "AutomatedTesting",
-"location": "Rancho Cordova, CA",
-"platform": "modmed",
-"fhir_base_url": "https://automatedtesting.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-av-dermatology-surgery-center",
 "name": "AV Dermatology & Surgery Center",
 "location": "Glendale, AZ",
@@ -5414,7 +5345,7 @@
 },
 {
 "id": "modmed-av-family-optometry",
-"name": "Av Family Optometry",
+"name": "AV Family Optometry",
 "location": "Whittier, CA",
 "platform": "modmed",
 "fhir_base_url": "https://acuvisioneye.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -5524,13 +5455,6 @@
 "fhir_base_url": "https://avrahamplasticsurgery.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-awstest",
-"name": "awstest",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://awstest.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-axis-eye-center",
 "name": "Axis Eye Center",
 "location": "Phoenix, AZ",
@@ -5637,7 +5561,7 @@
 },
 {
 "id": "modmed-ba-doering-eyecare-llc",
-"name": "Ba Doering Eyecare LLC",
+"name": "BA Doering Eyecare LLC",
 "location": "New Philadelphia, OH",
 "platform": "modmed",
 "fhir_base_url": "https://doeringvision.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -5889,7 +5813,7 @@
 },
 {
 "id": "modmed-barry-huse-od-associates-ps",
-"name": "Barry Huse Od & Associates PS",
+"name": "Barry Huse OD & Associates PS",
 "location": "Tacoma, WA",
 "platform": "modmed",
 "fhir_base_url": "https://barryhuseod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -6068,13 +5992,6 @@
 "location": "Fairhope, AL",
 "platform": "modmed",
 "fhir_base_url": "https://bayshore.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-bay-urology-services",
-"name": "Bay Urology Services",
-"location": "Mobile, AL",
-"platform": "modmed",
-"fhir_base_url": "https://bussandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-baylor-scott-white-medical-center-sunnyvale",
@@ -6301,7 +6218,7 @@
 },
 {
 "id": "modmed-behnaz-fayazi-md-llc",
-"name": "Behnaz Fayazi, MD, LLC,",
+"name": "Behnaz Fayazi, MD, LLC",
 "location": "Chevy Chase, MD",
 "platform": "modmed",
 "fhir_base_url": "https://fayazi.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -6390,18 +6307,14 @@
 "fhir_base_url": "https://bellhand.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-bellingham-ent",
-"name": "Bellingham ENT",
-"location": "Bellingham, WA",
-"platform": "modmed",
-"fhir_base_url": "https://bellinghamentsandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-bellingham-ent-2",
 "name": "Bellingham ENT",
 "location": "Bellingham, WA",
 "platform": "modmed",
-"fhir_base_url": "https://bellinghament.mmi.prod.fhir.ema-api.com/fhir/r4/"
+"fhir_base_url": "https://bellinghament.mmi.prod.fhir.ema-api.com/fhir/r4/",
+"former_ids": [
+"modmed-bellingham-ent"
+]
 },
 {
 "id": "modmed-bellingham-retina-specialists",
@@ -6531,14 +6444,14 @@
 },
 {
 "id": "modmed-benjamin-fouladian-od",
-"name": "Benjamin Fouladian Od",
+"name": "Benjamin Fouladian OD",
 "location": "Redondo Beach, CA",
 "platform": "modmed",
 "fhir_base_url": "https://benjaminfouladianod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-benjamin-fouladian-od-2",
-"name": "Benjamin Fouladian Od",
+"name": "Benjamin Fouladian OD",
 "location": "Redondo Beach, CA",
 "platform": "modmed",
 "fhir_base_url": "https://benjaminfouladianodca.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -6559,7 +6472,7 @@
 },
 {
 "id": "modmed-benjamin-t-hubbard-jr-od",
-"name": "Benjamin T Hubbard Jr Od",
+"name": "Benjamin T Hubbard Jr OD",
 "location": "Batesville, MS",
 "platform": "modmed",
 "fhir_base_url": "https://benjaminhubbardod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -6906,7 +6819,7 @@
 },
 {
 "id": "modmed-binae-karpo-od",
-"name": "Binae Karpo Od",
+"name": "Binae Karpo OD",
 "location": "Allentown, PA",
 "platform": "modmed",
 "fhir_base_url": "https://binaekarpood.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -7129,17 +7042,13 @@
 "fhir_base_url": "https://blueridgeent.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-blue-ridge-eye-associates-of-harrisonburg",
-"name": "Blue Ridge Eye Associates of Harrisonburg",
-"location": "Harrisonburg, VA",
-"platform": "modmed",
-"fhir_base_url": "https://blueridgeeyeassoc`.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-blue-ridge-eye-associates-of-harrisonburg-2",
 "name": "Blue Ridge Eye Associates of Harrisonburg",
 "platform": "modmed",
-"fhir_base_url": "https://blueridgeeyeassoc.ef.prod.fhir.ema-api.com/fhir/r4/"
+"fhir_base_url": "https://blueridgeeyeassoc.ef.prod.fhir.ema-api.com/fhir/r4/",
+"former_ids": [
+"modmed-blue-ridge-eye-associates-of-harrisonburg"
+]
 },
 {
 "id": "modmed-blue-ridge-eye-care",
@@ -7240,7 +7149,7 @@
 },
 {
 "id": "modmed-bob-yip-od-and-associates-pa",
-"name": "Bob Yip Od and Associates PA",
+"name": "Bob Yip OD and Associates PA",
 "location": "Orlando, FL",
 "platform": "modmed",
 "fhir_base_url": "https://bobyipodandassociatespa.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -7339,7 +7248,7 @@
 {
 "id": "modmed-bonds-eye-care-inc",
 "name": "Bonds Eye Care Inc",
-"location": "Downingtown,, PA",
+"location": "Downingtown, PA",
 "platform": "modmed",
 "fhir_base_url": "https://bondseyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -7762,7 +7671,7 @@
 },
 {
 "id": "modmed-brent-dunlap-od-pc",
-"name": "Brent Dunlap Od PC",
+"name": "Brent Dunlap OD PC",
 "location": "Bourbonnais, IL",
 "platform": "modmed",
 "fhir_base_url": "https://dunlapvision.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -7790,7 +7699,7 @@
 },
 {
 "id": "modmed-brett-p-bowman-od-apc",
-"name": "Brett P Bowman Od Apc",
+"name": "Brett P Bowman OD Apc",
 "location": "Tustin, CA",
 "platform": "modmed",
 "fhir_base_url": "https://brettpbowmanod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -7811,13 +7720,13 @@
 },
 {
 "id": "modmed-brian-dembo-od",
-"name": "Brian Dembo Od",
+"name": "Brian Dembo OD",
 "platform": "modmed",
 "fhir_base_url": "https://briandembo.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-brian-e-van-dusen-od",
-"name": "Brian E Van Dusen Od",
+"name": "Brian E Van Dusen OD",
 "location": "Yucaipa, CA",
 "platform": "modmed",
 "fhir_base_url": "https://brianvandusenod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -7845,7 +7754,7 @@
 },
 {
 "id": "modmed-brian-k-anderson-od",
-"name": "Brian K Anderson Od",
+"name": "Brian K Anderson OD",
 "platform": "modmed",
 "fhir_base_url": "https://briankandersonod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -7865,7 +7774,7 @@
 },
 {
 "id": "modmed-brian-p-maillard-od",
-"name": "Brian P Maillard Od",
+"name": "Brian P Maillard OD",
 "location": "Cobleskill, NY",
 "platform": "modmed",
 "fhir_base_url": "https://drmaillard.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -8081,7 +7990,7 @@
 },
 {
 "id": "modmed-brookhollow-ob-gyn-clinic-pllc",
-"name": "Brookhollow Ob & Gyn Clinic, PLLC",
+"name": "Brookhollow OB & GYN Clinic, PLLC",
 "location": "Houston, TX",
 "platform": "modmed",
 "fhir_base_url": "https://brookhollowobgyn.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -8207,14 +8116,14 @@
 },
 {
 "id": "modmed-bruce-j-keenan-od",
-"name": "Bruce J Keenan Od",
+"name": "Bruce J Keenan OD",
 "location": "Winchester, VA",
 "platform": "modmed",
 "fhir_base_url": "https://brucejkeenan.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-bruce-w-anderson-od-pa",
-"name": "Bruce W Anderson Od PA",
+"name": "Bruce w Anderson OD PA",
 "platform": "modmed",
 "fhir_base_url": "https://andersoneyecarecenter.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -8351,6 +8260,13 @@
 "fhir_base_url": "https://burkederm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-burke-eyecare-pllc",
+"name": "Burke Eyecare PLLC",
+"location": "Grove, OK",
+"platform": "modmed",
+"fhir_base_url": "https://burkeeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-burleson-eye-institute-pa",
 "name": "Burleson Eye Institute, PA",
 "location": "Burleson, TX",
@@ -8422,7 +8338,7 @@
 },
 {
 "id": "modmed-c-b-mcinnish-od-pa",
-"name": "C B Mcinnish Od PA",
+"name": "C B MCINNISH OD PA",
 "location": "Brewton, AL",
 "platform": "modmed",
 "fhir_base_url": "https://eyeachieve.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -8471,7 +8387,7 @@
 },
 {
 "id": "modmed-ca-024",
-"name": "Ca-024",
+"name": "CA-024",
 "location": "Pleasanton, CA",
 "platform": "modmed",
 "fhir_base_url": "https://96071891-696f-4c4b-8343-888851bef756.gastro.prod.fhir.ema-api.com/fhir/r4/"
@@ -9141,14 +9057,14 @@
 },
 {
 "id": "modmed-carlisle-vision-clinic-pllc",
-"name": "Carlisle Vision Clinic  PLLC",
+"name": "Carlisle Vision Clinic PLLC",
 "location": "Beaver, OK",
 "platform": "modmed",
 "fhir_base_url": "https://carlislevisionclinic.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-carlos-e-green-od-inc",
-"name": "Carlos E Green Od Inc",
+"name": "Carlos E Green OD Inc",
 "location": "Anaheim, CA",
 "platform": "modmed",
 "fhir_base_url": "https://primaryeyecareofanaheim.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -9169,7 +9085,7 @@
 },
 {
 "id": "modmed-carol-f-merritt-od",
-"name": "Carol F Merritt Od",
+"name": "Carol F Merritt OD",
 "location": "Florissant, MO",
 "platform": "modmed",
 "fhir_base_url": "https://merritteyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -9385,6 +9301,13 @@
 "fhir_base_url": "https://cartereteyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-carthage-eye-clinic",
+"name": "Carthage Eye Clinic",
+"location": "Carthage, MS",
+"platform": "modmed",
+"fhir_base_url": "https://carthageeye.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-caruana-eye-care",
 "name": "Caruana Eye Care",
 "location": "Oakland Park, FL",
@@ -9499,7 +9422,7 @@
 {
 "id": "modmed-casper-obstetrical-and-gynecological-associates-p-c",
 "name": "Casper Obstetrical and Gynecological Associates, P.C.",
-"location": "Casper , WY",
+"location": "Casper, WY",
 "platform": "modmed",
 "fhir_base_url": "https://cogawy.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -9658,7 +9581,7 @@
 },
 {
 "id": "modmed-cecilia-y-perez-od",
-"name": "Cecilia Y Perez Od",
+"name": "Cecilia y Perez OD",
 "location": "Los Angeles, CA",
 "platform": "modmed",
 "fhir_base_url": "https://perezvision.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -10454,7 +10377,7 @@
 },
 {
 "id": "modmed-chanda-wall-od-pa",
-"name": "Chanda Wall Od PA",
+"name": "Chanda Wall OD PA",
 "location": "Sarasota, FL",
 "platform": "modmed",
 "fhir_base_url": "https://chandawallodpa.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -10503,7 +10426,7 @@
 },
 {
 "id": "modmed-charles-bittel-iii-od",
-"name": "Charles Bittel III Od",
+"name": "Charles Bittel III OD",
 "location": "Yorba Linda, CA",
 "platform": "modmed",
 "fhir_base_url": "https://charlesbittel.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -10524,7 +10447,7 @@
 },
 {
 "id": "modmed-charles-l-french-od-psc",
-"name": "Charles L French Od PSC",
+"name": "Charles L French OD PSC",
 "location": "Madisonville, KY",
 "platform": "modmed",
 "fhir_base_url": "https://doctorfrench.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -10587,7 +10510,7 @@
 },
 {
 "id": "modmed-charley-m-chu-od",
-"name": "Charley M Chu Od",
+"name": "CHARLEY M CHU OD",
 "platform": "modmed",
 "fhir_base_url": "https://charleymchuod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -10803,7 +10726,7 @@
 {
 "id": "modmed-chevy-chase-endoscopy-center",
 "name": "Chevy Chase Endoscopy Center",
-"location": "Chevy  Chase, MD",
+"location": "Chevy Chase, MD",
 "platform": "modmed",
 "fhir_base_url": "https://608bdd38-3156-4441-af46-7bcc0c0fcff5.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -10885,17 +10808,13 @@
 "fhir_base_url": "https://cpg.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-childers-and-jackson-family-eye-care-inc",
-"name": "Childers and Jackson Family Eye Care Inc",
-"location": "Wynne, AR",
-"platform": "modmed",
-"fhir_base_url": "https://childersand jacksonfamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-childers-and-jackson-family-eye-care-inc-2",
 "name": "Childers and Jackson Family Eye Care Inc",
 "platform": "modmed",
-"fhir_base_url": "https://childersandjacksonfamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
+"fhir_base_url": "https://childersandjacksonfamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/",
+"former_ids": [
+"modmed-childers-and-jackson-family-eye-care-inc"
+]
 },
 {
 "id": "modmed-children-s-eye-institute-of-savannah",
@@ -11055,14 +10974,10 @@
 "name": "Chris O Brien MD",
 "location": "Knoxville, TN",
 "platform": "modmed",
-"fhir_base_url": "https://chrisobrienmd.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-chris-o-brien-md",
-"name": "Chris O'Brien, MD",
-"location": "Knoxville, TN",
-"platform": "modmed",
-"fhir_base_url": "https://chriso'brienmd.ef.prod.fhir.ema-api.com/fhir/r4/"
+"fhir_base_url": "https://chrisobrienmd.ef.prod.fhir.ema-api.com/fhir/r4/",
+"former_ids": [
+"modmed-chris-o-brien-md"
+]
 },
 {
 "id": "modmed-chriss-associates-md",
@@ -11276,7 +11191,7 @@
 },
 {
 "id": "modmed-citrus-valley-gastroenterology",
-"name": "Citrus Valley Gastroenterology,",
+"name": "Citrus Valley Gastroenterology",
 "location": "Glendora, CA",
 "platform": "modmed",
 "fhir_base_url": "https://039236ab-2a16-4732-95f8-466560896ea7.gastro.prod.fhir.ema-api.com/fhir/r4/"
@@ -11323,7 +11238,7 @@
 },
 {
 "id": "modmed-clarifeye",
-"name": "Clarifeye",
+"name": "CLARIFEYE",
 "location": "Kuna, ID",
 "platform": "modmed",
 "fhir_base_url": "https://clarifeyeeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -11365,7 +11280,7 @@
 },
 {
 "id": "modmed-clarity-eye-care-ltd",
-"name": "Clarity Eye Care LTD",
+"name": "Clarity Eye Care Ltd",
 "location": "Cranston, RI",
 "platform": "modmed",
 "fhir_base_url": "https://clarityeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -11638,7 +11553,7 @@
 {
 "id": "modmed-clearview-ophthalmology-2",
 "name": "Clearview Ophthalmology",
-"location": "., FL",
+"location": "FL",
 "platform": "modmed",
 "fhir_base_url": "https://clearview2020.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -11721,7 +11636,7 @@
 },
 {
 "id": "modmed-clifford-k-chang-od",
-"name": "Clifford K Chang Od",
+"name": "Clifford K Chang OD",
 "location": "San Francisco, CA",
 "platform": "modmed",
 "fhir_base_url": "https://cliffordkchangod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -12734,7 +12649,7 @@
 {
 "id": "modmed-comprehensive-footcare-of-orangeburg",
 "name": "Comprehensive Footcare of Orangeburg",
-"location": "orangeburg, SC",
+"location": "Orangeburg, SC",
 "platform": "modmed",
 "fhir_base_url": "https://cfoo.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -12874,7 +12789,7 @@
 {
 "id": "modmed-consultants-in-ophthalmology-pc-2",
 "name": "Consultants in Ophthalmology PC",
-"location": "Oak Park, MI",
+"location": "Lake Katrine, NY",
 "platform": "modmed",
 "fhir_base_url": "https://consultantsinophthalmologypc.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -13018,7 +12933,7 @@
 },
 {
 "id": "modmed-cordia-m-clark-white-md-ltd",
-"name": "Cordia M. Clark-White, MD, LTD.",
+"name": "Cordia M. Clark-White, MD, Ltd.",
 "location": "Chicago, IL",
 "platform": "modmed",
 "fhir_base_url": "https://wphchicago.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -13311,7 +13226,7 @@
 },
 {
 "id": "modmed-cpm-ob-gyn-llc",
-"name": "CPM Ob/Gyn LLC",
+"name": "CPM OB/GYN LLC",
 "location": "Cumming, GA",
 "platform": "modmed",
 "fhir_base_url": "https://cpmobgyn.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -13319,7 +13234,7 @@
 {
 "id": "modmed-cps-partners-llc",
 "name": "CPS Partners, LLC",
-"location": "Chevy Chase, MD",
+"location": "Falls Church, VA",
 "platform": "modmed",
 "fhir_base_url": "https://cpsdocs.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -13346,14 +13261,14 @@
 },
 {
 "id": "modmed-craig-hamilton-od-ltd",
-"name": "Craig Hamilton Od LTD",
+"name": "Craig Hamilton OD Ltd",
 "location": "Las Vegas, NV",
 "platform": "modmed",
 "fhir_base_url": "https://craighamiltonod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-craig-hamilton-od-ltd-2",
-"name": "Craig Hamilton Od LTD",
+"name": "Craig Hamilton OD Ltd",
 "location": "Las Vegas, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drcraighamilton.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -13401,13 +13316,6 @@
 "fhir_base_url": "https://crestoptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-crestwood-podiatry-wound-care-clinic",
-"name": "Crestwood Podiatry & Wound Care Clinic",
-"location": "North Little Rock, AR",
-"platform": "modmed",
-"fhir_base_url": "https://crestwoodpodiatry.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-crisper-vision-inc",
 "name": "Crisper Vision, Inc",
 "location": "Windsor Heights, IA",
@@ -13451,7 +13359,7 @@
 },
 {
 "id": "modmed-crossover-health-at-ac09",
-"name": "Crossover Health at Ac09",
+"name": "Crossover Health at AC09",
 "location": "Austin, TX",
 "platform": "modmed",
 "fhir_base_url": "https://crossoverhealthatac09.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -13604,7 +13512,7 @@
 {
 "id": "modmed-cullman-pain-and-wellness",
 "name": "Cullman Pain and Wellness",
-"location": "Nashville, TN",
+"location": "Gardendale, AL",
 "platform": "modmed",
 "fhir_base_url": "https://cullmanpain.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -13869,7 +13777,7 @@
 },
 {
 "id": "modmed-dan-b-carver-od",
-"name": "Dan B Carver Od",
+"name": "Dan B Carver OD",
 "location": "Fountain Valley, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drdancarver.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -13883,7 +13791,7 @@
 },
 {
 "id": "modmed-dan-l-stadelman-od",
-"name": "Dan L Stadelman Od",
+"name": "DAN L STADELMAN OD",
 "location": "Davenport, IA",
 "platform": "modmed",
 "fhir_base_url": "https://lifetimeeyehealth.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -13939,7 +13847,7 @@
 },
 {
 "id": "modmed-daniel-d-cha-od",
-"name": "Daniel D Cha Od",
+"name": "Daniel D Cha OD",
 "location": "Bonita, CA",
 "platform": "modmed",
 "fhir_base_url": "https://danieldchaod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -13953,7 +13861,7 @@
 },
 {
 "id": "modmed-daniel-drought-od",
-"name": "Daniel Drought Od",
+"name": "Daniel Drought OD",
 "location": "Geneva, OH",
 "platform": "modmed",
 "fhir_base_url": "https://drdrought.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -14009,7 +13917,7 @@
 },
 {
 "id": "modmed-daniel-t-whang-od",
-"name": "Daniel T Whang Od",
+"name": "Daniel T Whang OD",
 "location": "Woodbridge, VA",
 "platform": "modmed",
 "fhir_base_url": "https://woodbridgeeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -14141,7 +14049,7 @@
 },
 {
 "id": "modmed-darrell-r-walter-od",
-"name": "Darrell R Walter Od",
+"name": "Darrell R Walter OD",
 "location": "Brandon, FL",
 "platform": "modmed",
 "fhir_base_url": "https://kingswayeye.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -14182,7 +14090,7 @@
 },
 {
 "id": "modmed-david-benkle-od",
-"name": "David Benkle Od",
+"name": "David Benkle OD",
 "location": "Stockton, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drbenkle.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -14209,7 +14117,7 @@
 },
 {
 "id": "modmed-david-finkelstein-od-and-ryan-shea-od-llc-2",
-"name": "David Finkelstein Od and Ryan Shea Od LLC",
+"name": "David Finkelstein OD and Ryan Shea OD LLC",
 "location": "Vineyard Haven, MA",
 "platform": "modmed",
 "fhir_base_url": "https://drsfinkelsteinandshea.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -14258,21 +14166,21 @@
 },
 {
 "id": "modmed-david-l-browning-od",
-"name": "David L Browning Od",
+"name": "David L Browning OD",
 "location": "Lakeport, CA",
 "platform": "modmed",
 "fhir_base_url": "https://eyecareoptometric.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-david-l-epp-od",
-"name": "David L Epp Od",
+"name": "David L Epp OD",
 "location": "Sayre, OK",
 "platform": "modmed",
 "fhir_base_url": "https://visionsource-drepp.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-david-l-mcnerney-od",
-"name": "David L Mcnerney Od",
+"name": "David L Mcnerney OD",
 "location": "Woodbridge, VA",
 "platform": "modmed",
 "fhir_base_url": "https://virginiaeyedr.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -14335,14 +14243,14 @@
 },
 {
 "id": "modmed-david-scholten-od-pc",
-"name": "David Scholten Od PC",
+"name": "David Scholten OD PC",
 "location": "Grand Rapids, MI",
 "platform": "modmed",
 "fhir_base_url": "https://davidjscholten.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-david-w-joel-od",
-"name": "David W Joel Od",
+"name": "David w Joel OD",
 "location": "New Haven, CT",
 "platform": "modmed",
 "fhir_base_url": "https://djoelod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -14405,7 +14313,7 @@
 },
 {
 "id": "modmed-dawn-m-miller-od",
-"name": "Dawn M Miller Od",
+"name": "Dawn M Miller OD",
 "location": "Garden Grove, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drdawnmiller.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -14745,6 +14653,13 @@
 "fhir_base_url": "https://c9492b5e-0891-4e4b-8c8e-2508babadef5.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-crestwood-podiatry-wound-care-clinic",
+"name": "Delta Delta Foot and Wound Care",
+"location": "North Little Rock, AR",
+"platform": "modmed",
+"fhir_base_url": "https://crestwoodpodiatry.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-delta-dermatology-skin-cancer-specialists",
 "name": "Delta Dermatology & Skin Cancer Specialists",
 "location": "Helena, AR",
@@ -14795,17 +14710,10 @@
 },
 {
 "id": "modmed-dennis-cardillo-od",
-"name": "Dennis Cardillo Od",
+"name": "Dennis Cardillo OD",
 "location": "Haddon Heights, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://drdenniscardillo.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-dennis-draizin-md",
-"name": "Dennis Draizin, MD",
-"location": "Camp Verde, AZ",
-"platform": "modmed",
-"fhir_base_url": "https://draizinentsandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-dennis-h-kim-md-inc",
@@ -14820,13 +14728,6 @@
 "location": "Bel Air, MD",
 "platform": "modmed",
 "fhir_base_url": "https://dkmd.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-denovo-pain-management",
-"name": "DeNovo Pain Management",
-"location": "Charleston, SC",
-"platform": "modmed",
-"fhir_base_url": "https://denovo.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-denovo-professional-group",
@@ -14886,7 +14787,7 @@
 },
 {
 "id": "modmed-derek-s-long-od-inc",
-"name": "Derek S Long Od Inc",
+"name": "Derek S Long OD Inc",
 "location": "Maumelle, AR",
 "platform": "modmed",
 "fhir_base_url": "https://maumelleeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -14928,8 +14829,8 @@
 },
 {
 "id": "modmed-derm2",
-"name": "derm2",
-"location": "boca raton blvd, FL",
+"name": "Derm2",
+"location": "Boca Raton Blvd, FL",
 "platform": "modmed",
 "fhir_base_url": "https://derm2.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -15741,7 +15642,7 @@
 {
 "id": "modmed-dermatology-boutique-2",
 "name": "Dermatology Boutique",
-"location": "Hallandale Beach Blvd., FL",
+"location": "Hallandale Beach Blvd, FL",
 "platform": "modmed",
 "fhir_base_url": "https://dermatologydoutique.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -16292,7 +16193,7 @@
 {
 "id": "modmed-dermatology-southwest",
 "name": "Dermatology Southwest",
-"location": "Burleson, TX",
+"location": "Crowley, TX",
 "platform": "modmed",
 "fhir_base_url": "https://dermsouthwest.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -16501,7 +16402,7 @@
 },
 {
 "id": "modmed-dermspace-hi-llc",
-"name": "Dermspace Hi LLC",
+"name": "DERMSPACE HI LLC",
 "location": "Phoenix, AZ",
 "platform": "modmed",
 "fhir_base_url": "https://dermspace.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -16829,13 +16730,6 @@
 "fhir_base_url": "https://diablopodiatryandbayvascular.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-diagnostic-center-for-disease",
-"name": "Diagnostic Center for Disease",
-"location": "Sarasota, FL",
-"platform": "modmed",
-"fhir_base_url": "https://dcdsandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-diagnostic-eye-center",
 "name": "Diagnostic Eye Center",
 "location": "Houston, TX",
@@ -16886,7 +16780,7 @@
 },
 {
 "id": "modmed-diana-nguyen-od",
-"name": "Diana Nguyen Od",
+"name": "Diana Nguyen OD",
 "location": "Test, NY",
 "platform": "modmed",
 "fhir_base_url": "https://diananguyenod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -16907,7 +16801,7 @@
 },
 {
 "id": "modmed-diane-a-king-od",
-"name": "Diane A King Od",
+"name": "Diane A King OD",
 "location": "Bogota, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://drdianeking.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17360,7 +17254,7 @@
 },
 {
 "id": "modmed-donald-r-turner-od",
-"name": "Donald R Turner Od",
+"name": "Donald R Turner OD",
 "location": "Puyallup, WA",
 "platform": "modmed",
 "fhir_base_url": "https://donaldturner.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17395,7 +17289,7 @@
 },
 {
 "id": "modmed-donna-l-elcock-od",
-"name": "Donna L Elcock Od",
+"name": "Donna L Elcock OD",
 "location": "Lansdowne, PA",
 "platform": "modmed",
 "fhir_base_url": "https://tristatefamilyeye.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17444,7 +17338,7 @@
 },
 {
 "id": "modmed-douglas-r-myers-od-inc",
-"name": "Douglas R Myers Od Inc",
+"name": "Douglas R Myers OD Inc",
 "location": "Chico, CA",
 "platform": "modmed",
 "fhir_base_url": "https://douglasrmyersod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17507,7 +17401,7 @@
 },
 {
 "id": "modmed-dr-alethea-l-wessner",
-"name": "Dr Alethea L Wessner",
+"name": "DR ALETHEA L WESSNER",
 "location": "Pine Grove, PA",
 "platform": "modmed",
 "fhir_base_url": "https://drwessner.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17556,7 +17450,7 @@
 },
 {
 "id": "modmed-dr-blair-m-ball-od",
-"name": "Dr Blair M Ball Od",
+"name": "Dr Blair M Ball OD",
 "location": "Beaumont, CA",
 "platform": "modmed",
 "fhir_base_url": "https://blairmballod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17598,7 +17492,7 @@
 },
 {
 "id": "modmed-dr-carl-v-nicholson-od",
-"name": "Dr Carl V Nicholson Od",
+"name": "Dr Carl V Nicholson OD",
 "location": "Pasadena, CA",
 "platform": "modmed",
 "fhir_base_url": "https://carlnicholsonodold.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17618,7 +17512,7 @@
 },
 {
 "id": "modmed-dr-charles-y-shields",
-"name": "Dr Charles Y Shields",
+"name": "Dr Charles y Shields",
 "platform": "modmed",
 "fhir_base_url": "https://drcharlesyshields.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -17694,7 +17588,7 @@
 },
 {
 "id": "modmed-dr-desmond-parkin",
-"name": "Dr Desmond Parkin",
+"name": "DR DESMOND PARKIN",
 "location": "Brooklyn, NY",
 "platform": "modmed",
 "fhir_base_url": "https://heightsfamilyvision.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17708,14 +17602,14 @@
 },
 {
 "id": "modmed-dr-donna-h-cooper-od",
-"name": "Dr Donna H Cooper Od",
+"name": "Dr Donna H Cooper OD",
 "location": "Santa Monica, CA",
 "platform": "modmed",
 "fhir_base_url": "https://cooperoptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-dr-foad-j-shirazian-od",
-"name": "Dr Foad J Shirazian Od",
+"name": "DR FOAD J SHIRAZIAN OD",
 "location": "Tarzana, CA",
 "platform": "modmed",
 "fhir_base_url": "https://visioncare1.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17792,7 +17686,7 @@
 },
 {
 "id": "modmed-dr-jeffrey-r-coleman-od-pa",
-"name": "Dr Jeffrey R Coleman Od PA",
+"name": "Dr Jeffrey R Coleman OD PA",
 "location": "Wilmington, NC",
 "platform": "modmed",
 "fhir_base_url": "https://drjeffreyrcolemanodpa.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17921,7 +17815,7 @@
 },
 {
 "id": "modmed-dr-mary-a-belcher-od-psc",
-"name": "Dr Mary A Belcher Od PSC",
+"name": "Dr Mary A Belcher OD PSC",
 "location": "Elkhorn City, KY",
 "platform": "modmed",
 "fhir_base_url": "https://marybelcherod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -17949,21 +17843,21 @@
 },
 {
 "id": "modmed-dr-paul-brinckman-od-llc",
-"name": "Dr Paul Brinckman Od LLC",
+"name": "Dr Paul Brinckman OD LLC",
 "location": "Warrensburg, MO",
 "platform": "modmed",
 "fhir_base_url": "https://paulbrinckmanod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-dr-philip-sarikey-od",
-"name": "Dr Philip Sarikey Od",
+"name": "Dr Philip Sarikey OD",
 "location": "Ellicottville, NY",
 "platform": "modmed",
 "fhir_base_url": "https://pasarikeyodpc.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-dr-rachel-kahan-od",
-"name": "Dr Rachel Kahan Od",
+"name": "Dr Rachel Kahan OD",
 "location": "Brooklyn, NY",
 "platform": "modmed",
 "fhir_base_url": "https://drkahan.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -18012,7 +17906,7 @@
 },
 {
 "id": "modmed-dr-sergio-a-guzman-ltd",
-"name": "Dr Sergio A Guzman LTD",
+"name": "Dr Sergio A Guzman Ltd",
 "location": "Test, NY",
 "platform": "modmed",
 "fhir_base_url": "https://guzmaneyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -18047,7 +17941,7 @@
 },
 {
 "id": "modmed-dr-taylor-bladh-od",
-"name": "Dr Taylor Bladh Od",
+"name": "Dr Taylor Bladh OD",
 "location": "Diamond Bar, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drbladh.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -18265,7 +18159,7 @@
 {
 "id": "modmed-dr-donna-a-serure-dermatology-cosmetic-laser-surgery-pc",
 "name": "Dr. Donna A. Serure, Dermatology & Cosmetic Laser Surgery, PC",
-"location": "Smithtown, NY",
+"location": "Detroit, MI",
 "platform": "modmed",
 "fhir_base_url": "https://laserderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -18482,7 +18376,7 @@
 {
 "id": "modmed-dr-leeber-cohen-md",
 "name": "Dr. Leeber Cohen, MD",
-"location": "new york, NY",
+"location": "New York, NY",
 "platform": "modmed",
 "fhir_base_url": "https://cohen.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -18823,7 +18717,7 @@
 },
 {
 "id": "modmed-drs-dj-weigel-ca-lohmueller-optometrists-pc",
-"name": "DRS DJ Weigel Ca Lohmueller Optometrists PC",
+"name": "DRS DJ Weigel CA Lohmueller Optometrists PC",
 "location": "Greensburg, IN",
 "platform": "modmed",
 "fhir_base_url": "https://weigelandlohmuellerandweigel.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -18871,7 +18765,7 @@
 },
 {
 "id": "modmed-drs-snively-gildner",
-"name": "DRS Snively & Gildner",
+"name": "DRS SNIVELY & GILDNER",
 "location": "Belmond, IA",
 "platform": "modmed",
 "fhir_base_url": "https://snivelygildner.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -19017,7 +18911,7 @@
 },
 {
 "id": "modmed-dusk-j-falkner-martinez-od-pa",
-"name": "Dusk J Falkner Martinez Od PA",
+"name": "Dusk J Falkner Martinez OD PA",
 "location": "Plantation, FL",
 "platform": "modmed",
 "fhir_base_url": "https://duskmartinezod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -19052,7 +18946,7 @@
 },
 {
 "id": "modmed-e-craig-mccurdy-od",
-"name": "E Craig Mccurdy Od",
+"name": "E Craig Mccurdy OD",
 "location": "Novato, CA",
 "platform": "modmed",
 "fhir_base_url": "https://ecraigmccurdy.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -19140,34 +19034,6 @@
 "location": "Eagle, ID",
 "platform": "modmed",
 "fhir_base_url": "https://eaglevisionone.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-eapod01admin",
-"name": "eapod01admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://eapod01admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-eapod01test",
-"name": "eapod01test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://eapod01test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-eapod03admin",
-"name": "eapod03admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://eapod03admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-eapod03test",
-"name": "eapod03test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://eapod03test.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-ear-nose-throat-of-new-jersey",
@@ -19367,7 +19233,7 @@
 },
 {
 "id": "modmed-east-ky-eyecare",
-"name": "East Ky Eyecare",
+"name": "East KY Eyecare",
 "location": "Pikeville, KY",
 "platform": "modmed",
 "fhir_base_url": "https://eastkyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -19612,7 +19478,7 @@
 },
 {
 "id": "modmed-ed-betmaleck-od",
-"name": "Ed Betmaleck Od",
+"name": "ED BETMALECK OD",
 "location": "Valencia, CA",
 "platform": "modmed",
 "fhir_base_url": "https://edbetmaleck.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -19681,7 +19547,7 @@
 },
 {
 "id": "modmed-edmundo-fimbres-od-inc",
-"name": "Edmundo Fimbres Od Inc",
+"name": "EDMUNDO FIMBRES OD INC",
 "location": "Seaside, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drfimbres.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -19716,7 +19582,7 @@
 },
 {
 "id": "modmed-edward-janiga-od",
-"name": "Edward Janiga Od",
+"name": "Edward Janiga OD",
 "location": "Hawthorne, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://edwardjanigaod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -19730,7 +19596,7 @@
 },
 {
 "id": "modmed-edward-p-andersen-od",
-"name": "Edward P Andersen Od",
+"name": "Edward P Andersen OD",
 "location": "Winters, CA",
 "platform": "modmed",
 "fhir_base_url": "https://edwardpandersenod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -19772,7 +19638,7 @@
 },
 {
 "id": "modmed-edwin-k-larsen-od",
-"name": "Edwin K Larsen Od",
+"name": "Edwin K Larsen OD",
 "location": "Napa, CA",
 "platform": "modmed",
 "fhir_base_url": "https://edwinlarsenod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -19786,7 +19652,7 @@
 },
 {
 "id": "modmed-edwin-y-endo-od",
-"name": "Edwin Y Endo Od",
+"name": "Edwin y Endo OD",
 "location": "Aiea, HI",
 "platform": "modmed",
 "fhir_base_url": "https://drendo.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -19797,76 +19663,6 @@
 "location": "Rancho Cordova, CA",
 "platform": "modmed",
 "fhir_base_url": "https://sales.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-ef-pod-01-int-1",
-"name": "ef pod 01 int 1",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod01testint01.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-efpod",
-"name": "efpod",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod03test.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-efpod01-admin",
-"name": "Efpod01 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod01admin.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-efpod02-admin",
-"name": "Efpod02 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod02admin.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-efpod03test04",
-"name": "efpod03test04",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod03test04.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-efpod03test05",
-"name": "efpod03test05",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod03test05.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-efpod03test06",
-"name": "efpod03test06",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod03test06.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-efpod03test07",
-"name": "efpod03test07",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod03test07.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-efpod03test08",
-"name": "efpod03test08",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod03test08.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-efpod03test09",
-"name": "efpod03test09",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://efpod03test09.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-eh-family-eyecare",
@@ -19881,13 +19677,6 @@
 "location": "Chevy Chase, MD",
 "platform": "modmed",
 "fhir_base_url": "https://ehrlichderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-ehrqatest",
-"name": "ehrqatest",
-"location": "Irvine, CA",
-"platform": "modmed",
-"fhir_base_url": "https://ehrqatest.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-einhorn-einhorn-dpm-s-llp",
@@ -20324,7 +20113,7 @@
 },
 {
 "id": "modmed-ellen-ellsworth-od-inc",
-"name": "Ellen Ellsworth Od Inc",
+"name": "Ellen Ellsworth OD Inc",
 "location": "Mentor, OH",
 "platform": "modmed",
 "fhir_base_url": "https://ellenellsworthodinc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -21027,13 +20816,6 @@
 "fhir_base_url": "https://epiphanyco.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-epmprodtest",
-"name": "epmprodtest",
-"location": "Rancho Cordova, CA",
-"platform": "modmed",
-"fhir_base_url": "https://epmprodtest.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-epmxbridge1",
 "name": "EPMXBridge1",
 "location": "Mine, AL",
@@ -21042,7 +20824,7 @@
 },
 {
 "id": "modmed-epperson-eye-pc",
-"name": "Epperson Eye PC",
+"name": "EPPERSON EYE PC",
 "location": "Glen Allen, VA",
 "platform": "modmed",
 "fhir_base_url": "https://eppersoneye.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -21070,7 +20852,7 @@
 },
 {
 "id": "modmed-eric-hebert-od",
-"name": "Eric Hebert Od",
+"name": "Eric Hebert OD",
 "location": "Rockland, ME",
 "platform": "modmed",
 "fhir_base_url": "https://heberteyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -21098,7 +20880,7 @@
 },
 {
 "id": "modmed-eric-r-kroll-od-ltd",
-"name": "Eric R Kroll Od LTD",
+"name": "Eric R Kroll OD Ltd",
 "location": "Reno, NV",
 "platform": "modmed",
 "fhir_base_url": "https://ericrkrollod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -21126,7 +20908,7 @@
 },
 {
 "id": "modmed-erin-m-curtis-od-pc",
-"name": "Erin M Curtis Od PC",
+"name": "Erin M Curtis OD PC",
 "location": "Red Bank, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://redbankfamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -21147,7 +20929,7 @@
 },
 {
 "id": "modmed-ernest-y-lee-od",
-"name": "Ernest Y Lee Od",
+"name": "Ernest y Lee OD",
 "location": "Pico Rivera, CA",
 "platform": "modmed",
 "fhir_base_url": "https://2020optometrist.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -21181,18 +20963,14 @@
 "fhir_base_url": "https://escondidoeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-escondido-optometrix",
-"name": "Escondido Optometrix",
-"location": "Escondido, CA",
-"platform": "modmed",
-"fhir_base_url": "https://escondido optometrix.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-escondido-optometrix-2",
 "name": "Escondido Optometrix",
 "location": "Escondido, CA",
 "platform": "modmed",
-"fhir_base_url": "https://escondidooptometrix.ef.prod.fhir.ema-api.com/fhir/r4/"
+"fhir_base_url": "https://escondidooptometrix.ef.prod.fhir.ema-api.com/fhir/r4/",
+"former_ids": [
+"modmed-escondido-optometrix"
+]
 },
 {
 "id": "modmed-esperanza-eyecare",
@@ -21280,7 +21058,7 @@
 },
 {
 "id": "modmed-eugene-parker-od",
-"name": "Eugene Parker Od",
+"name": "Eugene Parker OD",
 "location": "Southampton, NY",
 "platform": "modmed",
 "fhir_base_url": "https://lioneye-parker.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -21504,8 +21282,8 @@
 },
 {
 "id": "modmed-eye-1st-vision-center",
-"name": "Eye 1St Vision Center",
-"location": "sacramento, AK",
+"name": "Eye 1st Vision Center",
+"location": "Sacramento, AK",
 "platform": "modmed",
 "fhir_base_url": "https://eye1stvisioncenter.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -21525,7 +21303,7 @@
 },
 {
 "id": "modmed-eye-35-asc",
-"name": "Eye 35 Asc",
+"name": "EYE 35 ASC",
 "location": "Schertz, TX",
 "platform": "modmed",
 "fhir_base_url": "https://3d11f262-88da-466f-82ca-32692ca4313a.gastro.prod.fhir.ema-api.com/fhir/r4/"
@@ -21546,7 +21324,7 @@
 },
 {
 "id": "modmed-eye-and-ear",
-"name": "Eye and Ear",
+"name": "EYE AND EAR",
 "location": "Boynton Beach, FL",
 "platform": "modmed",
 "fhir_base_url": "https://floridaeyeandear.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -21567,14 +21345,14 @@
 },
 {
 "id": "modmed-eye-assoc-of-cayce-w-columb",
-"name": "Eye Assoc of Cayce W Columb",
+"name": "Eye Assoc of Cayce w Columb",
 "location": "Cayce, SC",
 "platform": "modmed",
 "fhir_base_url": "https://columbiaeyedoctor.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-eye-assoc-of-cayce-w-columb-2",
-"name": "Eye Assoc of Cayce W Columb",
+"name": "Eye Assoc of Cayce w Columb",
 "location": "Cayce, SC",
 "platform": "modmed",
 "fhir_base_url": "https://eyeassocofcayce.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -21755,7 +21533,7 @@
 },
 {
 "id": "modmed-eye-care-associates-of-wy-pc",
-"name": "Eye Care Associates of Wy PC",
+"name": "Eye Care Associates of WY PC",
 "location": "Gillette, WY",
 "platform": "modmed",
 "fhir_base_url": "https://eyecarewy.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -22164,7 +21942,7 @@
 },
 {
 "id": "modmed-eye-doc-llc",
-"name": "Eye Doc LLC",
+"name": "EYE DOC LLC",
 "location": "Sturbridge, MA",
 "platform": "modmed",
 "fhir_base_url": "https://eyedoc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -22853,7 +22631,7 @@
 },
 {
 "id": "modmed-eyedenity",
-"name": "Eyedenity",
+"name": "EYEDENITY",
 "location": "Kirkland, WA",
 "platform": "modmed",
 "fhir_base_url": "https://eyedenitywa.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -22916,7 +22694,7 @@
 },
 {
 "id": "modmed-eyelusions",
-"name": "Eyelusions",
+"name": "EYELUSIONS",
 "location": "Sacramento, CA",
 "platform": "modmed",
 "fhir_base_url": "https://eyelusions.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -22944,7 +22722,7 @@
 },
 {
 "id": "modmed-eyemedics-pc",
-"name": "Eyemedics PC",
+"name": "EYEMEDICS PC",
 "platform": "modmed",
 "fhir_base_url": "https://eyemedicspc.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -22996,13 +22774,6 @@
 "location": "Bloomington, IL",
 "platform": "modmed",
 "fhir_base_url": "https://eyesmatter.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-eyes-now",
-"name": "Eyes Now",
-"location": "Southlake, TX",
-"platform": "modmed",
-"fhir_base_url": "https://eyesnow.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-eyes-of-texas-optical",
@@ -23243,7 +23014,7 @@
 {
 "id": "modmed-fairfax-acne-and-dermatology-services-pc",
 "name": "Fairfax Acne and Dermatology Services, PC",
-"location": "East Providence , RI",
+"location": "East Providence, RI",
 "platform": "modmed",
 "fhir_base_url": "https://fairfax.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -23965,15 +23736,8 @@
 "fhir_base_url": "https://8ed1e3c9-dbf5-4379-a703-18007b0d577d.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-fhir-medical-practice",
-"name": "FHIR Medical Practice",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://fhirmp.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-fhircertification",
-"name": "Fhircertification",
+"name": "FHIRCERTIFICATION",
 "location": "Test_City, AK",
 "platform": "modmed",
 "fhir_base_url": "https://4de7e156-71fe-471b-84a5-ba7f4a5b04e9.gastro.prod.fhir.ema-api.com/fhir/r4/"
@@ -23994,7 +23758,7 @@
 },
 {
 "id": "modmed-fimsa",
-"name": "Fimsa",
+"name": "FIMSA",
 "location": "Vero Beach, FL",
 "platform": "modmed",
 "fhir_base_url": "https://zmb.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -24915,7 +24679,7 @@
 },
 {
 "id": "modmed-forsight-vision-ltd",
-"name": "Forsight Vision LTD",
+"name": "Forsight Vision Ltd",
 "location": "Long Grove, IL",
 "platform": "modmed",
 "fhir_base_url": "https://forsightvisionltd.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -25202,7 +24966,7 @@
 },
 {
 "id": "modmed-freda-chin-od-inc",
-"name": "Freda Chin Od Inc",
+"name": "Freda Chin OD Inc",
 "location": "Patterson, CA",
 "platform": "modmed",
 "fhir_base_url": "https://fredachinod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -25223,7 +24987,7 @@
 },
 {
 "id": "modmed-frederick-slater-od",
-"name": "Frederick Slater Od",
+"name": "Frederick Slater OD",
 "location": "Campbell, CA",
 "platform": "modmed",
 "fhir_base_url": "https://frederickslaterod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -25446,7 +25210,7 @@
 },
 {
 "id": "modmed-g-scott-williamson-od",
-"name": "G Scott Williamson Od",
+"name": "G Scott Williamson OD",
 "location": "Tyrone, GA",
 "platform": "modmed",
 "fhir_base_url": "https://gscottwilliamsonod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -25640,13 +25404,6 @@
 "fhir_base_url": "https://gardensderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-gardner-eye-care",
-"name": "Gardner Eye Care",
-"location": "Greenville, AL",
-"platform": "modmed",
-"fhir_base_url": "https://gardnereyecare .ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-gardner-eye-care-llc",
 "name": "Gardner Eye Care LLC",
 "location": "Greenville, AL",
@@ -25696,7 +25453,7 @@
 },
 {
 "id": "modmed-gary-w-murrell-od-pc",
-"name": "Gary W Murrell Od PC",
+"name": "Gary w Murrell OD PC",
 "platform": "modmed",
 "fhir_base_url": "https://garymurrellod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -25820,13 +25577,6 @@
 "fhir_base_url": "https://aa56dce8-45d7-4420-984a-ce8efc5fbbea.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-gastroenterology-associates-fl",
-"name": "Gastroenterology Associates FL",
-"location": "Crystal River, FL",
-"platform": "modmed",
-"fhir_base_url": "https://citrusgesandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-gastroenterology-associates-of-central-virginia",
 "name": "Gastroenterology Associates of Central Virginia",
 "location": "Lynchburg, VA",
@@ -25916,13 +25666,6 @@
 "location": "Arlington, VA",
 "platform": "modmed",
 "fhir_base_url": "https://5427c3a7-010d-40a4-af77-5413ab271bfe.gastro.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-gastroenterology-centre",
-"name": "Gastroenterology Centre",
-"location": "Guayama, PR",
-"platform": "modmed",
-"fhir_base_url": "https://gastrocentresandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-gastroenterology-clinic-of-hot-springs",
@@ -26128,6 +25871,13 @@
 "fhir_base_url": "https://mdplasticsurgery.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-gaze-optometry",
+"name": "Gaze Optometry",
+"location": "Queen Creek, AZ",
+"platform": "modmed",
+"fhir_base_url": "https://gazeoptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-geary-family-eye-care",
 "name": "Geary Family Eye Care",
 "location": "Saint Petersburg, FL",
@@ -26157,7 +25907,7 @@
 },
 {
 "id": "modmed-gel-m-gowin-inc",
-"name": "Gel M Gowin Inc",
+"name": "GEL M GOWIN INC",
 "location": "Evergreen Park, IL",
 "platform": "modmed",
 "fhir_base_url": "https://gelmgowininc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -26213,7 +25963,7 @@
 },
 {
 "id": "modmed-gene-sweetnam-od-pc",
-"name": "Gene Sweetnam Od PC",
+"name": "Gene Sweetnam OD PC",
 "location": "Burke, VA",
 "platform": "modmed",
 "fhir_base_url": "https://sightforvision.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -26462,7 +26212,7 @@
 },
 {
 "id": "modmed-gi-specialists-of-houston-llc",
-"name": "Gi Specialists of Houston LLC",
+"name": "GI Specialists of Houston LLC",
 "location": "Oklahoma City, OK",
 "platform": "modmed",
 "fhir_base_url": "https://c9dfe82d-fb91-46a9-b098-f4513aa51a45.gastro.prod.fhir.ema-api.com/fhir/r4/"
@@ -26518,7 +26268,7 @@
 },
 {
 "id": "modmed-gill-p-thomas-od",
-"name": "Gill P Thomas Od",
+"name": "Gill P Thomas OD",
 "location": "Clinton, SC",
 "platform": "modmed",
 "fhir_base_url": "https://drgillthomas.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -26637,7 +26387,7 @@
 },
 {
 "id": "modmed-glenn-m-cochran-od-pllc",
-"name": "Glenn M Cochran Od PLLC",
+"name": "Glenn M Cochran OD PLLC",
 "location": "Quitman, MS",
 "platform": "modmed",
 "fhir_base_url": "https://glenncochranod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -26840,7 +26590,7 @@
 },
 {
 "id": "modmed-gordon-w-jennings-od",
-"name": "Gordon W Jennings Od",
+"name": "Gordon w Jennings OD",
 "location": "Wytheville, VA",
 "platform": "modmed",
 "fhir_base_url": "https://gordonjenningsod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -27392,7 +27142,7 @@
 },
 {
 "id": "modmed-gtrec-llc",
-"name": "Gtrec LLC",
+"name": "GTREC LLC",
 "location": "Columbus, MS",
 "platform": "modmed",
 "fhir_base_url": "https://gteyeclinic.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -27407,7 +27157,7 @@
 {
 "id": "modmed-guidry-eye-care-llc",
 "name": "Guidry Eye Care LLC",
-"location": "Abbeville, LA",
+"location": "New Iberia, LA",
 "platform": "modmed",
 "fhir_base_url": "https://guidryeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -27532,7 +27282,7 @@
 },
 {
 "id": "modmed-h-l-bumgardner-od",
-"name": "H L Bumgardner Od",
+"name": "H L BUMGARDNER OD",
 "location": "Wichita, KS",
 "platform": "modmed",
 "fhir_base_url": "https://kansaseyes.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -28000,7 +27750,7 @@
 },
 {
 "id": "modmed-harold-rose-od",
-"name": "Harold Rose Od",
+"name": "Harold Rose OD",
 "location": "Huntington, WV",
 "platform": "modmed",
 "fhir_base_url": "https://haroldroseod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -28014,14 +27764,14 @@
 },
 {
 "id": "modmed-harold-s-masuda-od",
-"name": "Harold S Masuda Od",
+"name": "Harold S Masuda OD",
 "location": "Montebello, CA",
 "platform": "modmed",
 "fhir_base_url": "https://towncenteroptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-harold-schiff-od-pc",
-"name": "Harold Schiff Od PC",
+"name": "Harold Schiff OD PC",
 "location": "West Bloomfield, MI",
 "platform": "modmed",
 "fhir_base_url": "https://haroldschiffodpc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -28049,7 +27799,7 @@
 },
 {
 "id": "modmed-harry-j-landrum-jr-od",
-"name": "Harry J Landrum Jr Od",
+"name": "Harry J Landrum Jr OD",
 "location": "Mullica Hill, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://harryjlandrumjrod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -28440,6 +28190,13 @@
 "fhir_base_url": "https://hffc.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-hemet-optometric-center",
+"name": "Hemet Optometric Center",
+"location": "Hemet, CA",
+"platform": "modmed",
+"fhir_base_url": "https://hemetoptometric.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-henderson-podiatry-llc",
 "name": "Henderson Podiatry, LLC",
 "location": "Lancaster, PA",
@@ -28532,7 +28289,7 @@
 },
 {
 "id": "modmed-hershel-b-welton-od",
-"name": "Hershel B Welton Od",
+"name": "HERSHEL B WELTON OD",
 "location": "Anaheim, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drwelton.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -28964,7 +28721,7 @@
 },
 {
 "id": "modmed-holly-fisher-biggs-od",
-"name": "Holly Fisher Biggs Od",
+"name": "Holly Fisher Biggs OD",
 "location": "Rockwall, TX",
 "platform": "modmed",
 "fhir_base_url": "https://rockwalleyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -29362,7 +29119,7 @@
 },
 {
 "id": "modmed-hunter-h-snyder-od-pc",
-"name": "Hunter H Snyder Od PC",
+"name": "Hunter H Snyder OD PC",
 "location": "Florence, AL",
 "platform": "modmed",
 "fhir_base_url": "https://huntersnyderod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -29460,7 +29217,7 @@
 },
 {
 "id": "modmed-i-to-eye-inc",
-"name": "I to Eye Inc",
+"name": "I TO EYE INC",
 "location": "Westfield, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://itoeyeinc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -29508,7 +29265,7 @@
 },
 {
 "id": "modmed-iconic-icare",
-"name": "iconic icare",
+"name": "Iconic Icare",
 "location": "Bedford, TX",
 "platform": "modmed",
 "fhir_base_url": "https://iconicicare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -29648,7 +29405,7 @@
 },
 {
 "id": "modmed-il-018-c",
-"name": "Il-018-C",
+"name": "IL-018-C",
 "platform": "modmed",
 "fhir_base_url": "https://67e2f27e-9773-4420-a1f5-2a16c282d2b0.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -29784,13 +29541,6 @@
 "location": "Eau Claire, WI",
 "platform": "modmed",
 "fhir_base_url": "https://inde-vision.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-indian-river-urology",
-"name": "Indian River Urology",
-"location": "Vero Beach, FL",
-"platform": "modmed",
-"fhir_base_url": "https://irusandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-indianola-foot-and-ankle-clinic-pllc",
@@ -30023,7 +29773,7 @@
 {
 "id": "modmed-inova-oakville-ambulatory-surgery-center-llc",
 "name": "Inova Oakville Ambulatory Surgery Center, LLC",
-"location": "alexandria, VA",
+"location": "Alexandria, VA",
 "platform": "modmed",
 "fhir_base_url": "https://f6cd4dc2-092b-4744-b0da-c39d755e6426.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -30125,7 +29875,7 @@
 {
 "id": "modmed-integrated-foot-and-ankle-specialists-llc",
 "name": "Integrated Foot and Ankle Specialists, LLC",
-"location": "Moorestown, NJ",
+"location": "West Conshohocken, PA",
 "platform": "modmed",
 "fhir_base_url": "https://ifas.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -30340,13 +30090,6 @@
 "fhir_base_url": "https://ironwoodvision.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-irvine-pm-and-r",
-"name": "Irvine  PM and R",
-"location": "Irvine, CA",
-"platform": "modmed",
-"fhir_base_url": "https://irvinepmr.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-irvine-digestive-disease-center",
 "name": "Irvine Digestive Disease Center",
 "location": "Beverly Hills, CA",
@@ -30368,6 +30111,13 @@
 "fhir_base_url": "https://drchia.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-irvine-pm-and-r",
+"name": "Irvine PM and R",
+"location": "Irvine, CA",
+"platform": "modmed",
+"fhir_base_url": "https://irvinepmr.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-isabella-ilarda-md",
 "name": "Isabella Ilarda, MD",
 "location": "New York, NY",
@@ -30383,7 +30133,7 @@
 },
 {
 "id": "modmed-isb-inc",
-"name": "Isb, Inc.",
+"name": "ISB, INC.",
 "location": "Redmond, WA",
 "platform": "modmed",
 "fhir_base_url": "https://isbinc.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -30572,14 +30322,14 @@
 },
 {
 "id": "modmed-j-kevin-cunningham-od",
-"name": "J Kevin Cunningham Od",
+"name": "J Kevin Cunningham OD",
 "location": "Ada, OK",
 "platform": "modmed",
 "fhir_base_url": "https://jkevincunninghamod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-j-kyle-smith-od",
-"name": "J Kyle Smith Od",
+"name": "J Kyle Smith OD",
 "location": "Fort Bragg, CA",
 "platform": "modmed",
 "fhir_base_url": "https://jkylesmith.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30593,7 +30343,7 @@
 },
 {
 "id": "modmed-j-micetich-od-and-associates",
-"name": "J Micetich Od and Associates",
+"name": "J Micetich OD and Associates",
 "location": "Coal City, IL",
 "platform": "modmed",
 "fhir_base_url": "https://coalcity.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30607,7 +30357,7 @@
 },
 {
 "id": "modmed-j-s-dudovitz-inc",
-"name": "J S Dudovitz Inc",
+"name": "J S DUDOVITZ INC",
 "location": "Waterford, MI",
 "platform": "modmed",
 "fhir_base_url": "https://jsdudovitz.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30615,7 +30365,7 @@
 {
 "id": "modmed-j-michael-carney-m-d",
 "name": "J. Michael Carney, M.D.",
-"location": "Little Rock,, AR",
+"location": "Little Rock, AR",
 "platform": "modmed",
 "fhir_base_url": "https://carney.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -30788,7 +30538,7 @@
 },
 {
 "id": "modmed-james-cimbak-od",
-"name": "James Cimbak Od",
+"name": "James Cimbak OD",
 "location": "Maple Glen, PA",
 "platform": "modmed",
 "fhir_base_url": "https://maplegleneyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30802,14 +30552,14 @@
 },
 {
 "id": "modmed-james-d-hagen-od-pa",
-"name": "James D Hagen Od PA",
+"name": "James D Hagen OD PA",
 "location": "Miami, FL",
 "platform": "modmed",
 "fhir_base_url": "https://drjamesdhagen.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-james-dugue-od",
-"name": "James Dugue Od",
+"name": "James Dugue OD",
 "location": "Mission Viejo, CA",
 "platform": "modmed",
 "fhir_base_url": "https://jamesdugueod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30844,7 +30594,7 @@
 },
 {
 "id": "modmed-james-j-boilini-od",
-"name": "James J Boilini Od",
+"name": "James J Boilini OD",
 "location": "Key Largo, FL",
 "platform": "modmed",
 "fhir_base_url": "https://keysvision.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30852,13 +30602,13 @@
 {
 "id": "modmed-james-l-barton-llc",
 "name": "James L Barton LLC",
-"location": "Andalusia,, AL",
+"location": "Andalusia, AL",
 "platform": "modmed",
 "fhir_base_url": "https://jameslbarton.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-james-l-greco-jr-od",
-"name": "James L Greco Jr Od",
+"name": "James L Greco Jr OD",
 "location": "Tampa, FL",
 "platform": "modmed",
 "fhir_base_url": "https://jameslgrecojrod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30879,7 +30629,7 @@
 },
 {
 "id": "modmed-james-p-cheslock-od",
-"name": "James P Cheslock Od",
+"name": "James P Cheslock OD",
 "location": "North Bend, OR",
 "platform": "modmed",
 "fhir_base_url": "https://cheslockoptical.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30893,7 +30643,7 @@
 },
 {
 "id": "modmed-james-r-dallas-od",
-"name": "James R Dallas Od",
+"name": "James R Dallas OD",
 "location": "Barstow, CA",
 "platform": "modmed",
 "fhir_base_url": "https://jrdallasod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30907,7 +30657,7 @@
 },
 {
 "id": "modmed-james-s-smith-od",
-"name": "James S Smith Od",
+"name": "James S Smith OD",
 "location": "Grand Rapids, MI",
 "platform": "modmed",
 "fhir_base_url": "https://jamesssmithod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30956,7 +30706,7 @@
 },
 {
 "id": "modmed-jamierose-eyeware",
-"name": "Jamierose Eyeware",
+"name": "JAMIEROSE EYEWARE",
 "platform": "modmed",
 "fhir_base_url": "https://jamieroseeyewear.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -30969,7 +30719,7 @@
 },
 {
 "id": "modmed-jane-compton-od",
-"name": "Jane Compton Od",
+"name": "Jane Compton OD",
 "location": "Taos, NM",
 "platform": "modmed",
 "fhir_base_url": "https://janecomptonod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -30990,7 +30740,7 @@
 },
 {
 "id": "modmed-jarom-b-partridge-od",
-"name": "Jarom B Partridge Od",
+"name": "JAROM B PARTRIDGE OD",
 "location": "Anaheim, CA",
 "platform": "modmed",
 "fhir_base_url": "https://jbpartridgeod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31115,7 +30865,7 @@
 },
 {
 "id": "modmed-jay-w-bosco-od",
-"name": "Jay W Bosco Od",
+"name": "JAY W BOSCO OD",
 "location": "Essexville, MI",
 "platform": "modmed",
 "fhir_base_url": "https://jaywbosco.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31220,7 +30970,7 @@
 },
 {
 "id": "modmed-jefferson-hicks-od",
-"name": "Jefferson Hicks Od",
+"name": "Jefferson Hicks OD",
 "location": "Saraland, AL",
 "platform": "modmed",
 "fhir_base_url": "https://mobileeyeclinic.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31241,21 +30991,21 @@
 },
 {
 "id": "modmed-jeffrey-a-holbert-od-apc",
-"name": "Jeffrey A Holbert Od Apc",
+"name": "Jeffrey A Holbert OD Apc",
 "location": "Santa Clara, CA",
 "platform": "modmed",
 "fhir_base_url": "https://holbert.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-jeffrey-d-baruch-od",
-"name": "Jeffrey D Baruch Od",
+"name": "Jeffrey D Baruch OD",
 "location": "West Hempstead, NY",
 "platform": "modmed",
 "fhir_base_url": "https://drjeffreybaruch.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-jeffrey-d-elliott-od",
-"name": "Jeffrey D Elliott Od",
+"name": "Jeffrey D Elliott OD",
 "location": "Ada, OK",
 "platform": "modmed",
 "fhir_base_url": "https://jeffreydelliottod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31263,13 +31013,13 @@
 {
 "id": "modmed-jeffrey-d-hart-d-o-p-c",
 "name": "Jeffrey D. Hart, D.O., P.C.",
-"location": "Selden, NY",
+"location": "Centereach, NY",
 "platform": "modmed",
 "fhir_base_url": "https://hartorthopedics.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-jeffrey-e-moore-od",
-"name": "Jeffrey E Moore Od",
+"name": "Jeffrey E Moore OD",
 "location": "Warren, PA",
 "platform": "modmed",
 "fhir_base_url": "https://moorefamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31304,14 +31054,14 @@
 },
 {
 "id": "modmed-jeffrey-l-luty-od-pa",
-"name": "Jeffrey L Luty Od PA",
+"name": "Jeffrey L Luty OD PA",
 "location": "Abilene, KS",
 "platform": "modmed",
 "fhir_base_url": "https://lutyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-jeffrey-l-varner-od",
-"name": "Jeffrey L Varner Od",
+"name": "Jeffrey L Varner OD",
 "location": "North Wales, PA",
 "platform": "modmed",
 "fhir_base_url": "https://varner2020.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31333,7 +31083,7 @@
 {
 "id": "modmed-jeffrey-muroff-dpm-pc",
 "name": "Jeffrey Muroff DPM PC",
-"location": "ronkonkoma, NY",
+"location": "Ronkonkoma, NY",
 "platform": "modmed",
 "fhir_base_url": "https://drmuroffpodiatry.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -31347,7 +31097,7 @@
 {
 "id": "modmed-jeffrie-c-leibovitz-dpm",
 "name": "Jeffrie C. Leibovitz, DPM",
-"location": "Indianapolis , IN",
+"location": "Indianapolis, IN",
 "platform": "modmed",
 "fhir_base_url": "https://gotofootdoc.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -31374,7 +31124,7 @@
 },
 {
 "id": "modmed-jennifer-fishel-od-pa",
-"name": "Jennifer Fishel Od PA",
+"name": "Jennifer Fishel OD PA",
 "location": "Greenville, NC",
 "platform": "modmed",
 "fhir_base_url": "https://greenvilleeyes.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31395,7 +31145,7 @@
 },
 {
 "id": "modmed-jennifer-h-w-kao-od",
-"name": "Jennifer H W Kao Od",
+"name": "Jennifer H w Kao OD",
 "location": "San Jose, CA",
 "platform": "modmed",
 "fhir_base_url": "https://jenniferkaood.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31437,7 +31187,7 @@
 },
 {
 "id": "modmed-jeremy-ensor-od",
-"name": "Jeremy Ensor Od",
+"name": "Jeremy Ensor OD",
 "location": "Lafayette, CA",
 "platform": "modmed",
 "fhir_base_url": "https://spectaclevision.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31479,7 +31229,7 @@
 },
 {
 "id": "modmed-jerry-d-warthman-od-llc",
-"name": "Jerry D Warthman Od LLC",
+"name": "Jerry D Warthman OD LLC",
 "location": "Anderson, IN",
 "platform": "modmed",
 "fhir_base_url": "https://drwarthman.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31493,13 +31243,13 @@
 },
 {
 "id": "modmed-jerry-r-pederson-od-pc",
-"name": "Jerry R Pederson Od PC",
+"name": "Jerry R Pederson OD PC",
 "platform": "modmed",
 "fhir_base_url": "https://southglenneyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-jerry-yasuda-od-inc",
-"name": "Jerry Yasuda Od Inc",
+"name": "Jerry Yasuda OD Inc",
 "location": "Visalia, CA",
 "platform": "modmed",
 "fhir_base_url": "https://jerryyasudaodinc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31611,7 +31361,7 @@
 },
 {
 "id": "modmed-jocelyn-gibson-od",
-"name": "Jocelyn Gibson Od",
+"name": "Jocelyn Gibson OD",
 "location": "Circleville, OH",
 "platform": "modmed",
 "fhir_base_url": "https://jocelyngibsonod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31702,7 +31452,7 @@
 },
 {
 "id": "modmed-john-j-flaim-od",
-"name": "John J Flaim Od",
+"name": "John J Flaim OD",
 "location": "Ephrata, PA",
 "platform": "modmed",
 "fhir_base_url": "https://johnflaimod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31744,14 +31494,14 @@
 },
 {
 "id": "modmed-john-p-boscia-od",
-"name": "John P Boscia Od",
+"name": "John P Boscia OD",
 "location": "Easton, PA",
 "platform": "modmed",
 "fhir_base_url": "https://johnpbosciaod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-john-p-gysin-od",
-"name": "John P Gysin Od",
+"name": "John P Gysin OD",
 "location": "Peoria, IL",
 "platform": "modmed",
 "fhir_base_url": "https://johnpgysinod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31765,7 +31515,7 @@
 },
 {
 "id": "modmed-john-patrick-brennan-od-pa",
-"name": "John Patrick Brennan Od PA",
+"name": "John Patrick Brennan OD PA",
 "location": "Okeechobee, FL",
 "platform": "modmed",
 "fhir_base_url": "https://brennaneyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -31898,7 +31648,7 @@
 },
 {
 "id": "modmed-jon-h-yamane",
-"name": "Jon H Yamane",
+"name": "JON H YAMANE",
 "location": "Costa Mesa, CA",
 "platform": "modmed",
 "fhir_base_url": "https://jonhyamane.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32010,14 +31760,14 @@
 },
 {
 "id": "modmed-jorge-r-garcia-od-pa",
-"name": "Jorge R Garcia Od PA",
+"name": "Jorge R Garcia OD PA",
 "location": "Miami, FL",
 "platform": "modmed",
 "fhir_base_url": "https://jorgergarciaod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-jorge-r-garcia-od-pa-2",
-"name": "Jorge R Garcia Od PA",
+"name": "Jorge R Garcia OD PA",
 "location": "Miami, FL",
 "platform": "modmed",
 "fhir_base_url": "https://jorgergarciaodpa.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32045,7 +31795,7 @@
 },
 {
 "id": "modmed-joseph-audia-od",
-"name": "Joseph Audia Od",
+"name": "Joseph Audia OD",
 "platform": "modmed",
 "fhir_base_url": "https://josephaudiaod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -32072,7 +31822,7 @@
 },
 {
 "id": "modmed-joseph-e-pittman-od-pc",
-"name": "Joseph E Pittman Od PC",
+"name": "Joseph E Pittman OD PC",
 "location": "Hinesville, GA",
 "platform": "modmed",
 "fhir_base_url": "https://pittmanodpc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32114,7 +31864,7 @@
 },
 {
 "id": "modmed-joseph-j-estrada-od",
-"name": "Joseph J Estrada Od",
+"name": "Joseph J Estrada OD",
 "location": "Salinas, CA",
 "platform": "modmed",
 "fhir_base_url": "https://josephjestrada.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32177,28 +31927,28 @@
 },
 {
 "id": "modmed-joseph-t-marcin-jr-od",
-"name": "Joseph T Marcin Jr Od",
+"name": "Joseph T Marcin Jr OD",
 "location": "Pana, IL",
 "platform": "modmed",
 "fhir_base_url": "https://josephtmarcinjrod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-joseph-v-mega-jr-od",
-"name": "Joseph V Mega Jr Od",
+"name": "Joseph V Mega Jr OD",
 "location": "North Attleboro, MA",
 "platform": "modmed",
 "fhir_base_url": "https://drjvmega.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-joseph-vankeuren-od",
-"name": "Joseph Vankeuren Od",
+"name": "Joseph Vankeuren OD",
 "location": "Elyria, OH",
 "platform": "modmed",
 "fhir_base_url": "https://josephvankeurenod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-joseph-wm-babcock-od",
-"name": "Joseph WM Babcock Od",
+"name": "Joseph WM Babcock OD",
 "location": "Portsmouth, OH",
 "platform": "modmed",
 "fhir_base_url": "https://babcockeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32310,7 +32060,7 @@
 },
 {
 "id": "modmed-julie-m-heidish-od-inc",
-"name": "Julie M Heidish Od Inc",
+"name": "Julie M Heidish OD Inc",
 "location": "Ashville, OH",
 "platform": "modmed",
 "fhir_base_url": "https://juliemheidishodinc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32401,7 +32151,7 @@
 },
 {
 "id": "modmed-k-dean-evans-jr-od-pc",
-"name": "K Dean Evans Jr Od PC",
+"name": "K Dean Evans Jr OD PC",
 "platform": "modmed",
 "fhir_base_url": "https://kdeanevansjrod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -32411,13 +32161,6 @@
 "location": "Richardson, TX",
 "platform": "modmed",
 "fhir_base_url": "https://kderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-k-f-nassif-md-and-associates-sc",
-"name": "K.F. Nassif MD and Associates SC",
-"location": "Wauwatosa, WI",
-"platform": "modmed",
-"fhir_base_url": "https://nassifandassociates.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-k2-dermatology-llc",
@@ -32463,7 +32206,7 @@
 },
 {
 "id": "modmed-kandace-haines-od-inc",
-"name": "Kandace Haines Od Inc",
+"name": "Kandace Haines OD Inc",
 "location": "Delray Beach, FL",
 "platform": "modmed",
 "fhir_base_url": "https://oceanoptics.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32568,7 +32311,7 @@
 },
 {
 "id": "modmed-karen-m-wrigley-od",
-"name": "Karen M Wrigley Od",
+"name": "Karen M Wrigley OD",
 "location": "Philadelphia, PA",
 "platform": "modmed",
 "fhir_base_url": "https://wrigleyeye.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32617,14 +32360,14 @@
 },
 {
 "id": "modmed-katherine-f-coffey-od-llc",
-"name": "Katherine F Coffey Od LLC",
+"name": "Katherine F Coffey OD LLC",
 "location": "Quincy, MA",
 "platform": "modmed",
 "fhir_base_url": "https://coffeyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-kathleen-m-andersen-od-inc",
-"name": "Kathleen M Andersen Od Inc",
+"name": "Kathleen M Andersen OD Inc",
 "location": "Rancho Santa Margarita, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kandersenod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32638,7 +32381,7 @@
 },
 {
 "id": "modmed-kathleen-murphy-od-llc",
-"name": "Kathleen Murphy Od LLC",
+"name": "Kathleen Murphy OD LLC",
 "location": "Cambridge, MA",
 "platform": "modmed",
 "fhir_base_url": "https://kathleenmurphyod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32666,7 +32409,7 @@
 },
 {
 "id": "modmed-kathryn-larsson-od",
-"name": "Kathryn Larsson Od",
+"name": "Kathryn Larsson OD",
 "location": "Modesto, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kathrynlarssonod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32686,14 +32429,14 @@
 },
 {
 "id": "modmed-katrina-van-patten-od-ltd",
-"name": "Katrina Van Patten Od LTD",
+"name": "Katrina Van Patten OD Ltd",
 "location": "Carson City, NV",
 "platform": "modmed",
 "fhir_base_url": "https://kvanpattenod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-katrina-van-patten-od-ltd-2",
-"name": "Katrina Van Patten Od LTD",
+"name": "Katrina Van Patten OD Ltd",
 "location": "Carson City, NV",
 "platform": "modmed",
 "fhir_base_url": "https://kvanpattenodold.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32722,6 +32465,7 @@
 {
 "id": "modmed-katy-vision-associates-p-a",
 "name": "Katy Vision Associates, P.A.",
+"location": "Sugar Land, TX",
 "platform": "modmed",
 "fhir_base_url": "https://katyvisioncenterpa.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -32790,7 +32534,7 @@
 },
 {
 "id": "modmed-kea",
-"name": "Kea",
+"name": "KEA",
 "location": "Kirkwood, MO",
 "platform": "modmed",
 "fhir_base_url": "https://kea.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32832,14 +32576,14 @@
 },
 {
 "id": "modmed-keith-b-nice-od",
-"name": "Keith B Nice Od",
+"name": "Keith B Nice OD",
 "location": "Burlington, NC",
 "platform": "modmed",
 "fhir_base_url": "https://niceeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-keith-j-messing-od",
-"name": "Keith J Messing Od",
+"name": "Keith J Messing OD",
 "location": "Bad Axe, MI",
 "platform": "modmed",
 "fhir_base_url": "https://keithjmessingodbadaxe.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32881,14 +32625,14 @@
 },
 {
 "id": "modmed-kelly-lao-od",
-"name": "Kelly Lao Od",
+"name": "Kelly Lao OD",
 "location": "San Jose, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kellylaood.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-kelvin-s-sue-od",
-"name": "Kelvin S Sue Od",
+"name": "KELVIN S SUE OD",
 "location": "Sacramento, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kelvinsueod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32915,7 +32659,7 @@
 },
 {
 "id": "modmed-kendra-l-mahaffey-od-inc",
-"name": "Kendra L Mahaffey Od Inc",
+"name": "KENDRA L MAHAFFEY OD INC",
 "location": "Concord, OH",
 "platform": "modmed",
 "fhir_base_url": "https://kendramahaffey.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -32956,35 +32700,35 @@
 },
 {
 "id": "modmed-kenneth-f-jew-od-inc",
-"name": "Kenneth F Jew Od Inc",
+"name": "Kenneth F Jew OD Inc",
 "location": "San Francisco, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drjewod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-kenneth-j-boyer-od-inc",
-"name": "Kenneth J Boyer Od Inc",
+"name": "Kenneth J Boyer OD Inc",
 "location": "Arcadia, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drboyeroptometrist.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-kenneth-j-boyer-od-inc-2",
-"name": "Kenneth J Boyer Od Inc",
+"name": "Kenneth J Boyer OD Inc",
 "location": "La Verne, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kboyerlaverne.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-kenneth-j-boyer-od-inc-3",
-"name": "Kenneth J Boyer Od Inc",
+"name": "Kenneth J Boyer OD Inc",
 "location": "La Verne, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kennethjboyerod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-kenneth-j-lossman-od-pc",
-"name": "Kenneth J Lossman Od PC",
+"name": "Kenneth J Lossman OD PC",
 "location": "Park Ridge, IL",
 "platform": "modmed",
 "fhir_base_url": "https://lossmaneyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -33160,7 +32904,7 @@
 {
 "id": "modmed-kids-eyes-md",
 "name": "Kids Eyes MD",
-"location": "boca raton, FL",
+"location": "Boca Raton, FL",
 "platform": "modmed",
 "fhir_base_url": "https://kidseyes.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -33173,7 +32917,7 @@
 },
 {
 "id": "modmed-kieth-j-burkart-od-apc",
-"name": "Kieth J Burkart Od Apc",
+"name": "KIETH J BURKART OD APC",
 "location": "Lake Arrowhead, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kiethjburkartod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -33194,7 +32938,7 @@
 },
 {
 "id": "modmed-kim-c-brown-od",
-"name": "Kim C Brown Od",
+"name": "Kim C Brown OD",
 "location": "Lakewood, CO",
 "platform": "modmed",
 "fhir_base_url": "https://kimcbrownod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -33208,14 +32952,14 @@
 },
 {
 "id": "modmed-kim-j-butler-od",
-"name": "Kim J Butler Od",
+"name": "Kim J Butler OD",
 "location": "El Cajon, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kimjbutlerod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-kim-khanh-nguyen-od-inc",
-"name": "Kim Khanh Nguyen Od Inc",
+"name": "Kim Khanh Nguyen OD Inc",
 "platform": "modmed",
 "fhir_base_url": "https://kimkhanhnguyenod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -33291,7 +33035,7 @@
 },
 {
 "id": "modmed-kingman-j-louie-od",
-"name": "Kingman J Louie Od",
+"name": "Kingman J Louie OD",
 "location": "Sacramento, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kingmanlouie.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -33571,7 +33315,7 @@
 },
 {
 "id": "modmed-kristi-k-davis-od",
-"name": "Kristi K Davis Od",
+"name": "Kristi K Davis OD",
 "location": "Redding, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kristikdavisod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -33656,7 +33400,6 @@
 {
 "id": "modmed-kurata-eyecare-center",
 "name": "Kurata Eyecare Center",
-"location": "Los Angeles, CA",
 "platform": "modmed",
 "fhir_base_url": "https://kurataeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -33680,6 +33423,13 @@
 "location": "Dunn, NC",
 "platform": "modmed",
 "fhir_base_url": "https://177472a4-574c-4a73-8deb-a3663624cdb8.gastro.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
+"id": "modmed-kutryb-eye-institute",
+"name": "Kutryb Eye Institute",
+"location": "Titusville, FL",
+"platform": "modmed",
+"fhir_base_url": "https://kutrybeyeinstitute.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-kuy-plastic-surgery-inc",
@@ -33725,7 +33475,7 @@
 },
 {
 "id": "modmed-l-douglas-patton-od-inc",
-"name": "L Douglas Patton Od Inc",
+"name": "L Douglas Patton OD Inc",
 "location": "Chardon, OH",
 "platform": "modmed",
 "fhir_base_url": "https://drpattonod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -33753,7 +33503,7 @@
 },
 {
 "id": "modmed-la-grande-family-eye-care",
-"name": "La Grande Family Eye Care",
+"name": "LA Grande Family Eye Care",
 "location": "La Grande, OR",
 "platform": "modmed",
 "fhir_base_url": "https://lagrandefamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -34340,7 +34090,7 @@
 },
 {
 "id": "modmed-larry-j-gottlieb-od-inc",
-"name": "Larry J Gottlieb Od Inc",
+"name": "Larry J Gottlieb OD Inc",
 "location": "Test, NY",
 "platform": "modmed",
 "fhir_base_url": "https://doctoreye.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -34534,15 +34284,8 @@
 "fhir_base_url": "https://schiffman.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-lawrence-fortier-md",
-"name": "Lawrence Fortier, MD",
-"location": "Wethersfield, CT",
-"platform": "modmed",
-"fhir_base_url": "https://lawrencefortiermd.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-lawrence-g-mock-od",
-"name": "Lawrence G Mock Od",
+"name": "Lawrence G Mock OD",
 "location": "Walnut Creek, CA",
 "platform": "modmed",
 "fhir_base_url": "https://broadwayeyeworksoptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -34557,7 +34300,7 @@
 {
 "id": "modmed-lawrence-podiatry-center",
 "name": "Lawrence Podiatry Center",
-"location": "Lawrence, KS",
+"location": "Topeka, KS",
 "platform": "modmed",
 "fhir_base_url": "https://lpc.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -34633,14 +34376,14 @@
 },
 {
 "id": "modmed-leah-j-mcferren-od-pc",
-"name": "Leah J Mcferren Od PC",
+"name": "Leah J Mcferren OD PC",
 "location": "College Park, GA",
 "platform": "modmed",
 "fhir_base_url": "https://drleahmcferren.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-leandro-a-barcacel",
-"name": "Leandro A Barcacel",
+"name": "LEANDRO A BARCACEL",
 "location": "Houston, TX",
 "platform": "modmed",
 "fhir_base_url": "https://leandroabarcacel.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -34675,7 +34418,7 @@
 },
 {
 "id": "modmed-lee-r-moore-jr-od",
-"name": "Lee R Moore Jr Od",
+"name": "Lee R Moore Jr OD",
 "location": "Charles Town, WV",
 "platform": "modmed",
 "fhir_base_url": "https://drleemoore.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -34892,14 +34635,14 @@
 },
 {
 "id": "modmed-leonard-o-graf-od",
-"name": "Leonard O Graf Od",
+"name": "Leonard O Graf OD",
 "location": "Aurora, CO",
 "platform": "modmed",
 "fhir_base_url": "https://auroravisioncenter.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-leoncio-v-gonzalez-od-pd",
-"name": "Leoncio V Gonzalez Od PD",
+"name": "Leoncio V Gonzalez OD PD",
 "platform": "modmed",
 "fhir_base_url": "https://leonciogonzalezod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -34912,7 +34655,7 @@
 },
 {
 "id": "modmed-les-a-shipley-od",
-"name": "Les A Shipley Od",
+"name": "Les A Shipley OD",
 "location": "Santa Rosa, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drlesshipley.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -34967,14 +34710,14 @@
 },
 {
 "id": "modmed-lewis-s-lim-and-associates-od-ps",
-"name": "Lewis S Lim and Associates Od PS",
+"name": "Lewis S Lim and Associates OD PS",
 "location": "Kent, WA",
 "platform": "modmed",
 "fhir_base_url": "https://icareopticalofkent.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-lewis-s-lim-and-associates-od-ps-2",
-"name": "Lewis S Lim and Associates Od PS",
+"name": "Lewis S Lim and Associates OD PS",
 "location": "Kent, WA",
 "platform": "modmed",
 "fhir_base_url": "https://lewisslimandassociatesodps.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -35247,7 +34990,7 @@
 },
 {
 "id": "modmed-linda-neuhoff-od-pc",
-"name": "Linda Neuhoff Od PC",
+"name": "Linda Neuhoff OD PC",
 "location": "Princeton, IN",
 "platform": "modmed",
 "fhir_base_url": "https://lindaneuhoffodpc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -35716,7 +35459,7 @@
 },
 {
 "id": "modmed-lori-j-clark-od",
-"name": "Lori J Clark Od",
+"name": "Lori J Clark OD",
 "location": "Manhattan Beach, CA",
 "platform": "modmed",
 "fhir_base_url": "https://lorijclarkod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -35824,14 +35567,10 @@
 "name": "Louisiana Gastroenterology Associates, LLC",
 "location": "Lafayette, LA",
 "platform": "modmed",
-"fhir_base_url": "https://lagastro.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-louisiana-gastroenterology-associates-llc-2",
-"name": "Louisiana Gastroenterology Associates, LLC",
-"location": "Lafayette, LA",
-"platform": "modmed",
-"fhir_base_url": "https://lagastro-test.mmi.prod.fhir.ema-api.com/fhir/r4/"
+"fhir_base_url": "https://lagastro.mmi.prod.fhir.ema-api.com/fhir/r4/",
+"former_ids": [
+"modmed-louisiana-gastroenterology-associates-llc-2"
+]
 },
 {
 "id": "modmed-louisiana-hand-to-shoulder-center-llc",
@@ -36085,7 +35824,7 @@
 },
 {
 "id": "modmed-lyn-marie-behmke-od-ltd",
-"name": "Lyn Marie Behmke Od LTD",
+"name": "Lyn Marie Behmke OD Ltd",
 "platform": "modmed",
 "fhir_base_url": "https://lynmariebehmkeodltd.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -36147,14 +35886,14 @@
 },
 {
 "id": "modmed-m-langford-od-optometric-corp",
-"name": "M Langford Od Optometric Corp",
+"name": "M Langford OD Optometric Corp",
 "location": "San Diego, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drlangford.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-m-zeleznik-landis-od-pc",
-"name": "M Zeleznik Landis Od PC",
+"name": "M ZELEZNIK LANDIS OD PC",
 "location": "Monroeville, PA",
 "platform": "modmed",
 "fhir_base_url": "https://zelezniklandisod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36273,7 +36012,7 @@
 },
 {
 "id": "modmed-madison-avenue-eye-care-ltd",
-"name": "Madison Avenue Eye Care LTD",
+"name": "Madison Avenue Eye Care Ltd",
 "location": "New York, NY",
 "platform": "modmed",
 "fhir_base_url": "https://eyecaremidtown.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36300,7 +36039,7 @@
 },
 {
 "id": "modmed-madoptical",
-"name": "Madoptical",
+"name": "MADOPTICAL",
 "location": "Council Bluffs, IA",
 "platform": "modmed",
 "fhir_base_url": "https://madoptical.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36370,7 +36109,7 @@
 },
 {
 "id": "modmed-mai-anh-chtn-nguyen-od-inc",
-"name": "Mai Anh CHTN Nguyen Od Inc",
+"name": "Mai Anh CHTN Nguyen OD Inc",
 "location": "San Jose, CA",
 "platform": "modmed",
 "fhir_base_url": "https://maianhchtnnguyenod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36502,7 +36241,7 @@
 },
 {
 "id": "modmed-man-yin-lau",
-"name": "Man Yin Lau",
+"name": "MAN YIN LAU",
 "location": "Seattle, WA",
 "platform": "modmed",
 "fhir_base_url": "https://manyinlau.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36642,7 +36381,7 @@
 },
 {
 "id": "modmed-maple-eyecare",
-"name": "maple-eyecare",
+"name": "Maple-Eyecare",
 "platform": "modmed",
 "fhir_base_url": "https://maple-eyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -36662,7 +36401,7 @@
 },
 {
 "id": "modmed-marc-sorsky-od",
-"name": "Marc Sorsky Od",
+"name": "Marc Sorsky OD",
 "platform": "modmed",
 "fhir_base_url": "https://marcsorskyod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -36696,7 +36435,7 @@
 },
 {
 "id": "modmed-maria-florio-jablonski-od",
-"name": "Maria Florio Jablonski Od",
+"name": "Maria Florio Jablonski OD",
 "location": "Cranston, RI",
 "platform": "modmed",
 "fhir_base_url": "https://primaryecp.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36731,7 +36470,7 @@
 },
 {
 "id": "modmed-mario-a-caballero-od",
-"name": "Mario A Caballero Od",
+"name": "Mario A Caballero OD",
 "location": "El Paso, TX",
 "platform": "modmed",
 "fhir_base_url": "https://marioacaballerood.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36801,7 +36540,7 @@
 },
 {
 "id": "modmed-mark-c-ward-od",
-"name": "Mark C Ward Od",
+"name": "Mark C Ward OD",
 "location": "Danville, KY",
 "platform": "modmed",
 "fhir_base_url": "https://markcwardod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36822,7 +36561,7 @@
 },
 {
 "id": "modmed-mark-f-gotcher-od",
-"name": "Mark F Gotcher Od",
+"name": "Mark F Gotcher OD",
 "location": "Cottage Grove, OR",
 "platform": "modmed",
 "fhir_base_url": "https://markfgotcherod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36871,7 +36610,7 @@
 },
 {
 "id": "modmed-mark-r-christensen-od-inc",
-"name": "Mark R Christensen Od Inc",
+"name": "Mark R Christensen OD Inc",
 "location": "Fairfield, CA",
 "platform": "modmed",
 "fhir_base_url": "https://markchristensenod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36899,7 +36638,7 @@
 },
 {
 "id": "modmed-mark-v-graytok-od",
-"name": "Mark V Graytok Od",
+"name": "Mark V Graytok OD",
 "location": "Greensburg, PA",
 "platform": "modmed",
 "fhir_base_url": "https://drgraytok.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -36982,7 +36721,7 @@
 },
 {
 "id": "modmed-martha-ellen-myers-od-pa",
-"name": "Martha Ellen Myers Od PA",
+"name": "Martha Ellen Myers OD PA",
 "location": "Fayetteville, AR",
 "platform": "modmed",
 "fhir_base_url": "https://memeyersod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -37065,7 +36804,7 @@
 },
 {
 "id": "modmed-martin-r-funk-od-pa",
-"name": "Martin R Funk Od PA",
+"name": "Martin R Funk OD PA",
 "location": "Chanute, KS",
 "platform": "modmed",
 "fhir_base_url": "https://martinrfunkodpa.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -37079,7 +36818,7 @@
 },
 {
 "id": "modmed-martin-s-schneider-od",
-"name": "Martin S Schneider Od",
+"name": "Martin S Schneider OD",
 "location": "Camarillo, CA",
 "platform": "modmed",
 "fhir_base_url": "https://camarillovision.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -37121,7 +36860,7 @@
 },
 {
 "id": "modmed-marvin-l-baza-jr-od",
-"name": "Marvin L Baza Jr Od",
+"name": "Marvin L Baza Jr OD",
 "location": "Pasadena, TX",
 "platform": "modmed",
 "fhir_base_url": "https://drbaza.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -37135,7 +36874,7 @@
 },
 {
 "id": "modmed-mary-h-espy-od",
-"name": "Mary H Espy Od",
+"name": "Mary H Espy OD",
 "location": "Grand Blanc, MI",
 "platform": "modmed",
 "fhir_base_url": "https://maryhespyod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -37156,7 +36895,7 @@
 },
 {
 "id": "modmed-mary-m-futch-od-pa",
-"name": "Mary M Futch Od PA",
+"name": "Mary M Futch OD PA",
 "location": "Macclenny, FL",
 "platform": "modmed",
 "fhir_base_url": "https://bakervisioncare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -37276,13 +37015,13 @@
 {
 "id": "modmed-matthew-d-mcleod-m-d-p-c",
 "name": "Matthew D McLeod, M.D. P.C.",
-"location": "Savannah , GA",
+"location": "Savannah, GA",
 "platform": "modmed",
 "fhir_base_url": "https://seaportplasticsurgery.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-matthew-j-deluca-od",
-"name": "Matthew J Deluca Od",
+"name": "Matthew J Deluca OD",
 "location": "Pittsburgh, PA",
 "platform": "modmed",
 "fhir_base_url": "https://baden.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -37317,7 +37056,7 @@
 },
 {
 "id": "modmed-matthew-w-gentile-od",
-"name": "Matthew W Gentile Od",
+"name": "Matthew w Gentile OD",
 "location": "La Jolla, CA",
 "platform": "modmed",
 "fhir_base_url": "https://lajollaeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -37331,7 +37070,7 @@
 },
 {
 "id": "modmed-matthew-w-lewis-m-d-p-c",
-"name": "Matthew W. Lewis, M.D., P.C.",
+"name": "Matthew w. Lewis, M.D., P.C.",
 "location": "Portland, OR",
 "platform": "modmed",
 "fhir_base_url": "https://lewisps.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -37359,7 +37098,7 @@
 },
 {
 "id": "modmed-max-l-carlisle-od",
-"name": "Max L Carlisle Od",
+"name": "Max L Carlisle OD",
 "location": "Fairview, OK",
 "platform": "modmed",
 "fhir_base_url": "https://carlisle.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -37749,7 +37488,7 @@
 },
 {
 "id": "modmed-medical-vision-center-ltd",
-"name": "Medical Vision Center LTD",
+"name": "Medical Vision Center Ltd",
 "location": "Morton, WA",
 "platform": "modmed",
 "fhir_base_url": "https://medicalvisioncenter.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -37763,7 +37502,7 @@
 },
 {
 "id": "modmed-mednic-pc",
-"name": "Mednic PC",
+"name": "MEDNIC PC",
 "location": "Vancouver, WA",
 "platform": "modmed",
 "fhir_base_url": "https://mednic.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38063,20 +37802,6 @@
 "fhir_base_url": "https://menlodermatology.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-mepod01admin",
-"name": "mepod01admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://mepod01admin.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-mepod01test",
-"name": "mepod01test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://mepod01test.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-meramec-dermatology-llc",
 "name": "Meramec Dermatology, LLC",
 "location": "Arnold, MO",
@@ -38155,7 +37880,7 @@
 },
 {
 "id": "modmed-merry-c-gindorf-od",
-"name": "Merry C Gindorf Od",
+"name": "MERRY C GINDORF OD",
 "platform": "modmed",
 "fhir_base_url": "https://merrycgindorf.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -38279,13 +38004,6 @@
 "fhir_base_url": "https://metropolis.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-metropolitan-dermatologic-surgery-p-c",
-"name": "Metropolitan Dermatologic Surgery, P.C.",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://metrosandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-metropolitan-eye-care-center",
 "name": "Metropolitan Eye Care Center",
 "location": "Washington, DC",
@@ -38392,7 +38110,7 @@
 {
 "id": "modmed-miami-plastic-surgery",
 "name": "Miami Plastic Surgery",
-"location": "., FL",
+"location": "FL",
 "platform": "modmed",
 "fhir_base_url": "https://mps.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -38405,7 +38123,7 @@
 },
 {
 "id": "modmed-micah-v-pan-od",
-"name": "Micah V Pan Od",
+"name": "Micah V Pan OD",
 "location": "Chino Hills, CA",
 "platform": "modmed",
 "fhir_base_url": "https://micahvpan.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38426,7 +38144,7 @@
 },
 {
 "id": "modmed-michael-a-simeone-od",
-"name": "Michael A Simeone Od",
+"name": "Michael A Simeone OD",
 "location": "East Lyme, CT",
 "platform": "modmed",
 "fhir_base_url": "https://simeoneod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38461,7 +38179,7 @@
 },
 {
 "id": "modmed-michael-c-ashman-od",
-"name": "Michael C Ashman Od",
+"name": "Michael C Ashman OD",
 "location": "Anderson, IN",
 "platform": "modmed",
 "fhir_base_url": "https://michaelcashmanod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38510,7 +38228,7 @@
 },
 {
 "id": "modmed-michael-f-fleck-od-pc",
-"name": "Michael F Fleck Od PC",
+"name": "Michael F Fleck OD PC",
 "location": "Napoleon, OH",
 "platform": "modmed",
 "fhir_base_url": "https://michaelffleckod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38538,7 +38256,7 @@
 },
 {
 "id": "modmed-michael-hsu-od",
-"name": "Michael Hsu Od",
+"name": "Michael Hsu OD",
 "location": "Seattle, WA",
 "platform": "modmed",
 "fhir_base_url": "https://michaelhsuod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38552,7 +38270,7 @@
 },
 {
 "id": "modmed-michael-j-bermel-od-pc",
-"name": "Michael J Bermel Od PC",
+"name": "Michael J Bermel OD PC",
 "location": "Leesburg, VA",
 "platform": "modmed",
 "fhir_base_url": "https://michaeljbermelod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38587,7 +38305,7 @@
 },
 {
 "id": "modmed-michael-k-edelstein-od",
-"name": "Michael K Edelstein Od",
+"name": "Michael K Edelstein OD",
 "location": "Waltham, MA",
 "platform": "modmed",
 "fhir_base_url": "https://michaelkedelsteinod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38615,14 +38333,14 @@
 },
 {
 "id": "modmed-michael-komasinski-od",
-"name": "Michael Komasinski Od",
+"name": "Michael Komasinski OD",
 "location": "La Porte, IN",
 "platform": "modmed",
 "fhir_base_url": "https://michaelkomasinskiod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-michael-korthals-od",
-"name": "Michael Korthals Od",
+"name": "Michael Korthals OD",
 "location": "Mason City, IA",
 "platform": "modmed",
 "fhir_base_url": "https://michaelkorthalsod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38636,7 +38354,7 @@
 },
 {
 "id": "modmed-michael-lum-od-a-professional-corporation",
-"name": "Michael Lum Od A Professional Corporation",
+"name": "Michael Lum OD A Professional Corporation",
 "location": "Irvine, CA",
 "platform": "modmed",
 "fhir_base_url": "https://michaellumodaprofessional.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38657,7 +38375,7 @@
 },
 {
 "id": "modmed-michael-petruska-od-pc",
-"name": "Michael Petruska Od PC",
+"name": "Michael Petruska OD PC",
 "location": "Phillipsburg, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://michaelpetruskaod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38678,7 +38396,7 @@
 },
 {
 "id": "modmed-michael-r-young-od",
-"name": "Michael R Young Od",
+"name": "Michael R Young OD",
 "location": "Redding, CA",
 "platform": "modmed",
 "fhir_base_url": "https://michaelryoungod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38741,7 +38459,7 @@
 },
 {
 "id": "modmed-michael-w-boeckman-od",
-"name": "Michael W Boeckman Od",
+"name": "Michael w Boeckman OD",
 "location": "Lindsay, OK",
 "platform": "modmed",
 "fhir_base_url": "https://michaelwboeckmanod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38755,8 +38473,8 @@
 },
 {
 "id": "modmed-michael-y-chew-od",
-"name": "Michael Y Chew Od",
-"location": "S.S.F., CA",
+"name": "Michael y Chew OD",
+"location": "S.S.F, CA",
 "platform": "modmed",
 "fhir_base_url": "https://opticaoptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -38776,7 +38494,7 @@
 },
 {
 "id": "modmed-michele-l-domiano-od-pc",
-"name": "Michele L Domiano Od PC",
+"name": "Michele L Domiano OD PC",
 "location": "Old Forge, PA",
 "platform": "modmed",
 "fhir_base_url": "https://domianoeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -38924,7 +38642,7 @@
 {
 "id": "modmed-mid-ohio-eye",
 "name": "Mid Ohio Eye",
-"location": "Powell, OH",
+"location": "Columbus, OH",
 "platform": "modmed",
 "fhir_base_url": "https://moe.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -38987,7 +38705,7 @@
 {
 "id": "modmed-mid-columbia-endoscopy-center-llc",
 "name": "Mid-Columbia Endoscopy Center, LLC",
-"location": "Kennewick , WA",
+"location": "Kennewick, WA",
 "platform": "modmed",
 "fhir_base_url": "https://9574ba36-90bd-4a5c-aee4-a4e54bcfa2eb.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -39273,7 +38991,7 @@
 },
 {
 "id": "modmed-mihealthclinic",
-"name": "Mihealthclinic",
+"name": "MIHEALTHCLINIC",
 "location": "Saginaw, MI",
 "platform": "modmed",
 "fhir_base_url": "https://mihealthclinic.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -39405,7 +39123,7 @@
 {
 "id": "modmed-milwaukee-avenue-eye-center",
 "name": "Milwaukee Avenue Eye Center",
-"location": "Hoffman Estates, IL",
+"location": "Niles, IL",
 "platform": "modmed",
 "fhir_base_url": "https://maec.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -39439,7 +39157,7 @@
 },
 {
 "id": "modmed-mini-john-od-pllc",
-"name": "Mini John Od PLLC",
+"name": "Mini John OD PLLC",
 "location": "Missouri City, TX",
 "platform": "modmed",
 "fhir_base_url": "https://minijohnodpllc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -39536,6 +39254,13 @@
 "fhir_base_url": "https://mishawakaorthopedics.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-miss-lou-eye-care",
+"name": "Miss Lou Eye Care",
+"location": "Vidalia, LA",
+"platform": "modmed",
+"fhir_base_url": "https://missloueyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-miss-lou-gi",
 "name": "Miss-Lou GI",
 "location": "Natchez, MS",
@@ -39576,13 +39301,6 @@
 "location": "Delray Beach, FL",
 "platform": "modmed",
 "fhir_base_url": "https://missionmedctr.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-mission-optical",
-"name": "Mission Optical",
-"location": "Homewood, IL",
-"platform": "modmed",
-"fhir_base_url": "https://missionoptical.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-mission-optometry",
@@ -39739,15 +39457,8 @@
 "fhir_base_url": "https://redactedmorrrowdata.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-mmbatchload",
-"name": "mmbatchload",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://mmbatchload.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-mo-013-c",
-"name": "Mo-013-C",
+"name": "MO-013-C",
 "location": "Independance, MO",
 "platform": "modmed",
 "fhir_base_url": "https://b879e18f-d26e-4132-bf73-2abebe75f6e7.gastro.prod.fhir.ema-api.com/fhir/r4/"
@@ -39955,9 +39666,16 @@
 "fhir_base_url": "https://modernurology.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-modern-vision-care",
+"name": "Modern Vision Care",
+"location": "Brooklyn, NY",
+"platform": "modmed",
+"fhir_base_url": "https://modernvisioncare.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-modern-vision-centers",
 "name": "Modern Vision Centers",
-"location": "West Des Moines, IA",
+"location": "Omaha, NE",
 "platform": "modmed",
 "fhir_base_url": "https://mvcenters.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -40107,13 +39825,6 @@
 "location": "Eatontown, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://7172c4df-48b9-42be-99a5-eab34ef0bd7e.gastro.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-monmouth-gastroenterology",
-"name": "Monmouth Gastroenterology",
-"location": "Oakhurst, NJ",
-"platform": "modmed",
-"fhir_base_url": "https://f38ac744-a7d6-40eb-90d2-d1fbc9f35944.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-monmouth-plastic-surgery-p-c",
@@ -40417,7 +40128,7 @@
 },
 {
 "id": "modmed-motsinger-advanced-eye-care-od-pllc",
-"name": "Motsinger Advanced Eye Care Od PLLC",
+"name": "Motsinger Advanced Eye Care OD PLLC",
 "location": "Burgaw, NC",
 "platform": "modmed",
 "fhir_base_url": "https://perrymotsingerod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -40584,7 +40295,7 @@
 },
 {
 "id": "modmed-movses-djanbatian-od-inc",
-"name": "Movses Djanbatian Od Inc",
+"name": "MOVSES DJANBATIAN OD INC",
 "location": "Glendale, CA",
 "platform": "modmed",
 "fhir_base_url": "https://movsesdjanbatianodinc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -40778,13 +40489,6 @@
 "fhir_base_url": "https://mydermtc.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-my-eye-dr-qa2",
-"name": "My Eye Dr QA2",
-"location": "Mine, AL",
-"platform": "modmed",
-"fhir_base_url": "https://myeyedr-qa2.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-my-eye-guy",
 "name": "My Eye Guy",
 "location": "Redlands, CA",
@@ -40848,17 +40552,13 @@
 "fhir_base_url": "https://myskin.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-my-vision-care-pllc",
-"name": "My Vision Care, PLLC",
-"location": "Test, NY",
-"platform": "modmed",
-"fhir_base_url": "https://my vision care, pllc.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-my-vision-care-pllc-2",
 "name": "My Vision Care, PLLC",
 "platform": "modmed",
-"fhir_base_url": "https://myvisioncareky.ef.prod.fhir.ema-api.com/fhir/r4/"
+"fhir_base_url": "https://myvisioncareky.ef.prod.fhir.ema-api.com/fhir/r4/",
+"former_ids": [
+"modmed-my-vision-care-pllc"
+]
 },
 {
 "id": "modmed-my-vision-centers",
@@ -40869,7 +40569,7 @@
 },
 {
 "id": "modmed-my-hanh-trieu-od",
-"name": "My-Hanh Trieu Od",
+"name": "My-Hanh Trieu OD",
 "location": "Arlington, VA",
 "platform": "modmed",
 "fhir_base_url": "https://trueeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -40887,13 +40587,6 @@
 "location": "Williston, VT",
 "platform": "modmed",
 "fhir_base_url": "https://myeyedr.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-myeyedr-encompass-staging",
-"name": "MyEyeDr Encompass Staging",
-"location": "Highlands Ranch, CO",
-"platform": "modmed",
-"fhir_base_url": "https://myeyedrencstg.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-myint-oculoplastics",
@@ -41050,13 +40743,6 @@
 "fhir_base_url": "https://nps.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-nashville-plastic-and-reconstructive-surgery-plc-2",
-"name": "Nashville Plastic and Reconstructive Surgery, PLC",
-"location": "wpb, FL",
-"platform": "modmed",
-"fhir_base_url": "https://npssandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-nashville-skin",
 "name": "Nashville Skin",
 "location": "Nashville, TN",
@@ -41079,7 +40765,7 @@
 },
 {
 "id": "modmed-nathan-c-stebbins-od",
-"name": "Nathan C Stebbins Od",
+"name": "Nathan C Stebbins OD",
 "location": "Punxsutawney, PA",
 "platform": "modmed",
 "fhir_base_url": "https://nathanstebbinsod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -41122,21 +40808,21 @@
 {
 "id": "modmed-national-spine-pain-centers-2",
 "name": "National Spine & Pain Centers",
-"location": "., NY",
+"location": "NY",
 "platform": "modmed",
 "fhir_base_url": "https://nspc.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-national-spine-pain-centers-3",
 "name": "National Spine & Pain Centers",
-"location": "., VA",
+"location": "VA",
 "platform": "modmed",
 "fhir_base_url": "https://spineandpain.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-national-spine-pain-centers-4",
 "name": "National Spine & Pain Centers",
-"location": "., FL",
+"location": "FL",
 "platform": "modmed",
 "fhir_base_url": "https://nationalspine.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -41295,28 +40981,28 @@
 },
 {
 "id": "modmed-neil-p-casey-od",
-"name": "Neil P Casey Od",
+"name": "Neil P Casey OD",
 "location": "Shrewsbury, MA",
 "platform": "modmed",
 "fhir_base_url": "https://neilpcaseyod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-neil-sika-od",
-"name": "Neil Sika Od",
+"name": "Neil Sika OD",
 "location": "Strongsville, OH",
 "platform": "modmed",
 "fhir_base_url": "https://neilsikaod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-neil-ward-od",
-"name": "Neil Ward Od",
+"name": "Neil Ward OD",
 "location": "Robbins, NC",
 "platform": "modmed",
 "fhir_base_url": "https://neilward-od.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-nelsa-chacon-losada-od",
-"name": "Nelsa Chacon Losada Od",
+"name": "Nelsa Chacon Losada OD",
 "location": "Orlando, FL",
 "platform": "modmed",
 "fhir_base_url": "https://losadavision.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -41344,7 +41030,7 @@
 },
 {
 "id": "modmed-neo",
-"name": "Neo",
+"name": "NEO",
 "location": "Rainbow City, AL",
 "platform": "modmed",
 "fhir_base_url": "https://sparksortho.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -41590,7 +41276,7 @@
 {
 "id": "modmed-new-river-dermatology",
 "name": "New River Dermatology",
-"location": "Roanoke, VA",
+"location": "Wytheville, VA",
 "platform": "modmed",
 "fhir_base_url": "https://newriverderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -41867,7 +41553,7 @@
 },
 {
 "id": "modmed-nicholas-rutkowski-od-and-associates",
-"name": "Nicholas Rutkowski Od and Associates",
+"name": "Nicholas Rutkowski OD and Associates",
 "location": "Bourbonnais, IL",
 "platform": "modmed",
 "fhir_base_url": "https://nicholasrutkowskiodandassociates.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -41923,7 +41609,7 @@
 },
 {
 "id": "modmed-nilah-nicole-bonham-od-pc",
-"name": "Nilah Nicole Bonham Od PC",
+"name": "Nilah Nicole Bonham OD PC",
 "location": "Brazil, IN",
 "platform": "modmed",
 "fhir_base_url": "https://eyecarespecialists.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -42028,7 +41714,7 @@
 },
 {
 "id": "modmed-nola-ent",
-"name": "Nola Ent",
+"name": "NOLA ENT",
 "location": "New Orleans, LA",
 "platform": "modmed",
 "fhir_base_url": "https://nolaent.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -42223,7 +41909,7 @@
 },
 {
 "id": "modmed-north-county-dermatology-center-a-professional-corporation",
-"name": "North County Dermatology Center  A Professional Corporation",
+"name": "North County Dermatology Center A Professional Corporation",
 "location": "Pasadena, CA",
 "platform": "modmed",
 "fhir_base_url": "https://northcountyderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -42838,7 +42524,7 @@
 {
 "id": "modmed-northwest-eyelid-and-orbital-specialists",
 "name": "Northwest Eyelid and Orbital Specialists",
-"location": "., FL",
+"location": "FL",
 "platform": "modmed",
 "fhir_base_url": "https://neos.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -42964,7 +42650,6 @@
 {
 "id": "modmed-nostrand-optical-inc",
 "name": "Nostrand Optical Inc.",
-"location": "Brooklyn, NY",
 "platform": "modmed",
 "fhir_base_url": "https://nostrandopticalinc.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -43138,7 +42823,7 @@
 },
 {
 "id": "modmed-o-meara-rosado-dpm-pllc",
-"name": "O'meara Rosado, DPM PLLC",
+"name": "O'Meara Rosado, DPM PLLC",
 "location": "Lake Katrine, NY",
 "platform": "modmed",
 "fhir_base_url": "https://epfootandankle.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -43285,7 +42970,7 @@
 },
 {
 "id": "modmed-oanh-hoang-od-llc",
-"name": "Oanh Hoang Od LLC",
+"name": "Oanh Hoang OD LLC",
 "location": "Royal Palm Beach, FL",
 "platform": "modmed",
 "fhir_base_url": "https://oanhhoangod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -43459,7 +43144,7 @@
 },
 {
 "id": "modmed-oconnor-od-optometry-corp",
-"name": "Oconnor Od Optometry Corp",
+"name": "Oconnor OD Optometry Corp",
 "location": "Malibu, CA",
 "platform": "modmed",
 "fhir_base_url": "https://malibueye.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -43533,13 +43218,6 @@
 "location": "Sarasota, FL",
 "platform": "modmed",
 "fhir_base_url": "https://dermatologyexperts.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-oglethorpe-ear-nose-throat",
-"name": "Oglethorpe Ear Nose & Throat",
-"location": "Lexington, GA",
-"platform": "modmed",
-"fhir_base_url": "https://oglethorpeent.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-ohara-aivaz-md-a-professional-corporation",
@@ -43837,6 +43515,7 @@
 {
 "id": "modmed-ophthalmic-associates-of-fort-washington-pc",
 "name": "Ophthalmic Associates of Fort Washington PC",
+"location": "Fort Washington, PA",
 "platform": "modmed",
 "fhir_base_url": "https://ophthalmicassociatesoffortwashingtonpc.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -43942,27 +43621,6 @@
 "location": "Hatboro, PA",
 "platform": "modmed",
 "fhir_base_url": "https://eyeops.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-ophthpod01",
-"name": "OphthPod01",
-"location": "boynton beach, AK",
-"platform": "modmed",
-"fhir_base_url": "https://pod01ophth.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-ophthpod03",
-"name": "ophthpod03",
-"location": "boca raton blvd, FL",
-"platform": "modmed",
-"fhir_base_url": "https://ophthpod03.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-ophthpod1",
-"name": "ophthpod1",
-"location": "boca raton blvd, FL",
-"platform": "modmed",
-"fhir_base_url": "https://ophthpod01.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-optic-gallery-arroyo-llc",
@@ -44151,7 +43809,7 @@
 },
 {
 "id": "modmed-optimeyes-llc",
-"name": "Optimeyes LLC",
+"name": "OPTIMEYES LLC",
 "location": "Ashburn, VA",
 "platform": "modmed",
 "fhir_base_url": "https://optimeyesod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -44442,7 +44100,7 @@
 {
 "id": "modmed-orbic-eye-care",
 "name": "Orbic Eye Care",
-"location": "Evans , GA",
+"location": "Evans, GA",
 "platform": "modmed",
 "fhir_base_url": "https://orbiceyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -44553,8 +44211,8 @@
 },
 {
 "id": "modmed-ortho",
-"name": "ortho",
-"location": "boca, DC",
+"name": "Ortho",
+"location": "Boca, DC",
 "platform": "modmed",
 "fhir_base_url": "https://pod01ortho.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -44589,7 +44247,7 @@
 {
 "id": "modmed-orthoalabama-llc",
 "name": "OrthoAlabama, LLC",
-"location": "Birmingham, Al, AL",
+"location": "Birmingham, AL",
 "platform": "modmed",
 "fhir_base_url": "https://orthoalabama.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -44662,13 +44320,6 @@
 "location": "Jacksonville, FL",
 "platform": "modmed",
 "fhir_base_url": "https://orthoonejacksonville.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-orthopaedic-trauma-specialists",
-"name": "Orthopaedic & Trauma Specialists",
-"location": "San Diego, CA",
-"platform": "modmed",
-"fhir_base_url": "https://otfssd.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-orthopaedic-and-rehabilitation-centers-s-c",
@@ -44770,7 +44421,7 @@
 },
 {
 "id": "modmed-orthopedic-sportsmedicine-clinic-of-fairbanks-llc",
-"name": "Orthopedic & Sportsmedicine Clinic of Fairbanks, LLC:",
+"name": "Orthopedic & Sportsmedicine Clinic of Fairbanks, LLC",
 "location": "Fairbanks, AK",
 "platform": "modmed",
 "fhir_base_url": "https://oscf.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -44855,7 +44506,7 @@
 {
 "id": "modmed-orthopedic-surgeons-inc",
 "name": "Orthopedic Surgeons, Inc.",
-"location": " North Kansas City, MO",
+"location": "North Kansas City, MO",
 "platform": "modmed",
 "fhir_base_url": "https://osikc.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -44883,7 +44534,7 @@
 {
 "id": "modmed-orthosports-associates-llc",
 "name": "OrthoSports Associates, LLC",
-"location": "Nashville, TN",
+"location": "Birmingham, AL",
 "platform": "modmed",
 "fhir_base_url": "https://orthosports.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -44897,7 +44548,7 @@
 {
 "id": "modmed-oscar-sotelo-m-d-p-a",
 "name": "Oscar Sotelo, M.D., P.A.",
-"location": "Mcallen, TX",
+"location": "McAllen, TX",
 "platform": "modmed",
 "fhir_base_url": "https://sotelodermatology.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -45244,7 +44895,7 @@
 },
 {
 "id": "modmed-pack-bianes-ods-inc",
-"name": "Pack & Bianes Ods Inc",
+"name": "PACK & BIANES ODS INC",
 "location": "Chula Vista, CA",
 "platform": "modmed",
 "fhir_base_url": "https://packandbianesvision.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -45307,7 +44958,7 @@
 {
 "id": "modmed-pain-management-associates-of-ct",
 "name": "Pain Management Associates of CT",
-"location": "stamford, CT",
+"location": "Stamford, CT",
 "platform": "modmed",
 "fhir_base_url": "https://regenmed.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -45522,14 +45173,14 @@
 },
 {
 "id": "modmed-pam-cam-llc",
-"name": "Pam Cam LLC",
+"name": "PAM CAM LLC",
 "location": "Brooklyn, NY",
 "platform": "modmed",
 "fhir_base_url": "https://pamcamllc.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-pamela-anderson-luke-od-pa",
-"name": "Pamela Anderson Luke Od PA",
+"name": "Pamela Anderson Luke OD PA",
 "location": "Murphy, NC",
 "platform": "modmed",
 "fhir_base_url": "https://drandersonod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -45550,7 +45201,7 @@
 },
 {
 "id": "modmed-pamela-l-puccinelli-od",
-"name": "Pamela L Puccinelli Od",
+"name": "Pamela L Puccinelli OD",
 "location": "Antioch, CA",
 "platform": "modmed",
 "fhir_base_url": "https://puccinellioptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -45990,7 +45641,7 @@
 },
 {
 "id": "modmed-patricia-vantosh-od",
-"name": "Patricia Vantosh Od",
+"name": "Patricia Vantosh OD",
 "location": "Duxbury, MA",
 "platform": "modmed",
 "fhir_base_url": "https://patriciavantosod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -46025,7 +45676,7 @@
 },
 {
 "id": "modmed-paul-d-simmons-od-inc",
-"name": "Paul D Simmons Od Inc",
+"name": "Paul D Simmons OD Inc",
 "location": "Strongsville, OH",
 "platform": "modmed",
 "fhir_base_url": "https://paulsimmonsod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -46060,7 +45711,7 @@
 },
 {
 "id": "modmed-paul-k-albert-od",
-"name": "Paul K Albert Od",
+"name": "Paul K Albert OD",
 "location": "Ellsworth, ME",
 "platform": "modmed",
 "fhir_base_url": "https://paulkalbert.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -46095,7 +45746,7 @@
 },
 {
 "id": "modmed-paul-r-perron-od",
-"name": "Paul R Perron Od",
+"name": "Paul R Perron OD",
 "location": "Roseville, CA",
 "platform": "modmed",
 "fhir_base_url": "https://paulrperronod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -46109,7 +45760,7 @@
 },
 {
 "id": "modmed-paul-s-johnson-od-pc",
-"name": "Paul S Johnson Od PC",
+"name": "Paul S Johnson OD PC",
 "location": "Henderson, NV",
 "platform": "modmed",
 "fhir_base_url": "https://pauljohnsonod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -46130,7 +45781,7 @@
 },
 {
 "id": "modmed-paul-wagner-od-plc",
-"name": "Paul Wagner Od PLC",
+"name": "Paul Wagner OD PLC",
 "location": "Chandler, AZ",
 "platform": "modmed",
 "fhir_base_url": "https://paulwagnerod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -46161,13 +45812,6 @@
 "location": "West Palm Beach, FL",
 "platform": "modmed",
 "fhir_base_url": "https://pbderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pbdtest3-dermatology",
-"name": "Pbdtest3 Dermatology",
-"location": "Boynton Beach, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pbdtest.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-pdp-of-arizona",
@@ -46312,7 +45956,7 @@
 {
 "id": "modmed-pediatric-ear-nose-throat-specialists",
 "name": "Pediatric Ear, Nose & Throat Specialists",
-"location": " Saint Petersburg, FL",
+"location": "Saint Petersburg, FL",
 "platform": "modmed",
 "fhir_base_url": "https://pediatric-ent.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -46466,7 +46110,7 @@
 {
 "id": "modmed-pensacola-vision-center",
 "name": "Pensacola Vision Center",
-"location": "Pensacola , FL",
+"location": "Pensacola, FL",
 "platform": "modmed",
 "fhir_base_url": "https://pensacolavisioncenter.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -46562,7 +46206,7 @@
 },
 {
 "id": "modmed-permian-basin-eyecare",
-"name": "Permian Basin Eyecare-",
+"name": "Permian Basin Eyecare",
 "location": "Odessa, TX",
 "platform": "modmed",
 "fhir_base_url": "https://permianbasineyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -46779,7 +46423,7 @@
 },
 {
 "id": "modmed-phillip-gray-od",
-"name": "Phillip Gray Od",
+"name": "Phillip Gray OD",
 "location": "Iuka, MS",
 "platform": "modmed",
 "fhir_base_url": "https://phillipgrayod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -47093,13 +46737,6 @@
 "fhir_base_url": "https://pinnaclemd.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-pinnacle-plastic-surgery-associates-llc",
-"name": "Pinnacle Plastic Surgery Associates LLC",
-"location": "Bluffton, SC",
-"platform": "modmed",
-"fhir_base_url": "https://pinnaclesandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-pinnacle-retina-pllc",
 "name": "Pinnacle Retina, PLLC",
 "location": "Greensboro, NC",
@@ -47226,13 +46863,6 @@
 "fhir_base_url": "https://psaofsd.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-plastic-surgery-associates-of-valdosta",
-"name": "Plastic Surgery Associates Of Valdosta",
-"location": "Valdosta, GA",
-"platform": "modmed",
-"fhir_base_url": "https://merrimansandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-plastic-surgery-center-of-hampton-roads",
 "name": "Plastic Surgery Center of Hampton Roads",
 "location": "Newport News, VA",
@@ -47287,13 +46917,6 @@
 "location": "Newport Beach, CA",
 "platform": "modmed",
 "fhir_base_url": "https://plasticsmd.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-plasticstest",
-"name": "plasticstest",
-"location": "Florida, FL",
-"platform": "modmed",
-"fhir_base_url": "https://plasticstest.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-platinum-digestive-health",
@@ -47401,7 +47024,7 @@
 },
 {
 "id": "modmed-pmcertification",
-"name": "Pmcertification",
+"name": "PMCERTIFICATION",
 "location": "Boca, FL",
 "platform": "modmed",
 "fhir_base_url": "https://ef738b1a-0547-4359-aa1e-19ebfba173f3.gastro.prod.fhir.ema-api.com/fhir/r4/"
@@ -47412,517 +47035,6 @@
 "location": "Hamilton, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://pobletederm.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod-10-admin",
-"name": "pod 10 admin",
-"location": "boca raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod10admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod-10-firm",
-"name": "pod 10 firm",
-"location": "boca raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod10test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod-11-admin",
-"name": "Pod 11 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod11admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod-13-admin",
-"name": "POD 13 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod13admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod-51-admin",
-"name": "Pod 51 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod51admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod01-admin",
-"name": "POD01 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod01admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod01qa",
-"name": "pod01QA",
-"location": "Boca roaton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod01prod.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod02",
-"name": "Pod02",
-"location": "Chicago, IL",
-"platform": "modmed",
-"fhir_base_url": "https://pod02test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod02-admin",
-"name": "POD02 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod02admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod02ophth1",
-"name": "Pod02Ophth1",
-"location": "Boca Raton Blvd, KS",
-"platform": "modmed",
-"fhir_base_url": "https://pod02ophth01.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod03-admin",
-"name": "POD03 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod03admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod03test",
-"name": "pod03test",
-"location": "Bocaraton Blvd, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod03test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod04-admin",
-"name": "POD04 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod04admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod04ophth",
-"name": "pod04ophth",
-"location": "bocaraton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod04ophth.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod04test",
-"name": "pod04test",
-"location": "Bocaraton Blvd, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod04test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod05",
-"name": "Pod05",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod05test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod05-admin",
-"name": "POD05 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod05admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod06-admin",
-"name": "POD06 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod06admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod07-admin",
-"name": "POD07 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod07admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod08-admin",
-"name": "POD08 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod08admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod08test",
-"name": "pod08test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod08test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod09-admin",
-"name": "POD09 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod09admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod11test",
-"name": "pod11test",
-"location": "boca raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod11test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod12admin",
-"name": "pod12admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod12admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod12test",
-"name": "pod12test",
-"location": "Miami, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod12test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod13test",
-"name": "pod13test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod13test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod14admin",
-"name": "pod14admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod14admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod14test",
-"name": "pod14test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod14test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod15admin",
-"name": "pod15admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod15admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod15test",
-"name": "pod15test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod15test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod16-admin",
-"name": "Pod16 Admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod16admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod16test",
-"name": "Pod16test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod16test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod17admin",
-"name": "pod17admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod17admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod17test",
-"name": "pod17test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod17test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod18admin",
-"name": "pod18admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod18admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod18test",
-"name": "pod18test",
-"location": "Baltimore, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod18test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod19admin",
-"name": "pod19admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod19admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod19test",
-"name": "pod19test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod19test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod20admin",
-"name": "pod20admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod20admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod20test",
-"name": "pod20test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod20test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod21admin",
-"name": "pod21admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod21admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod21test",
-"name": "pod21test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod21test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod22admin",
-"name": "pod22admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod22admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod22test",
-"name": "pod22test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod22test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod23admin",
-"name": "pod23admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod23admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod23test",
-"name": "pod23test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod23test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod25admin",
-"name": "pod25admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod25admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod25test",
-"name": "POD25Test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod25test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod27admin",
-"name": "pod27admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod27admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod27test",
-"name": "pod27test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod27test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod29admin",
-"name": "Pod29Admin",
-"location": "., FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod29admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod29test",
-"name": "Pod29Test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod29test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod31admin",
-"name": "pod31admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod31admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod31test",
-"name": "pod31test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod31test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod33admin",
-"name": "pod33admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod33admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod33test",
-"name": "pod33test",
-"location": "Boynton Beach, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod33test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod35admin",
-"name": "pod35admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod35admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod35test",
-"name": "pod35test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod35test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod37admin",
-"name": "pod37admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod37admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod37test",
-"name": "pod37test",
-"location": "Miami, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod37test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod39admin",
-"name": "pod39admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod39admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod39test",
-"name": "pod39test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod39test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod41admin",
-"name": "pod41admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod41admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod41test",
-"name": "pod41test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod41test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod43admin",
-"name": "pod43admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod43admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod43test",
-"name": "pod43test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod43test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod45admin",
-"name": "pod45admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod45admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod45test",
-"name": "pod45test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod45test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod47admin",
-"name": "pod47admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod47admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod47test",
-"name": "pod47test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod47test.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod47test01",
-"name": "pod47test01",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https:// pod47test01.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod49admin",
-"name": "pod49admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod49admin.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-pod49test",
-"name": "pod49test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://pod49test.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-podiatry-sports-medicine-associates-p-c",
@@ -48875,7 +47987,7 @@
 },
 {
 "id": "modmed-primary-vision-care-i-llc",
-"name": "Primary Vision Care I , LLC",
+"name": "Primary Vision Care I, LLC",
 "location": "Bronx, NY",
 "platform": "modmed",
 "fhir_base_url": "https://primaryvisioncareillc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -49004,13 +48116,6 @@
 "location": "Union, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://prismvisiongroup.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-prithiviraj-dharmaraja-md-inactive",
-"name": "Prithiviraj Dharmaraja, MD Inactive",
-"location": "Palmdale, CA",
-"platform": "modmed",
-"fhir_base_url": "https://4d17465b-8973-44b0-bbfb-fedb844d00d5.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-priyanka-jain-md",
@@ -49215,7 +48320,7 @@
 },
 {
 "id": "modmed-prooptical-drs-kublin-and-jost",
-"name": "Prooptical DRS Kublin and Jost",
+"name": "PROOPTICAL DRS KUBLIN AND JOST",
 "location": "Boston, MA",
 "platform": "modmed",
 "fhir_base_url": "https://proopticalboston.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -49278,7 +48383,7 @@
 {
 "id": "modmed-puckett-family-eye-care",
 "name": "Puckett Family Eye Care",
-"location": "winchester, KY",
+"location": "Winchester, KY",
 "platform": "modmed",
 "fhir_base_url": "https://puckettfamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -49450,12 +48555,6 @@
 "fhir_base_url": "https://pycraftfamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-qaproduction",
-"name": "qaproduction",
-"platform": "modmed",
-"fhir_base_url": "https://qaproduction.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-quail-creek-ear-nose-throat-center-llp",
 "name": "Quail Creek Ear, Nose & Throat Center, LLP",
 "location": "Amarillo, TX",
@@ -49555,7 +48654,7 @@
 },
 {
 "id": "modmed-r-daniel-de-jarnatt-od",
-"name": "R Daniel De Jarnatt Od",
+"name": "R Daniel de Jarnatt OD",
 "location": "Fayetteville, TN",
 "platform": "modmed",
 "fhir_base_url": "https://danieldejarnatt.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -49583,7 +48682,7 @@
 },
 {
 "id": "modmed-rachel-v-mortenson-od-pc",
-"name": "Rachel V Mortenson Od PC",
+"name": "Rachel V Mortenson OD PC",
 "platform": "modmed",
 "fhir_base_url": "https://rachelmortensonod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -49778,7 +48877,7 @@
 },
 {
 "id": "modmed-ranan-b-stimpson-od",
-"name": "Ranan B Stimpson Od",
+"name": "RANAN B STIMPSON OD",
 "location": "Marietta, GA",
 "platform": "modmed",
 "fhir_base_url": "https://drrananstimpson.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -49799,7 +48898,7 @@
 },
 {
 "id": "modmed-randal-r-holloway-od",
-"name": "Randal R Holloway Od",
+"name": "Randal R Holloway OD",
 "location": "Fort Scott, KS",
 "platform": "modmed",
 "fhir_base_url": "https://randalrhollowayod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -49827,8 +48926,8 @@
 },
 {
 "id": "modmed-randall-t-lum-od",
-"name": "Randall T Lum Od",
-"location": "South San Francisco, CA",
+"name": "Randall T Lum OD",
+"location": "Daly City, CA",
 "platform": "modmed",
 "fhir_base_url": "https://lumoptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -49953,7 +49052,7 @@
 },
 {
 "id": "modmed-raymond-n-umeda-od",
-"name": "Raymond N Umeda Od",
+"name": "Raymond N Umeda OD",
 "location": "Campbell, CA",
 "platform": "modmed",
 "fhir_base_url": "https://raymondumedaod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -50036,7 +49135,7 @@
 },
 {
 "id": "modmed-rebecca-sims-od",
-"name": "Rebecca Sims Od",
+"name": "Rebecca Sims OD",
 "platform": "modmed",
 "fhir_base_url": "https://rebeccasimsod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -50490,7 +49589,7 @@
 },
 {
 "id": "modmed-renny-s-sardella-od",
-"name": "Renny S Sardella Od",
+"name": "RENNY S SARDELLA OD",
 "location": "Coatesville, PA",
 "platform": "modmed",
 "fhir_base_url": "https://rennyssardellaod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -50925,7 +50024,7 @@
 {
 "id": "modmed-rhinebeck-podiatry-services",
 "name": "Rhinebeck Podiatry Services",
-"location": "Red Hook, NY",
+"location": "Rhinebeck, NY",
 "platform": "modmed",
 "fhir_base_url": "https://rhinebeckpodiatry.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -51008,7 +50107,7 @@
 },
 {
 "id": "modmed-richard-a-griffin-od-associates-llc",
-"name": "Richard A Griffin OD & Associates  LLC",
+"name": "Richard A Griffin OD & Associates LLC",
 "location": "Gainesville, FL",
 "platform": "modmed",
 "fhir_base_url": "https://pearlevisiongainesville.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -51050,7 +50149,7 @@
 },
 {
 "id": "modmed-richard-j-colo-od",
-"name": "Richard J Colo Od",
+"name": "Richard J Colo OD",
 "location": "Suffield, CT",
 "platform": "modmed",
 "fhir_base_url": "https://suffieldeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -51099,7 +50198,7 @@
 },
 {
 "id": "modmed-richard-n-v-phung-od",
-"name": "Richard N V Phung Od",
+"name": "Richard N V Phung OD",
 "location": "San Diego, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drrichardphung.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -51113,7 +50212,7 @@
 },
 {
 "id": "modmed-richard-s-brenner-od",
-"name": "Richard S Brenner Od",
+"name": "Richard S Brenner OD",
 "location": "Broomall, PA",
 "platform": "modmed",
 "fhir_base_url": "https://richardbrennerod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -51148,14 +50247,14 @@
 },
 {
 "id": "modmed-richard-w-parkinson",
-"name": "Richard W. Parkinson",
+"name": "Richard w. Parkinson",
 "location": "Provo, UT",
 "platform": "modmed",
 "fhir_base_url": "https://riverwoodsderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-richard-w-swails-dpm-pc",
-"name": "Richard W. Swails, DPM, PC",
+"name": "Richard w. Swails, DPM, PC",
 "location": "McKinney, TX",
 "platform": "modmed",
 "fhir_base_url": "https://mckinneyfc.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -51552,18 +50651,14 @@
 "fhir_base_url": "https://robertemitchellmd.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-robert-f-hoofnagle-md",
-"name": "Robert F Hoofnagle, MD",
-"location": "Bel Air, MD",
-"platform": "modmed",
-"fhir_base_url": "https://rhoofnaglesandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-robert-f-hoofnagle-md-2",
 "name": "Robert F Hoofnagle, MD",
 "location": "Bel Air, MD",
 "platform": "modmed",
-"fhir_base_url": "https://rhoofnagle.mmi.prod.fhir.ema-api.com/fhir/r4/"
+"fhir_base_url": "https://rhoofnagle.mmi.prod.fhir.ema-api.com/fhir/r4/",
+"former_ids": [
+"modmed-robert-f-hoofnagle-md"
+]
 },
 {
 "id": "modmed-robert-f-wong-md-llc",
@@ -51637,14 +50732,14 @@
 },
 {
 "id": "modmed-robert-j-bolduc-jr-od",
-"name": "Robert J Bolduc Jr Od",
+"name": "Robert J Bolduc Jr OD",
 "location": "Biddeford, ME",
 "platform": "modmed",
 "fhir_base_url": "https://oasouthernmaine.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-robert-j-joyce-od-apc",
-"name": "Robert J Joyce Od Apc",
+"name": "Robert J Joyce OD Apc",
 "location": "Lake Elsinore, CA",
 "platform": "modmed",
 "fhir_base_url": "https://rjjoyceod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -51658,7 +50753,7 @@
 },
 {
 "id": "modmed-robert-j-moeser-od",
-"name": "Robert J Moeser Od",
+"name": "Robert J Moeser OD",
 "platform": "modmed",
 "fhir_base_url": "https://tustinopt.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -51671,7 +50766,7 @@
 },
 {
 "id": "modmed-robert-kennedy-od",
-"name": "Robert Kennedy Od",
+"name": "Robert Kennedy OD",
 "location": "Belleville, MI",
 "platform": "modmed",
 "fhir_base_url": "https://perspectiveeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -51740,7 +50835,7 @@
 },
 {
 "id": "modmed-robert-r-palozej-od-llc",
-"name": "Robert R Palozej Od LLC",
+"name": "Robert R Palozej OD LLC",
 "location": "Ellington, CT",
 "platform": "modmed",
 "fhir_base_url": "https://robertpalozejodllc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -51956,7 +51051,7 @@
 },
 {
 "id": "modmed-roger-l-wu-od",
-"name": "Roger L Wu Od",
+"name": "Roger L Wu OD",
 "location": "West Covina, CA",
 "platform": "modmed",
 "fhir_base_url": "https://rogerlwuod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -52039,7 +51134,7 @@
 },
 {
 "id": "modmed-ronald-e-dachelet-od",
-"name": "Ronald E Dachelet Od",
+"name": "Ronald E Dachelet OD",
 "location": "Anniston, AL",
 "platform": "modmed",
 "fhir_base_url": "https://annistoneyeclinic.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -52073,7 +51168,7 @@
 },
 {
 "id": "modmed-ronald-n-hiura-od",
-"name": "Ronald N Hiura Od",
+"name": "Ronald N Hiura OD",
 "location": "San Francisco, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drhiura.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -52087,14 +51182,14 @@
 },
 {
 "id": "modmed-ronald-pierce-od",
-"name": "Ronald Pierce Od",
+"name": "Ronald Pierce OD",
 "location": "Valrico, FL",
 "platform": "modmed",
 "fhir_base_url": "https://ronaldpierce.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-ronald-reynolds-od",
-"name": "Ronald Reynolds Od",
+"name": "Ronald Reynolds OD",
 "location": "Mililani, HI",
 "platform": "modmed",
 "fhir_base_url": "https://visionsource-drreynolds.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -52135,7 +51230,7 @@
 },
 {
 "id": "modmed-rose-dermatology-laser-center-llc",
-"name": "Rose Dermatology & Laser Center  LLC",
+"name": "Rose Dermatology & Laser Center LLC",
 "location": "Newport Beach, CA",
 "platform": "modmed",
 "fhir_base_url": "https://rosedermoc.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -52236,13 +51331,6 @@
 "location": "Atlantis, FL",
 "platform": "modmed",
 "fhir_base_url": "https://drstone.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-ross-hogan-md",
-"name": "Ross Hogan MD",
-"location": "Covington?, LA",
-"platform": "modmed",
-"fhir_base_url": "https://hogansandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-roth-vision-care-doctor-of-optometry-pll",
@@ -52399,7 +51487,7 @@
 },
 {
 "id": "modmed-ruth-e-bonander-od",
-"name": "Ruth E Bonander Od",
+"name": "Ruth E Bonander OD",
 "location": "Lake Katrine, NY",
 "platform": "modmed",
 "fhir_base_url": "https://drruthbonander.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -52448,14 +51536,14 @@
 },
 {
 "id": "modmed-s-david-babington-od",
-"name": "S David Babington Od",
+"name": "S David Babington OD",
 "location": "Albuquerque, NM",
 "platform": "modmed",
 "fhir_base_url": "https://drbabington.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-s-w-hora-iii-od",
-"name": "S W Hora III Od",
+"name": "S W HORA III OD",
 "location": "Collierville, TN",
 "platform": "modmed",
 "fhir_base_url": "https://swhoraod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -52663,13 +51751,6 @@
 "fhir_base_url": "https://saltereyecenter.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-salvatore-senzatimore-jr-md-pa",
-"name": "Salvatore Senzatimore JR MD PA",
-"location": "west palm beach, FL",
-"platform": "modmed",
-"fhir_base_url": "https://cgesandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-salzano-eye-center",
 "name": "Salzano Eye Center",
 "location": "Caldwell, NJ",
@@ -52720,7 +51801,7 @@
 },
 {
 "id": "modmed-samuel-s-chia-od",
-"name": "Samuel S Chia Od",
+"name": "Samuel S Chia OD",
 "location": "Vallejo, CA",
 "platform": "modmed",
 "fhir_base_url": "https://chiaods.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -52894,7 +51975,7 @@
 },
 {
 "id": "modmed-sandhills-eye-care-od-pa",
-"name": "Sandhills Eye Care Od PA",
+"name": "Sandhills Eye Care OD PA",
 "location": "Fayetteville, NC",
 "platform": "modmed",
 "fhir_base_url": "https://sandhillseyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -52915,7 +51996,7 @@
 },
 {
 "id": "modmed-sandra-c-kellett-od-faao-pc",
-"name": "Sandra C Kellett Od Faao PC",
+"name": "Sandra C Kellett OD Faao PC",
 "location": "Jefferson Valley, NY",
 "platform": "modmed",
 "fhir_base_url": "https://sandrackellettodfaaopc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -53067,14 +52148,14 @@
 },
 {
 "id": "modmed-sarah-bruno-od-pc",
-"name": "Sarah Bruno Od PC",
+"name": "Sarah Bruno OD PC",
 "location": "Glen Mills, PA",
 "platform": "modmed",
 "fhir_base_url": "https://brunovision.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-sarah-h-appel-od",
-"name": "Sarah H Appel Od",
+"name": "Sarah H Appel OD",
 "location": "Mt. Vernon, IN",
 "platform": "modmed",
 "fhir_base_url": "https://sarahappelod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -53088,7 +52169,7 @@
 },
 {
 "id": "modmed-sarah-p-brannon-od-pc",
-"name": "Sarah P Brannon Od PC",
+"name": "Sarah P Brannon OD PC",
 "platform": "modmed",
 "fhir_base_url": "https://chancelloreyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -53142,13 +52223,6 @@
 "fhir_base_url": "https://drsasaki.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-satya-sarasota-dermatology",
-"name": "Satya Sarasota Dermatology",
-"location": "Sarasota, FL",
-"platform": "modmed",
-"fhir_base_url": "https://satyaderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-sauer-plastic-surgery-pc-dba-birmingham-hand-plastic-surgery",
 "name": "Sauer Plastic Surgery PC dba Birmingham Hand & Plastic Surgery",
 "location": "Birmingham, AL",
@@ -53164,7 +52238,7 @@
 },
 {
 "id": "modmed-saunders-eye-care-ltd",
-"name": "Saunders Eye Care LTD",
+"name": "Saunders Eye Care Ltd",
 "location": "Rancho Cordova, CA",
 "platform": "modmed",
 "fhir_base_url": "https://saunderseyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -53199,7 +52273,7 @@
 },
 {
 "id": "modmed-savoc",
-"name": "Savoc",
+"name": "SAVOC",
 "location": "Greece, NY",
 "platform": "modmed",
 "fhir_base_url": "https://savoc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -53358,13 +52432,6 @@
 "fhir_base_url": "https://schweigerderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-schweiger-dermatology-group",
-"name": "Schweiger Dermatology Group",
-"location": "Long Island, NY",
-"platform": "modmed",
-"fhir_base_url": "https://testapi-sdg.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-schwein-foot-and-ankle-clinic",
 "name": "Schwein Foot and Ankle Clinic",
 "location": "Mansfield, OH",
@@ -53372,16 +52439,9 @@
 "fhir_base_url": "https://sfac.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-scot-r-mckenna-md-facs",
-"name": "Scot R McKenna, MD, FACS",
-"location": "Scranton, PA",
-"platform": "modmed",
-"fhir_base_url": "https://mckennasandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-scot-r-mckenna-md-facs-2",
 "name": "Scot R McKenna, MD, FACS",
-"location": "S. Abington Twp., PA",
+"location": "S. Abington Twp, PA",
 "platform": "modmed",
 "fhir_base_url": "https://mckenna.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -53408,7 +52468,7 @@
 },
 {
 "id": "modmed-scott-eyecare-ltd",
-"name": "Scott Eyecare LTD",
+"name": "Scott Eyecare Ltd",
 "location": "Oswego, IL",
 "platform": "modmed",
 "fhir_base_url": "https://scotteyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -53654,7 +52714,7 @@
 {
 "id": "modmed-seeberger-dermatology",
 "name": "Seeberger Dermatology",
-"location": "Alamagordo, NM",
+"location": "Alamogordo, NM",
 "platform": "modmed",
 "fhir_base_url": "https://dermhappy.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -53694,7 +52754,7 @@
 },
 {
 "id": "modmed-seesharp",
-"name": "Seesharp",
+"name": "SEESHARP",
 "location": "Philadelphia, PA",
 "platform": "modmed",
 "fhir_base_url": "https://seesharp.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -53965,21 +53025,21 @@
 },
 {
 "id": "modmed-shandor-zelenger-od-pc",
-"name": "Shandor Zelenger Od PC",
+"name": "SHANDOR ZELENGER OD PC",
 "location": "New York, NY",
 "platform": "modmed",
 "fhir_base_url": "https://shandorzelengerod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-shane-m-galan-od-pc",
-"name": "Shane M Galan Od PC",
+"name": "Shane M Galan OD PC",
 "location": "Rockville Centre, NY",
 "platform": "modmed",
 "fhir_base_url": "https://drshanegalan.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-shannon-r-chandler-od",
-"name": "Shannon R Chandler Od",
+"name": "Shannon R Chandler OD",
 "location": "Las Vegas, NV",
 "platform": "modmed",
 "fhir_base_url": "https://shannonchandlerod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -54083,14 +53143,14 @@
 },
 {
 "id": "modmed-shaw-yorizane-jr-od",
-"name": "Shaw Yorizane Jr Od",
+"name": "Shaw Yorizane Jr OD",
 "location": "Fresno, CA",
 "platform": "modmed",
 "fhir_base_url": "https://shawyorizanejrod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-shawn-m-mcdonald-od",
-"name": "Shawn M Mcdonald Od",
+"name": "Shawn M Mcdonald OD",
 "location": "Placerville, CA",
 "platform": "modmed",
 "fhir_base_url": "https://shawnmcdonaldod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -54160,7 +53220,7 @@
 },
 {
 "id": "modmed-shelley-w-williams-od-pc",
-"name": "Shelley W Williams Od PC",
+"name": "Shelley w Williams OD PC",
 "location": "Columbia, MO",
 "platform": "modmed",
 "fhir_base_url": "https://myeyedentityeyewear.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -54216,7 +53276,7 @@
 },
 {
 "id": "modmed-sherl-moore-od-pllc",
-"name": "Sherl Moore Od PLLC",
+"name": "Sherl Moore OD PLLC",
 "location": "Vinita, OK",
 "platform": "modmed",
 "fhir_base_url": "https://sherlmooreodpllc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -54516,7 +53576,7 @@
 },
 {
 "id": "modmed-silvia-pelini-od-pc",
-"name": "Silvia Pelini Od PC",
+"name": "Silvia Pelini OD PC",
 "platform": "modmed",
 "fhir_base_url": "https://pelinieyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -55405,6 +54465,20 @@
 "fhir_base_url": "https://sonivision.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-sonie-family-eyecare",
+"name": "Sonie Family Eyecare",
+"location": "Mansfield, TX",
+"platform": "modmed",
+"fhir_base_url": "https://sonieeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
+"id": "modmed-sonie-family-eyecare-2",
+"name": "Sonie Family Eyecare",
+"location": "Mansfield, TX",
+"platform": "modmed",
+"fhir_base_url": "https://soniefamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-sonoma-dermatology",
 "name": "Sonoma Dermatology",
 "location": "Sonoma, CA",
@@ -55867,7 +54941,7 @@
 },
 {
 "id": "modmed-southampton-optiks-ltd",
-"name": "Southampton Optiks LTD",
+"name": "Southampton Optiks Ltd",
 "location": "Southampton, NY",
 "platform": "modmed",
 "fhir_base_url": "https://southamptonoptiksltd.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -56063,8 +55137,8 @@
 },
 {
 "id": "modmed-southern-gastroenterology-hepatogy-consultants",
-"name": "southern gastroenterology & hepatogy consultants",
-"location": "douglas, GA",
+"name": "Southern Gastroenterology & Hepatogy Consultants",
+"location": "Douglas, GA",
 "platform": "modmed",
 "fhir_base_url": "https://9db611cd-0829-4ba0-94a7-4899f66dc62e.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -56378,7 +55452,7 @@
 },
 {
 "id": "modmed-southwestern-eye-care-ltd",
-"name": "Southwestern Eye Care LTD",
+"name": "Southwestern Eye Care Ltd",
 "location": "Brighton, IL",
 "platform": "modmed",
 "fhir_base_url": "https://southwesterneyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -56733,6 +55807,13 @@
 "fhir_base_url": "https://bf309c36-3f75-40b3-9e93-b5d9bde50285.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-sports-medicine-orthopaedic-centers-llc",
+"name": "Sports Medicine & Orthopaedic Centers, LLC",
+"location": "Mount Pleasant, SC",
+"platform": "modmed",
+"fhir_base_url": "https://smoc.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-sports-medicine-associates-of-san-antonio",
 "name": "Sports Medicine Associates of San Antonio",
 "location": "Laredo, TX",
@@ -57007,7 +56088,6 @@
 {
 "id": "modmed-standard-optical-company",
 "name": "Standard Optical Company",
-"location": "Cheektowaga, NY",
 "platform": "modmed",
 "fhir_base_url": "https://standardoptical.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -57049,7 +56129,7 @@
 {
 "id": "modmed-star-retina",
 "name": "Star Retina",
-"location": "Forth Worth, TX",
+"location": "Fort Worth, TX",
 "platform": "modmed",
 "fhir_base_url": "https://starretina.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -57076,7 +56156,7 @@
 },
 {
 "id": "modmed-starla-k-meigs-od",
-"name": "Starla K Meigs Od",
+"name": "STARLA K MEIGS OD",
 "location": "Smithville, TN",
 "platform": "modmed",
 "fhir_base_url": "https://starlakmeigsod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -57174,7 +56254,7 @@
 },
 {
 "id": "modmed-stephanie-l-wolman-od-pc",
-"name": "Stephanie L Wolman Od PC",
+"name": "Stephanie L Wolman OD PC",
 "location": "Harrison, NY",
 "platform": "modmed",
 "fhir_base_url": "https://wolmanvisionandtherapycenter.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -57230,7 +56310,7 @@
 },
 {
 "id": "modmed-stephen-m-kelly-od",
-"name": "Stephen M Kelly Od",
+"name": "Stephen M Kelly OD",
 "location": "Test, NY",
 "platform": "modmed",
 "fhir_base_url": "https://stephenkellyod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -57258,7 +56338,7 @@
 },
 {
 "id": "modmed-stephen-rothbloom-od-llc",
-"name": "Stephen Rothbloom Od LLC",
+"name": "Stephen Rothbloom OD LLC",
 "location": "Smyrna, GA",
 "platform": "modmed",
 "fhir_base_url": "https://stephenrothbloom.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -57314,7 +56394,7 @@
 },
 {
 "id": "modmed-steve-randle-od",
-"name": "Steve Randle Od",
+"name": "Steve Randle OD",
 "location": "Amory, MS",
 "platform": "modmed",
 "fhir_base_url": "https://drsteverandle.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -57328,7 +56408,7 @@
 },
 {
 "id": "modmed-steven-a-voci-od-pc",
-"name": "Steven A Voci Od PC",
+"name": "Steven A Voci OD PC",
 "location": "Charlevoix, MI",
 "platform": "modmed",
 "fhir_base_url": "https://goseedrvoci.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -57398,7 +56478,7 @@
 },
 {
 "id": "modmed-steven-k-kajita-od",
-"name": "Steven K Kajita Od",
+"name": "Steven K Kajita OD",
 "platform": "modmed",
 "fhir_base_url": "https://stevenkkajita.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -57570,13 +56650,6 @@
 "fhir_base_url": "https://sfmg.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-strong-vision-care-pc",
-"name": "Strong Vision Care PC",
-"location": "Azle, TX",
-"platform": "modmed",
-"fhir_base_url": "https://strongvisioncare.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-strother-dermatology",
 "name": "Strother Dermatology",
 "location": "Kirkland, WA",
@@ -57599,7 +56672,7 @@
 },
 {
 "id": "modmed-styleyes",
-"name": "Styleyes",
+"name": "STYLEYES",
 "platform": "modmed",
 "fhir_base_url": "https://styleyesiowa.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -57667,7 +56740,7 @@
 },
 {
 "id": "modmed-suha-kassab-d-p-m-p-c",
-"name": "Suha Kassab D.P.M. P.C.",
+"name": "SUHA KASSAB D.P.M. P.C.",
 "location": "Bloomfield, MI",
 "platform": "modmed",
 "fhir_base_url": "https://bloomfieldfamilyfootcare.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -57933,7 +57006,7 @@
 {
 "id": "modmed-sunstate-medical-specialists",
 "name": "Sunstate Medical Specialists",
-"location": "Plantation, FL",
+"location": "Fort Myers, FL",
 "platform": "modmed",
 "fhir_base_url": "https://uromedix.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -58114,7 +57187,7 @@
 },
 {
 "id": "modmed-susan-fisher-od",
-"name": "Susan Fisher Od",
+"name": "Susan Fisher OD",
 "platform": "modmed",
 "fhir_base_url": "https://susanfisherod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -58433,7 +57506,7 @@
 },
 {
 "id": "modmed-tamy-buckel-m-d-p-a",
-"name": "Tamy Buckel, M.D., P.A.",
+"name": "TAMY BUCKEL, M.D., P.A.",
 "location": "Chestertown, MD",
 "platform": "modmed",
 "fhir_base_url": "https://shoredermatology.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -58475,7 +57548,7 @@
 },
 {
 "id": "modmed-tara-n-van-de-wyngaerde-od-pc",
-"name": "Tara N Van De Wyngaerde Od PC",
+"name": "Tara N Van de Wyngaerde OD PC",
 "location": "Mendota, IL",
 "platform": "modmed",
 "fhir_base_url": "https://drtara.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -58523,7 +57596,7 @@
 },
 {
 "id": "modmed-ted-harden-od-pllc",
-"name": "Ted Harden Od PLLC",
+"name": "Ted Harden OD PLLC",
 "location": "Hattiesburg, MS",
 "platform": "modmed",
 "fhir_base_url": "https://tedharden.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -58593,7 +57666,7 @@
 },
 {
 "id": "modmed-teresa-w-lam-od",
-"name": "Teresa W Lam Od",
+"name": "Teresa w Lam OD",
 "location": "San Francisco, CA",
 "platform": "modmed",
 "fhir_base_url": "https://teresalamod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -58628,7 +57701,7 @@
 },
 {
 "id": "modmed-terry-s-friedman-od-pa",
-"name": "Terry S Friedman Od PA",
+"name": "Terry S Friedman OD PA",
 "location": "Miami, FL",
 "platform": "modmed",
 "fhir_base_url": "https://terryfriedmanod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -58646,13 +57719,6 @@
 "location": "North Miami Beach, FL",
 "platform": "modmed",
 "fhir_base_url": "https://teschereyecenter.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-testtest",
-"name": "Testtest",
-"location": "Florida, DE",
-"platform": "modmed",
-"fhir_base_url": "https://testtest.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-teton-foot-ankle-center-pc",
@@ -59353,7 +58419,7 @@
 },
 {
 "id": "modmed-the-eye-works-ltd",
-"name": "The Eye Works, LTD",
+"name": "The Eye Works, Ltd",
 "location": "Barrington, IL",
 "platform": "modmed",
 "fhir_base_url": "https://theeyeworksltd.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -59752,14 +58818,14 @@
 {
 "id": "modmed-the-roxbury-institute",
 "name": "The Roxbury Institute",
-"location": "Beverly Hills, CA",
+"location": "Los Angeles, CA",
 "platform": "modmed",
 "fhir_base_url": "https://tri.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-the-royal-vitality-llc",
 "name": "The Royal Vitality LLC",
-"location": "scottsdale, AZ",
+"location": "Scottsdale, AZ",
 "platform": "modmed",
 "fhir_base_url": "https://trv.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -59940,7 +59006,7 @@
 },
 {
 "id": "modmed-the-vision-salon-ltd",
-"name": "The Vision Salon LTD",
+"name": "The Vision Salon Ltd",
 "location": "Blue Island, IL",
 "platform": "modmed",
 "fhir_base_url": "https://visionsalon.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -60010,7 +59076,7 @@
 },
 {
 "id": "modmed-therese-c-deschenes-od-pc",
-"name": "Therese C Deschenes Od PC",
+"name": "Therese C Deschenes OD PC",
 "location": "Norristown, PA",
 "platform": "modmed",
 "fhir_base_url": "https://norristowneyedoctor.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -60101,28 +59167,28 @@
 },
 {
 "id": "modmed-thomas-eye-group-pc",
-"name": "Thomas Eye Group,  PC",
+"name": "Thomas Eye Group, PC",
 "location": "Atlanta, GA",
 "platform": "modmed",
 "fhir_base_url": "https://8058e5aa-28df-40cd-9580-adbe879b28db.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-thomas-g-brookes-od",
-"name": "Thomas G Brookes Od",
+"name": "Thomas G Brookes OD",
 "location": "Wheat Ridge, CO",
 "platform": "modmed",
 "fhir_base_url": "https://brookesfamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-thomas-hogge-od",
-"name": "Thomas Hogge Od",
+"name": "Thomas Hogge OD",
 "location": "Sterling, IL",
 "platform": "modmed",
 "fhir_base_url": "https://thomashoggeod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-thomas-j-prignano-od",
-"name": "Thomas J Prignano Od",
+"name": "Thomas J Prignano OD",
 "location": "East Hartford, CT",
 "platform": "modmed",
 "fhir_base_url": "https://thomasjprignanood.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -60150,7 +59216,7 @@
 },
 {
 "id": "modmed-thomas-p-rogers-od",
-"name": "Thomas P Rogers Od",
+"name": "Thomas P Rogers OD",
 "location": "Simi Valley, CA",
 "platform": "modmed",
 "fhir_base_url": "https://thomasprogersod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -60171,7 +59237,7 @@
 },
 {
 "id": "modmed-thomas-riggio-od",
-"name": "Thomas Riggio Od",
+"name": "Thomas Riggio OD",
 "location": "Georgetown, CA",
 "platform": "modmed",
 "fhir_base_url": "https://thomasriggiood.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -60185,7 +59251,7 @@
 },
 {
 "id": "modmed-thomas-s-suzuki-od",
-"name": "Thomas S Suzuki Od",
+"name": "Thomas S Suzuki OD",
 "location": "Watsonville, CA",
 "platform": "modmed",
 "fhir_base_url": "https://thomasssuzukiod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -60290,7 +59356,7 @@
 },
 {
 "id": "modmed-tigereye-llc",
-"name": "Tigereye, LLC",
+"name": "TIGEREYE, LLC",
 "location": "Sandwich, MA",
 "platform": "modmed",
 "fhir_base_url": "https://edcc.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -60312,13 +59378,13 @@
 {
 "id": "modmed-tim-a-sayed-md-pllc-derm-box",
 "name": "Tim A. Sayed, MD, PLLC - Derm Box",
-"location": "change me, FL",
+"location": "Change Me, FL",
 "platform": "modmed",
 "fhir_base_url": "https://timsayedderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-tim-harbuck-od",
-"name": "Tim Harbuck Od",
+"name": "TIM HARBUCK OD",
 "location": "Ormond Beach, FL",
 "platform": "modmed",
 "fhir_base_url": "https://timharbuckod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -60346,7 +59412,7 @@
 },
 {
 "id": "modmed-timothy-h-moon-od-inc",
-"name": "Timothy H Moon Od Inc",
+"name": "Timothy H Moon OD Inc",
 "location": "Honolulu, HI",
 "platform": "modmed",
 "fhir_base_url": "https://timothymoonodinc.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -60374,7 +59440,7 @@
 },
 {
 "id": "modmed-timothy-w-tandrow-od",
-"name": "Timothy W Tandrow Od",
+"name": "Timothy w Tandrow OD",
 "location": "San Francisco, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drtimothytandrow.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -60471,13 +59537,6 @@
 "fhir_base_url": "https://dallas-eyedoc.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-todays-vision-3",
-"name": "Todays  Vision",
-"location": "Helotes, TX",
-"platform": "modmed",
-"fhir_base_url": "https://todaysvisiontexas.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-todays-eye-care",
 "name": "Todays Eye Care",
 "location": "Rexburg, ID",
@@ -60497,6 +59556,13 @@
 "location": "Frisco, TX",
 "platform": "modmed",
 "fhir_base_url": "https://todaysvisiontx.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
+"id": "modmed-todays-vision-3",
+"name": "Todays Vision",
+"location": "Helotes, TX",
+"platform": "modmed",
+"fhir_base_url": "https://todaysvisiontexas.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-todays-vision-atascocita",
@@ -60577,7 +59643,7 @@
 },
 {
 "id": "modmed-todd-hall-od-pa",
-"name": "Todd Hall Od PA",
+"name": "Todd Hall OD PA",
 "location": "Greenwood, MS",
 "platform": "modmed",
 "fhir_base_url": "https://toddhallod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -60631,18 +59697,14 @@
 "fhir_base_url": "https://tomeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-toman-orthopedics-and-sports-medicine-pa",
-"name": "Toman Orthopedics and Sports Medicine PA",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://tomansandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-toman-orthopedics-and-sports-medicine-pa-2",
 "name": "Toman Orthopedics and Sports Medicine PA",
 "location": "Boca Raton, FL",
 "platform": "modmed",
-"fhir_base_url": "https://tomanortho.mmi.prod.fhir.ema-api.com/fhir/r4/"
+"fhir_base_url": "https://tomanortho.mmi.prod.fhir.ema-api.com/fhir/r4/",
+"former_ids": [
+"modmed-toman-orthopedics-and-sports-medicine-pa"
+]
 },
 {
 "id": "modmed-toms-river-surgery-center",
@@ -60958,7 +60020,7 @@
 {
 "id": "modmed-treherne-dermatology-and-skin-care-center-pc",
 "name": "Treherne Dermatology and Skin Care Center PC",
-"location": "Hampton  VA, VA",
+"location": "Hampton VA, VA",
 "platform": "modmed",
 "fhir_base_url": "https://trehernedermatology.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -60985,14 +60047,14 @@
 },
 {
 "id": "modmed-trevor-steidley-od",
-"name": "Trevor Steidley Od",
+"name": "Trevor Steidley OD",
 "location": "Porterville, CA",
 "platform": "modmed",
 "fhir_base_url": "https://steidleyod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-trevor-steidley-od-colleen-ito-od",
-"name": "Trevor Steidley Od Colleen Ito Od",
+"name": "Trevor Steidley OD Colleen Ito OD",
 "location": "Porterville, CA",
 "platform": "modmed",
 "fhir_base_url": "https://steidleyitood.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -62017,23 +61079,19 @@
 {
 "id": "modmed-urology-group-of-southern-california",
 "name": "Urology Group of Southern California",
-"location": "Los Angeles, CA",
+"location": "Encino, CA",
 "platform": "modmed",
 "fhir_base_url": "https://ugsc.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-urology-institute-of-houston",
-"name": "Urology Institute of Houston",
-"location": "Houston, TX",
-"platform": "modmed",
-"fhir_base_url": "https://uiohsandbox.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-urology-institute-of-houston-2",
 "name": "Urology Institute of Houston",
 "location": "Houston, TX",
 "platform": "modmed",
-"fhir_base_url": "https://uioh.mmi.prod.fhir.ema-api.com/fhir/r4/"
+"fhir_base_url": "https://uioh.mmi.prod.fhir.ema-api.com/fhir/r4/",
+"former_ids": [
+"modmed-urology-institute-of-houston"
+]
 },
 {
 "id": "modmed-urology-specialists",
@@ -62142,7 +61200,7 @@
 },
 {
 "id": "modmed-uyen-t-ngo-od",
-"name": "Uyen T Ngo Od",
+"name": "UYEN T NGO OD",
 "location": "San Jose, CA",
 "platform": "modmed",
 "fhir_base_url": "https://uyenngood.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -62170,7 +61228,7 @@
 },
 {
 "id": "modmed-vacaville-optometric-vision-ce",
-"name": "Vacaville Optometric Vision Ce",
+"name": "Vacaville Optometric Vision CE",
 "location": "Vacaville, CA",
 "platform": "modmed",
 "fhir_base_url": "https://vacavilleoptometricvisionce.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -62212,7 +61270,7 @@
 },
 {
 "id": "modmed-valerie-r-hatley-od",
-"name": "Valerie R Hatley Od",
+"name": "Valerie R Hatley OD",
 "location": "Yukon, OK",
 "platform": "modmed",
 "fhir_base_url": "https://yukoneyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -62442,7 +61500,7 @@
 },
 {
 "id": "modmed-vaughn-witt-od",
-"name": "Vaughn Witt Od",
+"name": "Vaughn Witt OD",
 "location": "Corpus Christi, TX",
 "platform": "modmed",
 "fhir_base_url": "https://5pointsoptical.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -62463,7 +61521,7 @@
 },
 {
 "id": "modmed-vcpr-ocuderm",
-"name": "VCPR/Ocuderm",
+"name": "VCPR/OCUDERM",
 "location": "Guaynabo, PR",
 "platform": "modmed",
 "fhir_base_url": "https://ocudermvcpr.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -62588,7 +61646,7 @@
 },
 {
 "id": "modmed-victor-f-child-od",
-"name": "Victor F Child Od",
+"name": "Victor F Child OD",
 "location": "Sonora, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drvictorchild.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -62603,7 +61661,7 @@
 {
 "id": "modmed-victoria-ent-and-allergy",
 "name": "Victoria ENT and Allergy",
-"location": "Victoria , TX",
+"location": "Victoria, TX",
 "platform": "modmed",
 "fhir_base_url": "https://victoriaent.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -62988,7 +62046,7 @@
 },
 {
 "id": "modmed-vision-health-center-od",
-"name": "Vision Health Center Od",
+"name": "Vision Health Center OD",
 "location": "Locust Grove, VA",
 "platform": "modmed",
 "fhir_base_url": "https://visionhealthcenter.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -63003,7 +62061,7 @@
 {
 "id": "modmed-vision-i-care",
 "name": "Vision I Care",
-"location": "Pasadena,, TX",
+"location": "Pasadena, TX",
 "platform": "modmed",
 "fhir_base_url": "https://visionicare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -63541,20 +62599,6 @@
 "fhir_base_url": "https://vuederm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-vwpod01admin",
-"name": "vwpod01admin",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://vwpod01admin.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-vwpod01test",
-"name": "vwpod01test",
-"location": "Boca Raton, FL",
-"platform": "modmed",
-"fhir_base_url": "https://vwpod01test.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-w-cosmetic-surgery",
 "name": "W Cosmetic Surgery",
 "location": "Bryn Mawr, PA",
@@ -63772,14 +62816,14 @@
 },
 {
 "id": "modmed-walter-j-shurminsky-jr-od",
-"name": "Walter J Shurminsky Jr Od",
-"location": "sacramento, AL",
+"name": "Walter J Shurminsky Jr OD",
+"location": "Sacramento, AL",
 "platform": "modmed",
 "fhir_base_url": "https://walterjshurminskyjrod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-walter-j-shurminsky-jr-od-2",
-"name": "Walter J Shurminsky Jr Od",
+"name": "Walter J Shurminsky Jr OD",
 "location": "Ramsey, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://drshurminsky.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -64023,7 +63067,7 @@
 },
 {
 "id": "modmed-waynesburg-vision-care-ltd",
-"name": "Waynesburg Vision Care LTD",
+"name": "Waynesburg Vision Care Ltd",
 "location": "Waynesburg, OH",
 "platform": "modmed",
 "fhir_base_url": "https://waynesburgvisioncare.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -64488,13 +63532,6 @@
 "fhir_base_url": "https://westernnyderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-western-orthopaedics",
-"name": "Western Orthopaedics",
-"location": "Denver, CO",
-"platform": "modmed",
-"fhir_base_url": "https://westernortho.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-western-reserve-dermatology",
 "name": "Western Reserve Dermatology",
 "location": "Solon, OH",
@@ -64532,7 +63569,7 @@
 {
 "id": "modmed-westlake-dermatology",
 "name": "Westlake Dermatology",
-"location": "Bastrop, TX",
+"location": "Dallas, TX",
 "platform": "modmed",
 "fhir_base_url": "https://westlake.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -64787,7 +63824,7 @@
 },
 {
 "id": "modmed-william-downey-od",
-"name": "William Downey Od",
+"name": "William Downey OD",
 "location": "S Lake Tahoe, CA",
 "platform": "modmed",
 "fhir_base_url": "https://williamadowneyod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -64807,35 +63844,28 @@
 "fhir_base_url": "https://wgross.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-william-helms",
-"name": "William Helms",
-"location": "Russellville, AR",
-"platform": "modmed",
-"fhir_base_url": "https://helms.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-william-j-bogus-od",
-"name": "William J Bogus Od",
+"name": "William J Bogus OD",
 "location": "Salt Lake City, UT",
 "platform": "modmed",
 "fhir_base_url": "https://drbogus.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-william-j-filchak-od",
-"name": "William J Filchak Od",
+"name": "William J Filchak OD",
 "platform": "modmed",
 "fhir_base_url": "https://drfilchak.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-william-l-turner-od",
-"name": "William L Turner Od",
+"name": "William L Turner OD",
 "location": "Eden, NC",
 "platform": "modmed",
 "fhir_base_url": "https://turnereyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-william-s-diamond-od",
-"name": "William S Diamond Od",
+"name": "William S Diamond OD",
 "location": "Dublin, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drwmdiamond.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -64856,7 +63886,7 @@
 },
 {
 "id": "modmed-william-w-st-vincent-jr-od",
-"name": "William W St Vincent Jr Od",
+"name": "William w St Vincent Jr OD",
 "location": "Bristol, RI",
 "platform": "modmed",
 "fhir_base_url": "https://williamwstvincentjrod.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -64871,7 +63901,6 @@
 {
 "id": "modmed-williams-eye-specialty-clinic",
 "name": "Williams Eye Specialty Clinic",
-"location": "Southfield, MI",
 "platform": "modmed",
 "fhir_base_url": "https://williamseye.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -64912,7 +63941,7 @@
 },
 {
 "id": "modmed-willis-martin-md",
-"name": "Willis Martin ,MD",
+"name": "Willis Martin,MD",
 "location": "Rocky Mount, NC",
 "platform": "modmed",
 "fhir_base_url": "https://northeasternderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
@@ -64982,7 +64011,7 @@
 },
 {
 "id": "modmed-wilson-eye-associates-od-pa",
-"name": "Wilson Eye Associates Od PA",
+"name": "Wilson Eye Associates OD PA",
 "location": "Wilson, NC",
 "platform": "modmed",
 "fhir_base_url": "https://wilsoneye.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -65416,7 +64445,7 @@
 },
 {
 "id": "modmed-xavier-p-ordonez-od-apc",
-"name": "Xavier P Ordonez Od Apc",
+"name": "Xavier P Ordonez OD Apc",
 "location": "Whittier, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drordonez.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -65591,7 +64620,7 @@
 },
 {
 "id": "modmed-yunus-c-kurtbay-od",
-"name": "Yunus C Kurtbay Od",
+"name": "YUNUS C KURTBAY OD",
 "location": "San Francisco, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drkurtbayoptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
@@ -65756,12 +64785,5 @@
 "location": "Bloomfield Hills, MI",
 "platform": "modmed",
 "fhir_base_url": "https://zuliani.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-zzzjordan-and-associates-office",
-"name": "zzzJordan and Associates Office",
-"location": "Clayton, NC",
-"platform": "modmed",
-"fhir_base_url": "https://d4c4e6a9-2d32-4bb1-b062-d2a67dd22612.gastro.prod.fhir.ema-api.com/fhir/r4/"
 }
 ]

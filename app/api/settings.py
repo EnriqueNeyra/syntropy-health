@@ -7,12 +7,13 @@ from zoneinfo import available_timezones
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app import directory
 from app.connectors import smart
-from app.core import auth, config, context, settings
+from app.connectors import wearable_common
+from app.core import auth, config, context, encryption, settings
+from app.core.db import db
 from app.store import accounts, biometrics
 
 # Anyone signed in can read these; changing them (they affect everyone on the server) is for owners. Units are each
@@ -32,7 +33,10 @@ def _snapshot() -> dict:
     for provider, meta in settings.WEARABLES.items():
         creds = settings.wearable_credentials(provider)
         wearables[provider] = {"label": meta["label"], "client_id": creds["client_id"],
-                               "client_secret_set": bool(creds["client_secret"])}
+                               "client_secret_set": bool(creds["client_secret"]),
+                               "redirect_uri": settings.get(f"wearable.{provider}.redirect_uri") or ""}
+        if provider in wearable_common.RELAY_PROVIDERS:
+            wearables[provider]["relay_url"] = settings.get(f"wearable.{provider}.relay_url") or ""
     platforms = []
     for key in settings.EHR_PLATFORMS:
         cfg = settings.platform_config(key)
@@ -44,19 +48,25 @@ def _snapshot() -> dict:
         "platforms": platforms,
         "wearables": wearables,
         "relay": {"redirect_uri": settings.get("relay.redirect_uri"),
-                  "wearable_redirect_uri": settings.get("relay.wearable_redirect_uri"),
                   "default_redirect_uri": config.DEFAULT_RELAY_URL,
-                  "default_wearable_redirect_uri": config.DEFAULT_WEARABLE_RELAY_URL},
+                  "release_build": config.official_build()},
         "sync": {"ehr_interval_hours": settings.get("sync.ehr_interval_hours"),
                  "wearable_interval_hours": settings.get("sync.wearable_interval_hours"),
                  "scheduler_enabled": config.scheduler_enabled()},
         "source_order": _source_order(),
         "timezone": settings.timezone_name(),
         "units": _my_units(),
+        "adult_age": settings.get("people.adult_age"),
         "auth_required": auth.auth_required(),
-        "data_dir": str(config.data_dir()),
+        # Usually names the owner's account on this computer: for them only.
+        **({"data_dir": str(config.data_dir())} if _is_owner() else {}),
         "version": config.APP_VERSION,
     }
+
+
+def _is_owner() -> bool:
+    principal = context.principal()
+    return principal is None or principal.owner
 
 
 def _my_units() -> Optional[str]:
@@ -100,24 +110,46 @@ def update_developer(req: DeveloperPatch) -> dict:
 class WearablePatch(BaseModel):
     client_id: Optional[str] = Field(None, max_length=200)
     client_secret: Optional[str] = Field(None, max_length=400)
+    redirect_uri: Optional[str] = Field(None, max_length=500)
+    relay_url: Optional[str] = Field(None, max_length=500)
+
+
+def _check_relay(provider: str, value: Optional[str]) -> None:
+    if not value or not value.strip():
+        return
+    if provider not in wearable_common.RELAY_PROVIDERS:
+        raise HTTPException(400, f"{provider.title()} renews directly with the provider, so it can't use a relay.")
+    if not wearable_common.own_relay_origin(value):
+        raise HTTPException(400, "Your own relay needs an https address, and it can't be one of Syntropy Labs' own.")
+
+
+def _check_redirect(value: Optional[str]) -> None:
+    if value and not value.startswith(("http://", "https://")):
+        raise HTTPException(400, "Redirect URIs must be absolute http(s) URLs.")
 
 
 @router.put("/wearables/{provider}", dependencies=[owner])
 def update_wearable(provider: str, req: WearablePatch) -> dict:
+    _check_redirect(req.redirect_uri)
+    _check_relay(provider, req.relay_url)
     try:
         settings.set_wearable_credentials(provider, req.client_id, req.client_secret)
     except KeyError:
         raise HTTPException(404, "Unknown wearable")
+    if req.redirect_uri is not None:
+        settings.set(f"wearable.{provider}.redirect_uri", req.redirect_uri.strip() or None)
+    if req.relay_url is not None:
+        settings.set(f"wearable.{provider}.relay_url", wearable_common.own_relay_origin(req.relay_url))
     return _snapshot()["wearables"][provider]
 
 
 class GeneralPatch(BaseModel):
     redirect_uri: Optional[str] = None
-    wearable_redirect_uri: Optional[str] = None
     ehr_interval_hours: Optional[float] = Field(None, ge=1, le=24 * 30)
     wearable_interval_hours: Optional[float] = Field(None, ge=0.5, le=24 * 7)
     timezone: Optional[str] = None
     units: Optional[str] = None     # "metric", "us", or "" to follow the browser
+    adult_age: Optional[int] = Field(None, ge=14, le=25)
 
 
 @router.put("/source-order", dependencies=[owner])
@@ -130,9 +162,33 @@ def update_source_order(orders: dict[str, list[str]]) -> dict:
     return _source_order()
 
 
+@router.get("/encryption")
+def encryption_status() -> dict:
+    """What's encrypted and how, for Settings → Security. Where the files are is for the owner, as elsewhere here."""
+    state = encryption.status()
+    if not _is_owner():
+        state.update(key_file=None, plain_copies=[], why_not="Your records aren't encrypted on this server yet. Ask whoever runs it." if not state["encrypted"] else None)
+        state["password_recovery"] = {k: v for k, v in state["password_recovery"].items() if k != "accounts"}
+    state["can_choose"] = _is_owner() and not state.get("encrypted") and encryption.enabled()
+    state["chosen"] = encryption.asked_for()
+    return state
+
+
+class EncryptChoice(BaseModel):
+    on: bool = True
+
+
+@router.put("/encryption/at-next-start", dependencies=[owner])
+def encrypt_at_next_start(req: EncryptChoice) -> dict:
+    """Encrypts the records already here the next time the server starts."""
+    encryption.ask_for_encryption(req.on)
+    return {"chosen": encryption.asked_for()}
+
+
 @router.put("/general")
-async def update_general(req: GeneralPatch) -> dict:
+def update_general(req: GeneralPatch) -> dict:
     principal = context.principal()
+    auth.refuse_if_limited(principal)        # it's the preferences of the account that paired this phone
     if req.units is not None:
         if req.units not in ("", "metric", "us"):
             raise HTTPException(400, "Units must be metric or us.")
@@ -141,13 +197,11 @@ async def update_general(req: GeneralPatch) -> dict:
     server_wide = req.model_dump(exclude_none=True, exclude={"units"})
     if server_wide and principal and not principal.owner:
         raise HTTPException(403, "Only the server's owner can change this.")
-    for value in (req.redirect_uri, req.wearable_redirect_uri):
-        if value is not None and value and not value.startswith(("http://", "https://")):
-            raise HTTPException(400, "Redirect URIs must be absolute http(s) URLs.")
+    _check_redirect(req.redirect_uri)
     if req.redirect_uri is not None:
         settings.set("relay.redirect_uri", req.redirect_uri or None)
-    if req.wearable_redirect_uri is not None:
-        settings.set("relay.wearable_redirect_uri", req.wearable_redirect_uri or None)
+    if req.adult_age is not None:
+        settings.set("people.adult_age", req.adult_age)
     if req.ehr_interval_hours is not None:
         settings.set("sync.ehr_interval_hours", req.ehr_interval_hours)
     if req.wearable_interval_hours is not None:
@@ -155,13 +209,13 @@ async def update_general(req: GeneralPatch) -> dict:
     if req.timezone is not None:
         if req.timezone and req.timezone not in available_timezones():
             raise HTTPException(400, "Unknown time zone.")
-        before = settings.timezone_name()
+        if (req.timezone or config.timezone_name()) != settings.timezone_name():
+            # Days are grouped in the new zone: every rollup is recomputed, which can take a while with years of data. Queued
+            # first, so a kill partway is finished at the next start; running it again after a failure is harmless.
+            with db() as conn:
+                biometrics.queue_all_rebuilds(conn)
         settings.set("display.timezone", req.timezone or None)
-        if settings.timezone_name() != before:
-            # Days are grouped in the new zone: every rollup is recomputed, which can take a while with years of data,
-            # so in a thread (the server keeps answering meanwhile).
-            from app.store import profiles
-            await run_in_threadpool(lambda: [biometrics.rebuild_daily(p["id"]) for p in profiles.list_profiles()])
+        biometrics.run_queued_rebuilds()
     return _snapshot()
 
 

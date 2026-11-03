@@ -82,6 +82,7 @@ def test_connection_test_checks_tool_use(client, fake_model):
     client.put("/api/ai/config", json={"provider": "openai", "model": "gpt-test", "api_key": "sk-test", "acknowledged": True})
     script.append({"choices": [{"message": {"content": "", "tool_calls": [{"id": "c1", "type": "function",
                    "function": {"name": "get_health_summary", "arguments": "{}"}}]}}]})
+    script.append({"choices": [{"message": {"content": "OK"}}]})
     r = client.post("/api/ai/test").json()
     assert r["tools"] is True and client.get("/api/ai/config").json()["tools"] is True
     assert {t["function"]["name"] for t in calls[0]["body"]["tools"]} >= {"get_health_summary", "get_lab_trend"}
@@ -91,7 +92,7 @@ def test_chat_with_anthropic_and_key_is_never_returned(client, fake_model):
     calls, script = fake_model
     client.put("/api/ai/config", json={"provider": "anthropic", "api_key": "sk-ant-secret", "acknowledged": True})
     cfg = client.get("/api/ai/config").json()
-    assert cfg["configured"] and cfg["model"] == "claude-sonnet-5" and "sk-ant-secret" not in json.dumps(cfg)
+    assert cfg["configured"] and cfg["model"] == "claude-sonnet-5-5" and "sk-ant-secret" not in json.dumps(cfg)
     script.extend([
         {"content": [{"type": "tool_use", "id": "t1", "name": "get_health_summary", "input": {}}], "stop_reason": "tool_use"},
         {"content": [{"type": "text", "text": "Here is your summary."}], "stop_reason": "end_turn"},
@@ -165,17 +166,19 @@ def test_mcp_over_http_with_scoped_tokens(client):
     assert {"get_health_summary", "get_lab_trend", "list_workouts"} <= {t["name"] for t in tools}
     call = lambda name, args, h: anon.post("/mcp", json={"jsonrpc": "2.0", "id": 3, "method": "tools/call",
                                                         "params": {"name": name, "arguments": args}}, headers=h).json()["result"]
-    summary = json.loads(call("get_health_summary", {}, auth)["content"][0]["text"])
+    # This token can read Alex and Sam, so it has to say which.
+    assert call("get_health_summary", {}, auth)["isError"]
+    summary = json.loads(call("get_health_summary", {"profile": "Alex"}, auth)["content"][0]["text"])
     assert summary["profile"]["name"] == "Alex" and summary["active_conditions"]
-    record_id = json.loads(call("search_records", {"category": "conditions"}, auth)["content"][0]["text"])["records"][0]["id"]
+    record_id = json.loads(call("search_records", {"category": "conditions", "profile": "Alex"}, auth)["content"][0]["text"])["records"][0]["id"]
 
     # A token limited to Sam can't see Alex, even when asking by name or by record id.
     scoped = {"Authorization": f"Bearer {sam_only['token']}"}
-    assert [p["name"] for p in json.loads(call("list_profiles", {}, scoped)["content"][0]["text"])] == ["Sam"]
+    assert [p["name"] for p in json.loads(call("list_profiles", {}, scoped)["content"][0]["text"])["people"]] == ["Sam"]
     assert call("get_health_summary", {"profile": "Alex"}, scoped)["isError"]
     assert json.loads(call("get_health_summary", {}, scoped)["content"][0]["text"])["profile"]["name"] == "Sam"
     assert call("get_record", {"record_id": record_id}, scoped)["isError"]
-    assert any(e["actor"] == "mcp:Coach bot" for e in client.get("/api/audit").json()["events"])
+    assert any(e["who"] == "Coach bot" for e in client.get("/api/audit").json()["events"])
 
     assert client.delete(f"/api/agents/tokens/{sam_only['id']}").status_code == 200
     assert anon.post("/mcp", json=init, headers=scoped).status_code == 401

@@ -3,10 +3,12 @@
 import { api, clearCache, get, onDataChanged, onUnauthorized, post, put, unreachableMessage } from "./api.js";
 import { markAllSeen, onAlertsChange, refreshAlerts, renderPanel, dismiss, unreadCount } from "./alerts.js";
 import {
-  $, appMenuChosen, closeAnimated, closeDialogs, html, icon, initials, mount, onAction, scrollToTop, toast, esc, wordmark,
+  $, appMenuChosen, busy, closeAnimated, closeDialogs, holdDialogs, html, icon, initials, loading, modal, mount, onAction, pageScroller,
+  scrollToTop, toast, esc, wordmark, SIGNED_OUT,
 } from "./ui.js";
 import { renderOnboarding, renderPasswordGate, renderSetup, renderTermsGate } from "./onboarding.js";
 import { termsCheckbox } from "./consent.js";
+import { searchBox } from "./search-box.js";
 import { setUnitPreference } from "./units.js";
 
 // `symbol` is the section's icon in the iPhone app (an SF Symbol name), and `tab` puts it in the app's tab bar until the
@@ -21,6 +23,8 @@ const ROUTES = {
   journal: { label: "Journal", icon: "book", symbol: "book", load: () => import("./views/journal.js") },
   sources: { label: "Sources", icon: "sources", symbol: "point.3.connected.trianglepath.dotted", load: () => import("./views/sources.js") },
   report: { label: "Visit summary", icon: "printer", symbol: "doc.richtext", load: () => import("./views/report.js") },
+  prepare: { label: "Prepare for a visit", icon: "note", symbol: "checklist", load: () => import("./views/prepare.js") },
+  people: { label: "Your people", icon: "users", symbol: "person.2", load: () => import("./views/people.js") },
   settings: { label: "Settings", icon: "settings", symbol: "gearshape", load: () => import("./views/settings.js") },
   // A single record as a page: the iPhone app's record screen (elsewhere records open in a drawer).
   _record: { label: "Record", icon: "records", load: () => import("./views/record-detail.js") },
@@ -125,6 +129,7 @@ if (shell) {
   document.addEventListener("contextmenu", (e) => {
     if (!e.target.closest("input, textarea, [contenteditable], a[href], pre, code") && !String(getSelection())) e.preventDefault();
   });
+  window.addEventListener("syntropy-download", (e) => toast(`Saved ${e.detail}`));     // from mac_window.py, once the file is in place
 }
 if (shell === "mac") {
   const TITLEBAR = 52;
@@ -148,6 +153,12 @@ export const state = {
 };
 
 let cleanup = null;
+let ownAddress = null;
+/**
+ * For a page that follows its own address itself rather than being drawn again (File → New Chat while on Ask): `fn(route,
+ * params)` returns true if it did. Lasts until the page goes.
+ */
+export function followAddress(fn) { ownAddress = fn; }
 let renderSeq = 0;
 let shownRoute = null;       // the section on screen: only going to another section animates
 
@@ -262,6 +273,7 @@ new MutationObserver(() => {
 async function signOut() {
   try { await post("/api/auth/logout"); }
   catch (err) { toast(err.message, "bad"); return; }
+  try { sessionStorage.clear(); } catch {}      // drafts kept against a session running out stay with their session
   location.reload();
 }
 
@@ -270,6 +282,8 @@ let openPopover = null;
 
 function closePopover() {
   if (!openPopover) return;
+  // Focus was in the panel: it goes back to what opened it rather than to the top of the page.
+  if (openPopover.el.contains(document.activeElement)) openPopover.button?.focus({ preventScroll: true });
   closeAnimated(openPopover.el);
   openPopover.button?.setAttribute("aria-expanded", "false");
   openPopover = null;
@@ -282,13 +296,15 @@ function onOutside(e) {
 function onEscape(e) { if (e.key === "Escape") { const b = openPopover?.button; closePopover(); b?.focus(); } }
 
 /** Opens a panel below `button` (a bottom sheet on phones). `fill(el)` draws its contents. */
-function popover(name, button, fill, { align = "right", sheet = false, above = false } = {}) {
+function popover(name, button, fill, { align = "right", sheet = false, above = false, label = "" } = {}) {
   const same = openPopover?.name === name;
   closePopover();
   if (same) return null;
   const el = document.createElement("div");
   el.className = `popover ${sheet ? "sheet" : ""} align-${align}`;
   el.setAttribute("role", "dialog");
+  el.setAttribute("aria-label", label);
+  el.tabIndex = -1;
   fill(el);
   document.body.appendChild(el);
   if (!sheet && button && (embedded || window.matchMedia("(min-width: 821px)").matches)) {
@@ -299,17 +315,26 @@ function popover(name, button, fill, { align = "right", sheet = false, above = f
   }
   button?.setAttribute("aria-expanded", "true");
   openPopover = { name, el, button };
+  (el.querySelector("button, a[href], input") || el).focus({ preventScroll: true });
+  // Tabbing past either end of the panel closes it, and carries on from what opened it.
+  el.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const all = [...el.querySelectorAll("button, a[href], input")].filter((c) => c.offsetParent !== null);
+    if (document.activeElement === (e.shiftKey ? all[0] : all.at(-1)) || !all.length) closePopover();
+  });
   el.addEventListener("click", (e) => {
     const dismissBtn = e.target.closest("[data-dismiss]");
     if (dismissBtn) { dismiss(dismissBtn.dataset.dismiss); fill(el); return; }
     if (e.target.closest("a[href], [data-close-popover]")) closePopover();
   });
-  setTimeout(() => { document.addEventListener("mousedown", onOutside, true); document.addEventListener("keydown", onEscape); });
+  document.addEventListener("keydown", onEscape);
+  // After this click has finished, or it would count as a click outside.
+  setTimeout(() => document.addEventListener("mousedown", onOutside, true));
   return el;
 }
 
 function openAlerts(button) {
-  const el = popover("alerts", button, renderPanel, { sheet: !button });
+  const el = popover("alerts", button, renderPanel, { sheet: !button, label: "Alerts" });
   if (el) markAllSeen();
 }
 
@@ -319,7 +344,8 @@ function peopleMenu() {
   return html`<div class="popover-label">People</div>
     <div class="menu">${state.profiles.map((p) => html`
       <button class="menu-item ${p.id === state.profileId ? "active" : ""}" data-profile="${p.id}">
-        ${avatarOf(p)}<span class="grow truncate">${p.name}</span>${p.access === "view" ? html`<span class="menu-note">View only</span>` : ""}${p.id === state.profileId ? icon("check") : ""}</button>`)}
+        ${avatarOf(p)}<span class="grow truncate">${p.name}</span><span class="badge" data-person-count="${p.id}" hidden></span>${p.access === "view" ? html`<span class="menu-note">View only</span>` : ""}${p.id === state.profileId ? icon("check") : ""}</button>`)}
+      ${state.profiles.length > 1 ? html`<a class="menu-item" href="#/people">${icon("users")}<span>Your people</span></a>` : ""}
       <a class="menu-item" href="#/settings/people">${icon("user")}<span>People and sharing</span></a>
     </div>`;
 }
@@ -333,7 +359,15 @@ function onPersonChosen(e) {
 }
 
 function openProfileMenu(button, placement = {}) {
-  popover("profile", button, (el) => mount(el, peopleMenu()), { align: "left", ...placement })?.addEventListener("click", onPersonChosen);
+  const menu = popover("profile", button, (el) => mount(el, peopleMenu()), { align: "left", label: "Switch person", ...placement });
+  menu?.addEventListener("click", onPersonChosen);
+  if (menu && state.profiles.length > 1) {
+    get("/api/profiles/at-a-glance").then(({ people }) => people.forEach((p) => {
+      const badge = menu.querySelector(`[data-person-count="${p.id}"]`);
+      const n = (p.new_records || 0) + p.flagged_labs;
+      if (badge && n) { badge.textContent = n; badge.hidden = false; badge.title = p.new_records == null ? `${p.flagged_labs} out of range` : `${p.new_records} new, ${p.flagged_labs} out of range`; }
+    })).catch(() => {});
+  }
 }
 
 function openMore(button) {
@@ -345,7 +379,7 @@ function openMore(button) {
     <div class="menu menu-sep">
       <button class="menu-item" data-more="theme">${icon(dark ? "sun" : "moon")}<span>${dark ? "Light" : "Dark"} appearance</span></button>
       ${state.status?.auth_required ? html`<button class="menu-item" data-more="lock">${icon("lock")}<span>${household() ? `Sign out ${state.status.account.name}` : "Lock"}</span></button>` : ""}
-    </div>`), { sheet: true });
+    </div>`), { sheet: true, label: "More" });
   el?.addEventListener("click", onPersonChosen);
   el?.addEventListener("click", async (e) => {
     const b = e.target.closest("[data-more]");
@@ -374,7 +408,7 @@ onAlertsChange(drawAlertBadge);
 // ------------------------------------------------------------------ shell
 function navLink(key, current) {
   const r = ROUTES[key];
-  return html`<a href="#/${key}" class="${key === current ? "active" : ""}">${icon(r.icon)}<span>${r.label}</span></a>`;
+  return html`<a href="#/${key}" class="${key === current ? "active" : ""}" ${key === current ? html`aria-current="page"` : ""}>${icon(r.icon)}<span>${r.label}</span></a>`;
 }
 
 function renderShell() {
@@ -384,6 +418,7 @@ function renderShell() {
   const p = state.profile;
   if (!root.querySelector(".app")) {
     mount(root, html`
+      <a class="skip-link" href="#view" data-skip>Skip to content</a>
       <div class="app">
         <aside class="sidebar">
           <a class="brand" href="#/overview">${wordmark()}</a>
@@ -407,10 +442,15 @@ function renderShell() {
           </header>
           <div class="head-tools" id="head-tools"></div>
           <div class="view-only-note" id="view-only" role="note"></div>
+          <div id="sim-note"></div>
           <main class="content" id="view"></main>
         </div>
         <nav class="mobile-nav" id="mobile-nav" aria-label="Sections"></nav>
       </div>`);
+    root.querySelector("[data-skip]").addEventListener("click", (e) => {
+      e.preventDefault();     // the address holds the page, not a place on it
+      focusPage();
+    });
     onAction(root.querySelector(".topbar"), {
       theme: toggleTheme,
       logout: signOut,
@@ -422,13 +462,7 @@ function renderShell() {
       "head-profile": (_, btn) => openProfileMenu(btn, { align: "right" }),
     });
     onAction(root.querySelector("#mobile-nav"), { more: (_, btn) => openMore(btn) });
-    $("#top-search").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const q = e.target.q.value.trim();
-      e.target.q.value = "";
-      e.target.q.blur();
-      navigate(q ? `#/records?q=${encodeURIComponent(q)}` : "#/records");
-    });
+    searchBox($("#top-search"), { profileId: () => state.profile.id, navigate });
   }
   mount($("#nav"), NAV.map(([label, keys]) => html`<div class="nav-group">
     ${label ? html`<div class="nav-label">${label}</div>` : ""}${keys.map((k) => navLink(k, current))}</div>`));
@@ -447,7 +481,22 @@ function renderShell() {
       ${p ? html`<button class="head-person" data-action="head-profile" aria-haspopup="true" aria-expanded="false"
         aria-label="Viewing ${p.name}. Switch person" title="${p.name}">${avatarOf(p)}</button>` : ""}`);
   }
-  if (nativeNav) {
+  // Android's web view measures every viewport unit as 0 when its app leaves its height unset (apps before 1.1), which would
+// leave a page that fills the screen, like Ask, with no height at all: that page's height comes from the window instead.
+if (nativeNav) {
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:absolute;visibility:hidden;width:1px;height:100vh";
+  document.documentElement.append(probe);
+  const unmeasured = !probe.getBoundingClientRect().height;
+  probe.remove();
+  if (unmeasured) {
+    const fill = () => document.documentElement.style.setProperty("--fill-height", `${window.innerHeight}px`);
+    fill();
+    window.addEventListener("resize", fill);
+  }
+}
+
+if (nativeNav) {
     appBridge({ type: "profiles", current: state.profileId,
                 profiles: state.profiles.map(({ id, name, color }) => ({ id, name, color: color || null })) });
   }
@@ -460,7 +509,7 @@ function renderShell() {
   $("#logout-btn").title = out;
   mount($("#sidebar-footer"), household()
     ? html`${icon("user")}<span>Signed in as ${state.status.account.name}<br><span class="faint">v${state.status?.version || ""}</span></span>`
-    : html`${icon("shieldCheck")}<span>Stored on this machine<br><span class="faint">v${state.status?.version || ""}</span></span>`);
+    : html`${icon("shieldCheck")}<span>${state.status?.account?.owner === false ? "Stored on the computer that runs this" : "Stored on your computer"}<br><span class="faint">v${state.status?.version || ""}</span></span>`);
   // Someone shared with you to view: the page says so, and controls that would change their data are hidden.
   document.documentElement.toggleAttribute("data-view-only", p?.access === "view");
   mount($("#view-only"), p?.access === "view"
@@ -479,7 +528,9 @@ function centerSection(smooth) {
 /** Moves the highlight to the current section without rebuilding the navigation. */
 function markActive(current) {
   for (const a of document.querySelectorAll("#nav a, #mobile-nav a, #section-bar a")) {
-    a.classList.toggle("active", a.getAttribute("href") === `#/${current}`);
+    const here = a.getAttribute("href") === `#/${current}`;
+    a.classList.toggle("active", here);
+    if (here) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   }
   $("#mobile-nav [data-action=more]")?.classList.toggle("active", MORE.includes(current));
   if (embedded) centerSection(true);
@@ -502,8 +553,22 @@ function setLoading(on) {
   bar.classList.toggle("on", on);
 }
 
+/** Moves focus to the page's heading, so a screen reader says where the person now is and Tab starts from there. */
+function focusPage() {
+  const view = $("#view");
+  const target = view?.querySelector("h1") || view;
+  if (!target) return;
+  target.tabIndex = -1;
+  target.focus({ preventScroll: true });
+}
+
+// How far down each address was, for coming Back to it.
+const scrollMemo = new Map();
+let shownHash = null;
+
 /** Draws the current address. `keepScroll` redraws in place (fresh data) without going back to the top. */
 async function route(opts) {
+  if (!$("#view")) return;      // setup, sign-in and first run have no pages yet: the address waits until they're done
   const keepScroll = opts?.keepScroll === true;
   const { route: name, parts, params } = parseHash();
   if (MOVED[name]) {
@@ -526,10 +591,18 @@ async function route(opts) {
   }
   const def = ROUTES[name];
   if (!def) return redirect("#/overview");
+  ownAddress = null;
   closePopover();
   // A dialog left open (Back, a link inside it, the address changed) would cover the next page.
   if (!keepScroll) closeDialogs();
   markActive(name);
+  drawSimulatedNote(name);
+  if (shownHash && shownHash !== location.hash) scrollMemo.set(shownHash, pageScroller().scrollTop);
+  shownHash = location.hash;
+  // A new entry in the browser's history has no state yet: one that does was reached with Back or Forward.
+  const restoreTo = history.state?.seen ? scrollMemo.get(location.hash) : undefined;
+  if (!history.state?.seen) history.replaceState({ ...history.state, seen: true }, "");
+  const newSection = name !== shownRoute && shownRoute !== null;
   document.title = name === "overview" ? "Syntropy Health" : `${def.label} — Syntropy Health`;
   desktopBridge({ type: "title", title: document.title });
   const seq = ++renderSeq;
@@ -539,6 +612,9 @@ async function route(opts) {
   if (!keepScroll && composerHandlers) setComposer(null);
   const next = document.createElement("main");
   next.className = "content";
+  // Being drawn: for screen readers, which wait until it's ready to read it out.
+  next.setAttribute("aria-busy", "true");
+  $("#view").setAttribute("aria-busy", "true");
   // Another section's content rises in; a tab or filter within the same page, and fresh data, swap in place. Only the
   // content moves: the sidebar and top bar stay put. (A View Transition cross-faded the whole window, which
   // double-exposed both pages, dimmed the Mac app's see-through sidebar and made the top bar jump.)
@@ -557,7 +633,10 @@ async function route(opts) {
       next.addEventListener("animationend", () => next.classList.remove("page-enter"), { once: true });
     }
     current.replaceWith(next);
+    // What needs a size to lay itself out (charts, the Overview's grid) does it now, before this page is ever painted half done.
+    next.dispatchEvent(new Event("page-shown"));
     if (!keepScroll) scrollToTop();
+    if (restoreTo) pageScroller().scrollTop = restoreTo;
   };
   const timer = setTimeout(show, PLACEHOLDER_AFTER_MS);
   const progress = setTimeout(() => { if (seq === renderSeq) setLoading(true); }, PROGRESS_AFTER_MS);
@@ -571,17 +650,48 @@ async function route(opts) {
   } catch (err) {
     console.error(err);
     if (seq === renderSeq) next.replaceChildren(pageError(err));
+    if (seq === renderSeq && (err?.status === 403 || err?.status === 404)) accessEnded();
   } finally {
     clearTimeout(timer);
     clearTimeout(progress);
     if (seq === renderSeq) setLoading(false);
     show();
+    if (seq === renderSeq) next.removeAttribute("aria-busy");
+    // Unless the page put focus somewhere itself, or a dialog is open over it.
+    if (newSection && !nativeNav && seq === renderSeq && !next.contains(document.activeElement) && !document.querySelector(".overlay")) focusPage();
     // The app shows the page's heading as its title (the page hides its own; see [data-native-nav] in app.css).
     if (nativeNav && seq === renderSeq) {
       const title = next.dataset.appTitle || next.querySelector(".page-head h1")?.textContent.trim() || def.label;
       appBridge({ type: "page", route: name, hash: location.hash || "#/overview", title, label: def.label });
     }
   }
+}
+
+/** Sharing may have ended while this person was on the page: back to their own record, saying why, rather than a dead end. */
+async function accessEnded() {
+  const was = state.profile;
+  if (!was || was.is_self) return;
+  let res;
+  try { res = await get("/api/profiles", undefined, { fresh: true }); } catch { return; }
+  if (res.profiles.some((p) => p.id === was.id)) return;
+  state.profiles = res.profiles;
+  toast(`You no longer have access to ${was.name}'s data.`);
+  setProfile((state.profiles.find((p) => p.is_self) || state.profiles.find((p) => p.is_default) || state.profiles[0])?.id || null);
+}
+
+// Which people have simulated data, as far as this page knows, so it's never shown as if it were measured.
+const SIMULATED_ON = new Set(["overview", "trends", "ask", "workouts"]);
+async function drawSimulatedNote(name) {
+  const box = $("#sim-note");
+  if (!box) return;
+  const profile = state.profile;
+  let has = false;
+  if (SIMULATED_ON.has(name) && profile) {
+    try { has = (await get("/api/simulated-data", { profile: profile.id })).simulated; } catch { /* the page itself says what's wrong */ }
+  }
+  if (parseHash().route !== name) return;
+  mount(box, has ? html`<div class="view-only-note sim-note" role="note">${icon("alert")}<span><b>Includes simulated data.</b> Some figures here
+    were made up by a demo connection and aren't real measurements. You can remove it in <a class="sim-link" href="#/sources">Sources</a>.</span></div>` : "");
 }
 
 /** A page that couldn't be drawn: what happened, in words, and a way to try again. */
@@ -622,6 +732,21 @@ if (nativeNav) {
   });
   // Saved changes may show on the app's other screens (a new lab result on Overview); it refreshes them.
   onDataChanged(() => appBridge({ type: "changed" }));
+  // iOS's swipe back starts anywhere on a screen. Something that drags sideways keeps the drag while it's held.
+  const DRAGS_SIDEWAYS = ".chart svg, .dash-handle, .dash-corner";
+  let holdingSwipe = false;
+  document.addEventListener("touchstart", (e) => {
+    if (!e.target.closest?.(DRAGS_SIDEWAYS)) return;
+    holdingSwipe = true;
+    appBridge({ type: "swipeBack", enabled: false });
+  }, { capture: true, passive: true });
+  const letSwipeGo = (e) => {
+    if (!holdingSwipe || e.touches.length) return;
+    holdingSwipe = false;
+    appBridge({ type: "swipeBack", enabled: true });
+  };
+  document.addEventListener("touchend", letSwipeGo, { capture: true, passive: true });
+  document.addEventListener("touchcancel", letSwipeGo, { capture: true, passive: true });
   document.addEventListener("click", (e) => {
     const b = e.target.closest(".alerts-page [data-dismiss]");
     if (b) { dismiss(b.dataset.dismiss); renderAlertsPage(); }
@@ -634,6 +759,13 @@ window.SyntropyShell = nativeNav ? {
   visit(hash) { closePopover(); redirect(hash); },
   /** Another screen switched person, or the app's person menu did. */
   setProfile(id) { if (id !== state.profileId && state.profiles.some((p) => p.id === id)) setProfile(id); },
+  /** The phone's Back: closes what's open over the page, as Escape does. Says whether there was anything to close. */
+  back() {
+    const panel = window.matchMedia("(max-width: 1023px)").matches && document.querySelector(".ask-split[data-side='open']");
+    if (!document.querySelector(".overlay, .popover") && !panel) return false;
+    (document.activeElement || document.body).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    return true;
+  },
   /** Something changed elsewhere: draw this section again from fresh data. */
   refresh() { clearCache(); if (state.status) { route({ keepScroll: true }); refreshAlerts(state.profile, state.status); } },
   openAlerts() { openAlerts(null); },
@@ -651,7 +783,7 @@ window.SyntropyShell = nativeNav ? {
 } : undefined;
 
 // The sections in the iPhone app's order: its tabs first (as they're laid out), then More's list.
-const APP_SECTIONS = ["overview", "trends", "ask", "records", "workouts", "journal", "timeline", "report", "sources", "settings"];
+const APP_SECTIONS = ["overview", "trends", "ask", "records", "workouts", "journal", "timeline", "report", "prepare", "sources", "settings"];
 
 /** The sections, for the app's tabs and More: the server decides what there is. */
 function sendSections() {
@@ -670,12 +802,12 @@ export function sendPreferences() {
 function authScreen(content) {
   document.title = "Syntropy Health";        // not the section that was open before signing in
   mount(document.getElementById("root"), html`
-    <div class="auth-wrap"><div class="card auth-card">
+    <div class="auth-wrap" role="main"><div class="card auth-card">
       <div class="brand">${wordmark()}</div>${content}
     </div></div>`);
 }
 
-function renderLogin() {
+function renderLogin({ signedOut = false } = {}) {
   // The app signs its web view in with the device's own token; ask it to do that again rather than show the password.
   if (embedded && appBridge({ type: "signin" })) {
     authScreen(html`<p class="muted" style="margin-top:10px">Signing in…</p>`);
@@ -693,10 +825,12 @@ function renderLogin() {
     if (people.length > 1 && !who) {
       authScreen(html`
         <h1 style="margin-bottom:6px">Who's signing in?</h1>
-        <p class="muted" style="margin-bottom:18px">Each person has their own password and sees their own health data.</p>
+        <p class="muted" style="margin-bottom:18px">${signedOut ? `${SIGNED_OUT} ` : ""}Each person has their own password and sees their own health data.</p>
         <div class="who-list">${people.map((a) => html`<button class="who" type="button" data-who="${a.id}">
           <span class="avatar" style="--c:${a.color || "var(--accent)"}">${initials(a.name)}</span><span class="grow truncate">${a.name}</span>${icon("chevronRight")}</button>`)}</div>
-        <p class="small muted auth-alt"><button class="link-btn" type="button" data-join>I have an invitation</button></p>`);
+        <p class="small muted auth-alt"><button class="link-btn" type="button" data-join>I have an invitation</button></p>
+        <p class="small muted auth-alt"><button class="link-btn" type="button" data-forgot>Forgot your password?</button></p>`);
+      document.querySelector("[data-forgot]").addEventListener("click", () => openPasswordHelp(null));
       document.querySelector(".who-list").addEventListener("click", (e) => {
         const b = e.target.closest("[data-who]");
         if (b) { who = people.find((a) => a.id === b.dataset.who); draw(); }
@@ -710,27 +844,71 @@ function renderLogin() {
         <div class="grow"><h1>${who.name}</h1></div>
         ${people.length > 1 ? html`<button class="btn btn-ghost btn-sm" type="button" data-switch>Not ${who.name}?</button>` : ""}</div>`
         : html`<h1 style="margin-bottom:6px">Unlock</h1>`}
-      <p class="muted" style="margin-bottom:18px">Enter your password to open your health record.</p>
+      <p class="muted" style="margin-bottom:18px">${signedOut ? `${SIGNED_OUT} Enter your password to go back to where you were.` : "Enter your password to open your health record."}</p>
       <form id="login-form">
         ${typed ? html`<div class="field"><input class="input" id="l-name" autocomplete="username" placeholder="Your name" aria-label="Your name"></div>` : ""}
         <div class="field"><input class="input" id="l-pass" type="password" autocomplete="current-password" placeholder="Password" required aria-label="Password"></div>
         <button class="btn btn-primary" style="width:100%" type="submit">Unlock</button>
       </form>
-      <p class="small muted auth-alt"><button class="link-btn" type="button" data-join>I have an invitation</button></p>`);
+      <p class="small muted auth-alt"><button class="link-btn" type="button" data-join>I have an invitation</button></p>
+      <p class="small muted auth-alt"><button class="link-btn" type="button" data-forgot>Forgot your password?</button></p>`);
     (typed ? $("#l-name") : $("#l-pass")).focus();
+    document.querySelector("[data-forgot]").addEventListener("click", () => openPasswordHelp(who?.name || $("#l-name")?.value.trim()));
     document.querySelector("[data-switch]")?.addEventListener("click", () => { who = null; draw(); });
     document.querySelector("[data-join]").addEventListener("click", () => renderJoin());
     $("#login-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const account = who?.id || $("#l-name")?.value.trim() || undefined;
-      try {
-        await post("/api/auth/login", { password: $("#l-pass").value, account });
-        try { if (who) localStorage.setItem("syntropy-account", who.id); } catch {}
-        boot();
-      } catch (err) { toast(err.message, "bad"); $("#l-pass").select(); }
+      await busy(e.submitter, async () => {
+        try {
+          await post("/api/auth/login", { password: $("#l-pass").value, account });
+          try { if (who) localStorage.setItem("syntropy-account", who.id); } catch {}
+          boot();
+        } catch (err) { toast(err.message, "bad"); $("#l-pass").select(); }
+      });
     });
   };
   draw();
+}
+
+/** A forgotten password: nobody outside this household can reset it, and someone at the server's computer can. */
+async function openPasswordHelp(name) {
+  const m = modal({ title: "Forgot your password?", body: loading(2), footer: html`<button class="btn btn-primary" data-ok>OK</button>` });
+  m.el.querySelector("[data-ok]").addEventListener("click", m.close);
+  let command = 'syntropy-health accounts reset-password "NAME"', run_there = false;
+  try { ({ command, run_there } = await get("/api/auth/recovery", undefined, { fresh: true })); } catch {}
+  command = command.replace('"NAME"', `"${(name || "Your name").replaceAll('"', "")}"`);
+  m.setBody(html`
+    <p style="margin-bottom:10px">Your records aren't lost, and nothing needs reinstalling. Syntropy Labs can't reset it, because your
+      records stay on your own server and never reach us. Whoever runs this server can set a new password, on the computer it runs on.
+      If that's you, open Terminal (Command Prompt on Windows) there and run:</p>
+    <div class="row" style="margin-bottom:10px"><code class="grow" style="overflow-wrap:anywhere">${command}</code>
+      <button class="btn btn-sm" data-copy>${icon("copy")} Copy</button></div>
+    ${run_there ? html`<p class="small muted" style="margin-bottom:10px">If that computer says the command isn't found, open this page there. It shows the full command.</p>` : ""}
+    <p class="small muted">It asks for the new password twice, then signs that person's browsers out. Everyone else, and all the records, stay as they are.
+      If someone else runs this server, ask them to do this for you.</p>`);
+  m.body.addEventListener("click", async (e) => {
+    if (!e.target.closest("[data-copy]")) return;
+    try { await navigator.clipboard.writeText(command); toast("Copied", "good"); } catch { toast(command); }
+  });
+}
+
+/** What someone who just joined should look over: it was set up by whoever looked after them. */
+function showJoinReview(review) {
+  const list = (items) => html`<p style="margin-bottom:4px">${items.join(", ")}</p>`;
+  const m = modal({ title: "Now that your record is yours", body: html`
+    ${review.carers?.length ? html`<p style="margin-bottom:6px"><b>Who looked after it until now</b></p>
+      <p class="small muted" style="margin-bottom:12px">${review.carers.join(", ")} can't see it any more, and any conversations they had with an AI about you were deleted.</p>` : ""}
+    ${review.phones?.length ? html`<p style="margin-bottom:6px"><b>Phones that stopped</b></p>${list(review.phones)}
+      <p class="small muted" style="margin-bottom:12px">Someone else paired these, so they no longer send anything or open your record. If one is yours, pair it again in Sources.</p>` : ""}
+    ${review.sources?.length ? html`<p style="margin-bottom:6px"><b>Sources still connected</b></p>${list(review.sources)}
+      <p class="small muted">These keep bringing in data, using the sign-ins someone set up for you. Check them in Sources, and remove any you don't want.</p>` : ""}`,
+    footer: html`<a class="btn" href="#/sources" data-seen>Open Sources</a><button class="btn btn-primary" data-seen>OK</button>` });
+  m.el.querySelectorAll("[data-seen]").forEach((b) => b.addEventListener("click", () => {
+    post("/api/accounts/me/join-review/seen").catch(() => {});
+    delete state.status.join_review;
+    m.close();
+  }));
 }
 
 /** Joining with an invitation: whom it's for, then a password of their own. */
@@ -750,17 +928,23 @@ function renderJoin(code = "") {
     $("#join-code").addEventListener("submit", async (e) => {
       e.preventDefault();
       code = $("#j-code").value.trim();
-      try { choose(await post("/api/invites/check", { code })); }
-      catch (err) { toast(err.message, "bad"); $("#j-code").select(); }
+      await busy(e.submitter, async () => {
+        try { choose(await post("/api/invites/check", { code })); }
+        catch (err) { toast(err.message, "bad"); $("#j-code").select(); }
+      });
     });
   };
   const choose = (who) => {
     authScreen(html`
       <div class="who-current"><span class="avatar" style="--c:${who.color || "var(--accent)"}">${initials(who.name)}</span>
         <div class="grow"><h1>Welcome, ${who.name}</h1></div></div>
-      <p class="muted" style="margin-bottom:18px">Choose your own password. From now on your health data is yours: only you see it,
-        unless you choose to share it with someone else here.</p>
+      <p class="muted" style="margin-bottom:18px">Choose your own password. From now on your health data is yours: nobody here sees it in
+        the app unless you share it with them. Whoever runs this server can still reach the file it's kept in, and its backups, and your
+        access log shows each backup.</p>
       <form id="join-form">
+        ${who.name_taken ? html`<div class="field"><label class="label" for="j-name">Your name</label>
+          <input class="input" id="j-name" maxlength="80" autocomplete="name" required value="">
+          <div class="hint">Someone here already signs in as ${who.name}. Choose the name you'll sign in with.</div></div>` : ""}
         <div class="field"><label class="label" for="j-pass">Password</label>
           <input class="input" id="j-pass" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" required>
           <div class="hint">Keep it in your password manager.</div></div>
@@ -769,18 +953,20 @@ function renderJoin(code = "") {
         <div class="field">${termsCheckbox("j-terms")}</div>
         <button class="btn btn-primary" style="width:100%" type="submit">Join</button>
       </form>`);
-    $("#j-pass").focus();
+    ($("#j-name") || $("#j-pass")).focus();
     $("#join-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const pass = $("#j-pass").value;
       if (pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
       if (pass !== $("#j-pass2").value) return toast("The passwords don't match.", "bad");
-      try {
-        const res = await post("/api/invites/accept", { code, password: pass, accept_terms: true });
-        try { localStorage.setItem("syntropy-account", res.account.id); localStorage.removeItem("syntropy-profile"); } catch {}
-        history.replaceState(null, "", "#/");
-        boot();
-      } catch (err) { toast(err.message, "bad"); }
+      await busy(e.submitter, async () => {
+        try {
+          const res = await post("/api/invites/accept", { code, password: pass, accept_terms: true, name: $("#j-name")?.value.trim() || undefined });
+          try { localStorage.setItem("syntropy-account", res.account.id); localStorage.removeItem("syntropy-profile"); } catch {}
+          history.replaceState(null, "", "#/");
+          boot();
+        } catch (err) { toast(err.message, "bad"); }
+      });
     });
   };
   // From an invitation link the code is already known: go straight to whom it's for.
@@ -844,12 +1030,20 @@ async function boot() {
   try { saved = localStorage.getItem("syntropy-profile"); } catch {}
   state.profileId = state.profiles.some((p) => p.id === saved) ? saved : (state.profiles.find((p) => p.is_default) || state.profiles[0])?.id;
   document.getElementById("root").innerHTML = "";
+  shownRoute = null;
   renderShell();
-  route();
+  // Back from a session that ran out: a dialog with something typed in it carries on, for the same person only.
+  const resuming = heldFor !== null && heldFor === state.status.account?.id;
+  if (heldFor !== null && !resuming) closeDialogs();
+  heldFor = null;
+  holdDialogs(false);
+  route(resuming ? { keepScroll: true } : undefined);
   if (nativeNav) {
     sendSections();
     sendPreferences();
     appBridge({ type: "booted" });
+  } else if (state.status.join_review) {
+    showJoinReview(state.status.join_review);
   }
   // Overview reports its own alerts once loaded; every other page asks for them here.
   if (parseHash().route !== "overview") refreshAlerts(state.profile, state.status);
@@ -864,6 +1058,7 @@ async function boot() {
 }
 let started = false;
 let retryOnline = false;
+let heldFor = null;       // whose dialogs are waiting behind the sign-in screen
 
 // The session ran out (or was signed out elsewhere) while the app was open: the sign-in screen, as it shows on opening
 // (who's signing in, with names to choose from nearby), drawn once however many requests were turned away.
@@ -872,12 +1067,15 @@ onUnauthorized(async () => {
   if (signingIn) return;
   signingIn = true;
   clearCache();
+  const was = state.status?.account?.id ?? null;
   try { state.status = await get("/api/status", undefined, { fresh: true }); } catch { state.status = null; }
   signingIn = false;
   if (state.status?.authenticated) return;
   closePopover();
-  closeDialogs();
-  renderLogin();
+  // What's typed in an open dialog waits behind the sign-in screen rather than being lost.
+  heldFor = was;
+  if (was === null) closeDialogs(); else holdDialogs(true);
+  renderLogin({ signedOut: true });
 });
 // Back from another site (a health system's sign-in page), the browser may show this page just as it was left, from
 // its back-forward cache: a dialog still saying "Preparing secure sign-in…", data from before. Draw it afresh.
@@ -891,7 +1089,11 @@ window.addEventListener("pageshow", (e) => {
 });
 window.addEventListener("hashchange", () => {
   if (parseHash().route === "join" && !embedded) boot();     // an invitation link opened in this tab
-  else if (state.status?.authenticated) route();
+  else if (state.status?.authenticated) {
+    const { route: name, params } = parseHash();
+    if (ownAddress?.(name, params)) shownHash = location.hash;
+    else route();
+  }
 });
 boot();
 

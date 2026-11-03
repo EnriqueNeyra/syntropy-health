@@ -36,10 +36,42 @@ function saveState(change) {
 
 const STALE_PHONE_DAYS = 3;
 const UPDATE_REMINDER_DAYS = 30;
+const STALE_DAYS = { ehr: 7, wearable: 3 };
+
+/** A connected source that hasn't synced for longer than it should have. */
+export const isStale = (c) => !c.access_ended && STALE_DAYS[c.kind] && c.last_sync_at
+  && ["active", "error"].includes(c.status) && Date.now() / 1000 - c.last_sync_at > STALE_DAYS[c.kind] * 86400;
+const ADULT_REMINDER_MONTHS = 6;
+
+/** Someone looked after who is nearly an adult (or is one): their record could be theirs. A reminder for whoever manages
+ *  them; nothing changes until they invite them. */
+function growingUp(profile, status) {
+  const age = status?.adult_age;
+  if (!age || !profile?.birth_date || profile.signs_in || profile.access !== "manage" || profile.relationship !== "child") return null;
+  const born = new Date(`${profile.birth_date}T00:00:00`);
+  const turns = new Date(born.getFullYear() + age, born.getMonth(), born.getDate());
+  const soon = new Date(turns);
+  soon.setMonth(soon.getMonth() - ADULT_REMINDER_MONTHS);
+  if (Number.isNaN(turns.getTime()) || Date.now() < soon.getTime()) return null;
+  const when = fmtDate(turns.getTime() / 1000);
+  return { id: `adult:${profile.id}:${age}`, level: "info", icon: "users",
+           title: Date.now() < turns.getTime() ? `${profile.name} turns ${age} on ${when}` : `${profile.name} turned ${age} on ${when}`,
+           text: "An adult usually keeps their own health record. You can invite them to sign in themselves, and it becomes theirs alone.",
+           href: "#/settings/people", action: "Open People" };
+}
 
 /** Builds the alert list from the profile's summary and connections. */
-function collect({ summary, connections, status }) {
+// A source that always refuses the same thing says so at every sync: dismissing that holds until it says something else.
+function textKey(lines) {
+  let key = 0;
+  for (const ch of [...lines].sort().join("\n")) key = (Math.imul(31, key) + ch.codePointAt(0)) | 0;
+  return (key >>> 0).toString(36);
+}
+
+function collect({ profile, summary, connections, status }) {
   const out = [];
+  const grown = growingUp(profile, status);
+  if (grown) out.push(grown);
   const conflict = summary?.identity_conflict || [];
   if (conflict.length) {
     out.push({
@@ -53,14 +85,18 @@ function collect({ summary, connections, status }) {
     const age = c.last_sync_at ? Math.floor((Date.now() / 1000 - c.last_sync_at) / 86400) : 0;
     if (c.access_ended) {
       // A one-time import (healow): a gentle nudge each month, never a warning. Dismissing it lasts until the next one.
-      if (age >= UPDATE_REMINDER_DAYS) {
+      if (c.last_sync_status === "partial") {
+        out.push({ id: `conn:${c.id}:unfinished:${Math.floor(c.last_sync_at)}`, level: "warn", icon: "sources", title: `${c.display_name} didn't finish importing`,
+                   text: "Access ran out before everything came in. Sign in again to finish.", href: "#/sources", action: "Open Sources" });
+      } else if (age >= UPDATE_REMINDER_DAYS) {
         out.push({ id: `conn:${c.id}:update:${Math.floor(c.last_sync_at)}:${Math.floor(age / UPDATE_REMINDER_DAYS)}`, level: "info", icon: "sources",
                    title: `Update ${c.display_name}?`, text: `Its records here are from ${fmtDate(c.last_sync_at)}. Sign in again to bring in anything new.`,
                    href: "#/sources", action: "Open Sources" });
       }
     } else if (c.status === "needs_reauth") {
       out.push({ id: `conn:${c.id}:reauth`, level: "warn", icon: "sources", title: `Reconnect ${c.display_name}`,
-                 text: "Access expired, so new records aren't coming in.", href: "#/sources", action: "Reconnect" });
+                 text: c.credentials_unreadable ? "Its saved sign-in can't be read, because the encryption key changed. Put the original key back, or sign in again."
+                   : "Access expired, so new records aren't coming in.", href: "#/sources", action: "Reconnect" });
     } else if (c.status === "error") {
       out.push({ id: `conn:${c.id}:error:${c.last_sync_at || ""}`, level: "bad", icon: "sync", title: `${c.display_name} couldn't sync`,
                  text: c.last_error || "The last sync failed.", href: "#/sources", action: "Open Sources" });
@@ -71,18 +107,32 @@ function collect({ summary, connections, status }) {
                  title: `No ${store} data since ${fmtDate(c.last_sync_at)}`,
                  text: `${c.display_name} hasn't sent anything in ${Math.floor((Date.now() / 1000 - c.last_sync_at) / 86400)} days. Open the Syntropy Health app on it to catch up.`,
                  href: "#/sources", action: "Open Sources" });
+    } else if (isStale(c)) {
+      out.push({ id: `conn:${c.id}:old:${Math.floor(c.last_sync_at / 86400)}`, level: "info", icon: "sources", title: `${c.display_name} last synced ${fmtDate(c.last_sync_at)}`,
+                 text: `Nothing has come in from it for ${Math.floor((Date.now() / 1000 - c.last_sync_at) / 86400)} days.`, href: "#/sources", action: "Open Sources" });
     }
+    if (!c.access_ended && c.last_sync_status === "partial" && c.status === "active" && c.last_warnings?.length) {
+      out.push({ id: `conn:${c.id}:partial:${textKey(c.last_warnings)}`, level: "info", icon: "sources", title: `${c.display_name} synced in part`,
+                 text: c.last_warnings.join(" "), href: "#/sources", action: "Open Sources" });
+    }
+  }
+  for (const p of status?.problems || []) {
+    // Dismissing one lasts the day: it's still true tomorrow, and matters more than anything else here.
+    out.push({ id: `problem:${p.id}:${new Date().toISOString().slice(0, 10)}`, level: "bad", icon: "alert", title: p.title, text: p.text, href: "#/settings/general", action: "Open Settings" });
   }
   if (status?.update) {
     out.push({ id: `update:${status.update.version}`, level: "info", icon: "download", title: `Syntropy Health ${status.update.version} is available`,
                text: status.update.installs ? "Install it from Settings; the app opens again by itself." : "Settings shows how to update this installation.",
                href: "#/settings/general/updates", action: "Update" });
   }
+  // Old results stay on the Overview, marked as old, but a decade-old cholesterol isn't news. The list has critical ones first.
   for (const l of summary?.flagged_labs || []) {
+    if (l.older) continue;
     const word = /low/.test(l.interpretation) ? "low" : /high/.test(l.interpretation) ? "high" : "out of range";
+    const critical = /^critical/.test(l.interpretation) ? " · The lab marked this critical" : "";
     out.push({ id: `lab:${l.id}`, level: "lab", icon: "flask", title: `${l.title} is ${word}`,
-               text: `${l.value_text}${l.ref_text ? ` (range ${l.ref_text})` : ""} · ${fmtDate(l.effective_at)}`,
-               href: `#/trends/labs?code=${encodeURIComponent(l.code || "")}`, action: "See trend" });
+               text: `${l.value_text}${l.ref_text ? ` (range ${l.ref_text})` : ""} · ${fmtDate(l.effective_at)}${["preliminary", "registered"].includes(String(l.status).toLowerCase()) ? " · preliminary, may change" : ""}${critical}`,
+               href: `#/trends/labs?${l.code ? `code=${encodeURIComponent(l.code)}` : `title=${encodeURIComponent(l.title)}`}`, action: "See trend" });
   }
   return out;
 }
@@ -99,7 +149,7 @@ export async function refreshAlerts(profile, status, data = null) {
     ]);
     if (profileId !== profile.id) return;   // switched profile while loading
     ({ seen, dismissed } = marks);
-    alerts = collect({ summary, connections, status }).filter((a) => !dismissed.has(a.id));
+    alerts = collect({ profile, summary, connections, status }).filter((a) => !dismissed.has(a.id));
   } catch { return; }
   listeners.forEach((fn) => fn());
 }

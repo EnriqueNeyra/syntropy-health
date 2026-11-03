@@ -5,18 +5,137 @@ and nothing touches the network: EHR connections run against the in-process simu
 
 from __future__ import annotations
 
+import asyncio
 import os
 import re
+import sys
+import traceback
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-import pytest
-from fastapi.testclient import TestClient
+# What a developer has set must not change what the tests see, so this runs before anything imports the app: their
+# .env isn't loaded (app.core.config), and settings exported in their shell are dropped.
+os.environ["SYNTROPY_NO_DOTENV"] = "1"
+for _var in [v for v in os.environ if v != "SYNTROPY_NO_DOTENV" and (v.startswith("SYNTROPY_") or v in ("PORT", "FORWARDED_ALLOW_IPS"))]:
+    del os.environ[_var]
+
+# The tests never touch a real Keychain or Windows' protected storage: test_keystore covers those with its own. The second is
+# a seat belt, for a child process or a test that asks for the Keychain: it's a keychain that doesn't exist.
+os.environ["SYNTROPY_KEY_STORE"] = "file"
+os.environ["SYNTROPY_KEYCHAIN_FILE"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-keychain-db")
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+
+def _open_any_database() -> None:
+    """Many tests look inside the database with `import sqlite3`. That has to mean the same SQLite as the app, or its errors
+    are other classes, and it has to open an encrypted file as the app would. A new file stays plain, so a test can still make
+    a database as an earlier version would have."""
+    import sqlite3 as standard
+
+    from app.core.sqlite import HAS_ENCRYPTION, sqlite3
+    if not HAS_ENCRYPTION:
+        return
+    from pathlib import Path
+
+    real_connect = sqlite3.connect
+
+    def unlocking_connect(target: Any, *args: Any, **kwargs: Any) -> Any:
+        conn = real_connect(target, *args, **kwargs)
+        name = str(target).removeprefix("file:").split("?")[0]
+        if name != ":memory:":
+            from app.core import db, security
+            if db.is_encrypted(Path(name)):
+                for key in security.known_database_keys():
+                    probe = real_connect(name)
+                    try:
+                        db.use_key(probe, key)
+                        probe.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()
+                        db.use_key(conn, key)
+                        break
+                    except sqlite3.DatabaseError:
+                        pass
+                    finally:
+                        probe.close()
+        return conn
+
+    class Unlocking:
+        """The module, with connect that knows the key. app.core.db has its own reference to the real one."""
+        def __getattr__(self, name: str) -> Any:
+            return getattr(sqlite3, name)
+        connect = staticmethod(unlocking_connect)
+
+    assert standard
+    sys.modules["sqlite3"] = Unlocking()  # type: ignore[assignment]
+
+
+_open_any_database()
 
 BASE = "http://localhost:8000"
 CSRF = {"X-Requested-With": "syntropy"}
 PASSPHRASE = "correct horse battery"
 LOCAL_CLIENT = ("127.0.0.1", 50000)      # setup is only accepted from nearby addresses
+RELAY_KEY = "test-relay-key"
+
+
+class BlockedNetwork(OSError):
+    """A test tried to reach something other than this computer."""
+
+
+_network_attempts: list[str] = []
+
+
+def _is_this_computer(host: Any) -> bool:
+    name = (host.decode() if isinstance(host, bytes) else str(host or "")).strip("[]").lower()
+    return name in ("", "localhost", "::1", "::", "0.0.0.0") or name.startswith("127.") or name.endswith(".localhost")
+
+
+def _network_guard(event: str, args: tuple) -> None:
+    # An audit hook, so it also sees what C code and other libraries do. It raises, so the code under test behaves as
+    # it would offline, and network_guard below fails the test even if that code catches the error.
+    if event in ("socket.getaddrinfo", "socket.gethostbyname", "socket.gethostbyaddr"):
+        host = args[0]
+    elif event in ("socket.connect", "socket.sendto") and isinstance(args[1], tuple):
+        host = args[1][0]
+    else:
+        return
+    if not _is_this_computer(host):
+        _network_attempts.append(f"{event} {host}")
+        raise BlockedNetwork(f"Tests don't use the network: {event} {host}")
+
+
+sys.addaudithook(_network_guard)
+
+
+@pytest.fixture(autouse=True)
+def network_guard():
+    """Nothing but this computer: a test that reaches for anything else fails, so it stubs that call instead."""
+    _network_attempts.clear()
+    yield
+    attempts, _network_attempts[:] = list(_network_attempts), []
+    assert not attempts, f"This test tried to use the network: {attempts}"
+
+
+@pytest.fixture(autouse=True)
+def writes_stay_off_the_event_loop(monkeypatch):
+    """Waiting for the write lock on the event loop stops every request, so no test may reach db() from there."""
+    from app.core import db
+    on_the_loop: list[str] = []
+    real = db._writer
+
+    def writer(path):
+        try:
+            asyncio.get_running_loop()
+            on_the_loop.append("".join(traceback.format_stack(limit=8)))
+        except RuntimeError:
+            pass
+        conn = real(path)
+        conn.execute("PRAGMA fullfsync = OFF")      # 5 ms per commit on a Mac, and these databases don't need to last
+        return conn
+    monkeypatch.setattr(db, "_writer", writer)
+    yield
+    assert not on_the_loop, f"A database write ran on the event loop:\n{on_the_loop[0]}"
 
 
 @pytest.fixture(autouse=True)
@@ -31,11 +150,20 @@ def isolated_data(tmp_path, monkeypatch):
     for var in ("SYNTROPY_LISTEN_HOST", "SYNTROPY_LISTEN_PORT"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("TZ", "UTC")
+    # Set, so a database that's already here is encrypted at start-up without waiting for its owner to choose
+    # (test_database_encryption covers that choice).
+    monkeypatch.setenv("SYNTROPY_DATABASE_ENCRYPTION", "1")
     # Vendor credentials from a developer's .env would change which client each test sees.
     for var in [v for v in os.environ if v.endswith(("_CLIENT_ID", "_CLIENT_SECRET"))]:
         monkeypatch.delenv(var, raising=False)
-    from app.core import auth, db
+    # The tests run as a release build, with Syntropy's registrations (test_relay_key covers a build from the source).
+    # A key written by scripts/release_key.py in this checkout is ignored.
+    monkeypatch.setenv("SYNTROPY_RELAY_KEY", RELAY_KEY)
+    monkeypatch.setitem(sys.modules, "app.core.release_key", None)
+    from app.core import auth, db, security
     from app.store import sample_counts
+    # A real password check takes a quarter of a second, on purpose. test_passwords covers the real settings.
+    monkeypatch.setattr(security, "_SCRYPT_N", 2**10)
     db.reset_migration_cache()
     sample_counts.forget()   # counts are kept in memory; each test has its own database
     # Failed sign-ins are counted in memory too: another test's wrong passwords mustn't lock this one out.
@@ -46,9 +174,21 @@ def isolated_data(tmp_path, monkeypatch):
 
 
 @pytest.fixture
+def plain_database(monkeypatch):
+    """A server that doesn't encrypt its database: one from before encryption, one with it turned off, or an older backup.
+    Name it before `client`, which is what starts the server."""
+    monkeypatch.setenv("SYNTROPY_DATABASE_ENCRYPTION", "0")
+
+
+@pytest.fixture
 def raw_client():
+    from app.core import data_fixes
     from app.main import create_app
     with TestClient(create_app(), base_url=BASE, client=LOCAL_CLIENT) as c:
+        # Fixes run in the background at start-up. Left running, working out daily rollups again can remove a row a test has
+        # just written.
+        if data_fixes._thread:
+            data_fixes._thread.join(30)
         yield c
 
 

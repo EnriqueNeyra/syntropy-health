@@ -29,6 +29,8 @@ git clone https://github.com/EnriqueNeyra/syntropy-health && cd syntropy-health
 ```
 
 Use the built-in EHR simulator and the simulated Oura and WHOOP sources for data; never develop against real records.
+A checkout doesn't have the relay key that release builds carry (`scripts/release_key.py`), so it doesn't offer
+Syntropy's registrations with health systems, Oura and WHOOP; the simulator and simulated sources don't need them.
 
 ## Where things are
 
@@ -61,7 +63,14 @@ See [How it works](https://health.syntropylabs.io/docs/) for how it fits togethe
 cd cloudflare-worker && npm test   # if you changed the relay worker
 ```
 
-The web app has no build step: check your change in the browser in light and dark appearance, and at phone width.
+Changing a dependency? Edit the range in `pyproject.toml`, then run `uv lock` and commit `uv.lock`: it fixes the exact
+versions, with their hashes, that releases, the Docker image and CI install, and CI fails if it's out of date.
+
+Changing what's stored? A schema change is a new file in `app/core/migrations` (never an edit to one on main), with its
+case added to `tests/test_migrations.py`. Rows that need correcting go through `app/core/data_fixes.py`, and any other long
+rewrite through `db.write_in_batches`: both keep the server answering.
+
+The web app has no build step: check your change in the browser in light and dark appearance, and at phone width. The browser tests do the same for every page: `pip install -e ".[checks]"` and `pytest tests/e2e`, with Chrome installed. Set `AXE_CORE_JS` to a copy of axe-core to add the accessibility pass, as CI does.
 Add an entry under **Unreleased** in [CHANGELOG.md](../CHANGELOG.md).
 
 ## What runs on GitHub
@@ -69,7 +78,9 @@ Add an entry under **Unreleased** in [CHANGELOG.md](../CHANGELOG.md).
 | Workflow | When | What |
 |---|---|---|
 | CI | pushes to main, pull requests | lint, the test suite (Python 3.12 and the newest), the relay worker's tests, and the installers on real Linux, Mac and Windows machines |
-| Docker image | pushes to main, pull requests, releases | builds and runs the image; publishes `:main` from main, and `:latest` and the version for a release |
+| Docker image | pushes to main, pull requests, releases | builds, runs and scans the image; publishes `:main` from main, and `:latest` and the version for a release (arm64 runs first, under emulation). Publishing needs the `SYNTROPY_RELAY_KEY` repository secret |
+| Docker image refresh | weekly | rebuilds the latest release's code on today's base image and `uv.lock`, once its own tests pass with them, and moves `:latest` and `:1.2`. `:1.2.3` stays as released |
+| Supply chain | weekly | audits `uv.lock`, scans the published image, and tries the suite on the newest dependencies; anything wrong opens one issue |
 | Release | a `v*` tag; changes under `desktop/` | builds and checks the Mac and Windows apps; a tag also runs CI and publishes the release |
 | Tag release | a change to `APP_VERSION` merged into main | tags that version, which starts Release |
 | CodeQL | pushes to main, pull requests, weekly | security scanning (public repository only) |
@@ -77,7 +88,9 @@ Add an entry under **Unreleased** in [CHANGELOG.md](../CHANGELOG.md).
 
 Pull requests into main need **CI passed** (every CI job succeeded), **image** and **CLA**.
 
-Dependabot proposes dependency updates weekly (Python, the Docker base image) and monthly (the workflows' actions).
+Dependabot proposes dependency updates weekly (Python, in `uv.lock`, and the Docker base image's digest) and monthly (the
+workflows' actions). uv's own version moves by hand: it's in the Dockerfile, the installers and the workflows, and
+`tests/test_deployment_files.py` keeps them the same.
 
 ## Releasing
 

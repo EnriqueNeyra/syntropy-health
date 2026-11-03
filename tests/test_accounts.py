@@ -7,6 +7,7 @@ import sqlite3
 
 from fastapi.testclient import TestClient
 
+from app.core import data_fixes
 from tests.conftest import BASE, CSRF, LOCAL_CLIENT, PASSPHRASE
 
 MARIA_PASSWORD = "maria's own password"
@@ -136,7 +137,8 @@ def test_removing_people(raw_client):
     maria = _person(client, "Maria")
     maria_client, _ = _join(client, maria)
     alex = _ids(client)["Alex"]["id"]
-    assert client.delete(f"/api/profiles/{alex}").status_code == 400          # the only owner
+    assert client.delete(f"/api/profiles/{alex}").status_code == 403          # their own: with their password
+    assert client.post("/api/accounts/me/delete", json={"password": PASSPHRASE}).status_code == 400    # the only owner
     leo = _person(maria_client, "Leo", "child")                               # Maria looks after Leo
     assert client.delete(f"/api/profiles/{leo}").status_code == 404           # Alex can't see him
     assert maria_client.delete(f"/api/profiles/{leo}").status_code == 200
@@ -152,7 +154,7 @@ def test_people_nobody_looks_after_go_to_the_owner(raw_client):
     leo = _person(maria_client, "Leo", "child")
     assert "Leo" not in _ids(client)
     # Maria leaves (removing herself would take Leo's only guardian with her): Alex, the owner, looks after him.
-    assert maria_client.delete(f"/api/profiles/{maria}").status_code == 200
+    assert maria_client.post("/api/accounts/me/delete", json={"password": MARIA_PASSWORD}).status_code == 200
     assert _ids(client)["Leo"]["access"] == "manage"
     assert client.get("/api/summary", params={"profile": leo}).status_code == 200
 
@@ -197,7 +199,7 @@ def test_agent_tokens_read_only_what_their_account_sees(raw_client):
     token = maria_client.post("/api/agents/tokens", json={"name": "Claude"}).json()["token"]
     call = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "list_profiles", "arguments": {}}}
     r = client.post("/mcp", json=call, headers={"Authorization": f"Bearer {token}"})
-    people = json.loads(r.json()["result"]["content"][0]["text"])
+    people = json.loads(r.json()["result"]["content"][0]["text"])["people"]
     assert [p["name"] for p in people] == ["Maria"]
     assert client.get("/api/agents/tokens").json()["tokens"] == []           # Alex doesn't see Maria's tokens
     assert maria_client.get("/api/agents/local-command").status_code == 403  # the computer's own MCP reads everyone
@@ -206,6 +208,7 @@ def test_agent_tokens_read_only_what_their_account_sees(raw_client):
 def test_online_ai_consent_is_each_persons(raw_client):
     client = _signed_in_owner(raw_client)
     maria_client, _ = _join(client, _person(client, "Maria"))
+    client.put("/api/ai/config", json={"provider": "openai", "api_key": "sk-test", "model": "gpt-test"})
     assert client.post("/api/ai/acknowledge").status_code == 200
     assert client.get("/api/ai/config").json()["cloud_ack"]
     assert not maria_client.get("/api/ai/config").json()["cloud_ack"]
@@ -238,6 +241,7 @@ def test_an_instance_from_before_accounts_keeps_its_password(tmp_path, monkeypat
     from app.core import config, db, security
 
     path = config.db_path()
+    stored_hash = security.encrypt_json(security.hash_password(PASSPHRASE))
     conn = sqlite3.connect(str(path))
     for f in sorted(db.MIGRATIONS_DIR.glob("*.sql")):
         if int(f.name.split("_", 1)[0]) > 8:
@@ -246,8 +250,8 @@ def test_an_instance_from_before_accounts_keeps_its_password(tmp_path, monkeypat
             conn.execute(statement)
     conn.execute("PRAGMA user_version = 8")
     rows = [("setup.completed", True), ("auth.required", True), ("terms.accepted", {"version": 1, "at": 1}),
-            ("auth.password_hash", security.encrypt_json(security.hash_password(PASSPHRASE))),
-            ("overview.layout.prf_a", [{"id": "sleep", "visible": True, "options": {}}]), ("ai.cloud_ack", 1.0),
+            ("auth.password_hash", stored_hash),
+            ("overview.layout.prf_a", [{"id": "sleep", "visible": True, "options": {}}]), ("ai.cloud_ack", 1.0), ("ai.provider", "openai"),
             ("display.accent", "teal")]
     conn.executemany("INSERT INTO app_settings(key, value, updated_at) VALUES (?, ?, 0)", [(k, json.dumps(v)) for k, v in rows])
     conn.executemany("INSERT INTO profiles(id, name, relationship, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0)",
@@ -265,6 +269,7 @@ def test_an_instance_from_before_accounts_keeps_its_password(tmp_path, monkeypat
         assert status["preferences"]["accent"] == "teal"
         assert {p["name"]: p["access"] for p in status["profiles"]} == {"Alex": "manage", "Sam": "manage"}
         assert c.get("/api/profiles/prf_a/overview").json()["widgets"][0]["id"] == "sleep"
+        data_fixes.run_pending()
         assert c.get("/api/ai/config").json()["cloud_ack"]
 
 
@@ -290,3 +295,80 @@ def test_profile_changes_are_checked_and_birth_date_can_be_cleared(client):
         assert client.patch(f"/api/profiles/{pid}", json=bad).status_code == 422, bad
     assert client.post("/api/profiles", json={"name": "Kim", "birth_date": "yesterday"}).status_code == 422
     assert client.patch(f"/api/profiles/{pid}", json={"name": " Sammy "}).json()["name"] == "Sammy"
+
+
+def _fallen_to_the_owner(client):
+    """Kid was added by Maria, who then left: nobody manages Kid, so the owners look after them."""
+    maria_client, _ = _join(client, _person(client, "Maria"))
+    kid = _person(maria_client, "Kid", "child")
+    assert maria_client.post("/api/accounts/me/delete", json={"password": MARIA_PASSWORD}).status_code == 200
+    assert kid in [p["id"] for p in client.get("/api/profiles").json()["profiles"]]
+    sam_client, _ = _join(client, _person(client, "Sam"))
+    return kid, sam_client, sam_client.get("/api/status").json()["account"]["id"]
+
+
+_HEARTBEAT = {"device_id": "ios-1", "device_name": "iPhone", "samples": [
+    {"id": "s1", "metric_type": "heart_rate", "value": 60, "unit": "count/min",
+     "start_date": "2026-01-02T08:00:00Z", "end_date": "2026-01-02T08:00:00Z"}]}
+
+
+def test_handing_over_ends_phones_for_people_only_the_owner_could_reach(raw_client):
+    client = _signed_in_owner(raw_client)
+    alex = _ids(client)["Alex"]["id"]
+    kid, _, sam = _fallen_to_the_owner(client)
+    _, anon, auth, screens = _phone(client, kid)
+    _, own_anon, own_auth, _ = _phone(client, alex)
+    waiting = client.post("/api/devices/pairing-code", json={"profile_id": kid}).json()["code"]
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 200
+
+    r = client.put(f"/api/accounts/{sam}/role", json={"role": "owner", "step_down": True, "password": PASSPHRASE})
+    assert r.status_code == 200, r.text
+    assert kid not in [p["id"] for p in client.get("/api/profiles").json()["profiles"]]
+
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 401
+    assert screens.get("/api/status").json().get("authenticated") is False
+    assert anon.post("/api/devices/pair", json={"code": waiting, "device_name": "iPhone"}).status_code != 200
+    # Their own phone is still theirs.
+    assert own_anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=own_auth).status_code == 200
+
+
+def test_being_removed_as_owner_ends_those_phones_too(raw_client):
+    client = _signed_in_owner(raw_client)
+    alex = client.get("/api/status").json()["account"]["id"]
+    kid, sam_client, sam = _fallen_to_the_owner(client)
+    assert client.put(f"/api/accounts/{sam}/role", json={"role": "owner", "password": PASSPHRASE}).status_code == 200
+    _, anon, auth, _ = _phone(client, kid)
+    _, sam_anon, sam_auth, _ = _phone(sam_client, kid)
+    r = sam_client.put(f"/api/accounts/{alex}/role", json={"role": "member", "password": MARIA_PASSWORD})
+    assert r.status_code == 200, r.text
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 401
+    assert sam_anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=sam_auth).status_code == 200     # still an owner
+
+
+def test_stepping_down_keeps_phones_for_people_given_to_you(raw_client):
+    client = _signed_in_owner(raw_client)
+    leo = _person(client, "Leo", "child")       # Alex added Leo, and manages Leo by right of that, not of being an owner
+    _, sam_client, sam = _fallen_to_the_owner(client)
+    _, anon, auth, _ = _phone(client, leo)
+    assert client.put(f"/api/accounts/{sam}/role", json={"role": "owner", "step_down": True, "password": PASSPHRASE}).status_code == 200
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 200
+
+
+def test_a_refused_step_down_changes_no_phones(raw_client):
+    client = _signed_in_owner(raw_client)
+    alex = client.get("/api/status").json()["account"]["id"]
+    kid, _, _ = _fallen_to_the_owner(client)
+    _, anon, auth, _ = _phone(client, kid)
+    assert client.put(f"/api/accounts/{alex}/role", json={"role": "member", "password": PASSPHRASE}).status_code == 400
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 200
+
+
+def test_giving_someone_a_person_only_the_owner_reached_ends_the_owners_phone(raw_client):
+    client = _signed_in_owner(raw_client)
+    kid, sam_client, sam = _fallen_to_the_owner(client)
+    _, anon, auth, _ = _phone(client, kid)
+    r = client.put(f"/api/profiles/{kid}/access", json={"account_id": sam, "level": "manage"})
+    assert r.status_code == 200, r.text
+    assert kid not in [p["id"] for p in client.get("/api/profiles").json()["profiles"]]     # someone manages Kid now
+    assert kid in [p["id"] for p in sam_client.get("/api/profiles").json()["profiles"]]
+    assert anon.post("/api/ingest/wearables", json=_HEARTBEAT, headers=auth).status_code == 401

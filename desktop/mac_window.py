@@ -6,19 +6,22 @@ The Mac window: Syntropy Health's interface drawn edge to edge in a native windo
   app.css, and desktopBridge in app.js).
 - A full menu bar with the usual shortcuts: Settings (⌘,), New Chat (⌘N), Find (⌘F), the sections (⌘1–⌘8), Back and
   Forward (⌘[ ⌘]), Reload (⌘R) and text size (⌘+ ⌘− ⌘0). Right-clicking the Dock icon offers the menu bar item's choices.
-- Swiping with two fingers goes back and forward, and the window remembers its size and place.
+- The window remembers its size and place.
 - The app is in the Dock (and ⌘-Tab) only while its window is open. Closed, it runs on in the menu bar alone, like
   other menu bar apps; opening the window from there puts it back in the Dock.
-- Another site in the window (a health system's sign-in) gets an ordinary title bar naming the site, with a
-  "‹ Syntropy Health" back button beside the window buttons (a navigational toolbar item, like Safari's) that returns to
-  the app: those pages don't leave room for the window buttons or offer a way back. The window keeps its size and place
-  through the change.
+- A page going to another site (a health system's sign-in) opens it in a sheet instead (mac_sign_in.py), and the window
+  stays on Syntropy Health.
+- Should another site still end up in the window (the window wasn't on screen to attach a sheet to, say), it gets an
+  ordinary title bar naming the site, with a "‹ Syntropy Health" back button beside the window buttons (a navigational
+  toolbar item, like Safari's) that returns to the app: those pages don't leave room for the window buttons or offer a
+  way back. The window keeps its size and place through the change.
 
 The page talks to the window through a WebKit message handler, "syntropyDesktop": which theme it shows (so the sidebar
 material and title bar match it), its title (for the Window menu and Mission Control), when it's ready to be seen, and
-when the top of the window is dragged. Only Syntropy Health's own pages are listened to; another site in the window
-can't rename it or move it. pywebview's own JavaScript bridge can't be used: it builds functions with new Function(),
-which the page's Content-Security-Policy forbids. The window runs scripts in the page with evaluateJavaScript, which that
+when the top of the window is dragged. Only the main frame of Syntropy Health's own pages is listened to (sites.py says
+which those are); another site in the window, or a frame in one, can't rename it or move it. pywebview's own JavaScript
+bridge can't be used (it builds functions with new Function(), which the page's Content-Security-Policy forbids), and it
+would answer any site, so its calls are dropped. The window runs scripts in the page with evaluateJavaScript, which that
 policy doesn't restrict.
 """
 
@@ -26,14 +29,25 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import secrets
 import threading
+import time
 import webbrowser
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 import AppKit
+import Foundation
 import objc
-from Foundation import NSObject
+import sites
+import WebKit
+from Foundation import (NSURL, NSDownloadsDirectory, NSObject, NSSearchPathForDirectoriesInDomains, NSURLErrorCancelled,
+                        NSURLErrorDomain, NSUserDomainMask)
+from mac_sign_in import NOT_FAILURES, SignInSheet, url_text as _url_text
 from PyObjCTools import AppHelper
+from webview.platforms import cocoa
+from webview.platforms.cocoa import BrowserView
 
 log = logging.getLogger("syntropy.desktop")
 
@@ -44,6 +58,8 @@ SECTIONS = [("Overview", "overview"), ("Ask", "ask"), ("Trends", "trends"), ("Wo
             ("Journal", "journal"), ("Timeline", "timeline"), ("Records", "records"), ("Sources", "sources")]
 ZOOM_STEPS = [0.75, 0.85, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5]
 BACK_ITEM = "syntropy.back"          # the toolbar's "‹ Syntropy Health" button, shown on other sites
+CLICK_COUNTS_FOR = 1.5               # seconds a person's click or key press lets a link leave the window
+AEVT, QUIT = int.from_bytes(b"aevt", "big"), int.from_bytes(b"quit", "big")     # the Apple event that asks an app to quit
 
 WKScriptMessageHandler = objc.protocolNamed("WKScriptMessageHandler")
 NSToolbarDelegate = objc.protocolNamed("NSToolbarDelegate")
@@ -63,9 +79,12 @@ class _Bridge(NSObject, protocols=[WKScriptMessageHandler]):
             data = json.loads(str(message.body()))       # the page sends JSON text
             if isinstance(data, dict):
                 # Where the message came from: some requests are only taken from this Mac's own server.
-                origin = message.frameInfo().securityOrigin()
+                frame = message.frameInfo()
+                origin = frame.securityOrigin()
                 data["_origin"] = f"{origin.protocol()}://{origin.host()}:{origin.port()}"
                 data["_from"] = _origin(origin.protocol(), origin.host(), origin.port())
+                data["_main_frame"] = bool(frame.isMainFrame())
+                data["_own_page"] = sites.is_own_page_token(data.pop("token", None))
                 self.callback(data)
         except Exception:  # noqa: BLE001 - a bad message must never take the app down
             log.exception("Couldn't handle a message from the page")
@@ -88,6 +107,9 @@ class _MenuTarget(NSObject):
 
     def validateMenuItem_(self, item):
         return True
+
+    def quitAsked_withReply_(self, _event, _reply):
+        self.actions["quit"]()
 
 
 class _ToolbarDelegate(NSObject, protocols=[NSToolbarDelegate]):
@@ -131,11 +153,91 @@ def _origin(scheme: Any, host: Any, port: Any) -> tuple[str, str, int]:
     return scheme, str(host or "").lower(), port
 
 
-def _url_origin(url: Any) -> Optional[tuple[str, str, int]]:
-    """The origin of an NSURL; None for pages with none of their own (about:blank, the offline page)."""
-    if url is None or str(url.scheme() or "").lower() not in ("http", "https"):
-        return None
-    return _origin(url.scheme(), url.host(), url.port())
+class _Download(NSObject):
+    """A file the page downloads. WebKit refuses a destination that already exists, and pywebview's delegate passes on
+    the save panel's choice as it is, so choosing Replace silently kept the old file. This one downloads next to the
+    choice and replaces it only once the download is complete, then says how it went."""
+
+    def download_decideDestinationUsingResponse_suggestedFilename_completionHandler_(self, _download, _response, name, handler):
+        panel = AppKit.NSSavePanel.savePanel()
+        folder = NSSearchPathForDirectoriesInDomains(NSDownloadsDirectory, NSUserDomainMask, True)[0]
+        panel.setDirectoryURL_(NSURL.fileURLWithPath_(folder))
+        panel.setNameFieldStringValue_(name)
+        if panel.runModal() != AppKit.NSFileHandlingPanelOKButton:
+            handler(None)
+            return
+        self.dest = Path(str(panel.filename()))
+        self.part = self.dest.with_name(f".{self.dest.name}.part-{secrets.token_hex(4)}")
+        handler(NSURL.fileURLWithPath_(str(self.part)))
+
+    def downloadDidFinish_(self, _download):
+        try:
+            os.replace(self.part, self.dest)
+        except OSError as exc:
+            log.exception("Couldn't save a download to %s", self.dest)
+            self._part_gone()
+            _report_download(False, self.dest.name, str(exc))
+        else:
+            _report_download(True, self.dest.name, "")
+
+    def download_didFailWithError_resumeData_(self, _download, error, _resume):
+        self._part_gone()
+        # Pressing Cancel in the save panel ends here too, and so does quitting mid-download: neither is news to anyone.
+        if error.domain() == NSURLErrorDomain and error.code() == NSURLErrorCancelled:
+            log.info("A download was cancelled")
+            return
+        log.warning("A download failed: %s", error)
+        _report_download(False, getattr(self, "dest", Path("the file")).name, str(error.localizedDescription()))
+
+    def _part_gone(self):
+        part = getattr(self, "part", None)
+        if part:
+            part.unlink(missing_ok=True)
+
+
+class _PageDelegate(BrowserView.BrowserDelegate):
+    """pywebview's WebKit delegate, with four differences."""
+
+    def webView_decidePolicyForNavigationAction_decisionHandler_(self, webview, action, handler):
+        # Another site opens in the sign-in sheet, and the window stays where it is.
+        if _current and _current.open_in_sheet(action):
+            handler(WebKit.WKNavigationActionPolicyCancel)
+        else:
+            objc.super(_PageDelegate, self).webView_decidePolicyForNavigationAction_decisionHandler_(webview, action, handler)
+
+    def webView_decidePolicyForNavigationResponse_decisionHandler_(self, webview, response, handler):
+        # A link to a file the window can't show. pywebview fetches those again outside the web view, without the
+        # sign-in cookie, and would save the refusal as if it were the file.
+        if response.canShowMIMEType():
+            objc.super(_PageDelegate, self).webView_decidePolicyForNavigationResponse_decisionHandler_(webview, response, handler)
+        else:
+            handler(WebKit.WKNavigationResponsePolicyDownload)
+
+    def webView_navigationResponse_didBecomeDownload_(self, _webview, _response, download):
+        download.setDelegate_(_Download.alloc().init().retain())
+
+    def webView_didFailProvisionalNavigation_withError_(self, _webview, _navigation, error):
+        _report_load_failure(error)
+
+    def webView_didFailNavigation_withError_(self, _webview, _navigation, error):
+        _report_load_failure(error)
+
+
+_current: Optional["MacWindow"] = None      # the window these delegates, made by WebKit and pywebview, report to
+
+
+def _report_download(ok: bool, name: str, reason: str) -> None:
+    if _current:
+        _current.download_finished(ok, name, reason)
+
+
+def _report_load_failure(error: Any) -> None:
+    if _current and error.code() not in NOT_FAILURES:
+        url = error.userInfo().get("NSErrorFailingURLStringKey") or error.userInfo().get("NSErrorFailingURLKey") or ""
+        log.warning("A page didn't load (%s): %s", error.code(), error.localizedDescription())
+        if _current.on_load_failed:     # beside the main thread: what it does waits on the main thread
+            threading.Thread(target=_current.on_load_failed, daemon=True,
+                             args=(str(url), int(error.code()), str(error.localizedDescription()))).start()
 
 
 def _set_in_dock(on: bool) -> None:
@@ -154,7 +256,11 @@ class MacWindow:
                  dock_menu_state: Callable[[], dict[str, Any]],
                  on_request: Optional[Callable[[dict[str, Any]], None]] = None,
                  home_url: Optional[Callable[[], str]] = None,
-                 on_uninstall: Optional[Callable[[bool], None]] = None):
+                 on_uninstall: Optional[Callable[[bool], None]] = None,
+                 location: Optional[sites.Location] = None,
+                 on_load_failed: Optional[Callable[[str, int, str], None]] = None,
+                 on_download: Optional[Callable[[bool, str, str], None]] = None,
+                 on_away_changed: Optional[Callable[[], None]] = None):
         self.window = window                   # the pywebview Window
         self.background = background
         self.prefs = prefs
@@ -165,11 +271,34 @@ class MacWindow:
         self.ns_window = None
         self.webview = None
         self.shown = False
-        self.zoom = float(prefs.get("zoom", 1.0) or 1.0)
+        self.zoom = prefs.number("zoom", 1.0, ZOOM_STEPS[0], ZOOM_STEPS[-1])
         self.home_url = home_url                            # Syntropy Health's own pages (this Mac's or a joined server)
+        self.location = location or sites.Location(home_url or (lambda: None))
         self.away = False                                   # showing another site
+        self.sheet: Optional[SignInSheet] = None            # the sign-in sheet, while there is one
+        self.on_load_failed = on_load_failed                # given the address, the error's code and its description
+        self.on_download = on_download
+        self.on_away_changed = on_away_changed
+        self.person_acted_at = 0.0
         if background:              # opened at login: only the menu bar item, from the start (this is the main thread)
             _set_in_dock(False)
+        self._guard_pywebview()
+
+    def _guard_pywebview(self) -> None:
+        """Before pywebview makes the window: what it does on a page's behalf goes through this app's rules."""
+        global _current
+        _current = self
+        cocoa.webbrowser = sites.only_when_clicked(self.person_acted)
+        cocoa.js_bridge_call = sites.drop_bridge_call
+        BrowserView.BrowserDelegate = _PageDelegate
+        BrowserView.DownloadDelegate = _Download
+
+    def person_acted(self) -> bool:
+        return time.monotonic() - self.person_acted_at < CLICK_COUNTS_FOR
+
+    def _note_person(self, event: Any) -> Any:
+        self.person_acted_at = time.monotonic()
+        return event
 
     # ----------------------------------------------------------------- setup
     def install(self) -> None:
@@ -188,6 +317,8 @@ class MacWindow:
         # Listen to the page first: it says when it's ready to be shown.
         self.bridge = _Bridge.alloc().initWithCallback_(self._on_message)
         wk.configuration().userContentController().addScriptMessageHandler_name_(self.bridge, HANDLER)
+        self.person_monitor = AppKit.NSEvent.addLocalMonitorForEventsMatchingMask_handler_(
+            AppKit.NSEventMaskLeftMouseDown | AppKit.NSEventMaskLeftMouseUp | AppKit.NSEventMaskKeyDown, self._note_person)
 
         # Edge to edge: a transparent title bar over the content, the window buttons in a taller bar (a toolbar with no
         # items, as in Mail), no title text.
@@ -223,7 +354,8 @@ class MacWindow:
         win.setContentView_(container)
         win.makeFirstResponder_(wk)
 
-        wk.setAllowsBackForwardNavigationGestures_(True)
+        # No swiping back: WebKit slides the whole page, and here the page includes the sidebar. ⌘[ and ⌘] go back and forward.
+        wk.setAllowsBackForwardNavigationGestures_(False)
         if self.zoom != 1.0:
             wk.setPageZoom_(self.zoom)
         # Size and place are remembered between launches (and restored now, when saved before).
@@ -231,6 +363,9 @@ class MacWindow:
 
         self._menus()
         self._dock_menu()
+        # The Dock's Quit and logging out arrive as this event.
+        AppleEvents = Foundation.NSAppleEventManager.sharedAppleEventManager()
+        AppleEvents.setEventHandler_andSelector_forEventClass_andEventID_(self.menu_target, b"quitAsked:withReply:", AEVT, QUIT)
         self.url_observer = _URLObserver.alloc().initWithCallback_(self._location_changed)
         wk.addObserver_forKeyPath_options_context_(self.url_observer, "URL", 0, None)
         # The page normally says it's ready well before this.
@@ -252,10 +387,9 @@ class MacWindow:
 
     # ----------------------------------------------------------------- the page
     def _on_message(self, msg: dict[str, Any]) -> None:
-        # Only Syntropy Health's own pages (and the "can't reach" page this app writes itself, which has no web origin)
-        # talk to the window: a health system's sign-in page has no business renaming or moving it.
-        sender = msg.get("_from") or ("", "", 0)
-        if sender[0] in ("http", "https") and sender not in self._home():
+        # Only Syntropy Health's own pages (and the ones this app writes itself, which have no web origin) talk to the
+        # window: a health system's sign-in page, or anything framed in a page, has no business renaming or moving it.
+        if not msg.get("_main_frame") or not (msg.get("_own_page") or msg.get("_from") in self._home()):
             return
         kind = msg.get("type")
         if kind == "ready":
@@ -264,6 +398,8 @@ class MacWindow:
         elif kind == "theme":
             name = AppKit.NSAppearanceNameDarkAqua if msg.get("theme") == "dark" else AppKit.NSAppearanceNameAqua
             self.ns_window.setAppearance_(AppKit.NSAppearance.appearanceNamed_(name))
+            if self.sheet:
+                self.sheet.match_appearance()
         elif kind == "title":
             self.ns_window.setTitle_(str(msg.get("title") or "Syntropy Health")[:200])
         elif kind == "drag":
@@ -281,23 +417,48 @@ class MacWindow:
 
     # ----------------------------------------------------------------- other sites
     def _home(self) -> set[tuple[str, str, int]]:
-        url = AppKit.NSURL.URLWithString_(self.home_url()) if self.home_url else None
-        home = _url_origin(url)
-        if home is None:
-            return set()
-        if home[1] in ("localhost", "127.0.0.1"):      # this Mac's server answers to both names
-            return {(home[0], name, home[2]) for name in ("localhost", "127.0.0.1")}
-        return {home}
+        return sites.home_origins(self.home_url()) if self.home_url else set()
+
+    def open_in_sheet(self, action: Any) -> bool:
+        """Whether a navigation the window was about to make has gone to the sign-in sheet instead. Not one meant for a new
+        window (those leave for the browser), a download, or anything once the window is already on another site. A
+        sheet needs a window on screen to attach to."""
+        frame = action.targetFrame()
+        if (frame is None or not frame.isMainFrame() or action.shouldPerformDownload() or self.away or self.ns_window is None
+                or not self.ns_window.isVisible()
+                or not sites.belongs_in_sheet(_url_text(action.request().URL()), self._home())):
+            return False
+        if self.sheet:
+            self.sheet.load(action.request())
+        else:
+            self.sheet = SignInSheet(self.ns_window, self.webview, self._home, self.person_acted, self._sign_in_ended)
+            self.sheet.open(action.request())
+        return True
+
+    def _sign_in_ended(self, route: Optional[str]) -> None:
+        self.sheet = None
+        # The page gets its button back, in case it's still the one showing.
+        self.run_js("window.dispatchEvent(new CustomEvent('syntropy-sign-in-closed'))")
+        if route:
+            self._go_to(route)
+
+    def _go_to(self, route: str) -> None:
+        if self.away and self.home_url:     # setting the hash would only change another site's address
+            url = AppKit.NSURL.URLWithString_(f"{self.home_url().rstrip('/')}/{route}")
+            self.webview.loadRequest_(AppKit.NSURLRequest.requestWithURL_(url))
+        else:
+            self.run_js(f"location.hash = {json.dumps(route)}")
 
     def _location_changed(self) -> None:
-        origin = _url_origin(self.webview.URL())
-        home = self._home()
-        away = bool(home) and origin is not None and origin not in home
+        url = _url_text(self.webview.URL())
+        away = self.location.is_away(url)
         if away:
-            self.ns_window.setTitle_(origin[1])        # where you are, as a browser would show it
+            self.ns_window.setTitle_(sites.site_name(url))        # where you are, as a browser would show it
         if away == self.away:
             return
         self.away = away
+        if self.on_away_changed:
+            self.on_away_changed()
         win, toolbar = self.ns_window, self.ns_window.toolbar()
         # Changing whether the page runs under the title bar would grow or shrink the window by the title bar's height
         # (AppKit keeps the content's size): keep the window where it is. A full-screen window keeps its own frame.
@@ -344,14 +505,20 @@ class MacWindow:
 
     def go_home(self) -> None:
         """Back to the last of Syntropy Health's own pages in this window's history, else its start page."""
+        if self.sheet:
+            return self.sheet.cancel()
         wk, home = self.webview, self._home()
         for item in reversed(list(wk.backForwardList().backList() or [])):
-            if _url_origin(item.URL()) in home:
+            if sites.origin(_url_text(item.URL())) in home:
                 wk.goToBackForwardListItem_(item)
                 return
         if self.home_url:
             url = AppKit.NSURL.URLWithString_(self.home_url().rstrip("/") + "/#/sources")
             wk.loadRequest_(AppKit.NSURLRequest.requestWithURL_(url))
+
+    def go_home_soon(self) -> None:
+        """go_home, from any thread."""
+        AppHelper.callAfter(self.go_home)
 
     def run_js(self, script: str) -> None:
         if self.webview is not None:
@@ -359,7 +526,31 @@ class MacWindow:
 
     def go(self, route: str) -> None:
         self.show()
-        self.run_js(f"location.hash = {json.dumps(route)}")
+        if self.sheet:
+            self.sheet.cancel()
+        self._go_to(route)
+
+    def quit_app(self) -> None:
+        """AppKit won't quit with a sheet open, whoever asks, and says nothing about it: that would hold up logging out."""
+        if self.sheet:
+            self.sheet.cancel()
+        AppKit.NSApp.terminate_(None)
+
+    def _front_view(self) -> Any:
+        """Where Back, Forward and Reload apply: the page a person is looking at."""
+        return self.sheet.webview if self.sheet else self.webview
+
+    def download_finished(self, ok: bool, name: str, reason: str) -> None:
+        if self.on_download:
+            return self.on_download(ok, name, reason)
+        if ok:      # the page says so, if it's the app's
+            self.run_js(f"window.dispatchEvent(new CustomEvent('syntropy-download', {{detail: {json.dumps(name)}}}))")
+            return
+        alert = AppKit.NSAlert.alloc().init()
+        alert.setMessageText_(f"{name} wasn't saved")
+        alert.setInformativeText_(f"The download didn't finish, so any file already there with that name hasn't been "
+                                  f"changed. Try again. ({reason})")
+        alert.runModal()
 
     def set_zoom(self, step: Optional[int]) -> None:
         if step is None:
@@ -368,6 +559,8 @@ class MacWindow:
             i = min(range(len(ZOOM_STEPS)), key=lambda k: abs(ZOOM_STEPS[k] - self.zoom))
             self.zoom = ZOOM_STEPS[max(0, min(len(ZOOM_STEPS) - 1, i + step))]
         self.webview.setPageZoom_(self.zoom)
+        if self.sheet:
+            self.sheet.webview.setPageZoom_(self.zoom)
         self.prefs.set("zoom", self.zoom)
 
     # ----------------------------------------------------------------- menus
@@ -379,10 +572,10 @@ class MacWindow:
             "summary": lambda: self.go("#/report"),
             "find": lambda: (self.show(), self.run_js(
                 "(document.querySelector('.content input[type=search], #top-search input') || {focus(){}}).focus()")),
-            "back": lambda: self.webview.goBack_(None),
+            "back": lambda: self._front_view().goBack_(None),
             "home": self.go_home,
-            "forward": lambda: self.webview.goForward_(None),
-            "reload": lambda: self.webview.reload_(None),
+            "forward": lambda: self._front_view().goForward_(None),
+            "reload": lambda: self._front_view().reload_(None),
             "zoom-in": lambda: self.set_zoom(1),
             "zoom-out": lambda: self.set_zoom(-1),
             "zoom-reset": lambda: self.set_zoom(None),
@@ -393,6 +586,7 @@ class MacWindow:
             "switch": lambda: threading.Thread(target=self.tray_actions["switch"], daemon=True).start(),
             "updates": lambda: threading.Thread(target=self.tray_actions["updates"], daemon=True).start(),
             "uninstall": self.confirm_uninstall,
+            "quit": self.quit_app,
         }
         for _, route in SECTIONS:
             actions[f"go-{route}"] = (lambda r=route: self.go(f"#/{r}"))
@@ -430,7 +624,7 @@ class MacWindow:
             item("Hide Others", key="h", mods=cmd | opt, selector="hideOtherApplications:"),
             item("Show All", selector="unhideAllApplications:"), None,
             item("Uninstall Syntropy Health…", "uninstall"),
-            item("Quit Syntropy Health", key="q", selector="terminate:"),
+            item("Quit Syntropy Health", "quit", "q"),
         ])
         AppKit.NSApp.setServicesMenu_(services)
         file_top, _ = menu("File", [

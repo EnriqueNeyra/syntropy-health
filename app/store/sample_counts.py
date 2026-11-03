@@ -7,11 +7,15 @@ every few minutes so they never drift far. Deleting samples drops them, so the n
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from typing import Optional
 
 from app.core.db import read
+from app.core.sqlite import sqlite3
+
+log = logging.getLogger("syntropy.sample_counts")
 
 RECOUNT_AFTER_S = 600
 
@@ -44,7 +48,12 @@ def _count() -> tuple[dict[Optional[str], int], dict[str, int]]:
 
 def warm() -> None:
     """Counts in the background when the server starts, so no request waits for it."""
-    threading.Thread(target=_ensure, name="sample-count", daemon=True).start()
+    def count() -> None:
+        try:
+            _ensure()
+        except sqlite3.DatabaseError as exc:
+            log.warning("Couldn't count samples at start-up: %s", exc)      # the next request asks again, and says what's wrong
+    threading.Thread(target=count, name="sample-count", daemon=True).start()
 
 
 def _store(by_connection: dict[Optional[str], int], by_profile: dict[str, int]) -> None:
@@ -102,8 +111,8 @@ def for_profile(profile_id: str) -> int:
 
 
 def added(profile_id: str, connection_id: Optional[str], n: int) -> None:
-    """Records samples that were just stored."""
-    if n <= 0:
+    """Records samples that were just stored, or with a negative ``n``, that just went."""
+    if n == 0:
         return
     with _lock:
         if _by_connection is None:
@@ -112,6 +121,12 @@ def added(profile_id: str, connection_id: Optional[str], n: int) -> None:
         _by_profile[profile_id] = _by_profile.get(profile_id, 0) + n
         if _recounting:
             _arrived_while_recounting.append((profile_id, connection_id, n))
+
+
+def moved(profile_id: str, from_connection: Optional[str], to_connection: Optional[str], n: int) -> None:
+    """Samples now belong to another source of the same person."""
+    added(profile_id, from_connection, -n)
+    added(profile_id, to_connection, n)
 
 
 def forget() -> None:

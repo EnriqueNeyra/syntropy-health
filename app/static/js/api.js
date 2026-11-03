@@ -1,4 +1,5 @@
 // Thin fetch wrapper: JSON in/out, CSRF header, uniform errors.
+import { SIGNED_OUT } from "./ui.js";
 
 export class ApiError extends Error {
   constructor(status, message, body) { super(message); this.status = status; this.body = body; }
@@ -13,6 +14,8 @@ export function unreachableMessage() {
 
 const listeners = { unauthorized: [], changed: [] };
 export function onUnauthorized(fn) { listeners.unauthorized.push(fn); }
+/** For a page that calls fetch itself (Ask's streaming): the session has ended. */
+export function signedOut() { listeners.unauthorized.forEach((fn) => fn()); }
 /** Called after any change is saved (not bookkeeping), e.g. so the iPhone app can refresh its other screens. */
 export function onDataChanged(fn) { listeners.changed.push(fn); }
 
@@ -42,12 +45,17 @@ export async function api(path, { method = "GET", body, query, form, raw = false
   const text = await res.text();
   if (text) { try { data = JSON.parse(text); } catch { data = { detail: text }; } }
   if (!res.ok) {
-    if (res.status === 401 && !path.startsWith("/api/auth/")) listeners.unauthorized.forEach((fn) => fn());
-    let msg = data && data.detail;
+    const signedOut = res.status === 401 && !path.startsWith("/api/auth/");
+    if (signedOut) listeners.unauthorized.forEach((fn) => fn());
+    let msg = signedOut ? SIGNED_OUT : data && data.detail;
     if (Array.isArray(msg)) msg = msg.map((d) => String(d.msg || "").replace(/^Value error, /, "")).join("; ");
     throw new ApiError(res.status, msg || `Request failed (${res.status})`, data);
   }
-  if (method !== "GET" && !keepCache) listeners.changed.forEach((fn) => fn());
+  if (method !== "GET" && !keepCache) {
+    // Emptied again now it's done: anything asked for while the change was under way may have the old answer.
+    cache.clear();
+    listeners.changed.forEach((fn) => fn());
+  }
   return data;
 }
 

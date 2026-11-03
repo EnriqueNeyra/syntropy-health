@@ -22,6 +22,7 @@ def test_addresses_are_tidied_and_classified():
                     "host.docker.internal", "my-mac.tail1234.ts.net"):
         assert ai_local.is_private_host(private), private
     assert not ai_local.is_private_host("8.8.8.8")
+    assert not ai_local.is_private_host("[2001:4860:4860::8888]") and ai_local.is_private_host("[::1]")
     assert ai_local.describe_address("http://8.8.8.8:11434/v1")["needs_confirmation"]
     assert not ai_local.describe_address("https://8.8.8.8/v1")["needs_confirmation"]
 
@@ -40,7 +41,8 @@ def test_local_model_without_a_key(client, fake_model):
     assert [m["id"] for m in client.post("/api/ai/models", json={"provider": "local"}).json()["models"]] == ["model-a", "model-b"]
 
 
-def test_plain_http_to_the_internet_needs_confirmation(client):
+def test_plain_http_to_the_internet_needs_confirmation(client, monkeypatch):
+    monkeypatch.setattr(ai_local.socket, "getaddrinfo", lambda host, port: [(2, 1, 6, "", ("104.18.2.161", 0))])    # a public name
     body = {"provider": "custom", "base_url": "http://8.8.8.8:8000/v1", "model": "m"}
     r = client.put("/api/ai/config", json=body)
     assert r.status_code == 400 and "unencrypted" in r.json()["detail"]
@@ -95,16 +97,18 @@ if args[:1] == ["--version"]:
 if args[:2] == ["auth", "status"]:
     print(json.dumps({"loggedIn": True})); sys.exit(0)
 if args[:1] == ["--help"]:
-    print("--tools --permission-mode dontAsk --no-session-persistence"); sys.exit(0)
+    print("--tools --permission-mode dontAsk --no-session-persistence " + os.environ.get("FAKE_HELP", "--system-prompt-file")); sys.exit(0)
 prompt = sys.stdin.read()
-json.dump({"args": args, "prompt": prompt, "cwd": os.getcwd(), "files": sorted(os.listdir("."))}, open(os.environ["FAKE_LOG"], "w"))
+instructions = args[args.index("--system-prompt-file") + 1] if "--system-prompt-file" in args else None
+json.dump({"args": args, "prompt": prompt, "cwd": os.getcwd(), "files": sorted(os.listdir(".")),
+           "instructions": open(instructions).read() if instructions else None}, open(os.environ["FAKE_LOG"], "w"))
 config = json.load(open(args[args.index("--mcp-config") + 1]))["mcpServers"]["syntropy"]
 # Talk to Syntropy's MCP server the way the real tool would, and ask for another person's records.
 server = subprocess.Popen([config["command"], *config["args"]], env={**os.environ, **config["env"]},
                           stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 out, _ = server.communicate(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
     "name": "list_profiles", "arguments": {}}}) + "\\n", timeout=60)
-people = json.loads(json.loads(out)["result"]["content"][0]["text"])
+people = json.loads(json.loads(out)["result"]["content"][0]["text"])["people"]
 print(json.dumps({"type": "system", "subtype": "init"}))
 print(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "mcp__syntropy__list_profiles", "input": {}}]}}))
 print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "result": "People: " + ", ".join(p["name"] for p in people)}))
@@ -164,14 +168,35 @@ def test_claude_code_answers_with_only_syntropy_tools(client, fake_tools):
     args = run["args"]
     assert args[args.index("--tools") + 1] == "" and args[args.index("--allowedTools") + 1] == "mcp__syntropy"
     assert "--strict-mcp-config" in args and args[args.index("--permission-mode") + 1] == "dontAsk"
-    assert "Alex" in args[args.index("--system-prompt") + 1]
+    assert "Alex" in run["instructions"] and "Alex" not in json.dumps(args)
     assert "Who's here?" in run["prompt"] and "Hello!" in run["prompt"]
-    assert run["files"] == ["mcp.json"] and "syntropy-agent-" in run["cwd"]
+    assert run["files"] == ["instructions.txt", "mcp.json"] and "syntropy-agent-" in run["cwd"]
     config = json.loads(json.dumps(args))
     assert "must-not-leak" not in json.dumps(config)
     log = client.get("/api/audit").json()["events"]
-    assert any(e["actor"] == "agent:claude" and e["action"] == "mcp.list_profiles" for e in log)
+    assert any(e["actor"].startswith("agent:claude") and e["action"] == "mcp.list_profiles" for e in log)
     assert any(e["action"] == "ai.chat" and "agent:claude" in (e["detail"] or "") for e in log)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_a_claude_code_without_a_prompt_file_gets_the_instructions_with_the_question(client, fake_tools, monkeypatch):
+    monkeypatch.setenv("FAKE_HELP", "")
+    monkeypatch.setattr(ai_agents, "_help_cache", {})
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "claude", "acknowledged": True})
+    _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+    run = json.loads(fake_tools.read_text())
+    assert "Alex" in run["prompt"] and "Alex" not in json.dumps(run["args"])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_a_gemini_cli_that_cant_be_limited_doesnt_run(client, fake_tools, tmp_path, monkeypatch):
+    path = tmp_path / "bin" / "gemini"
+    path.write_text(f"#!{sys.executable}\nimport os, sys\nif '--help' in sys.argv: print('--output-format'); sys.exit(0)\nopen(os.environ['FAKE_LOG'], 'w').write('ran')\n")
+    path.chmod(path.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setattr(ai_agents, "_help_cache", {})
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "gemini", "acknowledged": True})
+    events = _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+    assert events[0]["type"] == "error" and "can't be limited" in events[0]["message"] and not fake_tools.exists()
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")

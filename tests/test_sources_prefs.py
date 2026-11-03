@@ -177,3 +177,12 @@ def test_time_zone_list_includes_utc_and_the_current_setting(client, monkeypatch
     # An older name set in the environment still shows as the choice in use.
     monkeypatch.setenv("TZ", "Etc/GMT+5")
     assert "Etc/GMT+5" in client.get("/api/settings/timezones").json()["timezones"]
+
+
+def test_an_overview_card_keeps_the_height_it_was_given(client):
+    profile = client.get("/api/profiles").json()["profiles"][0]["id"]
+    layout = [{"id": "sleep", "visible": True, "size": "l", "rows": 3}, {"id": "m:step_count", "visible": True, "size": "s", "rows": None}]
+    assert client.put(f"/api/profiles/{profile}/overview", json={"widgets": layout}).status_code == 200
+    saved = client.get(f"/api/profiles/{profile}/overview").json()["widgets"]
+    assert (saved[0]["size"], saved[0]["rows"], saved[1].get("rows")) == ("l", 3, None)
+    assert client.put(f"/api/profiles/{profile}/overview", json={"widgets": [{"id": "sleep", "rows": 40}]}).status_code == 422

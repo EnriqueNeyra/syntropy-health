@@ -1,10 +1,13 @@
 import { api, del, get, post } from "../api.js";
 import {
-  $, confirmDialog, debounce, dropdown, emptyState, esc, fmtAgo, fmtDate, fmtDateTime, html, icon, initials, loading, modal, modeBadge, mount,
-  onAction, plural, toast,
+  $, EASE_OUT, confirmDialog, debounce, dropdown, emptyState, fmtAgo, fmtDate, fmtDateTime, html, icon, initials, loading, modal, modeBadge, mount,
+  onAction, plural, prefersStill, toast,
 } from "../ui.js";
 import { embedded, nativeNav, setToolbar } from "../app.js";
 import { networkStatus, renderNetworkPanel } from "../network.js";
+import { cannotPickFiles, openLabEntry, REPORT_FILES } from "./lab-entry.js";
+import { clearPrintedLetter, openRecordsRequest } from "./records-request.js";
+import { leaveForSignIn } from "../sign-in.js";
 
 const PLATFORM_COLORS = { epic: "#c2410c", cerner: "#b91c1c", athena: "#7c3aed", healow: "#0f766e", trubridge: "#0e7490", greenway: "#15803d", modmed: "#be185d", nextgen: "#4338ca", practicefusion: "#0891b2", medhost: "#9333ea", "smart-health-it": "#0369a1", custom: "#4b5563" };
 const PLATFORM_LABELS = { epic: "Epic MyChart", cerner: "Oracle Health", athena: "athenahealth", healow: "healow", trubridge: "TruBridge", greenway: "Greenway", modmed: "ModMed", nextgen: "NextGen", practicefusion: "Practice Fusion", medhost: "MEDHOST", "smart-health-it": "SMART Health IT", custom: "FHIR server" };
@@ -19,7 +22,7 @@ const ADD_ICONS = { "add:phone": "phone", "add:ehr": "building", "add:file": "up
 
 function avatar(name, platform) {
   const c = PLATFORM_COLORS[platform] || "#4b5563";
-  return html`<span class="src-avatar" style="color:${c};background:color-mix(in srgb, ${c} 10%, var(--surface))">${initials(name)}</span>`;
+  return html`<span class="src-avatar" style="--c:${c}">${initials(name)}</span>`;
 }
 const iconAvatar = (name) => html`<span class="src-avatar">${icon(name)}</span>`;
 
@@ -32,14 +35,23 @@ function statusLine(c, paired) {
   if (c.kind === "device" && paired && c.metadata?.history && !c.metadata.history.complete) return historyStatus(c);
   if (c.kind === "device") return paired ? html`<span class="src-status good"><span class="dot good"></span> Paired</span>`
     : html`<span class="src-status"><span class="dot"></span> Not paired</span>`;
-  // A one-time import (healow keeps no connection): nothing's wrong, signing in again brings in what's new.
+  // A one-time import (healow keeps no connection): nothing's wrong, signing in again brings in what's new. Unless its
+  // access ran out partway through: then signing in again finishes the job.
+  if (c.access_ended && c.last_sync_status === "partial") return html`<span class="src-status warn" title="Access ran out before everything came in. Sign in again to finish."><span class="dot warn"></span> Partly imported</span>`;
   if (c.access_ended) return html`<span class="src-status"><span class="dot"></span> Imported</span>`;
   // A file, or results typed in: nothing to be connected to. The row says what came in and when.
   if (c.kind === "import") return "";
-  if (c.status === "needs_reauth") return html`<span class="src-status warn"><span class="dot warn"></span> Reconnect needed</span>`;
+  if (c.status === "needs_reauth") return html`<span class="src-status warn" title="${c.credentials_unreadable ? "Its saved sign-in can't be read, because the encryption key changed. Put the original key back, or sign in again." : ""}"><span class="dot warn"></span> Reconnect needed</span>`;
   if (c.status === "error") return html`<span class="src-status bad" title="${c.last_error || ""}"><span class="dot bad"></span> Sync failed</span>`;
   if (c.status === "disconnected") return html`<span class="src-status"><span class="dot"></span> Disconnected</span>`;
-  if (c.last_sync_status === "partial") return html`<span class="src-status warn" title="Some record types could not be fetched"><span class="dot warn"></span> Partly synced</span>`;
+  // A blip: it's trying again by itself, so this isn't "failed" yet.
+  if (c.last_sync_status === "error" && c.next_retry_at) return html`<span class="src-status warn" title="${c.last_error || ""}"><span class="dot warn"></span> Trying again ${fmtDateTime(c.next_retry_at)}</span>`;
+  if (c.last_sync_status === "partial") {
+    const notes = c.last_run?.stats?.warnings || [];
+    const going = notes.length && notes.every((n) => n.includes("still downloading"));
+    const why = c.kind === "wearable" ? "Some kinds of data were refused. They're fetched again until they're allowed." : "Some record types could not be fetched";
+    return html`<span class="src-status warn" title="${notes.join(" ") || why}"><span class="dot warn"></span> ${going ? "Still downloading" : "Partly synced"}</span>`;
+  }
   return html`<span class="src-status good"><span class="dot good"></span> Connected</span>`;
 }
 
@@ -91,6 +103,7 @@ function sourceRow(c, devices = []) {
   const access = ended ? "sign in again to update" : isEhr && c.token_expires_at && live && !c.has_refresh_token
     ? `access until ${(c.token_expires_at * 1000 - Date.now() < 86400000 ? fmtDateTime : fmtDate)(c.token_expires_at)}` : null;
   const where = origin(c);
+  const kept = Object.values(c.last_run?.stats?.held || {}).reduce((a, b) => a + b, 0);
   return html`<div class="src-row ${live || paired ? "" : "is-off"}" id="conn-${c.id}">
     ${ava}
     <div class="src-main">
@@ -98,7 +111,10 @@ function sourceRow(c, devices = []) {
         ${c.mode === "simulated" || c.mode === "sandbox" ? modeBadge(c.mode) : ""}</div>
       <div class="src-line">${statusLine(c, paired)}<span>${count}</span>${synced ? html`<span>${synced}</span>` : ""}
         ${where ? html`<span class="src-extra">${where}</span>` : ""}${access ? html`<span class="src-extra">${access}</span>` : ""}
+        ${kept ? html`<span title="The last sync didn't return these. They stay until it's clear the source really removed them.">${plural(kept, "record")} it didn't send, kept</span>` : ""}
+        ${c.removed_count ? html`<span><button class="link-btn" data-action="removed" data-id="${c.id}">${c.removed_count} removed by the source</button></span>` : ""}
         ${devices.length > 1 ? html`<span class="src-extra">${devices.length} devices</span>` : ""}</div>
+      ${c.last_sync_status === "partial" && c.last_warnings?.length ? html`<div class="small muted" style="margin-top:2px">${c.last_warnings.join(" ")}</div>` : ""}
     </div>
     <div class="src-actions">
       ${needsAttention && canReconnect ? html`<button class="btn btn-sm btn-primary" data-action="reconnect" data-id="${c.id}">Reconnect</button>` : ""}
@@ -117,9 +133,16 @@ function sourceRow(c, devices = []) {
 function sourceMenu(c, devices, act) {
   const paired = devices.length > 0;
   const items = [];
-  if (c.kind === "ehr") items.push({ label: "View records", icon: "records", href: `#/records?connection=${c.id}` });
+  if (c.kind === "ehr") {
+    items.push({ label: "View records", icon: "records", href: `#/records?connection=${c.id}` });
+    items.push({ label: "What came in", icon: "sources", run: () => act("details", { id: c.id }) });
+    if (c.removed_count) items.push({ label: "Removed by the source", icon: "history", run: () => act("removed", { id: c.id }) });
+  }
   if (c.kind === "wearable" && c.mode === "simulated") {
     items.push({ label: `Connect my ${WEARABLE_SHORT[c.provider] || c.provider}`, icon: "watch", run: () => act("wearable", { provider: c.provider, mode: "live" }) });
+  }
+  if (c.kind === "wearable" && c.mode === "live" && c.status !== "disconnected") {
+    items.push({ label: "Bring in older history", icon: "sync", run: () => act("history", { id: c.id }) });
   }
   if (c.kind === "device" && paired) items.push({ label: "Unpair", icon: "phone", run: () => act("unpair", { id: c.id, name: c.display_name }) });
   if (items.length) items.push("-");
@@ -140,47 +163,65 @@ function offerRow(iconName, title, text, actions) {
 
 // ------------------------------------------------------------------ add health system
 function institutionMeta(inst) {
-  return [inst.platform_label, inst.portal, inst.location].filter(Boolean).join(" · ");
+  return [inst.platform_label, inst.portal, inst.location, inst.hint].filter(Boolean).join(" · ");
 }
 
 function institutionButton(inst) {
+  const problem = inst.sign_in_problem;
   return html`<button class="inst ${inst.available ? "" : "unavailable"}" data-action="choose" data-id="${inst.id}">${avatar(inst.name, inst.platform)}
     <div class="grow" style="min-width:0"><div class="inst-name">${inst.name}</div>
       <div class="small muted inst-meta">${institutionMeta(inst)}</div>
-      ${!inst.available ? html`<div class="tiny faint">Not available yet</div>`
-        : inst.sign_in_problem ? html`<div class="tiny faint">Sign-in not working right now</div>` : ""}</div></button>`;
+      ${inst.includes ? html`<div class="small inst-includes">Includes ${inst.includes}</div>` : ""}
+      ${!inst.available ? html`<div class="tiny faint">${inst.needs_release_build ? "Not available in this copy" : "Not available yet"}</div>`
+        : problem ? html`<div class="tiny faint">${problem.stale ? "Sign-in had trouble when last checked" : "Sign-in not working right now"}</div>` : ""}</div></button>`;
+}
+
+/** "October 3", with the year when it isn't this one. */
+function checkDate(value) {
+  const d = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, d.getFullYear() === new Date().getFullYear()
+    ? { month: "long", day: "numeric" } : { year: "numeric", month: "long", day: "numeric" });
 }
 
 // Why a health system's sign-in failed the weekly check (scripts/check_sign_in.py), in the user's words.
 function signInProblem(inst) {
   const p = inst.sign_in_problem;
-  const name = esc(inst.name);
+  const name = inst.name;
   const portal = inst.portal || "patient portal";
-  const since = p.since ? new Date(`${p.since}T12:00:00`).toLocaleDateString(undefined, { month: "long", day: "numeric" }) : "";
-  const checked = since ? `when we checked on ${since}` : "when we last checked";
+  const date = checkDate(p.checked || p.since);
+  const checked = date ? `when we checked on ${date}` : "when we last checked";
   const when = ` ${checked[0].toUpperCase()}${checked.slice(1)},`;
   const what = {
-    client_unknown: html`<b>${name} hasn't finished setting up Syntropy Health yet.</b> ${inst.platform_label} has approved the connection, but ${checked},
-      ${name}'s ${portal} didn't recognize Syntropy Health yet. This usually sorts itself out within days.`,
-    unreachable: html`<b>${name}'s connection server isn't responding.</b>${when} it didn't answer, so signing in will probably fail.`,
-    rejected: html`<b>${name} is turning down connections.</b>${when} its ${portal} refused Syntropy Health's sign-in request.`,
-  }[p.status] || html`<b>${name}'s sign-in page isn't working.</b>${when} its ${portal} showed an error instead of a sign-in page,
-      so signing in will probably fail until ${name} fixes it.`;
-  return html`<div class="banner warn">${icon("alert")}<div class="grow"><p>${what}</p>
-    ${p.instead.length ? html`<p>Try ${p.instead.map((alt, i) => html`${i ? " or " : ""}<button class="link-btn" data-action="choose" data-id="${alt.id}">${esc(alt.name)}</button>`)} instead: it's working.</p>` : ""}
-    <p>You can also import a file downloaded from ${name}'s ${portal}, or try signing in anyway.</p></div></div>`;
+    client_unknown: html`<b>${name} ${p.stale ? "hadn't" : "hasn't"} finished setting up Syntropy Health${p.stale ? "" : " yet"}.</b> ${inst.platform_label} has approved the connection, but ${checked},
+      its ${portal} didn't recognize Syntropy Health yet. This usually sorts itself out within days.`,
+    unreachable: html`<b>The connection server for ${name} wasn't responding.</b>${when} it didn't answer${p.stale ? "." : ", so signing in will probably fail."}`,
+    rejected: html`<b>${name} was turning down connections.</b>${when} its ${portal} refused Syntropy Health's sign-in request.`,
+  }[p.status] || html`<b>The sign-in page for ${name} wasn't working.</b>${when} its ${portal} showed an error instead of a sign-in page${p.stale ? "." : html`,
+      so signing in will probably fail until ${name} fixes it.`}`;
+  return html`<div class="banner ${p.stale ? "" : "warn"}">${icon("alert")}<div class="grow"><p>${what}</p>
+    ${p.stale ? html`<p>That was a while ago, so it may have been fixed. It's worth trying.</p>` : ""}
+    ${p.instead.length ? html`<p>Try ${p.instead.map((alt, i) => html`${i ? " or " : ""}<button class="link-btn" data-action="choose" data-id="${alt.id}">${alt.name}</button>`)} instead: it's working.</p>` : ""}
+    <p>You can also import a file downloaded from its ${portal}${p.stale ? "" : ", or try signing in anyway"}.</p></div></div>`;
 }
 
 function modeExplainer(inst) {
+  if (!inst.available && inst.needs_release_build) {
+    return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Not available in this copy.</b> It was built from Syntropy Health's
+      source code, so it can't use Syntropy Labs' registration with ${inst.platform_label}. The apps from
+      <a href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">health.syntropylabs.io</a> connect ${inst.name} directly,
+      or you can add your own ${inst.platform_label} client ID in Settings → Developer.</p>
+      <p>You can also download your records from its ${inst.portal || "patient portal"} and import the file.</p></div></div>`;
+  }
   if (!inst.available) {
     return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Not available yet.</b> Syntropy Health isn't registered with
-      ${inst.platform_label} yet, so ${esc(inst.name)} can't be connected directly.</p>
+      ${inst.platform_label} yet, so ${inst.name} can't be connected directly.</p>
       <p>You can still bring in your records: download them from its ${inst.portal || "patient portal"} (look for a health summary or
-      "download my record" option) and import the file.</p></div></div>`;
+      "download my record" option) and import the file. A health summary (C-CDA, CCD or XDM) or a FHIR file both work. If it has no portal, ask for them with a records request letter.</p></div></div>`;
   }
   if (inst.mode === "simulated") {
     return html`<div class="banner warn">${icon("alert")}<div class="grow"><p><b>Simulated sign-in.</b> Developer mode connects ${inst.platform_label} through
-      Syntropy's built-in EHR simulator, so this goes there instead of ${esc(inst.name)}'s real ${inst.portal || "portal"}.</p>
+      Syntropy's built-in EHR simulator, so this goes there instead of ${inst.name}'s real ${inst.portal || "portal"}.</p>
       <p>You'll see a sign-in page with test patients (password <code>syntropy</code>). The full protocol — OAuth consent, PKCE token exchange,
       FHIR download, normalization — is exactly what runs for a real connection.</p></div></div>`;
   }
@@ -189,51 +230,118 @@ function modeExplainer(inst) {
       sandbox with a test patient. Real patient data isn't available in this mode.</p>
       ${inst.sandbox_hint ? html`<p>${inst.sandbox_hint}</p>` : ""}</div></div>`;
   }
-  return html`<div class="banner">${icon("shieldCheck")}<div class="grow"><p>You'll be taken to <b>${esc(inst.name)}</b>'s ${inst.portal || "patient portal"} to sign in and approve sharing.
+  return html`<div class="banner">${icon("shieldCheck")}<div class="grow"><p>You'll be taken to <b>${inst.name}</b>'s ${inst.portal || "patient portal"} to sign in and approve sharing.
     Syntropy never sees your password; records download directly to this machine.</p>
     ${inst.one_time ? html`<p><b>A one-time import.</b> ${inst.portal || inst.platform_label} doesn't let apps like Syntropy Health stay connected, so this
       brings in your records as they are today. To update them later, choose Update beside it in Sources and sign in again.</p>` : ""}</div></div>`;
 }
 
-async function openAddHealthSystem(profileId) {
-  const m = modal({ title: "Connect a health system", wide: true, body: loading(3) });
-  let featured;
-  try { featured = await get("/api/directory/featured"); }
-  catch (err) { m.close(); toast(err.message, "bad"); return; }
-  let current = featured.results;
-  const byId = new Map(current.map((i) => [i.id, i]));
+const PAGE = 30;
 
-  const showList = (items, label) => {
-    items.forEach((i) => byId.set(i.id, i));
-    mount(m.body.querySelector("#dir-results"), items.length ? html`<div class="small muted" style="margin:4px 0 10px">${label}</div>
-      <div class="inst-grid">${items.map(institutionButton)}</div>` : emptyState("No matches", "Try the organization's name, city, or portal name."));
+/** "20,000+" for a long list: how many, without pretending to count them. */
+const roughly = (n) => (n >= 1000 ? `${(Math.floor(n / 1000) * 1000).toLocaleString()}+` : n.toLocaleString());
+
+function directorySize(featured) {
+  const { total, connectable } = featured;
+  if (!total) return "";
+  if (connectable >= total) return `${roughly(total)} hospitals and clinics.`;
+  if (!connectable) return `${roughly(total)} hospitals and clinics are listed.`;
+  return `${roughly(connectable)} hospitals and clinics you can connect today, and ${roughly(total - connectable)} more listed that aren't available yet.`;
+}
+
+const STATE_LABELS = { AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", PR: "Puerto Rico", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming" };
+
+async function openAddHealthSystem(profileId) {
+  const m = modal({ title: "Connect a health system", wide: true, body: loading(3), onClose: clearPrintedLetter });
+  let featured = { results: [], total: 0, connectable: 0, athena: null, problem: null };
+  // The list not answering is no reason to hide what doesn't need it: importing a file, or asking for records by letter.
+  try { featured = await get("/api/directory/featured"); }
+  catch (err) { featured.problem = `The list of health systems couldn't be loaded: ${err.message}`; }
+  const byId = new Map(featured.results.map((i) => [i.id, i]));
+  if (featured.athena) byId.set(featured.athena.id, featured.athena);
+  let shown = [];
+  let query = { q: "", state: "" };
+
+  const resultsEl = () => m.body.querySelector("#dir-results");
+  const showPopular = () => {
+    shown = featured.results;
+    mount(m.body.querySelector("#dir-narrow"), "");
+    mount(resultsEl(), shown.length ? html`<div class="small muted" style="margin:4px 0 10px">Popular</div>
+      <div class="inst-grid">${shown.map(institutionButton)}</div>`
+      : featured.total ? html`<p class="muted dir-prompt">Type the name of your hospital or clinic, the portal you log in to, or your town.</p>` : "");
   };
+  const showResults = (res) => {
+    res.results.forEach((i) => byId.set(i.id, i));
+    shown = res.results;
+    const count = `${res.total.toLocaleString()} match${res.total === 1 ? "" : "es"}.`;
+    const similar = res.total - res.as_typed;
+    const typedFirst = res.as_typed === undefined ? count
+      : `${res.as_typed ? `${res.as_typed.toLocaleString()} spelled as you typed, then ` : ""}${similar.toLocaleString()} with a similar spelling.`;
+    const label = [res.corrected ? `Showing results for "${res.corrected}".` : "", typedFirst,
+      res.no_state ? `${res.no_state.toLocaleString()} ${res.no_state === 1 ? "has" : "have"} no location listed, so ${res.no_state === 1 ? "it stays" : "they stay"} in the list.` : "",
+      res.total > shown.length && !query.state ? "Add a city or state to narrow this." : ""].filter(Boolean).join(" ");
+    const states = Object.keys(res.states || {}).filter((code) => STATE_LABELS[code]);
+    mount(m.body.querySelector("#dir-narrow"), states.length > 1 ? html`<select class="input dir-state" id="dir-state" aria-label="Narrow by state"><option value="">All states</option>
+        ${states.map((code) => html`<option value="${code}" ${code === query.state ? "selected" : ""}>${STATE_LABELS[code]} (${res.states[code].toLocaleString()})</option>`)}</select>` : "");
+    mount(resultsEl(), res.total ? html`<div class="small muted" style="margin:4px 0 10px">${label}</div>
+      <div class="inst-grid" id="dir-grid">${shown.map(institutionButton)}</div>
+      ${res.total > shown.length ? html`<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" data-action="show-more" data-total="${res.total}">Show more</button></div>` : ""}`
+      : emptyState(`No matches for "${query.q}"`, "Try the name on your bill, the portal you log in to, or your town. If it isn't listed, the choices below still work."));
+  };
+  const facility = () => query.q;
   m.setBody(html`
-    <div class="search" style="margin-bottom:14px">${icon("search")}<input class="input" id="dir-q" placeholder="Search ${featured.total.toLocaleString()} health systems — e.g. Kaiser, Mayo, Cedars…" autofocus></div>
+    ${featured.problem ? html`<div class="banner warn">${icon("alert")}<div class="grow"><p>${featured.problem}</p></div></div>` : ""}
+    <div class="search" style="margin-bottom:6px">${icon("search")}<input class="input" id="dir-q" maxlength="200" placeholder="Search by hospital, clinic, portal or town, e.g. Kaiser, Mayo, Cedars…" autofocus></div>
+    <p class="tiny faint" style="margin:0 0 12px">${directorySize(featured)}</p>
+    <div id="dir-narrow"></div>
     <div id="dir-results"></div>
+    ${featured.athena?.available ? html`<p class="small muted" style="margin-top:14px">Clinic uses athenahealth? <button class="link-btn" data-action="choose" data-id="athenahealth">Sign in through athenahealth</button></p>` : ""}
     <div class="divider"></div>
-    <p class="small muted">Don't see yours? <button class="link-btn" data-action="custom">Connect any SMART on FHIR server</button> ·
-      <button class="link-btn" data-action="import">import a record file</button></p>`);
-  showList(current, "Popular");
+    <p class="small"><b>Not listed, or can't connect yet?</b> You can still get your records.</p>
+    <div class="row wrap"><button class="btn" data-action="records">Write a records request</button>
+      <button class="btn" data-action="import">Import a file you downloaded</button></div>
+    <p class="tiny faint" style="margin-top:12px">For developers: <button class="link-btn" data-action="custom">connect a server by its address</button> with your own client ID.</p>`);
+  showPopular();
   const input = m.body.querySelector("#dir-q");
   input.focus();
   let searchSeq = 0;
-  input.addEventListener("input", debounce(async () => {
+  const run = async () => {
     const q = input.value.trim();
     const seq = ++searchSeq;
-    if (!q) return showList(featured.results, "Popular");
+    if (!q) { query = { q: "", state: "" }; return showPopular(); }
+    if (q !== query.q) query = { q, state: "" };
     let res;
-    try { res = await get("/api/directory", { q, limit: 30 }); }
+    try { res = await get("/api/directory", { q, limit: PAGE, ...(query.state ? { state: query.state } : {}) }); }
     catch (err) { if (seq === searchSeq) toast(err.message, "bad"); return; }
     if (seq !== searchSeq) return;     // the search changed while this one was answering
-    showList(res.results, `${res.total} match${res.total === 1 ? "" : "es"}`);
-  }, 200));
+    showResults(res);
+  };
+  input.addEventListener("input", debounce(run, 200));
+  m.body.addEventListener("change", (ev) => {
+    if (ev.target.id === "dir-state") { query.state = ev.target.value; run(); }
+  });
 
   onAction(m.el, {
     choose: async ({ id }) => {
       if (!byId.has(id)) byId.set(id, await get(`/api/directory/${encodeURIComponent(id)}`));
       confirmInstitution(m, byId.get(id), profileId);
     },
+    "show-more": async ({ total }, btn) => {
+      const seq = searchSeq;
+      btn.disabled = true;
+      let res;
+      try { res = await get("/api/directory", { q: query.q, limit: PAGE, offset: shown.length, ...(query.state ? { state: query.state } : {}) }); }
+      catch (err) { toast(err.message, "bad"); btn.disabled = false; return; }
+      if (seq !== searchSeq) return;
+      res.results.forEach((i) => byId.set(i.id, i));
+      shown = [...shown, ...res.results];
+      m.body.querySelector("#dir-grid").insertAdjacentHTML("beforeend", res.results.map((i) => institutionButton(i).value).join(""));
+      if (shown.length >= Number(total) || !res.results.length) btn.parentElement.remove();
+      else btn.disabled = false;
+    },
+    records: ({ name }) => openRecordsRequest(m, { facility: name ?? facility(), profileId }),
+    "print-letter": () => m.letter?.print(),
+    "copy-letter": () => m.letter?.copy(),
     custom: () => customServer(m, profileId),
     import: () => { m.close(); location.hash = "#/sources?add=import"; },
     back: () => { m.close(); openAddHealthSystem(profileId); },
@@ -243,7 +351,7 @@ async function openAddHealthSystem(profileId) {
       btn.innerHTML = '<span class="spinner"></span> Preparing secure sign-in…';
       try {
         const res = await post("/api/connections/ehr", { institution_id: id, profile_id: profileId });
-        window.location.assign(res.auth_url);
+        leaveForSignIn(res.auth_url, () => { btn.disabled = false; btn.textContent = label; });
       } catch (err) { toast(err.message, "bad"); btn.disabled = false; btn.textContent = label; }
     },
     discover: async () => {
@@ -259,7 +367,7 @@ async function openAddHealthSystem(profileId) {
       btn.disabled = true;
       try {
         const res = await post("/api/connections/ehr", { fhir_base_url: url, client_id: cid, profile_id: profileId });
-        window.location.assign(res.auth_url);
+        leaveForSignIn(res.auth_url, () => { btn.disabled = false; });
       } catch (err) { toast(err.message, "bad"); btn.disabled = false; }
     },
   });
@@ -273,9 +381,11 @@ function confirmInstitution(m, inst, profileId) {
       ${inst.available && inst.sign_in_problem ? signInProblem(inst) : modeExplainer(inst)}
       ${inst.available ? html`<div class="small muted"><b>What gets shared (read-only):</b> demographics, conditions, medications, allergies, lab results, vitals,
         immunizations, visits, procedures, clinical notes, imaging reports, care team, care plans, devices and insurance.</div>` : ""}
-      <div class="row between"><button class="btn" data-action="back">Back</button>
-        ${!inst.available ? html`<button class="btn btn-primary" data-action="import">Import a record file</button>`
-          : inst.sign_in_problem ? html`<div class="row"><button class="btn" data-action="go" data-id="${inst.id}">Try anyway</button>
+      <div class="row between wrap"><button class="btn" data-action="back">Back</button>
+        ${!inst.available ? html`<div class="row wrap"><button class="btn" data-action="records" data-name="${inst.name}">Write a records request</button>
+              <button class="btn btn-primary" data-action="import">Import a record file</button></div>`
+          : inst.sign_in_problem && !inst.sign_in_problem.stale ? html`<div class="row wrap"><button class="btn" data-action="go" data-id="${inst.id}">Try anyway</button>
+              <button class="btn" data-action="records" data-name="${inst.name}">Write a records request</button>
               <button class="btn btn-primary" data-action="import">Import a record file</button></div>`
           : html`<button class="btn btn-primary" data-action="go" data-id="${inst.id}">Continue</button>`}</div>
       ${inst.mode === "simulated" ? html`<p class="tiny faint">Change how ${inst.platform_label} connects in Settings → Developer.</p>` : ""}
@@ -313,43 +423,61 @@ async function openPairing(profile) {
     <div class="stack">
       ${blocked ? html`<div class="banner warn">${icon("phone")}<div class="grow"><p><b>Your phone can't reach this computer yet.</b></p>
           <div id="pair-net"></div></div></div>` : ""}
-      <p class="muted">The Syntropy Health apps send your phone's health data straight to this server over your network, with no
-        cloud in between: Apple Health from the iPhone app (heart, HRV, sleep stages, steps, workouts with routes, symptoms,
-        cycle tracking, ECG and more), and Health Connect from the Android app (Fitbit, Pixel Watch, Samsung Health, Oura and
-        other apps that write to it).</p>
+      <p class="small"><a href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">Get the app for iPhone or Android</a> if it isn't on your phone yet.</p>
       <ol class="small" style="margin:0;padding-left:18px;line-height:1.8">
         <li>In the app, open <b>Settings</b> → <b>Connect to my server</b>.</li>
         <li>Server address: <code>${res.server_url}</code></li>
         <li>Sign in with your password, or choose to use a pairing code and enter:</li></ol>
       <div class="code-box">${res.code}</div>
       ${away ? html`<p class="small muted">Away from home: in the app's <b>Settings</b> → <b>Addresses</b> → <b>Away from home</b>, enter <code>${away.url}</code> to sync over Tailscale.</p>` : ""}
-      ${embedded ? "" : html`<a class="btn" href="${link}" style="align-self:center">${icon("phone")} Open in the app (when viewing this page on the phone)</a>`}
+      ${embedded || !window.matchMedia("(pointer: coarse)").matches ? "" : html`<a class="btn" href="${link}" style="align-self:center">${icon("phone")} Open in the app</a>`}
       <p class="small muted" style="text-align:center">Data is saved to <b>${profile.name}</b>. The code expires in 10 minutes and works once.
         Pairing the same phone again picks up where it left off.</p>
+      <p class="small muted">The Syntropy Health apps send your phone's health data straight to this server over your network, with no
+        cloud in between: Apple Health from the iPhone app (heart, HRV, sleep stages, steps, workouts with routes, symptoms,
+        cycle tracking, ECG and more), and Health Connect from the Android app (Fitbit, Pixel Watch, Samsung Health, Oura and
+        other apps that write to it).</p>
     </div>`);
   const panel = m.body.querySelector("#pair-net");
   if (panel && net) renderNetworkPanel(panel, net, { onChange: () => { m.close(); openPairing(profile); } });
 }
 
 function importZones() {
+  // The Android app has nothing behind a file box yet, and one that does nothing when tapped looks broken.
+  if (cannotPickFiles()) {
+    return html`<div class="src-drops" id="import-card"><div class="banner info small"><div class="grow">The Android app can't open files yet. To add a lab report or a
+      record file, open <b>${location.origin}</b> in your phone's browser or on a computer, and sign in.</div></div></div><div id="imp-status" class="src-drop-status" role="status"></div>`;
+  }
   // The iPhone app sends Apple Health itself, so an export file is only offered elsewhere.
   return html`<div class="src-drops" id="import-card">
+      <label class="drop-zone" data-drop="lab">
+        ${icon("flask")}<div><b>A lab report</b><div class="small muted">A PDF from your lab's website, or a photo or scan of a paper report. You check every value beside the page before it's saved, and the original stays with the results.</div></div>
+        <input type="file" id="imp-lab" accept="${REPORT_FILES}"></label>
       ${embedded ? "" : html`<label class="drop-zone" data-drop="apple">
         ${icon("upload")}<div><b>Apple Health export</b><div class="small muted">Health app → your photo → Export All Health Data → <code>export.zip</code>. Includes Health Records if present.</div></div>
-        <input type="file" id="imp-apple" accept=".zip,.xml" hidden></label>`}
+        <input type="file" id="imp-apple" accept=".zip,.xml"></label>`}
       <label class="drop-zone" data-drop="fhir">
-        ${icon("records")}<div><b>FHIR record file</b><div class="small muted">A FHIR R4 Bundle (.json) or bulk-data NDJSON downloaded from a portal or app.</div></div>
-        <input type="file" id="imp-fhir" accept=".json,.ndjson,application/json" hidden></label>
+        ${icon("records")}<div><b>A record file from your patient portal</b><div class="small muted">A health summary you downloaded from a portal or app. Technically: C-CDA, CCD or XDM (.xml or .zip), or a FHIR file (.json or .ndjson).</div></div>
+        <input type="file" id="imp-fhir" accept=".xml,.zip,.json,.ndjson,application/json"></label>
     </div>
-    <div id="imp-status" class="src-drop-status"></div>`;
+    <div id="imp-status" class="src-drop-status" role="status"></div>`;
 }
 
 async function uploadApple(file, profile, statusEl, refresh, left) {
   const form = new FormData();
   form.append("file", file);
   form.append("profile_id", profile.id);
-  mount(statusEl, html`<div class="small">Uploading ${file.name}…</div><div class="progress"><div style="width:15%"></div></div>`);
+  mount(statusEl, html`<div class="small">Uploading ${file.name}…</div><div class="progress working"><div></div></div>`);
   const { job_id } = await api("/api/imports/apple-health", { method: "POST", form });
+  await watchImport(job_id, statusEl, refresh, left);
+}
+
+// How the last import went. The page is drawn again once it's done, and this stays on it.
+let importNote = null;
+
+/** What became of an import: progress while it runs, then how it went. Also picks one up again after leaving the page. */
+async function watchImport(job_id, statusEl, refresh, left) {
+  importNote = null;
   let misses = 0;
   for (;;) {
     await new Promise((r) => setTimeout(r, 800));
@@ -362,15 +490,22 @@ async function uploadApple(file, profile, statusEl, refresh, left) {
       if (err.status || ++misses > 10) throw err;
       continue;
     }
-    if (job.status === "error") { mount(statusEl, html`<div class="banner bad">${job.error}</div>`); return; }
+    if (job.status === "error" || job.status === "interrupted") { mount(statusEl, html`<div class="banner bad">${job.error}</div>`); return; }
     if (job.status === "completed") {
       const r = job.result || {};
-      mount(statusEl, html`<div class="banner info">${icon("check")}<div class="grow">Imported ${plural(r.inserted || 0, "new sample")} (${plural(r.samples || 0, "sample")} read)
-        ${r.clinical ? `and ${plural(r.clinical.records, "clinical record")}` : ""}.</div></div>`);
+      const leftAside = Object.values(r.types?.skipped || {}).reduce((a, b) => a + b, 0);
+      const notes = [r.flagged ? `Kept but out of your charts, because they can't be right: ${plural(r.flagged, "reading")}.` : "",
+        r.rejected ? `Couldn't be read: ${plural(r.rejected, "row")}.` : "",
+        r.clinical?.not_read ? `Couldn't be read: ${plural(r.clinical.not_read, "health record")}.` : "",
+        leftAside ? `Skipped, as Syntropy Health doesn't use these kinds of record: ${plural(leftAside, "record")}.` : ""].filter(Boolean).join(" ");
+      importNote = html`<div class="banner ${r.warning ? "warn" : "info"}">${icon(r.warning ? "alert" : "check")}<div class="grow">Imported ${plural(r.inserted || 0, "new sample")} (${plural(r.samples || 0, "sample")} read)${r.clinical ? ` and ${plural(r.clinical.records, "clinical record")}` : ""}.
+        ${r.warning ? html`<div>${r.warning}</div>` : ""}${notes ? html`<div class="small muted">${notes}</div>` : ""}
+        ${r.skipped_files?.length ? html`<p class="small">Left out because they're far larger than an export's files should be: ${r.skipped_files.join(", ")}.</p>` : ""}</div></div>`;
+      mount(statusEl, importNote);
       refresh();
       return;
     }
-    mount(statusEl, html`<div class="small">Importing… ${plural(job.processed, "sample")} processed</div><div class="progress"><div style="width:60%"></div></div>`);
+    mount(statusEl, html`<div class="small">Importing… ${plural(job.processed, "sample")} processed</div><div class="progress working"><div></div></div>`);
   }
 }
 
@@ -393,12 +528,39 @@ function group(title, hint, action, body) {
   </section>`;
 }
 
-export async function render({ el, params, state }) {
+// What went wrong with the last sign-in, for a little while, in case this page is drawn afresh just after coming back.
+let lastProblem = null;
+const PROBLEM_STAYS_MS = 60000;
+
+export async function render({ el, params, state, navigate }) {
   const profile = state.profile;
   mount(el, loading(4));
   let pollTimer = null;
   let gone = false;                       // the page was left: an answer still on its way draws nothing
   let shown = { all: [], devices: [] };   // what the page is showing, for the "⋯" menus
+  const removing = new Map();             // sources on their way out, and what's being done, kept when the page is drawn again
+  const showRemoving = () => {
+    for (const [id, word] of removing) {
+      const row = el.querySelector(`#conn-${CSS.escape(id)}`);
+      if (!row) continue;
+      row.classList.add("is-going");
+      row.inert = true;
+      const line = row.querySelector(".src-line");
+      if (line) mount(line, html`<span class="src-status"><span class="spinner"></span> ${word}…</span>`);
+    }
+  };
+  const setRemoving = (id, word) => {
+    if (word) removing.set(id, word); else removing.delete(id);
+    showRemoving();
+  };
+  /** A source that's really gone folds away before the list is drawn without it. */
+  const slideAway = async (id, deleted) => {
+    const row = el.querySelector(`#conn-${CSS.escape(id)}`);
+    if (!deleted || !row || !row.animate || prefersStill()) return;
+    const height = row.offsetHeight;
+    row.style.overflow = "hidden";
+    await row.animate([{ height: `${height}px`, opacity: 1 }, { height: "0px", opacity: 0, paddingTop: 0, paddingBottom: 0 }], { duration: 180, easing: EASE_OUT, fill: "forwards" }).finished.catch(() => {});
+  };
 
   const refresh = async (fresh = false) => {
     const [conns, devs, dir] = await Promise.all([
@@ -422,7 +584,7 @@ export async function render({ el, params, state }) {
     // In the iPhone app, Add is the title bar's + menu.
     const appAdd = setToolbar([{ id: "add", title: "Add a Source", symbol: "plus", menu: addMenu() }]);
     mount(el, html`
-      <div class="page-head"><div><h1>Sources</h1><p>Where ${profile.name}'s data comes from. Everything syncs into the database on this machine.</p></div>
+      <div class="page-head"><div><h1>Sources</h1><p>Where ${profile.name}'s data comes from. Everything is saved on the computer that runs Syntropy Health.</p></div>
         ${appAdd ? "" : html`<button class="btn btn-primary" data-action="add" aria-haspopup="menu" aria-expanded="false">${icon("plus")} Add a source</button>`}</div>
       ${all.length ? html`<div class="src-summary">
         <span><b>${active.length}</b> ${active.length === 1 ? "source" : "sources"} connected</span>
@@ -431,40 +593,71 @@ export async function render({ el, params, state }) {
       </div>` : ""}
       <div id="src-banner"></div>
 
-      ${group("Phones & watches", "Apple Health and Health Connect data from the Syntropy phone apps, sent over your own network.",
-        phones.length ? html`<button class="btn btn-sm" data-action="pair">${icon("phone")} Pair phone</button>` : "",
-        html`<div class="src-rows">${phones.length ? phones.map((c) => sourceRow(c, devicesFor(c))) : html`
-          ${offerRow("phone", "Syntropy Health iPhone app", "Apple Health from iPhone and Apple Watch: heart, HRV, sleep stages, steps, workouts with routes, symptoms, cycle tracking, ECG and more, synced in the background.", html`
-            <button class="btn btn-sm btn-primary" data-action="pair">${icon("phone")} Pair iPhone</button>
-            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener">Get the app</a>`)}
-          ${offerRow("phone", "Syntropy Health Android app", "Health Connect from Fitbit, Pixel Watch, Samsung Health, Oura and other apps: heart, HRV, sleep stages, steps, workouts and more, synced in the background.", html`
-            <button class="btn btn-sm btn-primary" data-action="pair">${icon("phone")} Pair Android phone</button>`)}`}</div>`)}
-
-      ${group("Wearables", "Oura, WHOOP and Google Health (Fitbit, Pixel Watch) sync from their cloud every few hours. Signing in passes through Syntropy Labs' sign-in relay, which completes the sign-in and keeps nothing.", "",
-        html`<div class="src-rows">${WEARABLES.map(([provider, label, blurb]) => {
-          const mine = wear.filter((c) => c.provider === provider);
-          const connected = mine.some((c) => c.status !== "disconnected");
-          const simulated = mine.some((c) => c.mode === "simulated");
-          return html`${mine.map((c) => sourceRow(c))}${connected ? "" : offerRow("watch", label, blurb, html`
-            <button class="btn btn-sm btn-primary" data-action="wearable" data-provider="${provider}" data-mode="live">Connect ${label}</button>
-            ${simulated ? "" : html`<button class="btn btn-sm btn-ghost" data-action="wearable" data-provider="${provider}" data-mode="simulated">Try simulated data</button>`}`)}`;
-        })}</div>`)}
-
       ${group("Medical records", "Your history from hospitals and clinics, through their patient portals.",
         html`<button class="btn btn-sm" data-action="add-ehr">${icon("plus")} Connect a health system</button>`,
         ehr.length ? html`<div class="src-rows">${ehr.map((c) => sourceRow(c))}</div>`
           : html`<div class="src-empty">No health systems connected yet. Search ${dir ? `${dir.total.toLocaleString()} ` : ""}US health systems and practices that offer patient access.</div>`)}
 
-      ${group("Files", "One-off imports of an Apple Health export or a record file from a portal. Drop a file on a box, or click to choose one.", "",
+      ${group("Phones & watches", "Apple Health and Health Connect data from the Syntropy phone apps, sent over your own network.",
+        phones.length ? html`<button class="btn btn-sm" data-action="pair">${icon("phone")} Pair phone</button>` : "",
+        html`<div class="src-rows">${phones.length ? phones.map((c) => sourceRow(c, devicesFor(c))) : html`
+          ${offerRow("phone", "Syntropy Health iPhone app", "Apple Health from iPhone and Apple Watch: heart, HRV, sleep stages, steps, workouts with routes, symptoms, cycle tracking, ECG and more, synced in the background.", html`
+            <button class="btn btn-sm offer-go" data-action="pair">${icon("phone")} Pair iPhone</button>
+            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener" aria-label="Get the iPhone app">Get the app</a>`)}
+          ${offerRow("phone", "Syntropy Health Android app", "Health Connect from Fitbit, Pixel Watch, Samsung Health, Oura and other apps: heart, HRV, sleep stages, steps, workouts and more, synced in the background.", html`
+            <button class="btn btn-sm offer-go" data-action="pair">${icon("phone")} Pair Android phone</button>
+            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener" aria-label="Get the Android app">Get the app</a>`)}`}</div>`)}
+
+      ${group("Wearables", "Oura, WHOOP and Google Health (Fitbit, Pixel Watch) sync from their cloud every few hours. Signing in to Oura or WHOOP passes through Syntropy Labs' sign-in relay, which completes the sign-in and keeps nothing. Google Health uses your own Google Cloud app.", "",
+        html`<div class="src-rows">${WEARABLES.map(([provider, label, blurb]) => {
+          const mine = wear.filter((c) => c.provider === provider);
+          const connected = mine.some((c) => c.status !== "disconnected");
+          const simulated = mine.some((c) => c.mode === "simulated");
+          return html`${mine.map((c) => sourceRow(c))}${connected ? "" : offerRow("watch", label, blurb, html`
+            <button class="btn btn-sm offer-go" data-action="wearable" data-provider="${provider}" data-mode="live">Connect ${label}</button>
+            ${simulated || !state.status?.developer_mode ? "" : html`<button class="btn btn-sm btn-ghost" data-action="wearable" data-provider="${provider}" data-mode="simulated">Try simulated data</button>`}`)}`;
+        })}</div>`)}
+
+      ${group("Files", "One-off imports of a lab report, an Apple Health export or a record file from a portal. Drop a file on a box, or click to choose one.", "",
         html`${importZones()}${files.length ? html`<div class="src-rows">${files.map((c) => sourceRow(c))}</div>` : ""}`)}
     `);
+    showRemoving();
     wireUploads();
+    resumeImport();
     renderBanner();
+    showArrived(all);
     clearTimeout(pollTimer);
     // While a source syncs, look again shortly (a failed look tries again rather than stopping).
     if (all.some((c) => c.syncing)) pollTimer = setTimeout(() => refresh(true).catch(() => { if (!gone) pollTimer = setTimeout(() => refresh(true), 5000); }), 1500);
   };
 
+  // An import in progress, or one a restart cut off in the last day, is found again rather than forgotten with the page.
+  let importLookedFor = false;
+  importNote = null;
+  const resumeImport = async () => {
+    if (importLookedFor) return;
+    importLookedFor = true;
+    const { imports = [] } = await get("/api/imports", { profile: profile.id }, { fresh: true }).catch(() => ({}));
+    const job = imports[0];
+    const box = $("#imp-status", el);
+    if (!job || !box || gone) return;
+    if (["queued", "running"].includes(job.status)) watchImport(job.id, box, () => refresh(true), () => gone).catch(() => {});
+    else if (job.status === "interrupted" && job.finished_at > Date.now() / 1000 - 86400) mount(box, html`<div class="banner warn">${icon("alert")}<div class="grow">${job.filename}: ${job.error}</div></div>`);
+  };
+
+  let arriving = null;
+  /** When a new source has finished its first download: what came in, and where to go from here. */
+  const showArrived = async (all) => {
+    const c = arriving && (all.find((x) => x.id === arriving) || all.filter((x) => x.kind === "ehr").sort((a, b) => b.created_at - a.created_at)[0]);
+    if (!c || c.syncing) return;
+    arriving = null;
+    const counts = (await get(`/api/connections/${encodeURIComponent(c.id)}`, undefined, { fresh: true }).catch(() => ({}))).record_counts || [];
+    if (!counts.length || gone) return;
+    bannerShown = html`<div class="banner info"><div class="grow"><b>${c.display_name}</b>: ${counts.map((x) => `${x.count.toLocaleString()} ${x.label.toLowerCase()}`).join(", ")}.</div>
+      <a class="btn btn-sm btn-primary" href="#/overview">See your Overview</a> <a class="btn btn-sm" href="#/sources?add=ehr">Add another source</a></div>`;
+    const box = $("#src-banner", el);
+    if (box) mount(box, bannerShown);
+  };
   let bannerShown = false;
   const renderBanner = () => {
     const box = $("#src-banner", el);
@@ -473,12 +666,26 @@ export async function render({ el, params, state }) {
       if (bannerShown !== true) mount(box, bannerShown);
       return;
     }
-    if (params.get("error")) {
-      bannerShown = html`<div class="banner bad">${icon("alert")}<div class="grow"><b>The connection didn't complete.</b><p>${params.get("error")}</p></div></div>`;
-      mount(box, bannerShown);
+    // Only words this server signed: anyone can make a link to this page.
+    if (params.get("problem") || params.get("failed") || params.get("error")) {
+      const say = (text) => {
+        bannerShown = html`<div class="banner bad">${icon("alert")}<div class="grow"><b>The connection didn't complete.</b><p>${text}</p></div></div>`;
+        // The page can be drawn afresh in a moment (coming back to the window, the phone app's refresh): this has to survive it.
+        lastProblem = { html: bannerShown, at: Date.now() };
+        if (box.isConnected) mount(box, bannerShown);
+      };
+      say("Try connecting again.");
+      if (params.get("problem")) {
+        get("/api/sign-in-problem", { token: params.get("problem") }, { fresh: true }).then(({ message }) => { if (message) say(message); }, () => {});
+      }
     } else if (params.get("connected")) {
       toast("Connected. Downloading records…", "good");
       bannerShown = true;
+      arriving = params.get("connected");
+    } else if (lastProblem && Date.now() - lastProblem.at < PROBLEM_STAYS_MS) {
+      bannerShown = lastProblem.html;
+      mount(box, bannerShown);
+      return;
     } else return;
     // A reload shouldn't say it again. (Only while this page is still the one on screen.)
     if (location.hash.startsWith("#/sources")) history.replaceState(null, "", "#/sources");
@@ -491,19 +698,31 @@ export async function render({ el, params, state }) {
     mount(status, html`<div class="small"><span class="spinner"></span> Importing ${file.name}…</div>`);
     try {
       const r = await api("/api/imports/fhir", { method: "POST", form });
-      toast(`Imported ${plural(r.records, "record")}`, "good");
+      const kept = r.kept_both ? ` ${plural(r.kept_both, "record")} differed from what's here, so both were kept.` : "";
+      const again = r.unchanged ? ` ${plural(r.unchanged, "record")} already here.` : "";
+      if (r.already_imported) toast("This file has already been imported, so nothing changed.");
+      else if (r.matched_earlier) toast(`Updated the earlier import from this source: ${plural(r.inserted, "new record")}, ${plural(r.updated, "change")}${r.removed ? `, ${r.removed} taken back` : ""}`, "good");
+      else toast(`Imported ${plural(r.inserted, "new record")}.${again}${kept}`, "good");
       await refresh();
+      // After the refresh, which redraws what's around it.
+      if (r.warnings?.length) mount(status, html`<div class="banner warn"><div class="grow"><b>Imported ${plural(r.records, "record")}, with something to check.</b>
+        ${r.warnings.map((w) => html`<p>${w}</p>`)}</div></div>`);
     } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };
   const importApple = async (file, status) => {
     try { await uploadApple(file, profile, status, refresh, () => gone); } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
   };
 
+  const importLabReport = (file) => openLabEntry(profile, (address) => navigate(address), { file });
+
   const wireUploads = () => {
     const status = $("#imp-status", el);
-    $("#imp-apple", el)?.addEventListener("change", (e) => { if (e.target.files[0]) importApple(e.target.files[0], status); });
-    $("#imp-fhir", el)?.addEventListener("change", (e) => { if (e.target.files[0]) importFhir(e.target.files[0], status); });
-    // Drag a file onto either box.
+    if (importNote && status) mount(status, importNote);
+    // The value is cleared each time, so choosing the same file again after a failure counts as a choice.
+    $("#imp-apple", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importApple(file, status); });
+    $("#imp-fhir", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importFhir(file, status); });
+    $("#imp-lab", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importLabReport(file); });
+    // Drag a file onto a box.
     for (const zone of el.querySelectorAll("[data-drop]")) {
       zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
       zone.addEventListener("dragleave", () => zone.classList.remove("over"));
@@ -511,7 +730,8 @@ export async function render({ el, params, state }) {
         e.preventDefault();
         zone.classList.remove("over");
         const file = e.dataTransfer.files[0];
-        if (file) (zone.dataset.drop === "apple" ? importApple : importFhir)(file, status);
+        if (file && zone.dataset.drop === "lab") importLabReport(file);
+        else if (file) (zone.dataset.drop === "apple" ? importApple : importFhir)(file, status);
       });
     }
   };
@@ -534,6 +754,7 @@ export async function render({ el, params, state }) {
   if (params.get("add") === "ehr") openAddHealthSystem(profile.id);
   if (params.get("add") === "iphone" || params.get("add") === "phone") openPairing(profile);
   if (params.get("add") === "import") $("#import-card", el)?.scrollIntoView({ behavior: "smooth" });
+  if (params.get("add") === "wearable") [...el.querySelectorAll("h2, h3")].find((h) => h.textContent.trim() === "Wearables")?.scrollIntoView({ behavior: "smooth" });
 
   const handlers = {
     "add-ehr": () => openAddHealthSystem(profile.id),
@@ -543,20 +764,71 @@ export async function render({ el, params, state }) {
       const c = shown.all.find((x) => x.id === id);
       if (c) dropdown(btn, sourceMenu(c, shown.devices.filter((d) => d.connection_id === id), (name, data) => handlers[name](data, btn)));
     },
+    history: async ({ id }) => {
+      try {
+        await post(`/api/connections/${id}/fetch-history`);
+        toast("Bringing in older history. It goes a stretch at a time, and this page shows when it's done.");
+        await refresh(true);
+      } catch (err) { toast(err.message, "bad"); }
+    },
     sync: async ({ id }, btn) => {
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner"></span> Syncing…';
       try {
         const res = await post(`/api/connections/${id}/sync`);
         if (res.status === "error") toast(res.error, "bad");
-        else if (res.status === "skipped") toast(res.reason);
-        else toast(`Synced · ${plural(res.inserted || 0, "new item")}`, "good");
+        else if (res.status === "skipped" || res.status === "running") toast(res.reason);
+        else {
+          const removed = res.removed ? ` · ${res.removed} removed by the source` : "";
+          if (res.error) toast(res.error, "bad");
+          else if (res.status === "partial") toast(`Synced in part · ${plural(res.inserted || 0, "new item")}${removed}`);
+          else toast(`Synced · ${plural(res.inserted || 0, "new item")}${removed}`, "good");
+        }
       } catch (err) { toast(err.message, "bad"); }
       if (!gone) await refresh(true);     // the row shows how it went (and the button comes back)
     },
     reconnect: async ({ id }) => {
       const res = await post(`/api/connections/${id}/reconnect`);
-      window.location.assign(res.auth_url);
+      leaveForSignIn(res.auth_url);
+    },
+    details: async ({ id }) => {
+      const c = await get(`/api/connections/${id}`, undefined, { fresh: true });
+      const notes = c.last_run?.stats?.warnings || [];
+      modal({
+        title: `What came in from ${c.display_name}`,
+        body: html`<div class="stack">
+          ${c.queries.length ? html`<table class="src-queries"><tbody>${c.queries.map((q) => html`<tr><th scope="row">${q.name}</th>
+            <td class="${q.ok ? "muted" : "warn"}">${q.words}</td></tr>`)}</tbody></table>`
+            : html`<p class="muted">It hasn't finished a sync yet.</p>`}
+          ${notes.length ? html`<ul class="small" style="margin:0;padding-left:18px">${notes.map((n) => html`<li>${n}</li>`)}</ul>` : ""}
+        </div>`,
+      });
+    },
+    removed: async ({ id }) => {
+      const c = shown.all.find((x) => x.id === id);
+      const { items, keep_days } = await get(`/api/connections/${id}/removed`, undefined, { fresh: true });
+      const row = (r) => html`<div class="src-removed-row" data-row="${r.id}">
+        <div class="grow"><div>${r.title}</div>
+          <div class="small muted">${r.effective_at ? `${fmtDate(r.effective_at)} · ` : ""}${r.reason === "retracted" ? "Marked as wrong by the source" : "No longer sent by the source"}, ${fmtDate(r.removed_at)}</div></div>
+        <button class="btn btn-sm" data-put-back="${r.id}">Put back</button></div>`;
+      const m = modal({
+        title: `Removed by ${c?.display_name || "this source"}`,
+        wide: true,
+        body: html`<div class="stack"><p class="muted">These are out of your record, so summaries, charts and AI no longer see them. They're kept here
+          for ${Math.round(keep_days / 30)} months in case you want one back. A record you put back stays, whatever the source says later.</p>
+          ${items.length ? items.map(row) : html`<p class="muted">Nothing here.</p>`}</div>`,
+      });
+      m.el.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-put-back]");
+        if (!btn) return;
+        btn.disabled = true;
+        try {
+          await post(`/api/connections/${id}/removed/${btn.dataset.putBack}/restore`);
+          btn.closest("[data-row]").remove();
+          toast("Put back in your record", "good");
+          if (!gone) refresh(true);
+        } catch (err) { btn.disabled = false; toast(err.message, "bad"); }
+      });
     },
     remove: async ({ id, name, kind, off }) => {
       const phone = kind === "device";
@@ -571,26 +843,35 @@ export async function render({ el, params, state }) {
       });
       const run = async (query, done) => {
         m.close();
-        try { await del(`/api/connections/${id}`, query); } catch (err) { toast(err.message, "bad"); return; }
+        // Deleting a phone's years of samples can take minutes. The row says so at once, rather than looking as if nothing happened.
+        setRemoving(id, query ? "Removing" : "Disconnecting");
+        try { await del(`/api/connections/${id}`, query); } catch (err) { setRemoving(id, null); toast(err.message, "bad"); return; }
+        setRemoving(id, null);
         toast(done);
-        refresh();
+        await slideAway(id, query);
+        if (!gone) refresh(true);
       };
       m.el.querySelector("[data-cancel]")?.addEventListener("click", () => m.close());
       m.el.querySelector("[data-keep]")?.addEventListener("click", () => run(undefined, phone ? "Unpaired. Its data is kept." : "Disconnected. Its data is kept."));
       m.el.querySelector("[data-wipe]").addEventListener("click", () => run({ delete_data: true }, "Removed with its data"));
     },
     wearable: async ({ provider, mode }) => {
+      if (mode === "simulated" && !(await confirmDialog("Add simulated data?", "This writes 90 days of made-up wearable readings into this person's record, for testing. Overview, Trends and Ask will say that the record includes simulated data until you remove this source with its data.", { confirmLabel: "Add simulated data" }))) return;
       const res = await post("/api/connections/wearable", { provider, mode, profile_id: profile.id });
-      if (res.auth_url) window.location.assign(res.auth_url);
-      else { toast("Simulated wearable connected — generating 90 days of data…", "good"); refresh(); }
+      if (res.auth_url) leaveForSignIn(res.auth_url);
+      else { toast("Simulated wearable connected. Generating 90 days of data.", "good"); refresh(); }
     },
     pair: async () => { await openPairing(profile); },
     unpair: async ({ id, name }) => {
       if (!(await confirmDialog(`Unpair ${name}?`, "The phone stops sending data until it's paired again. What it already sent is kept.", { confirmLabel: "Unpair", danger: true }))) return;
-      const devices = (await get("/api/devices", { profile: profile.id }, { fresh: true })).devices.filter((d) => d.connection_id === id);
-      await Promise.all(devices.map((d) => del(`/api/devices/${d.id}`)));
-      toast("Unpaired");
-      refresh();
+      setRemoving(id, "Unpairing");
+      try {
+        const devices = (await get("/api/devices", { profile: profile.id }, { fresh: true })).devices.filter((d) => d.connection_id === id);
+        await Promise.all(devices.map((d) => del(`/api/devices/${d.id}`)));
+        toast("Unpaired");
+      } catch (err) { toast(err.message, "bad"); }
+      setRemoving(id, null);
+      if (!gone) refresh(true);
     },
   };
   const off = onAction(el, handlers);

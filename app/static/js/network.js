@@ -1,7 +1,7 @@
 // Who can reach this server: only this computer, or phones and other devices at home and on Tailscale too.
 // Used by Settings → Security, onboarding and the iPhone pairing dialog.
 import { get, post, put } from "./api.js";
-import { $, html, icon, mount, onAction, toast } from "./ui.js";
+import { $, busy, html, icon, mount, onAction, toast } from "./ui.js";
 
 export const networkStatus = () => get("/api/system/network", undefined, { fresh: true });
 
@@ -35,7 +35,7 @@ function explain(net) {
   if (!net.managed) {
     return net.on_network
       ? "This server listens on your network. Open it from your other devices at:"
-      : html`This server only accepts connections from this computer. To change that, start it with <code>--host 0.0.0.0</code>.`;
+      : html`For now, only this computer can reach it, so a phone can't connect yet. Whoever set it up can change that where it's started (for developers: <code>--host 0.0.0.0</code>).`;
   }
   return net.on_network
     ? html`Your phone and other devices at home${net.tailscale ? " and on Tailscale" : ""} can connect. Open it from them at:`
@@ -56,7 +56,7 @@ export function renderNetworkPanel(el, net, { onChange, waited = 0 } = {}) {
   }
   const needsChoice = net.managed && !net.on_network && !net.password_set;
   mount(el, html`<div class="stack net-panel">
-    ${net.managed ? html`<label class="set-row net-switch"><div class="set-label"><div class="set-title">Let your iPhone and other devices connect</div>
+    ${net.managed ? html`<label class="set-row net-switch"><div class="set-label"><div class="set-title">Let your phone and other devices connect</div>
         <div class="set-hint">${explain(net)}</div></div>
         <div class="set-control"><span class="switch"><input type="checkbox" id="net-on" ${net.on_network ? "checked" : ""}><span></span></span></div></label>`
       : html`<p class="small muted">${explain(net)}</p>`}
@@ -97,10 +97,12 @@ export function renderNetworkPanel(el, net, { onChange, waited = 0 } = {}) {
     const pass = $("#net-pass1", el).value;
     if (pass.length < 8) return toast("Choose a password of at least 8 characters.", "bad");
     if (pass !== $("#net-pass2", el).value) return toast("The passwords don't match.", "bad");
-    try { await post("/api/auth/password", { current: null, new: pass }); }
-    catch (err) { return toast(err.message, "bad"); }
-    net = { ...net, password_set: true };
-    apply(true);
+    await busy(e.submitter, async () => {
+      try { await post("/api/auth/password", { current: null, new: pass }); }
+      catch (err) { return toast(err.message, "bad"); }
+      net = { ...net, password_set: true };
+      apply(true);
+    });
   });
   // Drawn again after each change (and while the .local name appears): one set of handlers, not one per drawing, or a
   // click would switch the network or copy an address several times over.

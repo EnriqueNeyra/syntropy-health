@@ -48,9 +48,12 @@ the Content-Security-Policy.
 
 - An instance deliberately exposed to the internet without TLS, or with `SYNTROPY_ALLOW_NO_PASSWORD` set (a
   development-only setting).
-- Someone with access to the computer's account or the data folder: the database, `secret.key` and backups are the
-  keys to the record by design. Protect them like the records themselves.
+- Someone using the computer's account, or running as it. They hold the key by design, while the server runs: see
+  [what protects your data on disk](SECURITY-MODEL.md). Reading records from a copy of the data folder alone, on a Mac or
+  Windows PC, without a password, is in scope.
 - Findings from automated scanners with no demonstrated impact, and missing headers that don't lead to one.
+- Reading the relay key out of a release. Every release carries it, so it isn't a secret: it keeps builds from the
+  source code from using Syntropy Labs' registrations and relay without someone choosing to, and protects no data.
 
 ## How Syntropy Health is protected
 
@@ -59,10 +62,11 @@ restrictions, encryption at rest, PKCE and single-use OAuth state, CSRF and CSP,
 
 ## Checking what you run
 
-- **Release files** (the Mac and Windows apps, the wheel, `SHA256SUMS`) and the **Docker image** are built by this
-  repository's workflows, which sign a build provenance attestation for each:
+- **Release files** (the Mac and Windows apps, the wheel, the installers, the dependency list, SBOMs, `SHA256SUMS`) and
+  the **Docker image** are built by this repository's workflows, which sign a build provenance attestation for each:
   `gh attestation verify <file> -R EnriqueNeyra/syntropy-health`, or
   `gh attestation verify oci://ghcr.io/enriqueneyra/syntropy-health:latest -R EnriqueNeyra/syntropy-health`.
-  The image also carries an SBOM.
+  The image also carries an SBOM. The installers and `syntropy-health update` check what they download against the
+  release's `SHA256SUMS` before installing it, and a Mac app's signature too.
 - **The OAuth relay** is deployed from `main` by a workflow, and its `/health` names the commit it runs:
   `curl https://syntropy-auth-relay.syntropylabs.workers.dev/health`.

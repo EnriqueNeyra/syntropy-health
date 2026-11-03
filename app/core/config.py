@@ -21,12 +21,14 @@ APP_VERSION = "1.6.0"
 
 DEFAULT_RELAY_URL = "https://health.syntropylabs.io/callback"
 DEFAULT_WEARABLE_RELAY_URL = "https://syntropy-auth-relay.syntropylabs.workers.dev/callback"
+RELAY_KEY_HEADER = "X-Syntropy-Key"
 
 
 def _load_env_file() -> None:
-    """Minimal .env loader (no dependency). Never overrides real environment values."""
+    """Minimal .env loader (no dependency). Never overrides real environment values. The tests set SYNTROPY_NO_DOTENV:
+    a developer's own settings shouldn't change what they check."""
     env_file = REPO_ROOT / ".env"
-    if not env_file.exists():
+    if os.environ.get("SYNTROPY_NO_DOTENV") or not env_file.exists():
         return
     try:
         for line in env_file.read_text(encoding="utf-8").splitlines():
@@ -100,6 +102,26 @@ def timezone_name() -> str:
 
 def scheduler_enabled() -> bool:
     return env_bool("SYNTROPY_SCHEDULER", True)
+
+
+def relay_key() -> str:
+    """The key Syntropy Labs' release builds carry. The sign-in relay and the callback page serve only sign-ins that
+    present it, and Syntropy Health's own registrations (EHR vendors, Oura, WHOOP) are offered only with it. It isn't
+    in the source code: the release workflows write it to app/core/release_key.py (scripts/release_key.py), so a build
+    from the source, such as a fork, has none and uses its own registrations. SYNTROPY_RELAY_KEY sets it in development."""
+    return env("SYNTROPY_RELAY_KEY") or _built_in_relay_key()
+
+
+def _built_in_relay_key() -> str:
+    try:
+        from app.core.release_key import KEY
+    except ImportError:
+        return ""
+    return str(KEY).strip()
+
+
+def official_build() -> bool:
+    return bool(relay_key())
 
 
 # Placeholder values ("your-client-id") are treated as unset.

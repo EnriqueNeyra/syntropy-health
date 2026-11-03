@@ -27,22 +27,28 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
-# The one list of dependencies: installers, Docker, the desktop apps and CI all install from here.
+# The one list of dependencies, as ranges. uv.lock fixes the exact versions that installers, Docker, the desktop apps
+# and CI install: after changing anything here, run uv lock and commit the result.
 dependencies = [
     "fastapi>=0.141.1",
     "uvicorn[standard]>=0.54.0",
     "httpx>=0.28.0",
     "cryptography>=44.0.0",
+    "sqlcipher3>=0.6.4",    # SQLite that encrypts its file, with OpenSSL built in. Wheels for Mac, Windows and Linux
     "pydantic>=2.10.0",
     "python-multipart>=0.0.20",
-    "pypdf>=6.19.0",
-    "Pillow>=12.3.0",
+    "pypdf>=6.21.2",
+    "pypdfium2>=5.14.0",    # draws a PDF's pages, for reading scans and for showing the page beside what was read from it
+    "Pillow>=13.0.0",
+    "pi-heif>=1.4.0; sys_platform != 'darwin'",             # reads iPhone photos (HEIC); macOS does that itself. Reading only: no x265 encoder
+    "pyobjc-framework-Vision>=13.0; sys_platform == 'darwin'",      # reads photos and scans with the OCR built into macOS
     "zeroconf>=0.136",      # announces syntropyhealth.local on the home network
     "tzdata>=2024.1",       # time zones where the system has none (Windows, slim containers)
 ]
 
 [project.optional-dependencies]
-# scripts/check_sign_in.py's Chrome pass, for sign-in sites that turn away scripts.  pip install -e ".[checks]"
+# scripts/check_sign_in.py's Chrome pass, for sign-in sites that turn away scripts, and the browser tests in tests/e2e.
+# pip install -e ".[checks]"
 checks = ["playwright>=1.50"]
 # The Mac and Windows apps: the window, the tray icon (Windows) and the packager.  pip install -e ".[desktop]"
 desktop = [
@@ -56,6 +62,8 @@ desktop = [
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.0.0",
+    "fhir.resources>=8.3.0",    # checks that exports are valid FHIR; tests only, never installed with the app
     "ruff==0.16.10",
 ]
 
@@ -76,16 +84,20 @@ version = { attr = "app.core.config.APP_VERSION" }
 include = ["app*"]
 
 [tool.setuptools.package-data]
-app = ["static/**/*", "core/migrations/*.sql", "data/*.json", "data/institutions/*.json"]
+app = ["static/**/*", "core/migrations/*.sql", "data/*.json", "data/*.tsv", "data/institutions/*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 
+[tool.coverage.run]
+source = ["app", "desktop", "scripts"]
+branch = true
+
 [tool.ruff]
 line-length = 130
-target-version = "py311"
+target-version = "py312"
 extend-exclude = ["cloudflare-worker", "data"]
 
 [tool.ruff.lint]

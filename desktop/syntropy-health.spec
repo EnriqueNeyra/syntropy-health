@@ -12,19 +12,22 @@ from app.core.config import APP_VERSION  # noqa: E402
 DESKTOP = ROOT / "desktop"
 
 datas = [
+    (str(ROOT / "LICENSE"), "."),
+    (str(ROOT / "NOTICE"), "."),
     (str(ROOT / "app" / "static"), "app/static"),
     (str(ROOT / "app" / "core" / "migrations"), "app/core/migrations"),
     (str(ROOT / "app" / "data"), "app/data"),
     (str(DESKTOP / "icons"), "icons"),
 ]
-hidden = [*collect_submodules("app"), *collect_submodules("uvicorn"), *collect_submodules("zeroconf"), "ifaddr", "tray", "updater"]
+hidden = [*collect_submodules("app"), *collect_submodules("uvicorn"), *collect_submodules("zeroconf"), "ifaddr", "sqlcipher3.dbapi2", "sqlcipher3._sqlite3", "tray", "updater", "sites", "own_pages", "recovery"]
 if sys.platform == "win32":
-    hidden += ["pystray._win32", "webview.platforms.edgechromium", "webview.platforms.winforms"]
+    hidden += ["pystray._win32", "webview.platforms.edgechromium", "webview.platforms.winforms", "windows_window"]
 elif sys.platform == "darwin":
-    hidden += ["webview.platforms.cocoa", "mac_window"]
+    # Vision reads photos and scans of lab reports; Quartz reads HEIC. Both are imported only when needed, so the packager can't see them.
+    hidden += ["webview.platforms.cocoa", "mac_window", "mac_sign_in", *collect_submodules("Vision"), *collect_submodules("CoreML"), *collect_submodules("Quartz")]
 
 a = Analysis([str(DESKTOP / "syntropy_desktop.py")], pathex=[str(ROOT), str(DESKTOP)], datas=datas,
-             hiddenimports=hidden, excludes=["tkinter", "pytest", "IPython"], noarchive=False)
+             hiddenimports=hidden, excludes=["tkinter", "pytest", "IPython", *(["pi_heif", "pillow_heif"] if sys.platform == "darwin" else [])], noarchive=False)
 pyz = PYZ(a.pure)
 
 app_exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="Syntropy Health", console=False,
@@ -47,7 +50,9 @@ if sys.platform == "darwin":
                "LSApplicationCategoryType": "public.app-category.healthcare-fitness",
                "NSHumanReadableCopyright": "© 2026 Syntropy Labs",
                # The window loads the app from its own server on this computer.
-               "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True},
+               # A household server joined by its Tailscale name is plain http; Tailscale encrypts the link itself.
+               "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True, "NSExceptionDomains": {
+                   "ts.net": {"NSIncludesSubdomains": True, "NSExceptionAllowsInsecureHTTPLoads": True}}},
                "NSLocalNetworkUsageDescription": "Syntropy Health lets your phone and other devices on your network "
                                                  "reach it when you turn that on.",
                # Announced as syntropyhealth.local when other devices may connect.

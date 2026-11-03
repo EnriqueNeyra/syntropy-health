@@ -16,26 +16,41 @@ Tokens are HMAC-signed and self-contained, so the simulator is stateless apart f
 replay caches for authorization codes and client assertions. Like Epic, Epic tenants
 issue no refresh token to a public client; the app registers a key pair instead, and
 the dynamic client id it receives is itself a signed token carrying that public key. All data is synthetic (see ``personas``).
+
+``faults`` makes it misbehave the way real servers do, so tests can drive the production code through those days too.
 """
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import html
 import json
 import time
+from collections import deque
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Optional
 from urllib.parse import urlencode, urlparse
 
-from fastapi import APIRouter, FastAPI, Form, Request
+from fastapi import APIRouter, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from app import directory
-from app.core import security
+from app.api.deps import request_origin
+from app.core import security, settings
 from app.simulator import generator
 from app.simulator.personas import PERSONAS, SIM_PASSWORD, authenticate
 
 router = APIRouter(prefix="/sim", include_in_schema=False)
+
+
+def developers_only() -> None:
+    """Only while developer mode is on does the server answer from these addresses (simulated connections reach it inside
+    the process, asgi_app below, so they keep syncing either way)."""
+    if not settings.developer_mode():
+        raise HTTPException(404, "Not found")
+
 
 CODE_TTL = 300
 ACCESS_TTL = 3600
@@ -50,6 +65,78 @@ SUPPORTED_TYPES = (
     "Encounter", "Procedure", "DiagnosticReport", "DocumentReference", "Binary", "CareTeam", "CarePlan", "Goal",
     "Device", "Coverage",
 )
+
+
+@dataclass
+class Faults:
+    """What the simulator should get wrong. In process, for tests; nothing here can be reached over HTTP."""
+    # Answers in place of a search or read: {"type": "Observation", "category": "laboratory", "offset": 200, "status": 500,
+    # "retry_after": "1", "times": 1}, or {"outcome": "fatal"} for a 200 carrying an OperationOutcome. Only "type" is
+    # needed. "read": True answers a read rather than a search; "broad_only": True leaves narrowed searches alone.
+    answers: list[dict[str, Any]] = field(default_factory=list)
+    # Answers in place of the token endpoint: {"status": 503, "body": {...}, "retry_after": "5", "times": 1}.
+    token: list[dict[str, Any]] = field(default_factory=list)
+    rotate_refresh: bool = False        # each refresh token works once
+    expire_access_after: Optional[int] = None      # an access token stops working after this many FHIR requests
+    hidden: set[str] = field(default_factory=set)       # "Observation/id" the source no longer returns
+    retracted: set[str] = field(default_factory=set)    # returned, but marked entered-in-error
+    extra_labs: int = 0                 # this many more lab results, for a long history
+    extra_resources: list[dict[str, Any]] = field(default_factory=list)     # any other shape a server might send
+    oldest_first: bool = False          # paged oldest first, unless asked otherwise
+    reject_sort: bool = False           # a 400 for a search with _sort
+    empty_when_sorted: bool = False     # an empty answer for a search with _sort
+    requests: deque[str] = field(default_factory=lambda: deque(maxlen=20_000))     # what was asked, in order
+    _used_refresh: set[str] = field(default_factory=set)
+    _token_uses: dict[str, int] = field(default_factory=dict)
+
+    def take(self, rtype: str, category: Optional[str], offset: int, read: bool) -> Optional[dict[str, Any]]:
+        for answer in self.answers:
+            if answer.get("type") != rtype or answer.get("read", False) != read:
+                continue
+            if answer.get("category") not in (None, category) or answer.get("offset") not in (None, offset):
+                continue
+            if answer.get("broad_only") and category:
+                continue
+            if answer.get("times") is not None:
+                if answer["times"] <= 0:
+                    continue
+                answer["times"] -= 1
+            return answer
+        return None
+
+
+faults = Faults()
+
+
+def reset_faults() -> None:
+    global faults
+    faults = Faults()
+
+
+def _faulty_answer(fault: dict[str, Any]) -> Response:
+    if fault.get("outcome"):
+        return JSONResponse({"resourceType": "OperationOutcome", "issue": [{"severity": fault["outcome"], "code": fault.get("code", "exception"),
+                                                                             "diagnostics": "Backend trouble."}]},
+                            media_type="application/fhir+json")
+    headers = {"Retry-After": str(fault["retry_after"])} if fault.get("retry_after") is not None else None
+    if "body" in fault:
+        return JSONResponse(fault["body"], status_code=fault.get("status", 200), headers=headers)
+    return JSONResponse({"resourceType": "OperationOutcome", "issue": [{"severity": "error", "code": "transient"}]},
+                        status_code=fault.get("status", 500), headers=headers)
+
+
+def _extra_labs(patient: str, count: int) -> list[dict[str, Any]]:
+    days = [f"{2000 + i // 336:04d}-{i // 28 % 12 + 1:02d}-{i % 28 + 1:02d}" for i in range(count)]
+    return [{"resourceType": "Observation", "id": f"extra-lab-{i}", "status": "final",
+             "category": [{"coding": [{"code": "laboratory"}]}], "subject": {"reference": f"Patient/{patient}"},
+             "code": {"coding": [{"system": "http://loinc.org", "code": "2345-7", "display": "Glucose"}]},
+             "effectiveDateTime": f"{day}T08:00:00Z", "valueQuantity": {"value": 80 + i % 40, "unit": "mg/dL"}}
+            for i, day in enumerate(days)]
+
+
+def _date_of(res: dict[str, Any]) -> str:
+    period = res.get("period") or res.get("effectivePeriod") or res.get("performedPeriod") or {}
+    return str(res.get("effectiveDateTime") or res.get("date") or res.get("performedDateTime") or period.get("start") or "")
 
 
 def fhir_base_path(platform: str, tenant: str) -> str:
@@ -135,13 +222,14 @@ def _redirect_error(redirect_uri: str, state: str, error: str, desc: str) -> Red
     return RedirectResponse(f"{redirect_uri}{sep}{urlencode({'error': error, 'error_description': desc, 'state': state})}", 302)
 
 
-def _validate_request(params: dict[str, str]) -> Optional[str]:
+def _validate_request(params: dict[str, str], origin: str) -> Optional[str]:
     if params.get("response_type") != "code":
         return "response_type must be 'code'."
     if not params.get("client_id"):
         return "client_id is required."
-    if not params.get("redirect_uri", "").startswith(("http://", "https://")):
-        return "redirect_uri must be an absolute http(s) URL."
+    redirect = urlparse(params.get("redirect_uri", ""))
+    if redirect.scheme not in ("http", "https") or redirect.netloc != urlparse(origin).netloc:
+        return "redirect_uri must be an address on this server."    # or this page would send anyone anywhere
     if not params.get("state"):
         return "state is required."
     if not _parse_aud(params.get("aud", "")):
@@ -154,11 +242,11 @@ def _validate_request(params: dict[str, str]) -> Optional[str]:
 @router.get("/oauth/authorize", response_class=HTMLResponse)
 async def authorize_page(request: Request) -> Response:
     params = {k: request.query_params.get(k, "") for k in AUTH_PARAMS}
-    problem = _validate_request(params)
+    problem = _validate_request(params, request_origin(request))
     if problem:
-        return HTMLResponse(_page("Invalid authorization request", f"<p class='err'>{html.escape(problem)}</p>"), status_code=400)
+        return _html(_page("Invalid authorization request", f"<p class='err'>{html.escape(problem)}</p>"), status_code=400)
     platform, tenant = _parse_aud(params["aud"])  # type: ignore[misc]
-    return HTMLResponse(_login_page(params, platform, tenant))
+    return _html(_login_page(params, platform, tenant))
 
 
 @router.post("/oauth/authorize", response_class=HTMLResponse)
@@ -172,22 +260,22 @@ async def authorize_submit(
 ) -> Response:
     form = await request.form()
     params = {k: str(form.get(k, "")) for k in AUTH_PARAMS}
-    problem = _validate_request(params)
+    problem = _validate_request(params, request_origin(request))
     if problem:
-        return HTMLResponse(_page("Invalid authorization request", f"<p class='err'>{html.escape(problem)}</p>"), status_code=400)
+        return _html(_page("Invalid authorization request", f"<p class='err'>{html.escape(problem)}</p>"), status_code=400)
     platform, tenant = _parse_aud(params["aud"])  # type: ignore[misc]
 
     if step == "login":
         persona = authenticate(username, password)
         if not persona:
-            return HTMLResponse(_login_page(params, platform, tenant, error="Incorrect username or password."), status_code=401)
+            return _html(_login_page(params, platform, tenant, error="Incorrect username or password."), status_code=401)
         ticket = security.sign({"persona": persona.key, "exp": time.time() + 600}, "sim-login")
-        return HTMLResponse(_consent_page(params, platform, tenant, persona.key, ticket))
+        return _html(_consent_page(params, platform, tenant, persona.key, ticket))
 
     if step == "consent":
         login = security.unsign(ticket, "sim-login")
         if not login:
-            return HTMLResponse(_login_page(params, platform, tenant, error="Your session expired. Sign in again."), status_code=401)
+            return _html(_login_page(params, platform, tenant, error="Your session expired. Sign in again."), status_code=401)
         if decision != "allow":
             return _redirect_error(params["redirect_uri"], params["state"], "access_denied", "The patient declined to share records.")
         code = security.sign({
@@ -198,7 +286,7 @@ async def authorize_submit(
         sep = "&" if "?" in params["redirect_uri"] else "?"
         return RedirectResponse(f"{params['redirect_uri']}{sep}{urlencode({'code': code, 'state': params['state']})}", 302)
 
-    return HTMLResponse(_page("Invalid request", "<p class='err'>Unknown step.</p>"), status_code=400)
+    return _html(_page("Invalid request", "<p class='err'>Unknown step.</p>"), status_code=400)
 
 
 # ---------------------------------------------------------------------------
@@ -215,14 +303,14 @@ def _issue_tokens(claims: dict[str, Any], origin: str) -> dict[str, Any]:
     patient = generator.patient_id_for(persona, claims["tenant"])
     base = {"persona": persona, "platform": claims["platform"], "tenant": claims["tenant"], "scope": claims["scope"],
             "cid": claims["cid"]}
-    access = security.sign({**base, "typ": "access", "exp": now + ACCESS_TTL}, "sim-token")
+    access = security.sign({**base, "typ": "access", "n": security.random_token(8), "exp": now + ACCESS_TTL}, "sim-token")
     body: dict[str, Any] = {
         "access_token": access, "token_type": "Bearer", "expires_in": ACCESS_TTL,
         "scope": claims["scope"], "patient": patient,
     }
     offline = "offline_access" in claims["scope"] or "online_access" in claims["scope"]
     if offline and claims["platform"] not in ("epic", "healow"):  # like the real ones, to public apps
-        body["refresh_token"] = security.sign({**base, "typ": "refresh", "exp": now + REFRESH_TTL}, "sim-token")
+        body["refresh_token"] = security.sign({**base, "typ": "refresh", "n": security.random_token(8), "exp": now + REFRESH_TTL}, "sim-token")
     if "openid" in claims["scope"]:
         fhir_user = f"{origin}{fhir_base_path(claims['platform'], claims['tenant'])}/Patient/{patient}"
         body["id_token"] = security.sign({"iss": f"{origin}{fhir_base_path(claims['platform'], claims['tenant'])}",
@@ -236,6 +324,11 @@ async def token(request: Request) -> JSONResponse:
     form = await request.form()
     grant = form.get("grant_type")
     origin = str(request.base_url).rstrip("/")
+    if grant != "authorization_code":
+        fault = next((f for f in faults.token if f.get("times", 1) > 0), None)
+        if fault:
+            fault["times"] = fault.get("times", 1) - 1
+            return _faulty_answer(fault)
     if grant == "authorization_code":
         code = str(form.get("code", ""))
         claims = security.unsign(code, "sim-code")
@@ -262,6 +355,10 @@ async def token(request: Request) -> JSONResponse:
             return _token_error("invalid_grant", "Refresh token is invalid or expired.")
         if not form.get("scope"):
             return _token_error("invalid_request", "scope is required with a refresh token.")  # as athenahealth's is
+        if faults.rotate_refresh:
+            if str(form["refresh_token"]) in faults._used_refresh:
+                return _token_error("invalid_grant", "This refresh token has already been used.")
+            faults._used_refresh.add(str(form["refresh_token"]))
         return JSONResponse(_issue_tokens(claims, origin), headers={"Cache-Control": "no-store"})
     if grant == "urn:ietf:params:oauth:grant-type:jwt-bearer":
         claims, error = _verify_assertion(str(form.get("assertion", "")), f"{origin}/sim/oauth/token")
@@ -334,6 +431,11 @@ def _authorize_api(request: Request, platform: str, tenant: str, rtype: str) -> 
         return None, _outcome(401, "expired", "Access token is invalid or expired.")
     if claims["platform"] != platform or claims["tenant"] != tenant:
         return None, _outcome(403, "forbidden", "Token was not issued for this FHIR server.")
+    if faults.expire_access_after is not None:
+        token_key = authz[7:].strip()
+        faults._token_uses[token_key] = faults._token_uses.get(token_key, 0) + 1
+        if faults._token_uses[token_key] > faults.expire_access_after:
+            return None, _outcome(401, "expired", "Access token is invalid or expired.")
     scopes = claims.get("scope", "").split()
     allowed = any(s in scopes for s in (f"patient/{rtype}.read", f"patient/{rtype}.rs", "patient/*.read", "patient/*.rs"))
     if not allowed:
@@ -342,7 +444,15 @@ def _authorize_api(request: Request, platform: str, tenant: str, rtype: str) -> 
 
 
 def _chart(claims: dict[str, Any]) -> list[dict[str, Any]]:
-    return generator.build_chart(claims["persona"], claims["tenant"], tenant_name(claims["tenant"]), claims["platform"])
+    chart = generator.build_chart(claims["persona"], claims["tenant"], tenant_name(claims["tenant"]), claims["platform"])
+    if faults.extra_labs:
+        chart += _extra_labs(generator.patient_id_for(claims["persona"], claims["tenant"]), faults.extra_labs)
+    chart += faults.extra_resources
+    if faults.hidden:
+        chart = [r for r in chart if f"{r['resourceType']}/{r['id']}" not in faults.hidden]
+    if faults.retracted:
+        chart = [{**r, "status": "entered-in-error"} if f"{r['resourceType']}/{r['id']}" in faults.retracted else r for r in chart]
+    return chart
 
 
 def _patient_of(res: dict[str, Any]) -> Optional[str]:
@@ -374,6 +484,10 @@ async def fhir_read(platform: str, tenant: str, rtype: str, rid: str, request: R
     claims, err = _authorize_api(request, platform, tenant, rtype)
     if err:
         return err
+    faults.requests.append(f"{rtype}/{rid}")
+    fault = faults.take(rtype, None, 0, read=True)
+    if fault:
+        return _faulty_answer(fault)
     patient = generator.patient_id_for(claims["persona"], tenant)  # type: ignore[index]
     for res in _chart(claims):  # type: ignore[arg-type]
         if res["resourceType"] == rtype and res["id"] == rid:
@@ -392,6 +506,14 @@ async def fhir_search(platform: str, tenant: str, rtype: str, request: Request) 
     if err:
         return err
     qp = request.query_params
+    faults.requests.append(f"{rtype}?{qp}")
+    fault = faults.take(rtype, qp.get("category"), int(qp.get("_offset", 0)), read=False)
+    if fault:
+        return _faulty_answer(fault)
+    if faults.reject_sort and qp.get("_sort"):
+        return _outcome(400, "not-supported", "_sort is not supported.")
+    if faults.empty_when_sorted and qp.get("_sort"):
+        return JSONResponse({"resourceType": "Bundle", "type": "searchset", "total": 0, "entry": []}, media_type="application/fhir+json")
     patient = generator.patient_id_for(claims["persona"], tenant)  # type: ignore[index]
     requested = next((qp.get(k) for k in SEARCH_PARAMS_PATIENT if qp.get(k)), None)
     if rtype != "Patient" and not requested:
@@ -415,6 +537,11 @@ async def fhir_search(platform: str, tenant: str, rtype: str, request: Request) 
     if rtype == "Condition" and qp.get("clinical-status"):
         wanted = set(qp["clinical-status"].split(","))
         matches = [r for r in matches if r["clinicalStatus"]["coding"][0]["code"] in wanted]
+
+    if qp.get("_sort") == "-date":
+        matches = sorted(matches, key=_date_of, reverse=True)
+    elif faults.oldest_first:
+        matches = sorted(matches, key=_date_of)
 
     count = max(1, min(int(qp.get("_count", 50)), 200))
     offset = max(0, int(qp.get("_offset", 0)))
@@ -465,6 +592,16 @@ padding:9px 11px;cursor:pointer;text-align:left;background:#fafbfc;width:100%;ma
 """
 
 
+_PERSONA_SCRIPT = ("document.querySelector('.personas').addEventListener('click',function(e){var b=e.target.closest('.persona');"
+                   "if(b){document.getElementById('u').value=b.dataset.username;document.getElementById('p').value=b.dataset.password;}});")
+_CSP = ("default-src 'none'; script-src 'sha256-" + base64.b64encode(hashlib.sha256(_PERSONA_SCRIPT.encode()).digest()).decode()
+        + "'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+
+
+def _html(content: str, status_code: int = 200) -> HTMLResponse:
+    return HTMLResponse(content, status_code=status_code, headers={"Content-Security-Policy": _CSP})
+
+
 def _page(title: str, body: str) -> str:
     return (f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
             f"<meta name='referrer' content='no-referrer'><title>{html.escape(title)}</title><style>{_CSS}</style></head>"
@@ -494,8 +631,7 @@ def _age(birth_date: str) -> int:
 
 def _login_page(params: dict[str, str], platform: str, tenant: str, error: str = "") -> str:
     personas = "".join(
-        f"<button type='button' class='persona' onclick=\"document.getElementById('u').value='{p.username}';"
-        f"document.getElementById('p').value='{SIM_PASSWORD}';\"><b>{html.escape(p.full_name)}</b>"
+        f"<button type='button' class='persona' data-username='{html.escape(p.username, quote=True)}' data-password='{SIM_PASSWORD}'><b>{html.escape(p.full_name)}</b>"
         f"<span>{html.escape(p.username)} · {_age(p.birth_date)} · {html.escape(p.summary)}</span></button>"
         for p in PERSONAS.values()
     )
@@ -509,7 +645,7 @@ def _login_page(params: dict[str, str], platform: str, tenant: str, error: str =
         + "<label for='p'>Password</label><input id='p' name='password' type='password' required>"
         + "<button class='primary' type='submit'>Sign in</button></form>"
         + f"<p class='hint'>Test patients (password <code>{SIM_PASSWORD}</code>) — tap to fill:</p>"
-        + f"<div class='personas'>{personas}</div>"
+        + f"<div class='personas'>{personas}</div><script>{_PERSONA_SCRIPT}</script>"
         + "<p class='foot'>Protocol: SMART App Launch 2.0 · OAuth 2.0 authorization code + PKCE (S256)</p>"
     )
     return _page(f"Sign in — {tenant_name(tenant)}", body)

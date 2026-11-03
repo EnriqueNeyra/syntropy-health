@@ -1,9 +1,12 @@
 version: 2
 updates:
-  - package-ecosystem: pip      # pyproject.toml: the app, the desktop extra and the dev group
+  - package-ecosystem: uv       # uv.lock: the app, the desktop extra and the dev group. pyproject.toml keeps its ranges
     directory: /
     schedule:
       interval: weekly
+    versioning-strategy: lockfile-only
+    cooldown:                   # a bad release is usually caught within days. Security updates don't wait for this
+      default-days: 5
     groups:
       python:
         patterns: ["*"]
@@ -14,7 +17,9 @@ updates:
     groups:
       actions:
         patterns: ["*"]
-  - package-ecosystem: docker      # the Python base image in the Dockerfile
+  - package-ecosystem: docker      # the digests of the Python base image in the Dockerfile
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "*astral-sh/uv"    # moves with the installers' and workflows' uv, by hand

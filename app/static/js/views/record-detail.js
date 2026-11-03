@@ -1,10 +1,11 @@
 // One clinical record, in a drawer (or its own screen in the iPhone app): normalized fields, sources, note text and raw FHIR.
 
-import { del, get } from "../api.js";
+import { del, get, put } from "../api.js";
 import { appBridge, nativeNav } from "../app.js";
 import { recordValue } from "../units.js";
+import { printLetter } from "./records-request.js";
 import {
-  capitalize, CATEGORY_ICON, confirmDialog, flagBadge, fmtDate, fmtDateTime, fmtNum, html, icon, loading, modal, mount, statusBadge, toast,
+  capitalize, CATEGORY_ICON, confirmDialog, flagBadge, fmtDate, fmtDateTime, html, icon, loading, modal, mount, resultStatus, statusBadge, toast,
 } from "../ui.js";
 
 function kv(rows) {
@@ -19,39 +20,47 @@ function detailRows(r) {
   switch (r.category) {
     case "labs": case "vitals": case "observations":
       return [
-        ["Result", r.category === "vitals" ? recordValue(r) : r.value_text], ["Interpretation", flagBadge(r.interpretation) || (r.interpretation ? capitalize(r.interpretation) : null)],
-        ["Reference range", r.ref_text], ["As reported", d.original_value],
+        ["Result", r.category === "vitals" ? recordValue(r) : r.value_text], ["Status", resultStatus(r.status) || null],
+        ["Interpretation", flagBadge(r.interpretation) || (r.interpretation ? capitalize(r.interpretation) : null)],
+        ["Reference range", r.ref_text], ["All ranges reported", (d.ranges || []).map((x) => `${x.text || "—"}${x.for ? ` (${x.for})` : ""}`)],
+        ["In standard units", r.category === "vitals" ? null : d.converted_value], ["As reported", d.original_value],
         ["Panel", d.panel], ["Measured", fmtDateTime(r.effective_at)],
-        ["Components", (d.components || []).map((c) => `${c.name}: ${c.value ?? c.text} ${c.unit || ""}`)],
+        ["Components", (d.components || []).map((c) => `${c.name}: ${c.text ?? c.value ?? "No value"}${c.text ? "" : ` ${c.unit || ""}`}`)],
       ];
     case "medications":
-      return [...common, ["Instructions", d.dosage], ["As needed", d.as_needed ? "Yes" : null], ["Prescriber", d.prescriber],
-              ["Refills", d.refills], ["Reason", d.reason]];
+      return [...common, [r.history?.reported_taking ? "First reported" : "First ordered", r.history ? fmtDate(r.history.first) : null],
+              ["Last ordered", r.history ? fmtDate(r.history.last_ordered) : null],
+              ["Reported, not prescribed", d.reported ? "Yes" : null], ["Instructions", d.dosage], ["As needed", d.as_needed ? "Yes" : null],
+              ["Prescriber", d.prescriber], ["Refills", d.refills], ["Valid until", d.valid_until ? fmtDate(d.valid_until) : null], ["Reason", d.reason]];
     case "conditions":
-      return [...common, ["Onset", fmtDate(r.effective_at)], ["Resolved", r.effective_end ? fmtDate(r.effective_end) : null],
-              ["ICD-10", d.icd10], ["SNOMED CT", d.snomed], ["Verification", d.verification], ["Severity", d.severity]];
+      return [...common, ["Onset", d.onset_text || fmtDate(r.effective_at)], ["Resolved", r.effective_end ? fmtDate(r.effective_end) : d.abatement_text],
+              ["Type", (d.categories || []).filter(Boolean)], ["ICD-10", d.icd10], ["SNOMED CT", d.snomed], ["Verification", d.verification ? capitalize(d.verification) : null], ["Severity", d.severity]];
     case "allergies":
       return [...common, ["Category", d.category ? capitalize(d.category) : null], ["Criticality", d.criticality ? capitalize(d.criticality) : null],
-              ["Reactions", (d.reactions || []).map((x) => `${x.manifestation || "Reaction"}${x.severity ? ` (${x.severity})` : ""}`)]];
+              ["Reactions", (d.reactions || []).map((x) => `${x.manifestation || "Reaction"}${x.severity ? ` (${x.severity})` : ""}`)], ["Note", d.note]];
     case "immunizations":
-      return [...common, ["Dose", d.dose], ["Lot", d.lot], ["Manufacturer", d.manufacturer], ["Site", d.site], ["Route", d.route]];
+      return [...common, ["Date given", d.date_text], ["Reason not given", d.status_reason], ["Dose", d.dose], ["Lot", d.lot], ["Manufacturer", d.manufacturer],
+              ["Site", d.site], ["Route", d.route]];
     case "encounters":
       return [...common, ["Ended", r.effective_end ? fmtDateTime(r.effective_end) : null], ["Type", d.class],
-              ["Reason", d.reasons], ["Clinicians", d.clinicians], ["Location", d.locations], ["Organization", d.provider]];
+              ["Reason", d.reasons], ["Diagnoses", d.diagnoses], ["Clinicians", d.clinicians], ["Location", d.locations], ["Organization", d.provider]];
     case "procedures":
-      return [...common, ["Performed by", d.performers], ["Reason", d.reasons], ["Outcome", d.outcome], ["Body site", d.body_site]];
+      return [...common, ["When", d.date_text], ["Performed by", d.performers], ["Reason", d.reasons], ["Outcome", d.outcome], ["Body site", d.body_site]];
     case "reports":
       return [...common, ["Type", d.categories], ["Performed by", d.performer]];
     case "notes":
       return [...common, ["Type", d.type], ["Authors", d.authors]];
     case "care_team":
-      return [["Members", (d.members || []).map((m) => `${m.name} — ${m.role}`)]];
+      return [["Members", (d.members || []).map((m) => `${m.name} — ${m.role}`)],
+              ["Others", d.unnamed_members ? `${d.unnamed_members} whose names this source didn't send` : null]];
     case "care_plans":
       return [...common, ["Addresses", d.addresses], ["Activities", (d.activities || []).map((a) => a.description)]];
     case "goals":
       return [...common, ["Targets", d.targets], ["Achievement", d.achievement]];
     case "devices":
       return [...common, ["Type", d.type], ["Manufacturer", d.manufacturer], ["Model", d.model], ["UDI", d.udi]];
+    case "other":
+      return [...common, ["Kind of record", capitalize(d.type || "")]];
     case "coverage":
       return [...common, ["Payor", d.payor], ["Plan", d.plan], ["Member ID", d.subscriber_id], ["Relationship", d.relationship]];
     default:
@@ -59,32 +68,115 @@ function detailRows(r) {
   }
 }
 
+const VISIT_GROUPS = [["notes", "Notes"], ["labs", "Results"], ["vitals", "Vital signs"], ["reports", "Reports"], ["conditions", "Diagnoses"],
+  ["medications", "Medications ordered"], ["procedures", "Procedures"], ["observations", "Other observations"], ["immunizations", "Vaccines"]];
+
+const linkRow = (x) => html`<button class="list-item small" data-open-result="${x.id}" style="text-align:left;width:100%;background:none;border:0;cursor:pointer">
+  <span class="grow">${x.title}</span><b>${x.category === "vitals" ? recordValue(x) : x.value_text || ""}</b>${resultStatus(x.status)}${flagBadge(x.interpretation)}</button>`;
+
+/** A visit's results, with each panel folded under its name. */
+function visitResults(rows) {
+  const panels = new Map();
+  const loose = [];
+  for (const x of rows) {
+    if (x.details?.panel) panels.set(x.details.panel, [...(panels.get(x.details.panel) || []), x]);
+    else loose.push(x);
+  }
+  return html`<div class="list card">${loose.map(linkRow)}${[...panels].map(([name, members]) => html`<details class="list-item small" style="display:block">
+    <summary style="cursor:pointer">${name} (${members.length})</summary>${members.map(linkRow)}</details>`)}</div>`;
+}
+
+const visitBlock = (r) => (r.category === "encounters" ? VISIT_GROUPS.filter(([key]) => r.visit_records?.[key]?.length).map(([key, label]) => html`<div><div class="label">${label}</div>
+  ${key === "labs" ? visitResults(r.visit_records[key]) : html`<div class="list card">${r.visit_records[key].map(linkRow)}</div>`}</div>`) : "");
+
+const seriesLink = (r) => (r.category === "labs" || r.category === "vitals"
+  ? `#/trends/${r.category}?${r.code ? `code=${encodeURIComponent(r.code)}` : `title=${encodeURIComponent(r.title)}`}` : null);
+
 /** The record's content: shown in the drawer, or as its own screen in the iPhone app. */
 function recordBody(r, text) {
   return html`
     <div class="stack">
       <div class="row"><span class="src-avatar">${icon(CATEGORY_ICON[r.category] || "records")}</span>
-        <div class="grow"><div class="muted small">${capitalize(r.category.replace("_", " "))}${r.code ? html` · <span class="mono">${r.code}</span>` : ""}</div>
+        <div class="grow"><div class="muted small">${capitalize(r.category.replace("_", " "))}</div>
           <div><b>${r.source_name || ""}</b></div></div></div>
-      ${kv(detailRows(r))}
+      ${r.status_note ? html`<div class="banner warn small"><div class="grow">${r.status_note}</div></div>` : ""}
+      ${r.details?.body_stale ? html`<div class="banner warn small"><div class="grow">This changed at the source, and the new text couldn't be fetched yet.
+        This is the earlier version. The next sync tries again.</div></div>` : ""}
+      ${kv([...detailRows(r), ["Code", [r.details?.icd10, r.details?.snomed].includes(r.code) ? null : r.code]])}
+      ${r.previous ? html`<div class="small muted">Previous result: ${r.previous.value_text || "—"} on ${fmtDate(r.previous.effective_at)}${r.previous.source_name ? ` from ${r.previous.source_name}` : ""}</div>` : ""}
+      ${seriesLink(r) ? html`<div><a class="btn btn-sm" href="${seriesLink(r)}" data-leave>See history ${icon("arrowRight")}</a></div>` : ""}
+      ${r.visit ? html`<div class="small">From the visit: <button class="btn btn-sm btn-ghost" data-open-result="${r.visit.id}">${r.visit.title} · ${fmtDate(r.visit.effective_at)}</button></div>` : ""}
+      ${visitBlock(r)}
       ${r.results?.length ? html`<div><div class="label">Results</div>
         <div class="list card">${r.results.map((x) => html`<button class="list-item small" data-open-result="${x.id}"
           style="text-align:left;width:100%;background:none;border:0;cursor:pointer">
           <span class="grow">${x.title}</span>
-          <b>${x.category === "vitals" ? recordValue(x) : x.value_num != null ? `${fmtNum(x.value_num)}${x.unit ? ` ${x.unit}` : ""}` : x.value_text || "—"}</b>
-          ${flagBadge(x.interpretation)}</button>`)}</div></div>` : ""}
+          <b>${x.category === "vitals" ? recordValue(x) : x.value_text || "—"}</b>
+          ${resultStatus(x.status)}${flagBadge(x.interpretation)}</button>`)}</div></div>` : ""}
       ${r.narrative && !text && !shownAbove(r) ? html`<div><div class="label">Notes</div><p>${r.narrative}</p></div>` : ""}
       ${text ? html`<div><div class="row between" style="margin-bottom:6px"><div class="label" style="margin:0">Full text</div>
-        <button class="btn btn-sm" data-copy>Copy</button></div><div class="note-text">${text}</div></div>` : ""}
-      ${r.duplicates?.length ? html`<div><div class="label">Also reported by</div>
+        <div class="row"><button class="btn btn-sm" data-print>${icon("printer")} Print</button><button class="btn btn-sm" data-copy>Copy</button></div></div><div class="note-text">${text}</div></div>` : ""}
+      ${r.duplicates?.length || r.renewals?.length ? html`<div><div class="label">Also reported by</div>
         <div class="list card">${r.duplicates.map((dup) => html`<div class="list-item small"><span class="grow">${dup.source_name}</span>
-          <span class="muted">${fmtDate(dup.effective_at)}</span></div>`)}</div>
-        <p class="hint">Syntropy merges the same fact reported by several institutions into one entry.</p></div>` : ""}
-      ${r.editable ? html`<div class="row"><span class="small muted grow">You entered this result.</span>
-        <button class="btn btn-sm btn-ghost btn-danger" data-delete>${icon("trash")} Delete</button></div>` : ""}
-      <details><summary class="small muted" style="cursor:pointer">Original FHIR resource</summary>
+          ${["conditions", "allergies", "medications"].includes(r.category) ? statusBadge(dup.status) : ""}
+          <span class="muted">${fmtDate(dup.effective_at)}</span></div>`)}
+          ${(r.renewals || []).map((dup) => html`<div class="list-item small"><span class="grow">${dup.source_name} <span class="muted">(another order)</span></span>
+          ${statusBadge(dup.status)}<span class="muted">${fmtDate(dup.effective_at)}</span></div>`)}</div>
+        <p class="hint">Syntropy merges the same fact reported by several institutions, and the orders of one medication, into one entry.</p></div>` : ""}
+      ${r.from_report ? html`<div class="small">Read from: <button class="btn btn-sm btn-ghost" data-open-result="${r.from_report.id}">${r.from_report.title}</button></div>` : ""}
+      ${filesBlock(r)}
+      ${r.editable ? html`<div class="row"><span class="small muted grow">You entered this.</span>
+        <button class="btn btn-sm btn-ghost btn-danger" data-delete>${icon("trash")} Delete</button></div>` : correctionBlock(r)}
+      <details><summary class="small muted" style="cursor:pointer">Original record data (FHIR)</summary>
         <pre class="raw">${JSON.stringify(r.raw, null, 2)}</pre></details>
     </div>`;
+}
+
+// The Mac, Windows and phone apps send a new window to the system browser, which isn't signed in: there, a document is downloaded.
+const inApp = document.documentElement.hasAttribute("data-shell") || document.documentElement.hasAttribute("data-embedded");
+const READ_IT = "Open it to read it.";
+const FILE_WORDS = {
+  scanned: `Scanned document, no text. ${READ_IT}`, unreadable: `This document's text couldn't be read. ${READ_IT}`,
+  read_later: `This document's text hasn't been read yet. ${READ_IT}`,
+  too_large: "This document is too large to keep here. It's still at the source.",
+};
+
+/** PDFs and images that came with the record, and the health summary a file import was read from. */
+function filesBlock(r) {
+  if (!r.files?.length) return "";
+  return html`<div><div class="label">Documents</div><div class="list card">${r.files.map((f) => {
+    const url = `/api/records/${encodeURIComponent(r.id)}/files/${encodeURIComponent(f.id)}`;
+    const canShow = !inApp && ["application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"].includes(f.content_type);
+    // Where the browser can't open it (the apps' windows, a HEIC anywhere), its pages are drawn here instead.
+    const canDraw = !canShow && (f.content_type === "application/pdf" || f.content_type.startsWith("image/"));
+    return html`<div class="list-item small"><div class="grow"><b>${f.name || (f.content_type === "application/pdf" ? "PDF document" : "Document")}</b>
+      ${FILE_WORDS[f.state] ? html`<div class="muted">${FILE_WORDS[f.state]}</div>` : ""}</div>
+      ${f.state === "too_large" ? "" : html`${canShow ? html`<a class="btn btn-sm" href="${url}" target="_blank" rel="noopener">Open</a>` : ""}
+      ${canDraw ? html`<button class="btn btn-sm" data-view-file="${f.id}" data-name="${f.name || "Document"}">Open</button>` : ""}
+      <a class="btn btn-sm btn-ghost" href="${url}?download=true">Download</a>`}</div>`;
+  })}</div></div>`;
+}
+
+const CORRECTIONS = { medications: [["not_taking", "I'm not taking this"], ["taking_differently", "I take this differently"], ["wrong", "This is wrong or not me"]] };
+const CORRECTABLE = ["medications", "conditions", "allergies", "labs", "vitals", "observations", "immunizations", "procedures", "encounters", "reports", "notes"];
+
+/** What the person says about this entry: beside what the source says, never over it. */
+function correctionBlock(r) {
+  if (!CORRECTABLE.includes(r.category)) return "";
+  const said = r.override;
+  const choices = CORRECTIONS[r.category] || [["wrong", "This is wrong or not me"]];
+  return html`<div class="stack" data-correction>
+    ${said ? html`<div class="banner info small"><div class="grow"><b>In your own words:</b> ${said.text}<div class="muted">
+      Added ${fmtDateTime(new Date(said.set_at * 1000).toISOString())}. What the source says above hasn't changed.</div></div></div>` : ""}
+    <details data-correction-form><summary class="small muted" style="cursor:pointer">${said ? "Change what you said" : "Something wrong with this?"}</summary>
+      <div class="stack" style="margin-top:8px">
+        <p class="small muted">This stays in Syntropy Health, beside what the source says. It doesn't change anything at the source.</p>
+        <select class="input" data-correction-state aria-label="What's wrong"><option value="">Just add a note</option>
+          ${choices.map(([v, label]) => html`<option value="${v}" ${said?.state === v ? "selected" : ""}>${label}</option>`)}</select>
+        <textarea class="input" rows="2" maxlength="2000" data-correction-note aria-label="Note" placeholder="Add a note, in your own words">${said?.note || ""}</textarea>
+        <div class="row"><button class="btn btn-sm btn-primary" data-correction-save>Save</button>
+          ${said ? html`<button class="btn btn-sm btn-ghost" data-correction-clear>Remove</button>` : ""}</div>
+      </div></details></div>`;
 }
 
 /** An allergy's narrative is its reactions, already listed above. */
@@ -94,15 +186,46 @@ const shownAbove = (r) => r.category === "allergies" && (r.details?.reactions ||
 const fullText = (r) => (r.category === "notes" ? r.narrative : (r.category === "reports" ? (r.details?.full_text || r.narrative) : null));
 
 /** The record's buttons: another result, delete (a result entered by hand), copy the note. `done` runs after a delete. */
+/** A kept file's pages as pictures, which every browser and web view can show. */
+async function viewFile(recordId, fileId, name) {
+  const m = modal({ title: name, wide: true, body: loading(4) });
+  m.el.classList.add("lab-viewer");
+  try {
+    const { pages } = await get(`/api/records/${encodeURIComponent(recordId)}/files/${encodeURIComponent(fileId)}/pages`);
+    m.setBody(html`<div class="stack">${pages.map((p, i) => html`<img src="${p.image}" alt="Page ${i + 1} of ${pages.length}" width="${p.width}" height="${p.height}" style="width:100%;height:auto;border:1px solid var(--border)">`)}</div>`);
+  } catch (err) { m.close(); toast(err.message, "bad"); }
+}
+
 function wire(el, r, text, { leave, done }) {
+  el.querySelectorAll("[data-view-file]").forEach((b) => b.addEventListener("click", () => viewFile(r.id, b.dataset.viewFile, b.dataset.name)));
   el.querySelectorAll("[data-open-result]").forEach((b) => b.addEventListener("click", () => {
     leave(); openRecord(b.dataset.openResult);
   }));
   el.querySelector("[data-delete]")?.addEventListener("click", async () => {
-    if (!(await confirmDialog("Delete result", `Delete ${r.title} from ${fmtDate(r.effective_at)}?`, { confirmLabel: "Delete", danger: true }))) return;
+    const asked = r.category === "reports"
+      ? ["Delete report", `Delete ${r.title} and its original file? The results read from it stay, and each can be deleted on its own.`]
+      : ["Delete result", `Delete ${r.title} from ${fmtDate(r.effective_at)}?`];
+    if (!(await confirmDialog(asked[0], asked[1], { confirmLabel: "Delete", danger: true }))) return;
     try { await del(`/api/labs/${encodeURIComponent(r.id)}`); } catch (err) { toast(err.message, "bad"); return; }
     toast("Deleted");
     done();
+  });
+  el.querySelector("[data-correction-save]")?.addEventListener("click", async () => {
+    const state = el.querySelector("[data-correction-state]").value || null;
+    const note = el.querySelector("[data-correction-note]").value.trim() || null;
+    try { await put(`/api/records/${encodeURIComponent(r.id)}/override`, { state, note }); }
+    catch (err) { toast(err.message, "bad"); return; }
+    toast("Saved");
+    done();
+  });
+  el.querySelector("[data-correction-clear]")?.addEventListener("click", async () => {
+    try { await del(`/api/records/${encodeURIComponent(r.id)}/override`); } catch (err) { toast(err.message, "bad"); return; }
+    toast("Removed");
+    done();
+  });
+  el.querySelector("[data-leave]")?.addEventListener("click", () => leave());
+  el.querySelector("[data-print]")?.addEventListener("click", () => {
+    printLetter(`${r.title}\n${fmtDate(r.effective_at)}${r.source_name ? ` · ${r.source_name}` : ""}\n\n${text}`);
   });
   // The clipboard needs a secure page: opened by its home-network address over plain http, it isn't there.
   const copy = el.querySelector("[data-copy]");

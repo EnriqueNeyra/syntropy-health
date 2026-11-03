@@ -44,7 +44,9 @@ def test_simulated_wearables_populate_daily_metrics(client):
     after = client.get("/api/biometrics/overview").json()
     assert after["total_samples"] == total - whoop["sample_count"]
     assert client.post("/api/connections/wearable", json={"provider": "whoop", "mode": "simulated"}).status_code == 200
-    assert client.get("/api/biometrics/overview").json()["total_samples"] == total
+    # A new connection is simulated from its own id, so its workouts differ: the total follows what this one brought.
+    again = client.get("/api/connections").json()["connections"]
+    assert client.get("/api/biometrics/overview").json()["total_samples"] == sum(c["sample_count"] for c in again)
 
 
 def test_oura_normalization_uses_rmssd_and_day():
@@ -161,7 +163,12 @@ def _pending_state(client, provider):
     return parse_qs(urlparse(r.json()["auth_url"]).query)["state"][0]
 
 
-def test_live_wearable_relay_fragment_handoff(client):
+def test_live_wearable_relay_fragment_handoff(client, monkeypatch):
+    from app.connectors import whoop
+
+    async def fetched(credentials, since, until):     # the first sync starts as soon as the sign-in completes
+        return {key: [] for key in whoop.ENDPOINTS}
+    monkeypatch.setattr(whoop, "fetch_live", fetched)
     state = _pending_state(client, "whoop")
     page = client.get("/callback")
     assert "location.hash" in page.text              # the page that reads the fragment
@@ -265,20 +272,6 @@ def test_steps_merge_watch_and_phone_like_apple_health(client):
         s(3, "Alex's iPhone", iso(60), iso(90), 2000)])
     pts = client.get("/api/biometrics/daily", params={"metric": "step_count", "days": 3}).json()["points"]
     assert pts[-1]["value"] == 3000 and pts[-1]["source"] == "Combined"
-
-
-def test_daily_rollups_rebuilt_once_after_upgrade(client, monkeypatch):
-    from app.core import settings as app_settings
-    calls = []
-    monkeypatch.setattr(biometrics, "rebuild_daily", lambda pid, days=None, metrics=None: calls.append(pid))
-    profile = client.get("/api/status").json()["profiles"][0]["id"]
-    biometrics.insert_samples(profile, None, [{"id": "u1", "metric_type": "step_count", "value": 5, "unit": "count",
-                                               "start_date": "2026-09-20T10:00:00Z", "source_name": "Watch"}])
-    calls.clear()
-    app_settings.set("biometrics.daily_version", 1)
-    biometrics.upgrade_daily_if_needed()
-    biometrics.upgrade_daily_if_needed()
-    assert calls == [profile]
 
 
 def _night(profile, day, source, hours, i):

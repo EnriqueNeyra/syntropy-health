@@ -9,6 +9,7 @@ How this server is reached from other devices: its addresses on the home network
 
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import json
 import logging
@@ -16,7 +17,6 @@ import os
 import shutil
 import socket
 import subprocess
-import sys
 import threading
 import time
 from typing import Any, Callable, Optional
@@ -42,6 +42,24 @@ _controller: Optional[Callable[[bool], None]] = None
 def set_controller(fn: Optional[Callable[[bool], None]]) -> None:
     global _controller
     _controller = fn
+
+
+_moved_port: Optional[dict[str, Any]] = None
+
+
+def set_moved_port(home: Optional[int], now: Optional[int], holder: Optional[str]) -> None:
+    """The desktop app's saved port is busy, so it's on another one until the next start."""
+    global _moved_port
+    _moved_port = {"home": home, "now": now, "holder": holder} if home else None
+
+
+def problems() -> list[dict[str, str]]:
+    if not _moved_port:
+        return []
+    by = f"another program ({_moved_port['holder']})" if _moved_port["holder"] else "another program"
+    return [{"id": f"port-moved-{_moved_port['home']}", "title": "Your phone can't reach Syntropy Health right now",
+             "text": f"The port it normally uses, {_moved_port['home']}, is taken by {by}, so it's on {_moved_port['now']} for now. "
+                     "Close that program and open Syntropy Health again: it goes back by itself, and your phone starts syncing again."}]
 
 
 def managed() -> bool:
@@ -180,6 +198,14 @@ def phone_address(port: Optional[int]) -> Optional[str]:
 LOCAL_SUFFIXES = (".local", ".lan", ".home", ".home.arpa", ".internal", ".localhost", ".ts.net")
 
 
+def from_this_computer(request: Any) -> bool:
+    """Whether a request came from this computer (behind a proxy on it, the address the proxy says it's for)."""
+    try:
+        return ipaddress.ip_address((request.client.host if request.client else "").split("%")[0]).is_loopback
+    except ValueError:
+        return False
+
+
 def is_local_name(host: str) -> bool:
     """Whether a Host header names this computer, the home network or Tailscale, judged from the name alone.
 
@@ -224,8 +250,13 @@ def _resolves_elsewhere(host: str, mine: set[str]) -> bool:
     return bool(result and result[0] and not result[0] <= mine)
 
 
+# Anyone on the network hears this before signing in, so it says only what finding the server needs: not whose computer
+# it is, or which version it runs. Those who look for it manage without (Servers before 1.1 didn't say either).
+ANNOUNCED = {"path": "/", "service": "syntropy-health"}
+
+
 class Advertiser:
-    """Announces ``syntropyhealth.local`` (or ``syntropyhealth-<computer>.local`` if that name is taken) and an
+    """Announces ``syntropyhealth.local`` (or a variation if that name is taken) and an
     ``_http._tcp`` service, and follows this computer to a new address when the network changes."""
 
     def __init__(self) -> None:
@@ -270,13 +301,13 @@ class Advertiser:
 
         name = f"{LOCAL_NAME}.local"
         if _resolves_elsewhere(name, {addr, "127.0.0.1"}):
-            computer = socket.gethostname().split(".")[0].lower().replace(" ", "-")
-            name = f"{LOCAL_NAME}-{computer}.local"
+            # Told apart by something that stays the same here, without saying what this computer is called.
+            suffix = hashlib.sha256(socket.gethostname().encode()).hexdigest()[:6]
+            name = f"{LOCAL_NAME}-{suffix}.local"
         self.info = ServiceInfo(
             SERVICE_TYPE, f"Syntropy Health.{SERVICE_TYPE}", port=port, server=f"{name}.",
             addresses=[socket.inet_aton(addr)],
-            properties={"path": "/", "service": "syntropy-health", "version": config.APP_VERSION,
-                        "computer": computer_name()})
+            properties=ANNOUNCED)
         self.zc.register_service(self.info, allow_name_change=True)
         self.name = name
         log.info("Announced http://%s:%s (%s)", name, port, addr)
@@ -301,18 +332,6 @@ class Advertiser:
 
 
 advertiser = Advertiser()
-
-
-def computer_name() -> str:
-    """This computer's name as people know it ("Enrique's MacBook Pro"), for other Macs choosing a server to join."""
-    if sys.platform == "darwin":
-        try:
-            name = subprocess.run(["scutil", "--get", "ComputerName"], capture_output=True, text=True, timeout=2).stdout.strip()
-            if name:
-                return name[:80]
-        except (OSError, subprocess.SubprocessError):
-            pass
-    return socket.gethostname().split(".")[0].replace("-", " ")[:80]
 
 
 def discover(seconds: float = 2.5) -> list[dict[str, Any]]:

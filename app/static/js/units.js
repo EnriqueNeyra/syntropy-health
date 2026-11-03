@@ -59,7 +59,8 @@ export function convert(value, unit, metric = "") {
     case "m/s":
       if (metric.startsWith("stair_")) return us ? { value: v * 3.2808399, unit: "ft/s", digits: 1 } : { value: v, unit: "m/s", digits: 2 };
       return us ? { value: v * 2.2369363, unit: "mph", digits: 1 } : { value: v * 3.6, unit: "km/h", digits: 1 };
-    case "mL": return us ? { value: v / 29.5735296, unit: "fl oz", digits: 0 } : v >= 1000 ? { value: v / 1000, unit: "L", digits: 2 } : { value: v, unit: "mL", digits: 0 };
+    // One unit for the whole metric: a chart's axis and a goal's conversion both rely on it. fmtMeasure says "1.5 L" in text.
+    case "mL": return us ? { value: v / 29.5735296, unit: "fl oz", digits: 0 } : { value: v, unit: "mL", digits: 0 };
     default: return { value: v, unit, digits: undefined };
   }
 }
@@ -67,21 +68,21 @@ export function convert(value, unit, metric = "") {
 /** Just the unit a metric is shown in, for axis labels and headings. */
 export function displayUnit(unit, metric = "") { return convert(1, unit, metric).unit; }
 
+function fmtLitres(mL) {
+  return (mL / 1000).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
 /** A converted value as text, e.g. "154.3 lb" or 5′ 9″ for heights in US units. */
 export function fmtMeasure(value, unit, metric = "", { withUnit = true, digits } = {}) {
   if (value === null || value === undefined || value === "" || isNaN(value)) return "—";
   const c = convert(value, unit, metric);
+  if (withUnit && unit === "mL" && c.unit === "mL" && value >= 1000 && digits === undefined) return `${fmtLitres(value)} L`;
   if (c.height && unitSystem() === "us") {
     const total = Math.round(c.value);
     return `${Math.floor(total / 12)}′ ${total % 12}″`;
   }
   const n = fmtNum(c.value, digits ?? c.digits);
   return withUnit && c.unit ? `${n} ${c.unit}` : n;
-}
-
-/** Converts a list of chart points ({ v } or { value }) in place of copies. */
-export function convertPoints(points, unit, metric = "", key = "v") {
-  return points.map((p) => (p[key] == null ? p : { ...p, [key]: convert(p[key], unit, metric).value }));
 }
 
 /**

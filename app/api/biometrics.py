@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import time
-from typing import Annotated, Any, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Annotated, Any, Iterable, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette.concurrency import run_in_threadpool
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError, field_validator
 
 from app.api.deps import check_access, phone_origin, request_origin, resolve_profile, visible_profile_ids
 from app.core import auth, config, context
@@ -35,7 +36,7 @@ def metrics(profile: Optional[str] = None, latest: bool = False) -> dict:
     """``latest`` adds each metric's most recent daily value (the Trends list)."""
     prof = resolve_profile(profile)
     found = biometrics.available_metrics(prof["id"])
-    return {"metrics": biometrics.with_latest_values(prof["id"], found) if latest else found}
+    return {"metrics": biometrics.with_latest_values(prof["id"], found) if latest else found, "left_out": biometrics.left_out(prof["id"])}
 
 
 @router.get("/api/biometrics/daily", dependencies=[user])
@@ -43,6 +44,13 @@ def daily(metric: str, profile: Optional[str] = None, days: int = Query(30, ge=1
                 source: Optional[str] = None) -> dict:
     prof = resolve_profile(profile)
     return biometrics.daily_series(prof["id"], metric, days=days, source=source)
+
+
+@router.get("/api/simulated-data", dependencies=[user])
+def simulated_data(profile: Optional[str] = None) -> dict:
+    """Whether this person's record holds demo data, so the app can say so wherever it's shown."""
+    prof = resolve_profile(profile)
+    return {"simulated": biometrics.has_simulated(prof["id"])}
 
 
 @router.get("/api/biometrics/sleep", dependencies=[user])
@@ -53,9 +61,26 @@ def sleep_nights(profile: Optional[str] = None, days: int = Query(30, ge=1, le=3
 
 
 @router.get("/api/biometrics/samples", dependencies=[user])
-def samples(profile: Optional[str] = None, metric: Optional[str] = None, limit: int = Query(100, ge=1, le=2000)) -> dict:
+def samples(profile: Optional[str] = None, metric: Optional[str] = None, limit: int = Query(100, ge=1, le=2000),
+            left_out: bool = False, until: Optional[str] = Query(None, max_length=10)) -> dict:
+    """Newest first, each with what to call it and its value as the person reads it. ``metric`` is what a daily figure is worked
+    out from, ``until`` (a date) reaches older ones, and ``left_out`` keeps the readings stored but not counted in the daily
+    numbers, each with why (``flag``)."""
     prof = resolve_profile(profile)
-    return {"samples": biometrics.recent_samples(prof["id"], metric, limit)}
+    try:
+        found = biometrics.recent_samples(prof["id"], metric, limit, left_out, until)
+    except (ValueError, OverflowError):
+        raise HTTPException(400, "Dates must look like 2026-01-31.")
+    return {"samples": [biometrics.with_reading_text(s) for s in found]}
+
+
+@router.delete("/api/biometrics/samples/{sample_id:path}", dependencies=[user])
+def delete_sample(sample_id: str, profile: Optional[str] = None) -> dict:
+    """Removes one wrong reading (a child on the scale, say). A later sync of the same reading leaves it out."""
+    prof = resolve_profile(profile, "manage")
+    if not biometrics.delete_sample(prof["id"], sample_id):
+        raise HTTPException(404, "That reading isn't stored.")
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------
@@ -69,19 +94,6 @@ def _clip(limit: int) -> BeforeValidator:
 
 
 Text40, Text80, Text100, Text120, Text200 = (Annotated[str, _clip(n)] for n in (40, 80, 100, 120, 200))
-# A workout's route and heart rate are kept at up to this many points: plenty for a map, splits and zones. Longer ones
-# (a day-long hike recorded every second) are thinned evenly rather than refused.
-SERIES_KEPT = 20_000
-
-
-def thin(points: list, keep: int = SERIES_KEPT) -> list:
-    """Every n-th point, always keeping the first and the last."""
-    if len(points) <= keep:
-        return points
-    step = (len(points) - 1) / (keep - 1)
-    return [points[round(i * step)] for i in range(keep)]
-
-
 class IngestSample(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
 
@@ -89,13 +101,14 @@ class IngestSample(BaseModel):
     metric_type: Text100
     hk_identifier: Optional[Text200] = None
     value: float
-    unit: Text40 = ""
+    unit: Optional[Text40] = ""
     start_date: str
-    end_date: str
+    end_date: Optional[str] = None
     device_id: Optional[str] = None
     device_name: Optional[str] = None
     source_name: Optional[str] = None
     metadata: Optional[dict[str, Any]] = None
+    tz_offset_min: Optional[int] = None     # minutes from UTC where this was measured; an app may send it, none has to
 
 
 class WorkoutHeartRate(BaseModel):
@@ -117,14 +130,26 @@ class WorkoutRoutePoint(BaseModel):
     speed: Optional[float] = None
 
 
+def _points(model: type[BaseModel], points: Any) -> list[dict[str, Any]]:
+    """A point that doesn't make sense (a latitude of 91) goes alone: the workout it's on is worth keeping."""
+    out = []
+    for p in points if isinstance(points, list) else []:
+        try:
+            out.append(model.model_validate(p).model_dump())
+        except ValidationError:
+            continue
+    return out
+
+
 class IngestWorkout(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
 
     id: str = Field(..., max_length=200)
-    activity_type: Optional[int] = None
-    name: Text120 = "Workout"
+    activity_type: Annotated[Optional[int], BeforeValidator(lambda v: v if isinstance(v, int) else None)] = None
+    name: Optional[Text120] = "Workout"
     start: str
-    end: str
+    end: Optional[str] = None
+    tz_offset_min: Optional[int] = None
     duration_s: Optional[float] = None
     active_energy_kcal: Optional[float] = None
     total_energy_kcal: Optional[float] = None
@@ -141,8 +166,18 @@ class IngestWorkout(BaseModel):
     source_name: Optional[Text200] = None
     device_name: Optional[Text200] = None
     metadata: Optional[dict[str, Any]] = None
-    heart_rate: list[WorkoutHeartRate] = Field(default_factory=list, max_length=500_000)     # thinned when stored
-    route: list[WorkoutRoutePoint] = Field(default_factory=list, max_length=500_000)
+    heart_rate: list[dict[str, Any]] = Field(default_factory=list, max_length=500_000)     # thinned when stored
+    route: list[dict[str, Any]] = Field(default_factory=list, max_length=500_000)
+
+    @field_validator("heart_rate", mode="before")
+    @classmethod
+    def _readable_heart_rate(cls, v: Any) -> list[dict[str, Any]]:
+        return _points(WorkoutHeartRate, v)
+
+    @field_validator("route", mode="before")
+    @classmethod
+    def _readable_route(cls, v: Any) -> list[dict[str, Any]]:
+        return _points(WorkoutRoutePoint, v)
 
 
 class IngestEvent(BaseModel):
@@ -150,14 +185,20 @@ class IngestEvent(BaseModel):
 
     id: str = Field(..., max_length=200)
     event_type: Text80
-    category: Text40 = "other"
-    name: Text120 = ""
+    category: Optional[Text40] = "other"
+    name: Optional[Text120] = ""
     start: str
+    tz_offset_min: Optional[int] = None
     end: Optional[str] = None
     value: Optional[float] = None
     value_label: Optional[Text200] = None
     source_name: Optional[Text200] = None
     metadata: Optional[dict[str, Any]] = None
+
+
+class IngestDeleted(BaseModel):
+    id: str = Field(..., max_length=200)
+    kind: str = Field("sample", pattern="^(sample|workout|event)$")
 
 
 class IngestBatch(BaseModel):
@@ -167,10 +208,26 @@ class IngestBatch(BaseModel):
     app_version: Optional[str] = None
     sync_trigger: str = "manual"
     synced_at: Optional[float] = None
-    samples: list[IngestSample] = Field(default_factory=list, max_length=20000)
-    workouts: list[IngestWorkout] = Field(default_factory=list, max_length=2000)
-    events: list[IngestEvent] = Field(default_factory=list, max_length=20000)
+    # Read one at a time below: a batch that's refused is sent again on every sync, so one odd item would stop everything after it
+    # from arriving.
+    samples: list[Any] = Field(default_factory=list, max_length=20000)
+    workouts: list[Any] = Field(default_factory=list, max_length=2000)
+    events: list[Any] = Field(default_factory=list, max_length=20000)
+    deleted: list[IngestDeleted] = Field(default_factory=list, max_length=20000)     # what was deleted on the phone
     profile_id: Optional[str] = None
+
+
+def _readable(model: type[BaseModel], items: list[Any]) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """The items that make sense, and for the rest how many had which field wrong (never what it held)."""
+    good: list[dict[str, Any]] = []
+    wrong: dict[str, int] = {}
+    for item in items:
+        try:
+            good.append(model.model_validate(item).model_dump())
+        except ValidationError as exc:
+            field = str(exc.errors()[0]["loc"][0]) if exc.errors()[0]["loc"] else "item"
+            wrong[field] = wrong.get(field, 0) + 1
+    return good, wrong
 
 
 def _ingest_target(principal: auth.Principal, profile_id: Optional[str]) -> tuple[str, Optional[str]]:
@@ -181,15 +238,18 @@ def _ingest_target(principal: auth.Principal, profile_id: Optional[str]) -> tupl
 
 
 def _store(profile_id: str, connection_id: Optional[str], samples: list[dict], workouts: list[dict], events: list[dict],
-           batch_meta: dict[str, Any]) -> dict:
+           batch_meta: dict[str, Any], deleted_ids: Iterable[str] = (), deleted: Iterable[dict[str, Any]] = ()) -> dict:
     try:
-        result = biometrics.insert_samples(profile_id, connection_id, samples, batch_meta=batch_meta)
+        result = biometrics.insert_samples(profile_id, connection_id, samples, batch_meta=batch_meta, deleted_ids=deleted_ids)
         result["workouts_received"] = len(workouts)
-        for w in workouts:
-            w["route"], w["heart_rate"] = thin(w.get("route") or []), thin(w.get("heart_rate") or [])
-        result["workouts_inserted"] = activity.insert_workouts(profile_id, connection_id, workouts)
+        stored = activity.store_workouts(profile_id, connection_id, workouts)
+        result.update(workouts_inserted=stored["inserted"], workouts_updated=stored["updated"], workouts_rejected=stored["rejected"])
         result["events_received"] = len(events)
-        result["events_inserted"] = activity.insert_events(profile_id, connection_id, events)
+        stored = activity.store_events(profile_id, connection_id, events)
+        result.update(events_inserted=stored["inserted"], events_updated=stored["updated"], events_rejected=stored["rejected"])
+        result["deleted"] = biometrics.delete_from_phone(profile_id, deleted)
+    except biometrics.SourceGone as exc:
+        raise HTTPException(410, str(exc)) from exc
     except (ValueError, KeyError) as exc:
         raise HTTPException(422, f"Invalid item: {exc}")
     if connection_id:
@@ -202,12 +262,25 @@ async def ingest(batch: IngestBatch, principal: auth.Principal = Depends(auth.re
     """Companion-app ingest: raw HealthKit samples, workouts and category events."""
     profile_id, connection_id = _ingest_target(principal, batch.profile_id)
     # Large backfills take a second or more; keep the event loop (and the dashboard) responsive.
-    return await run_in_threadpool(
-        _store, profile_id, connection_id, [s.model_dump() for s in batch.samples],
-        [w.model_dump() for w in batch.workouts], [e.model_dump() for e in batch.events],
-        {"device_id": batch.device_id, "device_name": batch.device_name, "os_version": batch.os_version,
-         "app_version": batch.app_version, "sync_trigger": batch.sync_trigger},
-    )
+    def store() -> dict:
+        samples, samples_wrong = _readable(IngestSample, batch.samples)
+        workouts, workouts_wrong = _readable(IngestWorkout, batch.workouts)
+        events, events_wrong = _readable(IngestEvent, batch.events)
+        result = _store(profile_id, connection_id, samples, workouts, events,
+                        {"device_id": batch.device_id, "device_name": batch.device_name, "os_version": batch.os_version,
+                         "app_version": batch.app_version, "sync_trigger": batch.sync_trigger},
+                        deleted=[d.model_dump() for d in batch.deleted])
+        n = sum(samples_wrong.values())
+        result["received"] += n
+        result["rejected"] += n
+        result["workouts_received"] += sum(workouts_wrong.values())
+        result["workouts_rejected"] += sum(workouts_wrong.values())
+        result["events_received"] += sum(events_wrong.values())
+        result["events_rejected"] += sum(events_wrong.values())
+        if samples_wrong or workouts_wrong or events_wrong:
+            result["rejected_fields"] = {"samples": samples_wrong, "workouts": workouts_wrong, "events": events_wrong}
+        return result
+    return await run_in_threadpool(store)
 
 
 @router.post("/api/ingest/healthkit-export")
@@ -223,15 +296,15 @@ async def ingest_healthkit_export(request: Request, profile: Optional[str] = Non
     if not isinstance(payload, dict):
         raise HTTPException(400, "Expected a JSON object with a 'data' key.")
     try:
-        converted = await run_in_threadpool(healthkit_import.convert, payload)
-    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        converted = await run_in_threadpool(healthkit_import.convert, payload, request.headers.get("automation-aggregation"))
+    except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as exc:
         raise HTTPException(422, f"Could not read the export: {exc}")
     profile_id, connection_id = _ingest_target(principal, profile)
     name = request.headers.get("automation-name") or "HealthKit export"
     return await run_in_threadpool(
         _store, profile_id, connection_id, converted["samples"], converted["workouts"], converted["events"],
         {"device_id": principal.device_id or "healthkit-export", "device_name": name[:200],
-         "sync_trigger": "healthkit-export"})
+         "sync_trigger": "healthkit-export"}, converted["deleted_ids"])
 
 
 @router.get("/api/biometrics/workouts", dependencies=[user])
@@ -259,6 +332,19 @@ def workout_detail(workout_id: str, profile: Optional[str] = None, split: str = 
     if not w:
         raise HTTPException(404, "Workout not found")
     return training.detail(prof["id"], w, 1609.344 if split == "mi" else 1000.0)
+
+
+class MaxHeartRateIn(BaseModel):
+    bpm: Optional[float] = None       # None goes back to working it out from workouts and age
+
+
+@router.put("/api/biometrics/training/max-heart-rate", dependencies=[user])
+def set_max_heart_rate(req: MaxHeartRateIn, profile: Optional[str] = None) -> dict:
+    prof = resolve_profile(profile, "manage")
+    try:
+        return training.set_max_heart_rate(prof["id"], req.bpm)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.get("/api/biometrics/training", dependencies=[user])
@@ -322,6 +408,10 @@ def _entry(req: JournalEntryIn) -> dict:
     try:
         if entry.get("end") and activity.to_utc_iso(entry["end"]) < activity.to_utc_iso(entry["start"]):
             raise HTTPException(400, "The end is before the start.")
+        # A typo in the year would sit at the top of everything for good. A day's room, for time zones.
+        latest = activity.to_utc_iso((datetime.now(timezone.utc) + timedelta(days=1)).isoformat())
+        if activity.to_utc_iso(entry["start"]) > latest:
+            raise HTTPException(400, "That date is in the future. Check when it happened.")
     except ValueError:
         raise HTTPException(400, "Times must be ISO 8601, e.g. 2026-01-31T08:30:00Z.")
     return entry
@@ -414,7 +504,9 @@ class PairRequest(BaseModel):
 
 
 _pair_failures: dict[str, list[float]] = {}
-PAIR_WINDOW, PAIR_MAX_FAILURES = 900, 10
+_all_pair_failures: list[float] = []
+# Per address, and across all addresses: a code can only be guessed, and one that's refused only has to be tried again.
+PAIR_WINDOW, PAIR_MAX_FAILURES, PAIR_MAX_FAILURES_ALL = 900, 10, 200
 
 
 @router.post("/api/devices/pair")
@@ -422,11 +514,15 @@ def pair(req: PairRequest, request: Request) -> dict:
     ip = request.client.host if request.client else "unknown"
     now = time.time()
     recent = [t for t in _pair_failures.get(ip, []) if now - t < PAIR_WINDOW]
-    if len(recent) >= PAIR_MAX_FAILURES:
+    _all_pair_failures[:] = [t for t in _all_pair_failures if now - t < PAIR_WINDOW]
+    if len(recent) >= PAIR_MAX_FAILURES or len(_all_pair_failures) >= PAIR_MAX_FAILURES_ALL:
         raise HTTPException(429, "Too many attempts. Wait a few minutes and try again.")
     result = devices.claim(req.code, req.device_name, req.platform)
     if not result:
+        if len(_pair_failures) > 10000:
+            _pair_failures.clear()
         _pair_failures[ip] = recent + [now]
+        _all_pair_failures.append(now)
         raise HTTPException(400, "That pairing code is invalid or has expired.")
     _pair_failures.pop(ip, None)
     return {**result, "server_url": request_origin(request)}
@@ -442,8 +538,9 @@ def web_session(request: Request, principal: auth.Principal = Depends(auth.requi
     if not auth.auth_required():
         return {"cookie": None}
     # Signed in as whoever paired it: the person's own phone opens everything they can see; a phone someone paired
-    # for a person they look after opens only that person (see auth._account_principal).
-    account = accounts.get(principal.account_id) or accounts.for_profile(principal.profile_id or "")
+    # for a person they look after opens only that person (see auth._account_principal). Never as the person it sends
+    # for, unless they paired it themselves: whoever holds it would hold their account.
+    account = accounts.get(principal.account_id)
     if not account:
         raise HTTPException(403, "Pair this phone again to open Syntropy Health in the app.")
     token = auth.create_session(request, account["id"], device_id=principal.device_id)

@@ -5,7 +5,7 @@
 
 import { del, get, post, put } from "../api.js";
 import { setToolbar } from "../app.js";
-import { $, confirmDialog, debounce, emptyState, fmtNum, html, icon, loading, modal, mount, onAction, plural, raw, toast } from "../ui.js";
+import { $, confirmDialog, debounce, emptyState, fmtNum, html, icon, loadInto, loading, modal, mount, onAction, plural, raw, toast } from "../ui.js";
 import { rangeHash, rangePhrase, rangePicker, rangeQuery, readRange, saveRange, wireRange } from "../range.js";
 
 const RANGE_KEY = "syntropy-journal-range";
@@ -119,7 +119,13 @@ export async function render({ el, params, state }) {
     <div id="jr-body">${loading(3)}</div>`);
 
   // ------------------------------------------------------------------ today's check-in
-  let draft = null;        // what's picked on the card but not saved yet
+  // What's picked on the card but not saved yet. It's kept for this tab, for this person, so a session running out or a
+  // reload doesn't lose it.
+  const draftKey = `syntropy-checkin:${state.status?.account?.id}:${profile.id}:${dayKey(new Date())}`;
+  let draft = null;
+  try { draft = JSON.parse(sessionStorage.getItem(draftKey)); } catch {}
+  const keepDraft = () => { try { sessionStorage.setItem(draftKey, JSON.stringify(draft)); } catch {} };
+  const dropDraft = () => { try { sessionStorage.removeItem(draftKey); } catch {} };
   const todays = () => recent.events.find((e) => e.event_type === "check_in" && e.manual && dayKey(e.start_date) === dayKey(new Date()));
 
   const drawCheckin = () => {
@@ -182,28 +188,13 @@ export async function render({ el, params, state }) {
       <div class="card-head"><h3>Last 30 days</h3><span class="small muted">${logged ? plural(logged, "day") + " logged" : "Nothing logged yet"}</span></div>
       <div class="card-body stack" style="gap:10px">
         ${strip("mood", MOODS, "mood")}${strip("energy", ENERGY, "energy")}${strip("stress", STRESS, "stress")}
-        <div class="jr-sum">
+        ${logged ? html`<div class="jr-sum">
           <div><span>Mood</span><b>${moodAvg == null ? "—" : MOODS[Math.round(moodAvg) - 1][1]}</b></div>
           <div><span>Energy</span><b>${energyAvg == null ? "—" : ENERGY[Math.round(energyAvg) - 1][1]}</b></div>
           <div><span>Stress</span><b>${stressAvg == null ? "—" : STRESS[Math.round(stressAvg) - 1][1]}</b></div>
-        </div>
+        </div>` : ""}
         ${top.length ? html`<div class="small muted">Most logged symptoms: ${top.map(([n, c]) => `${n} (${c})`).join(", ")}</div>` : ""}
-      </div>
-      <div id="jr-patterns"></div>`);
-    drawPatterns(logged);
-  };
-
-  // How check-ins and symptoms line up with sleep and training, from the same insights as the Overview.
-  let patterns = null;
-  const drawPatterns = async (logged) => {
-    if (!patterns) patterns = get("/api/insights", { profile: profile.id }).then((r) => r.insights.filter((i) => i.kind === "link")).catch(() => []);
-    const list = await patterns;
-    const box = $("#jr-patterns", el);
-    if (!box) return;
-    mount(box, list.length ? html`<div class="jr-patterns"><div class="label">Patterns</div>
-      ${list.slice(0, 3).map((i) => html`<div class="jr-pattern"><b>${i.title}</b><span class="small muted">${i.text}</span>
-        ${i.link ? html`<a class="small" href="${i.link}">Compare ${icon("arrowRight")}</a>` : ""}</div>`)}</div>`
-      : logged >= 5 ? "" : html`<div class="jr-patterns"><div class="small muted">Check in on a few more days and patterns with your sleep and training will show here.</div></div>`);
+      </div>`);
   };
 
   // ------------------------------------------------------------------ everything logged
@@ -248,19 +239,22 @@ export async function render({ el, params, state }) {
   const reload = async () => {
     syncAddress();
     const n = ++seq;
-    const next = await load();
-    if (n !== seq) return;   // a newer choice is already loading
-    res = next;
-    draw();
+    return loadInto($("#jr-body", el), async () => {
+      const next = await load();
+      if (n !== seq) return;   // a newer choice is already loading
+      res = next;
+      draw();
+    });
   };
   const reloadAll = async () => {
     [res, recent] = await Promise.all([load(), loadRecent()]);
     draft = null;
+    dropDraft();
     drawCheckin(); drawMonth(); draw();
   };
   const onRange = wireRange(el, () => range, (r) => { range = r; limit = PAGE; saveRange(range, RANGE_KEY); drawControls(); return reload(); });
   $("#jr-q", el).addEventListener("input", debounce((e) => { q = e.target.value.trim(); limit = PAGE; reload(); }, 250));
-  el.addEventListener("input", (e) => { if (e.target.id === "jr-quick-note" && draft) draft.note = e.target.value; });
+  el.addEventListener("input", (e) => { if (e.target.id === "jr-quick-note" && draft) { draft.note = e.target.value; keepDraft(); } });
   const byId = (id) => res.events.find((e) => e.id === id);
 
   return onAction(el, {
@@ -269,19 +263,31 @@ export async function render({ el, params, state }) {
     more: () => { limit += PAGE; return reload(); },
     new: ({ kind }) => openEntry(profile, null, reloadAll, [...recent.events, ...res.events], kind),
     entry: ({ id }) => { const e = byId(id); if (e) (e.manual ? openEntry(profile, e, reloadAll, res.events) : openDeviceEntry(e)); },
-    pick: ({ field, value }) => {
+    pick: ({ field, value }, btn) => {
       draft[field] = Number(value);
       draft.note = $("#jr-quick-note", el)?.value ?? draft.note;
-      drawCheckin();
+      keepDraft();
+      // Only what changed: drawing the card again would snap the choice into place rather than easing it.
+      for (const b of btn.closest("[role=radiogroup]").querySelectorAll("[role=radio]")) {
+        b.classList.toggle("active", b === btn);
+        b.setAttribute("aria-checked", String(b === btn));
+        b.tabIndex = b === btn ? 0 : -1;
+      }
+      const save = $('[data-action="save-checkin"]', el);
+      if (save) save.disabled = draft.mood == null;
     },
     "save-checkin": async (_, btn) => {
       const saved = todays();
       const body = checkinEntry({ mood: draft.mood, energy: draft.energy, stress: draft.stress,
         note: $("#jr-quick-note", el).value, start: saved ? saved.start_date : new Date().toISOString() });
+      draft.note = body.note || "";
+      keepDraft();
       btn.disabled = true;
       try {
         if (saved) await put(`/api/journal/${saved.id}?profile=${encodeURIComponent(profile.id)}`, body);
         else await post("/api/journal", body, { profile: profile.id });
+        dropDraft();
+        draft = null;
         toast(saved ? "Check-in updated" : "Checked in", "good");
         await reloadAll();
       } catch (err) { toast(err.message, "bad"); btn.disabled = false; }
@@ -333,7 +339,8 @@ function openDeviceEntry(e) {
 // The person's current medications from their health records, offered as one-tap choices when logging a dose.
 async function medicationChips(profile, form, recentNames) {
   const summary = await get("/api/summary", { profile: profile.id }).catch(() => null);      // cached briefly by api.js
-  const activeMeds = { list: (summary?.active_medications || []).map((m) => ({ name: m.title, dose: doseOf(m.title) })) };
+  // Those that may be out of date too: an order with no recent renewal can still be what someone takes every morning.
+  const activeMeds = { list: [...(summary?.active_medications || []), ...(summary?.medications_to_check || [])].map((m) => ({ name: m.title, dose: doseOf(m.title) })) };
   const box = form.querySelector("#jr-med-chips");
   if (!box) return;
   const seen = new Set(activeMeds.list.map((m) => m.name.toLowerCase()));
@@ -361,6 +368,7 @@ function openEntry(profile, existing, onSaved, recent, startKind) {
   const medNames = [...new Set(recent.filter((e) => e.category === "medication").map((e) => e.name))];
   const m = modal({
     title: existing ? "Edit entry" : "New entry",
+    dirty: true,
     body: html`<form id="jr-form" class="jr-form"></form>`,
     footer: html`${existing ? html`<button class="btn btn-ghost btn-danger" data-delete style="margin-right:auto">${icon("trash")} Delete</button>` : ""}
       <button class="btn" data-cancel type="button">Cancel</button><button class="btn btn-primary" data-save>${existing ? "Save" : "Add to journal"}</button>`,
@@ -408,25 +416,50 @@ function openEntry(profile, existing, onSaved, recent, startKind) {
     return "";
   };
 
-  const draw = () => {
+  const drawFields = () => {
+    const box = form.querySelector(".jr-fields");
     const noteValue = form.querySelector("[name=note]")?.value ?? v.note ?? "";
     const whenValue = form.querySelector("[name=when]")?.value ?? localInput(v.start_date);
-    mount(form, html`
-      ${existing ? "" : html`<div class="jr-kinds" role="tablist">${KINDS.map((k) => html`
-        <button type="button" role="tab" class="jr-kind ${k.id === kind ? "active" : ""}" data-kind="${k.id}" aria-selected="${k.id === kind}">${icon(k.icon)}<span>${k.label}</span></button>`)}</div>`}
+    mount(box, html`
       ${fields()}
       <div class="field"><label class="label" for="jr-when">When</label>
         <input class="input" id="jr-when" name="when" type="datetime-local" required value="${whenValue}" max="${localInput()}"></div>
-      <div class="field"><label class="label" for="jr-note">${kind === "note" ? "Note" : html`Note <span class="faint">(optional)</span>`}</label>
-        <textarea class="input" id="jr-note" name="note" rows="${kind === "note" ? 5 : 3}" maxlength="4000" ${kind === "note" ? "required" : ""}
+      <div class="field jr-note-field"><label class="label" for="jr-note">${kind === "note" ? "Note" : html`Note <span class="faint">(optional)</span>`}</label>
+        <textarea class="input" id="jr-note" name="note" rows="2" maxlength="4000" ${kind === "note" ? "required" : ""}
           placeholder="${kind === "note" ? "What's on your mind? How you slept, what you ate, anything worth remembering…" : "Anything that helps later: triggers, what helped, context"}">${noteValue}</textarea></div>`);
     if (kind === "medication" && !existing) medicationChips(profile, form, medNames);
   };
-  draw();
+  mount(form, html`
+    ${existing ? "" : html`<div class="jr-kinds" role="tablist">${KINDS.map((k) => html`
+      <button type="button" role="tab" class="jr-kind ${k.id === kind ? "active" : ""}" data-kind="${k.id}" aria-selected="${k.id === kind}">${icon(k.icon)}<span>${k.label}</span></button>`)}</div>`}
+    <div class="jr-fields"></div>`);
+  // Every kind gets the room the largest one needs, so moving between them doesn't change the dialog's size. The note takes up what's spare.
+  if (!existing) {
+    const chosen = kind;
+    let tallest = 0;
+    for (const k of KINDS) {
+      kind = k.id;
+      drawFields();
+      tallest = Math.max(tallest, form.scrollHeight);
+    }
+    kind = chosen;
+    form.style.minHeight = `${tallest}px`;
+  }
+  drawFields();
 
+  // Where typing starts for each kind. On a touch screen nothing opens the keyboard until it's asked for.
+  const FIRST_FIELD = { symptom: "#jr-symptom", note: "#jr-note", medication: "#jr-med", other: "#jr-name" };
+  const startTyping = () => { if (FIRST_FIELD[kind] && window.matchMedia("(hover: hover)").matches) form.querySelector(FIRST_FIELD[kind])?.focus(); };
   form.addEventListener("click", (e) => {
     const k = e.target.closest("[data-kind]");
-    if (k) { kind = k.dataset.kind; draw(); form.querySelector("input:not([type=radio]), select, textarea")?.focus(); }
+    if (!k || k.dataset.kind === kind) return;
+    kind = k.dataset.kind;
+    form.querySelectorAll("[data-kind]").forEach((b) => {
+      b.classList.toggle("active", b === k);
+      b.setAttribute("aria-selected", String(b === k));
+    });
+    drawFields();
+    startTyping();
   });
   form.addEventListener("change", (e) => {
     if (e.target.name === "symptom") form.querySelector("#jr-custom-wrap").hidden = e.target.value !== "custom";
@@ -477,6 +510,7 @@ function openEntry(profile, existing, onSaved, recent, startKind) {
   };
 
   const save = async () => {
+    if (!form.reportValidity()) return;
     let body;
     try { body = entry(); } catch (err) { return toast(err.message, "bad"); }
     const btn = m.el.querySelector("[data-save]");
@@ -501,5 +535,5 @@ function openEntry(profile, existing, onSaved, recent, startKind) {
       onSaved();
     } catch (err) { toast(err.message, "bad"); }
   });
-  setTimeout(() => form.querySelector("input:not([type=radio]), select, textarea")?.focus(), 30);
+  setTimeout(startTyping, 30);
 }

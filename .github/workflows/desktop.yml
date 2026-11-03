@@ -10,6 +10,11 @@ name: Release
 #   MACOS_CERT_P12 (base64 of a "Developer ID Application" .p12), MACOS_CERT_PASSWORD, MACOS_SIGN_ID,
 #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD (an app-specific password, for notarization)
 # Every release file gets a signed build provenance attestation: `gh attestation verify <file> -R EnriqueNeyra/syntropy-health`.
+# SHA256SUMS is signed with the RELEASE_SIGNING_KEY secret of the `release` environment when that exists
+# (scripts/new_release_key.py makes it). Once RELEASE_PUBLIC_KEY is set in app/services/updates.py, a release without a
+# matching signature fails rather than going out to apps that would refuse it.
+# Release files carry the relay key from the SYNTROPY_RELAY_KEY repository secret (scripts/release_key.py); a tag
+# without it fails rather than release builds that can't use Syntropy's sign-in registrations.
 # The apps are built by apps.yml, which CI also runs (unsigned) on every pull request and push to main, so each run
 # of CI has them as artifacts to try. Running this by hand (Actions → Release → Run workflow) builds them without
 # releasing anything.
@@ -40,14 +45,31 @@ jobs:
         run: |
           version="$(python3 -c 'from app.core.config import APP_VERSION; print(APP_VERSION)')"
           [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "::error::The tag is $GITHUB_REF_NAME but APP_VERSION is $version"; exit 1; }
+      - name: The relay key (scripts/release_key.py)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: python3 scripts/release_key.py
+        env:
+          SYNTROPY_RELAY_KEY: ${{ secrets.SYNTROPY_RELAY_KEY }}
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.11.15"
           enable-cache: false      # the wheel is a release file; build it without a shared cache
       - run: uv build --wheel -o dist .
+      # The exact dependencies the installers and `syntropy-health update` install with this wheel, what's in the wheel
+      # and the apps, and the installers themselves, so that each release has its own.
+      - name: The dependency list, SBOMs and installers
+        run: |
+          uv export --frozen --no-dev --no-emit-project --no-header -o dist/Syntropy-Health-requirements.txt
+          uv export --frozen --no-dev --no-emit-project --format cyclonedx1.5 --preview-features sbom-export -o dist/Syntropy-Health-server-sbom.cdx.json
+          uv export --frozen --no-dev --extra desktop --no-emit-project --format cyclonedx1.5 --preview-features sbom-export -o dist/Syntropy-Health-apps-sbom.cdx.json
+          cp scripts/install.sh scripts/install.ps1 dist/
+      - name: The wheel carries the relay key
+        if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'EnriqueNeyra/syntropy-health'
+        run: python3 -c "import sys, zipfile; sys.exit('app/core/release_key.py' not in zipfile.ZipFile(sys.argv[1]).namelist())" dist/*.whl
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wheel
-          path: dist/*.whl
+          path: dist/*
 
   # The apps (apps.yml), signed and notarized here when the `release` environment has the certificates.
   apps:
@@ -59,6 +81,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [tests, version, apps]
     runs-on: ubuntu-latest
+    environment: release      # holds RELEASE_SIGNING_KEY
     permissions:
       contents: write
       actions: write        # to start the Docker image's publish
@@ -68,7 +91,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          sparse-checkout: CHANGELOG.md
+          sparse-checkout: |
+            CHANGELOG.md
+            app/services/updates.py
           sparse-checkout-cone-mode: false
       - name: Release notes from the changelog
         run: |
@@ -84,10 +109,29 @@ jobs:
       # its name, as Python packaging requires.
       - run: |
           mkdir release
-          cp artifacts/wheel/*.whl release/
+          cp artifacts/wheel/* release/
           cp artifacts/mac/*.dmg release/Syntropy-Health-mac-arm64.dmg
           cp artifacts/windows/*-setup.exe release/Syntropy-Health-windows-x64-setup.exe
-          cd release && sha256sum * > SHA256SUMS && cat SHA256SUMS
+          cd release && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
+      - name: Sign SHA256SUMS
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          built_in="$(sed -n 's/^RELEASE_PUBLIC_KEY = "\(.*\)"$/\1/p' app/services/updates.py)"
+          if [ -z "$RELEASE_SIGNING_KEY" ]; then
+            [ -z "$built_in" ] || { echo "::error::The apps check for a signature, but RELEASE_SIGNING_KEY isn't set"; exit 1; }
+            echo "No release signing key yet (scripts/new_release_key.py)."
+            exit 0
+          fi
+          umask 077
+          printf '%s\n' "$RELEASE_SIGNING_KEY" > "$RUNNER_TEMP/release.pem"
+          openssl pkeyutl -sign -rawin -inkey "$RUNNER_TEMP/release.pem" -in release/SHA256SUMS -out release/SHA256SUMS.sig
+          public="$(openssl pkey -in "$RUNNER_TEMP/release.pem" -pubout -outform DER | tail -c 32 | base64 -w0)"
+          rm "$RUNNER_TEMP/release.pem"
+          [ "$(stat -c %s release/SHA256SUMS.sig)" = 64 ] || { echo "::error::The signature wasn't made"; exit 1; }
+          if [ -n "$built_in" ] && [ "$public" != "$built_in" ]; then
+            echo "::error::RELEASE_SIGNING_KEY doesn't match RELEASE_PUBLIC_KEY in app/services/updates.py"; exit 1
+          fi
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: release/*

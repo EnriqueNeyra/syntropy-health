@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from typing import Any, Optional
+from zoneinfo import available_timezones
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 
 from app.api.deps import check_access, phone_origin, resolve_profile
 from app.core import auth, context, settings
-from app.store import accounts, profiles
+from app.core.db import db
+from app.store import accounts, biometrics, connections, profiles, records
 
 router = APIRouter(prefix="/api/profiles", tags=["profiles"], dependencies=[Depends(auth.require_user)])
+whole_account = Depends(auth.require_whole_account)
 
 
 DATE = r"^\d{4}-\d{2}-\d{2}$"
@@ -43,6 +47,7 @@ class ProfilePatch(BaseModel):
     birth_date: Optional[str] = Field(None, max_length=10)       # null clears it
     sex: Optional[str] = Field(None, max_length=20)              # null clears it
     color: Optional[str] = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
+    timezone: Optional[str] = Field(None, max_length=64)         # their home time zone; null follows the server's
     is_default: Optional[bool] = None       # earlier versions: whom to open first (now always yourself)
 
     check_birth_date = field_validator("birth_date")(_real_date)
@@ -79,7 +84,36 @@ def list_profiles() -> dict:
     return {"profiles": visible_profiles()}
 
 
-@router.post("")
+def _person_at_a_glance(prof: dict[str, Any]) -> dict[str, Any]:
+    pid = prof["id"]
+    principal = context.principal()
+    key = records.seen_key(pid, principal.account_id if principal else None)
+    mark = settings.get(key)
+    if mark is None:    # counting starts here, or someone never opened would go on looking as if nothing had arrived
+        settings.set(key, time.time())
+    arrived = records.new_since(pid, float(mark)) if mark is not None else None
+    flagged = [l for l in records.flagged_labs(pid) if not l.get("older")]
+    now = time.time()
+    sources = connections.list_for_profile(pid)
+    stale = {"ehr": 7, "wearable": 3}
+    return {"id": pid, "name": prof["name"], "access": prof.get("access"),
+            "new_records": (sum(g["count"] for g in arrived["groups"]) + sum(i["count"] for i in arrived["imported"]) + arrived["older"]) if arrived else None,
+            "new_since": mark,
+            "flagged_labs": len(flagged),
+            "sources": len(sources),
+            "sources_need_signing_in": sum(1 for c in sources if c["status"] == "needs_reauth" and not c.get("access_ended")),
+            "sources_failed": sum(1 for c in sources if c["status"] == "error" and not c.get("access_ended")),
+            "sources_not_synced_lately": sum(1 for c in sources if c["status"] == "active" and not c.get("access_ended") and c["kind"] in stale
+                                             and c.get("last_sync_at") and now - c["last_sync_at"] > stale[c["kind"]] * 86400)}
+
+
+@router.get("/at-a-glance")
+def people_at_a_glance() -> dict:
+    """Everyone this account can see, with what's new, what's out of range and how their sources are, without switching to each."""
+    return {"people": [_person_at_a_glance(p) for p in visible_profiles()]}
+
+
+@router.post("", dependencies=[whole_account])
 def create_profile(req: ProfileIn) -> dict:
     """Someone to look after (a child, a parent): whoever adds them manages them, and can invite them to sign in."""
     prof = profiles.create_profile(req.name, req.relationship, req.birth_date, req.sex)
@@ -94,48 +128,69 @@ def update_profile(profile_id: str, req: ProfilePatch) -> dict:
     check_access(profile_id, "manage")
     fields = req.model_dump(exclude_unset=True, exclude={"is_default"})
     # A name, relationship or color can only be changed; a birth date or sex can also be cleared (sent as null).
-    fields = {k: v for k, v in fields.items() if v is not None or k in ("birth_date", "sex")}
+    fields = {k: v for k, v in fields.items() if v is not None or k in ("birth_date", "sex", "timezone")}
+    if fields.get("timezone") and fields["timezone"] not in available_timezones():
+        raise HTTPException(400, "Unknown time zone.")
+    if fields.get("name") and accounts.for_profile(profile_id) and accounts.name_taken(fields["name"], profile_id):
+        raise HTTPException(409, f"Someone else here already signs in as {fields['name']}. Choose a different name.")
+    moved = "timezone" in fields and fields["timezone"] != (profiles.get_profile(profile_id) or {}).get("timezone")
+    if moved:       # queued first, so a kill partway is finished at the next start
+        with db() as conn:
+            biometrics.queue_rebuild(conn, profile_id)
     prof = profiles.update_profile(profile_id, **fields)
     if not prof:
         raise HTTPException(404, "Profile not found")
+    if moved:
+        biometrics.run_queued_rebuilds()
     return prof
 
 
-@router.delete("/{profile_id}")
+@router.delete("/{profile_id}", dependencies=[whole_account])
 def delete_profile(profile_id: str) -> dict:
-    """Deletes a person and all their data. Someone who signs in: only they can (their own account), or an owner
-    removing them from the server. Anyone else: whoever manages them."""
+    """Deletes a person and all their data. Someone who signs in: an owner removing them from the server (leaving is
+    POST /api/accounts/me/delete, with their password). Anyone else: whoever manages them."""
     principal = context.principal()
     if not profiles.get_profile(profile_id):
         raise HTTPException(404, "Profile not found")
     account = accounts.for_profile(profile_id)
     if account:
-        if not principal or not (principal.account_id == account["id"] or principal.owner):
+        if principal and principal.account_id == account["id"]:
+            raise HTTPException(403, "To delete your own account, use Settings → People and confirm with your password.")
+        if not principal or not principal.owner:
             raise HTTPException(404 if not principal or not principal.level(profile_id) else 403,
                                 "Only they, or the server's owner, can remove someone who signs in.")
-        if account["role"] == "owner" and not any(a["role"] == "owner" and a["id"] != account["id"]
-                                                  for a in accounts.list_accounts()):
-            raise HTTPException(400, "Make someone else an owner first: the server needs one.")
+        _can_be_removed(account)
     else:
         check_access(profile_id, "manage")
     if len(profiles.list_profiles()) <= 1:
         raise HTTPException(400, "At least one profile must remain.")
     profiles.delete_profile(profile_id)
-    settings.delete_prefix(f"overview.layout.{profile_id}")
-    settings.delete_prefix(f"alerts.seen.{profile_id}")
-    settings.delete_prefix(f"alerts.dismissed.{profile_id}")
-    settings.delete_prefix(f"goals.{profile_id}")
     return {"ok": True}
+
+
+def _can_be_removed(account: dict[str, Any]) -> None:
+    if account["role"] == "owner" and not any(a["role"] == "owner" and a["id"] != account["id"] for a in accounts.list_accounts()):
+        raise HTTPException(400, "Make someone else the owner first (Settings → People): the server needs one.")
+
+
+def _theirs_alone(profile_id: str) -> None:
+    """Who sees someone who signs in, and whether their data is wiped, is for them to decide: 'change' access lets
+    someone help look after their data, not pass it on."""
+    principal = context.principal()
+    account = accounts.for_profile(profile_id)
+    if principal and account and account["id"] != principal.account_id:
+        raise HTTPException(403, f"Only {account['name']} can choose who sees their data.")
 
 
 # ---------------------------------------------------------------------------
 # Sharing and invitations
 # ---------------------------------------------------------------------------
 
-@router.get("/{profile_id}/access")
+@router.get("/{profile_id}/access", dependencies=[whole_account])
 def get_access(profile_id: str) -> dict:
-    """Who else can see this person (for whoever manages them), and who could be given access."""
+    """Who else can see this person (for whoever manages them, or themselves), and who could be given access."""
     check_access(profile_id, "manage")
+    _theirs_alone(profile_id)
     account = accounts.for_profile(profile_id)
     others = [{"account_id": a["id"], "name": a["name"], "color": a["color"]}
               for a in accounts.list_accounts() if a["profile_id"] != profile_id]
@@ -148,9 +203,10 @@ class AccessRequest(BaseModel):
     level: Optional[str] = None       # 'view' or 'manage'; None removes access
 
 
-@router.put("/{profile_id}/access")
+@router.put("/{profile_id}/access", dependencies=[whole_account])
 def set_access(profile_id: str, req: AccessRequest) -> dict:
     check_access(profile_id, "manage")
+    _theirs_alone(profile_id)
     if not accounts.get(req.account_id):
         raise HTTPException(404, "Account not found")
     if req.level is None:
@@ -163,7 +219,7 @@ def set_access(profile_id: str, req: AccessRequest) -> dict:
     return get_access(profile_id)
 
 
-@router.post("/{profile_id}/invite")
+@router.post("/{profile_id}/invite", dependencies=[whole_account])
 def invite(profile_id: str, request: Request) -> dict:
     """A one-time code (a week) for this person to choose their own password. Once they do, their data is theirs:
     whoever manages them now stops seeing it unless they share it back."""
@@ -180,10 +236,73 @@ def invite(profile_id: str, request: Request) -> dict:
     return {**made, "server_url": phone_origin(request)}
 
 
-@router.delete("/{profile_id}/invite")
+@router.delete("/{profile_id}/invite", dependencies=[whole_account])
 def cancel_invite(profile_id: str) -> dict:
     check_access(profile_id, "manage")
     accounts.cancel_invite(profile_id)
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Who signs in: the server's owner sees everyone's name and last sign-in, never their health data
+# ---------------------------------------------------------------------------
+
+accounts_router = APIRouter(prefix="/api/accounts", tags=["profiles"])
+
+
+@accounts_router.get("", dependencies=[Depends(auth.require_owner)])
+def list_accounts() -> dict:
+    principal = context.principal()
+    return {"accounts": [{"id": a["id"], "name": a["name"], "color": a["color"], "profile_id": a["profile_id"], "role": a["role"],
+                          "created_at": a["created_at"], "last_login_at": a["last_login_at"], "has_password": a["has_password"],
+                          "is_self": bool(principal) and a["id"] == principal.account_id}
+                         for a in accounts.list_accounts()]}
+
+
+class RoleRequest(BaseModel):
+    role: str = Field(..., pattern="^(owner|member)$")
+    step_down: bool = False                 # handing over: the one asking stops being an owner in the same step
+    password: Optional[str] = Field(None, max_length=256)
+
+
+@accounts_router.put("/{account_id}/role")
+def set_role(account_id: str, req: RoleRequest, request: Request, principal: auth.Principal = Depends(auth.require_owner)) -> dict:
+    """Who runs the server. Asks for the owner's own password: this hands over the backup and every server setting."""
+    if not accounts.get(account_id):
+        raise HTTPException(404, "Account not found")
+    auth.confirm_password(request, principal.account_id, req.password)
+    try:
+        accounts.set_role(account_id, req.role, principal.account_id if req.step_down else None)
+    except ValueError as exc:
+        raise HTTPException(400, f"{exc} Make someone else an owner first.") from exc
+    return list_accounts()
+
+
+class ConfirmRequest(BaseModel):
+    password: Optional[str] = Field(None, max_length=256)
+
+
+@accounts_router.post("/me/delete")
+def delete_my_account(req: ConfirmRequest, request: Request, response: Response,
+                      principal: auth.Principal = Depends(auth.require_whole_account)) -> dict:
+    """Leaving: this person's account and all their data go. People only they looked after pass to the server's owner."""
+    account = accounts.get(principal.account_id)
+    if not account:
+        raise HTTPException(400, "No account to delete.")
+    auth.confirm_password(request, account["id"], req.password)
+    _can_be_removed(account)
+    if len(profiles.list_profiles()) <= 1:
+        raise HTTPException(400, "At least one profile must remain.")
+    profiles.delete_profile(account["profile_id"])
+    response.delete_cookie(auth.SESSION_COOKIE, path="/")
+    return {"ok": True}
+
+
+@accounts_router.post("/me/join-review/seen", dependencies=[Depends(auth.require_whole_account)])
+def join_review_seen() -> dict:
+    principal = context.principal()
+    if principal and principal.account_id:
+        accounts.set_pref(principal.account_id, "join_review", None)
     return {"ok": True}
 
 
@@ -192,6 +311,7 @@ class OverviewWidget(BaseModel):
     id: str = Field(..., max_length=60)
     visible: bool = True
     size: Optional[str] = Field(None, pattern="^(s|m|l|xl)$")      # a quarter, half, three quarters or all of the width
+    rows: Optional[int] = Field(None, ge=1, le=6)                  # how tall, once the person has set it; otherwise as its content needs
     options: dict[str, Any] = Field(default_factory=dict)
 
 

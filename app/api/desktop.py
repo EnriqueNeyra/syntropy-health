@@ -48,10 +48,13 @@ def _normalize(raw: str) -> Optional[str]:
         return None
     if "://" not in raw:
         raw = "http://" + raw
-    parts = urlsplit(raw)
-    if parts.scheme not in ("http", "https") or not parts.hostname:
+    try:
+        parts = urlsplit(raw)
+        if parts.scheme not in ("http", "https") or not parts.hostname:
+            return None
+        port = parts.port or (8000 if parts.scheme == "http" and parts.port is None else None)
+    except ValueError:      # http://[bad, or a port above 65535
         return None
-    port = parts.port or (8000 if parts.scheme == "http" and parts.port is None else None)
     host = f"[{parts.hostname}]" if ":" in parts.hostname else parts.hostname       # an IPv6 address keeps its brackets
     return f"{parts.scheme}://{host}{f':{port}' if port else ''}"
 

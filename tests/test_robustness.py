@@ -82,8 +82,11 @@ def test_non_finite_values_are_rejected_not_500(client):
     raw = (b'{"device_id":"x","device_name":"y","samples":[{"id":"n","metric_type":"heart_rate","value":NaN,'
            b'"start_date":"2024-01-01T00:00:00Z","end_date":"2024-01-01T00:00:00Z"}]}')
     r = phone.post("/api/ingest/wearables", content=raw, headers={**headers, "Content-Type": "application/json"})
+    assert r.status_code == 200 and r.json()["rejected"] == 1      # counted, so one odd item can't hold up the phone
+    raw = b'{"device_id":"x","device_name":NaN}'                   # the envelope still has to make sense
+    r = phone.post("/api/ingest/wearables", content=raw, headers={**headers, "Content-Type": "application/json"})
     assert r.status_code == 422
-    assert r.json()["detail"][0]["input"] is None  # echoed NaN is sanitized, not a JSON error
+    assert "input" not in r.json()["detail"][0]      # what was sent isn't sent back
 
 
 def test_one_bad_row_does_not_fail_the_batch(client):

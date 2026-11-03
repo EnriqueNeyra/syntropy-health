@@ -8,7 +8,8 @@ import { convert, displayUnit } from "../units.js";
 import { fmtDate, fmtNum, html, icon, modal, mount, plural, toast } from "../ui.js";
 
 // Periods, the same words as Workouts and the Journal. "All" asks for ten years; the chart starts at the first day.
-export const RANGES = [[7, "7 days"], [30, "30 days"], [90, "90 days"], [365, "1 year"], [3650, "All"]];
+export const ALL_DAYS = 3650;
+export const RANGES = [[7, "7 days"], [30, "30 days"], [90, "90 days"], [365, "1 year"], [ALL_DAYS, "All"]];
 const DAYS_KEY = "syntropy-trends-days";
 export function savedDays() {
   try { const d = Number(localStorage.getItem(DAYS_KEY)); return RANGES.some(([k]) => k === d) ? d : 30; } catch { return 30; }
@@ -66,6 +67,7 @@ export const bucketWord = (size) => (size === "week" ? "Weekly average" : size =
  */
 export function measureFormat(meta) {
   const key = meta.key || meta.metric;
+  if (key?.startsWith("logged:")) return { conv: (v) => v, text: (v) => (v ? "Logged" : "Not logged"), unit: "" };
   if (key === "journal:mood") return { conv: (v) => (v + 1) * 2 + 1, text: (v) => `${fmtNum((v + 1) * 2 + 1, 1)} of 5`, unit: "of 5" };
   if (key?.startsWith("journal:")) return { conv: (v) => v, text: (v) => `${fmtNum(v, 1)} of 5`, unit: "of 5" };
   if (key === "workouts:minutes") return { conv: (v) => v, text: (v) => `${fmtNum(v, 0)} min`, unit: "min" };
@@ -144,42 +146,50 @@ export function openGoal(profile, meta, current, suggested, onSaved) {
 export async function loadMarkers(profileId) {
   return (await get("/api/insights/markers", { profile: profileId }).catch(() => ({ markers: [] }))).markers;
 }
-const MARKERS_KEY = "syntropy-trends-markers";
-export function markersOn() { try { return localStorage.getItem(MARKERS_KEY) !== "0"; } catch { return true; } }
+// Off until the person turns it on. The key is new, so it's off for everyone who had the earlier default.
+const MARKERS_KEY = "syntropy-trends-show-events";
+export function markersOn() { try { return localStorage.getItem(MARKERS_KEY) === "1"; } catch { return false; } }
 export function setMarkersOn(on) { try { localStorage.setItem(MARKERS_KEY, on ? "1" : "0"); } catch {} }
-/** The markers inside a window (YYYY-MM-DD bounds). */
-export const markersIn = (list, start, end) => list.filter((m) => m.t >= start && m.t <= end);
-export const markerToggle = (count, on) => (count ? html`<label class="check small" title="Mark when medications started and conditions were diagnosed">
+export const markerToggle = (count, on) => (count ? html`<label class="check small" title="Mark each medication's first order and when conditions were diagnosed">
   <input type="checkbox" data-markers ${on ? "checked" : ""}> <span>Medications & diagnoses <span class="faint">(${count})</span></span></label>` : "");
-export const markerList = (list) => (list.length ? html`<div class="marker-list small">${list.slice(0, 6).map((m) =>
-  html`<span><span class="marker-dot"></span>${fmtDate(m.t)} · ${m.label}</span>`)}${list.length > 6 ? html`<span class="faint">and ${list.length - 6} more</span>` : ""}</div>` : "");
+/** What the marks above a chart are, for anyone who can't or doesn't want to point at each one. */
+export const markerList = (list) => (list.length ? html`<details class="marker-details small"><summary class="muted">${plural(list.length, "medication or diagnosis", "medications and diagnoses")} on this chart</summary>
+  <ul class="marker-list">${list.map((m) => html`<li><span class="muted">${fmtDate(m.t)}</span> ${m.label}</li>`)}</ul></details>` : "");
+/** What changes how a chart should be read (a different device) is said outright, not folded away. */
+export const chartNotes = (list) => (list.length ? html`<p class="small muted" style="margin:10px 0 0">${list.map((m) => html`${fmtDate(m.t)}: ${m.label}. `)}</p>` : "");
 
 // ------------------------------------------------------------------ compare
 async function comparable(profileId) {
   return (await get("/api/insights/comparable", { profile: profileId })).measures;
 }
-const GROUP_NAMES = { journal: "How you felt (Journal)", workouts: "Workouts", sleep: "Sleep", readiness: "Recovery", heart: "Heart",
+const GROUP_NAMES = { logged: "Logged in the Journal", journal: "How you felt (Journal)", workouts: "Workouts", sleep: "Sleep", readiness: "Recovery", heart: "Heart",
   activity: "Activity", vitals: "Vitals", body: "Body", mobility: "Mobility", nutrition: "Nutrition", hearing: "Hearing" };
 
 /** A label inside a sentence: "Steps" → "steps", but "HRV (RMSSD)", "VO₂ max" and "SpO2" stay as they are. */
 const soft = (label) => (/^[A-Z][a-z]+(\s|$)/.test(label) ? label[0].toLowerCase() + label.slice(1) : label);
 const lagWords = (lag) => (lag === 1 ? "the next day" : lag === -1 ? "the day before" : lag > 1 ? `${lag} days later` : lag < -1 ? `${-lag} days before` : "on the same day");
 
+/** A measure on days with something logged, and on days without. */
+function withWithout(res) {
+  const w = res.with_without;
+  const measure = res.a.label === w.item ? res.b : res.a;
+  const f = measureFormat(measure);
+  if (!w.days_with || !w.days_without) return `There aren't days both with and without ${w.item} to compare yet.`;
+  return `${measure.label} averaged ${f.text(w.avg_with)} on ${plural(w.days_with, "day")} with ${w.item}${res.lag ? ` ${lagWords(res.lag)}` : ""}, and ${f.text(w.avg_without)} on ${plural(w.days_without, "day")} without.`;
+}
+
 function describe(res) {
+  if (res.with_without) return withWithout(res);
+  if (!res.n) return "No days have both yet, so there's nothing to compare.";
   const fa = measureFormat(res.a), fb = measureFormat(res.b);
-  const when = lagWords(res.lag);
-  if (res.n < 7) return res.n ? `Only ${plural(res.n, "day has", "days have")} both, not enough to compare yet.`
-    : "No days have both yet, so there's nothing to compare.";
   const a = soft(res.a.label), b = soft(res.b.label);
-  const lead = res.strength === "no clear link" ? `No clear link between ${a} and ${b} ${when}`
-    : `A ${res.strength} ${res.r > 0 ? "positive" : "negative"} link (r = ${fmtNum(res.r, 2)}): ${res.r > 0 ? "higher" : "lower"} ${b} ${res.lag ? when : ""} tended to go with higher ${a}`;
-  const split = res.split ? ` On days with ${a} above ${fa.text(res.split.cut)}, ${b} ${res.lag ? when : ""} averaged ${fb.text(res.split.above)}, against ${fb.text(res.split.below)} otherwise.` : "";
-  return `${lead}, over ${res.n} days.${split}`.replace(/\s+/g, " ");
+  const split = res.split ? ` On days with ${a} above ${fa.text(res.split.cut)}, ${b} ${res.lag ? lagWords(res.lag) : ""} averaged ${fb.text(res.split.above)}, against ${fb.text(res.split.below)} otherwise.` : "";
+  return `${plural(res.n, "day has", "days have")} both.${split}`.replace(/\s+/g, " ");
 }
 
 /**
- * The Compare card under a chart: pick another measure, see it over the same days, the two against each other, and a
- * sentence on how they line up. `state` = { b, lag }; `onChange(state)` keeps it in the address.
+ * The Compare card under a chart: pick another measure, see it over the same days, the two against each other, and
+ * what the numbers were. What to make of them is the person's. `state` = { b, lag }; `onChange(state)` keeps it in the address.
  */
 export async function compareCard(host, profile, a, days, state, onChange) {
   const list = await comparable(profile.id);
@@ -199,7 +209,7 @@ export async function compareCard(host, profile, a, days, state, onChange) {
     const mine = gen;
     mount(host, html`<div class="card card-pad compare-card">
       <div class="row wrap between" style="gap:10px">
-        <div><h3 style="margin:0">${icon("compare")} Compare</h3><div class="small muted">See how ${soft(a.label)} lines up with anything else you track.</div></div>
+        <div><h3 style="margin:0">${icon("compare")} Compare</h3><div class="small muted">See ${soft(a.label)} beside anything else you track, over the same days.</div></div>
         <div class="row wrap" style="gap:8px">
           <select class="input input-sm" data-compare aria-label="Compare with" style="width:auto;max-width:240px">
             <option value="">Compare with…</option>
@@ -213,7 +223,8 @@ export async function compareCard(host, profile, a, days, state, onChange) {
             <button class="btn btn-ghost btn-sm btn-icon" data-clear aria-label="Stop comparing">${icon("x")}</button>` : ""}
         </div></div>
       <div data-compare-body></div></div>`);
-    host.querySelector("[data-compare]").addEventListener("change", (e) => { state.b = e.target.value || null; onChange(state); draw(); });
+    // The menu lets go first: on a phone, one drawn away while it's still open stays on screen.
+    host.querySelector("[data-compare]").addEventListener("change", (e) => { e.target.blur(); state.b = e.target.value || null; onChange(state); draw(); });
     host.querySelector("[data-lag]")?.addEventListener("change", (e) => { state.lag = Number(e.target.value); onChange(state); draw(); });
     host.querySelector("[data-clear]")?.addEventListener("click", () => { state.b = null; state.lag = 0; onChange(state); draw(); });
     if (!state.b) return;
@@ -229,8 +240,7 @@ export async function compareCard(host, profile, a, days, state, onChange) {
       <div class="compare-grid">
         <div><div class="small muted compare-label">${res.b.label}${res.lag ? ` (${lagWords(res.lag)})` : ""} over the same days</div><div data-chart-b></div></div>
         <div><div class="small muted compare-label">Each day, ${soft(res.a.label)} against ${soft(res.b.label)}</div><div data-chart-xy></div></div>
-      </div>
-      <p class="tiny faint" style="margin:8px 0 0">A link here is something that lined up in your own data, not proof that one causes the other.</p>`);
+      </div>`);
     const bEl = body.querySelector("[data-chart-b]"), xyEl = body.querySelector("[data-chart-xy]");
     const bPoints = res.pairs.map((p) => ({ t: p.day, v: fb.conv(p.y) }));
     const bars = res.b.key.startsWith("workouts:");
@@ -238,7 +248,7 @@ export async function compareCard(host, profile, a, days, state, onChange) {
       ? barChart(bEl, res.pairs.map((p) => ({ day: p.day, value: fb.conv(p.y) })), { unit: fb.unit, label: res.b.label, height: 200, format: fb.text })
       : lineChart(bEl, [{ name: res.b.label, points: bPoints }], { unit: fb.unit, label: res.b.label, height: 200 }))));
     stops.push(responsive(xyEl, () => scatterChart(xyEl, res.pairs.map((p) => ({ x: fa.conv(p.x), y: fb.conv(p.y), day: p.day })),
-      { xLabel: res.a.label, yLabel: res.b.label, fx: (v) => fmtNum(v), fy: (v) => fmtNum(v), height: 200 })));
+      { xLabel: res.a.label, yLabel: res.b.label, fx: (v) => fmtNum(v), fy: (v) => fmtNum(v), height: 240 })));
   };
   await draw();
   return stop;
