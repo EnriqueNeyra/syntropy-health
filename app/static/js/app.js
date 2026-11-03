@@ -481,7 +481,22 @@ function renderShell() {
       ${p ? html`<button class="head-person" data-action="head-profile" aria-haspopup="true" aria-expanded="false"
         aria-label="Viewing ${p.name}. Switch person" title="${p.name}">${avatarOf(p)}</button>` : ""}`);
   }
-  if (nativeNav) {
+  // Android's web view measures every viewport unit as 0 when its app leaves its height unset (apps before 1.1), which would
+// leave a page that fills the screen, like Ask, with no height at all: that page's height comes from the window instead.
+if (nativeNav) {
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:absolute;visibility:hidden;width:1px;height:100vh";
+  document.documentElement.append(probe);
+  const unmeasured = !probe.getBoundingClientRect().height;
+  probe.remove();
+  if (unmeasured) {
+    const fill = () => document.documentElement.style.setProperty("--fill-height", `${window.innerHeight}px`);
+    fill();
+    window.addEventListener("resize", fill);
+  }
+}
+
+if (nativeNav) {
     appBridge({ type: "profiles", current: state.profileId,
                 profiles: state.profiles.map(({ id, name, color }) => ({ id, name, color: color || null })) });
   }
@@ -744,6 +759,13 @@ window.SyntropyShell = nativeNav ? {
   visit(hash) { closePopover(); redirect(hash); },
   /** Another screen switched person, or the app's person menu did. */
   setProfile(id) { if (id !== state.profileId && state.profiles.some((p) => p.id === id)) setProfile(id); },
+  /** The phone's Back: closes what's open over the page, as Escape does. Says whether there was anything to close. */
+  back() {
+    const panel = window.matchMedia("(max-width: 1023px)").matches && document.querySelector(".ask-split[data-side='open']");
+    if (!document.querySelector(".overlay, .popover") && !panel) return false;
+    (document.activeElement || document.body).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    return true;
+  },
   /** Something changed elsewhere: draw this section again from fresh data. */
   refresh() { clearCache(); if (state.status) { route({ keepScroll: true }); refreshAlerts(state.profile, state.status); } },
   openAlerts() { openAlerts(null); },

@@ -1171,12 +1171,17 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 .chat { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 /* Pages that fill the window and scroll inside themselves (Ask): the page never scrolls, so there's one scrollbar. A window
    too short to hold it all (a phone on its side) is the exception: the message field must still be reachable. */
-.main:has(> .content.page-fill) { height: 100vh; height: 100dvh; overflow: hidden; }
+.main:has(> .content.page-fill) { height: 100vh; height: var(--fill-height, 100dvh); overflow: hidden; }
 .content.page-fill { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; overflow-y: auto; }
 .content.page-fill > .page-head, .content.page-fill > .chat-foot { flex: none; }
 .content.page-fill > .ask-split { flex: 1; min-height: 280px; }
 .chat-foot { margin-top: 8px; }
 @media (min-width: 1081px) { .content.page-fill { padding-bottom: 18px; } }
+/* With a phone's keyboard up, or a phone on its side, the conversation gets all the room there is. The rest comes back with the room. */
+@media (max-height: 560px) {
+  .content.page-fill { padding-top: 6px; padding-bottom: 6px; }
+  .content.page-fill > :not(.ask-split) { display: none; }
+}
 .chat-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 14px; scrollbar-gutter: stable both-edges; }
 .chat-thread { flex: 1 0 auto; display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: var(--ask-col); margin-inline: auto; }
 .chat-input { position: relative; flex: none; display: flex; gap: 6px; align-items: flex-end; width: min(calc(100% - 28px), var(--ask-col)); margin: 0 auto 12px; padding: 6px; }

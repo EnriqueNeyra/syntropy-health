@@ -12,7 +12,7 @@ window.__sent = [];
 window.webkit = { messageHandlers: { syntropy: { postMessage: (m) => window.__sent.push(m) } } };
 window.SyntropyApp = { capabilities: ["toolbar", "composer", "sections", "scroll", "haptics", "menu"] };
 """
-SHELL_METHODS = {"visit", "setProfile", "refresh", "openAlerts", "setAccent", "action", "menuChosen", "composer"}
+SHELL_METHODS = {"visit", "setProfile", "refresh", "openAlerts", "setAccent", "action", "menuChosen", "composer", "back"}
 # Each message the app handles, with the fields it reads.
 MESSAGES = {
     "booted": set(),
@@ -117,3 +117,33 @@ def test_every_script_loads(session):
         rel = path.relative_to(js).as_posix()
         page.evaluate("(p) => import(p)", f"/static/js/{rel}")
     assert session.errors == []
+
+
+def test_the_phones_back_closes_whats_open_before_anything_else(app):
+    page = app.open("#/journal")
+    assert page.evaluate("SyntropyShell.back()") is False
+    page.locator("[data-action=new]").first.click()
+    page.wait_for_selector(".overlay")
+    assert page.evaluate("SyntropyShell.back()") is True
+    page.wait_for_selector(".overlay", state="detached")
+    assert page.evaluate("SyntropyShell.back()") is False
+
+
+def test_a_page_that_fills_the_screen_has_a_height_when_the_app_gives_no_viewport_units(browser, server):
+    """Android's web view measures 100vh as 0 in apps before 1.1. Ask was a blank screen there."""
+    s = Session(browser, server, width="phone", user_agent=UA + " SyntropyAndroid/1")
+    # What such a web view does to a measurement of viewport units.
+    s.ctx.add_init_script("""
+        window.webkit = { messageHandlers: { syntropy: { postMessage: () => {} } } };
+        const real = Element.prototype.getBoundingClientRect;
+        Element.prototype.getBoundingClientRect = function () {
+          const r = real.call(this);
+          return this.style?.height === "100vh" ? { ...r.toJSON(), height: 0 } : r;
+        };
+    """)
+    s.ctx.route("**/api/ai/config*", lambda route: route.fulfill(json={"configured": True, "provider": "anthropic", "model": "test", "options": []}))
+    page = s.open("#/ask")
+    page.wait_for_selector("#chat-text")
+    assert page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--fill-height')") == "800px"
+    assert page.evaluate("document.querySelector('.main').getBoundingClientRect().height") == 800
+    s.close()
