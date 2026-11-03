@@ -32,7 +32,10 @@ function providerAnswers(status = 200, body = { access_token: "VICTIM_AT", refre
 // What the page's continue form would send.
 const hidden = (html) => Object.fromEntries([...html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)]
   .filter(([, name]) => name !== "stop")
-  .map(([, name, value]) => [name, value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">")]));
+  .map(([, name, value]) => [name, value.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")]));
+
+// Text to find as it is, in a regular expression.
+const literally = (text) => new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
 test("each destination in the shared rules is classed the same as the callback page classes it", () => {
   for (const c of rules.destinations) {
@@ -259,7 +262,7 @@ test("an address that can't be returned to is named, with no code spent and no t
     assert.match(html, /Nothing was sent/);
     assert.doesNotMatch(html, /localhost/);
     assert.doesNotMatch(html, /<a /);
-    if (typeof d === "string") assert.match(html, new RegExp(d.replace(/[()]/g, "\\$&")));
+    if (typeof d === "string") assert.match(html, literally(d));
     assert.equal((await confirm({ code: "abc", state: b64({ p: "oura", d }) })).status, 400);
   }
   assert.deepEqual(calls, []);
@@ -270,7 +273,7 @@ test("public domains and bare names reach the question, not localhost (F097)", a
   for (const d of ["https://health.example.com", "http://nas:8000", "http://synology:5000", "http://box.fritz.box:8000"]) {
     const res = await get({ code: "abc", state: b64({ p: "oura", d }) });
     assert.equal(res.status, 200, d);
-    assert.match(await res.text(), new RegExp(d.replace(/^https?:\/\//, "").replace(/\./g, "\\.")));
+    assert.match(await res.text(), literally(d.replace(/^https?:\/\//, "")));
   }
   assert.deepEqual(calls, []);
 });

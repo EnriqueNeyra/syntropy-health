@@ -54,7 +54,7 @@ def _fhir_id(value: Any) -> str:
     text = str(value or "") or "unknown"
     if len(text) <= 64 and not _ID_BAD.search(text):
         return text
-    return f"{_ID_BAD.sub('-', text)[:51]}-{hashlib.sha1(text.encode()).hexdigest()[:12]}"
+    return f"{_ID_BAD.sub('-', text)[:51]}-{hashlib.sha256(text.encode()).hexdigest()[:12]}"
 
 
 def _with_valid_ids(value: Any) -> Any:

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import contextlib
 import logging
-import re
 from functools import lru_cache
 from typing import Any, Optional
 
@@ -37,7 +36,15 @@ MAX_WORDS = 12
 MAX_TERMS = 2000
 # Words that only make a search miss. Both languages the app is most used in.
 _NOISE = {"a", "an", "and", "the", "of", "for", "in", "on", "with", "my", "to", "y", "de", "del", "la", "el", "los", "las"}
-_EDGE_PUNCTUATION = re.compile(r"^[\W_]+|[\W_]+$")
+def _bare(word: str) -> str:
+    """Without the punctuation (anything but a letter or digit) at either end. A loop, because the regex this was, run on
+    a long run of punctuation from an AI app's search, went back over it once for each character."""
+    start, end = 0, len(word)
+    while start < end and not word[start].isalnum():
+        start += 1
+    while end > start and not word[end - 1].isalnum():
+        end -= 1
+    return word[start:end]
 
 
 @lru_cache(maxsize=1)
@@ -53,7 +60,7 @@ def fts5_available() -> bool:
 def words(query: Optional[str]) -> list[str]:
     """The words to look for: lower case, without the punctuation around them or a plural's s, without words that only
     make a search miss. A query of nothing but those keeps them."""
-    bare = (_EDGE_PUNCTUATION.sub("", w).lower() for w in (query or "").replace("\x00", " ").split())
+    bare = (_bare(w).lower() for w in (query or "").replace("\x00", " ").split())
     found = [w for w in bare if w]
     kept = [w for w in found if w not in _NOISE] or found
     singular = [w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith(("ss", "us", "is")) else w for w in kept]

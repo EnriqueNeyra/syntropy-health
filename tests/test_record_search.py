@@ -426,3 +426,11 @@ def test_only_a_really_busy_database_is_called_busy(client, monkeypatch):
     text, failed = mcp_server.call_tool("search_records", {"query": "x"})
     assert failed and json.loads(text)["code"] == "busy"
 
+
+
+def test_a_long_run_of_punctuation_is_answered_at_once():
+    # An AI app's search isn't limited in length like the search box, and the regex this replaced went back over the run once per character.
+    import time
+    started = time.perf_counter()
+    assert search.words("!" * 100_000 + "a" + "?" * 100_000) == ["a"]
+    assert time.perf_counter() - started < 0.5
