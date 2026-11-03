@@ -210,6 +210,9 @@ def test_damage_found_by_a_scheduled_backup_is_noted(client, tmp_path, monkeypat
 
 def test_with_no_plan_the_tick_starts_nothing(client, monkeypatch):
     started = []
-    monkeypatch.setattr(backup_schedule.threading, "Thread", lambda *a, **k: started.append(k))
-    backup_schedule.start_if_due()
+    # threading is the one module everything shares: put Thread back before the server shuts down, which may need a
+    # thread of its own (on a slow Windows runner it did, and got None).
+    with monkeypatch.context() as m:
+        m.setattr(backup_schedule.threading, "Thread", lambda *a, **k: started.append(k))
+        backup_schedule.start_if_due()
     assert started == []
