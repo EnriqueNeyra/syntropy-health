@@ -54,6 +54,22 @@ def test_small_charts_keep_round_dots_and_their_colour(session):
     assert session.errors == []
 
 
+def test_no_card_starts_shorter_than_one_tall_and_a_tile_is_one_tall(session):
+    page = session.open("#/overview")
+    page.wait_for_selector("#dash .dash-item.is-tile")
+    found = page.evaluate("""(() => {
+      const grid = document.querySelector('#dash');
+      const row = parseFloat(getComputedStyle(grid).getPropertyValue('--dash-row'));
+      const items = [...grid.querySelectorAll('.dash-item:not([data-rows])')];
+      return { row, cards: items.map((i) => [i.dataset.id, i.classList.contains('is-tile'), i.firstElementChild.getBoundingClientRect().height]) };
+    })()""")
+    short = [(id_, h) for id_, _, h in found["cards"] if h < found["row"] - 0.5]
+    assert not short, f"shorter than 1 tall ({found['row']}px): {short}"
+    tiles = [h for _, tile, h in found["cards"] if tile]
+    assert tiles and min(tiles) <= found["row"] + 1.5
+    assert session.errors == []
+
+
 def test_a_card_snaps_through_sizes_from_its_corner_and_keeps_them(session):
     page = editing_overview(session)
     tile = first_tile(page)

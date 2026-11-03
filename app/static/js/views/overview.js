@@ -702,7 +702,7 @@ function arrange(root, { isEditing, glide, haptic, item, title, moved, resized, 
   const gridOf = () => $("#dash", root);
   const ids = () => $$(".dash-item", gridOf()).map((x) => x.dataset.id);
   const columns = (grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length;
-  const rowHeight = (grid) => parseFloat(getComputedStyle(grid).getPropertyValue("--dash-row")) || 148;
+  const rowHeight = (grid) => parseFloat(getComputedStyle(grid).getPropertyValue("--dash-row")) || 150;
 
   const moveCard = (e, node) => {
     const grid = gridOf();

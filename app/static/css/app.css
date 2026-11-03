@@ -430,15 +430,17 @@ label.btn:has(input[type="file"]):focus-within { outline: 2px solid var(--accent
 
 /* ---------- Overview widgets ---------- */
 /* The Overview: a four-column grid packed like a masonry wall (see masonry() in overview.js). Each item spans as
-   many 2px rows as it is tall; the 16px below each item is the gap between rows. */
-.dash { --dash-row: 148px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 2px; grid-auto-flow: row dense;
+   many 2px rows as it is tall; the 16px below each item is the gap between rows. A card's "1 tall" (--dash-row) is a
+   number tile's own height, and no card is shorter than that, so a card's own size is never below the smallest one a
+   corner gives it. */
+.dash { --dash-row: 150px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 2px; grid-auto-flow: row dense;
   column-gap: 16px; align-items: start; }
 .dash-item { min-width: 0; grid-column: span 2; }
 .dash-item.size-s { grid-column: span 1; }
 .dash-item.size-l { grid-column: span 3; }
 .dash-item.size-xl { grid-column: 1 / -1; }
 .dash-inner { position: relative; }
-.dash-inner > .card { height: auto; transition: box-shadow .2s ease; }
+.dash-inner > .card { height: auto; min-height: var(--dash-row); transition: box-shadow .2s ease; }
 /* Given a number of rows, a card is exactly that tall: what doesn't fit scrolls inside it, and its footer stays at the bottom. */
 .dash-item[data-rows] .dash-inner > .card { height: calc(var(--rows) * var(--dash-row) + (var(--rows) - 1) * 16px); overflow: hidden; }
 .dash-item[data-rows] .widget-card > :is(.list, .insights) { flex: 1; min-height: 0; overflow-y: auto; }
