@@ -3,6 +3,7 @@
 import json
 import re
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -392,7 +393,7 @@ def test_downloads_accept_a_list_served_as_a_file(monkeypatch):
 def test_written_files_can_be_read_by_the_app(tmp_path):
     path = tmp_path / "x.json"
     refresh.write_json(path, [1], indent=0)
-    assert path.stat().st_mode & 0o777 == 0o644
+    assert path.read_text() and (sys.platform == "win32" or path.stat().st_mode & 0o777 == 0o644)
 
 
 def test_a_file_is_replaced_whole_or_not_at_all(tmp_path, monkeypatch):

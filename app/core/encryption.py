@@ -187,11 +187,27 @@ def _private_empty(path: Path) -> None:
     os.close(os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600))
 
 
+_EXPORT_TRIES = 3
+
+
 def _export(source: sqlite3.Connection, target: Path, key: Optional[str], *, version: int, on_progress: Optional[Callable[[int], None]] = None,
             source_bytes: int = 0) -> None:
     """Writes everything in ``source``, which must not be in a transaction, to ``target``. SQLCipher's export copies the schema
     and rows but not these settings, and leaves free space behind, so what was deleted long ago doesn't come along. Without a key,
-    the copy is ordinary SQLite."""
+    the copy is ordinary SQLite. Something else changing the schema part way through (the search index being set up as the
+    server starts, say) stops an export, so it starts again from an empty file."""
+    for attempt in range(_EXPORT_TRIES):
+        try:
+            return _export_once(source, target, key, version=version, on_progress=on_progress, source_bytes=source_bytes)
+        except sqlite3.OperationalError as exc:
+            if "schema has changed" not in str(exc) or attempt == _EXPORT_TRIES - 1:
+                raise
+            log.info("The database's tables changed while it was being copied, so it's being copied again")
+            time.sleep(0.2 * (attempt + 1))
+
+
+def _export_once(source: sqlite3.Connection, target: Path, key: Optional[str], *, version: int,
+                 on_progress: Optional[Callable[[int], None]], source_bytes: int) -> None:
     _private_empty(target)
     source.execute(f"""ATTACH DATABASE ? AS converted KEY "{key or ''}" """, (str(target),))
     stop = threading.Event()

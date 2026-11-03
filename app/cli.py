@@ -47,7 +47,7 @@ from xml.sax.saxutils import escape
 from pathlib import Path
 from typing import Optional
 
-from app.core import config
+from app.core import config, windows
 
 SERVICE = "syntropy-health"
 LAUNCHD_LABEL = "io.syntropyhealth.server"
@@ -494,7 +494,7 @@ def _running_port() -> Optional[int]:
 def _windows_command_line(pid: int) -> str:
     """What a process was started as, or "" if there's no such process or it can't be told."""
     query = f"(Get-CimInstance Win32_Process -Filter 'ProcessId={pid}').CommandLine"
-    return _run(["powershell", "-NoProfile", "-NonInteractive", "-Command", query], check=False).stdout.strip()
+    return _run(["powershell", "-NoProfile", "-NonInteractive", "-Command", query], check=False, env=windows.powershell_env()).stdout.strip()
 
 
 def _is_our_server(command_line: str) -> bool:
@@ -535,8 +535,8 @@ def _windows_stop() -> None:
     _pid_file().unlink(missing_ok=True)
 
 
-def _run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, check=check, capture_output=True, text=True)
+def _run(cmd: list[str], check: bool = True, env: Optional[dict[str, str]] = None) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, check=check, capture_output=True, text=True, env=env)
 
 
 def _windows_task_xml(args: list[str]) -> str:

@@ -43,7 +43,7 @@ def _from_memory(url, dest, limit=updater.MAX_DOWNLOAD):
     if url == DMG_URL:
         dest.write_bytes(APP)
     elif url.startswith("mem:"):
-        dest.write_text(url[4:])
+        dest.write_bytes(url[4:].encode())       # as from the network: text mode would write \r\n on Windows
     else:
         dest.write_bytes(base64.b64decode(url[4:]))
 
@@ -433,6 +433,7 @@ def test_windows_signature_gets_its_path_in_a_way_powershell_reads(monkeypatch):
     # powershell.exe joins everything after -Command into one command and leaves $args empty: a path passed after it was
     # a parse error, so no signature could ever be read, and every Windows update was refused once that counted.
     path = Path("C:/Users/O'Brien [x]/Syntropy Health.exe")
+    monkeypatch.setenv("PSModulePath", r"C:\Program Files\PowerShell\7\Modules")      # started from PowerShell 7
     seen = {}
     monkeypatch.setattr(updater, "_run", lambda cmd, env=None: seen.update(cmd=cmd, env=env) or _done(stdout="Valid|AB12\n"))
     updater.Updater._signature(path)
@@ -440,6 +441,7 @@ def test_windows_signature_gets_its_path_in_a_way_powershell_reads(monkeypatch):
     assert len(command) == 1 and str(path) not in command[0] and "$args" not in command[0]
     assert seen["env"][re.search(r"-LiteralPath \$env:(\w+)", command[0]).group(1)] == str(path)
     assert seen["env"]["PATH"] == os.environ["PATH"]
+    assert not any(k.upper() == "PSMODULEPATH" for k in seen["env"])
 
 
 @pytest.mark.parametrize("failure", [FileNotFoundError("powershell"), subprocess.TimeoutExpired("powershell", 300)])

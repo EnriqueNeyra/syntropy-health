@@ -82,7 +82,7 @@ def _code_with_the_apps_text():
     return sorted(p for pattern in ("*.py", "api/*.py", "services/*.py", "store/*.py", "static/js/*.js", "static/js/views/*.js") for p in APP.glob(pattern))
 
 
-@pytest.mark.parametrize("path", _code_with_the_apps_text(), ids=lambda p: str(p.relative_to(APP)))
+@pytest.mark.parametrize("path", _code_with_the_apps_text(), ids=lambda p: p.relative_to(APP).as_posix())
 def test_no_advice_is_written_into_the_apps_text(path):
     text = path.read_text(encoding="utf-8").lower()
     for phrase in ("emergency services", "your care team", "the person's care team", "worth mentioning to", "worth discussing", "worth following",
@@ -102,7 +102,7 @@ def _everything_with_words_people_see():
     return sorted(p for pattern in ("*.py", "*/*.py", "static/index.html", "static/js/*.js", "static/js/views/*.js") for p in APP.glob(pattern))
 
 
-@pytest.mark.parametrize("path", _everything_with_words_people_see(), ids=lambda p: str(p.relative_to(APP)))
+@pytest.mark.parametrize("path", _everything_with_words_people_see(), ids=lambda p: p.relative_to(APP).as_posix())
 def test_nothing_tells_someone_to_go_and_get_care(path):
     found = GO_AND_GET_CARE.search(path.read_text(encoding="utf-8"))
     assert not found, found and found.group(0)
@@ -112,11 +112,11 @@ def test_the_care_check_catches_what_a_person_might_write():
     for said in ("See a doctor about this", "seek medical attention", "Call 911", "you should rest", "emergency services", "talk to your provider"):
         assert GO_AND_GET_CARE.search(said), said
     assert {"services/ai.py", "mcp_server.py", "static/js/views/prepare.js", "connectors/fhir_normalize.py", "core/auth.py", "simulator/personas.py", "static/index.html"} <= {
-        str(p.relative_to(APP)) for p in _everything_with_words_people_see()}
+        p.relative_to(APP).as_posix() for p in _everything_with_words_people_see()}
 
 
 def test_the_check_above_reads_the_newest_pages_and_services():
-    scanned = {str(p.relative_to(APP)) for p in _code_with_the_apps_text()}
+    scanned = {p.relative_to(APP).as_posix() for p in _code_with_the_apps_text()}
     assert {"static/js/views/prepare.js", "static/js/views/people.js", "static/js/views/trend-tools.js", "services/visit_prep.py", "services/ccda.py",
             "store/record_overrides.py", "store/record_files.py"} <= scanned
 

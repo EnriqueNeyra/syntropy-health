@@ -421,6 +421,7 @@ def test_a_probe_failure_that_is_not_damage_is_reported_as_what_it_is(monkeypatc
     assert state["database"] == "unavailable" and "disk I/O error" in state["detail"] and "damage" not in state["detail"]
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows doesn't let a folder with open files be moved")
 def test_a_data_folder_moved_away_is_not_called_damage_and_no_empty_database_appears(raw_client):
     path = config.db_path()
     folder = path.parent

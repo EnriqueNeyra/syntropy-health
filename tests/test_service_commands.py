@@ -33,7 +33,7 @@ def commands(monkeypatch):
     ran: list[list[str]] = []
     answers: dict[str, SimpleNamespace] = {}
 
-    def run(cmd, check=True):
+    def run(cmd, check=True, env=None):
         ran.append([str(c) for c in cmd])
         for key, answer in answers.items():
             if key in " ".join(str(c) for c in cmd):
@@ -90,7 +90,7 @@ def test_the_windows_task_is_made_from_that_definition(monkeypatch, commands, ca
     monkeypatch.setattr(cli, "_installed_address", lambda: (None, None))
     seen = {}
 
-    def run(cmd, check=True):
+    def run(cmd, check=True, env=None):
         commands.ran.append(cmd)
         if "/XML" in cmd:
             seen["xml"] = Path(cmd[cmd.index("/XML") + 1]).read_bytes()

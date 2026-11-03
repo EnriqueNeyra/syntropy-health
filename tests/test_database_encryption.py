@@ -709,6 +709,23 @@ def test_inside_an_encrypted_backup_the_database_is_encrypted_too(tmp_path, monk
         assert security.key_from_file(z.read("secret.key"))
 
 
+def test_a_copy_the_schema_changed_under_starts_again(monkeypatch, tmp_path):
+    # Seen on CI: the server setting up its search index as a backup began stopped the backup.
+    tries = []
+
+    def once(source, target, key, **kwargs):
+        tries.append(target)
+        if len(tries) == 1:
+            raise sqlite3.OperationalError("database schema has changed")
+    monkeypatch.setattr(encryption, "_export_once", once)
+    monkeypatch.setattr(encryption.time, "sleep", lambda s: None)
+    encryption._export(None, tmp_path / "copy.db", None, version=1)
+    assert len(tries) == 2
+    monkeypatch.setattr(encryption, "_export_once", lambda *a, **k: (_ for _ in ()).throw(sqlite3.OperationalError("disk I/O error")))
+    with pytest.raises(sqlite3.OperationalError, match="disk"):
+        encryption._export(None, tmp_path / "copy.db", None, version=1)
+
+
 def test_an_unencrypted_backup_needs_nothing_to_read_and_says_it_is_format_one(tmp_path):
     import zipfile
     with _start() as c:

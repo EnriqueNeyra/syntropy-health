@@ -36,6 +36,7 @@ from typing import Any, Callable, Optional
 
 import httpx
 
+from app.core import windows
 from app.services import updates
 from app.services.updates import InstallFailed
 
@@ -509,7 +510,7 @@ exit 1
               "\"$($s.Status)|$($s.SignerCertificate.Thumbprint)\"")
         try:
             out = _run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps],
-                       env={**os.environ, "SYNTROPY_SIGNED_FILE": str(path)})
+                       env=windows.powershell_env({"SYNTROPY_SIGNED_FILE": str(path)}))
         except (OSError, subprocess.SubprocessError) as exc:
             log.warning("Couldn't run PowerShell to read a signature: %s", exc)
             return "Unknown", None

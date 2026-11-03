@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import sys
 import zipfile
 
@@ -623,7 +624,7 @@ def test_tesseract_is_found_outside_a_short_path(monkeypatch, tmp_path):
     if lab_report.tesseract_path():
         pytest.skip("this computer has it in /usr/bin")
     monkeypatch.setattr(ai_agents, "_search_dirs", lambda: ["/usr/bin", str(folder)])
-    assert lab_report.tesseract_path() == str(program)
+    assert os.path.normcase(lab_report.tesseract_path()) == os.path.normcase(str(program))
     assert lab_report.ocr_available()
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -99,7 +100,7 @@ def test_the_sign_in_screen_can_say_how_to_reset_a_password(raw_client, monkeypa
     monkeypatch.setattr(updates, "method", lambda: {"kind": "app"})
     monkeypatch.setattr("sys.frozen", True, raising=False)
     monkeypatch.setattr("sys.executable", "/Users/alex/Syntropy Health")
-    assert "/Users/alex" in raw_client.get("/api/auth/recovery").json()["command"]
+    assert str(Path("/Users/alex")) in raw_client.get("/api/auth/recovery").json()["command"]
     far = TestClient(raw_client.app, base_url=BASE, client=("8.8.8.8", 5000))
     assert "/Users/alex" not in far.get("/api/auth/recovery").json()["command"]
 

@@ -345,9 +345,16 @@ def test_instructions_name_who_a_connection_reads(client):
 # stdio
 # ---------------------------------------------------------------------------
 
+# What an AI app passes to a server it starts besides the person's settings: on Windows the MCP SDK's default environment
+# includes these, and without SYSTEMROOT the encryption library can't load.
+_WINDOWS_BASICS = ("SYSTEMROOT", "SYSTEMDRIVE", "TEMP", "TMP", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "PROGRAMFILES")
+
+
 def _stdio(isolated_data, lines: bytes, **env):
+    basics = {k: os.environ[k] for k in _WINDOWS_BASICS if k in os.environ} if sys.platform == "win32" else {}
     return subprocess.run([sys.executable, "-m", "app.mcp_server"], input=lines, capture_output=True, timeout=60,
-                          env={"SYNTROPY_DATA_DIR": str(isolated_data), "PATH": "/usr/bin:/bin", "SYNTROPY_NO_DOTENV": "1", "SYNTROPY_KEY_STORE": "file", **env})
+                          env={**basics, "SYNTROPY_DATA_DIR": str(isolated_data), "PATH": "/usr/bin:/bin", "SYNTROPY_NO_DOTENV": "1",
+                               "SYNTROPY_KEY_STORE": "file", **env})
 
 
 def test_stdio_reads_utf8_whatever_the_computer_is_set_to(client, isolated_data):
@@ -408,7 +415,7 @@ def test_the_offered_setup_reads_the_owners_own_records_unless_told_otherwise(cl
 def test_the_offered_setup_in_docker_says_who_too(client, monkeypatch):
     from pathlib import Path
     real = Path.exists
-    monkeypatch.setattr(Path, "exists", lambda self: str(self) == "/.dockerenv" or real(self))
+    monkeypatch.setattr(Path, "exists", lambda self: self.as_posix() == "/.dockerenv" or real(self))
     local = client.get("/api/agents/local-command").json()
     assert local["command"] == "docker" and local["args"][-3:] == ["python", "-m", "app.mcp_server"]
     assert any(a.startswith("SYNTROPY_MCP_PROFILE=") for a in local["args"])

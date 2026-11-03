@@ -651,7 +651,8 @@ def _zip_with(tmp_path, entries: dict) -> Path:
     return target
 
 
-@pytest.mark.parametrize("name", ["../evil", "/abs/evil", "uploads/../../evil", "other.txt", "uploads/a\\b", "uploads/c:d"])
+@pytest.mark.parametrize("name", ["../evil", "/abs/evil", "uploads/../../evil", "other.txt", "uploads/c:d",
+                                  pytest.param("uploads/a\\b", marks=pytest.mark.skipif(sys.platform == "win32", reason="zipfile reads \\ as / on Windows: uploads/a/b"))])
 def test_a_zip_can_not_put_files_anywhere_else(client, tmp_path, name):
     db.snapshot(tmp_path / "s.db")
     bad = _zip_with(tmp_path, {"syntropy.db": (tmp_path / "s.db").read_bytes(), name: b"x"})

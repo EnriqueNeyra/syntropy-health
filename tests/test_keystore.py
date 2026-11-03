@@ -473,6 +473,7 @@ def test_restoring_on_a_computer_with_a_store_puts_the_key_there(dpapi, tmp_path
     backups.apply(item)
     assert not (new / "secret.key").exists() and keystore.store_of_record() == keystore.DPAPI
     assert db.opens(config.db_path(), security.database_key())
+    db.close_readers()      # Windows won't delete a file that's open
     shutil.rmtree(new)
 
 

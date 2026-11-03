@@ -243,6 +243,9 @@ def frame_that_says(attrs):
 
 def scenario():
     until(lambda: mac.webview is not None and (url() or "").startswith(HOME))
+    # The address changes before the page is fetched, and on a slow start leaving then cancels it: wait for the page itself,
+    # which sets the sign-in cookie the downloads below need.
+    until(lambda: any(step[1] == "served" and step[3] == "/own" for step in results["trace"]) and not on_main(mac.webview.isLoading), 30)
     time.sleep(1)
     results["home"] = state()
 
