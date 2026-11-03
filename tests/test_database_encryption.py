@@ -749,6 +749,31 @@ def test_a_copy_the_schema_changed_under_starts_again(monkeypatch, tmp_path):
         encryption._export(None, tmp_path / "copy.db", None, version=1)
 
 
+def test_a_file_windows_holds_for_a_moment_is_still_swapped_in(monkeypatch, tmp_path):
+    # Seen on Windows CI: encrypting at start-up was refused the swap, as something (an antivirus scanner, most likely) had
+    # the file just written open.
+    new, old = tmp_path / "new.db", tmp_path / "old.db"
+    new.write_text("encrypted")
+    old.write_text("plain")
+    refused = []
+
+    def replace(source, target):
+        if len(refused) < 3:
+            refused.append(source)
+            raise PermissionError(13, "Access is denied")
+        os.replace(source, target)
+    monkeypatch.setattr(encryption, "os", types.SimpleNamespace(name="nt", replace=replace))
+    monkeypatch.setattr(encryption.time, "sleep", lambda s: None)
+    encryption._replace(new, old)
+    assert old.read_text() == "encrypted" and len(refused) == 3
+    new.write_text("again")
+    refused.clear()
+    monkeypatch.setattr(encryption, "os", types.SimpleNamespace(name="posix", replace=replace))
+    with pytest.raises(PermissionError):
+        encryption._replace(new, old)
+    assert len(refused) == 1
+
+
 def test_an_unencrypted_backup_needs_nothing_to_read_and_says_it_is_format_one(tmp_path):
     import zipfile
     with _start() as c:
