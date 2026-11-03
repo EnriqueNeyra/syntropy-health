@@ -175,20 +175,24 @@ export async function openLabEntry(profile, onSaved, { file: given = null, repor
         <b>${location.origin}</b> in your phone's browser or on a computer, and sign in. You can type results in here.</div></div></div>`;
     }
     return html`<div class="lab-drop-area">
-      ${failure ? html`<div class="banner bad small" role="alert"><div class="grow">${failure}</div>
-        ${file && ai.configured ? html`<button class="btn btn-sm" data-read="ai">${icon("sparkles")} Read with ${ai.label}</button>` : ""}</div>` : ""}
+      ${failure ? html`<div class="banner bad small" role="alert">${failureSays()}</div>` : ""}
       <label class="drop-zone lab-drop" data-lab-drop>
         ${icon("upload")}<div><b>${touch ? "Choose a lab report" : "Drop a lab report here, or click to choose one"}</b>
           <div class="small muted">A PDF from your lab's website, or a photo or scan of a paper report. Up to 15 MB.</div></div>
         <input type="file" id="lab-file" accept="${REPORT_FILES}" aria-label="Choose a lab report"></label>
       ${touch ? html`<label class="btn lab-camera">${icon("image")} Take a photo of a report
         <input type="file" id="lab-camera" accept="image/*" capture="environment" aria-label="Take a photo of a report"></label>` : ""}
-      <p class="hint">Read privately: your Syntropy server reads the file and it goes nowhere else. Nothing is saved until you've checked it.
-        ${reader.ocr ? "" : html`Photos and scans need a reader on the computer running Syntropy Health, such as a free program called Tesseract.
-          ${reader.install} PDFs from lab websites work without it.`}
-        ${ai.configured ? html`${ai.label} (${ai.model}) is usually better with blurry or crooked photos. You can choose that after it's read; it sends the file to ${ai.label} with your key.`
-          : html`For hard-to-read photos you can also <a href="#/settings/ai">add your own AI key</a>.`}</p></div>`;
+      <p class="hint" data-drop-hint>${dropHint()}</p></div>`;
   };
+
+  // The parts of the drop box that depend on what loads behind the dialog, so they can fill in on their own.
+  const failureSays = () => html`<div class="grow">${failure}</div>
+    ${file && ai.configured ? html`<button class="btn btn-sm" data-read="ai">${icon("sparkles")} Read with ${ai.label}</button>` : ""}`;
+  const dropHint = () => html`Read privately: your Syntropy server reads the file and it goes nowhere else. Nothing is saved until you've checked it.
+    ${reader.ocr ? "" : html`Photos and scans need a reader on the computer running Syntropy Health, such as a free program called Tesseract.
+      ${reader.install} PDFs from lab websites work without it.`}
+    ${ai.configured ? html`${ai.label} (${ai.model}) is usually better with blurry or crooked photos. You can choose that after it's read; it sends the file to ${ai.label} with your key.`
+      : html`For hard-to-read photos you can also <a href="#/settings/ai">add your own AI key</a>.`}`;
 
   const drawSource = () => {
     if (reading) {
@@ -424,7 +428,10 @@ export async function openLabEntry(profile, onSaved, { file: given = null, repor
     for (const t of [...catalog.common, ...catalog.yours]) known.set(t.name.toLowerCase(), t);
     const list = $("#lab-tests", m.el);
     if (list) mount(list, [...known.values()].map((t) => html`<option value="${t.name}">`));
-    if (!reading && !pages.length) drawSource();
+    // Only the words change, not the box: a file picker opened from the box hands its choice to that box, and to a new
+    // one in its place the choice would go nowhere.
+    mount($("[data-drop-hint]", source), dropHint());
+    mount($(".lab-drop-area > .banner.bad", source), failureSays());
   }).catch((err) => { m.close(); toast(err.message, "bad"); });
   if (given) { await ready; useFile(given); }
 }
