@@ -9,6 +9,7 @@ import json
 import logging
 import logging.handlers
 import os
+import re
 import socket
 import sqlite3
 import sys
@@ -829,7 +830,7 @@ def test_recovery_is_only_taken_from_the_apps_own_page(desktop, monkeypatch, kin
 
 def test_a_site_that_wont_open_says_so_with_a_way_back(desktop):
     desktop.on_load_failed("https://mychart.example.org/login", -1001, "The request timed out.")
-    assert "mychart.example.org" in desktop.window.pages[0] and "timed out" in desktop.window.pages[0]
+    assert re.search(r"\bmychart\.example\.org\b", desktop.window.pages[0]) and "timed out" in desktop.window.pages[0]
     assert "send('go-home')" in desktop.window.pages[0]
     assert desktop.location.own_page is True
 

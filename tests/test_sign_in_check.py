@@ -208,7 +208,7 @@ def test_write_status_only_fails_when_the_check_itself_breaks(monkeypatch, tmp_p
     monkeypatch.setattr(check, "_entries", lambda *a: [{"id": "a", "name": "A", "fhir_base_url": "https://a.example.org"}])
     assert check.main(["--write-status", "--no-browser"]) == 0
     saved = json.loads(status_file.read_text())
-    assert saved["checked"] and "https://a.example.org" in saved["servers"]
+    assert saved["checked"] and saved["servers"].get("https://a.example.org") is not None
     assert check.main(["--no-browser"]) == 1       # asked by hand, a failure is still reported
 
 

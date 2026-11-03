@@ -273,7 +273,7 @@ test("public domains and bare names reach the question, not localhost (F097)", a
   for (const d of ["https://health.example.com", "http://nas:8000", "http://synology:5000", "http://box.fritz.box:8000"]) {
     const res = await get({ code: "abc", state: b64({ p: "oura", d }) });
     assert.equal(res.status, 200, d);
-    assert.match(await res.text(), literally(d.replace(/^https?:\/\//, "")));
+    assert.ok((await res.text()).includes(d.replace(/^https?:\/\//, "")), d);
   }
   assert.deepEqual(calls, []);
 });

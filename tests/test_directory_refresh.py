@@ -430,7 +430,7 @@ def test_a_changed_host_or_many_moves_wait_for_a_person(tmp_path):
     (folder / "epic.json").write_text(json.dumps([{**a, "fhir_base_url": "https://attacker.example.net/r4"}, b]))
     moved = refresh.summarize(tmp_path)
     assert moved["rows"] == [("epic.json", 2, 0, 0, 1)]
-    assert any("A" in why and "attacker.example.net" in why for why in moved["review"])
+    assert any("A" in why and re.search(r"\battacker\.example\.net\b", why) for why in moved["review"])
 
     (folder / "epic.json").write_text(json.dumps([{**a, "fhir_base_url": "https://a.example.org/r4/new"}, b]))
     assert refresh.summarize(tmp_path)["review"] == []      # the same server, a new path
