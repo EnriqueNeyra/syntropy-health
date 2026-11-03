@@ -9,6 +9,8 @@ import asyncio
 import os
 import re
 import sys
+import threading
+import time
 import traceback
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -138,6 +140,20 @@ def writes_stay_off_the_event_loop(monkeypatch):
     assert not on_the_loop, f"A database write ran on the event loop:\n{on_the_loop[0]}"
 
 
+# The server's work in the background, some of which carries on after its TestClient has closed. It finds the data folder
+# in the environment each time, so left running it works in the next test's: on Mac CI it once made that test's database,
+# with its key in a file, before the test had chosen the Keychain.
+BACKGROUND = {"daily-rebuild", "data-fixes", "db-maintenance", "finish-deletes", "sample-count", "sample-recount",
+              "directory-index", "import", "scheduled-backup"}
+
+
+def _background_finished(seconds: float = 30) -> None:
+    deadline = time.monotonic() + seconds
+    for thread in threading.enumerate():
+        if thread.name in BACKGROUND:
+            thread.join(max(0.0, deadline - time.monotonic()))
+
+
 @pytest.fixture(autouse=True)
 def isolated_data(tmp_path, monkeypatch):
     monkeypatch.setenv("SYNTROPY_DATA_DIR", str(tmp_path))
@@ -170,6 +186,7 @@ def isolated_data(tmp_path, monkeypatch):
     auth._failed_logins.clear()
     auth._all_failures.clear()
     yield tmp_path
+    _background_finished()      # while the environment still names this test's folder
     db.reset_migration_cache()
 
 
