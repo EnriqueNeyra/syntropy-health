@@ -128,7 +128,9 @@ def _keychain_read(account: Optional[str]) -> Optional[bytes]:
     try:
         done = subprocess.run([SECURITY_TOOL, "find-generic-password", "-s", KEYCHAIN_SERVICE, *who, "-w", *_keychain_args()],
                               capture_output=True, text=True, timeout=_KEYCHAIN_WAIT_S, stdin=subprocess.DEVNULL)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except subprocess.TimeoutExpired as exc:
+        raise Unreachable("The Keychain didn't answer. It may be locked: unlock this Mac, then start Syntropy Health again.") from exc
+    except OSError as exc:
         raise Unreachable(f"The Keychain didn't answer: {exc}") from exc
     if done.returncode == _KEYCHAIN_NOT_FOUND:
         return None
