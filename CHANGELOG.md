@@ -3,7 +3,7 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
-## Unreleased
+## 1.7.0
 
 - **Upload a lab report, on paper or as a PDF, from Sources, Records or Trends.** Drop in a PDF, a scan or a phone photo (HEIC too)
   and it's read on your computer, with nothing to install: the Mac and Windows apps use the reader built into the system, and the Docker
