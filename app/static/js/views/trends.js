@@ -9,7 +9,7 @@ import { metricUnit, metricValue } from "./overview.js";
 import { drawSleep } from "./sleep-view.js";
 import {
   bucket, bucketWord, chartNotes, compareCard, goalText, loadGoals, loadMarkers, markerList, markerToggle, markersOn, meets, openGoal,
-  rangeButtons, saveDays, savedDays, setMarkersOn,
+  ALL_DAYS, rangeButtons, saveDays, savedDays, setMarkersOn,
 } from "./trend-tools.js";
 import { convert, displayUnit, fmtMeasure, recordValue } from "../units.js";
 import { openRecord } from "./record-detail.js";
@@ -178,7 +178,7 @@ function buildItems(labs, vitals, metrics, signals) {
     const topic = GROUP_TOPIC[m.group] || "more";
     const unit = metricUnit(m) ? ` ${metricUnit(m)}` : "";
     items.push({
-      key: `m:${m.metric}`, kind: "wearable", metric: m.metric, topic, title: m.label,
+      key: `m:${m.metric}`, kind: "wearable", metric: m.metric, topic, title: m.label, latest_day: m.latest_day,
       section: wearableSection(m, topic),
       value: m.latest_value != null ? `${metricValue(m, m.latest_value)}${unit}` : "",
       meta: `${fmtDate(m.latest_day)} · ${m.sources.map((s) => s.replace(/ \(simulated\)$/i, "")).join(", ")}`,
@@ -506,6 +506,8 @@ export async function render({ el, parts, params, state, navigate }) {
     // The big number is one day's, whatever the chart's bars or points are averaged over.
     const word = bucketWord(size);
     const eyebrow = word ? "Latest day" : s.aggregation === "sum" ? "Daily total" : s.aggregation === "last" ? "Daily value" : "Daily average";
+    // Nothing in this period isn't nothing at all: a device that stopped sending still has its history.
+    const latestElsewhere = !last && !source ? it.latest_day : null;
     const usualBand = usual?.enough ? { low: cv(usual.low), high: cv(usual.high) } : null;
     const outside = usual?.enough && last && !last.partial && (last.value < usual.low || last.value > usual.high);
     const switches = (usual?.device_changes || []).filter((c) => c.day >= firstDay && c.day <= s.end)
@@ -515,21 +517,22 @@ export async function render({ el, parts, params, state, navigate }) {
       <div class="card card-pad">
         <div class="detail-head">
           <div class="grow"><div class="eyebrow">${eyebrow}</div>
-            <h2>${s.label}</h2><div class="small muted">${last ? `${fmtDate(last.day)}${last.partial ? " so far" : ""} · ${last.source}` : "No data in this period"}</div></div>
+            <h2>${s.label}</h2><div class="small muted">${last ? `${fmtDate(last.day)}${last.partial ? " so far" : ""} · ${last.source}` : latestElsewhere ? `Latest reading ${fmtDate(latestElsewhere)}` : "No data in this period"}</div></div>
           ${last ? html`<div class="detail-value"><div class="v">${metricValue(m, last.value)}<small>${unit}</small></div></div>` : ""}
         </div>
         ${controls(it, s.sources, goal)}
         ${inRange ? html`<div class="row wrap" style="justify-content:flex-end;margin:-4px 0 6px">${markerToggle(inRange, showMarkers)}</div>` : ""}
-        <div id="tr-chart"></div>
+        ${latestElsewhere ? html`<div class="empty small" id="tr-nothing"><p>Nothing in this period. The latest reading is from ${fmtDate(latestElsewhere)}.</p>
+          <button class="btn btn-sm" data-action="range" data-days="${ALL_DAYS}">Show all</button></div>` : html`<div id="tr-chart"></div>`}
         ${word ? html`<p class="tiny faint" style="margin:4px 0 0">The chart shows each period's ${word.toLowerCase().replace(/^\w+ /, "")}.</p>` : ""}
-        ${usualBand ? html`<p class="small muted" style="margin:8px 0 0">Your usual range${usual.source ? ` from ${deviceName(usual.source)}` : ""} is ${metricValue(m, usual.low)} to ${metricValue(m, usual.high)}${unit ? ` ${unit}` : ""}, from the ${usual.window_days} days before the last week.${outside ? " The latest day is outside it." : ""}</p>`
+        ${latestElsewhere ? "" : usualBand ? html`<p class="small muted" style="margin:8px 0 0">Your usual range${usual.source ? ` from ${deviceName(usual.source)}` : ""} is ${metricValue(m, usual.low)} to ${metricValue(m, usual.high)}${unit ? ` ${unit}` : ""}, from the ${usual.window_days} days before the last week.${outside ? " The latest day is outside it." : ""}</p>`
           : usual && !usual.enough && s.points.length ? html`<p class="tiny faint" style="margin:8px 0 0">Your usual range appears after two weeks of readings from one device.</p>` : ""}
-        <div class="stat-row">
+        ${latestElsewhere ? "" : html`<div class="stat-row">
           <div><span>Average</span><b>${metricValue(m, s.stats.mean)}</b></div>
           <div><span>Low</span><b>${metricValue(m, s.stats.min)}</b></div>
           <div><span>High</span><b>${metricValue(m, s.stats.max)}</b></div>
           ${goal ? html`<div><span>Goal met</span><b>${met} of ${complete.length} days</b></div>` : html`<div><span>Days</span><b>${s.stats.count}</b></div>`}
-        </div>
+        </div>`}
         ${goal ? html`<p class="small muted" style="margin:10px 0 0">Goal: ${goalText(goal, { key: it.metric, unit: s.unit })} a day.</p>` : ""}
         ${chartNotes(switches)}
         ${markerList(marks)}
@@ -540,6 +543,7 @@ export async function render({ el, parts, params, state, navigate }) {
         <a href="#/settings/wearables">device priority</a>. Pick a source above to see only its data.</p>`}`);
     wireDetail(detail);
     const chartEl = $("#tr-chart", detail);
+    if (!chartEl) return;
     const goalLine = goal ? cv(goal.target) : null;
     const draw = () => {
       const digits = s.unit === "h" ? 1 : convert(1, s.unit, it.metric).digits ?? 0;

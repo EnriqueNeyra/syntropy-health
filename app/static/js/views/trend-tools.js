@@ -8,7 +8,8 @@ import { convert, displayUnit } from "../units.js";
 import { fmtDate, fmtNum, html, icon, modal, mount, plural, toast } from "../ui.js";
 
 // Periods, the same words as Workouts and the Journal. "All" asks for ten years; the chart starts at the first day.
-export const RANGES = [[7, "7 days"], [30, "30 days"], [90, "90 days"], [365, "1 year"], [3650, "All"]];
+export const ALL_DAYS = 3650;
+export const RANGES = [[7, "7 days"], [30, "30 days"], [90, "90 days"], [365, "1 year"], [ALL_DAYS, "All"]];
 const DAYS_KEY = "syntropy-trends-days";
 export function savedDays() {
   try { const d = Number(localStorage.getItem(DAYS_KEY)); return RANGES.some(([k]) => k === d) ? d : 30; } catch { return 30; }

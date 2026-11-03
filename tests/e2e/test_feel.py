@@ -236,6 +236,25 @@ def test_medications_and_diagnoses_start_off_the_charts(session):
     assert page.evaluate("(() => { try { return localStorage.getItem('syntropy-trends-show-events') } catch { return 'x' } })()") in (None, "0")
 
 
+def test_a_period_with_nothing_says_when_the_latest_reading_was(session):
+    def nothing_recent(route):
+        days = int(route.request.url.split("days=")[1].split("&")[0])
+        if days >= 3650:
+            return route.continue_()
+        real = route.fetch().json()
+        route.fulfill(json={**real, "points": [], "stats": {"count": 0, "mean": None, "min": None, "max": None, "latest": None}})
+    session.ctx.route("**/api/biometrics/daily*", nothing_recent)
+    page = session.open("#/trends/heart")
+    page.locator("[data-action=pick]", has_text="Resting heart rate").first.click()
+    page.wait_for_selector("#tr-nothing")
+    assert "latest reading is from" in page.locator("#tr-nothing").inner_text()
+    assert page.locator("#tr-chart").count() == 0 and page.locator(".stat-row").count() == 0
+    page.locator("#tr-nothing [data-action=range]").click()
+    page.wait_for_selector("#tr-chart svg")
+    assert page.locator("#tr-nothing").count() == 0
+    assert session.errors == []
+
+
 def test_a_new_range_keeps_the_chart_on_screen_until_the_next_is_ready(session):
     page = session.open("#/trends?metric=resting_heart_rate")
     page.wait_for_selector("#tr-chart svg[role=img]")
