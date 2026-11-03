@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 
 from app.core import config, db, encryption, keystore, security
 from app.core.sqlite import HAS_ENCRYPTION
-from tests.conftest import BASE, CSRF, LOCAL_CLIENT, PASSPHRASE
+from tests.conftest import BASE, CSRF, LOCAL_CLIENT, PASSPHRASE, _background_finished
 
 pytestmark = pytest.mark.skipif(not HAS_ENCRYPTION, reason="needs sqlcipher3, which CI and every release install")
 
@@ -148,6 +148,7 @@ def test_a_key_from_an_earlier_version_moves_to_the_keychain_and_its_file_goes_l
 def test_a_copy_of_the_folder_without_the_keychain_opens_nothing(keychain, tmp_path, monkeypatch):
     with _start() as c:
         _set_up(c)
+    _background_finished()      # or it carries on in the copy, once the environment names that
     db.close_readers()
     # The records in the database file itself, not only in its log: a copy whose database is still empty is a new install.
     # What the server started in the background may still be reading for a moment.
