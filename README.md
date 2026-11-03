@@ -72,7 +72,7 @@ standard range for a result and whether it's outside it, and changes from your o
 
 It organizes records and doesn't give medical advice or diagnose anything.
 
-<p align="center"><img src=".github/images/trends.png" alt="Trends in Syntropy Health: heart rate variability over 30 days, compared with sleep" width="900"></p>
+<p align="center"><img src=".github/images/trends.png" alt="Trends in Syntropy Health: hemoglobin A1c over four years against its reference range, with every result and its source" width="900"></p>
 
 ## Get started
 
