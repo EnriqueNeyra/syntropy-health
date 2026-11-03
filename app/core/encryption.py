@@ -161,6 +161,25 @@ def _sync_folder(folder: Path) -> None:
         os.close(fd)
 
 
+_REPLACE_WAITS = (0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 3.0)
+
+
+def _replace(source: Path, target: Path) -> None:
+    """os.replace, given a moment on Windows: whatever opened either file just after it was written (an antivirus scanner,
+    the search indexer) can hold it, and Windows refuses the swap until it lets go. Seen on CI, encrypting at start-up.
+    Elsewhere a refusal is the folder's permissions, and waiting wouldn't change it."""
+    for wait in _REPLACE_WAITS:
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if os.name != "nt":
+                raise
+            log.info("%s is in use for a moment, so it's being replaced again", target)
+            time.sleep(wait)
+    os.replace(source, target)
+
+
 def destroy(path: Path) -> None:
     """As far as a program can. Overwriting first helps on Windows and Linux with a disk that writes in place. On a Mac it
     would only use more space (APFS writes elsewhere, and the old blocks stay), and on an SSD the old blocks may survive
@@ -438,7 +457,7 @@ def _encrypt_in_place(path: Path) -> None:
             Path(f"{path}{extra}").unlink(missing_ok=True)
         db.same_owner(temp, path)
         _step("before-swap")
-        os.replace(temp, path)
+        _replace(temp, path)
     except OSError:
         kept.unlink(missing_ok=True)
         _leftovers(path)
@@ -537,7 +556,7 @@ def _convert_copy(copy: Path, key: str) -> None:
     aside = copy.with_name(copy.name + ".plain")
     os.link(copy, aside) if _can_link(copy, aside) else shutil.copy2(copy, aside)
     try:
-        os.replace(temp, copy)
+        _replace(temp, copy)
     finally:
         destroy(aside)
     for extra in ("-wal", "-shm"):
@@ -640,7 +659,7 @@ def encrypt_copy(database: Path, key: str) -> None:
         raise
     finally:
         source.close()
-    os.replace(temp, database)
+    _replace(temp, database)
     for extra in ("-wal", "-shm"):
         Path(f"{database}{extra}").unlink(missing_ok=True)
 
