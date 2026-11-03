@@ -29,6 +29,7 @@ def first_tile(page):
     tile = page.locator(".dash-item.is-tile").first
     # With room below it: a drag that leaves the window isn't reported the same way by every browser's automation.
     tile.evaluate("(n) => n.scrollIntoView({ block: 'start' })")
+    tile.locator('[data-corner="br"]').wait_for(state="visible")
     return tile
 
 

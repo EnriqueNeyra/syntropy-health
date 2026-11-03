@@ -77,6 +77,9 @@ runs the server can read everything. Every route and AI tool was checked for rea
 ### Records and portals
 - Records' counts by kind change as soon as something is added or deleted, rather than on the next visit.
 - On a phone's browser, Back closes Ask's list of conversations rather than leaving Ask.
+- **Dialogs on a phone.** With a keyboard up they fit the space above it, so their title, buttons and the field being typed in stay in view, in the
+  apps and in a phone's browser. In the apps the page goes out of focus behind them, and a screen that was left in light mode no longer flashes white on
+  its way back to dark.
 - **Ask works on Android.** With an AI connected it was a blank screen: Android's web view measured the screen's height as 0. A page that fills
   the screen now takes its height from the window, so this holds for Android apps already installed. Ask gives the conversation the room there is
   while a phone's keyboard is up. Android's Back closes a dialog, menu or panel before it leaves the page.

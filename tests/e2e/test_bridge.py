@@ -147,3 +147,23 @@ def test_a_page_that_fills_the_screen_has_a_height_when_the_app_gives_no_viewpor
     assert page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--fill-height')") == "800px"
     assert page.evaluate("document.querySelector('.main').getBoundingClientRect().height") == 800
     s.close()
+
+
+def test_the_app_is_told_when_dialogs_open_and_close(app):
+    page = app.open("#/journal")
+    page.locator("[data-action=new]").first.click()
+    page.wait_for_selector(".overlay")
+    assert _sent(page, "dialog")[-1]["open"] is True
+    page.keyboard.press("Escape")
+    page.wait_for_selector(".overlay", state="detached")
+    assert _sent(page, "dialog")[-1]["open"] is False
+
+
+def test_a_screen_left_behind_doesnt_fade_through_the_other_appearance_in_an_app(app):
+    """A view transition there showed the old colours for a third of a second as the screen came back: white, in dark mode."""
+    page = app.page
+    page.evaluate("document.startViewTransition = (f) => { window.__faded = true; f(); return { finished: Promise.resolve() }; }; 1")
+    page.emulate_media(color_scheme="dark")
+    page.wait_for_timeout(100)
+    assert page.evaluate("document.documentElement.getAttribute('data-theme')") == "dark"
+    assert page.evaluate("window.__faded") is None

@@ -423,6 +423,8 @@ export function closeAnimated(el, done) {
 
 // ---------------------------------------------------------------- modal & drawer
 const openDialogs = new Set();
+// An app's own message field makes way while a dialog is open: it would keep the keyboard, and what's typed.
+const tellAppAboutDialogs = (open) => window.webkit?.messageHandlers?.syntropy?.postMessage({ type: "dialog", open });
 
 /** Closes every open dialog and drawer: they belong to the page they were opened from (see route in app.js). */
 export function closeDialogs() { for (const close of [...openDialogs]) close(); }
@@ -468,6 +470,32 @@ export function fieldsChanged(el) {
  * `dirty`: true (its fields changed) or a function. While it holds, a stray click outside does nothing, and Escape and the
  * close button ask first. Cancel and the like call close() and go straight away.
  */
+// A phone's keyboard covers the page without changing its size. Dialogs fit what's left, so their title and buttons stay in view.
+if (window.visualViewport && window.matchMedia("(pointer: coarse)").matches) {
+  const viewport = window.visualViewport;
+  // Against the tallest it's been on this side of the phone: with a phone app's own keyboard up, the window's height shrinks as well.
+  let tallest = 0, wide = window.innerWidth;
+  const fitToKeyboard = () => {
+    const root = document.documentElement;
+    if (viewport.height < 120) return;        // mid-way through a change of keyboard, with nothing to fit to
+    if (window.innerWidth !== wide) { wide = window.innerWidth; tallest = 0; }
+    tallest = Math.max(tallest, viewport.height);
+    root.classList.toggle("keyboard-up", viewport.scale < 1.01 && tallest - viewport.height > 120);
+    root.style.setProperty("--viewport-top", `${viewport.offsetTop}px`);
+    root.style.setProperty("--viewport-height", `${viewport.height}px`);
+    // The dialog just got shorter, and may have left the field being typed in out of view. Only the dialog scrolls for it.
+    const field = document.activeElement, box = root.classList.contains("keyboard-up") && field?.closest?.(".modal-body");
+    if (box) {
+      const f = field.getBoundingClientRect(), b = box.getBoundingClientRect();
+      if (f.bottom > b.bottom) box.scrollTop += f.bottom - b.bottom + 12;
+      else if (f.top < b.top) box.scrollTop -= b.top - f.top + 12;
+    }
+  };
+  viewport.addEventListener("resize", fitToKeyboard);
+  viewport.addEventListener("scroll", fitToKeyboard);
+  fitToKeyboard();
+}
+
 export function modal({ title, body, footer = "", wide = false, drawer = false, onClose, dirty } = {}) {
   const overlay = document.createElement("div");
   overlay.className = `overlay${drawer ? " drawer-overlay" : ""}`;
@@ -484,6 +512,7 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
     if (closed) return;
     closed = true;
     openDialogs.delete(close);
+    if (!openDialogs.size) tellAppAboutDialogs(false);
     dialogStack.splice(dialogStack.indexOf(overlay), 1);
     holdBehind();
     if (entry) {
@@ -524,6 +553,7 @@ export function modal({ title, body, footer = "", wide = false, drawer = false, 
   }
   document.addEventListener("keydown", onKey);
   openDialogs.add(close);
+  tellAppAboutDialogs(true);
   document.body.appendChild(overlay);
   dialogStack.push(overlay);
   holdBehind();

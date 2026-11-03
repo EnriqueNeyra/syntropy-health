@@ -808,9 +808,9 @@ export async function render({ el, state, params, navigate }) {
                                                ...(c.pinned ? { symbol: "pin.fill" } : {}), checked: c.id === chatId, run: () => openChat(c.id) }))
           : [{ id: "chat:none", title: "No saved conversations yet", disabled: true }] },
         ...(saved ? [{ items: [
-          { id: "chat:rename", title: "Rename This Conversation", symbol: "pencil", run: () => renameDialog(chatId) },
-          { id: "chat:pin", title: saved.pinned ? "Unpin This Conversation" : "Pin This Conversation", symbol: saved.pinned ? "pin.slash" : "pin", run: () => changeChat(chatId, { pinned: !saved.pinned }) },
-          { id: "chat:delete", title: "Delete This Conversation", symbol: "trash", destructive: true, run: () => deleteChat(chatId) },
+          { id: "chat:rename", title: "Rename Conversation", symbol: "pencil", run: () => renameDialog(chatId) },
+          { id: "chat:pin", title: saved.pinned ? "Unpin Conversation" : "Pin Conversation", symbol: saved.pinned ? "pin.slash" : "pin", run: () => changeChat(chatId, { pinned: !saved.pinned }) },
+          { id: "chat:delete", title: "Delete Conversation", symbol: "trash", destructive: true, run: () => deleteChat(chatId) },
         ] }] : []),
       ] },
       { id: "new", title: "New Chat", symbol: "square.and.pencil", run: newChat },

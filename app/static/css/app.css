@@ -666,6 +666,9 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .modal-head { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .modal-body { padding: 18px; overflow-y: auto; }
 .modal-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+html.keyboard-up .overlay { top: var(--viewport-top, 0px); bottom: auto; height: var(--viewport-height, 100%); padding-top: 8px; padding-bottom: 8px;
+  box-shadow: 0 0 0 100vmax rgba(8, 8, 12, .55); }  /* the dimming carries on behind the keyboard */
+html.keyboard-up .modal { max-height: 100%; }
 .drawer-overlay { justify-content: flex-end; padding: 0; }
 .drawer { background: var(--surface); height: 100vh; width: min(620px, 100vw); border-left: 1px solid var(--border); display: flex; flex-direction: column; animation: slide .18s ease; }
 @keyframes slide { from { transform: translateX(30px); opacity: .5; } }
@@ -1409,6 +1412,9 @@ pre.raw { background: var(--surface-2); border: 1px solid var(--border); border-
 :root[data-native-nav][data-theme="dark"] { --bg: #000000; --surface: #1c1c1e; --surface-2: #2c2c2e; --surface-3: #3a3a3c;
   --border: #38383a; --border-strong: #48484a; }
 [data-native-nav] .topbar, [data-native-nav] .head-tools { display: none !important; }
+/* Behind a dialog the page goes out of focus, as behind one of the phone's own sheets. What's scrolled under the app's title bar can't read through it. */
+[data-native-nav] #root { transition: filter .2s ease; }
+[data-native-nav] body:has(> .overlay:not(.closing)) #root { filter: blur(7px); }
 [data-native-nav] .split-back { display: none !important; }     /* the app's back button instead */
 [data-native-nav] .timeline-year { position: static; }           /* stuck to the top, it would sit under the app's title bar */
 [data-native-nav] .content { padding: 4px 16px 28px; }
