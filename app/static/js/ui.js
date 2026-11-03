@@ -478,7 +478,9 @@ if (window.visualViewport && window.matchMedia("(pointer: coarse)").matches) {
   const fitToKeyboard = () => {
     const root = document.documentElement;
     if (viewport.height < 120) return;        // mid-way through a change of keyboard, with nothing to fit to
-    if (window.innerWidth !== wide) { wide = window.innerWidth; tallest = 0; }
+    // Turned, or an iPhone Duo opened or closed, maybe with the keyboard still up: measured again from the window, which
+    // the iPhone's keyboard leaves its full height (Android's shrinks it, and then this is no worse than starting afresh).
+    if (window.innerWidth !== wide) { wide = window.innerWidth; tallest = window.innerHeight; }
     tallest = Math.max(tallest, viewport.height);
     root.classList.toggle("keyboard-up", viewport.scale < 1.01 && tallest - viewport.height > 120);
     root.style.setProperty("--viewport-top", `${viewport.offsetTop}px`);
@@ -493,6 +495,7 @@ if (window.visualViewport && window.matchMedia("(pointer: coarse)").matches) {
   };
   viewport.addEventListener("resize", fitToKeyboard);
   viewport.addEventListener("scroll", fitToKeyboard);
+  window.addEventListener("resize", fitToKeyboard);   // an iPhone Duo opened or closed with the keyboard up resizes only the window
   fitToKeyboard();
 }
 

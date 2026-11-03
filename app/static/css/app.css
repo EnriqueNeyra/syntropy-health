@@ -671,6 +671,12 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 html.keyboard-up .overlay { top: var(--viewport-top, 0px); bottom: auto; height: var(--viewport-height, 100%); padding-top: 8px; padding-bottom: 8px;
   box-shadow: 0 0 0 100vmax rgba(8, 8, 12, .55); }  /* the dimming carries on behind the keyboard */
 html.keyboard-up .modal { max-height: 100%; }
+/* iPhone Duo partly open: the fold divides the screen, and what's on it is hard to see and to tap. The iPhone app says
+   where it runs (data-fold, and --app-fold-start and --app-fold-end from the page's left or top), and dialogs keep to one
+   side of it: right of a fold down the screen, above a fold across it. */
+:root[data-fold="vertical"] .overlay { padding-left: calc(var(--app-fold-end) + 16px); }
+:root[data-fold="horizontal"] .overlay { bottom: auto; height: var(--app-fold-start); box-shadow: 0 0 0 100vmax rgba(8, 8, 12, .55); }
+:root[data-fold="horizontal"].keyboard-up .overlay { height: min(var(--app-fold-start) - var(--viewport-top, 0px), var(--viewport-height, 100%)); }
 .drawer-overlay { justify-content: flex-end; padding: 0; }
 .drawer { background: var(--surface); height: 100vh; width: min(620px, 100vw); border-left: 1px solid var(--border); display: flex; flex-direction: column; animation: slide .18s ease; }
 @keyframes slide { from { transform: translateX(30px); opacity: .5; } }

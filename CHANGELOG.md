@@ -68,6 +68,8 @@ runs the server can read everything. Every route and AI tool was checked for rea
 - **Arrange the Overview by hand.** In Edit, pick a card up from anywhere, or drag any corner to snap it through the
   grid's widths and heights. Everything around it moves out of the way as it goes. Done saves at once. No card is
   shorter than the smallest height a corner gives it, and a number tile is exactly one row tall.
+- **iPhone Duo.** In the iPhone app, dialogs keep to one side of the fold while the phone is partly open, and still fit
+  above the keyboard after it opens or closes.
 - **Nothing jumps.** Journal's new-entry dialog keeps one size between kinds, first-run steps and other dialogs ease to
   their new size, filters keep what's on screen until the new answer arrives, and pages are laid out before they appear.
 - **Overview's small charts are coloured again, with round dots.**
