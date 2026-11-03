@@ -37,7 +37,9 @@ AGENTS: dict[str, dict[str, Any]] = {
         # Offered in Ask's model menu (the tool's own aliases, which follow its latest models); any --model value works.
         "models": ["sonnet", "opus", "haiku"],
         "install": "Install it from claude.com/claude-code.",
-        "sign_in": "Run claude in a terminal and sign in, then come back.",
+        # The Claude app's own Claude Code keeps its own sign-in, so someone using that daily can still find this one signed out.
+        "sign_in": "Run claude auth login in a terminal and sign in, then come back. Being signed in to the Claude app "
+                   "doesn't sign in the claude command.",
         "usage": "Counts toward your Claude plan's usage limits, like using Claude Code yourself.",
         "terms": "Questions fall under Anthropic's consumer terms and your Claude privacy settings (for example, "
                  "whether chats may be used to improve Claude), not API terms.",
@@ -306,8 +308,9 @@ def _short_tool(name: str) -> str:
 
 def _signin_error(agent_id: str, text: str) -> Optional[str]:
     lowered = text.lower()
+    # "authenticat" covers Claude Code's "Failed to authenticate: OAuth session expired and could not be refreshed".
     if any(s in lowered for s in ("not logged in", "please run /login", "login required", "not signed in", "401",
-                                  "unauthorized", "authentication", "please log in", "invalid api key")):
+                                  "unauthorized", "authenticat", "session expired", "please log in", "invalid api key")):
         return f"{AGENTS[agent_id]['label']} isn't signed in. {AGENTS[agent_id]['sign_in']}"
     return None
 

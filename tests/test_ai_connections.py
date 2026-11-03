@@ -102,6 +102,9 @@ prompt = sys.stdin.read()
 instructions = args[args.index("--system-prompt-file") + 1] if "--system-prompt-file" in args else None
 json.dump({"args": args, "prompt": prompt, "cwd": os.getcwd(), "files": sorted(os.listdir(".")),
            "instructions": open(instructions).read() if instructions else None}, open(os.environ["FAKE_LOG"], "w"))
+if os.environ.get("FAKE_ERROR"):
+    print(json.dumps({"type": "result", "subtype": "success", "is_error": True, "result": os.environ["FAKE_ERROR"]}))
+    sys.exit(1)
 config = json.load(open(args[args.index("--mcp-config") + 1]))["mcpServers"]["syntropy"]
 # Talk to Syntropy's MCP server the way the real tool would, and ask for another person's records.
 server = subprocess.Popen([config["command"], *config["args"]], env={**os.environ, **config["env"]},
@@ -186,6 +189,16 @@ def test_a_claude_code_without_a_prompt_file_gets_the_instructions_with_the_ques
     _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
     run = json.loads(fake_tools.read_text())
     assert "Alex" in run["prompt"] and "Alex" not in json.dumps(run["args"])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_a_claude_code_whose_sign_in_ran_out_says_how_to_sign_in_again(client, fake_tools, monkeypatch):
+    # What Claude Code 2.1 answers once its sign-in has expired and can't be renewed.
+    monkeypatch.setenv("FAKE_ERROR", "Failed to authenticate: OAuth session expired and could not be refreshed")
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "claude", "acknowledged": True})
+    events = _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+    assert events[0]["type"] == "error" and "isn't signed in" in events[0]["message"]
+    assert "claude auth login" in events[0]["message"]
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
