@@ -954,8 +954,10 @@ def test_windows_gets_an_access_list_for_a_folder_outside_the_profile(tmp_path, 
     monkeypatch.setattr(encryption.subprocess, "run", run)
     monkeypatch.setenv("USERPROFILE", str(tmp_path / "somebody"))
     encryption._windows_acl(tmp_path)
-    assert calls[0][0] == "whoami" and calls[1][0] == "icacls" and "/inheritance:r" in calls[1]
-    assert "*S-1-5-21-111-222-333-1001:(OI)(CI)F" in calls[1] and "*S-1-5-18:(OI)(CI)F" in calls[1]
+    assert calls[0][0] == "whoami" and [c[0] for c in calls[1:]] == ["icacls", "icacls"]
+    # This account's entry is there before the inherited ones go, and only the folder is changed: never a moment without one.
+    assert "*S-1-5-21-111-222-333-1001:(OI)(CI)F" in calls[1] and "*S-1-5-18:(OI)(CI)F" in calls[1] and "/inheritance:r" not in calls[1]
+    assert "/inheritance:r" in calls[2] and not any("/T" in c for c in calls)
     calls.clear()
     monkeypatch.setenv("USERPROFILE", str(tmp_path.parent))      # the profile's own folders are already private
     encryption._windows_acl(tmp_path)
@@ -964,11 +966,18 @@ def test_windows_gets_an_access_list_for_a_folder_outside_the_profile(tmp_path, 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows")
 def test_windows_acl_really_limits_the_folder(tmp_path, monkeypatch):
-    """Only CI can run this."""
+    """Only CI can run this. What's already in the folder follows it, and stays readable to this account, also when it's
+    done again at the next start."""
     monkeypatch.setenv("USERPROFILE", "C:\\nowhere")
-    encryption._windows_acl(tmp_path)
-    listed = subprocess.run(["icacls", str(tmp_path)], capture_output=True, text=True, check=True).stdout
-    assert "BUILTIN\\Users" not in listed and "Everyone" not in listed
+    inside = tmp_path / "inner" / "desktop.json"
+    inside.parent.mkdir()
+    inside.write_text("{}")
+    for _ in range(2):
+        encryption._windows_acl(tmp_path)
+        assert inside.read_text() == "{}"
+    for target in (tmp_path, inside):
+        listed = subprocess.run(["icacls", str(target)], capture_output=True, text=True, check=True).stdout
+        assert "BUILTIN\\Users" not in listed and "Everyone" not in listed and "Authenticated Users" not in listed, listed
 
 
 # ---------------------------------------------------------------------------

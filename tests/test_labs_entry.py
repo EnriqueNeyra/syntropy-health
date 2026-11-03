@@ -32,6 +32,13 @@ def test_a_name_it_doesnt_know_is_left_alone():
     assert lab_catalog.matched_test("Bilirubin, direct")["name"] == "Bilirubin, direct"
 
 
+def test_a_name_made_of_brackets_is_answered_at_once():
+    import time
+    started = time.perf_counter()
+    assert lab_catalog.loinc_codes("(" * 50_000) == []
+    assert time.perf_counter() - started < 0.5
+
+
 def test_every_code_in_the_catalog_is_only_listed_once():
     codes = [t["loinc"] for t in lab_catalog.common_labs()]
     assert len(codes) == len(set(codes))

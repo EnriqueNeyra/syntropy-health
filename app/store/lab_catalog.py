@@ -93,7 +93,8 @@ def _match(key: str) -> list[str]:
 def _codes_for(name: str) -> tuple[str, ...]:
     if found := _match(_key(name)):
         return tuple(found)
-    parts = [p for p in re.sub(r"\(([^)]*)\)", r",\1", name).split(",") if p.strip()]
+    # Brackets with no bracket inside: "[^)]*" could also take the "(", which made a name of many "(" take minutes.
+    parts = [p for p in re.sub(r"\(([^()]*)\)", r",\1", name).split(",") if p.strip()]
     while len(parts) > 1 and _key(parts[-1]) in NOISE:
         parts.pop()
         if found := _match(_key(",".join(parts))):

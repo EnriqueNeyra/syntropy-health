@@ -97,16 +97,20 @@ def _chmod(target: Path, most: int = 0o777) -> None:
 def _windows_acl(folder: Path) -> None:
     """On Windows a folder in the profile is already private. One chosen elsewhere (C:\\Syntropy, or a second drive) inherits
     "Users can read" from its parent, so it gets its own list: this account, SYSTEM (which backup software runs as) and
-    administrators. SIDs, because the names of those groups depend on the language of Windows."""
+    administrators. SIDs, because the names of those groups depend on the language of Windows.
+    The entries go on before the inherited ones come off, and on the folder alone, which Windows passes on to what's in it:
+    the other way round, or file by file, each file is left with no entries for a moment, and whatever opens it then (the
+    app reading its own settings at start-up) is refused."""
     profile = Path(os.environ.get("USERPROFILE") or "")
     try:
         if profile.parts and folder.resolve().is_relative_to(profile.resolve()):
             return
         who = subprocess.run(["whoami", "/user", "/fo", "csv", "/nh"], capture_output=True, text=True, timeout=30, check=True)
         sid = who.stdout.strip().split(",")[-1].strip('"')
-        subprocess.run(["icacls", str(folder), "/inheritance:r", "/grant:r", f"*{sid}:(OI)(CI)F", "*S-1-5-18:(OI)(CI)F",
-                        "*S-1-5-32-544:(OI)(CI)F", "/T", "/C", "/Q"], capture_output=True, timeout=120, check=True,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        grants = ["/grant:r", f"*{sid}:(OI)(CI)F", "*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F"]
+        for change in (grants, ["/inheritance:r"]):
+            subprocess.run(["icacls", str(folder), *change, "/C", "/Q"], capture_output=True, timeout=120, check=True,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         log.warning("Couldn't limit who can read %s: %s", folder, exc)
 

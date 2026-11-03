@@ -30,7 +30,10 @@ def seen(tmp_path_factory) -> dict:
     proc = subprocess.run([sys.executable, str(HARNESS), str(out), str(_free_port()), str(_free_port())],
                           capture_output=True, text=True, timeout=120, check=False)
     assert out.exists(), f"The window's test run ended early:\n{proc.stdout}\n{proc.stderr}"
-    return {**json.loads(out.read_text()), "exit_code": proc.returncode, "log": proc.stderr}
+    found = {**json.loads(out.read_text()), "exit_code": proc.returncode, "log": proc.stderr}
+    # Shown with a failure: what happened when, and what the window logged.
+    print(*(json.dumps(step) for step in found["trace"]), found["log"][-6000:], sep="\n")
+    return found
 
 
 def test_starts_as_the_app_and_names_another_site(seen):

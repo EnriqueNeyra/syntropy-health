@@ -202,7 +202,7 @@ mac_main() {
     [ -f "$SERVER_PLIST" ] && { launchctl bootout "gui/$(id -u)" "$SERVER_PLIST" 2>/dev/null || true; rm -f "$SERVER_PLIST"; }
     rm -f "$HOME/Library/LaunchAgents/io.syntropyhealth.desktop.plist"
     rm -rf "$APP"
-    command -v uv >/dev/null 2>&1 && uv tool uninstall syntropy-health >/dev/null 2>&1 || true
+    if command -v uv >/dev/null 2>&1; then uv tool uninstall syntropy-health >/dev/null 2>&1 || true; fi
     rm -f "$BIN/syntropy-health"
     mac_remove_path_hint
     if [ "$PURGE" = 1 ]; then

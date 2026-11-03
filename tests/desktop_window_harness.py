@@ -16,7 +16,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "desktop")]
 HOME_PORT, AWAY_PORT = int(sys.argv[2]), int(sys.argv[3])
-results: dict = {}
+results: dict = {"trace": []}
+STARTED = time.monotonic()
+
+
+def trace(*what):
+    """What happened when, for a failure on a Mac other than the one these were written on."""
+    results["trace"].append([round(time.monotonic() - STARTED, 2), *what])
+
 # What each of the sites answers with a redirect, the way a sign-in comes back: through the callback to the app's page.
 SIGN_IN_REDIRECTS = {
     "/allow": lambda: f"http://localhost:{HOME_PORT}/callback/go",
@@ -35,6 +42,7 @@ class Pages(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):  # noqa: N802
         path = self.path.split("?")[0]
+        trace("served", self.headers.get("Host"), path, "sid=abc" in self.headers.get("Cookie", ""))
         if path in SIGN_IN_REDIRECTS:
             self.send_response(303)
             self.send_header("Location", SIGN_IN_REDIRECTS[path]())
@@ -96,8 +104,19 @@ opened: list[str] = []
 webbrowser.open = lambda url, *a, **k: (opened.append(url), True)[1]
 webview.settings["ALLOW_DOWNLOADS"] = True
 
+import mac_window  # noqa: E402
 import sites  # noqa: E402
 from mac_window import MacWindow  # noqa: E402
+
+_report_load_failure = mac_window._report_load_failure
+
+
+def _traced_load_failure(error):
+    trace("load failed", int(error.code()), str(error.userInfo().get("NSErrorFailingURLStringKey") or ""))
+    _report_load_failure(error)
+
+
+mac_window._report_load_failure = _traced_load_failure
 
 
 class Prefs:
@@ -229,6 +248,7 @@ def scenario():
     # What a foreign page can open with script alone.
     go_to_away()
     results["away"] = state()
+    trace("away", results["away"])
     for target in ("x-apple.systempreferences:com.apple.preference.security", "ssh://evil.example/", "smb://evil.example/share",
                    "vscode://file/etc/hosts", "javascript:alert(1)", "https://example.test/scripted"):
         js(script_link(target), 0.3)
@@ -300,12 +320,15 @@ def scenario():
 
     # A page that can't load is reported. (With the window on screen, another site would open in the sign-in sheet.)
     on_main(lambda: mac.ns_window.orderOut_(None))
+    trace("hidden", on_main(lambda: bool(mac.ns_window.isVisible())), url())
     window.load_url("http://127.0.0.1:9/")
     until(lambda: any("127.0.0.1:9" in str(f[0]) for f in failures))
     results["failures"] = [[str(a) for a in f] for f in failures]
+    trace("after the page that won't load", url(), mac.sheet is not None)
     window.load_url(f"{HOME}/page")
     until(lambda: (url() or "").endswith("/page"))
     time.sleep(0.3)
+    trace("before downloading", url(), mac.sheet is not None)
 
     # Pressing Cancel in the save panel.
     folder = Path(sys.argv[1]).parent
@@ -580,7 +603,13 @@ def sign_in_sheet():
     time.sleep(0.4)
 
 
+def _traced_location_changed(changed=mac._location_changed):
+    changed()
+    trace("address", mac_window._url_text(mac.webview.URL()), mac.away, str(mac.ns_window.title()))
+
+
 def started():
+    mac._location_changed = _traced_location_changed
     mac.install()
     threading.Thread(target=scenario, daemon=True).start()
 
