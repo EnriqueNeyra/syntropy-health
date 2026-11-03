@@ -59,6 +59,7 @@ STATUS_FILE = REPO_ROOT / "app" / "data" / "sign_in_status.json"
 MAX_PLACES = 8
 MIN_KEPT = 0.5          # a list that shrinks more than this is a broken feed, not a wave of closures
 MOVES_FOR_REVIEW = 10   # same host, new path: routine in ones and twos, odd in bulk
+SIGN_INS_LISTED = 40    # of each kind of failed sign-in: GitHub refuses a pull request's text over 65,536 characters
 
 EPIC_BRANDS_URL = "https://open.epic.com/Endpoints/Brands"
 EPIC_R4_URL = "https://open.epic.com/Endpoints/R4"
@@ -743,9 +744,15 @@ def summary_markdown(root: Path, sign_in_report: Optional[Path] = None, failures
         failing = [r for r in results if r["status"] not in ("ok", "blocked", "unclear")]
         lines += ["", f"**Sign-in check:** {len(results) - len(failing)} of {len(results)} servers reach their sign-in "
                       "or couldn't be judged.", ""]
+        shown: Counter[str] = Counter()
         for r in sorted(failing, key=lambda r: (r["status"], r["names"][0])):
-            more = f" (+{len(r['names']) - 1})" if len(r["names"]) > 1 else ""
-            lines.append(f"- `{r['status']}` {r['names'][0]}{more} ({r['platform']}): {r['detail'][:160]}")
+            shown[r["status"]] += 1
+            if shown[r["status"]] <= SIGN_INS_LISTED:
+                more = f" (+{len(r['names']) - 1})" if len(r["names"]) > 1 else ""
+                lines.append(f"- `{r['status']}` {r['names'][0]}{more} ({r['platform']}): {r['detail'][:160]}")
+            elif shown[r["status"]] == SIGN_INS_LISTED + 1:
+                rest = sum(1 for f in failing if f["status"] == r["status"]) - SIGN_INS_LISTED
+                lines.append(f"- and {rest} more `{r['status']}`, all in sign-in.json in this run's `directory` artifact")
     if info["review"]:
         lines += ["", "**This waits for review before merging:**", ""] + [f"- {why}" for why in info["review"][:50]]
         if len(info["review"]) > 50:

@@ -446,6 +446,20 @@ def test_a_changed_host_or_many_moves_wait_for_a_person(tmp_path):
     assert any("no longer published" in why for why in refresh.summarize(tmp_path)["review"])
 
 
+def test_the_pull_request_text_stays_under_githubs_limit_however_many_sign_ins_fail(tmp_path):
+    # The first check of every eClinicalWorks practice found 1,074 error pages, and GitHub refused the text that listed them.
+    repo(tmp_path, {"epic.json": [{"id": "a", "name": "A", "platform": "epic", "fhir_base_url": "https://a.example.org/r4"}]})
+    report = tmp_path / "sign-in.json"
+    failed = [{"status": "error_page", "names": [f"Practice {i:04}"], "platform": "ecw", "detail": "x" * 200} for i in range(1100)]
+    failed += [{"status": "client_unknown", "names": [f"System {i}"], "platform": "epic", "detail": "OAuth2 Error"} for i in range(3)]
+    report.write_text(json.dumps([*failed, {"status": "ok", "names": ["Fine"], "platform": "epic", "detail": ""}]))
+    body, _ = refresh.summary_markdown(tmp_path, report)
+    assert len(body) < 65536
+    assert "1 of 1104 servers" in body
+    assert body.count("`client_unknown`") == 3 and body.count("`error_page` Practice") == refresh.SIGN_INS_LISTED
+    assert f"and {1100 - refresh.SIGN_INS_LISTED} more `error_page`" in body
+
+
 def test_sign_in_check_age_is_reported(tmp_path, capsys):
     status = tmp_path / "s.json"
     status.write_text(json.dumps({"checked": "2026-10-03", "servers": {}}))
