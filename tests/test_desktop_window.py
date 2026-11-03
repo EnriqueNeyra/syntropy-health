@@ -30,15 +30,17 @@ def seen(tmp_path_factory) -> dict:
     proc = subprocess.run([sys.executable, str(HARNESS), str(out), str(_free_port()), str(_free_port())],
                           capture_output=True, text=True, timeout=120, check=False)
     assert out.exists(), f"The window's test run ended early:\n{proc.stdout}\n{proc.stderr}"
-    found = {**json.loads(out.read_text()), "exit_code": proc.returncode, "log": proc.stderr}
-    # Shown with a failure: what happened when, and what the window logged.
-    print(*(json.dumps(step) for step in found["trace"]), found["log"][-6000:], sep="\n")
-    return found
+    return {**json.loads(out.read_text()), "exit_code": proc.returncode, "log": proc.stderr}
+
+
+def story(seen) -> str:
+    """For a failure: what happened when, and what the window logged."""
+    return "\n".join([*(json.dumps(step) for step in seen["trace"]), seen["log"][-4000:]])
 
 
 def test_starts_as_the_app_and_names_another_site(seen):
     assert seen["home"]["away"] is False and seen["home"]["back"] is False
-    assert seen["away"]["away"] is True and seen["away"]["title"] == "127.0.0.1" and seen["away"]["back"] is True
+    assert seen["away"]["away"] is True and seen["away"]["title"] == "127.0.0.1" and seen["away"]["back"] is True, story(seen)
 
 
 def test_a_page_cant_launch_anything_by_script(seen):
@@ -76,11 +78,11 @@ def test_the_apps_own_page_is_home_and_is_listened_to(seen):
 
 
 def test_a_page_that_wont_load_is_reported(seen):
-    assert any("127.0.0.1:9" in failure[0] for failure in seen["failures"])
+    assert any("127.0.0.1:9" in failure[0] for failure in seen["failures"]), story(seen)
 
 
 def test_saving_over_a_file_replaces_it_only_once_the_download_is_complete(seen):
-    assert seen["saved_over"] == "NEW-BACKUP"
+    assert seen["saved_over"] == "NEW-BACKUP", story(seen)
     assert seen["leftovers_after_saving"] == []
     assert seen["kept_after_failure"] == "NEW-BACKUP"
     assert seen["leftovers_after_failure"] == []
@@ -96,7 +98,7 @@ def test_pressing_cancel_in_the_save_panel_says_nothing(seen):
 
 
 def test_a_plain_link_to_a_file_sends_the_sign_in_cookie(seen):
-    assert seen["plain_link"] == "NEW-BACKUP"
+    assert seen["plain_link"] == "NEW-BACKUP", story(seen)
     assert seen["download_without_cookie"] is False
 
 
