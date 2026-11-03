@@ -139,6 +139,16 @@ def test_windows_without_a_language_says_how_to_add_one(monkeypatch):
 # ---- The real engine, whichever this computer has
 
 
+def _rows(out, img) -> dict:
+    """The rows read, by name. Without the one these pages always have, says what the engine saw, since each engine reads a
+    page its own way and CI is where the others are."""
+    rows = {r["test"].upper(): r for r in out["results"]}
+    if "GLUCOSE" not in rows:
+        seen = "\n".join(line.text for line in ocr.lay_out(ocr.read_words(img), 0, img.height, read_by_ocr=True))
+        pytest.fail(f"No glucose row. Rows: {sorted(rows)}\nThe {ocr.engine()} engine read:\n{seen}")
+    return rows
+
+
 @needs_ocr
 def test_reads_a_photo_at_a_slight_angle_with_a_shadow(client):
     img = report_image().rotate(2.5, expand=True, fillcolor=(190, 180, 160), resample=Image.BICUBIC)
@@ -148,7 +158,7 @@ def test_reads_a_photo_at_a_slight_angle_with_a_shadow(client):
     img.save(buf, "JPEG", quality=80)
     out = client.post("/api/labs/extract", files={"file": ("IMG_0412.jpg", buf.getvalue(), "image/jpeg")}).json()
     assert out["read_as"] == "ocr" and out["engine"] == ocr.engine()
-    rows = {r["test"].upper(): r for r in out["results"]}
+    rows = _rows(out, img)
     assert rows["GLUCOSE"]["value"] == 105 and rows["CREATININE"]["value"] == 0.82
     # Its place on the picture came back, turned as it was read.
     assert out["pages"][0]["image"].startswith("data:image/jpeg;base64,") and 0 < rows["GLUCOSE"]["where"]["top"] < rows["CREATININE"]["where"]["top"] < 1
@@ -165,7 +175,7 @@ def test_reads_every_page_of_a_scanned_pdf_and_keeps_each_rows_page(client):
     first.save(buf, "PDF", save_all=True, append_images=[second], resolution=200)
     out = client.post("/api/labs/extract", files={"file": ("scan.pdf", buf.getvalue(), "application/pdf")}).json()
     assert out["read_as"] == "ocr" and out["page_count"] == 2 and len(out["pages"]) == 2
-    rows = {r["test"].upper(): r for r in out["results"]}
+    rows = _rows(out, first)
     assert rows["GLUCOSE"]["where"]["page"] == 0 and rows["TSH"]["where"]["page"] == 1
     assert rows["TSH"]["value"] == 2.1 and rows["FERRITIN"]["value"] == 9
 
@@ -173,9 +183,10 @@ def test_reads_every_page_of_a_scanned_pdf_and_keeps_each_rows_page(client):
 @needs_ocr
 def test_reads_a_scanners_black_and_white_pdf(client):
     buf = io.BytesIO()
-    report_image().convert("1").save(buf, "PDF", resolution=200)
+    page = report_image().convert("1")
+    page.save(buf, "PDF", resolution=200)
     out = client.post("/api/labs/extract", files={"file": ("bw.pdf", buf.getvalue(), "application/pdf")}).json()
-    assert {r["test"].upper(): r for r in out["results"]}["GLUCOSE"]["value"] == 105
+    assert _rows(out, page.convert("RGB"))["GLUCOSE"]["value"] == 105
 
 
 @needs_ocr
