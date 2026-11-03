@@ -14,6 +14,7 @@ import sqlite3
 import sys
 import threading
 import time
+import types
 import zipfile
 from pathlib import Path
 
@@ -932,6 +933,8 @@ def test_nothing_moves_while_the_server_is_still_using_the_data(desktop, monkeyp
 
 def test_restoring_a_backup_says_what_its_doing(desktop, monkeypatch, tmp_path):
     import recovery
+    # The window's library is only installed with the apps; all this needs from it is the name of the open dialog.
+    monkeypatch.setitem(sys.modules, "webview", types.SimpleNamespace(FileDialog=types.SimpleNamespace(OPEN=10)))
     monkeypatch.setattr(desktop.window, "create_file_dialog", lambda *a, **k: [str(tmp_path / "backup.zip")], raising=False)
     monkeypatch.setattr(desktop.window, "create_confirmation_dialog", lambda *a: True, raising=False)
     monkeypatch.setattr(desktop.server, "stop", lambda: True)
