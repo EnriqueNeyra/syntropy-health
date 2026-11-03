@@ -7,6 +7,7 @@ import json
 import os
 import random
 import stat
+import time
 import zipfile
 from pathlib import Path
 
@@ -149,9 +150,12 @@ def test_the_copy_an_import_reads_is_encrypted_and_goes_when_it_is_done(client, 
         job = client.get(f"/api/imports/{r.json()['job_id']}").json()
         if job["status"] in ("completed", "error"):
             break
-        import time
         time.sleep(0.05)
     assert job["status"] == "completed", job
+    # The job says it's finished, then deletes its copy: wait for that, which a slow Windows runner shows a moment later.
+    deadline = time.monotonic() + 10
+    while (Path(during["path"]).exists() or str(during["path"]) in private_files._kept) and time.monotonic() < deadline:
+        time.sleep(0.05)
     assert during["clear"] == [] and not Path(during["path"]).exists()
     assert str(during["path"]) not in private_files._kept
 
