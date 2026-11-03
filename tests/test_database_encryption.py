@@ -111,6 +111,28 @@ def test_the_file_can_not_be_opened_without_the_key(tmp_path):
     assert db.opens(path, security.database_key())
 
 
+def test_a_database_another_process_is_making_is_opened_with_the_key(tmp_path, monkeypatch):
+    """Five processes starting together on Windows CI: one looked at an empty file, another wrote its first page, and the
+    first then found it neither empty nor encrypted and opened it without the key."""
+    elsewhere = tmp_path / "elsewhere.db"
+    db.ensure_migrated(elsewhere)
+    path = tmp_path / "new.db"
+    path.touch()
+    really = db.is_encrypted
+
+    def seen_empty_then_written(p):
+        found = really(p)
+        if Path(p) == path and not path.stat().st_size:
+            shutil.copyfile(elsewhere, path)        # the other process's first page
+        return found
+    monkeypatch.setattr(db, "is_encrypted", seen_empty_then_written)
+    conn = db.open_connection(path, create=True)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()[0] > 0
+    finally:
+        conn.close()
+
+
 def test_temporary_tables_and_sorts_stay_in_memory():
     """SQLCipher doesn't encrypt temporary files, so every connection is told not to make them."""
     db.ensure_migrated()
