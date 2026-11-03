@@ -56,6 +56,13 @@
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.70677"
 },
 {
+"id": "greenway-aaron-j-hupman-m-d-p-c",
+"name": "Aaron J. Hupman, M.D., P.C.",
+"location": "Lilburn, GA",
+"platform": "greenway",
+"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.72154"
+},
+{
 "id": "greenway-abc-pediatrics-llc",
 "name": "Abc Pediatrics LLC",
 "location": "Minden, LA",
@@ -1720,6 +1727,13 @@
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.70750"
 },
 {
+"id": "greenway-johns-creek-pediatrics-p-c",
+"name": "Children's Healthcare of Atlanta Inc.",
+"location": "Suwanee, GA",
+"platform": "greenway",
+"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.1584"
+},
+{
 "id": "greenway-children-s-mercy-village-pediatrics-inc",
 "name": "Children's Mercy - Village Pediatrics, Inc",
 "location": "Leawood, KS",
@@ -2117,6 +2131,13 @@
 "location": "Cookeville, TN",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.73386"
+},
+{
+"id": "greenway-cool-springs-obgyn",
+"name": "Cool Springs OBGYN",
+"location": "Brentwood, TN",
+"platform": "greenway",
+"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.618"
 },
 {
 "id": "greenway-copperstate-obgyn-associates",
@@ -2837,6 +2858,13 @@
 "location": "Fort Worth, TX",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.400443"
+},
+{
+"id": "greenway-el-paso-primary-healthcare-physicians",
+"name": "El Paso Primary Healthcare Physicians",
+"location": "El Paso, TX",
+"platform": "greenway",
+"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.70175"
 },
 {
 "id": "greenway-el-pueblo-family-healthcare",
@@ -4642,13 +4670,6 @@
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.72934"
 },
 {
-"id": "greenway-johns-creek-pediatrics-p-c",
-"name": "Johns Creek Pediatrics, P.C.",
-"location": "Suwanee, GA",
-"platform": "greenway",
-"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.1584"
-},
-{
 "id": "greenway-jordan-creek-family-medicine-clinic-p-c",
 "name": "Jordan Creek Family Medicine Clinic, P.C.",
 "location": "West Des Moines, IA",
@@ -4787,6 +4808,13 @@
 "location": "Knoxville, TN",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.408"
+},
+{
+"id": "greenway-konigsberg-pediatric-orthopaedics-pa",
+"name": "Konigsberg Pediatric Orthopaedics, PA",
+"location": "Midland Park, NJ",
+"platform": "greenway",
+"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.71792"
 },
 {
 "id": "greenway-kristin-mahan-aprn-fnp-c-llc",
@@ -5488,6 +5516,13 @@
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.73056"
 },
 {
+"id": "greenway-merit-health-care-pc",
+"name": "Merit Health Care, PC",
+"location": "Sylacauga, AL",
+"platform": "greenway",
+"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.73361"
+},
+{
 "id": "greenway-metro-state-college-of-denver",
 "name": "Metro State College of Denver",
 "location": "Denver, CO",
@@ -6048,6 +6083,13 @@
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.71164"
 },
 {
+"id": "greenway-new-haven-medical-services",
+"name": "New Haven Medical Services",
+"location": "Seneca, SC",
+"platform": "greenway",
+"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.73413"
+},
+{
 "id": "greenway-new-parkhill-p-a",
 "name": "New Parkhill, P.A.",
 "location": "Fayetteville, AR",
@@ -6493,6 +6535,13 @@
 "location": "Omaha, NE",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.1090"
+},
+{
+"id": "greenway-omaha-orthopedic-clinic-and-sports-medicine",
+"name": "Omaha Orthopedic Clinic and Sports Medicine",
+"location": "Omaha, NE",
+"platform": "greenway",
+"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.70304"
 },
 {
 "id": "greenway-omega-obgyn-associates",

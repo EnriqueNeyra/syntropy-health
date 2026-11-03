@@ -16198,6 +16198,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/DGDCED"
 },
 {
+"id": "ecw-gaided",
+"name": "BMA Health PA dba Top Cardiology",
+"location": "Doral, FL",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/GAIDED"
+},
+{
 "id": "ecw-jcbbdd",
 "name": "BN BN Management LLC",
 "location": "Brooklyn, NY",
@@ -21938,6 +21945,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/AGDIBD"
 },
 {
+"id": "ecw-dbgded",
+"name": "CentroMed Health and Wellness PLLC",
+"location": "Lawrence, MA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/DBGDED"
+},
+{
 "id": "ecw-hagbdd",
 "name": "Centurion, Quintana, and Associates, M.D S, P.A",
 "location": "Miami, FL",
@@ -24407,6 +24421,13 @@
 "location": "Houston, TX",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/FHCIBA"
+},
+{
+"id": "ecw-dchded",
+"name": "Clinica Latina Familiar",
+"location": "Thornton, CO",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/DCHDED"
 },
 {
 "id": "ecw-higidd",
@@ -27048,6 +27069,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/HHCDED"
 },
 {
+"id": "ecw-fgeded",
+"name": "Connected Family Practice LLC",
+"location": "Mountainside, NJ",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/FGEDED"
+},
+{
 "id": "ecw-bafaaa",
 "name": "Connecticut Health Care Assoc",
 "location": "Glastonbury, CT",
@@ -29624,6 +29652,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CCFFDD"
 },
 {
+"id": "ecw-gcdded",
+"name": "DC Medical Services, Inc.",
+"location": "Camden, TN",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/GCDDED"
+},
+{
 "id": "ecw-fcggca",
 "name": "DC Ranch Family Medicine",
 "location": "Scottsdale, AZ",
@@ -29993,6 +30028,13 @@
 "location": "Southfield, MI",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CGIEBA"
+},
+{
+"id": "ecw-habded",
+"name": "Dementia Alzheimers, PLLC",
+"location": "Columbia, TN",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/HABDED"
 },
 {
 "id": "ecw-ahcjdd",
@@ -31652,6 +31694,13 @@
 "location": "The Villages, FL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CIBJDD"
+},
+{
+"id": "ecw-iefded",
+"name": "Doral Med and Rehab, LLC",
+"location": "Sweetwater, FL",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/IEFDED"
 },
 {
 "id": "ecw-afjibd",
@@ -42707,6 +42756,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/GBEHAD"
 },
 {
+"id": "ecw-abided",
+"name": "Gastro Health For Kids",
+"location": "Gainesville, GA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/ABIDED"
+},
+{
 "id": "ecw-aceacd",
 "name": "Gastro MD",
 "location": "Orange City, FL",
@@ -43195,6 +43251,13 @@
 "location": "Smyrna, GA",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/AFBEDD"
+},
+{
+"id": "ecw-igided",
+"name": "Genesis Healthcare Associates, PLLC",
+"location": "Port Arthur, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/IGIDED"
 },
 {
 "id": "ecw-ffdcbd",
@@ -48923,6 +48986,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/BAGECD"
 },
 {
+"id": "ecw-idgded",
+"name": "HCA-Information Technology Services, Inc",
+"location": "Houston, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/IDGDED"
+},
+{
 "id": "ecw-eabeca",
 "name": "HCA-John Hau Lien, MD",
 "location": "San Jose, CA",
@@ -49203,11 +49273,25 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/AGCADD"
 },
 {
+"id": "ecw-hiaded",
+"name": "Health Bridge Multispecialty Group",
+"location": "Philadelphia, PA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/HIADED"
+},
+{
 "id": "ecw-gfjbed",
 "name": "Health Camp of New Jersey, LLC",
 "location": "Somerset, NJ",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/GFJBED"
+},
+{
+"id": "ecw-cbided",
+"name": "Health Care Center for the Homeless, Inc",
+"location": "Atlanta, GA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/CBIDED"
 },
 {
 "id": "ecw-diieaa",
@@ -49705,6 +49789,13 @@
 "location": "Elizabethtown, KY",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/HBBCCA"
+},
+{
+"id": "ecw-jbided",
+"name": "Healthways Michigan Group, PLC",
+"location": "Brighton, MI",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/JBIDED"
 },
 {
 "id": "ecw-cafcda",
@@ -67578,6 +67669,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/FICADA"
 },
 {
+"id": "ecw-bhided",
+"name": "Matthew Kettmen, MD PC",
+"location": "Waterloo, IA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/BHIDED"
+},
+{
 "id": "ecw-hafhba",
 "name": "Matthew Keum MD",
 "location": "Willoughby, OH",
@@ -69340,6 +69438,13 @@
 "location": "Jacksonville, FL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/GIIFDD"
+},
+{
+"id": "ecw-jjgded",
+"name": "Medstar Pain PLLC",
+"location": "Dallas, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/JJGDED"
 },
 {
 "id": "ecw-jajdad",
@@ -80080,6 +80185,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/AEADED"
 },
 {
+"id": "ecw-hdgded",
+"name": "Nova Womens Health Partners",
+"location": "Addison, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/HDGDED"
+},
+{
 "id": "ecw-ahgbca",
 "name": "Nova Womens Health, LLC",
 "location": "North Reading, MA",
@@ -83522,6 +83634,13 @@
 "location": "Las Vegas, NV",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/FBIFBD"
+},
+{
+"id": "ecw-jdhded",
+"name": "OasisRock Medical Centre PLLC",
+"location": "Arlington, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/JDHDED"
 },
 {
 "id": "ecw-jbgded",
@@ -93359,6 +93478,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/DFGCDA"
 },
 {
+"id": "ecw-hebaed",
+"name": "Prince of Peace Medical Center, LLC",
+"location": "Margate, FL",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/HEBAED"
+},
+{
 "id": "ecw-dgjaba",
 "name": "Princeton Allergy and Asthma Assoc",
 "location": "Skillman, NJ",
@@ -100520,6 +100646,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/HGBAED"
 },
 {
+"id": "ecw-jcjded",
+"name": "SafeStep",
+"location": "Philadelphia, PA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/JCJDED"
+},
+{
 "id": "ecw-ghjecd",
 "name": "Safi, MD LLC",
 "location": "Ware, MA",
@@ -101113,6 +101246,13 @@
 "location": "Boynton Beach, FL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/FBEHAA"
+},
+{
+"id": "ecw-bcided",
+"name": "SAMICA USA LLC",
+"location": "Ocala, FL",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/BCIDED"
 },
 {
 "id": "ecw-ddjjdd",
@@ -101771,6 +101911,13 @@
 "location": "New Hall, CA",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/HBEGCA"
+},
+{
+"id": "ecw-ijgded",
+"name": "Santa Fe Family Medicine",
+"location": "Weatherford, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/IJGDED"
 },
 {
 "id": "ecw-dbbced",
@@ -106197,6 +106344,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/GHFHCD"
 },
 {
+"id": "ecw-gfeded",
+"name": "Southlake Rheumatology Endocrinology Specialists,PLLC",
+"location": "Fort Worth, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/GFEDED"
+},
+{
 "id": "ecw-jiaidd",
 "name": "Southlake Serenity Psychiatry LLC",
 "location": "Southlake, TX",
@@ -107322,6 +107476,13 @@
 "location": "Chula Vista, CA",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/BAAJCD"
+},
+{
+"id": "ecw-bjfded",
+"name": "SS VIR, LLC",
+"location": "Saint Louis, MO",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/BJFDED"
 },
 {
 "id": "ecw-jbcgca",
@@ -118174,6 +118335,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/HBGIBA"
 },
 {
+"id": "ecw-cahded",
+"name": "United New Generation Health LLC",
+"location": "Tomball, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/CAHDED"
+},
+{
 "id": "ecw-cjfced",
 "name": "United Pediatrics, P.C.",
 "location": "Lawrenceville, GA",
@@ -124591,6 +124759,13 @@
 "location": "Norman, OK",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/AECFAA"
+},
+{
+"id": "ecw-cfgded",
+"name": "Womens Integrative Health and Wellness, PLLC",
+"location": "Fort Collins, CO",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/CFGDED"
 },
 {
 "id": "ecw-ahbhbd",

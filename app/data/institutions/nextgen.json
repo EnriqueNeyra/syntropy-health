@@ -28,13 +28,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-32nd-street-surgery-center",
-"name": "32nd Street Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-360care-of-alabama",
 "name": "360care Of Alabama",
 "location": "Louisville, KY",
@@ -259,13 +252,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-abilene-endoscopy-center",
-"name": "Abilene Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-abrams-eye-institute",
 "name": "Abrams Eye Institute",
 "location": "Las Vegas, NV",
@@ -434,20 +420,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-advanced-ambulatory-anesthesiologist",
-"name": "Advanced Ambulatory Anesthesiologist",
-"location": "Newark, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-advanced-anesthesia-associates-llc",
-"name": "Advanced Anesthesia Associates, LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-advanced-cardiovascular-specialists",
 "name": "Advanced Cardiovascular Specialists",
 "location": "Shreveport, LA",
@@ -469,16 +441,16 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-advanced-dermasurgery-associates",
-"name": "Advanced Dermasurgery Associates",
-"location": "Dallas, TX",
+"id": "nextgen-center-for-advanced-eye-surgery",
+"name": "Advanced Center for Surgery, LLC",
+"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-advanced-endoscopy-surgical-center-llc",
-"name": "Advanced Endoscopy & Surgical Center LLC",
-"location": "Eatontown, NJ",
+"id": "nextgen-advanced-dermasurgery-associates",
+"name": "Advanced Dermasurgery Associates",
+"location": "Dallas, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -487,7 +459,12 @@
 "name": "Advanced Endoscopy Center, LLC",
 "location": "Creve Coeur, MO",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-advanced-endoscopy-surgical-center-llc",
+"nextgen-essex-endoscopy-center-llc",
+"nextgen-old-town-endoscopy-center-llc"
+]
 },
 {
 "id": "nextgen-advanced-eye-care-of-south-florida-llc",
@@ -665,13 +642,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-affiliated-endoscopy-services-of-clifton",
-"name": "Affiliated Endoscopy Services Of Clifton",
-"location": "Clifton, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-affiliates-in-internal-medicine",
 "name": "Affiliates In Internal Medicine",
 "location": "Hillsborough, NJ",
@@ -752,13 +722,6 @@
 "id": "nextgen-ajay-g-meka-md-inc",
 "name": "Ajay G Meka MD Inc",
 "location": "Santa Ana, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-akron-oh-gi-anesthesia",
-"name": "Akron OH GI - Anesthesia",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -998,7 +961,10 @@
 "name": "Alliance Family Health Center",
 "location": "Alliance, OH",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-digestive-health-center-of-alliance"
+]
 },
 {
 "id": "nextgen-allina-tcsc",
@@ -1102,6 +1068,13 @@
 "id": "nextgen-ambulatory-care-specialists-of-cranberry",
 "name": "Ambulatory Care Specialists Of Cranberry",
 "location": "Cranberry Twp, PA",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-maryland-endoscopy-center",
+"name": "Ambulatory Endoscopy Center Of Maryland",
+"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -1232,249 +1205,43 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-amsurg-abilene-anesthesia",
-"name": "AMSURG Abilene Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-altamonte-springs-fl-anesthesia",
-"name": "AmSurg Altamonte Springs FL Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-arcadia-anesthesia-lp",
-"name": "AmSurg Arcadia Anesthesia LP",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-chattanooga-anesthesia-llc",
-"name": "AmSurg Chattanooga Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-amsurg-cincinnati-anesthesia-llc",
-"name": "AMSURG Cincinnati Anesthesia LLC",
+"name": "AMSURG Casper Anesthesia LLC",
 "location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
 "id": "nextgen-amsurg-citrus-anesthesia-llc",
-"name": "AmSurg Citrus Anesthesia LLC",
-"location": "Orlando, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-columbia-anesthesia-llc",
-"name": "AmSurg Columbia Anesthesia LLC",
+"name": "AMSURG Dayton Anesthesia LLC",
 "location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-amsurg-durham-anesthesia-llc",
-"name": "AmSurg Durham Anesthesia, LLC",
+"id": "nextgen-amsurg-chattanooga-anesthesia-llc",
+"name": "AMSURG Meridian Anesthesia LLC",
 "location": "Nashville, TN",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-fresno-ca-gi-anesthesia",
-"name": "AMSURG Fresno CA GI Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-greensboro-anesthesia-llc",
-"name": "AmSurg Greensboro Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-greenville-anesthesia-llc",
-"name": "AmSurg Greenville Anesthesia, LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-hermitage-anesthesia",
-"name": "AMSURG Hermitage Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-indianapolis-anesthesia",
-"name": "AMSURG Indianapolis Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-lewes-anesthesia-llc",
-"name": "AmSurg Lewes Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-marin-anesthesia",
-"name": "AMSURG Marin Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-mdsine-anesthesia",
-"name": "AMSURG MDSine Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-melbourne-anesthesia-llc",
-"name": "AMSURG Melbourne Anesthesia LLC",
-"location": "Melbourne, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-new-orleans-anesthesia-llc",
-"name": "AmSurg New Orleans Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-new-port-richey-anesthesiology",
-"name": "Amsurg New Port Richey Anesthesiology",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-north-valley-anesthesia",
-"name": "AmSurg North Valley Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-oak-lawn-il-anesthesia-llc",
-"name": "AMSURG Oak Lawn IL Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-oakland-anesthesia-lp",
-"name": "AmSurg Oakland Anesthesia LP",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-port-orange-anesthesia-llc",
-"name": "AmSurg Port Orange Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-rockledge-anesthesia-llc",
-"name": "AmSurg Rockledge Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-salt-lake-city-anesthesia-llc",
-"name": "Amsurg Salt Lake City Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-san-luis-obispo-anesthesia",
-"name": "Amsurg San Luis Obispo Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-santa-fe-anesthesia-llc",
-"name": "AMSURG Santa Fe Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-south-bay-anesthesia",
-"name": "AmSurg South Bay Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-st-george-anesthesia-llc",
-"name": "AmSurg St George Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-stamford-anesthesia",
-"name": "AMSURG Stamford Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-tampa-bay-anesthesia-llc",
-"name": "AMSURG Tampa Bay Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-toledo-anesthesia-llc",
-"name": "AmSurg Toledo Anesthesia, LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-toms-river-anesthesia-llc",
-"name": "AmSurg Toms River Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-westminster-anesthesia-llc",
-"name": "AmSurg Westminster Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-amsurg-willoughby-anesthesia-llc",
-"name": "AmSurg Willoughby Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-amsurg-columbia-anesthesia-llc",
+"nextgen-amsurg-durham-anesthesia-llc",
+"nextgen-amsurg-greensboro-anesthesia-llc",
+"nextgen-amsurg-greenville-anesthesia-llc",
+"nextgen-amsurg-lewes-anesthesia-llc",
+"nextgen-amsurg-melbourne-anesthesia-llc",
+"nextgen-amsurg-new-orleans-anesthesia-llc",
+"nextgen-amsurg-port-orange-anesthesia-llc",
+"nextgen-amsurg-rockledge-anesthesia-llc",
+"nextgen-amsurg-santa-fe-anesthesia-llc",
+"nextgen-amsurg-st-george-anesthesia-llc",
+"nextgen-amsurg-tampa-bay-anesthesia-llc",
+"nextgen-amsurg-toledo-anesthesia-llc",
+"nextgen-amsurg-toms-river-anesthesia-llc",
+"nextgen-amsurg-westminster-anesthesia-llc",
+"nextgen-amsurg-willoughby-anesthesia-llc"
+]
 },
 {
 "id": "nextgen-anaheim-family-medical",
@@ -1558,68 +1325,25 @@
 "name": "Anesthesia",
 "location": "Malvern, PA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-anesthesia-associates-of-bryan-llc",
-"name": "Anesthesia Associates Of Bryan LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-anesthesia-associates-of-columbia-tn",
-"name": "Anesthesia Associates Of Columbia TN",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-anesthesia-associates-of-joplin-llc",
-"name": "Anesthesia Associates Of Joplin LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-anesthesia-associates-of-ocala-llc",
-"name": "Anesthesia Associates Of Ocala LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-anesthesia-associates-of-ok-pllc",
-"name": "Anesthesia Associates Of OK, PLLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-metropolitan-anesthesia"
+]
 },
 {
 "id": "nextgen-anesthesia-care-llc",
 "name": "Anesthesia Care LLC",
 "location": "Denver, CO",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-montgomery-anesthesia-llc"
+]
 },
 {
 "id": "nextgen-anesthesia-professional-services-inc",
 "name": "Anesthesia Professional Services Inc",
 "location": "Cincinnati, OH",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-anesthesia-service-gas-gas-llc",
-"name": "Anesthesia Service, Gas Gas LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-anesthesiology-affiliates-llc",
-"name": "Anesthesiology Affiliates, LLC",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -1876,20 +1600,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-arizona-endoscopy-center",
-"name": "Arizona Endoscopy Center",
-"location": "Phoenix, AZ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-arizona-endoscopy-center-sedation-plc",
-"name": "Arizona Endoscopy Center Sedation, PLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-arizona-eye-institute-asc",
 "name": "Arizona Eye Institute ASC",
 "location": "Sun City West, AZ",
@@ -1913,20 +1623,6 @@
 {
 "id": "nextgen-arizona-institute-of-eye-surgery-llc",
 "name": "Arizona Institute Of Eye Surgery LLC",
-"location": "Phoenix, AZ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-arizona-ophthalmic-outpatient-surgery",
-"name": "Arizona Ophthalmic Outpatient Surgery",
-"location": "Phoenix, AZ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-arizona-pediatric-cardiology-consultants",
-"name": "Arizona Pediatric Cardiology Consultants",
 "location": "Phoenix, AZ",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -1956,13 +1652,6 @@
 "id": "nextgen-arkansas-otolaryngology-center",
 "name": "Arkansas Otolaryngology Center",
 "location": "Little Rock, AR",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-arkansas-valley-surgery-center",
-"name": "Arkansas Valley Surgery Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -2453,13 +2142,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-associated-endoscopy",
-"name": "Associated Endoscopy",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-associated-eye-care",
 "name": "Associated Eye Care",
 "location": "Stillwater, MN",
@@ -2929,13 +2611,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-baptist-gi-specialists-surgery-center",
-"name": "Baptist GI Specialists Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-barbour-orthopaedics-and-spine",
 "name": "Barbour Orthopaedics And Spine",
 "location": "Atlanta, GA",
@@ -3065,13 +2740,6 @@
 "id": "nextgen-bayou-imaging-and-interv-llc",
 "name": "Bayou Imaging And Interv LLC",
 "location": "Shreveport, LA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-bayview-surgery-center",
-"name": "Bayview Surgery Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -3321,23 +2989,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-blue-ridge-surgery-center",
-"name": "Blue Ridge Surgery Center",
-"location": "Seneca, SC",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-blue-sky-vision-eye-care-p-c",
 "name": "Blue Sky Vision Eye Care P.C.",
 "location": "Grand Rapids, MI",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-blue-water-surgery-center-llc",
-"name": "Blue Water Surgery Center LLC",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -3352,13 +3006,6 @@
 "id": "nextgen-bluegrass-retina-consultants",
 "name": "Bluegrass Retina Consultants",
 "location": "Lexington, KY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-bluegrass-surgery-and-laser-center",
-"name": "Bluegrass Surgery And Laser Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -3412,13 +3059,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-boozman-hof-eye-surgery-and-laser-center",
-"name": "Boozman-Hof Eye Surgery and Laser Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-borland-groover",
 "name": "Borland Groover",
 "location": "Jacksonville, FL",
@@ -3436,13 +3076,6 @@
 "id": "nextgen-boston-children-s-health-physicians",
 "name": "Boston Children's Health Physicians",
 "location": "Valhalla, NY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-boston-endoscopy-center",
-"name": "Boston Endoscopy Center",
-"location": "Wellesley Hills, MA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -3579,13 +3212,6 @@
 "id": "nextgen-brazilian-clinic-llc",
 "name": "Brazilian Clinic LLC",
 "location": "Pompano Beach, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-brazos-gi-anesthesia",
-"name": "Brazos GI Anesthesia",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -3898,13 +3524,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-campus-surgery-center",
-"name": "Campus Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-canyon-view-medical-group",
 "name": "Canyon View Medical Group",
 "location": "Spanish Fork, UT",
@@ -3975,9 +3594,16 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-blue-water-surgery-center-llc",
+"name": "Capital Surgery Center, LLC",
+"location": "Nashville, TN",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-capital-womens-care",
 "name": "Capital Womens Care",
-"location": "Fulton, MD",
+"location": "Baltimore, MD",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -4346,13 +3972,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-carolina-sedation-services-llc",
-"name": "Carolina Sedation Services LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-carolina-specialty-care-pa",
 "name": "Carolina Specialty Care PA",
 "location": "Statesville, NC",
@@ -4402,13 +4021,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-carroll-county-digestive-disease-center",
-"name": "Carroll County Digestive Disease Center",
-"location": "Westminster, MD",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-carroll-county-eye-surgery-center",
 "name": "Carroll County Eye Surgery Center",
 "location": "Annapolis, MD",
@@ -4433,13 +4045,6 @@
 "id": "nextgen-cascade-ear-nose-and-throat",
 "name": "Cascade Ear Nose And Throat",
 "location": "Mount Vernon, WA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-cascade-endoscopy-center",
-"name": "Cascade Endoscopy Center",
-"location": "Springfield, OR",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -4581,14 +4186,10 @@
 "name": "Center For Advanced Care",
 "location": "Redding, CA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-center-for-advanced-eye-surgery",
-"name": "Center For Advanced Eye Surgery",
-"location": "Sarasota, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-foundation-for-advanced-eye-care"
+]
 },
 {
 "id": "nextgen-center-for-advanced-pain-management",
@@ -4634,7 +4235,7 @@
 },
 {
 "id": "nextgen-center-for-disabilities-services-inc",
-"name": "Center for Disabilities Services Inc",
+"name": "Center for Disability Services, Inc",
 "location": "Albany, NY",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -4678,13 +4279,6 @@
 "id": "nextgen-center-for-family-guidance",
 "name": "Center For Family Guidance",
 "location": "Marlton, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-center-for-gastrointestinal-endoscopy",
-"name": "Center For Gastrointestinal Endoscopy",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -4766,13 +4360,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-central-california-endoscopy-center",
-"name": "Central California Endoscopy Center",
-"location": "Fresno, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-central-delaware-family-medicine",
 "name": "Central Delaware Family Medicine",
 "location": "Dover, DE",
@@ -4794,13 +4381,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-central-florida-surgical-center",
-"name": "Central Florida Surgical Center",
-"location": "Orlando, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-central-ga-head-neck-surgery-center",
 "name": "Central GA Head & Neck Surgery Center",
 "location": "Macon, GA",
@@ -4811,13 +4391,6 @@
 "id": "nextgen-central-jersey-rheumatology-osteoporosis",
 "name": "Central Jersey Rheumatology Osteoporosis",
 "location": "Flemington, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-central-mass-ambulatory-endoscopy-center",
-"name": "Central Mass Ambulatory Endoscopy Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -4846,6 +4419,13 @@
 "id": "nextgen-central-ohio-urology-group-inc",
 "name": "Central Ohio Urology Group Inc",
 "location": "Cincinnati, OH",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-central-texas-retina-institute",
+"name": "Central Texas Retina Institute",
+"location": "San Antonio, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -5046,13 +4626,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-chattanooga-endoscopy-center",
-"name": "Chattanooga Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-chc-of-snohomish-county",
 "name": "CHC of Snohomish County",
 "location": "Everett, WA",
@@ -5136,13 +4709,6 @@
 "id": "nextgen-chestnut-health-systems",
 "name": "Chestnut Health Systems",
 "location": "Bloomington, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-chevy-chase-endoscopy-center",
-"name": "Chevy Chase Endoscopy Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -5252,13 +4818,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-children-s-healthcare-associates-llp",
-"name": "Children's Healthcare Associates, LLP",
-"location": "Amarillo, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-children-s-hospital-of-big-city",
 "name": "Children's Hospital Of Big City",
 "location": "Jamaica Plain, MA",
@@ -5315,11 +4874,21 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-children-s-healthcare-associates-llp",
+"name": "Childrens Healthcare Associates, LLP",
+"location": "Amarillo, TX",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-childrens-heart-center-of-el-paso",
 "name": "Childrens Heart Center Of El Paso",
 "location": "El Paso, TX",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-endoscopy-center-of-el-paso"
+]
 },
 {
 "id": "nextgen-childrens-hearts-and-pulmonology",
@@ -5483,20 +5052,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-citrus-ambulatory-surgery-center",
-"name": "Citrus Ambulatory Surgery Center",
-"location": "Orlando, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-citrus-endoscopy-and-surgery-center",
-"name": "Citrus Endoscopy and Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-citrus-valley-medical-associates-inc",
 "name": "Citrus Valley Medical Associates Inc",
 "location": "Norco, CA",
@@ -5564,7 +5119,10 @@
 "name": "Clarksville Eye Surgery Center",
 "location": "Clarksville, TN",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-connecticut-eye-surgery-center-south"
+]
 },
 {
 "id": "nextgen-clarksville-ophthalmology",
@@ -5675,20 +5233,6 @@
 "id": "nextgen-clinics-for-speech-language-and-communic",
 "name": "Clinics for Speech Language and Communic",
 "location": "Fort Lauderdale, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-clovis-ca-anesthesia",
-"name": "Clovis CA Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-clovis-endoscopy-center",
-"name": "Clovis Endoscopy Center",
-"location": "Fresno, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -5931,13 +5475,6 @@
 "id": "nextgen-columbia-eye-surgery-center-inc",
 "name": "Columbia Eye Surgery Center Inc",
 "location": "Columbia, SC",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-columbia-gastrointestinal-endoscopy-ctr",
-"name": "Columbia Gastrointestinal Endoscopy Ctr",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -6250,6 +5787,13 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-comprehensive-psychiatric-services",
+"name": "Comprehensive Psychiatric Services",
+"location": "Walnut Creek, CA",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-confederated-tribes-of-the-colville-rese",
 "name": "Confederated Tribes of the Colville Rese",
 "location": "Nespelem, WA",
@@ -6271,23 +5815,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-connecticut-eye-anesthesia-llc",
-"name": "Connecticut Eye Anesthesia, LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-connecticut-eye-consultants",
 "name": "Connecticut Eye Consultants",
 "location": "Danbury, CT",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-connecticut-eye-surgery-center-south",
-"name": "Connecticut Eye Surgery Center South",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -6453,18 +5983,14 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-county-of-ingham",
-"name": "County Of Ingham",
-"location": "Lansing, MI",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-county-of-solano",
 "name": "County Of Solano",
 "location": "Fairfield, CA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-county-of-ingham"
+]
 },
 {
 "id": "nextgen-courthouse-family-medicine-pllc",
@@ -6933,7 +6459,10 @@
 "name": "Davis Medical Center",
 "location": "Elkins, WV",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-ezra-medical-center"
+]
 },
 {
 "id": "nextgen-daymark-recovery-services",
@@ -6953,6 +6482,13 @@
 "id": "nextgen-dayton-nephrology",
 "name": "Dayton Nephrology",
 "location": "Moraine, OH",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-dayton-oh-gi",
+"name": "Dayton OH GI",
+"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -7419,51 +6955,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-digestive-health-center",
-"name": "Digestive Health Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-digestive-health-center-of-alliance",
-"name": "Digestive Health Center Of Alliance",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-digestive-health-center-of-bedford",
-"name": "Digestive Health Center Of Bedford",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-digestive-health-center-of-dallas",
-"name": "Digestive Health Center Of Dallas",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-digestive-health-center-of-plano",
-"name": "Digestive Health Center Of Plano",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-digestive-health-clinic-llc",
 "name": "Digestive Health Clinic LLC",
 "location": "Boise, ID",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-digestive-health-ctr-at-redbird-square",
-"name": "Digestive Health Ctr At Redbird Square",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -7626,7 +7120,14 @@
 "name": "Douglas Laser And Surgery Center",
 "location": "Miami, FL",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-boozman-hof-eye-surgery-and-laser-center",
+"nextgen-eye-surgery-and-laser-center",
+"nextgen-river-drive-surgery-and-laser-center",
+"nextgen-rocky-mountain-laser-and-surgery-center",
+"nextgen-salem-laser-and-surgery-center"
+]
 },
 {
 "id": "nextgen-dove-creek-community-health-clinic",
@@ -7804,6 +7305,13 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-bluegrass-surgery-and-laser-center",
+"name": "Eagle Eye Surgery & Laser Center",
+"location": "Nashville, TN",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-eagle-view-community-health-system",
 "name": "Eagle View Community Health System",
 "location": "Oquawka, IL",
@@ -7821,13 +7329,6 @@
 "id": "nextgen-east-bay-cap",
 "name": "East Bay CAP",
 "location": "Newport, RI",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-east-bay-endosurgery-center",
-"name": "East Bay Endosurgery Center",
-"location": "Oakland, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -7860,13 +7361,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-east-paris-surgical-center-llc",
-"name": "East Paris Surgical Center LLC",
-"location": "Grand Rapids, MI",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-east-stroudsburg-university",
 "name": "East Stroudsburg University",
 "location": "East Stroudsburg, PA",
@@ -7885,49 +7379,20 @@
 "name": "East Valley Community Health Center",
 "location": "West Covina, CA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-east-valley-endoscopy",
-"name": "East Valley Endoscopy",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-valley-digestive-health-center"
+]
 },
 {
 "id": "nextgen-east-valley-heart",
 "name": "East Valley Heart",
 "location": "Mesa, AZ",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-eastern-connecticut-endoscopy-center",
-"name": "Eastern Connecticut Endoscopy Center",
-"location": "Norwich, CT",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-eastern-massachusetts-surgery-center",
-"name": "Eastern Massachusetts Surgery Center",
-"location": "Norwood, MA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-eastern-shore-endoscopy",
-"name": "Eastern Shore Endoscopy",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-easton-anesthesia-associates-llc",
-"name": "Easton Anesthesia Associates LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-east-valley-endoscopy"
+]
 },
 {
 "id": "nextgen-easton-family-practice-p-c",
@@ -8052,13 +7517,6 @@
 "id": "nextgen-eisner-health",
 "name": "Eisner Health",
 "location": "Los Angeles, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-el-paso-anesthesia-associates-llc",
-"name": "El Paso Anesthesia Associates LLC",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -8203,32 +7661,16 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-endoscopic-anesthesia-group-pa",
-"name": "Endoscopic Anesthesia Group PA",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-endoscopy-center-at-meridian-anesthesia",
-"name": "Endoscopy Center At Meridian Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-endoscopy-center-of-delaware",
 "name": "Endoscopy Center of Delaware",
 "location": "Nashville, TN",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-endoscopy-center-of-el-paso",
-"name": "Endoscopy Center Of El Paso",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-endoscopy-center-of-red-bank",
+"nextgen-endoscopy-center-of-southeast-texas",
+"nextgen-endoscopy-center-of-the-upstate"
+]
 },
 {
 "id": "nextgen-endoscopy-center-of-ocean-county",
@@ -8238,44 +7680,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-endoscopy-center-of-red-bank",
-"name": "Endoscopy Center Of Red Bank",
-"location": "Red Bank, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-endoscopy-center-of-se-ga-inc",
 "name": "Endoscopy Center Of SE GA Inc",
 "location": "Vidalia, GA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-endoscopy-center-of-south-bay-anesthesia",
-"name": "Endoscopy Center Of South Bay Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-endoscopy-center-of-southeast-texas",
-"name": "Endoscopy Center Of Southeast Texas",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-endoscopy-center-of-the-central-coast",
-"name": "Endoscopy Center of the Central Coast",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-endoscopy-center-of-the-upstate",
-"name": "Endoscopy Center Of The Upstate",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -8364,6 +7771,13 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-bayview-surgery-center",
+"name": "EPIC Surgery Center",
+"location": "Kansas City, MO",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-equinox-health-healing",
 "name": "Equinox Health & Healing",
 "location": "Portsmouth, NH",
@@ -8402,13 +7816,6 @@
 "id": "nextgen-erik-g-palmer-do-amc",
 "name": "Erik G Palmer DO AMC",
 "location": "Palm Springs, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-escondido-anesthesia-associates-lp",
-"name": "Escondido Anesthesia Associates LP",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -8455,13 +7862,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-essex-endoscopy-center-llc",
-"name": "Essex Endoscopy Center LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-essex-specialized-surgical-institute",
 "name": "Essex Specialized Surgical Institute",
 "location": "West Orange, NJ",
@@ -8472,6 +7872,13 @@
 "id": "nextgen-etheridge-family-medicine",
 "name": "Etheridge Family Medicine",
 "location": "Somerset, NJ",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-abilene-endoscopy-center",
+"name": "Euclid Endoscopy Center",
+"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -8672,13 +8079,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-eye-institute-at-boswell",
-"name": "Eye Institute At Boswell",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-eye-medical-center-of-fresno",
 "name": "Eye Medical Center of Fresno",
 "location": "Fresno, CA",
@@ -8749,25 +8149,14 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-eye-surgery-and-laser-center",
-"name": "Eye Surgery and Laser Center",
-"location": "Winter Haven, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-eye-surgery-associates",
 "name": "Eye Surgery Associates",
 "location": "Hollywood, FL",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-eye-surgery-center-at-the-biltmore",
-"name": "Eye Surgery Center At The Biltmore",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-mccannel-eye-surgery"
+]
 },
 {
 "id": "nextgen-eye-surgery-center-llc",
@@ -8780,13 +8169,6 @@
 "id": "nextgen-eye-surgery-center-of-albany",
 "name": "Eye Surgery Center Of Albany",
 "location": "Albany, GA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-eye-surgery-center-of-east-tennessee",
-"name": "Eye Surgery Center Of East Tennessee",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -8809,7 +8191,10 @@
 "name": "Eye Surgery Center Of New Albany",
 "location": "Chicago, IL",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-eye-surgery-center-of-east-tennessee"
+]
 },
 {
 "id": "nextgen-eye-surgery-center-of-northern-ca",
@@ -8830,7 +8215,13 @@
 "name": "Eye Surgery Center- The Cliffs",
 "location": "Kansas City, MO",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-eye-surgery-center-at-the-biltmore",
+"nextgen-physicians-eye-surgery-center",
+"nextgen-the-eye-surgery-center-of-paducah",
+"nextgen-the-eye-surgery-ctr"
+]
 },
 {
 "id": "nextgen-eye-surgery-center-northland",
@@ -8875,13 +8266,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-eyehealth-eastside-surgery-center",
-"name": "EyeHealth Eastside Surgery Center",
-"location": "Happy Valley, OR",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-eyehealth-northwest",
 "name": "EyeHealth Northwest",
 "location": "Portland, OR",
@@ -8906,13 +8290,6 @@
 "id": "nextgen-eyesthetica",
 "name": "Eyesthetica",
 "location": "Los Angeles, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-ezra-medical-center",
-"name": "Ezra Medical Center",
-"location": "Brooklyn, NY",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -9393,20 +8770,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-folsom-anesthesia-lp",
-"name": "Folsom Anesthesia LP",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-folsom-sierra-endoscopy-center",
-"name": "Folsom Sierra Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-fond-du-lac-hsd-purchased-referred-care",
 "name": "Fond du Lac HSD Purchased Referred Care",
 "location": "Cloquet, MN",
@@ -9508,20 +8871,6 @@
 "id": "nextgen-forte-sports-medicine-and-orthopedics",
 "name": "Forte Sports Medicine and Orthopedics",
 "location": "Louisville, KY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-forty-fort-anesthesia-associates-llc",
-"name": "Forty Fort Anesthesia Associates LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-foundation-for-advanced-eye-care",
-"name": "Foundation For Advanced Eye Care",
-"location": "Sunrise, FL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -9792,9 +9141,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-galloway-surgery-center",
-"name": "Galloway Surgery Center",
-"location": "Nashville, TN",
+"id": "nextgen-gainesville-mfm-practice",
+"name": "Gainesville MFM Practice",
+"location": "Gainesville, FL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -9862,13 +9211,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-gastro-diagnostics-of-northern-nj",
-"name": "Gastro Diagnostics Of Northern NJ",
-"location": "Woodland Park, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-gastrodiagnostics-a-medical-group",
 "name": "Gastrodiagnostics A Medical Group",
 "location": "Orange, CA",
@@ -9879,13 +9221,6 @@
 "id": "nextgen-gastroenterology-and-hepatology-special",
 "name": "Gastroenterology And Hepatology Special",
 "location": "Canton, OH",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-gastrointestinal-endoscopy-center",
-"name": "Gastrointestinal Endoscopy Center",
-"location": "Troy, MI",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -10026,13 +9361,6 @@
 "id": "nextgen-getwell-family-medicine",
 "name": "Getwell Family Medicine",
 "location": "Memphis, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-gi-healthcare-llc",
-"name": "GI Healthcare, LLC",
-"location": "West Palm Beach, FL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -10194,20 +9522,6 @@
 "id": "nextgen-glaucoma-institute-of-austin-pa",
 "name": "Glaucoma Institute of Austin PA",
 "location": "Austin, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-glendora-anesthesia-associates-lp",
-"name": "Glendora Anesthesia Associates, LP",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-glendora-digestive-disease-institute",
-"name": "Glendora Digestive Disease Institute",
-"location": "Glendora, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -10457,13 +9771,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-green-spring-station-endoscopy",
-"name": "Green Spring Station Endoscopy",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-green-surgery-center",
 "name": "Green Surgery Center",
 "location": "Gallatin, TN",
@@ -10604,23 +9911,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-guilford-endoscopy-center",
-"name": "Guilford Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-guilherme-r-carvalho-md-inc",
 "name": "Guilherme R Carvalho MD Inc",
 "location": "Hemet, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-gulf-coast-endoscopy-center-south",
-"name": "Gulf Coast Endoscopy Center South",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -10733,13 +10026,6 @@
 "id": "nextgen-hani-i-salib-md",
 "name": "Hani I Salib MD",
 "location": "Palm Springs, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-harford-endoscopy-center",
-"name": "Harford Endoscopy Center",
-"location": "Bel Air, MD",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -10907,7 +10193,7 @@
 {
 "id": "nextgen-heart-center-of-southern-maryland-llp",
 "name": "Heart Center Of Southern Maryland LLP",
-"location": "Waldorf, MD",
+"location": "Brandywine, MD",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -11006,6 +10292,13 @@
 "id": "nextgen-heritage-health",
 "name": "Heritage Health",
 "location": "Coeur D Alene, ID",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-heritage-new-york-medical-pc",
+"name": "Heritage New York Medical PC",
+"location": "Garden City, NY",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -11409,6 +10702,13 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-hudson-crossing-surgery-center",
+"name": "Hudson Crossing Surgery Center",
+"location": "Nashville, TN",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-hugh-s-nasr-md-facp-face",
 "name": "Hugh S Nasr MD FACP FACE",
 "location": "Palm Springs, CA",
@@ -11490,7 +10790,10 @@
 "name": "Hunterdon Endosurgery Center",
 "location": "Flemington, NJ",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-ocean-endosurgery-center"
+]
 },
 {
 "id": "nextgen-hunterdon-family-med-at-bridgewater",
@@ -12193,6 +11496,13 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-italian-home-for-children",
+"name": "Italian Home For Children",
+"location": "Jamaica Plain, MA",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-ivf-florida-reproductive-associates",
 "name": "IVF Florida Reproductive Associates",
 "location": "Margate, FL",
@@ -12466,13 +11776,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-johnston-endoscopy-center",
-"name": "Johnston Endoscopy Center",
-"location": "Clayton, NC",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-jonathan-p-gale-do-inc",
 "name": "Jonathan P Gale DO Inc",
 "location": "Hemet, CA",
@@ -12669,13 +11972,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-kendall-endoscopy-and-surgery-center",
-"name": "Kendall Endoscopy and Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-kenneth-e-bresky-do-pa",
 "name": "Kenneth E Bresky DO PA",
 "location": "Delray Beach, FL",
@@ -12788,13 +12084,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-kissimmee-endoscopy-center",
-"name": "Kissimmee Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-kitsap-county-sheriffs-office-jail",
 "name": "Kitsap County Sheriffs Office Jail",
 "location": "Port Orchard, WA",
@@ -12819,13 +12108,6 @@
 "id": "nextgen-know-allergy",
 "name": "Know Allergy",
 "location": "Portland, OR",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-knoxville-eye-anesthesia",
-"name": "Knoxville Eye Anesthesia",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -12914,27 +12196,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-la-jolla-anesthesia-associates-lp",
-"name": "La Jolla Anesthesia Associates LP",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-la-jolla-endoscopy-anesthesia",
-"name": "La Jolla Endoscopy Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-la-jolla-endoscopy-center",
-"name": "La Jolla Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-la-maestra-community-health-centers",
 "name": "La Maestra Community Health Centers",
 "location": "San Diego, CA",
@@ -13008,13 +12269,6 @@
 "id": "nextgen-lake-mary-surgical-center",
 "name": "Lake Mary Surgical Center",
 "location": "Lake Mary, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-lake-murray-endoscopy-center",
-"name": "Lake Murray Endoscopy Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -13170,7 +12424,10 @@
 "name": "LB Surgery Center, LLC",
 "location": "Long Beach, CA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-new-jersey-surgery-center-llc"
+]
 },
 {
 "id": "nextgen-lcds",
@@ -13239,6 +12496,13 @@
 "id": "nextgen-lehigh-valley-vascular-institute-obl",
 "name": "Lehigh Valley Vascular Institute (OBL)",
 "location": "Bethlehem, PA",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-lehigh-valley-womens-medical-specialties",
+"name": "Lehigh Valley Womens Medical Specialties",
+"location": "Allentown, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -13341,13 +12605,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-lifeline-endoscopy-center",
-"name": "Lifeline Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-lifeline-medical-associates-llc",
 "name": "Lifeline Medical Associates LLC",
 "location": "Florham Park, NJ",
@@ -13358,6 +12615,13 @@
 "id": "nextgen-lifeline-vascular-center-albany-llc",
 "name": "Lifeline Vascular Center Albany LLC",
 "location": "Albany, GA",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-lifeline-vascular-ctr-niceville-llc",
+"name": "Lifeline Vascular Ctr Niceville LLC",
+"location": "Niceville, FL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -13523,13 +12787,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-louisiana-endoscopy-center",
-"name": "Louisiana Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-louisiana-healthcare-associates-llc",
 "name": "Louisiana Healthcare Associates, LLC",
 "location": "Covington, LA",
@@ -13544,37 +12801,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-louisville-endoscopy-center",
-"name": "Louisville Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-louisville-endoscopy-center-ancillary",
-"name": "Louisville Endoscopy Center Ancillary",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-louisville-eye-anesthesia-llc",
-"name": "Louisville Eye Anesthesia, LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-lowcountry-lung-and-critical-care-pa",
 "name": "Lowcountry Lung and Critical Care, PA",
 "location": "Charleston, SC",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-lowell-anesthesia-associates-pllc",
-"name": "Lowell Anesthesia Associates PLLC",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -13645,13 +12874,6 @@
 "id": "nextgen-luther-mangoba-md",
 "name": "Luther Mangoba MD",
 "location": "Murrieta, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-lvc-outpatient-surgery-center",
-"name": "LVC Outpatient Surgery Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -13736,13 +12958,6 @@
 "id": "nextgen-mai-ching-chien-md",
 "name": "Mai Ching Chien MD",
 "location": "Hemet, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-main-line-endoscopy-center",
-"name": "Main Line Endoscopy Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -13974,20 +13189,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-maryland-endoscopy-anesthesia",
-"name": "Maryland Endoscopy Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-maryland-endoscopy-center",
-"name": "Maryland Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-maryland-eye-surgery-center",
 "name": "Maryland Eye Surgery Center",
 "location": "Prince Frederick, MD",
@@ -14028,18 +13229,6 @@
 "location": "Boston, MA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-master-practice-cbo-anesthesia",
-"name": "Master Practice CBO Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
-"former_ids": [
-"nextgen-master-practice",
-"nextgen-master-practice-2",
-"nextgen-master-practice-3"
-]
 },
 {
 "id": "nextgen-mat-su-health-services-inc",
@@ -14119,13 +13308,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-may-street-surgi-center",
-"name": "May Street Surgi Center",
-"location": "Edison, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-mazen-m-mardini-md",
 "name": "Mazen M Mardini, MD",
 "location": "Lodi, CA",
@@ -14136,13 +13318,6 @@
 "id": "nextgen-mccall-behavioral-health-network",
 "name": "McCall Behavioral Health Network",
 "location": "Torrington, CT",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-mccannel-eye-surgery",
-"name": "McCannel Eye Surgery",
-"location": "Edina, MN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -14192,20 +13367,6 @@
 "id": "nextgen-mcr-health-inc",
 "name": "MCR Health, Inc",
 "location": "Bradenton, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-meadow-lane-surgery-center",
-"name": "Meadow Lane Surgery Center",
-"location": "New Port Richey, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-meadows-surgery-center",
-"name": "Meadows Surgery Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -14437,13 +13598,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-medical-center-endoscopy-group",
-"name": "Medical Center Endoscopy Group",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-medical-center-urology-pa",
 "name": "Medical Center Urology PA",
 "location": "High Point, NC",
@@ -14655,7 +13809,7 @@
 },
 {
 "id": "nextgen-mend-psychiatry",
-"name": "Mend Psychiatry",
+"name": "MEND Psychiatry",
 "location": "Mount Vernon, OH",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -14829,13 +13983,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-metropolitan-anesthesia",
-"name": "Metropolitan Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-metropolitan-medical-center",
 "name": "Metropolitan Medical Center",
 "location": "Shorewood, WI",
@@ -14913,20 +14060,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-mga-gastro-diag-and-therap-ctr-metairie",
-"name": "MGA Gastro Diag And Therap Ctr Metairie",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-mga-gastro-diag-and-therapeutic-center",
-"name": "MGA Gastro Diag And Therapeutic Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-miami-asc",
 "name": "Miami ASC",
 "location": "Miami, FL",
@@ -14986,13 +14119,6 @@
 "id": "nextgen-michael-l-krueger-do-inc",
 "name": "Michael L Krueger DO Inc",
 "location": "Fresno, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-michiana-endoscopy-center",
-"name": "Michiana Endoscopy Center",
-"location": "South Bend, IN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -15088,13 +14214,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-mid-florida-surgery-center",
-"name": "Mid Florida Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-mid-hudson-retina-consultants",
 "name": "Mid Hudson Retina Consultants",
 "location": "Newburgh, NY",
@@ -15130,30 +14249,19 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-mid-south-endoscopy-center",
-"name": "Mid-South Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-mid-south-heart-center-pc",
 "name": "Mid-South Heart Center PC",
 "location": "Jackson, TN",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-mid-south-endoscopy-center"
+]
 },
 {
 "id": "nextgen-mid-south-pulmonary-and-sleep-specialist",
 "name": "Mid-South Pulmonary and Sleep Specialist",
 "location": "Memphis, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-midatlantic-gastrointestinal-center",
-"name": "MidAtlantic Gastrointestinal Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -15326,13 +14434,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-milwaukee-endoscopy-center",
-"name": "Milwaukee Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-milwaukee-eye-care-associates",
 "name": "Milwaukee Eye Care Associates",
 "location": "Milwaukee, WI",
@@ -15379,14 +14480,11 @@
 "name": "Minneapolis Endoscopy ASC LLC",
 "location": "Minneapolis, MN",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-minneapolis-eye-center",
-"name": "Minneapolis Eye Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-oak-lawn-endoscopy-asc-llc",
+"nextgen-the-baltimore-endoscopy-asc-llc"
+]
 },
 {
 "id": "nextgen-minnesota-endoscopy-center-llc",
@@ -15434,6 +14532,13 @@
 "id": "nextgen-mission-family-practice",
 "name": "Mission Family Practice",
 "location": "Fayetteville, AR",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-arkansas-valley-surgery-center",
+"name": "Mission Valley Heights Surgery Center",
+"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -15498,7 +14603,11 @@
 "name": "MNGI Endoscopy LLC",
 "location": "Minneapolis, MN",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-phoenix-endoscopy-llc",
+"nextgen-premier-endoscopy-llc"
+]
 },
 {
 "id": "nextgen-mobile-vascular",
@@ -15574,13 +14683,6 @@
 "id": "nextgen-montezuma-medical-clinic",
 "name": "Montezuma Medical Clinic",
 "location": "Montezuma, IA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-montgomery-anesthesia-llc",
-"name": "Montgomery Anesthesia, LLC",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -15781,13 +14883,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-ms-coast-endo-and-ambulatory-surgical",
-"name": "MS Coast Endo And Ambulatory Surgical",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-ms-neuro-ctr-dba-texas-neuro-specialists",
 "name": "MS Neuro Ctr DBA Texas Neuro Specialists",
 "location": "Bedford, TX",
@@ -15897,14 +14992,10 @@
 "name": "Nashville Pediatric Cardiology",
 "location": "Nashville, TN",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-nashville-pediatric-urology",
-"name": "Nashville Pediatric Urology",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-nashville-pediatric-urology"
+]
 },
 {
 "id": "nextgen-nasson-health-care",
@@ -15916,7 +15007,7 @@
 {
 "id": "nextgen-natalia-e-veselova-md",
 "name": "Natalia E Veselova MD",
-"location": "Latham, NY",
+"location": "Niskayuna, NY",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -16271,6 +15362,13 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-new-england-rheum-and-osteoporosis",
+"name": "New England Rheum and Osteoporosis",
+"location": "Henniker, NH",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-new-eyes",
 "name": "New Eyes",
 "location": "Las Vegas, NV",
@@ -16285,9 +15383,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-new-jersey-surgery-center-llc",
-"name": "New Jersey Surgery Center, LLC",
-"location": "Nashville, TN",
+"id": "nextgen-new-mexico-laser-eye-center-llc",
+"name": "New Mexico Laser Eye Center LLC",
+"location": "Clovis, NM",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -16295,13 +15393,6 @@
 "id": "nextgen-new-milford-medical-group-llc",
 "name": "New Milford Medical Group, LLC",
 "location": "New Milford, CT",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-new-orleans-cbo-anesthesia",
-"name": "New Orleans CBO Anesthesia",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -16509,13 +15600,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-ngs-mid-state-endoscopy-center",
-"name": "NGS Mid State Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-nirupa-vignarajan-md-inc",
 "name": "Nirupa Vignarajan, MD, Inc",
 "location": "Glendale, CA",
@@ -16579,13 +15663,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-north-hills-gastro-endoscopy-center",
-"name": "North Hills Gastro Endoscopy Center",
-"location": "Fayetteville, AR",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-north-idaho-pain-center-llc",
 "name": "North Idaho Pain Center LLC",
 "location": "Coeur D Alene, ID",
@@ -16600,20 +15677,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-north-jersey-gastro-and-endoscopy-center",
-"name": "North Jersey Gastro And Endoscopy Center",
-"location": "Wayne, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-north-metro-surgery-center",
-"name": "North Metro Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-north-point-surgery-center",
 "name": "North Point Surgery Center",
 "location": "Kansas City, MO",
@@ -16624,13 +15687,6 @@
 "id": "nextgen-north-ridge-eye-center-llc",
 "name": "North Ridge Eye Center LLC",
 "location": "Fort Lauderdale, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-north-shore-endoscopy-center",
-"name": "North Shore Endoscopy Center",
-"location": "Lake Bluff, IL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -16670,13 +15726,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-north-valley-endoscopy-center",
-"name": "North Valley Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-north-valley-family-medicine",
 "name": "North Valley Family Medicine",
 "location": "Glendale, AZ",
@@ -16687,13 +15736,6 @@
 "id": "nextgen-northeast-community-clinic",
 "name": "Northeast Community Clinic",
 "location": "Alhambra, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-northeast-endoscopy-center",
-"name": "Northeast Endoscopy Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -16775,23 +15817,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-northern-nevada-professional-services",
-"name": "Northern Nevada Professional Services",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-northern-nj-eye-institute-pa",
 "name": "Northern NJ Eye Institute PA",
 "location": "South Orange, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-northfield-surgical-center",
-"name": "Northfield Surgical Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -16866,13 +15894,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-northwest-fl-gastroenterology-center",
-"name": "Northwest FL Gastroenterology Center",
-"location": "Panama City, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-northwest-health-services-inc",
 "name": "Northwest Health Services Inc",
 "location": "Saint Joseph, MO",
@@ -16883,13 +15904,6 @@
 "id": "nextgen-northwest-human-services-inc",
 "name": "Northwest Human Services, Inc",
 "location": "Salem, OR",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-northwest-ohio-endoscopy-center",
-"name": "Northwest Ohio Endoscopy Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -17003,7 +16017,10 @@
 "name": "NS Surgical Center LLC",
 "location": "Kansas City, KS",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-east-paris-surgical-center-llc"
+]
 },
 {
 "id": "nextgen-ns-surgical-center-llc-2",
@@ -17094,7 +16111,12 @@
 "name": "Nura Surgical Center",
 "location": "Coon Rapids, MN",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-northfield-surgical-center",
+"nextgen-oakwater-surgical-center",
+"nextgen-towson-surgical-center"
+]
 },
 {
 "id": "nextgen-nura-pllc",
@@ -17188,13 +16210,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-oak-lawn-endoscopy-asc-llc",
-"name": "Oak Lawn Endoscopy ASC LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-oak-tree-surgery-center-llc",
 "name": "Oak Tree Surgery Center LLC",
 "location": "Nashville, TN",
@@ -17216,13 +16231,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-oakwater-surgical-center",
-"name": "Oakwater Surgical Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-oar-apex-spine-and-neurosurgery",
 "name": "OAR Apex Spine and Neurosurgery",
 "location": "Roswell, GA",
@@ -17231,8 +16239,8 @@
 },
 {
 "id": "nextgen-oasis-medical-and-surgical-wellness",
-"name": "Oasis Medical and Surgical Wellness",
-"location": "Glen Rock, NJ",
+"name": "Oasis Medical and Surgical Wellness, LLC",
+"location": "West Orange, NJ",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -17304,7 +16312,10 @@
 "name": "Obstetrix Medical Group Of Florida",
 "location": "Fort Lauderdale, FL",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-obstetrix-medical-group-of-oklahoma-p-c"
+]
 },
 {
 "id": "nextgen-obstetrix-medical-group-of-georgia",
@@ -17324,13 +16335,6 @@
 "id": "nextgen-obstetrix-medical-group-of-nebraska",
 "name": "Obstetrix Medical Group Of Nebraska",
 "location": "Omaha, NE",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-obstetrix-medical-group-of-oklahoma-p-c",
-"name": "Obstetrix Medical Group Of Oklahoma, P.C",
-"location": "Tulsa, OK",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -17395,7 +16399,10 @@
 "name": "Ocala Eye Surgery Center",
 "location": "Ocala, FL",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-orthopaedic-surgery-center-of-ocala"
+]
 },
 {
 "id": "nextgen-ocala-eye-p-a",
@@ -17426,13 +16433,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-ocean-endosurgery-center",
-"name": "Ocean Endosurgery Center",
-"location": "Toms River, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-ocean-rheumatology-p-a",
 "name": "Ocean Rheumatology, P.A.",
 "location": "Toms River, NJ",
@@ -17440,23 +16440,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-ocean-springs-surgical-and-endoscopy-ctr",
-"name": "Ocean Springs Surgical And Endoscopy Ctr",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-ocean-state-rheumatology-llc",
 "name": "Ocean State Rheumatology LLC",
 "location": "Fall River, MA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-ocean-surgical-pavilion",
-"name": "Ocean Surgical Pavilion",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -17587,13 +16573,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-old-town-endoscopy-center-llc",
-"name": "Old Town Endoscopy Center LLC",
-"location": "Dallas, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-olive-branch-family-medical-center",
 "name": "Olive Branch Family Medical Center",
 "location": "Olive Branch, MS",
@@ -17660,13 +16639,6 @@
 "id": "nextgen-oncology-hematology-consultants",
 "name": "Oncology Hematology Consultants",
 "location": "Long Beach, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-one-day-surgery-center",
-"name": "One Day Surgery Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -18042,6 +17014,13 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-orthopaedic-specialists-of-connecticut",
+"name": "Orthopaedic Specialists Of Connecticut",
+"location": "Brookfield, CT",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-orthopaedic-specialty-institute",
 "name": "Orthopaedic Specialty Institute",
 "location": "Orange, CA",
@@ -18052,13 +17031,6 @@
 "id": "nextgen-orthopaedic-surgery-and-sports-medicine",
 "name": "Orthopaedic Surgery and Sports Medicine",
 "location": "Temecula, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-orthopaedic-surgery-center-of-ocala",
-"name": "Orthopaedic Surgery Center Of Ocala",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -18157,6 +17129,13 @@
 "id": "nextgen-pacific-coast-gastroenterology",
 "name": "Pacific Coast Gastroenterology",
 "location": "Irvine, CA",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-pacific-eye-associates",
+"name": "Pacific Eye Associates",
+"location": "San Francisco, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -18280,13 +17259,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-palm-endoscopy-center",
-"name": "Palm Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-palmetto-retina-center-llc",
 "name": "Palmetto Retina Center, LLC",
 "location": "West Columbia, SC",
@@ -18388,13 +17360,6 @@
 "id": "nextgen-parkview-orthopaedic-group-sc",
 "name": "Parkview Orthopaedic Group SC",
 "location": "Palos Heights, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-parkway-endoscopy-center",
-"name": "Parkway Endoscopy Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -18577,6 +17542,13 @@
 "id": "nextgen-pediatric-and-fetal-cardiology-of-miami",
 "name": "Pediatric And Fetal Cardiology Of Miami",
 "location": "Miami, FL",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-pediatric-associates-pa",
+"name": "Pediatric Associates, PA",
+"location": "Columbia, SC",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -18994,13 +17966,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-phoenix-endoscopy-llc",
-"name": "Phoenix Endoscopy, LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-phoenix-heart-pllc",
 "name": "Phoenix Heart PLLC",
 "location": "Glendale, AZ",
@@ -19074,13 +18039,6 @@
 "id": "nextgen-physicians-eye-center-of-owensboro",
 "name": "Physicians Eye Center Of Owensboro",
 "location": "Owensboro, KY",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-physicians-eye-surgery-center",
-"name": "Physicians Eye Surgery Center",
-"location": "Charleston, SC",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -19176,13 +18134,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-pinnacle-surgery-center",
-"name": "Pinnacle Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-pioneer-heart-institute",
 "name": "Pioneer Heart Institute",
 "location": "Lincoln, NE",
@@ -19190,23 +18141,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-pioneer-sedation-pllc",
-"name": "Pioneer Sedation PLLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-pioneer-valley-cardiology-associates",
 "name": "Pioneer Valley Cardiology Associates",
 "location": "Springfield, MA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pioneer-valley-surgicenter",
-"name": "Pioneer Valley Surgicenter",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -19428,13 +18365,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-port-st-lucie-anesthesia-llc",
-"name": "Port St. Lucie Anesthesia LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-porter-adventist-hospital",
 "name": "Porter Adventist Hospital",
 "location": "Denver, CO",
@@ -19445,13 +18375,6 @@
 "id": "nextgen-post-falls-family-medicine-pa",
 "name": "Post Falls Family Medicine PA",
 "location": "Post Falls, ID",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-pottsville-anesthesia-associates",
-"name": "Pottsville Anesthesia Associates",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -19613,13 +18536,6 @@
 "id": "nextgen-premier-dermatology-and-cosmetic-surgery",
 "name": "Premier Dermatology And Cosmetic Surgery",
 "location": "Newark, DE",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-premier-endoscopy-llc",
-"name": "Premier Endoscopy LLC",
-"location": "Clifton, NJ",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -20352,13 +19268,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-raleigh-endoscopy-center",
-"name": "Raleigh Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-ram-mudiyam-md-inc",
 "name": "Ram Mudiyam, MD Inc",
 "location": "Fountain Valley, CA",
@@ -20397,6 +19306,13 @@
 "id": "nextgen-ramsey-county-mental-health-center",
 "name": "Ramsey County Mental Health Center",
 "location": "Saint Paul, MN",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-ramsey-county-residential-care",
+"name": "Ramsey County Residential Care",
+"location": "Shoreview, MN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -20474,27 +19390,6 @@
 "id": "nextgen-red-river-medicine-llc",
 "name": "Red River Medicine, LLC",
 "location": "Shreveport, LA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-redding-ca-gi-anesthesia",
-"name": "Redding CA GI Anesthesia",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-redding-endoscopy-center",
-"name": "Redding Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-redding-gi-anesthesia",
-"name": "Redding GI Anesthesia",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -21115,23 +20010,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-river-drive-surgery-and-laser-center",
-"name": "River Drive Surgery And Laser Center",
-"location": "Elmwood Park, NJ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-river-north-surgery-center",
 "name": "River North Surgery Center",
 "location": "Chicago, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-river-oaks-endoscopy",
-"name": "River Oaks Endoscopy",
-"location": "Conroe, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -21140,7 +20021,10 @@
 "name": "Riverside Anesthesia Services",
 "location": "Jacksonville, FL",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-westside-anesthesia-services"
+]
 },
 {
 "id": "nextgen-riverside-asc",
@@ -21339,13 +20223,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-rocky-mountain-laser-and-surgery-center",
-"name": "Rocky Mountain Laser And Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-rocky-mountain-spine-and-sport",
 "name": "Rocky Mountain Spine And Sport",
 "location": "Littleton, CO",
@@ -21420,7 +20297,10 @@
 "name": "Rural Health Center",
 "location": "Wilkes Barre, PA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-digestive-health-center"
+]
 },
 {
 "id": "nextgen-rural-health-services-consortium-inc",
@@ -21528,13 +20408,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-saint-barnabas-outpatient-centers",
-"name": "Saint Barnabas Outpatient Centers",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-saint-marys-medical-group-inc",
 "name": "Saint Marys Medical Group Inc",
 "location": "Reno, NV",
@@ -21552,13 +20425,6 @@
 "id": "nextgen-sakdc-surgical-center",
 "name": "SAKDC Surgical Center",
 "location": "San Antonio, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-salem-laser-and-surgery-center",
-"name": "Salem Laser And Surgery Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -21644,7 +20510,10 @@
 "name": "San Antonio Care Center",
 "location": "San Antonio, TX",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-san-antonio-gastroenterology-endo-center"
+]
 },
 {
 "id": "nextgen-san-antonio-chc",
@@ -21657,20 +20526,6 @@
 "id": "nextgen-san-antonio-eye-center-p-a",
 "name": "San Antonio Eye Center, P.A.",
 "location": "San Antonio, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-san-antonio-gastroenterology-endo-center",
-"name": "San Antonio Gastroenterology Endo Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-san-antonio-gi-anesthesia",
-"name": "San Antonio GI Anesthesia",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -21815,13 +20670,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-sarasota-physicians-surgical-center",
-"name": "Sarasota Physicians Surgical Center",
-"location": "Sarasota, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-satilla-rheumatology-internal-medicine",
 "name": "Satilla Rheumatology & Internal Medicine",
 "location": "Waycross, GA",
@@ -21878,13 +20726,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-sc-anesthesia-p-c",
-"name": "SC Anesthesia P.C.",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-scars-management-services",
 "name": "SCARS Management Services",
 "location": "Newport Beach, CA",
@@ -21916,20 +20757,6 @@
 "id": "nextgen-schc-dental-clinic",
 "name": "SCHC Dental Clinic",
 "location": "Redding, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-schuylkill-endoscopy-center",
-"name": "Schuylkill Endoscopy Center",
-"location": "Pottsville, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-schuylkill-endoscopy-center-anes",
-"name": "Schuylkill Endoscopy Center Anes",
-"location": "Pottsville, PA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -21993,13 +20820,6 @@
 "id": "nextgen-seacoast-orthopedic-associates",
 "name": "Seacoast Orthopedic Associates",
 "location": "Newburyport, MA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-seaside-endoscopy-pavilion",
-"name": "Seaside Endoscopy Pavilion",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -22358,7 +21178,10 @@
 "name": "SGF Anesthesia Associates",
 "location": "Rockville, MD",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-pottsville-anesthesia-associates"
+]
 },
 {
 "id": "nextgen-sgf-atlanta",
@@ -22592,6 +21415,13 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-sierra-pacific-ortho-medical-group-inc",
+"name": "Sierra Pacific Ortho Medical Group Inc",
+"location": "Fresno, CA",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-sight-eye-clinic-p-c",
 "name": "Sight Eye Clinic, P.C.",
 "location": "Zeeland, MI",
@@ -22645,7 +21475,38 @@
 "name": "Simi Endoscopy Center",
 "location": "Simi Valley, CA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-arizona-endoscopy-center",
+"nextgen-boston-endoscopy-center",
+"nextgen-cascade-endoscopy-center",
+"nextgen-chattanooga-endoscopy-center",
+"nextgen-clovis-endoscopy-center",
+"nextgen-gastrointestinal-endoscopy-center",
+"nextgen-guilford-endoscopy-center",
+"nextgen-harford-endoscopy-center",
+"nextgen-johnston-endoscopy-center",
+"nextgen-kissimmee-endoscopy-center",
+"nextgen-lifeline-endoscopy-center",
+"nextgen-louisiana-endoscopy-center",
+"nextgen-louisville-endoscopy-center",
+"nextgen-michiana-endoscopy-center",
+"nextgen-milwaukee-endoscopy-center",
+"nextgen-northeast-endoscopy-center",
+"nextgen-palm-endoscopy-center",
+"nextgen-parkway-endoscopy-center",
+"nextgen-raleigh-endoscopy-center",
+"nextgen-redding-endoscopy-center",
+"nextgen-schuylkill-endoscopy-center",
+"nextgen-tennessee-endoscopy-center",
+"nextgen-thunderbird-endoscopy-center",
+"nextgen-triangle-endoscopy-center",
+"nextgen-tulsa-endoscopy-center",
+"nextgen-university-endoscopy-center",
+"nextgen-waldorf-endoscopy-center",
+"nextgen-westglen-endoscopy-center",
+"nextgen-woodlands-endoscopy-center"
+]
 },
 {
 "id": "nextgen-simi-medical-group-inc",
@@ -22783,7 +21644,7 @@
 {
 "id": "nextgen-soaring-healthcare",
 "name": "Soaring Healthcare",
-"location": "Midlothian, TX",
+"location": "Mansfield, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -22847,13 +21708,6 @@
 "id": "nextgen-south-my-clinic",
 "name": "South - My Clinic",
 "location": "Indianapolis, IN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-south-arkansas-surgery-center",
-"name": "South Arkansas Surgery Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -23138,6 +21992,13 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-southside-medical-center-inc",
+"name": "Southside Medical Center, Inc.",
+"location": "Atlanta, GA",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
 "id": "nextgen-southwest-allergy-and-asthma-center",
 "name": "Southwest Allergy and Asthma Center",
 "location": "Plano, TX",
@@ -23208,13 +22069,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-space-coast-endoscopy-center",
-"name": "Space Coast Endoscopy Center",
-"location": "Rockledge, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-space-coast-rheumatology-arth-center-pa",
 "name": "Space Coast Rheumatology Arth Center PA",
 "location": "Merritt Island, FL",
@@ -23278,23 +22132,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-specialty-surgery-center-of-san-antonio",
-"name": "Specialty Surgery Center of San Antonio",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-specialty-surgical-center-llc",
 "name": "Specialty Surgical Center LLC",
 "location": "Flowood, MS",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-specialty-surgical-ctr-of-n-brunswick",
-"name": "Specialty Surgical Ctr Of N Brunswick",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -23404,23 +22244,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-springfield-ambulatory-surgery-center",
-"name": "Springfield Ambulatory Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-springfield-cardiology",
 "name": "Springfield Cardiology",
 "location": "Springfield, OH",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-springfield-or-anesthesia-associates-llc",
-"name": "Springfield OR Anesthesia Associates LLC",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -23484,13 +22310,6 @@
 "id": "nextgen-st-croix-tribal-health-clinic",
 "name": "St Croix Tribal Health Clinic",
 "location": "Webster, WI",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-st-george-endoscopy-center",
-"name": "St George Endoscopy Center",
-"location": "Saint George, UT",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -23603,13 +22422,6 @@
 "id": "nextgen-st-pete-arthritis-and-rheumatology",
 "name": "St Pete Arthritis And Rheumatology",
 "location": "Saint Petersburg, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-st-thomas-medical-group-endoscopy",
-"name": "St Thomas Medical Group Endoscopy",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -23901,20 +22713,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-sun-city-endoscopy-center",
-"name": "Sun City Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-sun-coast-endoscopy-center",
-"name": "Sun Coast Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-sundance-medical-center",
 "name": "Sundance Medical Center",
 "location": "Las Vegas, NV",
@@ -24010,7 +22808,23 @@
 "name": "Surgery Center",
 "location": "Thousand Oaks, CA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-32nd-street-surgery-center",
+"nextgen-blue-ridge-surgery-center",
+"nextgen-citrus-ambulatory-surgery-center",
+"nextgen-eastern-massachusetts-surgery-center",
+"nextgen-eyehealth-eastside-surgery-center",
+"nextgen-lvc-outpatient-surgery-center",
+"nextgen-meadow-lane-surgery-center",
+"nextgen-mid-florida-surgery-center",
+"nextgen-north-metro-surgery-center",
+"nextgen-one-day-surgery-center",
+"nextgen-south-arkansas-surgery-center",
+"nextgen-springfield-ambulatory-surgery-center",
+"nextgen-team-vision-surgery-center",
+"nextgen-texarkana-surgery-center-lp"
+]
 },
 {
 "id": "nextgen-surgery-center-of-conway-llc",
@@ -24020,8 +22834,8 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-surgery-center-of-lakeland-hills-blvd",
-"name": "Surgery Center Of Lakeland Hills Blvd",
+"id": "nextgen-surgery-center-of-northeast-texas",
+"name": "Surgery Center of Northeast Texas",
 "location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -24030,13 +22844,6 @@
 "id": "nextgen-surgery-center-of-northern-california",
 "name": "Surgery Center Of Northern California",
 "location": "Redding, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-surgery-center-of-south-central-kansas",
-"name": "Surgery Center Of South Central Kansas",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -24051,13 +22858,6 @@
 "id": "nextgen-surgical-care-center-of-michigan",
 "name": "Surgical Care Center Of Michigan",
 "location": "Grand Rapids, MI",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-surgical-center-at-millburn",
-"name": "Surgical Center At Millburn",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -24244,13 +23044,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-tampa-bay-endoscopy-center",
-"name": "Tampa Bay Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-tampa-eye-clinic-and-associates-pa",
 "name": "Tampa Eye Clinic And Associates PA",
 "location": "Tampa, FL",
@@ -24314,13 +23107,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-team-vision-surgery-center",
-"name": "Team Vision Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-tej-preet-singh-m-d-p-c",
 "name": "Tej-Preet Singh, M.D. P.C.",
 "location": "Massapequa, NY",
@@ -24338,13 +23124,6 @@
 "id": "nextgen-temecula-family-wellness",
 "name": "Temecula Family Wellness",
 "location": "Temecula, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-tennessee-endoscopy-center",
-"name": "Tennessee Endoscopy Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -24398,20 +23177,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-texarkana-sedation-llc",
-"name": "Texarkana Sedation LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-texarkana-surgery-center-lp",
-"name": "Texarkana Surgery Center, LP",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-texas-arthritis-and-rheumatology",
 "name": "Texas Arthritis And Rheumatology",
 "location": "Tyler, TX",
@@ -24429,13 +23194,6 @@
 "id": "nextgen-texas-dermatology-specialists",
 "name": "Texas Dermatology Specialists",
 "location": "Katy, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-texas-gi-endoscopy-center",
-"name": "Texas GI Endoscopy Center",
-"location": "Mesquite, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -24524,20 +23282,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-the-baltimore-endoscopy-asc-llc",
-"name": "The Baltimore Endoscopy ASC, LLC",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-center-for-ambulatory-surgery",
-"name": "The Center For Ambulatory Surgery",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-the-center-for-pain-and-supportive-care",
 "name": "The Center For Pain And Supportive Care",
 "location": "Phoenix, AZ",
@@ -24594,20 +23338,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-the-endoscopy-center-at-meridian",
-"name": "The Endoscopy Center At Meridian",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-endoscopy-center-of-santa-fe",
-"name": "The Endoscopy Center Of Santa Fe",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-the-excelsior-springs-clinic",
 "name": "The Excelsior Springs Clinic",
 "location": "Excelsior Springs, MO",
@@ -24647,54 +23377,15 @@
 "name": "The Eye Surgery Center",
 "location": "Wayne, PA",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-eye-surgery-center-2",
-"name": "The Eye Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-eye-surgery-center-of-paducah",
-"name": "The Eye Surgery Center Of Paducah",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-eye-surgery-ctr",
-"name": "The Eye Surgery Ctr",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-the-eye-surgery-center-2"
+]
 },
 {
 "id": "nextgen-the-female-pelvic-health-center",
 "name": "The Female Pelvic Health Center",
 "location": "Newtown, PA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-gi-endoscopy-center",
-"name": "The GI Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-glen-endoscopy-center",
-"name": "The Glen Endoscopy Center",
-"location": "Glenview, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-gregori-surgery-center",
-"name": "The Gregori Surgery Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -24748,23 +23439,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-the-livingston-surgery-center",
-"name": "The Livingston Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-the-midwest-center-for-sight",
 "name": "The Midwest Center For Sight",
 "location": "Des Plaines, IL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-montgomery-eye-surgery-center",
-"name": "The Montgomery Eye Surgery Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -24783,6 +23460,21 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
+"id": "nextgen-the-center-for-ambulatory-surgery",
+"name": "The Ocular Surgery Center",
+"location": "San Antonio, TX",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-the-gregori-surgery-center",
+"nextgen-the-livingston-surgery-center",
+"nextgen-the-montgomery-eye-surgery-center",
+"nextgen-the-palmetto-surgery-center",
+"nextgen-the-regional-eye-surgery-center",
+"nextgen-the-surgery-center-of-melbourne"
+]
+},
+{
 "id": "nextgen-the-onarga-clinic",
 "name": "The Onarga Clinic",
 "location": "Onarga, IL",
@@ -24797,13 +23489,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-the-palmetto-surgery-center",
-"name": "The Palmetto Surgery Center",
-"location": "Hialeah, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-the-paxton-clinic",
 "name": "The Paxton Clinic",
 "location": "Paxton, IL",
@@ -24814,13 +23499,6 @@
 "id": "nextgen-the-pediatric-care-center",
 "name": "The Pediatric Care Center",
 "location": "Rio Grande City, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-peoria-az-multi-asc-llc",
-"name": "The Peoria AZ Multi ASC LLC",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -24874,13 +23552,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-the-regional-eye-surgery-center",
-"name": "The Regional Eye Surgery Center",
-"location": "Kingsport, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-the-retina-group-inc",
 "name": "The Retina Group Inc",
 "location": "Columbus, OH",
@@ -24905,13 +23576,6 @@
 "id": "nextgen-the-surgery-center-of-coral-gables-llc",
 "name": "The Surgery Center Of Coral Gables LLC",
 "location": "Miami, FL",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-the-surgery-center-of-melbourne",
-"name": "The Surgery Center Of Melbourne",
-"location": "Melbourne, FL",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -24975,13 +23639,6 @@
 "id": "nextgen-thrive-comprehensive-medical-group",
 "name": "Thrive Comprehensive Medical Group",
 "location": "Tarzana, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-thunderbird-endoscopy-center",
-"name": "Thunderbird Endoscopy Center",
-"location": "Glendale, AZ",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -25098,13 +23755,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-towson-surgical-center",
-"name": "Towson Surgical Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-tpmg",
 "name": "TPMG",
 "location": "Charlotte, NC",
@@ -25217,13 +23867,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-triangle-endoscopy-center",
-"name": "Triangle Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-tricity-cardiology-consultants-pc",
 "name": "TriCity Cardiology Consultants PC",
 "location": "City Of Industry, CA",
@@ -25297,13 +23940,6 @@
 "id": "nextgen-tulsa-emergency-medical-center-inc",
 "name": "Tulsa Emergency Medical Center Inc",
 "location": "Tempe, AZ",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-tulsa-endoscopy-center",
-"name": "Tulsa Endoscopy Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -25500,13 +24136,6 @@
 "id": "nextgen-university-club-medical",
 "name": "University Club Medical",
 "location": "Saint Louis, MO",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-university-endoscopy-center",
-"name": "University Endoscopy Center",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -26039,13 +24668,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-valley-digestive-health-center",
-"name": "Valley Digestive Health Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-valley-eye-surgical-center",
 "name": "Valley Eye Surgical Center",
 "location": "Bethlehem, PA",
@@ -26063,6 +24685,13 @@
 "id": "nextgen-valley-health-team-inc",
 "name": "Valley Health Team Inc",
 "location": "San Joaquin, CA",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-valley-heart-associates-medical-group",
+"name": "Valley Heart Associates Medical Group",
+"location": "Modesto, CA",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -26302,7 +24931,10 @@
 "name": "Victoria Eye Center",
 "location": "Victoria, TX",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-minneapolis-eye-center"
+]
 },
 {
 "id": "nextgen-victoria-surgery-center",
@@ -26484,7 +25116,15 @@
 "name": "Vista Surgery Center",
 "location": "El Paso, TX",
 "platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4",
+"former_ids": [
+"nextgen-campus-surgery-center",
+"nextgen-galloway-surgery-center",
+"nextgen-meadows-surgery-center",
+"nextgen-pinnacle-surgery-center",
+"nextgen-waverley-surgery-center",
+"nextgen-westside-surgery-center"
+]
 },
 {
 "id": "nextgen-vistar-eye-center-inc",
@@ -26655,13 +25295,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-waco-gastroenterology-endoscopy-center",
-"name": "Waco Gastroenterology Endoscopy Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-wadah-atassi-md",
 "name": "Wadah Atassi MD",
 "location": "Chicago, IL",
@@ -26690,8 +25323,22 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-waldorf-endoscopy-center",
-"name": "Waldorf Endoscopy Center",
+"id": "nextgen-wake-endoscopy",
+"name": "Wake Endoscopy",
+"location": "Nashville, TN",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-wake-endoscopy-center-cary",
+"name": "Wake Endoscopy Center Cary",
+"location": "Nashville, TN",
+"platform": "nextgen",
+"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
+},
+{
+"id": "nextgen-wake-forest-endoscopy-center",
+"name": "Wake Forest Endoscopy Center",
 "location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
@@ -26760,23 +25407,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-waverley-surgery-center",
-"name": "Waverley Surgery Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-wc-child-mind-medical-practice-pc",
 "name": "WC, Child Mind Medical Practice, PC",
 "location": "San Mateo, CA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-wcs-sedation",
-"name": "WCS Sedation",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -26847,13 +25480,6 @@
 "id": "nextgen-west-centier-group",
 "name": "West Centier Group",
 "location": "Atlanta, GA",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-west-chester-endoscopy-llc",
-"name": "West Chester Endoscopy, LLC",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -26991,13 +25617,6 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-westglen-endoscopy-center",
-"name": "Westglen Endoscopy Center",
-"location": "Shawnee, KS",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-westhampton-primary-care-center",
 "name": "Westhampton Primary Care Center",
 "location": "Westhampton Beach, NY",
@@ -27015,27 +25634,6 @@
 "id": "nextgen-weston-eye-center",
 "name": "Weston Eye Center",
 "location": "Roseburg, OR",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-weston-outpatient-surgical-center",
-"name": "Weston Outpatient Surgical Center",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-westside-anesthesia-services",
-"name": "Westside Anesthesia Services",
-"location": "Nashville, TN",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-westside-surgery-center",
-"name": "Westside Surgery Center",
-"location": "Portland, OR",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -27327,23 +25925,9 @@
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
 {
-"id": "nextgen-woodlands-anesthesia-associates-llc",
-"name": "Woodlands Anesthesia Associates LLC",
-"location": "Shenandoah, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
 "id": "nextgen-woodlands-diagnostic-clinic",
 "name": "Woodlands Diagnostic Clinic",
 "location": "Shenandoah, TX",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-woodlands-endoscopy-center",
-"name": "Woodlands Endoscopy Center",
-"location": "The Woodlands, TX",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
@@ -27799,13 +26383,6 @@
 "id": "nextgen-zepick-cardiology",
 "name": "Zepick Cardiology",
 "location": "Wichita, KS",
-"platform": "nextgen",
-"fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
-},
-{
-"id": "nextgen-zeye-surgery-center-of-east-tennessee",
-"name": "ZEye Surgery Center Of East Tennessee",
-"location": "Nashville, TN",
 "platform": "nextgen",
 "fhir_base_url": "https://fhir.nextgen.com/nge/prod/fhir-api-r4/fhir/r4"
 },
