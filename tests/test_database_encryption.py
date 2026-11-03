@@ -75,10 +75,11 @@ def _app():
 
 
 def _on_disk(folder: Path, marker: str = MARKER) -> list[str]:
-    """Every file under the folder that holds this in the clear."""
+    """Every file under the folder that holds this in the clear. Not the -shm file: it indexes the log's pages and holds no rows,
+    and Windows keeps it locked while the database is open."""
     found = []
     for f in folder.rglob("*"):
-        if f.is_file() and marker.encode() in f.read_bytes():
+        if f.is_file() and not f.name.endswith("-shm") and marker.encode() in f.read_bytes():
             found.append(str(f.relative_to(folder)))
     return found
 

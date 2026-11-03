@@ -368,7 +368,8 @@ def test_an_import_says_what_it_left_out_closes_the_file_and_deletes_it(client, 
     job = _wait(client, job_id)
     assert job["status"] == "completed", job
     assert job["result"]["skipped_files"] == ["x.json"]
-    assert opened == [True] and _uploads() == []
+    # The job says it's finished, then closes the archive and deletes the upload: wait for the last of those.
+    assert _uploads_when_gone() == [] and opened == [True]
 
 
 def test_a_bombed_upload_ends_as_an_error_with_no_file_left(client, tmp_path):
