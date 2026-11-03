@@ -5,6 +5,9 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 
 ## 1.7.0
 
+A large release: records import and sync more completely, backups and upgrades are safer, and accounts, the phone
+connection and AI access are tighter. Lines under each heading are what changed for someone upgrading from 1.6.0.
+
 - **Upload a lab report, on paper or as a PDF, from Sources, Records or Trends.** Drop in a PDF, a scan or a phone photo (HEIC too)
   and it's read on your computer, with nothing to install: the Mac and Windows apps use the reader built into the system, and the Docker
   image includes Tesseract. Each page is shown beside the rows it was read into, on a phone above them; choosing a row points out its
@@ -12,8 +15,6 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
   out unless you say otherwise. Reports with results side by side in two columns are read in full. The original is kept once with the
   results, opens from any of them, and goes in exports and backups. Saving takes you to what you added. Sending a report to an AI stays
   optional and asks first, as before.
-A large release: records import and sync more completely, backups and upgrades are safer, and accounts, the phone
-connection and AI access are tighter. Lines under each heading are what changed for someone upgrading from 1.6.0.
 
 **The disclaimer is clearer about what it is.** Syntropy Health isn't medical advice, and that's now also stated in
 `NOTICE` as additional terms under section 7 of the license. The first-run checkbox is an acknowledgment, not a condition
