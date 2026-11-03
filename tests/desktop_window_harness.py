@@ -52,6 +52,8 @@ class Pages(http.server.BaseHTTPRequestHandler):
             return
         if path == "/slow":
             time.sleep(1.5)     # long enough to look at the bar while it's on its way
+        if path == "/callback/choose":
+            time.sleep(2.5)     # past the wait the page before it started, which mustn't take this one's cover down
         if path == "/file.bin":
             body = b"not a page"
             self.send_response(200)
@@ -542,6 +544,7 @@ def sign_in_sheet():
     # An address that only looks like the app's isn't the end of anything.
     sheet_js("location.href='/lookalike'; true")
     until(lambda: "#/settings" in sheet_url(), 5)
+    until(lambda: bar()["name"] == "localhost", 5)
     sheet["lookalike_keeps_sheet"] = mac.sheet is not None
     sheet["lookalike_main_url"] = url()
 
