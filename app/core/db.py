@@ -91,13 +91,17 @@ def use_key(conn: sqlite3.Connection, key: str) -> None:
 def _key_for(path: Path, create: bool) -> Optional[str]:
     from app.core import security
 
+    # Whether it's empty is looked at first. Another process making the database can write its first page in between,
+    # and the other order could find it neither empty nor encrypted, and open it without a key (Windows CI did, with five
+    # processes starting together).
+    empty = create and (not path.exists() or not path.stat().st_size)
     if is_encrypted(path):
         if not HAS_ENCRYPTION:
             raise StartupProblem("no_encryption", f"The database at {path} is encrypted, and this copy of Syntropy Health was installed "
                                                   "without the part that reads encrypted databases (sqlcipher3). Install it again from "
                                                   f"{RELEASES_URL}. Nothing has been changed.")
         return security.database_key()
-    if create and encrypt_new_databases() and (not path.exists() or not path.stat().st_size):
+    if empty and encrypt_new_databases():
         return security.database_key()
     return None
 
