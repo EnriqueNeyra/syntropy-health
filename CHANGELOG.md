@@ -227,6 +227,8 @@ runs the server can read everything. Every route and AI tool was checked for rea
   removed with a plain message; answers that used no lookups say they weren't checked against the record. Errors keep
   your question and offer Try again. Ask no longer fails from the 13th question in a chat with Claude. Answers ending in
   a table keep their last row.
+- **Claude Code says how to sign in again.** When its sign-in has run out, Ask and Settings name the command to run,
+  `claude auth login`, and note that being signed in to the Claude app doesn't sign in the `claude` command.
 - **Better with small local models.** They get fewer lookups and shorter results so your question isn't pushed out, and
   Settings explains how to give them more room. Servers that don't report a model's room get full lookups.
 - **Everyone's access is separate.** Someone who isn't the server's owner chooses an AI for their own questions only;
