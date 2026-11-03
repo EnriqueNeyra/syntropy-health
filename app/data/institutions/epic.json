@@ -521,7 +521,7 @@
 "name": "Ann & Robert H. Lurie Children's Hospital of Chicago",
 "location": "IL",
 "platform": "epic",
-"fhir_base_url": "https://epicmobile.luriechildrens.org/Interconnect-FHIRPRD/HOME/api/FHIR/R4",
+"fhir_base_url": "https://epicmobile.luriechildrens.org/Interconnect-FHIRPRD/api/FHIR/R4",
 "network": "Children's Hospital of Chicago Medical Center",
 "places": [
 "Chicago IL",

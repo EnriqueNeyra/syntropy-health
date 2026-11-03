@@ -11705,13 +11705,6 @@
 "fhir_base_url": "https://clubviewvision.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-cny-rheumatology-care",
-"name": "CNY Rheumatology Care",
-"location": "Fayetteville, NY",
-"platform": "modmed",
-"fhir_base_url": "https://cnyrheumatology.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-cnyskinhealth",
 "name": "cnyskinhealth",
 "location": "Brewertown, NY",
@@ -21809,13 +21802,6 @@
 "fhir_base_url": "https://eyeclinicofutahvalley.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-eye-clinic-of-bellevue",
-"name": "Eye Clinic of Bellevue",
-"location": "Bellevue, WA",
-"platform": "modmed",
-"fhir_base_url": "https://ecob.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-eye-clinic-of-vero-optical-boutique",
 "name": "Eye Clinic of Vero & Optical Boutique",
 "location": "Vero Beach, FL",
@@ -29064,7 +29050,6 @@
 {
 "id": "modmed-hudson-valley-eye-doctor",
 "name": "Hudson Valley Eye Doctor",
-"location": "Newburgh, NY",
 "platform": "modmed",
 "fhir_base_url": "https://drelainamgroo.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -36694,7 +36679,7 @@
 {
 "id": "modmed-marsha-reuther-m-d-inc",
 "name": "Marsha Reuther, M.D., Inc.",
-"location": "La Jolla, CA",
+"location": "San Diego, CA",
 "platform": "modmed",
 "fhir_base_url": "https://sandiegoent.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -46800,6 +46785,13 @@
 "fhir_base_url": "https://pittsburghskin.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-st-joseph-foot-clinic-llc",
+"name": "Pivotal Foot and Ankle Surgeons, LLC",
+"location": "Saint Joseph, MO",
+"platform": "modmed",
+"fhir_base_url": "https://pivotalfoot.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-plainfield-vision",
 "name": "Plainfield Vision",
 "location": "Countryside, IL",
@@ -50090,6 +50082,13 @@
 "location": "Beverly Hills, CA",
 "platform": "modmed",
 "fhir_base_url": "https://drrand.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
+"id": "modmed-cny-rheumatology-care",
+"name": "Riccardi MD",
+"location": "Fayetteville, NY",
+"platform": "modmed",
+"fhir_base_url": "https://cnyrheumatology.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-rice-eye-associates",
@@ -55996,13 +55995,6 @@
 "fhir_base_url": "https://stjohnspodiatry.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-st-joseph-foot-clinic-llc",
-"name": "St. Joseph Foot Clinic, LLC",
-"location": "Saint Joseph, MO",
-"platform": "modmed",
-"fhir_base_url": "https://pivotalfoot.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-st-jude-ophthalmology",
 "name": "St. Jude Ophthalmology",
 "location": "Brooklyn, NY",
@@ -58692,7 +58684,7 @@
 {
 "id": "modmed-the-nirschl-orthopaedic-center-for-sports-medicine-and-joint-reconstruction-p-c",
 "name": "The Nirschl Orthopaedic Center for Sports Medicine and Joint Reconstruction, P.C.",
-"location": "Arlington, VA",
+"location": "Fairfax, VA",
 "platform": "modmed",
 "fhir_base_url": "https://nirschl.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -64407,6 +64399,13 @@
 "location": "Victoria, TX",
 "platform": "modmed",
 "fhir_base_url": "https://victoriaderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
+"id": "modmed-wyntre-brooke-eye-associates",
+"name": "Wyntre Brooke Eye Associates",
+"location": "York, PA",
+"platform": "modmed",
+"fhir_base_url": "https://wyntrebrookeeyeassociates.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-wyoming-orthopedics-spine",
