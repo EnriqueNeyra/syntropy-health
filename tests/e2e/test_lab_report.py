@@ -136,6 +136,36 @@ def test_results_already_on_file_are_pointed_out_and_left_out(browser, fresh_ser
     c.close()
 
 
+def test_a_file_chosen_while_the_dialog_loads_is_read(browser, fresh_server):
+    """A file picker hands its choice to the box it was opened from, so the rest of the dialog loading mustn't put a new
+    box in its place: the choice would go nowhere. CI caught it as a test that chose a file the moment the box appeared."""
+    c = seed(fresh_server, simulated=False)
+    s = Session(browser, fresh_server)
+    page = s.open("#/records/labs")
+    held = []
+    page.route("**/api/labs/reader", lambda route: held.append(route))
+    page.locator("[data-action=add-report]").click()
+    page.wait_for_selector(".lab-drop")
+    page.evaluate("window.picker = document.querySelector('#lab-file')")     # the person opens the picker
+    for _ in range(100):
+        if held:
+            break
+        page.wait_for_timeout(50)
+    held[0].continue_()
+    page.wait_for_selector("#lab-tests option", state="attached")        # loaded
+    page.evaluate("""(data) => {
+      const dt = new DataTransfer();
+      dt.items.add(new File([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))], "report.pdf", { type: "application/pdf" }));
+      window.picker.files = dt.files;
+      window.picker.dispatchEvent(new Event("change", { bubbles: true }));
+    }""", base64.b64encode(REPORT).decode())
+    page.wait_for_selector(".lab-panes.lab-both")
+    assert page.locator(".lab-row").count() == 4
+    assert s.errors == []
+    s.close()
+    c.close()
+
+
 def test_a_file_that_cant_be_read_says_why_in_place(browser, fresh_server):
     c = seed(fresh_server, simulated=False)
     s = Session(browser, fresh_server)
