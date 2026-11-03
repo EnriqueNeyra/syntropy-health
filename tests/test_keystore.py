@@ -10,6 +10,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -148,7 +149,12 @@ def test_a_copy_of_the_folder_without_the_keychain_opens_nothing(keychain, tmp_p
     with _start() as c:
         _set_up(c)
     db.close_readers()
-    db.checkpoint()
+    # The records in the database file itself, not only in its log: a copy whose database is still empty is a new install.
+    # What the server started in the background may still be reading for a moment.
+    deadline = time.monotonic() + 15
+    while not db.checkpoint() and time.monotonic() < deadline:
+        time.sleep(0.1)
+    assert (tmp_path / "syntropy.db").stat().st_size > 0
     elsewhere = tmp_path.parent / f"{tmp_path.name}-copy"
     shutil.copytree(tmp_path, elsewhere)
     # Another computer: the copy's own key.json, and a keychain that has never held its key.
