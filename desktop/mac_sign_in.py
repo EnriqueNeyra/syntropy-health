@@ -143,7 +143,8 @@ class SignInSheet:
         self.closed = False
         self.covered = True
         self.ever_committed = False
-        self.commits = 0                         # says which page a check that was waiting is about
+        self.turn = 0                            # says which page a check that was waiting is about: a newer page, or the
+                                                 # cover going back up for one on its way, ends the check
         self.last_request: Any = None
         self.dialogs: list[Any] = []             # windows open over the sheet, each holding up its page until it's answered
         self.events = _SheetEvents.alloc().initWithSheet_(self)
@@ -310,6 +311,7 @@ class SignInSheet:
         else:
             self.spinner.startAnimation_(None)
         self.covered = True
+        self.turn += 1
         self.cover.setHidden_(False)
         self._fade_cover(1.0)
 
@@ -425,26 +427,27 @@ class SignInSheet:
     def committed(self) -> None:
         url = url_text(self.webview.URL())
         self.ever_committed = True
-        self.commits += 1
+        self.turn += 1
         self._say_where(url)
         if sites.origin(url) not in self.home():
-            self._uncover_once_drawn(self.commits)
-            AppHelper.callLater(DRAWN_AT_THE_LATEST, self._uncover_if_still, self.commits)
+            self._uncover_once_drawn(self.turn)
+            AppHelper.callLater(DRAWN_AT_THE_LATEST, self._uncover_if_still, self.turn)
 
-    def _uncover_if_still(self, commit: int) -> None:
-        if commit == self.commits:
+    def _uncover_if_still(self, turn: int) -> None:
+        # Not once the cover is up for the app's own page: that would show this one, and its address, until that one came.
+        if turn == self.turn:
             self._uncover()
 
-    def _uncover_once_drawn(self, commit: int) -> None:
+    def _uncover_once_drawn(self, turn: int) -> None:
         # At commit WebKit has nothing to draw yet, and uncovering then would show white until the page's stylesheets
         # arrive. The page's own paint timing says when something is really there.
         def answered(painted: Any, _error: Any) -> None:
-            if self.closed or commit != self.commits or not self.covered:
+            if self.closed or turn != self.turn or not self.covered:
                 return
             if painted:
                 self._uncover()
             else:
-                AppHelper.callLater(DRAWN_CHECK, self._uncover_once_drawn, commit)
+                AppHelper.callLater(DRAWN_CHECK, self._uncover_once_drawn, turn)
 
         if not self.closed:
             self.webview.evaluateJavaScript_completionHandler_("performance.getEntriesByType('paint').length > 0", answered)
