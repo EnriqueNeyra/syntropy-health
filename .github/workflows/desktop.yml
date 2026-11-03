@@ -50,7 +50,7 @@ jobs:
         run: python3 scripts/release_key.py
         env:
           SYNTROPY_RELAY_KEY: ${{ secrets.SYNTROPY_RELAY_KEY }}
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.11.15"
           enable-cache: false      # the wheel is a release file; build it without a shared cache
@@ -66,7 +66,7 @@ jobs:
       - name: The wheel carries the relay key
         if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'EnriqueNeyra/syntropy-health'
         run: python3 -c "import sys, zipfile; sys.exit('app/core/release_key.py' not in zipfile.ZipFile(sys.argv[1]).namelist())" dist/*.whl
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheel
           path: dist/*
@@ -100,7 +100,7 @@ jobs:
           awk -v h="## ${GITHUB_REF_NAME#v}" '$0 == h {on = 1; next} on && /^## / {exit} on' CHANGELOG.md > notes.md
           [ -s notes.md ] || echo "See [CHANGELOG.md](https://github.com/$GITHUB_REPOSITORY/blob/main/CHANGELOG.md)." > notes.md
           cat notes.md
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts
       # The apps under fixed names, the same in every release, so scripts/install.sh, install.ps1 and the apps' updater
