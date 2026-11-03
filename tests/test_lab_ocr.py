@@ -118,6 +118,14 @@ def test_windows_words_come_from_powershell_and_the_image_is_cleaned_up(monkeypa
     assert not os.path.exists(kept["path"])
 
 
+def test_the_windows_script_ends_with_an_empty_line(monkeypatch):
+    # PowerShell runs a block that spans lines, read from standard input, only once an empty line follows it.
+    sent = {}
+    monkeypatch.setattr(ocr.subprocess, "run", lambda cmd, **k: sent.update(cmd=cmd, input=k["input"]))
+    ocr._windows(ocr._WINDOWS_READ)
+    assert sent["cmd"][-2:] == ["-Command", "-"] and sent["input"].endswith(b"}\n\n")
+
+
 @pytest.mark.parametrize("vision, windows, path, want", [(True, False, None, "vision"), (False, True, None, "windows"), (False, False, "/x/tesseract", "tesseract"),
                                                          (False, False, None, None), (True, False, "/x/tesseract", "vision")])
 def test_the_computers_own_reader_comes_first(monkeypatch, vision, windows, path, want):
@@ -144,7 +152,8 @@ def _rows(out, img) -> dict:
     page its own way and CI is where the others are."""
     rows = {r["test"].upper(): r for r in out["results"]}
     if "GLUCOSE" not in rows:
-        seen = "\n".join(line.text for line in ocr.lay_out(ocr.read_words(img), 0, img.height, read_by_ocr=True))
+        prepared, _ = lab_report._prepare(img, ocr.engine())        # as the app reads it
+        seen = "\n".join(line.text for line in ocr.lay_out(ocr.read_words(prepared), 0, prepared.height, read_by_ocr=True))
         pytest.fail(f"No glucose row. Rows: {sorted(rows)}\nThe {ocr.engine()} engine read:\n{seen}")
     return rows
 

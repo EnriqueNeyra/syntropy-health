@@ -7,6 +7,7 @@ import gc
 import http.server
 import json
 import os
+import socket
 import sys
 import threading
 import time
@@ -321,8 +322,13 @@ def scenario():
     # A page that can't load is reported. (With the window on screen, another site would open in the sign-in sheet.)
     on_main(lambda: mac.ns_window.orderOut_(None))
     trace("hidden", on_main(lambda: bool(mac.ns_window.isVisible())), url())
-    window.load_url("http://127.0.0.1:9/")
-    until(lambda: any("127.0.0.1:9" in str(f[0]) for f in failures))
+    # A server that isn't running: a port nothing listens on. (Not one WebKit refuses, such as 9: macOS 26 shows a blank page
+    # for those and says nothing, where 27 reports them.)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        results["unloadable"] = f"127.0.0.1:{s.getsockname()[1]}"
+    window.load_url(f"http://{results['unloadable']}/")
+    until(lambda: any(results["unloadable"] in str(f[0]) for f in failures))
     results["failures"] = [[str(a) for a in f] for f in failures]
     trace("after the page that won't load", url(), mac.sheet is not None)
     window.load_url(f"{HOME}/page")

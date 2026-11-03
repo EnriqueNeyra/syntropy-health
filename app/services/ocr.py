@@ -127,9 +127,11 @@ foreach ($line in $result.Lines) {
 
 
 def _windows(script: str, env: Optional[dict[str, str]] = None, timeout: float = OCR_TIMEOUT) -> subprocess.CompletedProcess:
-    # From standard input, so the script needs no file of its own and no change to the computer's script policy.
+    # From standard input, so the script needs no file of its own and no change to the computer's script policy. PowerShell reads
+    # it as typed at a prompt, where a block spanning lines waits for an empty line: without one at the end, everything from the
+    # first such block on was never run, and the page came back with no words and no error.
     return subprocess.run([_powershell(), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", "-"],
-                          input=script.encode("utf-8"), capture_output=True, timeout=timeout, check=False,
+                          input=(script.rstrip("\n") + "\n\n").encode("utf-8"), capture_output=True, timeout=timeout, check=False,
                           env={**os.environ, **(env or {})}, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
 

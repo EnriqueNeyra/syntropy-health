@@ -78,7 +78,7 @@ def test_the_apps_own_page_is_home_and_is_listened_to(seen):
 
 
 def test_a_page_that_wont_load_is_reported(seen):
-    assert any("127.0.0.1:9" in failure[0] for failure in seen["failures"]), story(seen)
+    assert any(seen["unloadable"] in failure[0] for failure in seen["failures"]), story(seen)
 
 
 def test_saving_over_a_file_replaces_it_only_once_the_download_is_complete(seen):

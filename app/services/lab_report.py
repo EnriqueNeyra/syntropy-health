@@ -391,6 +391,8 @@ UNIT_WORDS = {"%", "fl", "pg", "sec", "seconds", "ratio", "mm/hr", "index", "iu"
 # What OCR confuses in a unit: l, I, i, 1 and |. "mmo1/1" and "mg/dI" are mmol/L and mg/dL.
 _ONE_STROKE = str.maketrans("1i|", "lll")
 UNITS_READ = {u.lower().translate(_ONE_STROKE): u for u in UNITS.values()}
+# A run of underscores on its own: a rule or form line, or a photographed page's edge.
+EDGE_MARKS = re.compile(r"(?<!\S)_+(?!\S)")
 # A unit run into the number before it: "27.0-33.0pg", "5.4%".
 STUCK_UNIT = re.compile(r"(?<=\d)(?=%|(?:pg|fL|fl)\b|(?:mg|g|ng|pg|ug|mcg|U|IU|mmol|umol|nmol|pmol|mEq|mIU|uIU|K|M)/)")
 UNIT = re.compile(r"^\(?[a-zµμ%*0-9^.]*[a-zµμ][a-zµμ0-9^.*]*/[a-zµμ0-9^.*/]+\)?$", re.I)
@@ -477,8 +479,9 @@ def _says_result(tokens: list[str], i: int) -> bool:
 
 
 def _clean(line: str) -> str:
-    """Without what looks like a result and isn't: dates, times, phone numbers and zip codes. Spacing stays, for the columns."""
-    line = line.replace("|", " ")
+    """Without what looks like a result and isn't: dates, times, phone numbers and zip codes, and the rules, form lines and edge
+    of a photographed page that OCR reads as "|" or "__". Spacing stays, for the columns."""
+    line = EDGE_MARKS.sub(lambda m: " " * len(m.group()), line.replace("|", " "))
     for pattern in (DATE, TIME, PHONE, ZIP):
         line = pattern.sub(lambda m: " " * len(m.group()), line)
     return STUCK_UNIT.sub(" ", line)

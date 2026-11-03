@@ -178,6 +178,14 @@ def test_units_ocr_misreads_are_written_properly(printed, unit):
     assert row["unit"] == unit
 
 
+@pytest.mark.parametrize("edge", ["|", "_", "__", "| _"])
+def test_a_photographed_pages_edge_before_a_row_is_left_out(edge):
+    # Tesseract reads the edge of a page photographed at an angle as marks at the start of its lines.
+    row = lab_report.parse_text(f"   {edge}   GLUCOSE                    105 H          65-99 mg/dL")["results"][0]
+    assert (row["test"], row["value"], row["unit"]) == ("GLUCOSE", 105, "mg/dL")
+    assert lab_report.parse_text("GLUCOSE_FASTING      92      mg/dL      70-99")["results"][0]["test"] == "GLUCOSE_FASTING"
+
+
 def test_a_unit_guessed_at_is_marked():
     row = lab_report.parse_text("Hemoglobin      14.2      g/aL      12.0-16.0")["results"][0]
     assert row["unit"] == "g/dL" and row["unsure"] == ["unit"]
