@@ -7,7 +7,7 @@ import io
 import json
 import sqlite3
 import zipfile
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -1414,6 +1414,17 @@ def _new_york(d: date, clock: str) -> str:
     return datetime.fromisoformat(f"{d.isoformat()}T{clock}:00").replace(tzinfo=ZoneInfo("America/New_York")).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _a_new_york_night_with_no_clock_change(days_ago: int = 3) -> date:
+    """A recent day whose New York clocks don't change the day before, on it or the day after. The nights below are written
+    in New York clock times, and on the night the clocks go back, 00:10 to 06:30 is seven hours twenty of sleep, not six twenty."""
+    def offset(day):
+        return datetime.combine(day, time(12), ZoneInfo("America/New_York")).utcoffset()
+    d = TODAY - timedelta(days=days_ago)
+    while offset(d - timedelta(days=2)) != offset(d + timedelta(days=1)):
+        d -= timedelta(days=1)
+    return d
+
+
 def test_a_midnight_row_sent_alone_doesnt_hide_the_hours_sent_after_it(client):
     _set_zone(client, "America/New_York")
     day = (TODAY - timedelta(days=2)).isoformat()
@@ -1446,7 +1457,7 @@ def _core(sample_id, start, end):
 def test_a_stretch_of_sleep_arriving_later_moves_the_night_off_the_evening(client):
     profile = _profile(client)
     _set_zone(client, "America/New_York")
-    d = TODAY - timedelta(days=3)
+    d = _a_new_york_night_with_no_clock_change()
     eve = d - timedelta(days=1)
     biometrics.insert_samples(profile, None, [_core("eve", _new_york(eve, "22:30"), _new_york(eve, "23:50"))])
     assert _daily(profile, "sleep_duration")[eve.isoformat()]["value"] == 1.33
@@ -1460,7 +1471,7 @@ def test_a_stretch_of_sleep_arriving_later_moves_the_night_off_the_evening(clien
 def test_correcting_the_later_stretch_of_a_night_gives_the_evening_back(client):
     profile = _profile(client)
     _set_zone(client, "America/New_York")
-    d = TODAY - timedelta(days=3)
+    d = _a_new_york_night_with_no_clock_change()
     eve = d - timedelta(days=1)
     biometrics.insert_samples(profile, None, [_core("eve", _new_york(eve, "22:30"), _new_york(eve, "23:50")), _core("morn", _new_york(d, "00:10"), _new_york(d, "06:30"))])
     # The same id, corrected: it was the next night's sleep.
@@ -1562,7 +1573,7 @@ def _night(profile, d):
 def test_a_doze_in_the_evening_isnt_part_of_last_nights_sleep(client):
     profile = _profile(client)
     _set_zone(client, "America/New_York")
-    d = TODAY - timedelta(days=3)
+    d = _a_new_york_night_with_no_clock_change()
     biometrics.insert_samples(profile, None, [_core("night", _new_york(d, "00:30"), _new_york(d, "08:00")), _core("doze", _new_york(d, "20:15"), _new_york(d, "21:00"))])
     night = _night(profile, d)
     assert night["asleep_h"] == 7.5 and night["in_bed_h"] == 7.5 and night["efficiency"] == 1.0 and "T08:00" in night["wake"]
