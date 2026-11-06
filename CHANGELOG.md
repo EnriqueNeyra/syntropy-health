@@ -3,10 +3,11 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
-## 1.7.0
+## 1.7.1
 
 A large release: records import and sync more completely, backups and upgrades are safer, and accounts, the phone
 connection and AI access are tighter. Lines under each heading are what changed for someone upgrading from 1.6.0.
+1.7.0 was tagged but stopped before it was published, so this is the first release with these changes.
 
 - **Upload a lab report, on paper or as a PDF, from Sources, Records or Trends.** Drop in a PDF, a scan or a phone photo (HEIC too)
   and it's read on your computer, with nothing to install: the Mac and Windows apps use the reader built into the system, and the Docker
