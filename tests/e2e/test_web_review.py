@@ -8,7 +8,7 @@ from datetime import date, timedelta
 import pytest
 
 from tests.e2e.conftest import Session, seed
-from tests.test_ask_browser import Model
+from tests.e2e.test_ask_browser import Model
 from tests.test_data import EXPORT_XML
 
 # Holds back the answers to chosen addresses for a while: window.__slow is a list of [part of the address, milliseconds].
