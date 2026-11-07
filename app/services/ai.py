@@ -114,6 +114,9 @@ RETRY_LONGEST_S = 20.0
 HIDDEN_TOOLS = {"list_profiles"}
 # Assumed context window for hosted models answering without tools (all current ones allow far more).
 HOSTED_CONTEXT_TOKENS = 32_000
+# The most lookup results one question sends a hosted model (about 65,000 tokens). Each round of lookups sends all the
+# earlier ones again, and the provider bills every time: past this, the model is told to answer from what it has.
+QUESTION_RESULT_CHARS = 200_000
 
 
 class AIError(Exception):
@@ -122,6 +125,10 @@ class AIError(Exception):
 
 class ToolsUnsupported(AIError):
     """The model (or the server running it) can't call tools."""
+
+
+class LimitRefused(AIError):
+    """The server won't take a limit on the answer's length, or not that one."""
 
 
 class ProviderBusy(AIError):
@@ -220,7 +227,9 @@ def _vendor(provider: str, agent: Optional[str] = None, base_url: Optional[str] 
 
 def config(include_key: bool = False, chat: bool = False) -> dict[str, Any]:
     """The AI in use: the server's default, or with ``chat`` what this person's questions in Ask go to. That's the owner's
-    default unless they picked another for themselves. Only Ask reads a person's own pick: everything else uses the default."""
+    default unless they picked another for themselves. Only Ask reads a person's own pick: everything else uses the default.
+    Whether a server is on the home network may mean looking up its name, which can take seconds: on the event loop,
+    call this in a thread (``await asyncio.to_thread(config, ...)``)."""
     choice = _member_choice() if chat else None
     provider = (choice["provider"] if choice else settings.get("ai.provider")) or ""
     agent_id = (choice.get("agent") if choice else settings.get("ai.agent")) or None
@@ -243,6 +252,8 @@ def config(include_key: bool = False, chat: bool = False) -> dict[str, Any]:
     kind = "local" if provider == "local" else "key"
     out = {**base, **cfg, "kind": kind, "has_key": bool(key), "configured": _configured(provider, {**cfg, "key": key}),
            "model_name": next((m["name"] for m in cached_models(provider) if m["id"] == cfg["model"]), cfg["model"])}
+    if not include_key:                  # what everyone sees: never a password saved in an address
+        out["base_url"] = ai_local.shown_address(cfg["base_url"])
     if cfg["base_url"] and PROVIDERS[provider].get("custom_url"):
         out["address"] = {"private": ai_local.is_private_host(urlsplit(cfg["base_url"]).hostname or "")}
     out["sends_elsewhere"] = not out.get("address", {}).get("private")     # a hosted provider, or a server on the internet
@@ -261,7 +272,7 @@ def _provider_list() -> list[dict[str, Any]]:
         out.append({"id": k, "label": _label(k), "default_model": v["default_model"], "key_hint": v["key_hint"],
                     "custom_url": bool(v.get("custom_url")), "needs_key": v.get("needs_key", True),
                     "saved_model": settings.get(f"ai.model.{k}") or "", "has_key": bool(spec["key"]),
-                    "base_url": settings.get(f"ai.base_url.{k}") or v["base_url"], "tools": spec["tools"],
+                    "base_url": ai_local.shown_address(settings.get(f"ai.base_url.{k}") or v["base_url"]), "tools": spec["tools"],
                     **({"private": ai_local.is_private_host(urlsplit(spec["base_url"]).hostname or "")}
                        if k == "local" and spec["base_url"] else {}),
                     "connected": _configured(k, spec), "models": len(cached_models(k))})
@@ -297,7 +308,7 @@ def save_config(provider: str, model: Optional[str] = None, api_key: Optional[st
     if spec.get("custom_url"):
         if base_url is not None:
             try:
-                url = ai_local.normalize_base_url(base_url)
+                url = typed_address(provider, base_url)
             except ValueError as exc:
                 raise AIError(str(exc)) from exc
             address = ai_local.describe_address(url)
@@ -320,6 +331,15 @@ def save_config(provider: str, model: Optional[str] = None, api_key: Optional[st
     if api_key is not None:
         settings.set(f"ai.key.{provider}", api_key.strip() or None)
     return config(chat=True)
+
+
+def typed_address(provider: str, typed: str) -> str:
+    """An address from a form, tidied. The saved one as it's shown (with *** for a password saved in it before those
+    were refused) stands for the saved one, so saving the form unchanged keeps it."""
+    saved = settings.get(f"ai.base_url.{provider}") or ""
+    if saved and typed.strip() == ai_local.shown_address(saved):
+        return saved
+    return ai_local.normalize_base_url(typed)
 
 
 def _check_model_name(provider: str, model: Optional[str]) -> None:
@@ -560,7 +580,7 @@ def _group_vendor(provider: str, agent: Optional[str], base_url: Optional[str]) 
 async def choices() -> dict[str, Any]:
     """What Ask's model menu offers: every AI that's connected, grouped, with all of its models (the saved and recently
     used ones first), plus the one in use."""
-    cfg = config(chat=True)
+    cfg = await asyncio.to_thread(config, chat=True)
     groups: list[dict[str, Any]] = []
 
     def options(provider: str, listed: list[dict[str, Any]], pinned: list[str]) -> list[dict[str, Any]]:
@@ -580,7 +600,7 @@ async def choices() -> dict[str, Any]:
         _agents(),
     )
     if local["base_url"]:
-        private = ai_local.is_private_host(urlsplit(local["base_url"]).hostname or "")
+        private = await asyncio.to_thread(ai_local.is_private_host, urlsplit(local["base_url"]).hostname or "")
         groups.append({"id": "local", "kind": "local", "label": local["label"], "private": private, "reachable": bool(found),
                        **_group_vendor("local", None, local["base_url"]),
                        "options": options("local", found, [local["model"]] if not found else
@@ -675,7 +695,7 @@ def _unreachable(cfg: dict[str, Any], exc: Exception) -> AIError:
         return AIError(f"{cfg['label']} took too long to answer. A local model may still be loading, or the question may need "
                        "too much of it. Try again, or ask something narrower.")
     if PROVIDERS[cfg["provider"]].get("custom_url"):
-        return AIError(f"Couldn't reach {cfg['label']} at {cfg['base_url']} ({exc.__class__.__name__}). Check that it's "
+        return AIError(f"Couldn't reach {cfg['label']} at {ai_local.shown_address(cfg['base_url'])} ({exc.__class__.__name__}). Check that it's "
                        "running and that this computer can reach it.")
     return AIError(f"Couldn't reach {cfg['label']} ({exc.__class__.__name__}). Check this computer's internet connection.")
 
@@ -685,6 +705,10 @@ def _unreachable(cfg: dict[str, Any], exc: Exception) -> AIError:
 NO_TOOLS = re.compile(r"(does not|doesn't|do not|don't) support (the use of )?(tools?|function)|"
                       r"tools?( use| calling| calls)? (is|are) not supported|function calling is not|"
                       r"not support(ed)? (for )?(tools?|function)|no endpoints found that support tool", re.I)
+
+
+# What servers say when the limit on an answer's length is more than the model allows, or a parameter they don't take.
+LIMIT_REFUSED = re.compile(r"max_(completion_|new_|output_)?tokens|in the completion", re.I)
 
 
 def _retry_after(resp: httpx.Response) -> Optional[float]:
@@ -702,6 +726,8 @@ def _raise_for(resp: httpx.Response, cfg: dict[str, Any]) -> None:
         if not cfg.get("key"):
             raise AIError(f"{cfg['label']} wants an API key ({detail}).")
         raise AIError(f"{cfg['label']} rejected the API key ({detail}).")
+    if resp.status_code in (400, 422) and cfg["api"] == "openai" and cfg.get("limit", True) and LIMIT_REFUSED.search(detail):
+        raise LimitRefused(f"{cfg['label']} won't take a limit on the answer's length ({detail}).")
     if resp.status_code in (400, 404, 422) and NO_TOOLS.search(detail):
         raise ToolsUnsupported(f"Model '{cfg['model']}' can't use tools ({detail}).")
     if resp.status_code == 404 and "model" in lowered:
@@ -835,8 +861,13 @@ def _openai_messages(system: str, messages: list[dict[str, Any]]) -> list[dict[s
 
 
 def _openai_body(cfg: dict[str, Any], system: str, messages: list[dict[str, Any]],
-                 tools: Optional[list[dict[str, Any]]]) -> dict[str, Any]:
+                 tools: Optional[list[dict[str, Any]]], max_tokens: int) -> dict[str, Any]:
     body: dict[str, Any] = {"model": cfg["model"], "messages": _openai_messages(system, messages)}
+    if cfg.get("limit", True):
+        # The same limit Anthropic is given, so a model that runs on can't run up the person's bill. OpenAI's newer
+        # models take only max_completion_tokens; most other servers only max_tokens. One that refuses it is asked again
+        # without it (see _complete).
+        body["max_completion_tokens" if cfg["provider"] == "openai" else "max_tokens"] = max_tokens
     if tools:
         body["tools"] = [{"type": "function", "function": {"name": t["name"], "description": t["description"],
                                                            "parameters": t["schema"]}} for t in tools]
@@ -856,7 +887,7 @@ def _openai_headers(cfg: dict[str, Any]) -> dict[str, str]:
 
 async def _openai(client: httpx.AsyncClient, cfg: dict[str, Any], system: str, messages: list[dict[str, Any]],
                   tools: Optional[list[dict[str, Any]]], max_tokens: int) -> Reply:
-    res = await _request(client, cfg, "POST", "/chat/completions", json=_openai_body(cfg, system, messages, tools),
+    res = await _request(client, cfg, "POST", "/chat/completions", json=_openai_body(cfg, system, messages, tools, max_tokens),
                          headers=_openai_headers(cfg))
     return _read_whole(cfg, _read_openai, res)
 
@@ -903,13 +934,17 @@ def _clean_answer(reply: Reply) -> Reply:
 async def _complete(client: httpx.AsyncClient, cfg: dict[str, Any], system: str, messages: list[dict[str, Any]],
                     tools: Optional[list[dict[str, Any]]] = None, max_tokens: int = 4096) -> Reply:
     adapter = _anthropic if cfg["api"] == "anthropic" else _openai
-    for attempt in range(RETRY_ATTEMPTS):
+    attempt = 0
+    while True:
         try:
             return _clean_answer(await adapter(client, cfg, system, messages, tools, max_tokens))
+        except LimitRefused:
+            cfg["limit"] = False        # asked again without one, here and for the rest of the question
         except ProviderBusy as exc:
-            if attempt == RETRY_ATTEMPTS - 1:
+            attempt += 1
+            if attempt == RETRY_ATTEMPTS:
                 raise
-            await asyncio.sleep(_pause(attempt, exc.retry_after))
+            await asyncio.sleep(_pause(attempt - 1, exc.retry_after))
 
 
 # Streaming. Ask shows the answer as it's written: the adapters below send the same requests with "stream": true and
@@ -1057,29 +1092,38 @@ async def _openai_events(payloads: AsyncIterator[dict[str, Any]]) -> AsyncIterat
 
 
 class _Visible:
-    """What of a streamed reply may be shown so far: reasoning some models inline as <think>…</think> never is."""
-    OPEN = "<think>"
+    """What of a streamed reply may be shown so far: reasoning some models inline as <think>…</think> never is, nor
+    anything after a <think> that hasn't closed (as in _clean_answer). Each piece is looked at once, so a long answer
+    costs no more per piece than a short one."""
+    OPEN, CLOSE = "<think>", "</think>"
 
     def __init__(self) -> None:
-        self.raw, self.sent = "", ""
+        self.sent = ""          # everything shown so far
+        self.held = ""          # the end of the last piece, while it may be the start of a tag ("<thi")
+        self.thinking = False
 
     def add(self, piece: str) -> Optional[str]:
-        """The new text to show after `piece` arrives ("" when nothing yet), or None if what was shown must be redrawn."""
-        self.raw += piece
-        shown = re.sub(r"<think>.*?</think>", "", self.raw, flags=re.S)
-        if self.OPEN in shown:
-            shown = shown[:shown.index(self.OPEN)]
-        # Hold back a tag that may be arriving ("<thi").
-        for n in range(len(self.OPEN) - 1, 0, -1):
-            if shown.endswith(self.OPEN[:n]):
-                shown = shown[:-n]
-                break
-        shown = shown.lstrip()
-        if not shown.startswith(self.sent):
-            self.sent = shown
-            return None
-        new, self.sent = shown[len(self.sent):], shown
-        return new
+        """The new text to show after `piece` arrives ("" when nothing yet). (None, for a redraw, is never needed.)"""
+        text, new = self.held + piece, []
+        self.held = ""
+        while text:
+            tag = self.CLOSE if self.thinking else self.OPEN
+            at = text.find(tag)
+            if at >= 0:
+                if not self.thinking:
+                    new.append(text[:at])
+                text, self.thinking = text[at + len(tag):], not self.thinking
+                continue
+            keep = next((n for n in range(len(tag) - 1, 0, -1) if text.endswith(tag[:n])), 0)
+            if not self.thinking:
+                new.append(text[:len(text) - keep])
+            self.held = text[len(text) - keep:]
+            break
+        shown = "".join(new)
+        if not self.sent:
+            shown = shown.lstrip()
+        self.sent += shown
+        return shown
 
 
 async def _complete_stream(client: httpx.AsyncClient, cfg: dict[str, Any], system: str, messages: list[dict[str, Any]],
@@ -1087,12 +1131,13 @@ async def _complete_stream(client: httpx.AsyncClient, cfg: dict[str, Any], syste
                            max_tokens: int = 4096) -> AsyncIterator[tuple[str, Any]]:
     """Like _complete, streamed: ("delta", text) to show, ("reset", None) when what was shown must be redrawn from
     later deltas, ("retry", text) while waiting to ask again, then ("reply", Reply)."""
-    for attempt in range(RETRY_ATTEMPTS):
+    attempt = 0
+    while True:
         if cfg["api"] == "anthropic":
             stream = _stream_request(client, cfg, "/v1/messages", _anthropic_body(cfg, system, messages, tools, max_tokens),
                                      _anthropic_headers(cfg), _anthropic_events, _read_anthropic)
         else:
-            stream = _stream_request(client, cfg, "/chat/completions", _openai_body(cfg, system, messages, tools),
+            stream = _stream_request(client, cfg, "/chat/completions", _openai_body(cfg, system, messages, tools, max_tokens),
                                      _openai_headers(cfg), _openai_events, _read_openai)
         visible, started = _Visible(), False
         try:
@@ -1109,12 +1154,17 @@ async def _complete_stream(client: httpx.AsyncClient, cfg: dict[str, Any], syste
                 else:
                     yield "reply", _clean_answer(value)
             return
+        except LimitRefused:
+            if started:
+                raise
+            cfg["limit"] = False
         except ProviderBusy as exc:
             # Once part of an answer has arrived, asking again would start it over: the person sees the error instead.
-            if started or attempt == RETRY_ATTEMPTS - 1:
+            attempt += 1
+            if started or attempt == RETRY_ATTEMPTS:
                 raise
             yield "retry", f"{cfg['label']} is busy. Trying again."
-            await asyncio.sleep(_pause(attempt, exc.retry_after))
+            await asyncio.sleep(_pause(attempt - 1, exc.retry_after))
         except AIError as exc:
             # A server that can't stream (some local servers with tools): the same request without streaming.
             if started or "stream" not in str(exc).lower():
@@ -1191,7 +1241,7 @@ async def list_models(provider: Optional[str] = None, api_key: Optional[str] = N
         raise AIError("Choose a provider first.")
     if base_url:
         try:
-            base_url = ai_local.normalize_base_url(base_url)
+            base_url = typed_address(provider, base_url)
         except ValueError as exc:
             raise AIError(str(exc)) from exc
     cfg = _resolve(provider, api_key, base_url)
@@ -1254,7 +1304,7 @@ async def _check_old_no_again(cfg: dict[str, Any]) -> None:
 
 
 async def test_connection() -> dict[str, Any]:
-    cfg = config(include_key=True)
+    cfg = await asyncio.to_thread(config, include_key=True)
     if not cfg.get("configured"):
         raise AIError("Finish setting up the assistant first.")
     started = time.time()
@@ -1540,6 +1590,7 @@ async def _answer_with_tools(client: httpx.AsyncClient, cfg: dict[str, Any], sys
             yield {"type": "note", "text": LEFT_OUT_OF_CONVERSATION}
         turns = kept
     messages: list[dict[str, Any]] = list(turns)
+    hosted, sent = cfg["provider"] != "local", 0        # characters of lookup results sent so far
     for _ in range(MAX_TOOL_ROUNDS):
         reply, shown = None, False
         async for kind, value in _complete_stream(client, cfg, system, messages, tools, ASK_MAX_TOKENS):
@@ -1565,8 +1616,12 @@ async def _answer_with_tools(client: httpx.AsyncClient, cfg: dict[str, Any], sys
         if window is not None and window < SMALL_WINDOW:
             tools = _tools(core_only=True)
         # A result that overflowed a small window would push out the instructions and the question, which go first.
-        room = None if window is None else ((window * CHARS_PER_TOKEN - REPLY_ROOM_CHARS - _request_chars(system, tools, messages))
-                                            // min(len(reply.calls), MAX_CALLS_PER_ROUND))
+        calls = min(len(reply.calls), MAX_CALLS_PER_ROUND)
+        room = None if window is None else (window * CHARS_PER_TOKEN - REPLY_ROOM_CHARS - _request_chars(system, tools, messages)) // calls
+        budget_left = (QUESTION_RESULT_CHARS - sent) // calls if hosted else None
+        spent = budget_left is not None and budget_left < MIN_RESULT_CHARS
+        if budget_left is not None:
+            room = budget_left if room is None else min(room, budget_left)
         results = []
         for i, call in enumerate(reply.calls):
             result = {"id": call["id"], "name": call["name"], "error": True}
@@ -1575,11 +1630,14 @@ async def _answer_with_tools(client: httpx.AsyncClient, cfg: dict[str, Any], sys
             elif i >= MAX_CALLS_PER_ROUND:
                 result["content"] = json.dumps({"code": "too_many_calls", "message": f"Only {MAX_CALLS_PER_ROUND} lookups run at once, so this one didn't. Ask again for what you still need."})
             elif room is not None and room < MIN_RESULT_CHARS:
-                result["content"] = json.dumps({"code": "no_room", "message": "This model's context is full, so this wasn't looked up. Answer from what you have, and say what you couldn't check."})
+                result["content"] = json.dumps({"code": "no_room", "message": (
+                    "This question has already looked up as much as one question can, so this wasn't looked up." if spent else
+                    "This model's context is full, so this wasn't looked up.") + " Answer from what you have, and say what you couldn't check."})
             else:
                 yield {"type": "tool", "name": call["name"], "label": _tool_label(call["name"], call["args"])}
                 budget = TOOL_RESULT_CHARS if room is None else min(TOOL_RESULT_CHARS, room)
                 text, is_error = await asyncio.to_thread(_run_tool, call["name"], call["args"], profile_id, budget)
+                sent += len(text)
                 used.append(call["name"])
                 result.update(content=text, error=is_error)
             results.append(result)
@@ -1675,12 +1733,12 @@ async def chat(profile_id: str, history: list[dict[str, Any]],
                expect: Optional[dict[str, Any]] = None) -> AsyncIterator[dict[str, Any]]:
     """Answers with the chosen AI, yielding progress events and finally the answer. With ``expect``, sends nothing if the
     AI in use isn't the one the page is showing."""
-    cfg = config(include_key=True, chat=True)
+    cfg = await asyncio.to_thread(config, include_key=True, chat=True)
     if not cfg.get("configured"):
         yield {"type": "error", "message": "Choose an AI for the assistant in Settings → AI first."}
         return
     if _changed_since_page_drew(expect, cfg):
-        yield {"type": "error", "code": "ai_changed", "config": config(chat=True),
+        yield {"type": "error", "code": "ai_changed", "config": await asyncio.to_thread(config, chat=True),
                "message": f"Ask now uses {_byline(cfg)}. Your question wasn't sent. Try again to send it there, or choose another AI."}
         return
     profile = next((p for p in profiles.list_profiles() if p["id"] == profile_id), None)
@@ -1775,6 +1833,9 @@ EXTRACT_PROMPT = """Extract every lab test result from this lab report. Reply wi
 Copy numbers exactly as printed. Skip headers, patient details and comments. If nothing is readable, return {"results": []}."""
 
 MAX_REPORT_BYTES = 15 * 1024 * 1024
+# Reading a report's text can take many seconds of work: it's done beside the server, which keeps answering, and a
+# report that takes longer than this is sent as the file itself, like a scanned one.
+PDF_TEXT_TIMEOUT_S = 20.0
 
 
 def _pdf_text(data: bytes) -> str:
@@ -1783,6 +1844,14 @@ def _pdf_text(data: bytes) -> str:
         reader = PdfReader(io.BytesIO(data))
         return "\n".join((page.extract_text() or "") for page in reader.pages[:30]).strip()
     except Exception:  # noqa: BLE001 - scanned or unusual PDFs fall back to sending the file itself
+        return ""
+
+
+async def _report_text(data: bytes) -> str:
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(_pdf_text, data), PDF_TEXT_TIMEOUT_S)
+    except TimeoutError:
+        log.info("Reading a lab report's text took over %s seconds; sending the file itself", PDF_TEXT_TIMEOUT_S)
         return ""
 
 
@@ -1801,26 +1870,28 @@ def _parse_json(text: str) -> dict[str, Any]:
 
 async def extract_lab_results(data: bytes, content_type: str, filename: str,
                               profile_id: Optional[str] = None) -> dict[str, Any]:
-    cfg = config(include_key=True)
+    cfg = await asyncio.to_thread(config, include_key=True)
     if not cfg.get("configured"):
         raise AIError("Reading reports uses your AI provider. Choose one in Settings → AI, or enter results by hand.")
     if cfg["provider"] == "agent":
         raise AIError("Reading reports needs a local model or an API key; agents can't read files here. Choose one in "
                       "Settings → AI, or enter results by hand.")
+    if cfg.get("sends_elsewhere") and not profile_id:
+        raise AIError("Say whose report this is: whoever it's about agrees before it goes to an AI outside your network.")
     if cfg.get("sends_elsewhere") and not cloud_acknowledged(cfg["vendor_key"], profile_id):
-        other = _someone_elses_agreement(profile_id, cfg["vendor_name"]) if profile_id else None
-        raise AIError(other or CLOUD_ACK_NEEDED.format(name=cfg["vendor_name"]))
+        raise AIError(_someone_elses_agreement(profile_id, cfg["vendor_name"]) or CLOUD_ACK_NEEDED.format(name=cfg["vendor_name"]))
     if len(data) > MAX_REPORT_BYTES:
         raise AIError("That file is larger than 15 MB.")
     is_pdf = content_type == "application/pdf" or filename.lower().endswith(".pdf")
     if not is_pdf and not content_type.startswith("image/"):
         raise AIError("Upload a PDF or a photo (JPEG, PNG, HEIC converted to JPEG).")
-    text = _pdf_text(data) if is_pdf else ""
+    text = await _report_text(data) if is_pdf else ""
     if text:
         report: dict[str, Any] = {"type": "text", "text": f"Lab report text:\n\n{text[:60_000]}"}
     else:
+        encoded = await asyncio.to_thread(lambda: base64.b64encode(data).decode())     # up to 20 MB of text
         report = {"type": "pdf" if is_pdf else "image", "media_type": content_type, "filename": filename or "report.pdf",
-                  "data": base64.b64encode(data).decode()}
+                  "data": encoded}
     async with _client() as client:
         reply = await _complete(client, cfg, "You transcribe lab reports into structured data.",
                                 [{"role": "user", "content": [report, {"type": "text", "text": EXTRACT_PROMPT}]}], None, 8192)

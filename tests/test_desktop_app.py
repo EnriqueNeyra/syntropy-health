@@ -145,6 +145,7 @@ def test_a_busy_saved_port_stays_saved_and_is_tried_again_next_time(monkeypatch,
     monkeypatch.setattr(syntropy_desktop, "HOME_PORT_WAIT", 0)
     monkeypatch.setattr(syntropy_desktop, "update_installer", lambda fn: None)
     monkeypatch.setattr(syntropy_desktop, "network_controller", lambda fn: None)
+    monkeypatch.setattr(syntropy_desktop, "when_working", lambda fn: None)
     monkeypatch.setattr(syntropy_desktop, "program_on_port", lambda p: "some-dev-server")
     with _listener(socket.AF_INET, "127.0.0.1") as held:
         home = held.getsockname()[1]
@@ -165,6 +166,7 @@ def test_first_port_is_saved(monkeypatch, tmp_path):
     monkeypatch.setenv("SYNTROPY_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(syntropy_desktop, "update_installer", lambda fn: None)
     monkeypatch.setattr(syntropy_desktop, "network_controller", lambda fn: None)
+    monkeypatch.setattr(syntropy_desktop, "when_working", lambda fn: None)
     app = syntropy_desktop.DesktopApp(background=True)
     monkeypatch.setattr(app.server, "start", lambda host, port: setattr(app.server, "port", port))
     app.start_own_server()
@@ -813,6 +815,7 @@ def desktop(monkeypatch, tmp_path):
     monkeypatch.setenv("SYNTROPY_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(syntropy_desktop, "update_installer", lambda fn: None)
     monkeypatch.setattr(syntropy_desktop, "network_controller", lambda fn: None)
+    monkeypatch.setattr(syntropy_desktop, "when_working", lambda fn: None)
     app = syntropy_desktop.DesktopApp(background=False)
     app.window = FakeWindow()
     return app

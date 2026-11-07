@@ -14,6 +14,7 @@ import yaml
 
 from app import cli
 from app.core import config, settings
+from tests.test_install_scripts import machine  # noqa: F401 - fixture
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
@@ -120,6 +121,32 @@ def test_ci_starts_the_sandbox_check_with_one_argument_per_setting(tmp_path):
     assert "--property=RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" in passed
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="a POSIX shell script")
+def test_an_install_from_source_can_take_the_lock(machine, tmp_path):
+    machine.has_uv()
+    lock = tmp_path / "requirements.txt"
+    lock.write_text("pillow==13.0.0\n")
+    done = machine.run("--source", "/some/own.whl", "--constraints", str(lock))
+    assert done.returncode == 0, done.stderr
+    install = next(line for line in machine.log.read_text().splitlines() if line.startswith("uv pip install"))
+    assert f"-c {lock}" in install and install.endswith("/some/own.whl")
+    done = machine.run("--constraints", str(lock))
+    assert done.returncode != 0 and "goes with --source" in done.stderr
+
+
+def test_ci_installs_what_it_builds_with_the_lock_as_a_release_does():
+    """--source alone resolves the wheel's ranges afresh. Each installer job passes the dependency list a release ships."""
+    exported = "uv export --frozen --no-dev --no-emit-project --no-header -o dist/"
+    assert exported + "Syntropy-Health-requirements.txt" in _read(".github/workflows/desktop.yml")
+    jobs = yaml.safe_load(_read(".github/workflows/ci.yml"))["jobs"]
+    for name in ("linux-install", "mac-install", "windows-install"):
+        runs = [s.get("run", "") for s in jobs[name]["steps"]]
+        assert exported + "requirements.txt" in runs, name
+        installs = [line for run in runs for line in run.splitlines() if re.search(r"install\.(sh|ps1) .*-(-s|S)ource ", line)]
+        assert installs and all(re.search(r" -(-c|C)onstraints dist/requirements\.txt\b", line) for line in installs), name
+    assert '$pinned = @("--constraints", (Resolve-Path $Constraints).Path)' in _read("scripts/install.ps1")
+
+
 def test_the_installers_fetch_a_fixed_uv():
     assert "astral.sh/uv/$UV_VERSION/install.sh" in _read("scripts/install.sh")
     assert "astral.sh/uv/$UvVersion/install.ps1" in _read("scripts/install.ps1")
@@ -134,13 +161,68 @@ def test_the_image_is_built_from_fixed_digests_and_the_lock():
     assert "tomllib" not in dockerfile
 
 
+def _unlocked_pip_installs(text: str) -> list[str]:
+    """Each `pip install` that could take versions or files nobody checked. One installs a list with hashes
+    (--require-hashes), or this checkout alone (--no-deps .)."""
+    found = []
+    for line in text.splitlines():
+        for command in re.split(r"&&|\|\||[;|]", line.split(" #")[0]):
+            match = re.search(r"\bpip3? install\b(.*)", command)
+            if not match:
+                continue
+            words = match.group(1).split()
+            if "--require-hashes" in words or ("--no-deps" in words and [w for w in words if not w.startswith("-")] == ["."]):
+                continue
+            found.append(line.strip())
+    return found
+
+
+@pytest.mark.parametrize("line", [
+    'pip install -q -e ".[checks]"',        # the directory refresh, which then pushed with the owner's token
+    "pip install -e . --group dev",
+    "python -m pip install -U pip && python -m pip install -r requirements.txt",
+    "pip3 install --quiet playwright",
+])
+def test_an_install_without_the_lock_is_caught(line):
+    assert _unlocked_pip_installs(f"        run: {line}")
+
+
 def test_builds_install_from_the_lock():
     apps = _read(".github/workflows/apps.yml")
     assert "--require-hashes" in apps and 'pip install -e ".[desktop]"' not in apps
     assert "--version=" in apps.split("choco install innosetup")[1].splitlines()[0]
+    assert not _unlocked_pip_installs('python -m pip install --require-hashes --no-deps -r "$RUNNER_TEMP/locked.txt"')
+    assert not _unlocked_pip_installs("python -m pip install --no-deps -e .")
     for workflow in WORKFLOWS:
-        for line in workflow.read_text(encoding="utf-8").splitlines():
-            assert not re.search(r"pip install (-e|--group|-U)\b", line), f"{workflow.name}: {line.strip()}"
+        assert not _unlocked_pip_installs(workflow.read_text(encoding="utf-8")), workflow.name
+
+
+def test_the_directory_token_is_only_where_nothing_from_the_repository_runs():
+    """The weekly refresh installs Playwright and runs the repository's scripts against the internet. DIRECTORY_TOKEN is
+    the owner's and can push to this repository, so only a job that installs nothing, runs none of that code, and turns
+    git's hooks off has it."""
+    jobs = yaml.safe_load(_read(".github/workflows/directory.yml"))["jobs"]
+    assert [name for name, job in jobs.items() if re.search(r"secrets\.DIRECTORY_TOKEN\s*}}", str(job))] == ["pull-request"]
+    assert "DIRECTORY_TOKEN" not in str(jobs["refresh"])
+    assert any("uv sync --frozen" in step.get("run", "") for step in jobs["refresh"]["steps"])
+    for step in jobs["pull-request"]["steps"]:
+        if "uses" in step:
+            assert step["uses"].split("@")[0] in ("actions/checkout", "actions/download-artifact"), step["uses"]
+            assert step["with"].get("persist-credentials", False) is False
+        run = step.get("run", "")
+        assert not re.search(r"\b(pip3?|uvx?|python3?|node|npm|npx|sh|bash|make|source)\b|scripts/|\.(sh|py)\b", run), step.get("name")
+        if re.search(r"(^|[\s;&|(])git\s", run):
+            assert run.splitlines()[0] == 'git() { command git -c core.hooksPath=/dev/null "$@"; }', step.get("name")
+
+
+def test_the_wheel_is_built_with_a_fixed_backend_checked_against_its_hashes():
+    requires = tomllib.loads(_read("pyproject.toml"))["build-system"]["requires"]
+    assert len(requires) == 1 and re.fullmatch(r"setuptools==[\d.]+", requires[0]), requires
+    constraints = _read(".github/build-constraints.txt")
+    assert re.search(rf"^{re.escape(requires[0])} \\\n(\s+--hash=sha256:[0-9a-f]{{64}}( \\)?\n)+", constraints, re.M), "move them together"
+    builds = [line for workflow in WORKFLOWS for line in workflow.read_text(encoding="utf-8").splitlines() if "uv build" in line]
+    assert len(builds) >= 4
+    assert all("--build-constraints .github/build-constraints.txt --require-hashes" in line for line in builds), builds
 
 
 def test_actions_are_pinned_to_commits():
@@ -148,6 +230,26 @@ def test_actions_are_pinned_to_commits():
         for use in re.findall(r"^\s*(?:- )?uses:\s*(\S+)", workflow.read_text(encoding="utf-8"), re.M):
             if not use.startswith("./"):
                 assert re.search(r"@[0-9a-f]{40}$", use), f"{workflow.name}: {use}"
+
+
+def test_every_test_that_needs_playwright_runs_in_the_browser_job():
+    """Only that job installs Playwright. A test that needs it anywhere but tests/e2e skips itself in every job, as the 52
+    tests of Ask in a browser once did, and the job fails rather than pass without it."""
+    uses_playwright = re.compile(r"^\s*(?:from|import) playwright\b|importorskip\(\s*[\"']playwright", re.M)
+    outside = [p.relative_to(ROOT).as_posix() for p in (ROOT / "tests").rglob("*.py")
+               if (ROOT / "tests" / "e2e") not in p.parents and uses_playwright.search(p.read_text(encoding="utf-8"))]
+    assert outside == []
+    runs = [s.get("run", "") for s in yaml.safe_load(_read(".github/workflows/ci.yml"))["jobs"]["browser"]["steps"]]
+    checked = next(i for i, run in enumerate(runs) if 'python -c "import playwright.sync_api"' in run)
+    assert checked < next(i for i, run in enumerate(runs) if "pytest -q tests/e2e" in run)
+
+
+def test_contributing_lists_every_workflow_that_runs_by_itself():
+    rows = {line.split("|")[1].strip() for line in _read(".github/CONTRIBUTING.md").splitlines() if line.startswith("| ")}
+    for workflow in WORKFLOWS:
+        loaded = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+        if set(loaded[True]) != {"workflow_call"}:      # (YAML reads `on:` as true)
+            assert loaded["name"] in rows, workflow.name
 
 
 def test_dependabot_moves_the_lock_and_the_base_image():
@@ -173,6 +275,34 @@ def test_nothing_goes_unwatched_between_releases():
     assert "--ignore=tests/test_deployment_files.py" in _read(".github/workflows/docker-refresh.yml")
 
 
+def test_latest_moves_one_publish_at_a_time_and_only_to_what_was_tested():
+    """The weekly refresh publishes half an hour after its check. It used to take main's packaging again then, untested, and
+    could push the release it checked over a newer one that came out meanwhile."""
+    refresh = yaml.safe_load(_read(".github/workflows/docker-refresh.yml"))["jobs"]
+    release = yaml.safe_load(_read(".github/workflows/docker.yml"))["jobs"]["publish"]
+    assert refresh["publish"]["concurrency"]["group"] == "docker-latest"
+    assert release["concurrency"]["group"].startswith("${{ startsWith(github.ref, 'refs/tags/v') && 'docker-latest' ||")
+    assert refresh["check"]["outputs"]["main"] == "${{ steps.packaging.outputs.main }}"
+    steps = refresh["publish"]["steps"]
+    packaging = next(s for s in steps if "$PACKAGING" in s.get("run", ""))
+    assert packaging["env"]["MAIN"] == "${{ needs.check.outputs.main }}" and "origin main" not in packaging["run"]
+    current = next(i for i, s in enumerate(steps) if s.get("name") == "The release is still the latest")
+    assert "gh release view" in steps[current]["run"]
+    pushing = [i for i, s in enumerate(steps) if "login-action" in s.get("uses", "") or s.get("id") == "publish"
+               or "attest-build-provenance" in s.get("uses", "")]
+    assert len(pushing) == 3 and min(pushing) > current
+    assert all(steps[i]["if"] == "steps.current.outputs.latest == 'true'" for i in pushing)
+
+
+def test_the_cla_check_rests_on_who_opened_the_pull_request():
+    """A commit's author is whatever its email says. A pull request whose commits claim the maintainer still needs its
+    opener's signature, and the maintainer's own, since the maintainer didn't open it."""
+    script = yaml.safe_load(_read(".github/workflows/cla.yml"))["jobs"]["cla"]["steps"][0]["with"]["script"]
+    assert "const opener = pr.user.login;" in script and "new Set([opener])" in script
+    assert "if (openedByExempt && exempt(login)) return true;" in script
+    assert script.count("MAINTAINERS.includes(login)") == 1
+
+
 def test_what_runs_pull_requests_has_no_write_permissions():
     workflow = yaml.safe_load(_read(".github/workflows/docker.yml"))
     assert workflow["permissions"] == {"contents": "read"}
@@ -188,6 +318,17 @@ def test_arm64_really_runs_before_it_is_published():
     names = [s.get("name") for s in steps]
     assert names.index("Smoke test on arm64") < names.index("Build and publish (amd64 and arm64)")
     assert "linux/arm64" in next(s for s in steps if s.get("name") == "Smoke test on arm64")["run"]
+
+
+def test_only_a_tag_on_main_is_released():
+    """A v* tag on any other commit stops in the version job, which everything that signs or publishes waits for."""
+    jobs = yaml.safe_load(_read(".github/workflows/desktop.yml"))["jobs"]
+    steps = jobs["version"]["steps"]
+    assert steps[0]["uses"].startswith("actions/checkout@") and steps[0]["with"]["fetch-depth"] == 0
+    check = next(s for s in steps if s.get("name") == "A release's commit is on main")
+    assert check["if"] == "startsWith(github.ref, 'refs/tags/v')"
+    assert 'git merge-base --is-ancestor "$GITHUB_SHA" origin/main' in check["run"]
+    assert jobs["apps"]["needs"] == "version" and "version" in jobs["release"]["needs"]
 
 
 def test_a_release_publishes_its_own_dependency_list_sboms_and_installers():

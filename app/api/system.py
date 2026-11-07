@@ -91,7 +91,8 @@ def status(request: Request) -> dict:
         account = accounts.get(principal.account_id)
         out["account"] = _account_summary(account, principal)
         out["preferences"] = preferences(account)
-        out["onboarding"] = bool(account and account["onboarding"])
+        # The first-run steps are the account's: a phone paired for someone else couldn't finish them.
+        out["onboarding"] = bool(account and account["onboarding"]) and not principal.limited
         out["terms_accepted"] = terms_accepted(account)
         out["adult_age"] = settings.get("people.adult_age")
         out["developer_mode"] = settings.developer_mode()
@@ -112,7 +113,9 @@ def _account_summary(account: Optional[dict], principal: auth.Principal) -> Opti
     everyone = accounts.list_accounts()
     return {"id": account["id"], "name": account["name"], "profile_id": account["profile_id"], "owner": principal.owner,
             "has_password": account["has_password"], "members": len(everyone), "limited": principal.limited,
-            "owner_name": next((a["name"] for a in everyone if a["role"] == "owner"), None)}
+            "owner_name": next((a["name"] for a in everyone if a["role"] == "owner"), None),
+            # A phone's screens: what can't be undone asks for the password (auth.confirm_from_phone).
+            "confirms_with_password": bool(principal.device_id and account["has_password"])}
 
 
 # What the person acknowledges at setup (and once more when this changes): their records are on their own computer and
@@ -137,18 +140,19 @@ def _accept_terms(account_id: Optional[str]) -> None:
 
 @router.post("/api/terms/accept")
 def accept_terms(principal: auth.Principal = Depends(auth.require_user_to_set_password)) -> dict:
+    auth.refuse_if_limited(principal)       # the account's own to accept, not a phone paired for someone else
     _accept_terms(principal.account_id)
     return {"ok": True}
 
 
 def _visitor(request: Request) -> Optional[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]]:
     """Who's asking, when that can be known."""
-    host = request.client.host if request.client else ""
+    host = network.client_address(request)      # None behind FORWARDED_ALLOW_IPS="*": anyone could have written it
     # A proxy puts who it heard from last; anything before that is only what the visitor sent. One this server was told to
     # trust (FORWARDED_ALLOW_IPS) has already put that same address in ``client``. Any other address there is a proxy's own,
-    # and says nothing about who's behind it.
+    # and says nothing about who's behind it; nor does the address of a proxy that doesn't say whom it's passing on for.
     forwarded = request.headers.getlist("x-forwarded-for")
-    if forwarded and forwarded[-1].rsplit(",", 1)[-1].strip() != host:
+    if not host or (forwarded and forwarded[-1].rsplit(",", 1)[-1].strip() != host) or (network.through_a_proxy(request) and not forwarded):
         return None
     try:
         return ipaddress.ip_address(host.split("%")[0])
@@ -163,9 +167,9 @@ def _nearby(request: Request) -> bool:
 
 
 def _on_this_computer(request: Request) -> bool:
-    """The server's own computer, asked for by name: a web page can point its own address here too."""
-    ip = _visitor(request)
-    return bool(ip) and ip.is_loopback and network.is_local_name(request.headers.get("host", ""))
+    """The server's own computer, asked for by name: a web page can point its own address here too. Not through a proxy,
+    even one on this computer: the request is from whoever it heard from."""
+    return network.from_this_computer(request) and network.is_local_name(request.headers.get("host", ""))
 
 
 def _may_claim(request: Request, code: Optional[str]) -> None:
@@ -207,10 +211,21 @@ class PreferencesRequest(BaseModel):
     units: Optional[str] = None     # "metric", "us", or "" to follow the device's region
 
 
-@router.put("/api/preferences")
-def put_preferences(req: PreferencesRequest, principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
+def _own_preferences(principal: auth.Principal) -> None:
+    """Display choices are the account's own. A phone paired for someone else (a child's phone a parent paired) reads
+    them, to show its person's data in the same units, but doesn't change them: not with its token, nor its screens."""
     if not principal.account_id:
         raise HTTPException(400, "Sign in to change your preferences.")
+    auth.refuse_if_limited(principal)
+    if principal.kind == "device":
+        account = accounts.get(principal.account_id)
+        if not account or account["profile_id"] != principal.profile_id:
+            raise HTTPException(403, "This phone sends someone else's data, so it doesn't change the preferences of whoever paired it.")
+
+
+@router.put("/api/preferences")
+def put_preferences(req: PreferencesRequest, principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
+    _own_preferences(principal)
     if req.accent is not None:
         if req.accent not in ACCENTS:
             raise HTTPException(400, f"Accent must be one of: {', '.join(ACCENTS)}.")
@@ -277,6 +292,7 @@ def setup(req: SetupRequest, request: Request, response: Response) -> dict:
 
 @router.post("/api/onboarding/done")
 def onboarding_done(principal: auth.Principal = Depends(auth.require_user)) -> dict:
+    auth.refuse_if_limited(principal)
     if principal.account_id:
         accounts.set_flags(principal.account_id, onboarding=False)
     return {"ok": True}
@@ -285,6 +301,7 @@ def onboarding_done(principal: auth.Principal = Depends(auth.require_user)) -> d
 @router.post("/api/onboarding/restart")
 def onboarding_restart(principal: auth.Principal = Depends(auth.require_user)) -> dict:
     """Settings → General: walk through other devices, data and AI again."""
+    auth.refuse_if_limited(principal)
     if principal.account_id:
         accounts.set_flags(principal.account_id, onboarding=True)
     return {"ok": True}
@@ -301,15 +318,18 @@ async def network_status(request: Request) -> dict:
 class NetworkRequest(BaseModel):
     enabled: bool
     without_password: bool = False
+    password: Optional[str] = Field(None, max_length=256)       # from a phone's own screens
 
 
-@router.put("/api/system/network", dependencies=[Depends(auth.require_owner)])
-def set_network(req: NetworkRequest) -> dict:
+@router.put("/api/system/network")
+def set_network(req: NetworkRequest, request: Request, principal: auth.Principal = Depends(auth.require_owner)) -> dict:
     """The Mac and Windows apps: listen on the home network and Tailscale too, or only on this computer. The server
     restarts on the new address a moment after this answers."""
     if not network.managed():
         raise HTTPException(409, "This server's network access is set where it's started (for example "
                                  "`syntropy-health serve --host 127.0.0.1`), not here.")
+    auth.confirm_from_phone(request, principal, req.password,
+                            "Who can reach your records is for you to change. Enter your password to do it from this phone.")
     password = auth.auth_required()
     if req.enabled and not password and not (req.without_password and auth.password_optional()):
         raise HTTPException(400, "Set a password first, so other people on your network can't open your records.")
@@ -355,9 +375,16 @@ def set_update_settings(req: UpdateSettings) -> dict:
     return updates.status()
 
 
-@router.post("/api/system/updates/install", dependencies=[Depends(auth.require_owner)])
-def install_update() -> dict:
+class ConfirmRequest(BaseModel):
+    password: Optional[str] = Field(None, max_length=256)       # from a phone's own screens
+
+
+@router.post("/api/system/updates/install")
+def install_update(request: Request, req: Optional[ConfirmRequest] = None,
+                   principal: auth.Principal = Depends(auth.require_owner)) -> dict:
     """The Mac and Windows apps: download and install the latest release, then open again."""
+    auth.confirm_from_phone(request, principal, req.password if req else None,
+                            "Installing an update restarts Syntropy Health. Enter your password to do it from this phone.")
     try:
         result = updates.install()
     except ValueError as exc:

@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools>=77"]
+# Exact, so every build of the wheel has the same backend. The release and CI build with
+# .github/build-constraints.txt as well, which holds its hashes; move the two together.
+requires = ["setuptools==84.2.1"]
 build-backend = "setuptools.build_meta"
 
 [project]

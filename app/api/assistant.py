@@ -136,7 +136,7 @@ class LocalCheck(BaseModel):
 async def check_local(req: LocalCheck) -> dict:
     """Connects to a server the person typed in and lists its models."""
     try:
-        url = ai_local.normalize_base_url(req.base_url)
+        url = ai.typed_address("local", req.base_url)
         return await ai_local.check(url, req.api_key or ai.saved_key_for("local", url))
     except ValueError as exc:
         raise HTTPException(400, str(exc))
@@ -145,7 +145,7 @@ async def check_local(req: LocalCheck) -> dict:
 @router.get("/api/ai/local/context")
 async def local_context() -> dict:
     """How much the local model in use has room for at once, for the warning in Settings."""
-    cfg = ai.config()
+    cfg = await run_in_threadpool(ai.config)        # it may look up the server's name
     if cfg.get("provider") != "local" or not cfg.get("configured"):
         return {"tokens": None}
     return await ai_local.context_info(cfg["base_url"], cfg["model"], ai.saved_key_for("local"))
@@ -153,10 +153,12 @@ async def local_context() -> dict:
 
 @router.get("/api/ai/agents")
 async def list_agents(refresh: bool = False) -> dict:
-    """Claude Code, Codex CLI and Gemini CLI: installed here or not, and signed in or not."""
-    found = await run_in_threadpool(ai_agents.detect, refresh)
+    """Claude Code, Codex CLI and Gemini CLI: installed here or not, and signed in or not. Looking again (``refresh``)
+    starts each of them, so it's for owners, who set them up; anyone else gets what was found last."""
     principal = context.principal()
-    if principal is not None and not principal.owner:      # a full path usually names the owner's account on this computer
+    owner = principal is None or principal.owner
+    found = await run_in_threadpool(ai_agents.detect, refresh and owner)
+    if not owner:      # a full path usually names the owner's account on this computer
         found = {**found, "agents": [{k: v for k, v in agent.items() if k != "path"} for agent in found.get("agents", [])]}
     return found
 

@@ -181,7 +181,7 @@ async def start_ehr(profile_id: str, origin: str, *, institution_id: Optional[st
     state = smart.make_state("smart", origin)
     await asyncio.to_thread(connections.save_pending, state, "smart", {
         **plan, "profile_id": profile_id, "code_verifier": verifier, "origin": origin,
-        "token_endpoint": config["token_endpoint"], "reconnect_id": reconnect_id,
+        "token_endpoint": config["token_endpoint"], "revocation_endpoint": config.get("revocation_endpoint"), "reconnect_id": reconnect_id,
         "registration_endpoint": (smart.registration_endpoint(config, config["token_endpoint"])
                                   if plan.get("dynamic_registration") else None),
     })
@@ -285,6 +285,8 @@ async def complete_ehr(pending: dict[str, Any], code: str) -> dict[str, Any]:
     if not patient:
         raise SmartError("Authorization succeeded but the source did not identify the patient (missing launch/patient).", "auth")
     creds.update({"token_endpoint": pending["token_endpoint"], "client_id": pending["client_id"]})
+    if pending.get("revocation_endpoint"):
+        creds["revocation_endpoint"] = pending["revocation_endpoint"]      # where disconnecting ends this access at the source
     if pending.get("registration_endpoint"):
         try:
             creds["dynamic_client"] = await smart.register_dynamic_client(

@@ -50,12 +50,24 @@ def normalize_base_url(text: str) -> str:
     parts = urlsplit(text)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ValueError("That doesn't look like a server address. Try something like studio.local:11434.")
+    if "@" in parts.netloc:
+        # The address is shown to everyone who uses Ask; a key is kept encrypted and shown to no one.
+        raise ValueError("Leave the user name and password out of the address. If the server needs a key, put it in "
+                         "the key field.")
     path = parts.path.rstrip("/")
     for suffix in ("/chat/completions", "/models"):   # pasted a full endpoint
         path = path.removesuffix(suffix)
     if not path:
         path = "/v1"
     return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
+
+
+def shown_address(base_url: str) -> str:
+    """An address as it's shown: a user name and password saved in one before they were refused become ***."""
+    parts = urlsplit(base_url or "")
+    if "@" not in parts.netloc:
+        return base_url
+    return urlunsplit((parts.scheme, "***@" + parts.netloc.rsplit("@", 1)[1], parts.path, parts.query, parts.fragment))
 
 
 def root_url(base_url: str) -> str:
@@ -162,7 +174,7 @@ async def check(base_url: str, key: Optional[str] = None) -> dict[str, Any]:
             raise ValueError(f"The server answered with an error ({exc.response.status_code}). Check the address; "
                              "most servers expect it to end in /v1.") from exc
         except httpx.HTTPError as exc:
-            raise ValueError(f"Nothing answered at {base_url} ({exc.__class__.__name__}). Check that the server is "
+            raise ValueError(f"Nothing answered at {shown_address(base_url)} ({exc.__class__.__name__}). Check that the server is "
                              "running and allows connections from other devices.") from exc
         except ValueError as exc:
             raise ValueError("Something answered, but it isn't an OpenAI-compatible AI server.") from exc
@@ -171,7 +183,8 @@ async def check(base_url: str, key: Optional[str] = None) -> dict[str, Any]:
             for m in models:
                 if m["id"] in sizes:
                     m["size"] = sizes[m["id"]]
-    return {"name": hint, "models": models, **(await asyncio.to_thread(describe_address, base_url))}
+    return {"name": hint, "models": models, **(await asyncio.to_thread(describe_address, base_url)),
+            "base_url": shown_address(base_url)}
 
 
 async def context_tokens(base_url: str, model: str, key: Optional[str] = None) -> int:

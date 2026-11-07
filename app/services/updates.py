@@ -289,6 +289,25 @@ def set_installer(fn: Optional[Installer]) -> None:
     _installer = fn
 
 
+_on_working: Optional[Callable[[], None]] = None
+
+
+def set_on_working(fn: Optional[Callable[[], None]]) -> None:
+    """The Mac and Windows apps: told when the server gets past a problem it started with, as their update script, which puts
+    the earlier version back unless it hears that the new one works, is waiting to know."""
+    global _on_working
+    _on_working = fn
+
+
+def now_working() -> None:
+    """The server has got past a problem it started with: the key unlocked with a password, or a backup restored."""
+    if _on_working:
+        try:
+            _on_working()
+        except Exception:  # noqa: BLE001 - the server works either way
+            log.exception("Couldn't say that the server now works")
+
+
 def set_progress(state: Optional[str], detail: str = "") -> None:
     """downloading, waiting (for the window to close), installing, or failed."""
     global _progress

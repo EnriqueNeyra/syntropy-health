@@ -198,8 +198,60 @@ def phone_address(port: Optional[int]) -> Optional[str]:
 LOCAL_SUFFIXES = (".local", ".lan", ".home", ".home.arpa", ".internal", ".localhost", ".ts.net")
 
 
+# ---------------------------------------------------------------------------
+# Who's asking
+#
+# uvicorn's ProxyHeadersMiddleware (on wherever it's started: Docker, `syntropy-health serve`, the desktop apps) replaces
+# ``client`` in place, before any of this app runs, with an address from X-Forwarded-For, when the connection comes from
+# an address FORWARDED_ALLOW_IPS trusts. The connection's own address is gone by then (``scope["server"]`` is this
+# server's, not the peer's). Without X-Forwarded-For, ``client`` is the connection's own address. With it, and proxies
+# named in FORWARDED_ALLOW_IPS, it's the address the nearest of them heard from: what that proxy says, which can be
+# believed. With "*", it's the first address in the header, which whoever connected wrote, so it says nothing.
+# ---------------------------------------------------------------------------
+
+# What reverse proxies add. Any of them means a proxy passed the request on: it's from whoever that proxy heard from.
+PROXY_HEADERS = (b"x-forwarded-for", b"forwarded", b"x-real-ip", b"x-forwarded-host", b"x-forwarded-proto")
+
+
+def _has_header(request: Any, names: tuple[bytes, ...]) -> bool:
+    return any(k.lower() in names for k, _ in request.scope.get("headers") or [])
+
+
+def through_a_proxy(request: Any) -> bool:
+    return _has_header(request, PROXY_HEADERS)
+
+
+def trusts_every_proxy() -> bool:
+    """FORWARDED_ALLOW_IPS="*" (or a network as wide as everything): whatever connects may say whom it's passing on for.
+    Docker, the Linux service, `syntropy-health serve` and the desktop apps all start uvicorn from this setting."""
+    for entry in config.env("FORWARDED_ALLOW_IPS").split(","):
+        entry = entry.strip()
+        if entry == "*":
+            return True
+        try:
+            if "/" in entry and ipaddress.ip_network(entry, strict=False).prefixlen == 0:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def client_address(request: Any) -> Optional[str]:
+    """Who's asking, as far as can be known: the address the connection came from or, behind a proxy named in
+    FORWARDED_ALLOW_IPS, the one that proxy says it's for. None when it can't be known: with every address trusted as a
+    proxy, a forwarded address is only what the sender wrote."""
+    if not request.client or not request.client.host:
+        return None
+    if trusts_every_proxy() and _has_header(request, (b"x-forwarded-for",)):
+        return None
+    return request.client.host
+
+
 def from_this_computer(request: Any) -> bool:
-    """Whether a request came from this computer (behind a proxy on it, the address the proxy says it's for)."""
+    """Whether a request came from this computer itself. One a proxy passed on doesn't, even a proxy on this computer:
+    it's from whoever the proxy heard from, and with FORWARDED_ALLOW_IPS="*", the address it gives is anyone's to write."""
+    if through_a_proxy(request):
+        return False
     try:
         return ipaddress.ip_address((request.client.host if request.client else "").split("%")[0]).is_loopback
     except ValueError:

@@ -609,12 +609,21 @@ def _dedupe(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-def _local_midnight_utc(day: date) -> str:
+def _local_zone() -> ZoneInfo:
     try:
-        tz = ZoneInfo(settings.timezone_name())
+        return ZoneInfo(settings.timezone_name())
     except Exception:  # noqa: BLE001
-        tz = ZoneInfo("UTC")
-    return datetime(day.year, day.month, day.day, tzinfo=tz).astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        return ZoneInfo("UTC")
+
+
+def _local_midnight_utc(day: date) -> str:
+    return datetime(day.year, day.month, day.day, tzinfo=_local_zone()).astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _on_the_clock(value: str) -> str:
+    """A bound as the time on the person's clock, to compare with a time a source gave without an offset."""
+    moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return (moment.astimezone(_local_zone()).replace(tzinfo=None) if moment.tzinfo else moment).isoformat(timespec="seconds")
 
 
 def _parse_bound(value: Optional[str]) -> tuple[Optional[date], bool]:
@@ -629,9 +638,12 @@ def _parse_bound(value: Optional[str]) -> tuple[Optional[date], bool]:
         return None, False
 
 
-# A record's time as stored, which can carry any offset, or be just a date (a whole day, and not in any time zone).
+# A record's time as stored, which can carry any offset, or be just a date (a whole day, and not in any time zone), or be a time
+# with no offset. That's the time on the clock where it happened, so like a date it's compared with the time on the person's clock,
+# and never as if it were UTC: 01:00 on the 2nd in New York is the 2nd there, though it's 06:00 on the 2nd in UTC.
 _WHEN = "coalesce(datetime(effective_at), effective_at)"
 _DATE_ONLY = "length(effective_at) <= 10"
+_NO_OFFSET = "(upper(substr(effective_at, -1)) != 'Z' AND substr(effective_at, -6, 1) NOT IN ('+', '-'))"
 
 
 def _since_clause(since: Optional[str]) -> tuple[str, list[Any]]:
@@ -642,8 +654,8 @@ def _since_clause(since: Optional[str]) -> tuple[str, list[Any]]:
         return "effective_at >= ?", [since]
     if not day or day.year == date.min.year:
         return "", []
-    return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at >= ? ELSE {_WHEN} >= datetime(?) END)",
-            [day.isoformat(), _local_midnight_utc(day) if plain else since])
+    return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at >= ? WHEN {_NO_OFFSET} THEN {_WHEN} >= datetime(?) ELSE {_WHEN} >= datetime(?) END)",
+            [day.isoformat(), day.isoformat() if plain else _on_the_clock(since), _local_midnight_utc(day) if plain else since])
 
 
 def _until_clause(until: Optional[str]) -> tuple[str, list[Any]]:
@@ -655,9 +667,10 @@ def _until_clause(until: Optional[str]) -> tuple[str, list[Any]]:
     if not day or day.year == date.max.year:
         return "", []
     if plain:
-        return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? ELSE {_WHEN} < datetime(?) END)",
-                [day.isoformat(), _local_midnight_utc(day + timedelta(days=1))])
-    return f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? ELSE {_WHEN} <= datetime(?) END)", [day.isoformat(), until]
+        return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? WHEN {_NO_OFFSET} THEN {_WHEN} < datetime(?) ELSE {_WHEN} < datetime(?) END)",
+                [day.isoformat(), (day + timedelta(days=1)).isoformat(), _local_midnight_utc(day + timedelta(days=1))])
+    return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? WHEN {_NO_OFFSET} THEN {_WHEN} <= datetime(?) ELSE {_WHEN} <= datetime(?) END)",
+            [day.isoformat(), _on_the_clock(until), until])
 
 
 # Narrowing by what's been added to an entry: a document kept with it, or the person's own words.
@@ -1147,12 +1160,16 @@ def observation_catalog(profile_id: str, category: str = "labs") -> list[dict[st
         entry["count"] += 1
         if r.get("code") and r["code"] not in entry["codes"]:
             entry["codes"].append(r["code"])
-        # Only results in the latest one's unit compare with it, and a bound like "<5" isn't a level to measure a change from.
-        if _row_value(r) is not None and _unit_group(r) == _unit_group(entry["latest"]) and len(entry["values"]) < 2:
+        # Only results in the latest one's unit compare with it, and a bound like "<5" isn't a level to measure a change from. Nor is
+        # a result from the same moment: one sample reported two ways (by two codes for one test) hasn't changed.
+        if _row_value(r) is not None and _unit_group(r) == _unit_group(entry["latest"]) and len(entry["values"]) < 2 \
+                and (not entry["values"] or r.get("effective_at") != entry["since"]):
             entry["values"].append(None if _comparator(r) else _row_value(r))
+            entry["since"] = r.get("effective_at")
     out = []
     for e in catalog.values():
         vals = e.pop("values")
+        e.pop("since", None)
         e["trend"] = None
         if len(vals) == 2 and vals[0] is not None and vals[1]:
             change = (vals[0] - vals[1]) / abs(vals[1])
@@ -1337,15 +1354,16 @@ def lab_status(latest_by_code: dict[str, dict[str, Any]]) -> dict[str, int]:
     return {"total": len(interpretations), "flagged": flagged, "in_range": in_range, "not_assessed": len(interpretations) - flagged - in_range}
 
 
-def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
+def flagged_labs(profile_id: str, today: Optional[date] = None) -> list[dict[str, Any]]:
     """Tests whose latest result is out of range, as in the summary, but for Insights on every Overview: without reading
-    the rest of the summary, or the full text of every result. These rows have no details or narrative."""
+    the rest of the summary, or the full text of every result. These rows have no details or narrative. ``today``: the day
+    that decides which are ``older``, the caller's own (Insights' is the person's), else the server's."""
     with read() as conn:
         rows = rows_to_dicts(conn.execute(
             f"SELECT {_LAB_FLAG_COLUMNS} FROM clinical_records WHERE profile_id = ? AND category = 'labs' "
             "ORDER BY coalesce(effective_at, '') DESC, updated_at DESC", (profile_id,)).fetchall())
     record_overrides.attach(profile_id, rows)
-    return _out_of_range(_latest_labs(_dedupe([r for r in rows if not _said_wrong(r)])[:SUMMARY_LABS]))
+    return _out_of_range(_latest_labs(_dedupe([r for r in rows if not _said_wrong(r)])[:SUMMARY_LABS]), today)
 
 
 def procedures_by_finished(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:

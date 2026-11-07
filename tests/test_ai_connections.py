@@ -1,14 +1,17 @@
 """Local models, other OpenAI-compatible services, models without tools, agents on this computer and MCP last calls."""
 
 import json
+import os
 import stat
 import sys
 import textwrap
+import time
 
 import httpx
 import pytest
 
 from app.services import ai, ai_agents, ai_local
+from tests.test_ai_providers import longest_stall
 from tests.test_assistant import _events, fake_model  # noqa: F401 - fixture
 
 
@@ -237,3 +240,197 @@ def test_mcp_tokens_remember_their_last_call(client):
                               "params": {"name": "get_health_summary", "arguments": {}}}, headers=headers)
     [listed] = client.get("/api/agents/tokens").json()["tokens"]
     assert listed["last_call"] == "get_health_summary" and listed["last_call_at"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_starting_an_agent_doesnt_hold_up_the_server(client, fake_tools, monkeypatch):
+    help_text = "--tools --permission-mode dontAsk --no-session-persistence --system-prompt-file"
+    monkeypatch.setattr(ai_agents, "_help", lambda binary, *sub: (time.sleep(0.6), help_text)[1])   # a slow --help
+    me = client.get("/api/status").json()["account"]["profile_id"]
+
+    async def ask():
+        return [e async for e in ai_agents.run("claude", me, "Instructions", [{"role": "user", "content": "Hi"}])]
+    events, stall = longest_stall(ask)
+    assert events[-1] == {"type": "answer", "text": "People: Alex"}
+    assert stall < 0.3, f"the event loop was held up for {stall:.2f}s"
+
+
+# What Gemini CLI 0.66 keeps of a session: a transcript and logs in ~/.gemini/tmp/<name>, a history folder, a
+# ".project_root" in each naming the working folder, and the name in ~/.gemini/projects.json.
+FAKE_GEMINI = """
+import json, os, sys, time
+args = sys.argv[1:]
+if "--help" in args:
+    print("--skip-trust --policy --output-format --allowed-mcp-server-names " + os.environ.get("FAKE_HELP", "")); sys.exit(0)
+json.dump({"args": args, "cwd": os.getcwd(), "settings": json.load(open(".gemini/settings.json"))}, open(os.environ["FAKE_LOG"], "w"))
+here = os.getcwd()
+base = os.path.join(os.environ["HOME"], ".gemini")
+name = os.path.basename(here).replace("_", "-")
+for sub in ("tmp", "history"):
+    os.makedirs(os.path.join(base, sub, name, "chats" if sub == "tmp" else "x"), exist_ok=True)
+    open(os.path.join(base, sub, name, ".project_root"), "w").write(here)
+open(os.path.join(base, "tmp", name, "chats", "session-1.jsonl"), "w").write('{"content": "What is my A1c?"}')
+registry = os.path.join(base, "projects.json")
+data = json.load(open(registry)) if os.path.exists(registry) else {"projects": {}}
+data["projects"][here] = name
+json.dump(data, open(registry, "w"))
+if os.environ.get("FAKE_SLOW"):
+    time.sleep(30)
+print(json.dumps({"type": "message", "role": "assistant", "content": "Your A1c was 5.4.", "delta": True}))
+print(json.dumps({"type": "result", "status": "success"}))
+"""
+
+
+@pytest.fixture
+def fake_gemini(fake_tools, tmp_path, monkeypatch):
+    path = tmp_path / "bin" / "gemini"
+    path.write_text(f"#!{sys.executable}\n{textwrap.dedent(FAKE_GEMINI)}")
+    path.chmod(path.stat().st_mode | stat.S_IEXEC)
+    home = tmp_path / "home"
+    gemini = home / ".gemini"
+    # Someone's own project, a question still being answered, and one from before this was fixed.
+    temp = os.path.realpath(ai_agents.tempfile.gettempdir())
+    live = ai_agents.tempfile.mkdtemp(prefix="syntropy-agent-")
+    projects = {"/Users/me/garden": "garden", os.path.realpath(live): "live", f"{temp}/syntropy-agent-old": "old"}
+    for root, name in projects.items():
+        for sub in ("tmp", "history"):
+            (gemini / sub / name).mkdir(parents=True)
+            (gemini / sub / name / ".project_root").write_text(root)
+    (gemini / "projects.json").write_text(json.dumps({"projects": projects}))
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("GEMINI_CLI_HOME", raising=False)
+    monkeypatch.setattr(ai_agents, "_help_cache", {})
+    yield gemini
+    os.rmdir(live)
+
+
+def _left(gemini):
+    return sorted(p.name for p in (gemini / "tmp").iterdir()), sorted(json.loads((gemini / "projects.json").read_text())["projects"].values())
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_gemini_cli_keeps_no_transcript_of_a_question(client, fake_gemini):
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "gemini", "acknowledged": True})
+    events = _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "What is my A1c?"}]}))
+    assert next(e for e in events if e["type"] == "answer")["text"] == "Your A1c was 5.4."
+    # This question's folder and the one left before are gone; someone's own project and a question being answered stay.
+    assert _left(fake_gemini) == (["garden", "live"], ["garden", "live"])
+    assert sorted(p.name for p in (fake_gemini / "history").iterdir()) == ["garden", "live"]
+    assert not (fake_gemini / "projects.json.lock").exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_gemini_cli_keeps_nothing_of_a_question_that_ran_out_of_time(client, fake_gemini, monkeypatch):
+    monkeypatch.setenv("FAKE_SLOW", "1")
+    monkeypatch.setattr(ai_agents, "RUN_TIMEOUT_S", 2)
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "gemini", "acknowledged": True})
+    started = time.monotonic()
+    events = _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "What is my A1c?"}]}))
+    assert events[0]["type"] == "error" and "took longer" in events[0]["message"] and time.monotonic() - started < 15
+    assert _left(fake_gemini) == (["garden", "live"], ["garden", "live"])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_claude_code_leaves_out_the_persons_own_instructions(client, fake_tools, monkeypatch):
+    monkeypatch.setenv("FAKE_HELP", "--system-prompt-file --setting-sources")
+    monkeypatch.setattr(ai_agents, "_help_cache", {})
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "claude", "acknowledged": True})
+    _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+    args = json.loads(fake_tools.read_text())["args"]
+    assert args[args.index("--setting-sources") + 1] == "project,local"     # not "user": no ~/.claude/CLAUDE.md
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_gemini_cli_leaves_out_the_persons_own_instructions_where_it_can_and_says_where_not(client, fake_gemini, fake_tools, monkeypatch):
+    monkeypatch.setenv("FAKE_HELP", "--extensions")
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "gemini", "acknowledged": True})
+    _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+    run = json.loads(fake_tools.read_text())
+    assert run["args"][run["args"].index("--extensions") + 1] == "none"
+    assert run["settings"]["context"]["fileName"] == ai_agents.NO_CONTEXT_FILE
+    gemini = next(a for a in client.get("/api/ai/agents").json()["agents"] if a["id"] == "gemini")
+    assert "GEMINI.md" in gemini["terms"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_only_an_owner_can_make_the_server_look_for_agents_again_and_not_over_and_over(raw_client, fake_tools, monkeypatch):
+    from tests.test_access_matrix import _app_with_people
+    owner, maria, _ = _app_with_people(raw_client)
+    started = []
+    real = ai_agents._run_quick
+    monkeypatch.setattr(ai_agents, "_run_quick", lambda args, *rest, **kw: (started.append(args), real(args, *rest, **kw))[1])
+    assert owner.get("/api/ai/agents").json()["agents"][0]["installed"]
+    looked = len(started)
+    assert looked
+    for _ in range(3):
+        maria.get("/api/ai/agents", params={"refresh": True})
+        owner.get("/api/ai/agents", params={"refresh": True})        # just looked
+    assert len(started) == looked
+    now = time.time()
+    monkeypatch.setattr(ai_agents.time, "time", lambda: now + ai_agents.REFRESH_MIN_S + 1)
+    maria.get("/api/ai/agents", params={"refresh": True})
+    assert len(started) == looked
+    owner.get("/api/ai/agents", params={"refresh": True})
+    assert len(started) == 2 * looked
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_looking_for_agents_at_once_looks_once(fake_tools, monkeypatch):
+    import threading
+    started = []
+    real = ai_agents._run_quick
+
+    def slow(args, *rest, **kw):
+        started.append(args)
+        time.sleep(0.05)
+        return real(args, *rest, **kw)
+    monkeypatch.setattr(ai_agents, "_run_quick", slow)
+    ai_agents.detect(True)
+    once = len(started)
+    monkeypatch.setattr(ai_agents, "_detected", (0.0, []))
+    threads = [threading.Thread(target=ai_agents.detect, args=(True,)) for _ in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(started) == 2 * once
+
+
+
+def _mcp_people(isolated_data, *args, **env):
+    """Whom the stdio MCP server lists, started with these arguments and environment: (0, names), or (exit code, error)."""
+    import subprocess
+    from tests.test_mcp_protocol import _WINDOWS_BASICS, _msg
+    basics = {k: os.environ[k] for k in _WINDOWS_BASICS if k in os.environ} if sys.platform == "win32" else {}
+    out = subprocess.run([sys.executable, "-m", "app.mcp_server", *args], capture_output=True, timeout=60,
+                         input=json.dumps(_msg("tools/call", name="list_profiles", arguments={})).encode() + b"\n",
+                         env={**basics, "SYNTROPY_DATA_DIR": str(isolated_data), "PATH": "/usr/bin:/bin",
+                              "SYNTROPY_NO_DOTENV": "1", "SYNTROPY_KEY_STORE": "file", **env})
+    if out.returncode:
+        return out.returncode, out.stderr.decode()
+    return 0, [p["name"] for p in json.loads(json.loads(out.stdout)["result"]["content"][0]["text"])["people"]]
+
+
+def test_the_mcp_server_an_agent_uses_never_reads_everyone(client, isolated_data):
+    sam = client.post("/api/profiles", json={"name": "Sam", "relationship": "child"}).json()["id"]
+    alex = client.get("/api/status").json()["account"]["profile_id"]
+    # Started for the assistant with the person lost: it doesn't start.
+    code, said = _mcp_people(isolated_data, SYNTROPY_MCP_ACTOR="agent:claude:acc_1")
+    assert code == 2 and "won't start" in said
+    # Either the command line or the environment limits it; two that disagree don't start.
+    assert _mcp_people(isolated_data, "--profile", sam, SYNTROPY_MCP_ACTOR="agent:claude") == (0, ["Sam"])
+    assert _mcp_people(isolated_data, SYNTROPY_MCP_ACTOR="agent:claude", SYNTROPY_MCP_PROFILE=sam) == (0, ["Sam"])
+    assert _mcp_people(isolated_data, "--profile", sam, SYNTROPY_MCP_ACTOR="agent:codex", SYNTROPY_MCP_PROFILE=alex)[0] == 2
+    # An app set up for everyone, as the setup offers, still reads everyone.
+    assert sorted(_mcp_people(isolated_data)[1]) == ["Alex", "Sam"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_an_agents_mcp_server_is_told_who_on_its_command_line_too(client, fake_tools):
+    me = client.get("/api/status").json()["account"]["profile_id"]
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "codex", "acknowledged": True})
+    _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+    args = json.loads(fake_tools.read_text())["args"]
+    server_args = next(args[i + 1] for i, a in enumerate(args) if a == "-c" and args[i + 1].startswith("mcp_servers.syntropy.args="))
+    assert server_args.endswith(f'"--profile", "{me}"]')
+    assert "--profile" not in ai_agents.mcp_server.stdio_command(me)["args"]       # an app's offered setup is unchanged

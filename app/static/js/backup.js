@@ -20,6 +20,13 @@ function readPassphrase(root, min, { optional = false } = {}) {
   return value;
 }
 
+/** On a phone's screens, which open without the password, what reaches everyone's records takes it. */
+function passwordField(id, why) {
+  return html`<div class="field"><label class="label" for="${id}">Your password</label>
+    <input class="input" type="password" id="${id}" autocomplete="current-password" required>
+    <div class="hint">${why}</div></div>`;
+}
+
 function busyButton(button, text) {
   button.disabled = true;
   button.dataset.label = button.textContent;
@@ -38,9 +45,7 @@ export function openBackupDialog(info, onDone) {
         encryption key that opens them, so it restores on any computer. It's encrypted with a passphrase you choose.
         <b>That key opens your records, so the passphrase is what protects this file.</b> Without the passphrase, nobody can open it.</p>
       <div id="bk-fields">${passphraseFields(info.min_passphrase)}</div>
-      ${info.needs_password ? html`<div class="field"><label class="label" for="bk-password">Your password</label>
-        <input class="input" type="password" id="bk-password" autocomplete="current-password" required>
-        <div class="hint">A backup holds everyone's records, so from a phone it takes your password.</div></div>` : ""}
+      ${info.needs_password ? passwordField("bk-password", "A backup holds everyone's records, so from a phone it takes your password.") : ""}
       <div class="hint" style="margin-bottom:14px">Keep the passphrase somewhere other than the backup. If it's lost, nobody can open the backup.</div>
       <label class="checkbox small field"><input type="checkbox" id="bk-plain"><span>Don't encrypt it.</span></label>
       <div class="banner warn" id="bk-warn" hidden>${icon("shield")}<div class="grow"><p><b>Anyone who gets an unencrypted backup can read every record and use every saved
@@ -99,6 +104,7 @@ export function openScheduleDialog(info, onDone) {
         <div class="field grow"><label class="label" for="sc-keep">Keep the last</label>
           <input class="input" id="sc-keep" type="number" min="1" max="100" value="${s.keep}"></div></div>
       ${passphraseFields(info.min_passphrase, { optional: s.enabled })}
+      ${info.needs_password ? passwordField("sc-password", "Scheduled backups hold everyone's records, so from a phone they take your password.") : ""}
       <div class="banner info">${icon("shield")}<div class="grow"><p><b>What the passphrase protects.</b> It isn't saved. A key made from it is kept in this server's
         database, protected by this server's encryption key, so backups can run with nobody here. These backups are safe if the drive or folder they're in is lost or shared.
         They aren't safe from someone who can use this computer as you, or where the key is kept beside the data, from someone with a copy of that folder: they could open them without the passphrase. To restore one you'll need the passphrase, so keep it somewhere else.</p></div></div>`,
@@ -117,9 +123,12 @@ export function openScheduleDialog(info, onDone) {
     try {
       const body = { folder: $("#sc-folder", m.el).value.trim(), every_hours: Number($("#sc-every", m.el).value), keep: Number($("#sc-keep", m.el).value),
                      passphrase: readPassphrase(m.el, info.min_passphrase, { optional: s.enabled }) };
+      const password = $("#sc-password", m.el)?.value;
+      if (info.needs_password && !password) throw new Error("Enter your password.");
+      if (password) body.password = password;
       done = busyButton(e.currentTarget, "Backing up…");
       await api("/api/backups/schedule", { method: "PUT", body, keepCache: true });
-      const after = await api("/api/backups/schedule/run", { method: "POST", keepCache: true });
+      const after = await api("/api/backups/schedule/run", { method: "POST", body: password ? { password } : {}, keepCache: true });
       m.close();
       const failed = after.schedule.state.last_error;
       toast(failed ? `Saved, but the backup failed: ${failed}` : "Saved, and a backup was made", failed ? "bad" : "good");
@@ -131,8 +140,8 @@ export function openScheduleDialog(info, onDone) {
 // ------------------------------------------------------------------ restoring
 const KIND_TEXT = { "older-zip": "It's from an older version of Syntropy Health.", "database-only": "It's an older backup, holding only the database." };
 
-/** Draws the steps inside ``root``. ``firstRun``: there's nothing here yet to replace. */
-export function restoreSteps(root, { onCancel, onRestored }) {
+/** Draws the steps inside ``root``. ``needsPassword``: a phone's screens, where restoring takes the password. */
+export function restoreSteps(root, { onCancel, onRestored, needsPassword = false }) {
   let file = null;
   let keyFile = null;
   let passphrase = "";
@@ -183,6 +192,7 @@ export function restoreSteps(root, { onCancel, onRestored }) {
       ${r.replaces ? html`<div class="banner warn" style="margin-bottom:12px"><div class="grow"><p><b>This replaces everything here now</b>: ${r.replaces.holds}, for everyone.
         Anything added since this backup was made is left out. What's here now is kept in a folder beside the data, so this can be undone by hand.</p></div></div>
         <div class="field"><label class="label" for="rs-type">Type RESTORE to go ahead</label><input class="input" id="rs-type" autocomplete="off"></div>` : ""}
+      ${needsPassword ? passwordField("rs-password", "Restoring replaces everyone's records, so from a phone it takes your password.") : ""}
       <p class="small" style="margin-bottom:12px">${r.sign_in}</p>
       <div class="row" style="gap:8px;justify-content:flex-end"><button class="btn" data-cancel type="button">Cancel</button>
         <button class="btn ${r.replaces ? "btn-danger" : "btn-primary"}" data-apply type="button">Restore this backup</button></div>`);
@@ -200,9 +210,11 @@ export function restoreSteps(root, { onCancel, onRestored }) {
       const accept = !r.key.ok && $("#rs-nokey", root).checked;
       if (!r.key.ok && !accept) return toast("Add the key file, or choose to restore anyway.", "bad");
       if (r.replaces && $("#rs-type", root).value.trim() !== "RESTORE") return toast("Type RESTORE to go ahead.", "bad");
+      const password = $("#rs-password", root)?.value;
+      if (needsPassword && !password) return toast("Enter your password.", "bad");
       const done = busyButton(e.currentTarget, "Restoring…");
       try {
-        const out = await api("/api/restore/apply", { method: "POST", body: { id: r.id, accept_key_problem: accept }, keepCache: true });
+        const out = await api("/api/restore/apply", { method: "POST", body: { id: r.id, accept_key_problem: accept, ...(password ? { password } : {}) }, keepCache: true });
         mount(root, html`<div class="banner info" style="margin-bottom:12px">${icon("check")}<div class="grow"><p><b>Restored: ${out.holds}.</b></p></div></div>
           <p style="margin-bottom:10px"><b>${out.sign_in}</b></p>
           <p class="small muted" style="margin-bottom:10px">Sources may ask you to sign in again if their sign-ins changed since the backup, and phones paired since then need pairing again.</p>
@@ -216,9 +228,9 @@ export function restoreSteps(root, { onCancel, onRestored }) {
   start();
 }
 
-export function openRestoreDialog() {
+export function openRestoreDialog({ needsPassword = false } = {}) {
   const m = modal({ title: "Restore from a backup", body: html`<div id="rs-steps"></div>` });
-  restoreSteps($("#rs-steps", m.el), { onCancel: m.close, onRestored: () => location.reload() });
+  restoreSteps($("#rs-steps", m.el), { onCancel: m.close, onRestored: () => location.reload(), needsPassword });
 }
 
 // ------------------------------------------------------------------ an archive coming in

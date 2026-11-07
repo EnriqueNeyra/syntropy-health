@@ -11,7 +11,10 @@ tool's own flow, as the vendors' terms require.
 from __future__ import annotations
 
 import asyncio
+import functools
+import hashlib
 import json
+import logging
 import os
 import re
 import shutil
@@ -26,6 +29,8 @@ from typing import Any, AsyncIterator, Optional
 from app import mcp_server
 from app.core import context
 from app.services.ai_local import in_docker
+
+log = logging.getLogger("syntropy.ai")
 
 SERVER = "syntropy"          # the MCP server's name inside the agent
 RUN_TIMEOUT_S = 300
@@ -59,7 +64,8 @@ AGENTS: dict[str, dict[str, Any]] = {
         "usage": "Counts toward your Gemini CLI quota. Google recommends an AI Studio API key for apps like this; "
                  "that's the main Google option under Your own key.",
         "terms": "Questions fall under Google's terms for Gemini CLI and your Google account's data settings, not "
-                 "API terms.",
+                 "API terms. If you keep your own instructions for Gemini CLI (~/.gemini/GEMINI.md), current versions "
+                 "send them with every question too: Ask can't leave them out.",
     },
 }
 
@@ -169,6 +175,10 @@ def _signed_in(agent_id: str, binary: str) -> Optional[bool]:
 
 
 _detected: tuple[float, list[dict[str, Any]]] = (0.0, [])
+# Looking starts each tool two or three times. One look at a time, and one asked for is skipped if the last was this recent.
+_detecting = threading.Lock()
+DETECT_FRESH_S = 60
+REFRESH_MIN_S = 10
 
 
 def last_detected() -> Optional[tuple[float, dict[str, Any]]]:
@@ -187,12 +197,23 @@ def available(agent_id: str) -> bool:
 
 def detect(refresh: bool = False) -> dict[str, Any]:
     """The agents installed here, whether each is signed in, and what using it means."""
-    global _detected
     if in_docker():
         return {"available": False, "reason": "Agents run on the computer itself, not inside Docker. Use the Mac or "
                 "Windows app, or run Syntropy Health without Docker, to use them.", "agents": []}
-    if not refresh and time.time() - _detected[0] < 60:
+
+    def recent() -> bool:
+        return time.time() - _detected[0] < (REFRESH_MIN_S if refresh else DETECT_FRESH_S)
+
+    if recent():
         return {"available": True, "agents": _detected[1]}
+    with _detecting:
+        if recent():            # someone else just looked
+            return {"available": True, "agents": _detected[1]}
+        return {"available": True, "agents": _look()}
+
+
+def _look() -> list[dict[str, Any]]:
+    global _detected
     agents = []
     for agent_id, spec in AGENTS.items():
         binary = find_binary(spec["binary"])
@@ -206,7 +227,7 @@ def detect(refresh: bool = False) -> dict[str, Any]:
             entry["signed_in"] = _signed_in(agent_id, binary)
         agents.append(entry)
     _detected = (time.time(), agents)
-    return {"available": True, "agents": agents}
+    return agents
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +268,10 @@ def _claude(binary: str, work: Path, mcp: dict[str, Any], system: str, model: Op
         args += ["--permission-mode", "dontAsk"]    # anything not allowed above is refused, never asked
     if "--no-session-persistence" in help_text:
         args.append("--no-session-persistence")
+    if "--setting-sources" in help_text:
+        # Not the person's own settings, which hold their CLAUDE.md instructions (sent with every question otherwise)
+        # and hooks. Signing in doesn't depend on them. This empty folder has no project or local settings.
+        args += ["--setting-sources", "project,local"]
     if "--include-partial-messages" in help_text:
         args.append("--include-partial-messages")  # the answer as it's written, shown in Ask while it streams
     if model:
@@ -281,16 +306,24 @@ def _codex(binary: str, work: Path, mcp: dict[str, Any], model: Optional[str]) -
     return [*args, "-"]                          # the prompt comes on stdin
 
 
+NO_CONTEXT_FILE = "SYNTROPY-NO-CONTEXT.md"
+
+
 def _gemini(binary: str, work: Path, mcp: dict[str, Any], model: Optional[str]) -> list[str]:
     help_text = _help(binary)
     (work / ".gemini").mkdir()
-    (work / ".gemini/settings.json").write_text(json.dumps({"mcpServers": {SERVER: {**mcp, "trust": True}}}))
+    # A context file that doesn't exist, for the person's own GEMINI.md instructions. Versions that replace the name with
+    # this one leave them out; 0.66 adds it beside GEMINI.md and reads that anyway, so the terms say so.
+    (work / ".gemini/settings.json").write_text(json.dumps({"mcpServers": {SERVER: {**mcp, "trust": True}},
+                                                            "context": {"fileName": NO_CONTEXT_FILE}}))
     # Everything is refused except Syntropy's tools.
     (work / "policy.toml").write_text(f'[[rule]]\ntoolName = "*"\ndecision = "deny"\npriority = 1\n\n'
                                       f'[[rule]]\nmcpName = "{SERVER}"\ndecision = "allow"\npriority = 900\n')
     args = [*_command(binary), "-p", " ", "--output-format", "stream-json", "--allowed-mcp-server-names", SERVER]
     if "--skip-trust" in help_text:
         args.append("--skip-trust")
+    if "--extensions" in help_text:
+        args += ["--extensions", "none"]         # nor the context files, servers and hooks of the person's extensions
     # The policy is what limits it to Syntropy's read-only tools, so it doesn't run without one.
     if "--policy" not in help_text:
         raise AgentError("This version of Gemini CLI can't be limited to read-only lookups, so Ask won't run it. Update "
@@ -299,6 +332,118 @@ def _gemini(binary: str, work: Path, mcp: dict[str, Any], model: Optional[str]) 
     if model:
         args += ["--model", model]
     return args
+
+
+# Gemini CLI has no switch to stop it keeping a transcript of each session (for 30 days, by default). It keeps them in
+# a folder of its own for each working folder: ~/.gemini/tmp/<name>/chats, beside that session's logs, with a history
+# folder in ~/.gemini/history/<name>. A ".project_root" file in each names the working folder, and ~/.gemini/projects.json
+# lists the names. Before version 0.2x the name was the working folder's SHA-256 and there was no ".project_root".
+WORK_PREFIX = "syntropy-agent-"
+
+
+def _gemini_dirs() -> list[Path]:
+    """Where Gemini CLI keeps what it writes: in ~/.gemini (or under GEMINI_CLI_HOME), or ~/.cache/.gemini when it runs
+    in the Mac's sandbox."""
+    home = Path(os.environ.get("GEMINI_CLI_HOME") or Path.home())
+    return [home / ".gemini", home / ".cache" / ".gemini"]
+
+
+def _same_path(path: str) -> str:
+    """A path as Gemini CLI compares them (it lowercases them on Windows)."""
+    return os.path.normcase(os.path.abspath(path))
+
+
+def _was_ours(project: str) -> bool:
+    """Whether Gemini CLI's folder was made for one of Syntropy's working folders that's been removed: the folder of a
+    question that has finished, here or before, and never one that's still being answered."""
+    temp = {_same_path(tempfile.gettempdir()), _same_path(os.path.realpath(tempfile.gettempdir()))}
+    path = _same_path(project)
+    return (os.path.dirname(path) in temp and os.path.basename(path).startswith(WORK_PREFIX)
+            and not os.path.exists(path))
+
+
+def _forget_gemini_runs(work: Path) -> None:
+    """Removes what Gemini CLI kept of this question and of any earlier one asked here: transcripts, logs and history,
+    and their entries in its list of folders."""
+    hashed = {hashlib.sha256(str(p).encode()).hexdigest() for p in (work, os.path.realpath(work))}
+    for base in _gemini_dirs():
+        for sub in ("tmp", "history"):
+            try:
+                folders = [f for f in (base / sub).iterdir() if f.is_dir()]
+            except OSError:
+                continue
+            for folder in folders:
+                try:
+                    project = (folder / ".project_root").read_text(encoding="utf-8").strip()
+                except OSError:
+                    project = None
+                if (project and _was_ours(project)) or (project is None and folder.name in hashed):
+                    shutil.rmtree(folder, ignore_errors=True)
+        _unlist(base / "projects.json")
+
+
+def _unlist(registry: Path) -> None:
+    """Takes Syntropy's finished folders out of Gemini CLI's list, under the same lock Gemini CLI takes (a folder named
+    after the file). If Gemini CLI holds it for longer than a moment, they stay listed: a name, nothing of the question."""
+    if not registry.exists():
+        return
+    lock = registry.with_name(registry.name + ".lock")
+    for _ in range(40):
+        try:
+            lock.mkdir()
+            break
+        except FileExistsError:
+            time.sleep(0.05)
+        except OSError:
+            return
+    else:
+        return
+    try:
+        data = json.loads(registry.read_text(encoding="utf-8"))
+        projects = data["projects"]
+        keep = {path: name for path, name in projects.items() if not _was_ours(path)}
+        if len(keep) < len(projects):
+            fresh = registry.with_name(f"{registry.name}.{os.getpid()}.syntropy.tmp")
+            fresh.write_text(json.dumps({**data, "projects": keep}, indent=2), encoding="utf-8")
+            os.replace(fresh, registry)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        pass
+    finally:
+        try:
+            lock.rmdir()
+        except OSError:
+            pass
+
+
+def _stop(proc: subprocess.Popen) -> None:
+    """Stops the tool and what it started. Gemini CLI answers in a copy of itself that it starts: asked to stop, it passes
+    that on, and on Windows, where it can't be asked, the whole tree is ended."""
+    if proc.poll() is not None:
+        return
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    else:
+        proc.terminate()
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def _finish(agent_id: str, proc: subprocess.Popen, work: Path) -> None:
+    """After a question, answered or not: the tool is stopped, then nothing it was given or wrote is left behind."""
+    _stop(proc)
+    shutil.rmtree(work, ignore_errors=True)
+    if agent_id == "gemini":
+        try:
+            _forget_gemini_runs(work)
+        except Exception:  # noqa: BLE001 - the answer stands; the log says what was left
+            log.warning("Couldn't remove what Gemini CLI kept of a question", exc_info=True)
 
 
 def _short_tool(name: str) -> str:
@@ -368,25 +513,20 @@ def _parse(agent_id: str, event: dict[str, Any], state: dict[str, Any]) -> list[
     return out
 
 
-async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str, Any]],
-              model: Optional[str] = None) -> AsyncIterator[dict[str, Any]]:
-    """Asks the agent; yields {"type": "tool", "name", "args"} as it looks things up, {"type": "delta", "text"} (and
-    {"type": "reset"}) as the answer is written, where the tool reports that, then {"type": "answer"}."""
-    if agent_id not in AGENTS:
-        raise AgentError("Unknown agent.")
-    if model and not valid_model(model):
-        raise AgentError(f"The model saved for {AGENTS[agent_id]['label']} isn't a model name. Choose another in Ask's model menu.")
+def _start(agent_id: str, profile_id: str, system: str, turns: list[dict[str, Any]], model: Optional[str],
+           actor: str) -> tuple[subprocess.Popen, Path, str]:
+    """Starts the tool in a new empty folder: (the process, the folder, what goes on its standard input)."""
     if in_docker():
         raise AgentError(detect()["reason"])
     spec = AGENTS[agent_id]
     binary = find_binary(spec["binary"])
     if not binary:
         raise AgentError(f"{spec['label']} isn't installed on this computer. {spec['install']}")
-    work = Path(tempfile.mkdtemp(prefix="syntropy-agent-"))
-    principal = context.principal()
-    # Named in the access log, so what was looked up shows to the account that asked.
-    actor = f"agent:{agent_id}:{principal.account_id}" if principal and principal.account_id else f"agent:{agent_id}"
+    work = Path(tempfile.mkdtemp(prefix=WORK_PREFIX))
+    if not profile_id:
+        raise AgentError("Choose whose records to ask about.")
     mcp = mcp_server.stdio_command(profile_id, actor=actor)
+    mcp["args"] = [*mcp["args"], "--profile", profile_id]       # besides its environment: either limits it to one person
     prompt = system + AGENT_NOTE + "\n\n" + _transcript(turns)
     try:
         if agent_id == "claude":
@@ -400,12 +540,6 @@ async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str,
     except (AgentError, OSError):
         shutil.rmtree(work, ignore_errors=True)
         raise
-
-    # A thread reads the tool's output so this works on every event loop (Windows' default can't run subprocesses
-    # under every server configuration).
-    loop = asyncio.get_running_loop()
-    lines: asyncio.Queue[Optional[str]] = asyncio.Queue()
-    stderr_tail: list[str] = []
     try:
         proc = subprocess.Popen(args, cwd=work, env=_env(binary), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
@@ -413,6 +547,42 @@ async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str,
     except OSError as exc:
         shutil.rmtree(work, ignore_errors=True)
         raise AgentError(f"Couldn't start {spec['label']} ({exc}).") from exc
+    return proc, work, prompt
+
+
+def _stop_unused(agent_id: str, starting: asyncio.Future) -> None:
+    if starting.cancelled() or starting.exception() is not None:
+        return
+    proc, work, _ = starting.result()
+    threading.Thread(target=_finish, args=(agent_id, proc, work), daemon=True).start()
+
+
+async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str, Any]],
+              model: Optional[str] = None) -> AsyncIterator[dict[str, Any]]:
+    """Asks the agent; yields {"type": "tool", "name", "args"} as it looks things up, {"type": "delta", "text"} (and
+    {"type": "reset"}) as the answer is written, where the tool reports that, then {"type": "answer"}."""
+    if agent_id not in AGENTS:
+        raise AgentError("Unknown agent.")
+    if model and not valid_model(model):
+        raise AgentError(f"The model saved for {AGENTS[agent_id]['label']} isn't a model name. Choose another in Ask's model menu.")
+    spec = AGENTS[agent_id]
+    principal = context.principal()
+    # Named in the access log, so what was looked up shows to the account that asked.
+    actor = f"agent:{agent_id}:{principal.account_id}" if principal and principal.account_id else f"agent:{agent_id}"
+    # Beside the server, which keeps answering: finding the tool and reading its --help start other programs.
+    starting = asyncio.ensure_future(asyncio.to_thread(_start, agent_id, profile_id, system, turns, model, actor))
+    try:
+        proc, work, prompt = await asyncio.shield(starting)
+    except asyncio.CancelledError:
+        # The person stopped before it started: it's stopped once it has.
+        starting.add_done_callback(functools.partial(_stop_unused, agent_id))
+        raise
+
+    # A thread reads the tool's output so this works on every event loop (Windows' default can't run subprocesses
+    # under every server configuration).
+    loop = asyncio.get_running_loop()
+    lines: asyncio.Queue[Optional[str]] = asyncio.Queue()
+    stderr_tail: list[str] = []
 
     def pump() -> None:
         try:
@@ -461,6 +631,5 @@ async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str,
         raise AgentError(_signin_error(agent_id, detail) or
                          f"{spec['label']} stopped without an answer{f': {detail[:400]}' if detail else '.'}")
     finally:
-        if proc.poll() is None:
-            proc.kill()
-        shutil.rmtree(work, ignore_errors=True)
+        # In a thread, which finishes even if this is stopped again while it waits.
+        await asyncio.to_thread(_finish, agent_id, proc, work)

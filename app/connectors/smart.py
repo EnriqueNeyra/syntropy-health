@@ -369,6 +369,38 @@ async def exchange_code(*, token_endpoint: str, code: str, redirect_uri: str, cl
     return _token_credentials(tokens), patient
 
 
+REVOKE_SECONDS = 5.0       # the longest ending a source's access waits on it, after the disconnect itself is done
+
+
+async def revoke(credentials: dict[str, Any], fhir_base_url: Optional[str], simulated: bool = False) -> bool:
+    """On disconnecting: asks the source to end the access it granted (RFC 7009), so no copy of the token outlives the one deleted
+    here. Briefly and at most once, and never a reason the disconnect fails: whatever the source answers, or if it doesn't, the
+    connection is already gone. True when the source said it had."""
+    try:
+        return await asyncio.wait_for(_revoke(credentials, fhir_base_url, simulated), REVOKE_SECONDS)
+    except Exception as exc:  # noqa: BLE001 - best effort
+        log.info("Couldn't ask the source to end its access: %s", type(exc).__name__)
+        return False
+
+
+async def _revoke(credentials: dict[str, Any], fhir_base_url: Optional[str], simulated: bool) -> bool:
+    kind = next((k for k in ("refresh_token", "access_token") if credentials.get(k)), None)    # a refresh token's end ends its access tokens
+    if kind is None:
+        return False
+    endpoint = credentials.get("revocation_endpoint")
+    if not endpoint and fhir_base_url:
+        endpoint = (await discover(fhir_base_url, simulated)).get("revocation_endpoint")      # connected before it was kept
+    if not endpoint:
+        return False
+    if fhir_base_url:
+        _check_endpoints(fhir_base_url, endpoint, endpoint, simulated)      # held to the same rule as the sign-in addresses
+    client_id = (credentials.get("dynamic_client") or {}).get("client_id") or credentials.get("client_id")
+    async with http_client(simulated, timeout=REVOKE_SECONDS) as client:
+        resp = await client.post(endpoint, data={"token": credentials[kind], "token_type_hint": kind, **({"client_id": client_id} if client_id else {})},
+                                 headers={"Accept": "application/json"})
+    return resp.status_code == 200
+
+
 def can_refresh(credentials: dict[str, Any]) -> bool:
     return bool(credentials.get("dynamic_client") or credentials.get("refresh_token"))
 
@@ -817,6 +849,10 @@ class FhirClient:
             except (httpx.HTTPError, httpx.InvalidURL) as exc:
                 log.warning("FHIR %s query failed: %s", rtype, type(exc).__name__)
                 return _Search(results, "error:network", place, suppressed)
+            if pages and 400 <= resp.status_code < 500:
+                # A page its own next link led to: whatever the refusal says, this search didn't finish, and the server can't
+                # mean it doesn't offer what it has just been sending. The next sync carries on from here.
+                return _Search(results, f"error:{resp.status_code}", place, suppressed)
             if resp.status_code == 403:
                 return _Search(results, "forbidden", None, suppressed)
             if resp.status_code in (400, 404, 405, 410, 422, 501):
@@ -830,8 +866,10 @@ class FhirClient:
             kind = bundle.get("resourceType") if isinstance(bundle, dict) else None
             if kind == "OperationOutcome":
                 failed, left_out = _outcome_verdict(bundle)
-                if failed:
-                    return _Search(results, "error:outcome", place, suppressed)
+                # Only a search's first page may answer it this way ("no results"). Instead of a later page, or the page a
+                # saved place leads to, it's how a server says the paging ran out, however mildly: the search didn't finish.
+                if failed or place is not None:
+                    return _Search(results, "error:outcome", place, suppressed or left_out)
                 return _Search(results, "ok" if results else "empty", None, suppressed or left_out)
             if kind != "Bundle":            # a gateway's own JSON isn't an answer, and certainly not an empty one
                 return _Search(results, "error:invalid-json", place, suppressed)
@@ -1066,6 +1104,8 @@ class FhirClient:
                             break
             except SmartError as exc:
                 out.stopped = exc
+            if not out.stopped:
+                await self._read_missing_medications(client, out)
         out_of_budget = self.time_left() <= 0 or self.fetched >= MAX_RESOURCES_PER_SYNC
         for run in waiting:
             self._settle(run, run.label in finished)
@@ -1079,8 +1119,6 @@ class FhirClient:
                 and all(s.startswith("error:") or s in ("paused", "recent") for s in statuses):
             out.stopped = SmartError("The source isn't answering right now. Syntropy will try again.", "network",
                                      retry_after=(self.come_back_at - time.time()) if self.come_back_at else None)
-            if not out.stopped:
-                await self._read_missing_medications(client, out)
         return out
 
     async def _read_missing_medications(self, client: httpx.AsyncClient, out: FetchResult) -> None:
@@ -1102,6 +1140,8 @@ class FhirClient:
             if kind.rsplit("/", 1)[-1] == "Medication" and _FHIR_ID.fullmatch(mid) and mid not in have and mid not in wanted:
                 wanted.append(mid)
         for mid in wanted[:MAX_MEDICATION_READS]:
+            if self.come_back_at is not None:
+                return      # the server asked for a pause: these can wait for the next sync, as the queries do
             try:
                 med = await self.read(client, f"Medication/{mid}")
             except (httpx.HTTPError, SmartError) as exc:

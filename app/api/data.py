@@ -12,7 +12,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -161,16 +161,22 @@ def export_archive(background: BackgroundTasks, profile: Optional[str] = None) -
                              headers={"Content-Disposition": f'attachment; filename="{filename}"', "Content-Length": str(built.file.size)})
 
 
+class ConfirmRequest(BaseModel):
+    password: Optional[str] = Field(None, max_length=256)
+
+
 @router.delete("/profiles/{profile_id}/data")
-def wipe_profile_data(profile_id: str) -> dict:
+def wipe_profile_data(profile_id: str, request: Request, req: Optional[ConfirmRequest] = None) -> dict:
     """Deletes everything kept about a person but keeps the person. Takes a while with millions of samples, a little at
-    a time, while other requests carry on."""
+    a time, while other requests carry on. From a phone, with the password too (``{"password": ...}``)."""
     prof = resolve_profile(profile_id)
     principal = context.principal()
     auth.refuse_if_limited(principal)
     account = accounts.for_profile(prof["id"])
     if principal and account and account["id"] != principal.account_id:
         raise HTTPException(403, f"Only {prof['name']} can delete all of their own data.")
+    auth.confirm_from_phone(request, principal, req.password if req else None,
+                            "This deletes all of their data for good. Enter your password to do it from this phone.")
     profiles.delete_all_data(prof["id"])
     return {"ok": True}
 

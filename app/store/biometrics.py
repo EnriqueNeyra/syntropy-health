@@ -10,9 +10,10 @@ so totals such as steps are never double-counted when an Apple Watch, an iPhone 
 A reading belongs to the day where the person was: its own offset from UTC when the source gives one, otherwise that
 person's home time zone (``profiles.timezone``, or the server's).
 
-For summed metrics recorded as time intervals by several sources (steps from an Apple Watch and an iPhone), an extra
+For summed metrics recorded by several sources (steps from an Apple Watch and an iPhone, water from two apps), an extra
 "Combined" row merges them the way Apple Health does: the preferred source counts in full and each other sample only for
-the share of its interval the preferred sources did not cover. Steps taken with only the phone are kept.
+the share of its interval the preferred sources did not cover. Steps taken with only the phone are kept, and so is a glass
+of water logged in a second app: a sample at one moment counts unless a preferred source's interval covers it.
 """
 
 from __future__ import annotations
@@ -195,10 +196,11 @@ def _stored_day(metadata_json: Optional[str], start: Optional[str] = None) -> Op
 
 
 def reading_offset(s: dict[str, Any], meta: dict[str, Any], start: str) -> Optional[int]:
-    """The reading's own offset: the optional per-record field, then the zone HealthKit keeps in its metadata."""
+    """The reading's own offset: the optional per-record field (``tz_offset_min``, minutes east of UTC where it was measured,
+    as the phones send on samples, workouts and events), then the zone HealthKit keeps in its metadata."""
     raw = s.get("tz_offset_min")
-    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
-        return int(raw) if abs(raw) <= OFFSET_MAX_MIN else None
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and abs(raw) <= OFFSET_MAX_MIN:
+        return int(raw)
     name = meta.get("HKTimeZone") or meta.get("TimeZone")
     if not isinstance(name, str):
         return None
@@ -387,15 +389,76 @@ def _drop_other_day_rows(conn: Any, s: dict[str, Any], profile_id: str, connecti
 
 def _same_reading(conn: Any, s: dict[str, Any], profile_id: str, source: str) -> Optional[Any]:
     """The stored row this sample repeats under another id, if any: the same one from another path (the phone and an
-    export.xml import) is stored once, while two different entries one app logged at the same moment both count."""
+    export.xml import) is stored once, while two different entries one app logged at the same moment both count. Another
+    part of the same Health Connect record isn't a repeat: it's that record's next stage, about to be sent again too."""
     path = _id_path(s["id"])
+    member = _HC_MEMBER.fullmatch(s["id"])
     for row in conn.execute(
             "SELECT rowid, id, value, connection_id FROM biometric_samples WHERE profile_id = ? AND metric_type = ? "
             "AND start_date = ? AND end_date = ? AND source_name = ?",
             (profile_id, s["metric_type"], s["start_date"], s["end_date"], source)).fetchall():
+        if member and row["id"].startswith(member.group(1)):
+            continue
         if row["value"] == s["value"] or (_id_path(row["id"]) != path and _close(row["value"], s["value"])):
             return row
     return None
+
+
+# Health Connect gives one record several samples, hc-{record}-{index}: the stages of a night, the readings of a heart rate
+# series. Its record ids are UUIDs, which is what tells hc-{record}-3 from a record with no index.
+_HC_MEMBER = re.compile(r"(hc-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-)(\d+)(?:@.*)?")
+
+
+def _gone_from_records(conn: Any, profile_id: str, arriving: Iterable[str]) -> list[str]:
+    """The stored parts of the Health Connect records arriving here that the phone no longer sends: a record edited on the
+    phone (a night with fewer stages, a stage merged into the next) comes again whole, under the same indexes from 0. A record
+    long enough to be split between two uploads comes in index order, so what's below the lowest index in this upload is
+    from the upload before, and stays."""
+    sent: dict[str, set[int]] = defaultdict(set)
+    for item in arriving:
+        if isinstance(item, str) and (m := _HC_MEMBER.fullmatch(item)):
+            sent[m.group(1)].add(int(m.group(2)))
+    gone = []
+    for prefix, indexes in sent.items():
+        lowest = min(indexes)
+        for (stored_id,) in conn.execute("SELECT id FROM biometric_samples WHERE profile_id = ? AND id >= ? AND id < ?",
+                                         (profile_id, prefix, _prefix_end(prefix))).fetchall():
+            m = _HC_MEMBER.fullmatch(stored_id)
+            if m and m.group(1) == prefix and int(m.group(2)) > lowest and int(m.group(2)) not in indexes:
+                gone.append(stored_id)
+    return gone
+
+
+# A reading the person removed is remembered by what it was as well as by its id (see delete_sample), so the same reading
+# arriving by another path (an export.xml import, an export automation) under an id of that path's own stays out too.
+_REMOVED_READING = "fp:"
+
+
+def _removed_reading(metric: str, start: str, end: str, source: str, value: float, sample_id: str) -> str:
+    return _REMOVED_READING + json.dumps([metric, start, end, source, value, _id_path(sample_id)], separators=(",", ":"))
+
+
+def _tombstones(conn: Any, profile_id: str) -> tuple[set[str], dict[tuple[str, str, str, str], list[tuple[float, str]]]]:
+    """The ids the person removed, and what the removed readings were: {(metric, start, end, source): [(value, path)]}."""
+    ids: set[str] = set()
+    readings: dict[tuple[str, str, str, str], list[tuple[float, str]]] = defaultdict(list)
+    for (item,) in conn.execute("SELECT sample_id FROM sample_tombstones WHERE profile_id = ?", (profile_id,)):
+        if item.startswith(_REMOVED_READING):
+            try:
+                metric, start, end, source, value, path = json.loads(item[len(_REMOVED_READING):])
+                readings[(metric, start, end, source)].append((float(value), path))
+                continue
+            except (ValueError, TypeError):
+                pass
+        ids.add(item)
+    return ids, readings
+
+
+def _was_removed(readings: dict[tuple[str, str, str, str], list[tuple[float, str]]], s: dict[str, Any], source: str) -> bool:
+    """Whether this is a reading the person removed, under another id: matched as _same_reading matches a repeat."""
+    path = _id_path(s["id"])
+    return any(value == s["value"] or (was != path and _close(value, s["value"]))
+               for value, was in readings.get((s["metric_type"], s["start_date"], s["end_date"], source), ()))
 
 
 class SourceGone(Exception):
@@ -424,8 +487,9 @@ def insert_samples(
     deleted_prefixes: Iterable[str] = (),
 ) -> dict[str, Any]:
     """Stores readings and, in the same transaction, the daily rows they change. A new id is inserted, a known id with a
-    changed value corrects the stored row, and anything else counts under ``duplicates``. ``deleted_*`` go first, so a
-    replacement isn't taken for a repeat of what it replaces. A row that can't be read is counted under ``rejected``
+    changed value (or type: a stage relabelled on the phone) corrects the stored row, and anything else counts under
+    ``duplicates``. ``deleted_*`` go first, so a replacement isn't taken for a repeat of what it replaces, and so do the parts of
+    a Health Connect record it no longer has (``_gone_from_records``). A row that can't be read is counted under ``rejected``
     rather than failing the batch: senders only move on after a success, so a rejected batch would be retried (and
     rejected) forever."""
     now = time.time()
@@ -436,11 +500,15 @@ def insert_samples(
     affected: set[str] = set()
     changed: set[str] = set()
     sources_seen: dict[str, tuple[str, Optional[str], bool]] = {}
+    several_devices: set[str] = set()
+    rebuild_all = False
+    samples = list(samples)
     with db() as conn:
         check_source(conn, profile_id, connection_id)
-        removed_ids = {r[0] for r in conn.execute("SELECT sample_id FROM sample_tombstones WHERE profile_id = ?", (profile_id,))}
+        removed_ids, removed_readings = _tombstones(conn, profile_id)
         imports = {r[0] for r in conn.execute("SELECT id FROM connections WHERE profile_id = ? AND kind = 'import'", (profile_id,))}
-        removed += _remove_samples(conn, profile_id, deleted_ids, deleted_prefixes, affected, changed, tz)
+        gone = _gone_from_records(conn, profile_id, (raw.get("id") for raw in samples if isinstance(raw, dict)))
+        removed += _remove_samples(conn, profile_id, [*deleted_ids, *gone], deleted_prefixes, affected, changed, tz)
         for raw in samples:
             received += 1
             try:
@@ -465,29 +533,35 @@ def insert_samples(
                 sample_id = f"{sample_id}@{profile_id}"
                 row = conn.execute(f"SELECT {_SAMPLE_COLUMNS} FROM biometric_samples WHERE id = ?", (sample_id,)).fetchone()
             s["id"] = sample_id
+            if row is None and removed_readings and _was_removed(removed_readings, s, source):
+                continue
             replaces = bool(s.get("replaces"))
             if flag:
                 flagged += 1
             if not flag:
                 # A cloud connector knows what it's connected to, whatever device a reading passed through.
-                sources_seen[source] = (s.get("device_kind") or device_kind(source, s.get("device_name"), meta), s.get("device_name"),
-                                        bool(s.get("device_kind") or meta.get("device_type") or _kind_from_words(s.get("device_name"))))
+                seen = (s.get("device_kind") or device_kind(source, s.get("device_name"), meta), s.get("device_name"),
+                        bool(s.get("device_kind") or meta.get("device_type") or _kind_from_words(s.get("device_name"))))
+                before = sources_seen.get(source)
+                if before and before[2] and seen[2] and before[0] != seen[0]:
+                    several_devices.add(source)
+                sources_seen[source] = seen
             if row:
-                same = (abs(row["value"] - s["value"]) < 1e-9 and row["start_date"] == start and row["end_date"] == end
-                        and row["flag"] == flag and (offset is None or offset == row["tz_offset_min"])
+                same = (row["metric_type"] == metric and abs(row["value"] - s["value"]) < 1e-9 and row["start_date"] == start
+                        and row["end_date"] == end and row["flag"] == flag and (offset is None or offset == row["tz_offset_min"])
                         and (meta_json == row["metadata_json"] if replaces else meta_json is None or meta_json == row["metadata_json"]))
                 if same:
                     continue
                 conn.execute(
-                    """UPDATE biometric_samples SET value = ?, unit = ?, start_date = ?, end_date = ?, source_name = ?,
-                           hk_identifier = COALESCE(?, hk_identifier), device_id = COALESCE(?, device_id),
+                    """UPDATE biometric_samples SET metric_type = ?, value = ?, unit = ?, start_date = ?, end_date = ?,
+                           source_name = ?, hk_identifier = COALESCE(?, hk_identifier), device_id = COALESCE(?, device_id),
                            device_name = COALESCE(?, device_name), metadata_json = ?, flag = ?,
                            tz_offset_min = COALESCE(?, tz_offset_min), updated_at = ? WHERE rowid = ?""",
-                    (s["value"], s.get("unit") or "", start, end, source, s.get("hk_identifier"), s.get("device_id"),
+                    (metric, s["value"], s.get("unit") or "", start, end, source, s.get("hk_identifier"), s.get("device_id"),
                      s.get("device_name"), meta_json if replaces else meta_json or row["metadata_json"], flag, offset, now,
                      row["rowid"]))
                 updated += 1
-                changed.add(metric)
+                changed.update((metric, row["metric_type"]))
                 affected |= days | _stored_row_days(row, tz)
                 continue
             if connection_id and s.get("one_per_day") and day:
@@ -525,9 +599,18 @@ def insert_samples(
                  batch_meta.get("os_version"), batch_meta.get("app_version"), batch_meta.get("sync_trigger") or "manual",
                  received, inserted, now),
             )
-        _note_sources(conn, profile_id, sources_seen, now)
+        # An app recording on several devices (Samsung Health on a watch and a phone) says a different device for each
+        # reading. Which one came last in an upload says nothing about the app, so it keeps the kind it has.
+        for source in several_devices:
+            sources_seen[source] = (*sources_seen[source][:2], False)
+        if _combined_with(conn, profile_id, _note_sources(conn, profile_id, sources_seen, now)):
+            # A source that turned out to be another kind of device moves in the merge order of the days it was merged into.
+            queue_rebuild(conn, profile_id)
+            rebuild_all = True
         if affected:
             _rollup(conn, profile_id, sorted(affected), changed, tz, orders)
+    if rebuild_all:
+        resume_rebuilds()
     sample_counts.added(profile_id, connection_id, inserted - removed)
     for was, n in moved:
         sample_counts.moved(profile_id, was, connection_id, n)
@@ -539,8 +622,10 @@ def insert_samples(
     }
 
 
-def _note_sources(conn: Any, profile_id: str, seen: dict[str, tuple[str, Optional[str], bool]], now: float) -> None:
-    """Keeps what each source is. A batch whose readings say which device took them overrides a guess from a name."""
+def _note_sources(conn: Any, profile_id: str, seen: dict[str, tuple[str, Optional[str], bool]], now: float) -> set[str]:
+    """Keeps what each source is. A batch whose readings say which device took them overrides a guess from a name.
+    Returns the sources already known that are now another kind."""
+    known = source_kinds(profile_id, conn) if seen else {}
     for source, (kind, device, said_so) in seen.items():
         conn.execute(
             """INSERT INTO data_sources(profile_id, source_name, device_kind, device_name, updated_at) VALUES (?, ?, ?, ?, ?)
@@ -548,20 +633,37 @@ def _note_sources(conn: Any, profile_id: str, seen: dict[str, tuple[str, Optiona
                    device_name = COALESCE(excluded.device_name, device_name), updated_at = excluded.updated_at
                WHERE ? AND excluded.device_kind <> data_sources.device_kind""",
             (profile_id, source, kind, device, now, said_so))
+    return {source for source, (kind, _, said_so) in seen.items() if said_so and source in known and known[source] != kind}
+
+
+def _combined_with(conn: Any, profile_id: str, sources: Iterable[str]) -> bool:
+    """Whether any of these sources was merged into a stored Combined row."""
+    for source in sources:
+        pattern = "%" + dumps(source).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        if conn.execute("SELECT 1 FROM biometric_daily WHERE profile_id = ? AND source_name = ? AND contributors LIKE ? ESCAPE '\\' "
+                        "LIMIT 1", (profile_id, MERGED_SOURCE, pattern)).fetchone():
+            return True
+    return False
 
 
 def delete_sample(profile_id: str, sample_id: str) -> bool:
-    """Removes one reading the person says is wrong. A sync that brings the same id back leaves it out."""
+    """Removes one reading the person says is wrong. A sync that brings the same id back leaves it out, and so does an
+    import that brings the same reading under an id of its own (the phone's weight, then the same one in an export.xml)."""
     tz = _tz(profile_id)
     orders = source_orders()
     affected: set[str] = set()
     changed: set[str] = set()
     with db() as conn:
+        found = conn.execute("SELECT id, metric_type, start_date, end_date, source_name, value FROM biometric_samples "
+                             "WHERE profile_id = ? AND id IN (?, ?)", (profile_id, sample_id, f"{sample_id}@{profile_id}")).fetchall()
         n = _remove_samples(conn, profile_id, [sample_id], (), affected, changed, tz)
         if not n:
             return False
-        conn.execute("INSERT OR REPLACE INTO sample_tombstones(profile_id, sample_id, deleted_at) VALUES (?, ?, ?)",
-                     (profile_id, sample_id, time.time()))
+        now = time.time()
+        for item in [sample_id, *(_removed_reading(r["metric_type"], r["start_date"], r["end_date"], r["source_name"] or "Unknown",
+                                                   r["value"], r["id"]) for r in found)]:
+            conn.execute("INSERT OR REPLACE INTO sample_tombstones(profile_id, sample_id, deleted_at) VALUES (?, ?, ?)",
+                         (profile_id, item, now))
         if affected:
             _rollup(conn, profile_id, sorted(affected), changed, tz, orders)
         mark_daily_changed(conn, profile_id)
@@ -627,18 +729,20 @@ def _day_spans(days: Iterable[str], tz: tzinfo) -> list[tuple[str, str]]:
 
 def _split_by_day(start: str, end: str, value: float, offset: Optional[int], tz: tzinfo) -> list[tuple[str, str, str, float]]:
     """(day, start, end, share) for each local day an interval covers, shared by time. Steps from 23:30 to 00:30 are half
-    on each day."""
+    on each day. Times are measured as elapsed seconds: two times in one zone subtract as clock times, which on the night the
+    clocks change is an hour out."""
     zone = zone_at(offset, tz)
     s, e = parse_ts(start).astimezone(zone), parse_ts(end).astimezone(zone)
-    length = (e - s).total_seconds()
+    until = e.timestamp()
+    length = until - s.timestamp()
     if length <= 0 or length > SPLIT_MAX_S or s.date() == (e - timedelta(seconds=1)).date():
         return [(s.date().isoformat(), start, end, value)]
     pieces = []
     cursor = s
-    while cursor < e:
+    while cursor.timestamp() < until:
         midnight = datetime.combine(cursor.date() + timedelta(days=1), datetime.min.time(), zone)
-        stop = min(midnight, e)
-        share = value * (stop - cursor).total_seconds() / length
+        stop = midnight if midnight.timestamp() < until else e
+        share = value * (stop.timestamp() - cursor.timestamp()) / length
         pieces.append((cursor.date().isoformat(), cursor.astimezone(timezone.utc).strftime(_ISO),
                        stop.astimezone(timezone.utc).strftime(_ISO), share))
         cursor = stop
@@ -678,13 +782,16 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
     rows: list[Any] = []
     for lo, hi in _day_spans(days, tz):
         rows += conn.execute(
-            "SELECT id, metric_type, value, start_date, end_date, source_name, metadata_json, tz_offset_min "
-            f"FROM biometric_samples WHERE {where}", (profile_id, lo, hi, *extra),
+            "SELECT rowid, id, metric_type, value, start_date, end_date, source_name, metadata_json, tz_offset_min, "
+            f"COALESCE(updated_at, created_at) AS stored_at FROM biometric_samples WHERE {where}", (profile_id, lo, hi, *extra),
         ).fetchall()
 
     readings: dict[tuple[str, str, str], list[float]] = defaultdict(list)
     totals: dict[tuple[str, str, str], list[float]] = defaultdict(list)    # what a source says the whole day came to
-    maybe_totals: dict[tuple[str, str, str], list[float]] = defaultdict(list)   # the same, unless more of that day turns up
+    # The export route's whole-day figures, newest first: one sent again from another time zone starts at another moment, so it
+    # has another id, but it's the same day's total. (stored, rowid, value)
+    export_totals: dict[tuple[str, str, str], list[tuple[float, int, float]]] = defaultdict(list)
+    maybe_totals: dict[tuple[str, str, str], list[tuple[float, int, float]]] = defaultdict(list)   # the same, unless more of that day turns up
     export_rows: set[tuple[str, str, str]] = set()
     last_seen: dict[tuple[str, str, str], tuple[str, float]] = {}
     timed: dict[tuple[str, str, str], list[tuple[float, float]]] = defaultdict(list)
@@ -715,10 +822,14 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
                 continue
             seen.append((value, path))
             if day or (r["metadata_json"] and '"daily_total":true' in r["metadata_json"]):
-                totals[(day or local_day(start, tz, offset), metric, source)].append(value)
+                key = (day or local_day(start, tz, offset), metric, source)
+                if path == "json":
+                    export_totals[key].append((r["stored_at"] or 0.0, r["rowid"], value))
+                else:
+                    totals[key].append(value)
                 continue
             if r["metadata_json"] and '"daily_total_if_alone":true' in r["metadata_json"]:
-                maybe_totals[(local_day(start, tz, offset), metric, source)].append(value)
+                maybe_totals[(local_day(start, tz, offset), metric, source)].append((r["stored_at"] or 0.0, r["rowid"], value))
                 continue
             if path == "json" and end == start:
                 export_rows.add((local_day(start, tz, offset), metric, source))
@@ -727,6 +838,10 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
                     readings[(d, metric, source)].append(share)
                     intervals[(d, metric)].append((piece_start, piece_end, share, source))
                 continue
+            if path != "json":
+                # A moment (a glass of water, a meal logged) joins the merge too, so two apps' entries add up. The export route's
+                # dated rows aren't moments but an hour's or a day's worth, with no say over which hours: they stay out of it.
+                intervals[(day or local_day(start, tz, offset), metric)].append((start, end, value, source))
         d = day or local_day(end if metric in OVERNIGHT_METRICS else start, tz, offset)
         key = (d, metric, source)
         readings[key].append(value)
@@ -736,8 +851,15 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
         if prev is None or start >= prev[0]:
             last_seen[key] = (start, value)
 
-    for key, values in maybe_totals.items():
-        (readings if key in export_rows or len(values) > 1 else totals)[key].extend(values)
+    for key, found in export_totals.items():
+        totals[key].append(max(found)[2])
+    for key, found in maybe_totals.items():
+        # With other hours of that day, it's one of them. Otherwise it's the day's total, and two of them on one date are the same
+        # day sent from two time zones: the newer stands.
+        if key in export_rows:
+            readings[key].extend(v for _, _, v in found)
+        else:
+            totals[key].append(max(found)[2])
 
     for (day, target, source), spans in _sleep_nights(stages, tz).items():
         # A source's own summary of the night wins over adding up its stages; both would count the night twice.
@@ -1004,13 +1126,17 @@ def _sleep_nights(stages: dict[str, list[tuple[float, float, str, Optional[int]]
 #    wrist temperature and breathing disturbances count toward the morning too.
 # 4: flagged readings left out; naps apart from the night; heart rate weighted by time; intervals shared across midnight;
 #    a source's daily total wins over its intraday readings; every metric the iPhone sends; a reading's own offset.
-DAILY_VERSION = 4
+# 5: a day's total from the export route sent again from another time zone replaces the first rather than adding to it;
+#    samples at one moment (water, food) from several apps add up in Combined; an interval across midnight on the night
+#    the clocks change is shared by the time that really passed.
+DAILY_VERSION = 5
 
 
 def merge_interval_sources(items: list[tuple[str, str, float, str]], rank: Optional[Callable[[str], Any]] = None) -> float:
-    """Sums interval samples from several sources without double counting overlapping time.
+    """Sums samples from several sources without double counting overlapping time.
     Sources are taken in priority order; a sample counts for the fraction of its interval not already
-    covered by a higher-priority source (the same proportional rule HealthKit statistics use)."""
+    covered by a higher-priority source (the same proportional rule HealthKit statistics use). A sample at
+    one moment counts in full, unless a higher-priority source's interval covers that moment."""
     by_source: dict[str, list[tuple[float, float, float]]] = defaultdict(list)
     for start, end, value, source in items:
         by_source[source].append((parse_ts(start).timestamp(), parse_ts(end).timestamp(), value))
@@ -1020,13 +1146,17 @@ def merge_interval_sources(items: list[tuple[str, str, float, str]], rank: Optio
         samples = by_source[source]
         ends = [ce for _, ce in covered]
         for s, e, v in samples:
+            first = bisect.bisect_right(ends, s)     # the first covered span ending after s
+            if e <= s:
+                total += 0.0 if first < len(covered) and covered[first][0] <= s else v
+                continue
             overlap = 0.0
-            for cs, ce in covered[bisect.bisect_right(ends, s):]:   # first covered span ending after s
+            for cs, ce in covered[first:]:
                 if cs >= e:
                     break
                 overlap += min(e, ce) - max(s, cs)
             total += v * max(0.0, 1 - overlap / (e - s))
-        covered = _union(covered + [(s, e) for s, e, _ in samples])
+        covered = _union(covered + [(s, e) for s, e, _ in samples if e > s])
     return total
 
 
@@ -1106,6 +1236,8 @@ def source_orders() -> dict[str, list[str]]:
 
 
 def set_source_orders(orders: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Saves the order and, when it changed, works out again the Combined rows it decides: each was merged in the order of
+    its day. Queued before the change, as a time zone change is, so a kill partway is finished at the next start."""
     clean = {}
     for group, order in orders.items():
         if group not in PRIORITY_GROUPS or not isinstance(order, list):
@@ -1113,7 +1245,16 @@ def set_source_orders(orders: dict[str, list[str]]) -> dict[str, list[str]]:
         if sorted(order) != sorted(SOURCE_KINDS):
             raise ValueError(f"The order for {group} must list each of: {', '.join(SOURCE_KINDS)}.")
         clean[group] = order
+    before = source_orders()
+    moved = any(before[group] != order for group, order in clean.items())
+    if moved:
+        with db() as conn:
+            for (profile_id,) in conn.execute("SELECT DISTINCT profile_id FROM biometric_daily WHERE source_name = ?",
+                                              (MERGED_SOURCE,)).fetchall():
+                queue_rebuild(conn, profile_id)
     settings.set("biometrics.source_order", {**(settings.get("biometrics.source_order") or {}), **clean})
+    if moved:
+        run_queued_rebuilds()
     return source_orders()
 
 
@@ -1452,6 +1593,21 @@ def overview(profile_id: str) -> dict[str, Any]:
         "last_batch": dict(last_batch) if last_batch else None,
         "headline": headline(profile_id),
     }
+
+
+def summary(profile_id: str) -> dict[str, Any]:
+    """What a phone shows after each sync: how many readings the server holds for the person, how far back they go, and the
+    last upload. Asked after every sync, so none of it reads every sample as ``overview`` does: the count is kept as samples
+    arrive (sample_counts), and each end of the span is one step along the person's date index. A reading that can't be
+    true (dated 2105) is kept, but doesn't say how far the history runs."""
+    span = "SELECT start_date FROM biometric_samples WHERE profile_id = ? AND flag IS NULL ORDER BY start_date {} LIMIT 1"
+    with read() as conn:
+        first = conn.execute(span.format("ASC"), (profile_id,)).fetchone()
+        last = conn.execute(span.format("DESC"), (profile_id,)).fetchone()
+        last_batch = conn.execute("SELECT * FROM sync_batches WHERE profile_id = ? ORDER BY synced_at DESC LIMIT 1", (profile_id,)).fetchone()
+    return {"total_samples": sample_counts.for_profile(profile_id),
+            "history_span": {"earliest": first[0] if first else None, "latest": last[0] if last else None},
+            "last_batch": dict(last_batch) if last_batch else None}
 
 
 def recent_samples(profile_id: str, metric: Optional[str] = None, limit: int = 100, left_out_only: bool = False,

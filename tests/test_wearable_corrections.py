@@ -593,6 +593,22 @@ def test_a_night_abroad_has_its_clock_times_from_there(client):
     assert night["day"] == wake_day.isoformat() and "T23:00" in night["bed"] and "T07:00" in night["wake"]
 
 
+def test_a_night_abroad_in_an_export_xml_has_its_clock_times_from_there(client):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    wake_day = TODAY - timedelta(days=2)
+    start = datetime(wake_day.year, wake_day.month, wake_day.day, tzinfo=timezone.utc) - timedelta(hours=10)    # 23:00 in Tokyo the night before
+    end = start + timedelta(hours=8)
+    # The export was made back home, so its dates are New York's: 10:00 to 18:00 the day before, which isn't the night.
+    stamp = lambda t: t.astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M:%S %z")
+    record = (f'<Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Watch" startDate="{stamp(start)}" endDate="{stamp(end)}" '
+              'value="HKCategoryValueSleepAnalysisAsleepCore"><MetadataEntry key="HKTimeZone" value="Asia/Tokyo"/></Record>')
+    assert _import(client, profile, _export_xml(record))["status"] == "completed"
+    night = sleep.nights(profile, days=10)["nights"][-1]
+    assert night["day"] == wake_day.isoformat() and "T23:00" in night["bed"] and "T07:00" in night["wake"]
+    assert _daily(profile, "sleep_duration") == {wake_day.isoformat(): _daily(profile, "sleep_duration")[wake_day.isoformat()]}
+
+
 def test_a_rebuild_finds_a_reading_from_the_far_side_of_the_world(client):
     profile = _profile(client)
     client.put("/api/settings/general", json={"timezone": "Pacific/Pago_Pago"})     # UTC-11
@@ -600,6 +616,40 @@ def test_a_rebuild_finds_a_reading_from_the_far_side_of_the_world(client):
     biometrics.insert_samples(profile, None, [_s("far", value=70, start="2026-10-12T10:30:00Z", tz_offset_min=840)])
     biometrics.rebuild_daily(profile, ["2026-10-13"])
     assert _daily_all(profile) == {"2026-10-13": 70}
+
+
+def test_a_phone_says_where_each_sample_workout_and_event_happened(client):
+    """The contract the phones send to: tz_offset_min, minutes east of UTC, on samples, workouts and events."""
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    code = client.post("/api/devices/pairing-code", json={}).json()["code"]
+    phone = TestClient(client.app, base_url=BASE)
+    headers = {"X-Syntropy-Device-Token": phone.post("/api/devices/pair", json={"code": code, "device_name": "iPhone"}).json()["device_token"]}
+    wake_day = TODAY - timedelta(days=2)
+    bed = datetime(wake_day.year, wake_day.month, wake_day.day, tzinfo=timezone.utc) - timedelta(hours=10)    # 23:00 in Tokyo
+    stamp = lambda t: t.strftime("%Y-%m-%dT%H:%M:%SZ")
+    run = bed + timedelta(hours=9)          # 08:00 in Tokyo on the morning after, 19:00 the evening before in New York
+    workout = {"id": "W1", "name": "Running", "start": stamp(run), "end": stamp(run + timedelta(minutes=30)), "duration_s": 1800,
+               "source_name": "Apple Watch"}
+    event = {"id": "E1", "event_type": "headache", "category": "symptoms", "start": stamp(run), "source_name": "Health"}
+    batch = {"device_id": "ios-1", "device_name": "iPhone",
+             "samples": [_s("N1", "sleep_analysis_core", 8 * 3600, stamp(bed), stamp(bed + timedelta(hours=8)), unit="s", tz_offset_min=540),
+                         _s("S1", value=500, start=stamp(run), end=stamp(run + timedelta(minutes=30)), tz_offset_min=540)],
+             "workouts": [workout], "events": [event]}
+    r = phone.post("/api/ingest/wearables", json=batch, headers=headers).json()
+    assert (r["inserted"], r["workouts_inserted"], r["events_inserted"]) == (2, 1, 1)
+    night = sleep.nights(profile, days=10)["nights"][-1]
+    assert night["day"] == wake_day.isoformat() and "T23:00" in night["bed"]
+    assert _daily(profile, "step_count") == {wake_day.isoformat(): _daily(profile, "step_count")[wake_day.isoformat()]}
+    # A workout and an event stored before the phone said where they happened take it when they're sent again with it.
+    again = phone.post("/api/ingest/wearables", json={**batch, "samples": [], "workouts": [{**workout, "tz_offset_min": 540}],
+                                                      "events": [{**event, "tz_offset_min": 540}]}, headers=headers).json()
+    assert (again["workouts_updated"], again["events_updated"]) == (1, 1)
+    with read() as conn:
+        assert conn.execute("SELECT tz_offset_min FROM workouts WHERE id = 'W1'").fetchone()[0] == 540
+        assert conn.execute("SELECT tz_offset_min FROM health_events WHERE id = 'E1'").fetchone()[0] == 540
+    # An offset that can't be one gives way to the zone HealthKit kept with the reading.
+    assert biometrics.reading_offset({"tz_offset_min": 100000}, {"HKTimeZone": "Asia/Tokyo"}, "2026-10-12T10:00:00Z") == 540
 
 
 def test_oura_and_whoop_and_google_offsets_are_kept():
@@ -927,6 +977,25 @@ def test_a_reading_removed_here_doesnt_come_back(client):
     assert _daily(profile, "body_mass")[day]["value"] == 25
 
 
+def test_a_reading_removed_here_doesnt_come_back_by_another_path(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = (TODAY - timedelta(days=3)).isoformat()
+    # The phone sends a weight that's wrong (a child on the scale), and the person removes it.
+    biometrics.insert_samples(profile, None, [_s("8F1C-UUID", "body_mass", 25.0, start=f"{d}T07:00:00Z", source="Withings", unit="kg")])
+    assert biometrics.delete_sample(profile, "8F1C-UUID")
+    # The same reading in an export.xml import, under that path's own id, and in an export automation (in pounds, rounded).
+    r = biometrics.insert_samples(profile, None, [
+        _s("ah-0123456789abcdef01234567", "body_mass", 25.0, start=f"{d}T07:00:00Z", source="Withings", unit="kg", strict_units=True),
+        _s("hx_0123456789abcdef01234567", "body_mass", 55.1, start=f"{d}T07:00:00Z", source="Withings", unit="lb", strict_units=True)])
+    assert r["inserted"] == 0
+    assert d not in _daily(profile, "body_mass")
+    # A different reading at that moment, or the same one from another scale, is a reading of its own.
+    r = biometrics.insert_samples(profile, None, [_s("ah-1", "body_mass", 71.0, start=f"{d}T07:00:00Z", source="Withings", unit="kg"),
+                                                  _s("ah-2", "body_mass", 25.0, start=f"{d}T07:00:00Z", source="Eufy", unit="kg")])
+    assert r["inserted"] == 2
+
+
 def test_a_phone_can_say_what_was_deleted_for_its_own_person_only(client):
     alex = _profile(client)
     jordan = client.post("/api/profiles", json={"name": "Jordan", "relationship": "partner"}).json()["id"]
@@ -944,6 +1013,62 @@ def test_a_phone_can_say_what_was_deleted_for_its_own_person_only(client):
     assert [s["id"] for s in biometrics.recent_samples(jordan)] == ["UUID-J"]
     assert _daily(alex, "heart_rate")[YESTERDAY.isoformat()]["value"] == 62
     assert sample_counts.for_profile(alex) == 1
+
+
+HC_RECORD = "hc-5f2b1c3e-9a7d-4e21-8b3f-0c6d2e4a1b97"
+
+
+def _stage(index, metric, start_h, end_h, d, record=HC_RECORD):
+    return _s(f"{record}-{index}", metric, (end_h - start_h) * 3600, _iso(d, f"{start_h:02d}:00:00"), _iso(d, f"{end_h:02d}:00:00"),
+              source="Samsung Health", unit="s")
+
+
+def test_a_stage_relabelled_on_the_phone_moves_to_its_new_kind(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = TODAY - timedelta(days=3)
+    biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_core", 1, 3, d), _stage(1, "sleep_analysis_core", 3, 4, d)])
+    r = biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_deep", 1, 3, d), _stage(1, "sleep_analysis_core", 3, 4, d)])
+    assert (r["updated"], r["duplicates"]) == (1, 1)
+    assert _daily(profile, "sleep_deep")[d.isoformat()]["value"] == 2
+    assert _daily(profile, "sleep_core")[d.isoformat()]["value"] == 1
+    assert _daily(profile, "sleep_duration")[d.isoformat()]["value"] == 3
+
+
+def test_a_night_edited_to_fewer_stages_leaves_none_of_the_old_ones_behind(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = TODAY - timedelta(days=3)
+    biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_core", 1, 3, d), _stage(1, "sleep_analysis_deep", 3, 4, d),
+                                              _stage(2, "sleep_analysis_rem", 4, 5, d), _stage(3, "sleep_analysis_core", 5, 7, d)])
+    # Edited on the phone: the deep stretch went, and the stages after it moved up one. Stage 3 isn't sent any more.
+    r = biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_core", 1, 4, d), _stage(1, "sleep_analysis_rem", 4, 5, d),
+                                                  _stage(2, "sleep_analysis_core", 5, 7, d)])
+    assert r["removed"] == 1
+    assert {s["id"] for s in biometrics.recent_samples(profile)} == {f"{HC_RECORD}-{i}" for i in range(3)}
+    assert d.isoformat() not in _daily(profile, "sleep_deep")
+    assert _daily(profile, "sleep_duration")[d.isoformat()]["value"] == 6
+    assert _daily(profile, "sleep_core")[d.isoformat()]["value"] == 5
+
+
+def test_a_record_split_between_two_uploads_keeps_both_halves(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = TODAY - timedelta(days=3)
+    stages = [_stage(i, "sleep_analysis_core", i, i + 1, d) for i in range(6)]
+    for _ in range(2):      # a first send, then the record sent again, each time split three and three
+        biometrics.insert_samples(profile, None, stages[:3])
+        biometrics.insert_samples(profile, None, stages[3:])
+        assert len(biometrics.recent_samples(profile)) == 6
+    assert _daily(profile, "sleep_duration")[d.isoformat()]["value"] == 6
+    # Other records, and the same record for someone else, aren't touched.
+    jordan = client.post("/api/profiles", json={"name": "Jordan", "relationship": "partner"}).json()["id"]
+    other = "hc-0b1c2d3e-4f50-4a61-8b72-9c8d7e6f5a4b"
+    biometrics.insert_samples(jordan, None, stages[:4])
+    biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_core", 13, 14, d, other), _stage(1, "sleep_analysis_core", 14, 15, d, other)])
+    biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_core", 0, 1, d)])
+    assert len(biometrics.recent_samples(profile)) == 3
+    assert len(biometrics.recent_samples(jordan)) == 4
 
 
 # ---------------------------------------------------------------------------
@@ -1255,6 +1380,19 @@ def test_an_interval_across_midnight_is_shared_between_its_days(client):
     assert _daily_all(profile) == {"2026-10-13": 400, "2026-10-14": 400}
 
 
+@pytest.mark.parametrize("start, end, shares", [
+    # 23:00 EDT to 03:00 EST on the night the clocks go back: five hours, one of them before midnight.
+    ("2026-11-01T03:00:00Z", "2026-11-01T08:00:00Z", {"2026-10-31": 200, "2026-11-01": 800}),
+    # 23:00 EST to 04:00 EDT on the night they go forward: four hours, one of them before midnight.
+    ("2026-03-08T04:00:00Z", "2026-03-08T08:00:00Z", {"2026-03-07": 250, "2026-03-08": 750}),
+])
+def test_an_interval_across_midnight_on_the_night_the_clocks_change_is_shared_by_real_time(client, start, end, shares):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    biometrics.insert_samples(profile, None, [_s("dst", value=1000, start=start, end=end)])
+    assert _daily_all(profile) == shares
+
+
 def test_a_workouts_odd_route_time_and_fine_grained_heart_rate(client):
     profile = _profile(client)
     w = {"id": "w", "name": "Run", "start": _iso(YESTERDAY), "end": _iso(YESTERDAY, "12:30:00"), "duration_s": 1800, "source_name": "App",
@@ -1448,6 +1586,53 @@ def test_the_automation_saying_days_makes_a_midnight_row_the_whole_days_whatever
                 headers={"automation-aggregation": "days"})
     client.post("/api/ingest/healthkit-export", json=_export("step_count", "count", {"date": f"{day} 09:00:00 +0000", "qty": 500, "source": "Fit"}))
     assert _daily(_profile(client), "step_count")[day]["value"] == 8000
+
+
+@pytest.mark.parametrize("headers", [{"automation-aggregation": "days"}, {}])
+def test_a_days_total_sent_again_from_another_time_zone_replaces_the_first(client, headers):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    day = (TODAY - timedelta(days=3)).isoformat()
+    # Exported in Los Angeles, then the same day again after flying to New York: the day starts three hours earlier.
+    for clock, qty in (("00:00:00 -0700", 9000), ("00:00:00 -0400", 8800)):
+        r = client.post("/api/ingest/healthkit-export", json=_export("step_count", "count", {"date": f"{day} {clock}", "qty": qty, "source": "Fit"}),
+                        headers=headers)
+        assert r.status_code == 200
+    assert _daily(profile, "step_count")[day]["value"] == 8800
+
+
+@pytest.mark.parametrize("grain", ["weeks", "months", "years"])
+def test_totals_grouped_by_more_than_a_day_arent_stored_as_one_day(client, grain):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    monday = TODAY - timedelta(days=TODAY.weekday() + 7)
+    rows = {"data": {"metrics": [
+        {"name": "step_count", "units": "count", "data": [{"date": f"{monday} 00:00:00 +0000", "qty": 63000, "source": "Fit"}]},
+        {"name": "resting_heart_rate", "units": "count/min", "data": [{"date": f"{monday} 00:00:00 +0000", "qty": 58, "source": "Fit"}]},
+        {"name": "mindful_minutes", "data": [{"date": f"{monday} 00:00:00 +0000", "qty": 95, "source": "Calm"}]},
+        {"name": "sleep_analysis", "units": "hr", "data": [
+            {"date": f"{monday} 00:00:00 +0000", "totalSleep": 51.5, "deep": 7.0, "source": "S"},
+            {"startDate": f"{monday} 01:00:00 +0000", "endDate": f"{monday} 03:00:00 +0000", "value": "Core", "source": "Watch"}]}]}}
+    r = client.post("/api/ingest/healthkit-export", json=rows, headers={"automation-aggregation": grain})
+    assert r.status_code == 200, r.text
+    assert monday.isoformat() not in _daily(profile, "step_count", days=20)
+    assert monday.isoformat() not in _daily(profile, "sleep_deep", days=20)
+    assert _daily(profile, "sleep_duration", days=20)[monday.isoformat()]["value"] == 2      # the Watch's stage, not 51.5 hours
+    assert _daily(profile, "resting_heart_rate", days=20)[monday.isoformat()]["value"] == 58    # an average stands for its stretch
+    assert r.json()["events_received"] == 0
+
+
+def test_a_day_counted_twice_before_is_put_right_by_the_upgrade(client):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    d = TODAY - timedelta(days=3)
+    with db() as conn:
+        for sid, value, start, offset, created in (("hx_la", 9000, _iso(d, "07:00:00"), -420, 1.0), ("hx_ny", 8800, _iso(d, "04:00:00"), -240, 2.0)):
+            conn.execute("INSERT INTO biometric_samples(id, profile_id, metric_type, value, unit, start_date, end_date, source_name, metadata_json, "
+                         "created_at, tz_offset_min) VALUES (?, ?, 'step_count', ?, 'count', ?, ?, 'Fit', ?, ?, ?)",
+                         (sid, profile, value, start, start, '{"daily_total":true}', created, offset))
+    biometrics.rebuild_daily(profile, [d.isoformat()])
+    assert _daily(profile, "step_count")[d.isoformat()]["value"] == 8800
 
 
 def _core(sample_id, start, end):

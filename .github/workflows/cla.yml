@@ -1,9 +1,11 @@
 name: CLA
 
-# Sets a "CLA" status on each pull request: it passes when everyone with commits in it has signed the Contributor
-# License Agreement (.github/CLA.md) by posting, on this or any earlier pull request here, the comment CONTRIBUTING.md
-# gives. Signing re-runs the check. pull_request_target lets it set the status on pull requests from forks; it never
-# checks out or runs the pull request's code.
+# Sets a "CLA" status on each pull request: it passes when the person who opened it, and everyone with commits in it,
+# has signed the Contributor License Agreement (.github/CLA.md) by posting, on this or any earlier pull request here,
+# the comment CONTRIBUTING.md gives. Signing re-runs the check. pull_request_target lets it set the status on pull
+# requests from forks; it never checks out or runs the pull request's code.
+# A commit's author is whoever its email says, which anyone can write, so the maintainer and bots need no signature only
+# in a pull request they opened themselves.
 on:
   pull_request_target:      # zizmor: ignore[dangerous-triggers]
     types: [opened, synchronize, reopened]
@@ -32,18 +34,22 @@ jobs:
             const pr = (await github.rest.pulls.get({ owner, repo, pull_number: number })).data;
 
             const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
-            const authors = new Set();
+            const opener = pr.user.login;
+            const people = new Set([opener]);
             const unlinked = [];
             for (const c of commits) {
-              if (c.author?.login) authors.add(c.author.login);
+              if (c.author?.login) people.add(c.author.login);
               else unlinked.push(c.sha.slice(0, 7));
             }
 
             const signedIn = (comments, login) =>
               comments.some((c) => c.user?.login === login && c.body.trim() === PHRASE);
             const here = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number });
+            // Who opened the pull request is known; a commit's author is only what its email says.
+            const exempt = (login) => MAINTAINERS.includes(login) || login.endsWith("[bot]");
+            const openedByExempt = exempt(opener);
             async function signed(login) {
-              if (MAINTAINERS.includes(login) || login.endsWith("[bot]")) return true;
+              if (openedByExempt && exempt(login)) return true;
               if (signedIn(here, login)) return true;
               // Signed on an earlier pull request?
               const q = `repo:${owner}/${repo} is:pr commenter:${login} "${PHRASE}"`;
@@ -56,7 +62,7 @@ jobs:
             }
 
             const missing = [];
-            for (const login of authors) if (!(await signed(login))) missing.push(login);
+            for (const login of people) if (!(await signed(login))) missing.push(login);
             const ok = missing.length === 0 && unlinked.length === 0;
             let description = "Everyone in this pull request has signed the CLA";
             if (missing.length) description = `Needs to sign: ${missing.join(", ")}`;

@@ -6,6 +6,9 @@ route looks at it, so a password field of a gigabyte has already done its damage
 A page of health samples is a few megabytes of repetitive JSON that compresses about tenfold, which matters most away
 from home (over Tailscale or a phone connection). The app compresses only when the server's pairing probe lists the
 encoding, so older servers keep receiving plain JSON.
+
+The larger limits are for someone signed in, or a paired phone, and that's checked before the body is read: FastAPI
+parses JSON before a route's dependencies say who's asking, and 64 MB of JSON can be well over a gigabyte once parsed.
 """
 
 from __future__ import annotations
@@ -28,10 +31,19 @@ PATH_PREFIX = "/api/ingest/"
 MAX_INFLATED = 64 * 1024 * 1024
 MAX_COMPRESSED = 32 * 1024 * 1024
 MB = 1024 * 1024
+# How much a compressed body may grow: real batches of samples shrink about tenfold, and even ones made of the same few
+# values sixty. A body built to inflate (a few kilobytes of gzip to 64 MB) stops here, and a small one may always reach
+# INFLATED_ANYWAY, so an honest batch is never refused for compressing well.
+MAX_RATIO = 100
+INFLATED_ANYWAY = 8 * MB
 # Far more than any form or setting needs.
 MAX_BODY = 1 * MB
 # Routes that take more. A person's conversations with an AI, kept and sent whole; the rest are files.
 LARGER = (("/api/ai/", 16 * MB), ("/mcp", 4 * MB))
+# Of those, the ones whose route checks who's asking only once the body is parsed: until a session says who, MAX_BODY.
+# (/mcp checks its token before it reads the body.)
+SIGNED_IN_FOR_MORE = ("/api/ai/",)
+SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 # Before setup there's nobody to be signed in: a restore asks its own question.
 RESTORE = "/api/restore/check"
 # Files, and only from someone signed in, asked before the first byte is read: anyone else would otherwise have the
@@ -102,17 +114,35 @@ class DecompressUploads:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
+        from app.core import auth
+
         headers = scope.get("headers") or []
         path = scope.get("path", "")
-        if any(path.startswith(prefix) for prefix, _ in UPLOADS) and scope.get("method") == "POST":
+        method = scope.get("method", "")
+        if any(path.startswith(prefix) for prefix, _ in UPLOADS) and method == "POST":
             refused = await self._refused_upload(scope, headers)
             if refused:
                 return await _reply(send, refused[0], refused[1])
+        limit = body_limit(path)
+        length = next((v for k, v in headers if k == b"content-length"), b"")
+        if length.isdigit() and int(length) > limit:       # too large whoever sends it: said so first, unread
+            return await _reply(send, 413, TOO_LARGE)
+        if path.startswith(PATH_PREFIX) and method not in SAFE_METHODS:
+            # Samples from a paired phone (or the web app): nobody else's body is read at all, let alone inflated.
+            refused, known = await self._caller(scope, auth._device_or_user)
+            if refused:
+                return await _reply(send, refused[0], refused[1])
+            if not known:
+                limit = MAX_BODY
+        elif path.startswith(SIGNED_IN_FOR_MORE) and method not in SAFE_METHODS:
+            refused, known = await self._caller(scope, auth._signed_in)
+            if refused or not known:
+                limit = MAX_BODY        # the route says why it's refused, having read no more than any public one
         if not path.startswith(PATH_PREFIX):
-            return await self._plain(scope, receive, send, headers)
+            return await self._plain(scope, receive, send, headers, limit)
         encoding = next((v.decode("latin-1").strip().lower() for k, v in headers if k == b"content-encoding"), "")
         if not encoding or encoding == "identity":
-            return await self._plain(scope, receive, send, headers)
+            return await self._plain(scope, receive, send, headers, limit)
         if encoding not in UPLOAD_ENCODINGS:
             return await _reply(send, 415, b'{"detail":"Unsupported Content-Encoding."}')
 
@@ -124,13 +154,13 @@ class DecompressUploads:
                 return
             chunk = message.get("body", b"")
             size += len(chunk)
-            if size > MAX_COMPRESSED:
+            if size > min(MAX_COMPRESSED, limit):
                 return await _reply(send, 413, b'{"detail":"Upload too large."}')
             chunks.append(chunk)
             if not message.get("more_body", False):
                 break
         try:
-            body = inflate(b"".join(chunks), encoding)
+            body = inflate(b"".join(chunks), encoding, min(limit, max(INFLATED_ANYWAY, size * MAX_RATIO)))
         except TooLarge:
             return await _reply(send, 413, b'{"detail":"Upload too large."}')
         except zlib.error:
@@ -170,10 +200,20 @@ class DecompressUploads:
             return 507, b'{"detail":"There isn\'t enough room on this computer\'s disk for that file. Free up some space and try again."}'
         return None
 
-    async def _plain(self, scope: Scope, receive: Receive, send: Send, headers: list) -> None:
+    async def _caller(self, scope: Scope, check: Callable[[Request], Any]) -> tuple[Optional[tuple[int, bytes]], bool]:
+        """Whether whoever sent this may send it, asked before its body is read: (why not, whether that could be said). A
+        server that can't say (its database won't open) goes on: the route answers, having read no more than MAX_BODY."""
+        if getattr(getattr(scope.get("app"), "state", None), "problem", None):
+            return None, False
+        try:
+            await run_in_threadpool(check, Request(scope))
+        except HTTPException as exc:
+            return (exc.status_code, json.dumps({"detail": exc.detail}).encode()), True
+        return None, True
+
+    async def _plain(self, scope: Scope, receive: Receive, send: Send, headers: list, limit: int) -> None:
         """An uncompressed body gets its limit whoever sent it: it's parsed before the sign-in or device token is checked,
         so without one anyone on the network could make the server read any amount of it."""
-        limit = body_limit(scope.get("path", ""))
         length = next((v for k, v in headers if k == b"content-length"), None)
         if length is not None and length.isdigit() and int(length) > limit:
             return await _reply(send, 413, TOO_LARGE)

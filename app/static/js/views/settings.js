@@ -1,4 +1,4 @@
-import { del, get, patch, post, put } from "../api.js";
+import { api, del, get, patch, post, put } from "../api.js";
 import {
   ACCENTS, applyAccent, currentAccent, embedded, refreshProfiles, sendPreferences, setAccent, setProfile, setTheme, state as appState,
   themePreference,
@@ -30,6 +30,49 @@ const MODE_TEXT = {
   sandbox: "Vendor developer sandbox — test patients only; requires a sandbox client ID.",
   production: "Real patient portals — requires a production client ID approved by the vendor.",
 };
+
+/** The screens of a phone paired for someone else (a child's): the account's own choices aren't theirs to change. */
+const limited = () => Boolean(appState.status?.account?.limited);
+/** A phone's screens are signed in with its token, not a password: what can't be undone takes the password there. */
+const confirmsWithPassword = () => Boolean(appState.status?.account?.confirms_with_password);
+
+/** The password, on a phone's screens, before something that can't be undone: resolves to it, or to null if they
+ * don't go ahead. Elsewhere it resolves to undefined straight away (signed in with the password already). */
+function askPassword(title, message, { confirmLabel = "Continue", danger = false } = {}) {
+  if (!confirmsWithPassword()) return Promise.resolve(undefined);
+  return new Promise((resolve) => {
+    let done = false;
+    const m = modal({
+      title, onClose: () => { if (!done) resolve(null); },
+      body: html`<p>${message}</p>${phonePasswordField("ask-pass")}`,
+      footer: html`<button class="btn" data-no>Cancel</button><button class="btn ${danger ? "btn-danger" : "btn-primary"}" data-yes>${confirmLabel}</button>`,
+    });
+    const field = $("#ask-pass", m.el);
+    const go = () => {
+      if (!field.value) return toast("Enter your password.", "bad");
+      done = true; m.close(); resolve(field.value);
+    };
+    m.el.querySelector("[data-no]").addEventListener("click", () => m.close());
+    m.el.querySelector("[data-yes]").addEventListener("click", go);
+    field.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
+    field.focus();
+  });
+}
+
+function phonePasswordField(id) {
+  return html`<div class="field" style="margin-top:12px"><label class="label" for="${id}">Your password</label>
+    <input class="input" id="${id}" type="password" autocomplete="current-password" required>
+    <div class="hint">This phone opens Syntropy Health without your password, so this takes it.</div></div>`;
+}
+
+/** Asks whether to go ahead, and on a phone's screens for the password too: resolves to what to send, or null. */
+async function confirmRemoval(title, message, options) {
+  if (confirmsWithPassword()) {
+    const password = await askPassword(title, message, options);
+    return password == null ? null : { password };
+  }
+  return (await confirmDialog(title, message, options)) ? {} : null;
+}
 
 /** A settings row: what it is on the left, the control on the right (stacked on phones). */
 function row(title, hint, control) {
@@ -95,16 +138,16 @@ export async function render({ el, parts, state, navigate }) {
     const pref = themePreference();
     const unitPref = unitPreference() || "";
     mount(body, html`<div class="stack">
-      ${section("Appearance", "", html`
+      ${embedded && limited() ? "" : section("Appearance", "", html`
         ${embedded ? "" : row("Theme", "System follows your device's light or dark setting.",
           html`<div class="segmented" role="group" aria-label="Theme">${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([k, name]) =>
             html`<button class="${k === pref ? "active" : ""}" data-action="theme" data-theme="${k}" aria-pressed="${k === pref}">${name}</button>`)}</div>`)}
-        ${row("Accent color", "Buttons, highlights and charts, on every device: here, the desktop app and the phone apps.",
+        ${limited() ? "" : row("Accent color", "Buttons, highlights and charts, on every device: here, the desktop app and the phone apps.",
           html`<div class="swatches" role="radiogroup" aria-label="Accent color">${ACCENTS.map(([k, name, light, dark]) => html`
             <button class="swatch ${k === currentAccent() ? "active" : ""}" role="radio" aria-checked="${k === currentAccent()}" data-action="accent"
               data-accent="${k}" title="${name}" aria-label="${name}" style="--sw:${light};--sw-dark:${dark}"></button>`)}</div>`)}`)}
       ${section("Region", "", html`
-        ${row("Units", html`How weight, height, distance, temperature and fluids are shown. Lab results keep the units the lab reported.`,
+        ${limited() ? "" : row("Units", html`How weight, height, distance, temperature and fluids are shown. Lab results keep the units the lab reported.`,
           html`<div class="segmented" role="group" aria-label="Units">${[["", `Automatic · ${regionSystem() === "us" ? "US" : "Metric"}`], ["metric", "Metric"], ["us", "US"]].map(([k, name]) =>
             html`<button class="${k === unitPref ? "active" : ""}" data-action="units" data-units="${k}" aria-pressed="${k === unitPref}">${name}</button>`)}</div>`)}
         ${row("Time zone", isOwner() ? "Wearable data is grouped into days in this time zone." : "Wearable data is grouped into days in this time zone, set by the server's owner.",
@@ -118,7 +161,7 @@ export async function render({ el, parts, state, navigate }) {
           html`<div class="input-unit"><input class="input" id="g-wear" aria-label="Hours between wearable fetches" data-save="wearable_interval_hours" type="number" min="0.5" step="0.5" value="${settings.sync.wearable_interval_hours}"><span>hours</span></div>`)}`) : ""}
       ${isOwner() ? section("Updates", "", html`<div id="upd-panel" class="upd-panel"><div class="skeleton" style="height:64px"></div></div>`, "upd-card") : ""}
       ${section("About", "", html`
-        ${row("Getting started", "Walk through connecting your other devices, your data and an AI again.",
+        ${limited() ? "" : row("Getting started", "Walk through connecting your other devices, your data and an AI again.",
           html`<button class="btn btn-sm" data-action="onboarding">Show the setup steps</button>`)}
         ${row("Version", "", html`<span class="mono">${settings.version}</span>`)}
         ${row("Source code", "Free and open source under the GNU AGPL-3.0.",
@@ -136,7 +179,7 @@ export async function render({ el, parts, state, navigate }) {
         if (node.isConnected) requestAnimationFrame(() => node.scrollIntoView({ block: "start" }));
         else if (frames) requestAnimationFrame(() => reveal(node, frames - 1));
       };
-      renderUpdates(updPanel).then(() => { if (parts[1] === "updates") reveal(updPanel.closest("section")); });
+      renderUpdates(updPanel, { askPassword: () => askPassword("Install the update?", "Syntropy Health restarts to install it.", { confirmLabel: "Install and restart" }) }).then(() => { if (parts[1] === "updates") reveal(updPanel.closest("section")); });
     }
     const save = async (e) => {
       const input = e.target.closest("[data-save]");
@@ -269,7 +312,9 @@ export async function render({ el, parts, state, navigate }) {
     networkStatus().then((net) => {
       const panel = $("#net-panel", body);
       if (!panel) return;
-      if (isOwner()) renderNetworkPanel(panel, net, { onChange: () => redraw() });
+      if (isOwner()) renderNetworkPanel(panel, net, { onChange: () => redraw(),
+        askPassword: (enabled) => askPassword(enabled ? "Let other devices connect?" : "Only this computer?",
+          enabled ? "Your phone and other devices at home will be able to reach Syntropy Health." : "Phones and other devices stop reaching Syntropy Health, this one included.") });
       else mount(panel, net.on_network ? html`<p class="small muted" style="margin:0 0 10px">Open Syntropy Health from your other devices at:</p>${addressList(net)}`
         : html`<p class="small muted">Only the computer this server runs on can open it right now. ${ownerName()} can change that.</p>`);
     }).catch((err) => mount($("#net-panel", body), html`<p class="small muted">${err.message}</p>`));
@@ -347,27 +392,39 @@ export async function render({ el, parts, state, navigate }) {
       backup: () => openBackupDialog(backup, redraw),
       schedule: () => openScheduleDialog(backup, redraw),
       "run-backup": async (_, button) => {
+        const password = await askPassword("Back up now?", "A backup holds everyone's records.", { confirmLabel: "Back up now" });
+        if (password === null) return;
         button.disabled = true;
-        const after = await post("/api/backups/schedule/run");
+        let after;
+        try { after = await post("/api/backups/schedule/run", password ? { password } : {}); }
+        catch (err) { button.disabled = false; return toast(err.message, "bad"); }
         toast(after.schedule.state.last_error ? `The backup failed: ${after.schedule.state.last_error}` : "Backed up", after.schedule.state.last_error ? "bad" : "good");
         redraw();
       },
-      restore: () => openRestoreDialog(),
+      restore: () => openRestoreDialog({ needsPassword: backup.needs_password }),
       wipe: () => {
         const m = modal({ title: `Delete all of ${p.name}'s data?`,
           body: html`<p style="margin-bottom:10px">This permanently deletes their sources, records, wearable data, journal entries, goals and paired devices, and
               <b>everyone's conversations with the assistant about them</b>. ${p.name} stays listed here, with nothing in their record.</p>
             <p class="small muted" style="margin-bottom:12px">It's overwritten in the database file. Backups you've already made still contain it: delete those yourself if it has to go from them too.
               To keep a copy first, <a href="/api/export/archive?profile=${p.id}" download>download everything for ${p.name}</a>.</p>
-            <div class="field"><label class="label" for="wipe-confirm">Type DELETE to go ahead</label><input class="input" id="wipe-confirm" autocomplete="off"></div>`,
+            <div class="field"><label class="label" for="wipe-confirm">Type DELETE to go ahead</label><input class="input" id="wipe-confirm" autocomplete="off"></div>
+            ${confirmsWithPassword() ? phonePasswordField("wipe-pass") : ""}`,
           footer: html`<button class="btn" data-cancel>Cancel</button><button class="btn btn-danger" data-yes>Delete permanently</button>` });
         m.el.querySelector("[data-cancel]").addEventListener("click", m.close);
         m.el.querySelector("[data-yes]").addEventListener("click", async (e) => {
           if ($("#wipe-confirm", m.el).value.trim() !== "DELETE") return toast("Type DELETE to go ahead.", "bad");
-          e.currentTarget.disabled = true;
-          e.currentTarget.textContent = "Deleting…";
-          try { await del(`/api/profiles/${p.id}/data`); m.close(); toast("Deleted"); redraw(); }
-          catch (err) { m.close(); toast(err.message, "bad"); }
+          const password = $("#wipe-pass", m.el)?.value;
+          if (confirmsWithPassword() && !password) return toast("Enter your password.", "bad");
+          const button = e.currentTarget;
+          button.disabled = true;
+          button.textContent = "Deleting…";
+          try { await api(`/api/profiles/${p.id}/data`, { method: "DELETE", body: password ? { password } : undefined }); m.close(); toast("Deleted"); redraw(); }
+          catch (err) {
+            // A wrong password can be typed again; anything else closes the dialog.
+            if (password && err.status === 403) { button.disabled = false; button.textContent = "Delete permanently"; return toast(err.message, "bad"); }
+            m.close(); toast(err.message, "bad");
+          }
         });
       },
     });
@@ -633,15 +690,17 @@ async function renderPeople(body, { redraw }) {
       const text = p.signs_in
         ? `${p.name} will be signed out everywhere, and their sources, records, wearable data, journal and devices are permanently deleted from this machine. Backups you've already made still contain them.`
         : "This permanently deletes them with all of their sources, records, wearable data, journal and devices. Backups you've already made still contain them.";
-      if (await confirmDialog(`Remove ${p.name}?`, text, { confirmLabel: "Remove and delete their data", danger: true })) {
-        try { await del(`/api/profiles/${id}`); await refreshProfiles(); toast(`Removed ${p.name}`); redraw(); }
+      const go = await confirmRemoval(`Remove ${p.name}?`, text, { confirmLabel: "Remove and delete their data", danger: true });
+      if (go) {
+        try { await api(`/api/profiles/${id}`, { method: "DELETE", body: go.password ? go : undefined }); await refreshProfiles(); toast(`Removed ${p.name}`); redraw(); }
         catch (err) { toast(err.message, "bad"); }
       }
     },
     "remove-account": async ({ id }) => {
       const a = signsIn.find((x) => x.id === id);
-      if (await confirmDialog(`Remove ${a.name}?`, `${a.name} will be signed out everywhere, and their sources, records, wearable data and devices are permanently deleted from this server. You won't be able to see them first unless they've shared them with you.`, { confirmLabel: "Remove and delete their data", danger: true })) {
-        try { await del(`/api/profiles/${a.profile_id}`); await refreshProfiles(); toast(`Removed ${a.name}`); redraw(); }
+      const go = await confirmRemoval(`Remove ${a.name}?`, `${a.name} will be signed out everywhere, and their sources, records, wearable data and devices are permanently deleted from this server. You won't be able to see them first unless they've shared them with you.`, { confirmLabel: "Remove and delete their data", danger: true });
+      if (go) {
+        try { await api(`/api/profiles/${a.profile_id}`, { method: "DELETE", body: go.password ? go : undefined }); await refreshProfiles(); toast(`Removed ${a.name}`); redraw(); }
         catch (err) { toast(err.message, "bad"); }
       }
     },

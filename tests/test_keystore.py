@@ -192,6 +192,79 @@ def test_forgetting_removes_it_from_the_keychain(keychain, tmp_path):
     assert not (tmp_path / "key.json").exists() and keystore._keychain_read(None) is None
 
 
+def _empty_the_folder(tmp_path: Path) -> None:
+    """As someone deleting the data folder to start again does: what's in the Keychain stays."""
+    _background_finished()
+    db.close_readers()
+    _fresh_start()
+    for entry in tmp_path.iterdir():
+        shutil.rmtree(entry) if entry.is_dir() else entry.unlink()
+
+
+@on_a_mac
+def test_starting_again_in_an_emptied_folder_makes_a_key_of_its_own_that_backups_carry(keychain, tmp_path):
+    """Not the one the Keychain kept from before, which nothing would name: backups left it out, and opened nowhere else."""
+    from app.services import backups
+    with _start() as c:
+        _set_up(c)
+    before = security.master_key()
+    _empty_the_folder(tmp_path)
+    with _start() as c:
+        _set_up(c)
+        made = backups.create(tmp_path / "out", passphrase="correct horse battery")
+    key = security.master_key()
+    assert key != before and keystore.store_of_record() == keystore.KEYCHAIN and keystore.from_store() == key
+    assert backups.key_source() == "file" and made["key"] == "included"
+    # Elsewhere, with none of this Keychain: the backup brings its key.
+    account = json.loads((tmp_path / "key.json").read_text())["account"]
+    assert keystore._keychain_delete(["-a", account])
+    db.close_readers()
+    _fresh_start()
+    item = backups.check(Path(made["path"]), "correct horse battery")
+    assert item.report["key"]["status"] == "included"
+    backups.discard(item.id)
+
+
+@on_a_mac
+def test_without_key_json_the_key_that_opens_the_data_is_found_among_others_and_recorded(keychain, tmp_path):
+    """As an install whose key.json went missing has it, including one that took a key left in the Keychain before this was
+    fixed: the next start finds which opens the data, whichever comes first, and names it again, so backups carry it."""
+    from app.services import backups
+    keystore._keychain_write("left-from-before", os.urandom(32))
+    with _start() as c:
+        _set_up(c)
+    key = security.master_key()
+    assert key != keystore._keychain_read("left-from-before")
+    account = json.loads((tmp_path / "key.json").read_text())["account"]
+    (tmp_path / "key.json").unlink()
+    _fresh_start()
+    assert backups.key_source() == "file"       # an encrypted database relies on a key, whatever names it
+    assert security.master_key() == key
+    assert json.loads((tmp_path / "key.json").read_text()) == {"version": 1, "store": keystore.KEYCHAIN, "account": account}
+    with _start():
+        assert backups.create(tmp_path / "out", passphrase="correct horse battery")["key"] == "included"
+
+
+@on_a_mac
+def test_forgetting_removes_every_key_this_folder_had_and_no_other_folders(keychain, tmp_path, monkeypatch):
+    with _start() as c:
+        _set_up(c)
+    first = json.loads((tmp_path / "key.json").read_text())["account"]
+    security.adopt_key(os.urandom(32))      # a backup's key: a second item
+    second = json.loads((tmp_path / "key.json").read_text())["account"]
+    other = tmp_path.parent / f"{tmp_path.name}-other"
+    with monkeypatch.context() as m:
+        m.setenv("SYNTROPY_DATA_DIR", str(other))
+        keystore._keychain_write("another-folders-key", os.urandom(32))
+    keystore._keychain_write("left-by-this-folder-before", os.urandom(32))
+    accounts = {i["acct"] for i in keystore._keychain_items()}
+    assert {first, second, "another-folders-key", "left-by-this-folder-before"} <= accounts
+    keystore.forget()
+    assert {i["acct"] for i in keystore._keychain_items()} == {"another-folders-key"}
+    assert not (tmp_path / "key.json").exists()
+    shutil.rmtree(other, ignore_errors=True)
+
+
 def test_a_keychain_that_will_not_answer_is_not_a_lost_key(monkeypatch, tmp_path):
     """Locked, or reached over SSH: nothing is made, nothing is changed, and it says what to do."""
     with _start() as c:
@@ -340,6 +413,39 @@ def test_an_owner_stepping_down_stops_their_password_opening_it(dpapi, tmp_path)
         assert first["id"] not in keystore.recovery_entries()
 
 
+def test_an_owner_who_is_removed_or_leaves_no_longer_opens_it(dpapi, tmp_path):
+    from app.store import accounts, profiles
+    with _start() as c:
+        _set_up(c)
+        removed = accounts.create(profiles.create_profile("Sam")["id"], "sams own password", role="owner")
+        leaving = accounts.create(profiles.create_profile("Kim")["id"], "kims own password", role="owner")
+        assert {removed["id"], leaving["id"]} <= set(keystore.recovery_entries())
+        assert c.delete(f"/api/profiles/{removed['profile_id']}", headers=CSRF).status_code == 200
+        c.post("/api/auth/logout", headers=CSRF)
+        assert c.post("/api/auth/login", json={"account": leaving["id"], "password": "kims own password"}, headers=CSRF).status_code == 200
+        assert c.post("/api/accounts/me/delete", json={"password": "kims own password"}, headers=CSRF).status_code == 200
+        assert not {removed["id"], leaving["id"]} & set(keystore.recovery_entries())
+    assert not security.recover_key("sams own password") and not security.recover_key("kims own password")
+
+
+def test_a_lock_left_by_someone_no_longer_an_owner_opens_nothing_and_goes(dpapi, tmp_path, monkeypatch):
+    """As an earlier version left them when someone was removed, or a backup from before an owner joined brings back."""
+    with _start() as c:
+        _set_up(c)
+    key = security.master_key()
+    keystore.save_recovery("acc_gone", keystore.wrap(key, "a former owners password", security._wrap_kdf))
+    _lose_the_store(tmp_path, monkeypatch)
+    with _start() as c:
+        assert c.app.state.problem_kind == "key"
+        r = c.post("/unlock", data={"password": "a former owners password"}, follow_redirects=False)
+        assert r.status_code == 401 and "acc_gone" not in keystore.recovery_entries()
+        assert c.post("/unlock", data={"password": PASSPHRASE}, follow_redirects=False).status_code == 303
+    keystore.save_recovery("acc_gone", keystore.wrap(key, "a former owners password", security._wrap_kdf))
+    _fresh_start()
+    with _start():
+        assert "acc_gone" not in keystore.recovery_entries() and keystore.recovery_entries()
+
+
 def test_a_member_password_never_opens_it(dpapi, tmp_path):
     from app.store import accounts, profiles
     with _start() as c:
@@ -394,6 +500,26 @@ def test_the_page_brings_the_key_back_with_the_right_password_only(dpapi, tmp_pa
         assert c.post("/unlock", data={"password": PASSPHRASE}).status_code == 404      # nothing left to unlock
 
 
+def test_unlocking_tells_an_update_waiting_to_hear_that_the_new_version_works(dpapi, tmp_path, monkeypatch):
+    """Otherwise the update script, hearing nothing, put the earlier version back after 25 minutes, and with it the database
+    from before the update: whatever was done since unlocking was gone."""
+    monkeypatch.syspath_prepend(str(config.REPO_ROOT / "desktop"))
+    import updater
+    from app.services import updates
+    with _start() as c:
+        _set_up(c)
+    _lose_the_store(tmp_path, monkeypatch)
+    folder = tmp_path / "updates"
+    folder.mkdir()
+    (folder / updater.ATTEMPT).write_text(json.dumps({"version": config.APP_VERSION, "from": "1.0.0", "at": time.time()}))
+    monkeypatch.setattr(updates, "_on_working", None)
+    updates.set_on_working(lambda: updater.started_fine(folder))       # as the desktop app does
+    with _start() as c:
+        assert c.app.state.problem_kind == "key" and not (folder / updater.OK_MARK).exists()
+        assert c.post("/unlock", data={"password": PASSPHRASE}, follow_redirects=False).status_code == 303
+        assert (folder / updater.OK_MARK).exists() and not (folder / updater.ATTEMPT).exists()
+
+
 def test_nobody_can_try_passwords_from_another_computer(dpapi, tmp_path, monkeypatch):
     with _start() as c:
         _set_up(c)
@@ -412,6 +538,12 @@ def test_another_sites_page_can_not_post_guesses(dpapi, tmp_path, monkeypatch):
     with _start() as c:
         r = c.post("/unlock", data={"password": "a guess"}, headers={"Origin": "https://example.com"})
         assert r.status_code == 403
+        # Nor one that has pointed its own name at this computer (DNS rebinding), so that its address and origin agree.
+        rebound = {"Host": "attacker.example:8000", "Origin": "http://attacker.example:8000"}
+        assert c.post("/unlock", data={"password": PASSPHRASE}, headers=rebound).status_code == 403
+        assert c.app.state.problem_kind == "key" and c.get("/health").status_code == 503
+        assert c.post("/unlock", data={"password": PASSPHRASE}, headers={"Host": "attacker.example:8000"}).status_code == 403
+        assert c.post("/unlock", data={"password": PASSPHRASE}, follow_redirects=False).status_code == 303
 
 
 def test_guesses_are_limited_like_signing_in(dpapi, tmp_path, monkeypatch):
@@ -456,6 +588,50 @@ def test_a_backup_brings_the_key_back_when_the_store_is_gone(dpapi, tmp_path, mo
     _fresh_start()
     assert security.master_key() == key
     assert db.opens(config.db_path(), security.database_key())
+
+
+def test_a_restore_waits_for_a_store_that_can_not_answer_and_changes_nothing(tmp_path, monkeypatch):
+    """A locked Keychain looked like no key at all: the restore went ahead, and the keys kept from before were replaced by
+    an empty list."""
+    from app.services import backups
+    held: dict[str, bytes] = {}
+    monkeypatch.setenv("SYNTROPY_KEY_STORE", keystore.KEYCHAIN)
+    monkeypatch.setattr(keystore, "_keychain_write", lambda account, key: held.__setitem__(account, key))
+    monkeypatch.setattr(keystore, "_keychain_read", lambda account: held.get(account))
+    with _start() as c:
+        _set_up(c)
+        made = backups.create(tmp_path / "out", passphrase="correct horse battery")
+    security.adopt_key(os.urandom(32))       # so there's a list of earlier keys to lose
+    db.close_readers()
+    item = backups.check(Path(made["path"]), "correct horse battery")
+    before = {f: (tmp_path / f).read_bytes() for f in ("key.json", "syntropy.db")}
+
+    def locked(account):
+        raise keystore.Unreachable("User interaction is not allowed.")
+    monkeypatch.setattr(keystore, "_keychain_read", locked)
+    with pytest.raises(backups.BackupProblem) as caught:
+        backups.apply(item)
+    assert "Unlock" in str(caught.value) and "wasn't restored" in str(caught.value)
+    assert {f: (tmp_path / f).read_bytes() for f in before} == before
+    with pytest.raises(keystore.Unreachable):
+        security.adopt_key(os.urandom(32))
+    assert (tmp_path / "key.json").read_bytes() == before["key.json"]
+    backups.discard(item.id)
+
+
+def test_a_key_brought_back_with_a_password_keeps_the_keys_it_had_replaced(dpapi, tmp_path, monkeypatch):
+    """The store has lost the key, so nothing says what it was: the list of keys it had replaced, which copies kept from
+    before still need, was replaced by an empty one."""
+    with _start() as c:
+        _set_up(c)
+    first = security.master_key()
+    second = os.urandom(32)
+    security.adopt_key(second)      # a backup's key, as restoring one brings
+    assert security._retired_keys(second) == [first]
+    _lose_the_store(tmp_path, monkeypatch)
+    assert security.existing_key() is None
+    security.adopt_key(second)      # as security.recover_key does with it
+    assert security._retired_keys(second) == [first]
 
 
 def test_restoring_on_a_computer_with_a_store_puts_the_key_there(dpapi, tmp_path, monkeypatch):

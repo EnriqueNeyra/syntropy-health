@@ -10,9 +10,10 @@ A row that's a group of readings (an hour's or a day's steps) grows as the day g
 value replaces the last rather than adding to it. The iPhone app says which it's sending in the ``automation-aggregation``
 header. With no header, a row with no end date is taken to be a group, as Health Auto Export's are; rows with the same date in
 one request are then different readings, and are added together. A summed row at midnight alone on its date is then either a
-whole day or the first hour of one, which only what else arrives for that day can settle (see ``biometrics._rollup``). A plain
+whole day or the first hour of one, which only what else arrives for that day can settle (see ``biometrics._rollup``). A day's
+total sent again from another time zone replaces the first rather than adding to it, though it starts at another moment. A plain
 sample keeps its own identity, value included, so two entries at one moment both count. Aggregated sleep belongs to its day,
-wherever its start and end move.
+wherever its start and end move. Grouped by the week, month or year, totals aren't any day's and are left out.
 """
 
 from __future__ import annotations
@@ -231,6 +232,10 @@ SLEEP_STAGES = {
 _TEMP_UNITS = {"degF", "°F", "F"}
 # What the automation-aggregation header says when rows are groups of readings.
 GROUPED_GRAINS = {"minutes", "hours", "days", "weeks", "months", "years"}
+# Groups longer than a day. A week's steps are no day's, and dated by the week's first day they'd show as one huge Monday, so
+# totals (and aggregated nights, and mindful minutes) at these grains are left out. An average or a latest value stays: it
+# describes that stretch, and stands for it on its first day.
+LONGER_THAN_A_DAY = {"weeks", "months", "years"}
 
 
 def slug(name: str) -> str:
@@ -320,7 +325,9 @@ def _settle_groups(samples: list[dict[str, Any]], grain: str) -> list[dict[str, 
         at = biometrics.parse_ts(s["start_date"])
         alone = on_date[(s["metric_type"], s["source_name"], str(s["start_date"])[:10])] == 1
         if grain == "days":
-            s["metadata"] = {**(s.get("metadata") or {}), "daily_total": True}
+            # The day it was counted for, where it was counted. Sent again after a flight, the same day starts at another moment
+            # and so has another id; the day is what makes the new figure replace the old one rather than add to it.
+            s["metadata"] = {**(s.get("metadata") or {}), "daily_total": True, "day": at.date().isoformat()}
         elif not grain and alone and not at.hour and not at.minute:
             s["metadata"] = {**(s.get("metadata") or {}), "daily_total_if_alone": True}
     return out
@@ -328,6 +335,7 @@ def _settle_groups(samples: list[dict[str, Any]], grain: str) -> list[dict[str, 
 
 def convert(payload: dict[str, Any], grain: Optional[str] = None) -> dict[str, list[dict[str, Any]]]:
     grain = (grain or "").strip().lower()
+    too_long = grain in LONGER_THAN_A_DAY
     data = payload.get("data", payload) if isinstance(payload, dict) else {}
     if not isinstance(data, dict):
         data = {}
@@ -353,7 +361,7 @@ def convert(payload: dict[str, Any], grain: Optional[str] = None) -> dict[str, l
         units = str(m.get("units") or "")
         rows = _rows(m.get("data"))
         if name == "sleep_analysis":
-            _sleep(rows, samples, deleted_ids)
+            _sleep(rows, samples, deleted_ids, nights=not too_long)
             continue
         if name == "blood_pressure":
             for r in rows:
@@ -363,7 +371,7 @@ def convert(payload: dict[str, Any], grain: Optional[str] = None) -> dict[str, l
                         samples.append(_sample(metric, v, "mmHg", r["date"], r.get("endDate"), r.get("source"), group=is_group(r)))
             continue
         if name == "mindful_minutes":
-            for r in rows:
+            for r in rows if not too_long else ():
                 v = _num(r.get("qty"))
                 start = _ts(r.get("date"))
                 end = _after(start, v * 60) if start is not None and v is not None else None
@@ -372,6 +380,7 @@ def convert(payload: dict[str, Any], grain: Optional[str] = None) -> dict[str, l
                           value=v, label=f"{v:g} min")
             continue
         metric = METRIC_NAMES.get(name) or slug(name)
+        summed = METRICS.get(metric, ("", "", ""))[2] == "sum"
         for r in rows:
             if "start" in r and "date" not in r:
                 # Category-style rows (e.g. stand hours) exported inside "metrics".
@@ -379,7 +388,7 @@ def convert(payload: dict[str, Any], grain: Optional[str] = None) -> dict[str, l
                 event(ev_type, category, r.get("name") or name, r["start"], r.get("end"), r.get("source"),
                       value=_num(r.get("qty")), label=r.get("value"))
                 continue
-            if not r.get("date"):
+            if not r.get("date") or (too_long and summed):
                 continue
             if name == "heart_rate" and "Avg" in r:
                 v = _num(r.get("Avg"))
@@ -439,7 +448,8 @@ def _sample(metric: str, value: float, unit: str, start: str, end: Optional[str]
     return sample
 
 
-def _sleep(rows: list[dict[str, Any]], samples: list[dict[str, Any]], deleted_ids: list[str]) -> None:
+def _sleep(rows: list[dict[str, Any]], samples: list[dict[str, Any]], deleted_ids: list[str], nights: bool = True) -> None:
+    """Stage rows as they are; aggregated nights (``nights``) only when each row is one night."""
     for r in rows:
         source = _text(r.get("source")) or "HealthKit export"
         if r.get("startDate") and r.get("value"):
@@ -452,7 +462,7 @@ def _sleep(rows: list[dict[str, Any]], samples: list[dict[str, Any]], deleted_id
             samples.append(_sample(stage, (end - start).total_seconds(), "s", r["startDate"], r.get("endDate"), source))
             continue
         dated = _ts(r.get("date"))
-        if dated is None:
+        if dated is None or not nights:
             continue
         # Aggregated night: hours per stage, attributed to the day it's dated (the wake-up day).
         day = dated.date().isoformat() if len(str(r["date"])) > 10 else str(r["date"])

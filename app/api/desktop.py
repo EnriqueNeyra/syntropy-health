@@ -4,7 +4,6 @@ the Mac is the server and there's nothing to join."""
 
 from __future__ import annotations
 
-import ipaddress
 from typing import Optional
 from urllib.parse import urlsplit
 
@@ -20,11 +19,7 @@ router = APIRouter(prefix="/api/desktop", tags=["desktop"], include_in_schema=Fa
 
 
 def _only_before_setup_here(request: Request) -> None:
-    try:
-        local = ipaddress.ip_address((request.client.host if request.client else "").split("%")[0]).is_loopback
-    except ValueError:
-        local = False
-    if not local or auth.is_setup_complete():
+    if not network.from_this_computer(request) or auth.is_setup_complete():
         raise HTTPException(404, "Not found")
     if request.headers.get(auth.CSRF_HEADER, "").lower() != auth.CSRF_VALUE:
         raise HTTPException(403, "Missing X-Requested-With: syntropy header.")

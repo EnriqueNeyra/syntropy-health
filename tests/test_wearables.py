@@ -1,10 +1,12 @@
 """Wearables (simulated Oura/WHOOP), companion pairing, ingest and daily rollups."""
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from app.connectors import oura, whoop
+from app.core.db import read
 from app.store import biometrics
 from tests.conftest import BASE
 
@@ -95,6 +97,27 @@ def test_pairing_and_device_ingest(client):
     dev_id = client.get("/api/devices").json()["devices"][0]["id"]
     client.delete(f"/api/devices/{dev_id}")
     assert anon.post("/api/ingest/wearables", json=batch, headers={"X-Syntropy-Device-Token": token}).status_code == 401
+
+
+def test_the_phones_summary_after_a_sync_reads_no_daily_figures_and_no_sample_twice(client):
+    code = client.post("/api/devices/pairing-code", json={}).json()["code"]
+    anon = TestClient(client.app, base_url=BASE)
+    token = anon.post("/api/devices/pair", json={"code": code, "device_name": "Alex's iPhone"}).json()["device_token"]
+    headers = {"X-Syntropy-Device-Token": token}
+    batch = {"device_id": "ios-1", "device_name": "Alex's iPhone",
+             "samples": [_sample(1, "step_count", 1200), _sample(2, "heart_rate", 61, unit="count/min"),
+                         {**_sample(3, "step_count", 5), "start_date": "2105-01-01T00:00:00Z", "end_date": "2105-01-01T00:00:00Z"}]}
+    assert anon.post("/api/ingest/wearables", json=batch, headers=headers).json()["inserted"] == 3
+    with patch.object(biometrics, "overview", side_effect=AssertionError("counts every sample")), \
+            patch.object(biometrics, "headline", side_effect=AssertionError("works out the Overview's figures")):
+        r = anon.get("/api/wearables/summary", headers=headers)
+    assert r.status_code == 200, r.text
+    data = r.json()["data"]
+    assert data["total_samples"] == 3
+    assert data["history_span"]["latest"] < "2105" and data["history_span"]["earliest"] <= data["history_span"]["latest"]
+    assert data["last_sync"]["device_name"] == "Alex's iPhone" and data["last_sync"]["sample_count"] == 3
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    assert data["history_span"] == biometrics.overview(profile)["history_span"]
 
 
 def test_pair_info_is_public_and_secret_free(raw_client):
@@ -274,6 +297,34 @@ def test_steps_merge_watch_and_phone_like_apple_health(client):
     assert pts[-1]["value"] == 3000 and pts[-1]["source"] == "Combined"
 
 
+def test_entries_at_one_moment_from_two_apps_add_up(client):
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    assert client.put("/api/settings/general", json={"timezone": "UTC"}).status_code == 200
+    d = (datetime.now(timezone.utc).date() - timedelta(days=3)).isoformat()
+
+    def entry(i, metric, value, clock, source, unit):
+        return {"id": f"e{i}", "metric_type": metric, "value": value, "unit": unit, "start_date": f"{d}T{clock}:00Z",
+                "end_date": f"{d}T{clock}:00Z", "source_name": source}
+    biometrics.insert_samples(profile, None, [
+        entry(1, "dietary_water", 500, "08:00", "WaterMinder", "mL"), entry(2, "dietary_water", 750, "14:00", "MyFitnessPal", "mL"),
+        entry(3, "dietary_energy", 600, "08:00", "MyFitnessPal", "kcal"), entry(4, "dietary_energy", 900, "19:00", "Cronometer", "kcal")])
+    water = {p["day"]: p for p in biometrics.daily_series(profile, "dietary_water", days=10)["points"]}[d]
+    energy = {p["day"]: p for p in biometrics.daily_series(profile, "dietary_energy", days=10)["points"]}[d]
+    assert (water["value"], water["source"]) == (1250, "Combined")
+    assert (energy["value"], energy["source"]) == (1500, "Combined")
+
+
+def test_a_moment_inside_a_preferred_sources_interval_counts_once():
+    from app.store.biometrics import merge_interval_sources
+    rank = {"Watch": 0, "Phone": 1, "Log": 2}.get
+    items = [("2026-09-18T10:00:00Z", "2026-09-18T11:00:00Z", 1000, "Watch"),
+             ("2026-09-18T10:30:00Z", "2026-09-18T10:30:00Z", 400, "Log"),     # inside the Watch's hour: already counted
+             ("2026-09-18T11:00:00Z", "2026-09-18T11:00:00Z", 300, "Log"),     # the moment the Watch's hour ends: not inside it
+             ("2026-09-18T12:00:00Z", "2026-09-18T12:00:00Z", 200, "Phone"),   # nothing else then
+             ("2026-09-18T12:00:00Z", "2026-09-18T12:30:00Z", 100, "Log")]     # a moment covers no time, so this counts in full
+    assert merge_interval_sources(items, rank) == 1600
+
+
 def _night(profile, day, source, hours, i):
     end = datetime.fromisoformat(f"{day}T06:30:00+00:00")
     return {"id": f"n{i}-{source}", "metric_type": "sleep_analysis_core", "value": hours * 3600, "unit": "s",
@@ -302,6 +353,56 @@ def test_source_order_per_metric_group(client):
     assert r.json()["orders"]["sleep"][0] == "watch"
     assert {p["day"]: p for p in biometrics.daily_series(profile, "sleep_duration", days=5)["points"]}[d1]["source"] == "Alex's Apple Watch"
     assert client.put("/api/settings/source-order", json={"sleep": ["watch"]}).status_code == 400
+
+
+def _steps(i, source, d, start, end, value, **extra):
+    return {"id": f"st{i}", "metric_type": "step_count", "value": value, "unit": "count", "source_name": source,
+            "start_date": f"{d}T{start}:00Z", "end_date": f"{d}T{end}:00Z", **extra}
+
+
+def _combined(profile, d):
+    with read() as conn:
+        return conn.execute("SELECT value FROM biometric_daily WHERE profile_id = ? AND day = ? AND metric_type = 'step_count' "
+                            "AND source_name = 'Combined'", (profile, d)).fetchone()[0]
+
+
+def test_changing_the_source_order_works_out_combined_days_again(client):
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    assert client.put("/api/settings/general", json={"timezone": "UTC"}).status_code == 200
+    d = (datetime.now(timezone.utc).date() - timedelta(days=3)).isoformat()
+    biometrics.insert_samples(profile, None, [
+        _steps(1, "Apple Watch", d, "10:00", "11:00", 1000), _steps(2, "iPhone", d, "10:00", "11:00", 800),
+        _steps(3, "iPhone", d, "15:00", "16:00", 500)])
+    assert _combined(profile, d) == 1500             # the Watch's hour, and the phone's own
+    biometrics.set_source_orders({"activity": ["phone", "watch", "ring", "other"]})
+    assert _combined(profile, d) == 1300             # the phone's two hours; the Watch's hour was the phone's too
+    r = client.put("/api/settings/source-order", json={"activity": ["watch", "phone", "ring", "other"]})
+    assert r.status_code == 200
+    assert _combined(profile, d) == 1500
+
+
+def test_a_source_found_to_be_another_kind_of_device_moves_in_combined_days(client):
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    assert client.put("/api/settings/general", json={"timezone": "UTC"}).status_code == 200
+    today = datetime.now(timezone.utc).date()
+    d1, d2 = (today - timedelta(days=20)).isoformat(), (today - timedelta(days=2)).isoformat()
+    biometrics.insert_samples(profile, None, [_steps(1, "Band App", d1, "10:00", "11:00", 1000), _steps(2, "iPhone", d1, "10:00", "11:00", 800)])
+    assert _combined(profile, d1) == 800             # "Band App" says nothing of what it is: the phone comes first
+    # Weeks later its readings say they come from a band, which ranks before a phone for steps.
+    biometrics.insert_samples(profile, None, [_steps(3, "Band App", d2, "09:00", "10:00", 300, metadata={"device_type": "band"})])
+    biometrics.run_queued_rebuilds()
+    assert biometrics.source_kinds(profile)["Band App"] == "ring"
+    assert _combined(profile, d1) == 1000
+
+
+def test_an_app_recording_on_several_devices_keeps_its_kind(client):
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    d = (datetime.now(timezone.utc).date() - timedelta(days=2)).isoformat()
+    biometrics.insert_samples(profile, None, [_steps(1, "Samsung Health", d, "09:00", "10:00", 300, metadata={"device_type": "watch"})])
+    with patch.object(biometrics, "queue_rebuild") as queued:
+        biometrics.insert_samples(profile, None, [_steps(2, "Samsung Health", d, "10:00", "11:00", 300, metadata={"device_type": "watch"}),
+                                                  _steps(3, "Samsung Health", d, "11:00", "12:00", 300, metadata={"device_type": "phone"})])
+    assert biometrics.source_kinds(profile)["Samsung Health"] == "watch" and not queued.called
 
 
 # ---------------------------------------------------------------------------

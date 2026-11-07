@@ -126,8 +126,9 @@ jobs:
         run: npm test
 
   browser:
-    # The web app in Chrome (the runner's own): first run, every page at each width and theme, the bridge the phone apps use,
-    # and an axe accessibility pass. axe-core is fetched here only, checked against its hash, and is never part of the app.
+    # The web app in Chrome (the runner's own): first run, every page at each width and theme, Ask, the bridge the phone
+    # apps use, and an axe accessibility pass. Every test that needs Playwright lives in tests/e2e, so it runs here.
+    # axe-core is fetched here only, checked against its hash, and is never part of the app.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -138,7 +139,8 @@ jobs:
         with:
           version: "0.11.15"      # the same in the Dockerfile and the installers
       - run: uv sync --frozen --python 3.12 --group dev --extra checks
-      # The tests skip themselves where there's no Chrome, which here would pass with nothing tested.
+      # The tests skip themselves where there's no Playwright or no Chrome, which here would pass with nothing tested.
+      - run: uv run --frozen --no-sync python -c "import playwright.sync_api"
       - run: google-chrome --version
       - name: Fetch axe-core
         run: |
@@ -158,8 +160,11 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.11.15"      # the same in the Dockerfile and the installers
-      - run: uv build --wheel -o dist .
-      - run: sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --no-ocr
+      - run: uv build --wheel --build-constraints .github/build-constraints.txt --require-hashes -o dist .
+      # What a release installs with its wheel (desktop.yml's Syntropy-Health-requirements.txt): the installers take it
+      # with --constraints, so these jobs install uv.lock's versions, checked against its hashes, as people do.
+      - run: uv export --frozen --no-dev --no-emit-project --no-header -o dist/requirements.txt
+      - run: sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --constraints dist/requirements.txt --no-ocr
       - run: for _ in $(seq 1 30); do curl -fs localhost:8000/health && exit 0; sleep 1; done; sudo journalctl -u syntropy-health --no-pager; exit 1
       # The data folder is private to the service account, so looking inside takes root.
       - run: systemctl is-active syntropy-health && sudo stat -c '%U' /var/lib/syntropy-health/syntropy.db | grep -x syntropy
@@ -204,11 +209,11 @@ jobs:
           sudo systemctl start syntropy-health-update.service
           systemctl show -p Result syntropy-health-update.service | grep -x Result=success
           sudo journalctl -u syntropy-health-update --no-pager | grep -q "Automatic updates are off"
-      - run: sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --no-ocr   # running it again updates in place
+      - run: sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --constraints dist/requirements.txt --no-ocr   # running it again updates in place
       - name: Running the installer again keeps the port and address
         run: |
           sudo syntropy-health service install --user syntropy --host 127.0.0.1 --port 8123
-          sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --no-ocr | tee "$RUNNER_TEMP/again.txt"
+          sudo sh scripts/install.sh --source "$(ls dist/*.whl)" --constraints dist/requirements.txt --no-ocr | tee "$RUNNER_TEMP/again.txt"
           grep -F -- '--host 127.0.0.1 --port 8123' /etc/systemd/system/syntropy-health.service
           grep -F ':8123' "$RUNNER_TEMP/again.txt"
           for _ in $(seq 1 30); do curl -fs localhost:8123/health && exit 0; sleep 1; done; sudo journalctl -u syntropy-health --no-pager; exit 1
@@ -231,8 +236,11 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.11.15"      # the same in the Dockerfile and the installers
-      - run: uv build --wheel -o dist .
-      - run: sh scripts/install.sh --server --no-service --no-ocr --source "$(ls dist/*.whl)"
+      - run: uv build --wheel --build-constraints .github/build-constraints.txt --require-hashes -o dist .
+      # What a release installs with its wheel (desktop.yml's Syntropy-Health-requirements.txt): the installers take it
+      # with --constraints, so these jobs install uv.lock's versions, checked against its hashes, as people do.
+      - run: uv export --frozen --no-dev --no-emit-project --no-header -o dist/requirements.txt
+      - run: sh scripts/install.sh --server --no-service --no-ocr --source "$(ls dist/*.whl)" --constraints dist/requirements.txt
       - run: |
           ~/.local/bin/syntropy-health serve --port 8010 &
           for _ in $(seq 1 30); do curl -fs localhost:8010/health && exit 0; sleep 1; done; exit 1
@@ -252,10 +260,13 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.11.15"      # the same in the Dockerfile and the installers
-      - run: uv build --wheel -o dist .
+      - run: uv build --wheel --build-constraints .github/build-constraints.txt --require-hashes -o dist .
+      # What a release installs with its wheel (desktop.yml's Syntropy-Health-requirements.txt): the installers take it
+      # with --constraints, so these jobs install uv.lock's versions, checked against its hashes, as people do.
+      - run: uv export --frozen --no-dev --no-emit-project --no-header -o dist/requirements.txt
       # Windows PowerShell, not pwsh: it's what `irm | iex` runs in on most people's computers, and stricter about stderr.
       - shell: powershell
-        run: ./scripts/install.ps1 -Server -Port 8010 -Source (Get-Item dist/*.whl).FullName
+        run: ./scripts/install.ps1 -Server -Port 8010 -Source (Get-Item dist/*.whl).FullName -Constraints dist/requirements.txt
       - shell: pwsh
         run: |
           $task = Get-ScheduledTask -TaskName "Syntropy Health" -ErrorAction SilentlyContinue
@@ -271,7 +282,7 @@ jobs:
       - name: Running the installer again keeps the port
         shell: powershell
         run: |
-          ./scripts/install.ps1 -Server -Source (Get-Item dist/*.whl).FullName
+          ./scripts/install.ps1 -Server -Source (Get-Item dist/*.whl).FullName -Constraints dist/requirements.txt
           $action = (Get-ScheduledTask -TaskName "Syntropy Health").Actions[0].Arguments
           if ($action -notmatch '--port 8010') { throw "The port changed: $action" }
           (Invoke-WebRequest -UseBasicParsing http://localhost:8010/health).Content

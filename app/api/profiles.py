@@ -60,6 +60,10 @@ class ProfilePatch(BaseModel):
         return value.strip() if value is not None else None
 
 
+class ConfirmRequest(BaseModel):
+    password: Optional[str] = Field(None, max_length=256)
+
+
 def visible_profiles() -> list[dict[str, Any]]:
     """The people the signed-in account can see: itself first, with what it may do and whether each signs in."""
     principal = context.principal()
@@ -146,9 +150,10 @@ def update_profile(profile_id: str, req: ProfilePatch) -> dict:
 
 
 @router.delete("/{profile_id}", dependencies=[whole_account])
-def delete_profile(profile_id: str) -> dict:
+def delete_profile(profile_id: str, request: Request, req: Optional[ConfirmRequest] = None) -> dict:
     """Deletes a person and all their data. Someone who signs in: an owner removing them from the server (leaving is
-    POST /api/accounts/me/delete, with their password). Anyone else: whoever manages them."""
+    POST /api/accounts/me/delete, with their password). Anyone else: whoever manages them. From a phone, with the
+    password too (``{"password": ...}``)."""
     principal = context.principal()
     if not profiles.get_profile(profile_id):
         raise HTTPException(404, "Profile not found")
@@ -164,6 +169,8 @@ def delete_profile(profile_id: str) -> dict:
         check_access(profile_id, "manage")
     if len(profiles.list_profiles()) <= 1:
         raise HTTPException(400, "At least one profile must remain.")
+    auth.confirm_from_phone(request, principal, req.password if req else None,
+                            "Removing someone deletes all of their data. Enter your password to do it from this phone.")
     profiles.delete_profile(profile_id)
     return {"ok": True}
 
@@ -219,11 +226,18 @@ def set_access(profile_id: str, req: AccessRequest) -> dict:
     return get_access(profile_id)
 
 
+class InviteRequest(BaseModel):
+    password: Optional[str] = Field(None, max_length=1024)     # from a phone's Syntropy tab
+
+
 @router.post("/{profile_id}/invite", dependencies=[whole_account])
-def invite(profile_id: str, request: Request) -> dict:
+def invite(profile_id: str, request: Request, req: Optional[InviteRequest] = None) -> dict:
     """A one-time code (a week) for this person to choose their own password. Once they do, their data is theirs:
-    whoever manages them now stops seeing it unless they share it back."""
+    whoever manages them now stops seeing it unless they share it back. So from a phone it takes the password: whoever
+    held the phone could otherwise take someone's records away from the people who look after them."""
     check_access(profile_id, "manage")
+    auth.confirm_from_phone(request, context.principal(), req.password if req else None,
+                            "Inviting someone hands them their records. Enter your password to do it from this phone.")
     if not auth.auth_required():
         raise HTTPException(400, "Set a password for yourself first (Settings → Security). Without one, anyone who opens "
                                  "Syntropy Health is signed in as you, so a password of their own wouldn't protect them.")
@@ -276,10 +290,6 @@ def set_role(account_id: str, req: RoleRequest, request: Request, principal: aut
     except ValueError as exc:
         raise HTTPException(400, f"{exc} Make someone else an owner first.") from exc
     return list_accounts()
-
-
-class ConfirmRequest(BaseModel):
-    password: Optional[str] = Field(None, max_length=256)
 
 
 @accounts_router.post("/me/delete")

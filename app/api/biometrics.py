@@ -11,9 +11,9 @@ from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError, field_validator
 
 from app.api.deps import check_access, phone_origin, request_origin, resolve_profile, visible_profile_ids
-from app.core import auth, config, context
+from app.core import auth, config, context, settings
 from app.core.uploads import UPLOAD_ENCODINGS
-from app.services import healthkit_import
+from app.services import healthkit_import, network
 from app.store import accounts, activity, biometrics, connections, devices, sleep, training
 
 router = APIRouter(tags=["biometrics"])
@@ -213,7 +213,7 @@ class IngestBatch(BaseModel):
     samples: list[Any] = Field(default_factory=list, max_length=20000)
     workouts: list[Any] = Field(default_factory=list, max_length=2000)
     events: list[Any] = Field(default_factory=list, max_length=20000)
-    deleted: list[IngestDeleted] = Field(default_factory=list, max_length=20000)     # what was deleted on the phone
+    deleted: list[Any] = Field(default_factory=list, max_length=20000)     # what was deleted on the phone
     profile_id: Optional[str] = None
 
 
@@ -266,10 +266,11 @@ async def ingest(batch: IngestBatch, principal: auth.Principal = Depends(auth.re
         samples, samples_wrong = _readable(IngestSample, batch.samples)
         workouts, workouts_wrong = _readable(IngestWorkout, batch.workouts)
         events, events_wrong = _readable(IngestEvent, batch.events)
+        deleted, deleted_wrong = _readable(IngestDeleted, batch.deleted)
         result = _store(profile_id, connection_id, samples, workouts, events,
                         {"device_id": batch.device_id, "device_name": batch.device_name, "os_version": batch.os_version,
                          "app_version": batch.app_version, "sync_trigger": batch.sync_trigger},
-                        deleted=[d.model_dump() for d in batch.deleted])
+                        deleted=deleted)
         n = sum(samples_wrong.values())
         result["received"] += n
         result["rejected"] += n
@@ -277,8 +278,11 @@ async def ingest(batch: IngestBatch, principal: auth.Principal = Depends(auth.re
         result["workouts_rejected"] += sum(workouts_wrong.values())
         result["events_received"] += sum(events_wrong.values())
         result["events_rejected"] += sum(events_wrong.values())
-        if samples_wrong or workouts_wrong or events_wrong:
-            result["rejected_fields"] = {"samples": samples_wrong, "workouts": workouts_wrong, "events": events_wrong}
+        if deleted_wrong:
+            result["deleted_rejected"] = sum(deleted_wrong.values())
+        if samples_wrong or workouts_wrong or events_wrong or deleted_wrong:
+            result["rejected_fields"] = {"samples": samples_wrong, "workouts": workouts_wrong, "events": events_wrong,
+                                         "deleted": deleted_wrong}
         return result
     return await run_in_threadpool(store)
 
@@ -442,11 +446,11 @@ def delete_journal_entry(entry_id: str, profile: Optional[str] = None) -> dict:
 
 @router.get("/api/wearables/summary")
 def wearables_summary(principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
-    """Used by the companion app to show the server-side total."""
+    """Used by the companion app to show the server-side total, after every sync. The phones read ``data.total_samples``."""
     profile_id = principal.profile_id or resolve_profile(None)["id"]
-    ov = biometrics.overview(profile_id)
-    return {"success": True, "data": {"total_samples": ov["total_samples"], "history_span": ov["history_span"],
-                                      "last_sync": ov["last_batch"]}}
+    found = biometrics.summary(profile_id)
+    return {"success": True, "data": {"total_samples": found["total_samples"], "history_span": found["history_span"],
+                                      "last_sync": found["last_batch"]}}
 
 
 class HistoryStatus(BaseModel):
@@ -481,7 +485,10 @@ def pairing_info(request: Request) -> dict:
             # Uploads may be compressed (health samples shrink about tenfold); older servers leave this out.
             "upload_encodings": list(UPLOAD_ENCODINGS),
             # The web app can run inside the iPhone app's native navigation (tab bar, title bars): companion mode.
-            "app_shell": 1}
+            "app_shell": 1,
+            # Which server this is, and that a paired phone can ask it to prove it (POST /api/devices/prove) before
+            # sending its token: another server at the same address can't.
+            "server_id": settings.server_id(), "device_proof": 1}
 
 
 class PairingCodeRequest(BaseModel):
@@ -511,7 +518,7 @@ PAIR_WINDOW, PAIR_MAX_FAILURES, PAIR_MAX_FAILURES_ALL = 900, 10, 200
 
 @router.post("/api/devices/pair")
 def pair(req: PairRequest, request: Request) -> dict:
-    ip = request.client.host if request.client else "unknown"
+    ip = network.client_address(request) or "forwarded"     # see auth._tries_from
     now = time.time()
     recent = [t for t in _pair_failures.get(ip, []) if now - t < PAIR_WINDOW]
     _all_pair_failures[:] = [t for t in _all_pair_failures if now - t < PAIR_WINDOW]
@@ -525,7 +532,35 @@ def pair(req: PairRequest, request: Request) -> dict:
         _all_pair_failures.append(now)
         raise HTTPException(400, "That pairing code is invalid or has expired.")
     _pair_failures.pop(ip, None)
-    return {**result, "server_url": request_origin(request)}
+    return {**result, "server_url": request_origin(request), "server_id": settings.server_id()}
+
+
+class ProveRequest(BaseModel):
+    device_id: str = Field(..., max_length=200)
+    nonce: str = Field(..., min_length=16, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
+
+
+_prove_failures: dict[str, list[float]] = {}
+PROVE_WINDOW, PROVE_MAX_FAILURES = 900, 10
+
+
+@router.post("/api/devices/prove")
+def prove(req: ProveRequest, request: Request) -> dict:
+    """A paired phone checks it's talking to the server it paired with, before it sends its token: the answer is its
+    nonce signed with the hash of that token, which only this server keeps. Asks for no token itself. Phones this
+    server doesn't know get a 404, and an address asking about many of them is made to wait, as for pairing codes."""
+    ip = network.client_address(request) or "forwarded"
+    now = time.time()
+    recent = [t for t in _prove_failures.get(ip, []) if now - t < PROVE_WINDOW]
+    if len(recent) >= PROVE_MAX_FAILURES:
+        raise HTTPException(429, "Too many attempts. Wait a few minutes and try again.")
+    signed = devices.proof(req.device_id, req.nonce)
+    if signed is None:
+        if len(_prove_failures) > 10000:
+            _prove_failures.clear()
+        _prove_failures[ip] = recent + [now]
+        raise HTTPException(404, "This phone isn't paired with this server.")
+    return {"server_id": settings.server_id(), "proof": signed}
 
 
 @router.post("/api/devices/web-session")

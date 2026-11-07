@@ -18,6 +18,9 @@ name: Directory refresh
 # Opening the pull request needs DIRECTORY_TOKEN, a fine-grained token for this repository with Contents and Pull requests
 # read and write: a pull request opened with the workflow's own token doesn't start CI, so its required checks would
 # never report. Without it everything else still runs, and the job fails at the end saying so.
+# The token can push to this repository, so only the pull-request job has it, and that job installs nothing and runs
+# nothing from the repository: the refresh job, which installs Playwright and runs the checks, never sees the token and
+# hands over the files and the pull request's text as an artifact.
 on:
   schedule:
     - cron: "17 9 * * 1"
@@ -37,8 +40,9 @@ defaults:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    env:
-      HAS_TOKEN: ${{ secrets.DIRECTORY_TOKEN != '' }}
+    outputs:
+      refresh: ${{ steps.refresh.outcome }}
+      review: ${{ steps.summary.outputs.review }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,6 +50,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.11.15"      # the same in the Dockerfile and the installers
       - name: Refresh
         id: refresh
         continue-on-error: true       # what did refresh is still worth keeping; the last step fails the job
@@ -55,9 +62,10 @@ jobs:
         continue-on-error: true
         # Chrome comes with the runner, so Playwright needs no browser download. A failing health system isn't a
         # failed job, it's what the status file records; with --write-status only a crash exits with an error.
+        # Playwright and the app's dependencies come from uv.lock, checked against its hashes.
         run: |
-          pip install -q -e ".[checks]"
-          python scripts/check_sign_in.py --write-status --json "$RUNNER_TEMP/sign-in.json" | tee "$RUNNER_TEMP/sign-in.log"
+          uv sync --frozen --no-dev --extra checks --no-install-project --python 3.12
+          uv run --frozen --no-sync python scripts/check_sign_in.py --write-status --json "$RUNNER_TEMP/sign-in.json" | tee "$RUNNER_TEMP/sign-in.log"
       - name: Summarize
         id: summary
         run: |
@@ -79,34 +87,17 @@ jobs:
             ${{ runner.temp }}/sign-in.json
             ${{ runner.temp }}/failed-vendors.txt
             ${{ runner.temp }}/body.md
-      - name: Open or update the pull request
-        if: env.HAS_TOKEN == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.DIRECTORY_TOKEN }}
-          REVIEW: ${{ steps.summary.outputs.review }}
-          REFRESH: ${{ steps.refresh.outcome }}
+      # What the pull-request job needs, laid out as in the repository.
+      - name: Hand over the files
         run: |
-          if git diff --quiet -- app/data/institutions app/data/facilities.tsv app/data/sign_in_status.json; then
-            echo "The directory is already current."
-            exit 0
-          fi
-          branch=directory-refresh
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B "$branch"
-          git add app/data/institutions app/data/facilities.tsv app/data/sign_in_status.json
-          git commit -qm "Refresh the health-system directory" -m "From each vendor's published endpoint list, with the sign-in check ($(date -u +%Y-%m-%d))."
-          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
-          if ! gh pr view "$branch" --json state -q .state 2>/dev/null | grep -q OPEN; then
-            gh pr create --head "$branch" --base main --title "Refresh the health-system directory" --body-file "$RUNNER_TEMP/body.md"
-          else
-            gh pr edit "$branch" --body-file "$RUNNER_TEMP/body.md"
-          fi
-          if [ "$REVIEW" = 0 ] && [ "$REFRESH" = success ]; then
-            gh pr merge "$branch" --auto --rebase
-          else
-            gh pr merge "$branch" --disable-auto || echo "Auto-merge wasn't on."
-          fi
+          mkdir -p "$RUNNER_TEMP/pull-request/app/data"
+          cp -R app/data/institutions app/data/facilities.tsv app/data/sign_in_status.json "$RUNNER_TEMP/pull-request/app/data/"
+          cp "$RUNNER_TEMP/body.md" "$RUNNER_TEMP/pull-request/"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pull-request
+          if-no-files-found: error
+          path: ${{ runner.temp }}/pull-request
       - name: Report what went wrong
         if: always()
         env:
@@ -122,8 +113,75 @@ jobs:
             echo "::error::The sign-in check stopped before it finished, so its warnings weren't updated. See the Check sign-ins step."
             status=1
           fi
-          if [ "$HAS_TOKEN" != true ]; then
-            echo "::error::DIRECTORY_TOKEN isn't set, so nothing reached the app. The repository's owner adds it under Settings, Secrets and variables, Actions: a fine-grained token for this repository with Contents and Pull requests read and write. This run's result is in its directory artifact."
-            status=1
-          fi
           exit "$status"
+
+  pull-request:
+    # Holds DIRECTORY_TOKEN, so it installs nothing and runs nothing from the repository or the artifact: it puts the
+    # refreshed files on a clean checkout, refuses any change outside them, and runs git with its hooks turned off.
+    # A vendor that couldn't be refreshed fails the refresh job, and what did refresh still goes out.
+    needs: refresh
+    if: ${{ !cancelled() && needs.refresh.outputs.review != '' }}
+    runs-on: ubuntu-latest
+    env:
+      HAS_TOKEN: ${{ secrets.DIRECTORY_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pull-request
+          path: ${{ runner.temp }}/pull-request
+      - name: Put the refreshed files in place
+        run: |
+          git() { command git -c core.hooksPath=/dev/null "$@"; }
+          from="$RUNNER_TEMP/pull-request"
+          if [ -n "$(find "$from" ! -type f ! -type d)" ]; then
+            echo "::error::The refreshed files include something that isn't a plain file, so nothing was taken from them."
+            exit 1
+          fi
+          rm -rf app/data/institutions
+          cp -R "$from/app/data/institutions" app/data/institutions
+          cp "$from/app/data/facilities.tsv" "$from/app/data/sign_in_status.json" app/data/
+          outside="$(git status --porcelain --untracked-files=all \
+            | awk '$0 !~ /^.. app\/data\/(institutions\/[A-Za-z0-9_.-]+\.json|facilities\.tsv|sign_in_status\.json)$/')"
+          if [ -n "$outside" ]; then
+            echo "::error::The refresh changed more than the directory's files, so nothing was pushed:"
+            echo "$outside"
+            exit 1
+          fi
+      - name: Open or update the pull request
+        if: env.HAS_TOKEN == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DIRECTORY_TOKEN }}
+          REVIEW: ${{ needs.refresh.outputs.review }}
+          REFRESH: ${{ needs.refresh.outputs.refresh }}
+        run: |
+          git() { command git -c core.hooksPath=/dev/null "$@"; }
+          if [ -z "$(git status --porcelain --untracked-files=all)" ]; then
+            echo "The directory is already current."
+            exit 0
+          fi
+          branch=directory-refresh
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add app/data/institutions app/data/facilities.tsv app/data/sign_in_status.json
+          git commit -qm "Refresh the health-system directory" -m "From each vendor's published endpoint list, with the sign-in check ($(date -u +%Y-%m-%d))."
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
+          body="$RUNNER_TEMP/pull-request/body.md"
+          if ! gh pr view "$branch" --json state -q .state 2>/dev/null | grep -q OPEN; then
+            gh pr create --head "$branch" --base main --title "Refresh the health-system directory" --body-file "$body"
+          else
+            gh pr edit "$branch" --body-file "$body"
+          fi
+          if [ "$REVIEW" = 0 ] && [ "$REFRESH" = success ]; then
+            gh pr merge "$branch" --auto --rebase
+          else
+            gh pr merge "$branch" --disable-auto || echo "Auto-merge wasn't on."
+          fi
+      - name: Say what's missing
+        if: env.HAS_TOKEN != 'true'
+        run: |
+          echo "::error::DIRECTORY_TOKEN isn't set, so nothing reached the app. The repository's owner adds it under Settings, Secrets and variables, Actions: a fine-grained token for this repository with Contents and Pull requests read and write. This run's result is in its directory artifact."
+          exit 1

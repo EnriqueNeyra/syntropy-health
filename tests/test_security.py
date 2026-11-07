@@ -72,9 +72,16 @@ def test_guessing_from_many_addresses_slows_down_but_never_locks_out_the_right_p
     slept = []
     # time.sleep is everyone's: only what a sign-in waits counts here, not a background rewrite's pause.
     monkeypatch.setattr(auth.time, "sleep", lambda s: slept.append(s) if s == auth.LOGIN_SLOW_S else None)
+    # Spread over a password, invitation codes and names nobody signs in with: any one of them tried this often from
+    # everywhere stops altogether (test_proxy_trust).
     for i in range(auth.LOGIN_SLOW_AFTER):
         c = TestClient(client.app, base_url=BASE, client=(f"10.0.{i // 250}.{i % 250 + 1}", 5000))
-        assert c.post("/api/auth/login", json={"password": "wrong"}, headers=CSRF).status_code == 401
+        if i % 3 == 0:
+            assert c.post("/api/auth/login", json={"password": "wrong"}, headers=CSRF).status_code == 401
+        elif i % 3 == 1:
+            assert c.post("/api/invites/check", json={"code": "WRONG-CODE"}, headers=CSRF).status_code == 404
+        else:
+            assert c.post("/api/auth/login", json={"account": "Nobody", "password": "wrong"}, headers=CSRF).status_code == 401
     assert not slept
     c = TestClient(client.app, base_url=BASE, client=("10.9.9.9", 5000))
     assert c.post("/api/auth/login", json={"password": PASSPHRASE}, headers=CSRF).status_code == 200

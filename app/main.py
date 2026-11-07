@@ -82,6 +82,7 @@ def _start_up() -> None:
     encryption.at_start_up()
     db.ensure_migrated()
     security.check_key()
+    security.forget_former_owners()
     instance_settings.migrate_client_ids()
     biometric_store.resume_rebuilds()
     imports.recover_at_start_up()
@@ -272,8 +273,10 @@ def create_app() -> FastAPI:
         _can_unlock says so; otherwise there's nothing to unlock. The same guessing limits as signing in."""
         if not getattr(request.app.state, "problem", None):
             return Response(status_code=404)
-        origin = request.headers.get("origin")
-        if origin and origin.split("://")[-1] != request.headers.get("host"):     # another site's page posting a guess here
+        origin, host = request.headers.get("origin"), request.headers.get("host", "")
+        # Another site's page posting a guess here, including one whose own name it has pointed at this computer (DNS
+        # rebinding): its address and its origin agree, but the name isn't one of this computer's.
+        if (origin and origin.split("://")[-1] != host) or not network.is_local_name(host):
             return Response(status_code=403)
         try:
             auth.check_attempts(request, "unlock")
@@ -292,6 +295,7 @@ def create_app() -> FastAPI:
             return HTMLResponse(_problem_page(str(exc), True), status_code=503)
         request.app.state.problem = None
         _begin_work(request.app)
+        await asyncio.to_thread(updates.now_working)      # an update that started with the key lost is no longer one to undo
         return RedirectResponse("/", status_code=303)
 
     @app.get("/api/openapi.json", include_in_schema=False)

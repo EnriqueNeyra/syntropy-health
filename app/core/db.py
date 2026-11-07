@@ -12,6 +12,7 @@ SQLite access layer.
 
 from __future__ import annotations
 
+import calendar
 import errno
 import json
 import logging
@@ -586,7 +587,7 @@ def restore_pre_upgrade(since: float, path: Optional[Path] = None) -> Optional[P
     The files it replaces are kept, in pre-upgrade/replaced-*. May run as root: the files keep their owner. An OSError
     means the database is still as it was."""
     path = path or config.db_path()
-    copies = [c for c in pre_upgrade_copies(path) if c["created_at"] >= since]
+    copies = [c for c in pre_upgrade_copies(path) if c["created_at"] >= math.floor(since)]     # names are to the second
     if not copies:
         return None
     copy = Path(copies[0]["path"])
@@ -637,14 +638,19 @@ def discard_pre_upgrade_copies(path: Optional[Path] = None) -> None:
 
 
 def pre_upgrade_copies(path: Optional[Path] = None) -> list[dict[str, Any]]:
-    """The copies kept from before upgrades, newest first."""
+    """The copies kept from before upgrades, newest first. When each was made is in its name (UTC, to the second), which
+    nothing changes: encrypting a copy where it lies (app.core.encryption.finish_up) writes a new file in its place."""
     folder = (path or config.db_path()).parent / PRE_UPGRADE_DIR
     out = []
     for f in folder.glob("*.db") if folder.is_dir() else []:
         if match := _COPY_NAME.match(f.name):
+            try:
+                made = float(calendar.timegm(time.strptime(match[2], "%Y%m%d-%H%M%S")))
+            except ValueError:
+                continue
             info = f.stat()
-            out.append({"path": str(f), "version": int(match[1]), "created_at": info.st_mtime, "size_bytes": info.st_size})
-    return sorted(out, key=lambda c: -c["created_at"])
+            out.append({"path": str(f), "version": int(match[1]), "created_at": made, "size_bytes": info.st_size})
+    return sorted(out, key=lambda c: (-c["created_at"], -c["version"]))
 
 
 def _split_sql(script: str) -> list[str]:

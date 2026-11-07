@@ -4,6 +4,7 @@ per provider family. Nothing here contacts a real vendor."""
 import asyncio
 import json
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -354,11 +355,26 @@ def test_openai_length_is_cut_short(client, vendor):
     assert "cut_short" in _kinds(_chat(client))
 
 
-def test_nothing_on_the_openai_path_asks_for_a_limit(client, vendor):
-    _connect(client)
+@pytest.mark.parametrize("provider, field", [("openai", "max_completion_tokens"), ("openrouter", "max_tokens"),
+                                             ("deepseek", "max_tokens")])
+def test_the_openai_path_asks_for_the_same_limit_as_anthropic(client, vendor, provider, field):
+    _connect(client, provider)
     vendor.script.append(_text("Fine."))
     _chat(client)
-    assert "max_tokens" not in vendor.bodies[0] and "max_completion_tokens" not in vendor.bodies[0]
+    assert vendor.bodies[0][field] == ai.ASK_MAX_TOKENS
+    assert ("max_tokens" if field == "max_completion_tokens" else "max_completion_tokens") not in vendor.bodies[0]
+
+
+@pytest.mark.parametrize("message", ["Invalid max_tokens value, the valid range of max_tokens is [1, 8192]",
+                                     "`inputs` tokens + `max_new_tokens` must be <= 8193",
+                                     "you requested 17000 tokens (1000 in the messages, 16000 in the completion)"])
+def test_a_server_that_refuses_the_limit_is_asked_again_without_it(client, vendor, message):
+    _connect(client, "deepseek")
+    vendor.script += [(400, {"error": {"message": message}}), [LOOKUP, "[DONE]"], _text("Fine.")]
+    events = _chat(client)
+    assert next(e for e in events if e["type"] == "answer")["text"] == "Fine."
+    assert "max_tokens" in vendor.bodies[0] and all("max_tokens" not in b for b in vendor.bodies[1:])
+    assert len(vendor.bodies) == 3      # the rest of the question went without it too, and nothing was asked twice more
 
 
 def test_anthropic_gets_room_for_a_long_answer(client, vendor):
@@ -1097,3 +1113,178 @@ def test_the_whole_question_up_to_the_stated_limit_is_sent(client, vendor):
     vendor.script.append(_text("Fine."))
     _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "x" * 39_990 + "THE END"}]}))
     assert vendor.bodies[-1]["messages"][-1]["content"].endswith("THE END")
+
+
+# ------------------------------------------------------------------ a review of 1.7.1
+
+def longest_stall(make):
+    """Runs ``make()``'s coroutine beside a 10 ms ticker: (its result, the longest the event loop was held up)."""
+    async def main():
+        gaps, stop = [], asyncio.Event()
+
+        async def ticker():
+            last = time.monotonic()
+            while not stop.is_set():
+                await asyncio.sleep(0.01)
+                now = time.monotonic()
+                gaps.append(now - last)
+                last = now
+        task = asyncio.create_task(ticker())
+        await asyncio.sleep(0.03)
+        try:
+            result = await make()
+        finally:
+            stop.set()
+            await task          # the tick held up last is counted too
+        return result, max(gaps)
+    return asyncio.run(main())
+
+
+def _reads_reports_with(monkeypatch, read):
+    monkeypatch.setattr(ai, "config", lambda include_key=False, chat=False: {
+        "configured": True, "provider": "local", "sends_elsewhere": False, "api": "openai", "label": "Local", "model": "m",
+        "base_url": "http://x"})
+    sent = []
+
+    async def complete(client, cfg, system, messages, tools=None, max_tokens=4096):
+        sent.append(messages[0]["content"][0])
+        return ai.Reply(text='{"results": []}')
+    monkeypatch.setattr(ai, "_complete", complete)
+    monkeypatch.setattr(ai, "_pdf_text", read)
+    return sent
+
+
+def test_reading_a_reports_text_doesnt_hold_up_the_server(monkeypatch):
+    sent = _reads_reports_with(monkeypatch, lambda data: (time.sleep(0.6), "Ferritin 48 ng/mL")[1])
+    out, stall = longest_stall(lambda: ai.extract_lab_results(b"%PDF-1.4", "application/pdf", "r.pdf", None))
+    assert out["read_as"] == "text" and "Ferritin" in sent[0]["text"]
+    assert stall < 0.3, f"the event loop was held up for {stall:.2f}s"
+
+
+def test_a_report_whose_text_takes_too_long_is_sent_as_the_file(monkeypatch):
+    sent = _reads_reports_with(monkeypatch, lambda data: (time.sleep(0.5), "late")[1])
+    monkeypatch.setattr(ai, "PDF_TEXT_TIMEOUT_S", 0.05)
+    out = asyncio.run(ai.extract_lab_results(b"%PDF-1.4", "application/pdf", "r.pdf", None))
+    assert out["read_as"] == "document" and sent[0]["type"] == "pdf"
+
+
+def test_a_connection_test_on_a_server_that_refuses_the_limit_works(client, vendor):
+    _connect(client, "deepseek")
+    vendor.script += [(400, {"error": {"message": "Invalid max_tokens value"}}),
+                      (200, {"choices": [{"message": {"content": "", "tool_calls": [{"id": "c", "type": "function", "function": {"name": "get_health_summary", "arguments": "{}"}}]}}]}),
+                      (200, {"choices": [{"message": {"content": "OK"}}]})]
+    assert client.post("/api/ai/test").json()["tools"] is True
+    assert vendor.bodies[0]["max_tokens"] == 2000 and all("max_tokens" not in b for b in vendor.bodies[1:])
+
+
+def _shown_by_rescanning(raw):
+    """What 1.7.1 showed of a streamed reply, by looking at all of it again for each piece."""
+    import re
+    shown = re.sub(r"<think>.*?</think>", "", raw, flags=re.S)
+    shown = shown[:shown.index("<think>")] if "<think>" in shown else shown
+    for n in range(6, 0, -1):
+        if shown.endswith("<think>"[:n]):
+            shown = shown[:-n]
+            break
+    return shown.lstrip()
+
+
+@pytest.mark.parametrize("reply", ["Hello <think>secret</think> world", "  <think>a</think>\n Answer <thi", "a<think>b</thi",
+                                   "<<think>x</think>>", "x</think>y", "<think>a<think>b</think>c", "a<think>b</think>c<think>d",
+                                   "a <b> <th>ink</think>", "<think></think></think>done"])
+def test_reasoning_is_hidden_as_it_arrives_however_it_is_split(reply):
+    whole = _shown_by_rescanning(reply)
+    for size in (1, 2, 3, 5, 8):
+        visible = ai._Visible()
+        for end in range(size, len(reply) + size, size):
+            visible.add(reply[end - size:end])
+            # Never behind what was shown before, and never anything the whole reply doesn't show.
+            assert visible.sent.startswith(_shown_by_rescanning(reply[:end])) and whole.startswith(visible.sent), (reply, size, end)
+        assert visible.sent == whole
+
+
+def test_a_long_reasoning_costs_no_more_for_each_piece():
+    visible = ai._Visible()
+    started = time.process_time()
+    for piece in ["<think>", *["abcd"] * 16_000, "</think>", *["wxyz"] * 2_000]:
+        visible.add(piece)
+    assert visible.sent == "wxyz" * 2_000 and time.process_time() - started < 1.0
+
+
+def test_a_hosted_model_is_sent_only_so_much_for_one_question(client, vendor, monkeypatch):
+    _connect(client)
+    monkeypatch.setattr(ai, "QUESTION_RESULT_CHARS", 5_000)
+    budgets = []
+
+    def fake(name, args, profile, budget=ai.TOOL_RESULT_CHARS):
+        budgets.append(budget)
+        return "x" * budget, False
+    monkeypatch.setattr(ai, "_run_tool", fake)
+    two = _calls({"index": 0, "id": "a", "function": _fn("get_health_summary")}, {"index": 1, "id": "b", "function": _fn("get_goals")})
+    vendor.script += [two, [LOOKUP, "[DONE]"], _text("Done.")]
+    events = _chat(client)
+    assert budgets == [2_500, 2_500] and next(e for e in events if e["type"] == "answer")["text"] == "Done."
+    last = vendor.bodies[-1]["messages"][-1]
+    assert last["role"] == "tool" and json.loads(last["content"])["code"] == "no_room" and "as much as one question" in last["content"]
+    # The next question starts again.
+    vendor.script += [[LOOKUP, "[DONE]"], _text("Done.")]
+    _chat(client)
+    assert budgets[-1] == 5_000
+
+
+def test_no_server_name_is_looked_up_on_the_event_loop(client, monkeypatch):
+    import socket
+    on_loop = []
+
+    def lookup(host, *args, **kwargs):
+        try:
+            asyncio.get_running_loop()
+            on_loop.append(host)
+        except RuntimeError:
+            pass
+        raise socket.gaierror("no answer")          # a name that takes a while and then doesn't resolve
+    monkeypatch.setattr(ai_local.socket, "getaddrinfo", lookup)
+    r = client.put("/api/ai/config", json={"provider": "local", "base_url": "http://gpu.example.org:11434/v1", "model": "m",
+                                           "allow_public_http": True, "acknowledged": True})
+    assert r.status_code == 200 and r.json()["sends_elsewhere"]
+    me = client.get("/api/status").json()["account"]["profile_id"]
+    client.get("/api/ai/choices")
+    client.get("/api/ai/local/context")
+    client.post("/api/ai/test")
+    assert _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))[-1]["type"] == "done"
+    client.post("/api/labs/extract", files={"file": ("r.png", b"x", "image/png")}, data={"method": "ai", "profile_id": me})
+    assert on_loop == []
+
+
+def test_a_password_in_a_servers_address_is_refused(client):
+    r = client.put("/api/ai/config", json={"provider": "local", "base_url": "http://me:hunter2@192.168.1.5:11434", "model": "m"})
+    assert r.status_code == 400 and "key field" in r.json()["detail"]
+    assert client.post("/api/ai/local/check", json={"base_url": "me:hunter2@192.168.1.5:11434"}).status_code == 400
+    assert not settings.get("ai.base_url.local")
+
+
+def test_a_password_saved_in_an_address_before_is_shown_to_no_one_and_still_used(raw_client):
+    owner, maria, _ = _app_with_people(raw_client)
+    saved = "http://me:hunter2@127.0.0.1:9/v1"           # nothing listens on port 9
+    owner.put("/api/ai/config", json={"provider": "local", "base_url": "http://127.0.0.1:9/v1", "model": "m"})
+    settings.set("ai.base_url.local", saved)
+    for who in (owner, maria):
+        for chat in (False, True):
+            assert "hunter2" not in who.get("/api/ai/config", params={"chat": chat}).text
+        events = _events(who.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+        assert "Couldn't reach" in json.dumps(events) and "hunter2" not in json.dumps(events)
+    shown = owner.get("/api/ai/config").json()["base_url"]
+    assert shown == "http://***@127.0.0.1:9/v1"
+    # Saving the form as it's shown changes the model and keeps the address.
+    assert owner.put("/api/ai/config", json={"provider": "local", "base_url": shown, "model": "m2"}).status_code == 200
+    assert ai.config(include_key=True)["base_url"] == saved and ai.config()["model"] == "m2"
+
+
+def test_reading_a_report_with_an_outside_ai_says_whose_it_is(raw_client, vendor):
+    client, maria, maria_id = _app_with_people(raw_client)
+    _connect(client)                    # the uploader has agreed; Maria hasn't
+    r = client.post("/api/labs/extract", files={"file": ("r.png", b"x", "image/png")}, data={"method": "ai"})
+    assert r.status_code == 400 and "whose report" in r.json()["detail"] and vendor.bodies == []
+    with pytest.raises(ai.AIError, match="whose report"):
+        asyncio.run(ai.extract_lab_results(b"x", "image/png", "r.png", None))
+    assert vendor.bodies == []

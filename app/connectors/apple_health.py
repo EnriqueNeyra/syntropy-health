@@ -391,9 +391,14 @@ def iter_items(xml_stream: Any, read_file: Optional[Callable[[str], Optional[byt
             s = datetime.fromisoformat(start.replace("Z", "+00:00"))
             e = datetime.fromisoformat(end.replace("Z", "+00:00"))
             count("imported", rtype)
-            yield "sample", {"id": _sample_id(rtype, source, start, end, a["value"]), "metric_type": SLEEP_VALUES[a["value"]],
-                             "hk_identifier": rtype, "value": (e - s).total_seconds(), "unit": "seconds",
-                             "start_date": start, "end_date": end, "source_name": source, "device_name": source}
+            sample = {"id": _sample_id(rtype, source, start, end, a["value"]), "metric_type": SLEEP_VALUES[a["value"]],
+                      "hk_identifier": rtype, "value": (e - s).total_seconds(), "unit": "seconds",
+                      "start_date": start, "end_date": end, "source_name": source, "device_name": source}
+            # The zone the night was slept in, as for quantities: the export's dates are in the phone's zone when it was made.
+            offset = _record_offset(elem, start)
+            if offset is not None:
+                sample["tz_offset_min"] = offset
+            yield "sample", sample
         elif rtype in CATEGORY_TYPES:
             event_type, category, name = CATEGORY_TYPES[rtype]
             label = category_label(a.get("value", ""))

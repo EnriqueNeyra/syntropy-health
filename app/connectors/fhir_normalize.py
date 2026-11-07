@@ -469,6 +469,16 @@ def _interpretation(res: dict[str, Any], value: Optional[float], low: Optional[f
     return stated or computed
 
 
+# How far a flag is from normal, for the one a result with parts is given: its worst part's.
+FLAG_SEVERITY = {"normal": 1, "abnormal": 2, "high": 3, "low": 3, "critical": 4, "critical_high": 4, "critical_low": 4}
+
+
+def worst_flag(flags: Any) -> Optional[str]:
+    """The flag furthest from normal, the first of those as far; None when nothing was flagged."""
+    known = [f for f in flags if f in FLAG_SEVERITY]
+    return max(known, key=lambda f: FLAG_SEVERITY[f]) if known else None
+
+
 def _obs_category(res: dict[str, Any]) -> str:
     codes = set()
     for cat in res.get("category") or []:
@@ -534,7 +544,8 @@ def _read_value(src: dict[str, Any]) -> dict[str, Any]:
     elif "valueString" in src:
         text = src["valueString"]
         out["text"] = str(text) if text not in (None, "") else None
-        found = _NUMERIC_TEXT.match(out["text"] or "")
+        written = (out["text"] or "").strip()
+        found = _NUMERIC_TEXT.match(written) if len(written) <= 64 else None     # a number, never a page of text with spaces to try
         if found:
             out["num"] = float(found.group(2))
             out["comparator"] = {"≤": "<=", "≥": ">="}.get(found.group(1) or "", found.group(1))
@@ -644,8 +655,18 @@ _LIMIT_AFTER = re.compile(rf"^\s*{_NUMBER}\s*(\S+)?\s+or\s+(greater|higher|more|
 _USUAL_BAND = {"normal", "normal range", "reference", "reference range", "reference interval", "ref range", "range", "sufficient", "sufficiency",
                "optimal", "desirable", "adequate"}
 _BAND_SPLIT = re.compile(r"\s*(?:[;\n|]|,(?!\d))\s*")
-_BAND_FIRST = re.compile(r"^([a-z][a-z ]*?)\s*(?::|=|\s-\s|\s)\s*(?=[\d<>≤≥.=])(.+)$", re.I)
-_BAND_AFTER = re.compile(rf"^([\d<>≤≥.=].*?)\s*[(:-]?\s*\b({'|'.join(sorted(_USUAL_BAND, key=len, reverse=True))})\)?$", re.I)
+# On text from _range_words, where a space is never next to another, so no two parts of a pattern can share one: "Sufficient: 30-100",
+# "Normal - 30-100", "Optimal 30-80"; "30-100 (normal)", "30-100 ng/mL Optimal".
+_BAND_FIRST = re.compile(r"^([a-z]+(?: [a-z]+)*)(?: ?[:=] ?| - | )(?=[\d<>≤≥.=])(.+)$", re.I)
+_BAND_AFTER = re.compile(rf"^([\d<>≤≥.=].*?) ?(?:[(:-] ?)?\b({'|'.join(sorted(_USUAL_BAND, key=len, reverse=True))})\)?$", re.I)
+# Longer than any one range a lab writes. Text a source pads with thousands of spaces or digits is never put to a pattern whole.
+_RANGE_PIECE_MAX = 200
+
+
+def _range_words(text: str) -> str:
+    """Range text with each run of spaces made one space and each run of line breaks one line break: read this way before any
+    pattern sees it, as patterns that try each way of sharing a long run of spaces between them can take hours."""
+    return "\n".join(line for line in (" ".join(raw.split()) for raw in text.splitlines()) if line)
 
 
 def _plain_limits(text: str) -> str:
@@ -661,8 +682,10 @@ def _plain_limits(text: str) -> str:
 def _usual_band(text: str) -> Optional[str]:
     """The one band a lab's wording marks as the usual range, or None when it doesn't mark exactly one."""
     usual = []
-    for part in _BAND_SPLIT.split(text.strip()):
+    for part in _BAND_SPLIT.split(_range_words(text)):
         part = part.rstrip(".")
+        if len(part) > _RANGE_PIECE_MAX:
+            continue
         first, after = _BAND_FIRST.match(part), _BAND_AFTER.match(part)
         label, value = (first.group(1), first.group(2)) if first else (after.group(2), after.group(1)) if after else (None, None)
         if label and label.strip().lower() in _USUAL_BAND:
@@ -677,7 +700,8 @@ def _written_bounds(rr: dict[str, Any]) -> Optional[tuple[Optional[float], Optio
     text = rr.get("text")
     if not isinstance(text, str):
         return None
-    match = _WRITTEN_RANGE.match(_plain_limits(_usual_band(text) or text))
+    written = _usual_band(text) or _range_words(text)
+    match = _WRITTEN_RANGE.match(_plain_limits(written)) if len(written) <= _RANGE_PIECE_MAX else None
     if not match:
         return None
     if match.group(1):
@@ -752,6 +776,23 @@ def _range_unit(rr: dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _component_flag(comp: dict[str, Any], value: dict[str, Any], person: Optional[dict[str, Any]], when: Optional[str]) -> Optional[str]:
+    """A part's own flag, as the source gave it or from the part's own range, as a whole result's is found."""
+    chosen, _ = _choose_range([rr for rr in comp.get("referenceRange") or [] if isinstance(rr, dict)], person, when)
+    low = high = None
+    open_limit = False
+    if chosen:
+        low, high = _bounds(chosen)
+        range_unit = _range_unit(chosen)
+        written = _written_bounds(chosen) if low is None and high is None and value["num"] is not None else None
+        if written:
+            low, high, open_limit, written_unit = written
+            range_unit = written_unit or range_unit
+        if range_unit and units.unit_key(range_unit) not in (units.unit_key(value["unit"]), units.unit_key(value["convert_unit"])):
+            low = high = None       # another unit: nothing here converts a part's range
+    return _interpretation(comp, value["num"], low, high, value["comparator"], open_limit)
+
+
 def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] = None) -> Optional[dict[str, Any]]:
     """``person``: the patient's gender and birth_date when known, for choosing between ranges for different populations."""
     if (res.get("status") or "").lower() in ("entered-in-error", "cancelled"):
@@ -774,6 +815,9 @@ def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] 
                  "text": (c_value["text"] or concept_text(comp.get("dataAbsentReason")) or None) if c_value["num"] is None or c_value["comparator"] else None}
         if c_value["comparator"]:
             entry["comparator"] = c_value["comparator"]
+        flag = _component_flag(comp, c_value, person, rec["effective_at"])
+        if flag:
+            entry["interpretation"] = flag
         comps.append(entry)
 
     reported = _read_value(res)
@@ -838,6 +882,9 @@ def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] 
         "unit_norm": units.pretty_unit(unit_norm), "ref_low": ref_low, "ref_high": ref_high, "ref_text": ref_text,
         "interpretation": _interpretation(res, compare[0], compare[1], compare[2], comparator, open_limit),
     })
+    if rec["interpretation"] is None and not reported["present"]:
+        # A blood pressure flagged only on its systolic part is flagged: the parts are the result.
+        rec["interpretation"] = worst_flag(c.get("interpretation") for c in comps)
     details: dict[str, Any] = {"components": comps} if comps else {}
     if comparator:
         details["comparator"] = comparator
