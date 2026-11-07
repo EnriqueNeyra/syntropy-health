@@ -175,6 +175,10 @@ def _signed_in(agent_id: str, binary: str) -> Optional[bool]:
 
 
 _detected: tuple[float, list[dict[str, Any]]] = (0.0, [])
+# Looking starts each tool two or three times. One look at a time, and one asked for is skipped if the last was this recent.
+_detecting = threading.Lock()
+DETECT_FRESH_S = 60
+REFRESH_MIN_S = 10
 
 
 def last_detected() -> Optional[tuple[float, dict[str, Any]]]:
@@ -193,12 +197,23 @@ def available(agent_id: str) -> bool:
 
 def detect(refresh: bool = False) -> dict[str, Any]:
     """The agents installed here, whether each is signed in, and what using it means."""
-    global _detected
     if in_docker():
         return {"available": False, "reason": "Agents run on the computer itself, not inside Docker. Use the Mac or "
                 "Windows app, or run Syntropy Health without Docker, to use them.", "agents": []}
-    if not refresh and time.time() - _detected[0] < 60:
+
+    def recent() -> bool:
+        return time.time() - _detected[0] < (REFRESH_MIN_S if refresh else DETECT_FRESH_S)
+
+    if recent():
         return {"available": True, "agents": _detected[1]}
+    with _detecting:
+        if recent():            # someone else just looked
+            return {"available": True, "agents": _detected[1]}
+        return {"available": True, "agents": _look()}
+
+
+def _look() -> list[dict[str, Any]]:
+    global _detected
     agents = []
     for agent_id, spec in AGENTS.items():
         binary = find_binary(spec["binary"])
@@ -212,7 +227,7 @@ def detect(refresh: bool = False) -> dict[str, Any]:
             entry["signed_in"] = _signed_in(agent_id, binary)
         agents.append(entry)
     _detected = (time.time(), agents)
-    return {"available": True, "agents": agents}
+    return agents
 
 
 # ---------------------------------------------------------------------------
