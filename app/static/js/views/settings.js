@@ -31,6 +31,8 @@ const MODE_TEXT = {
   production: "Real patient portals — requires a production client ID approved by the vendor.",
 };
 
+/** The screens of a phone paired for someone else (a child's): the account's own choices aren't theirs to change. */
+const limited = () => Boolean(appState.status?.account?.limited);
 /** A phone's screens are signed in with its token, not a password: what can't be undone takes the password there. */
 const confirmsWithPassword = () => Boolean(appState.status?.account?.confirms_with_password);
 
@@ -136,16 +138,16 @@ export async function render({ el, parts, state, navigate }) {
     const pref = themePreference();
     const unitPref = unitPreference() || "";
     mount(body, html`<div class="stack">
-      ${section("Appearance", "", html`
+      ${embedded && limited() ? "" : section("Appearance", "", html`
         ${embedded ? "" : row("Theme", "System follows your device's light or dark setting.",
           html`<div class="segmented" role="group" aria-label="Theme">${[["system", "System"], ["light", "Light"], ["dark", "Dark"]].map(([k, name]) =>
             html`<button class="${k === pref ? "active" : ""}" data-action="theme" data-theme="${k}" aria-pressed="${k === pref}">${name}</button>`)}</div>`)}
-        ${row("Accent color", "Buttons, highlights and charts, on every device: here, the desktop app and the phone apps.",
+        ${limited() ? "" : row("Accent color", "Buttons, highlights and charts, on every device: here, the desktop app and the phone apps.",
           html`<div class="swatches" role="radiogroup" aria-label="Accent color">${ACCENTS.map(([k, name, light, dark]) => html`
             <button class="swatch ${k === currentAccent() ? "active" : ""}" role="radio" aria-checked="${k === currentAccent()}" data-action="accent"
               data-accent="${k}" title="${name}" aria-label="${name}" style="--sw:${light};--sw-dark:${dark}"></button>`)}</div>`)}`)}
       ${section("Region", "", html`
-        ${row("Units", html`How weight, height, distance, temperature and fluids are shown. Lab results keep the units the lab reported.`,
+        ${limited() ? "" : row("Units", html`How weight, height, distance, temperature and fluids are shown. Lab results keep the units the lab reported.`,
           html`<div class="segmented" role="group" aria-label="Units">${[["", `Automatic · ${regionSystem() === "us" ? "US" : "Metric"}`], ["metric", "Metric"], ["us", "US"]].map(([k, name]) =>
             html`<button class="${k === unitPref ? "active" : ""}" data-action="units" data-units="${k}" aria-pressed="${k === unitPref}">${name}</button>`)}</div>`)}
         ${row("Time zone", isOwner() ? "Wearable data is grouped into days in this time zone." : "Wearable data is grouped into days in this time zone, set by the server's owner.",
@@ -159,7 +161,7 @@ export async function render({ el, parts, state, navigate }) {
           html`<div class="input-unit"><input class="input" id="g-wear" aria-label="Hours between wearable fetches" data-save="wearable_interval_hours" type="number" min="0.5" step="0.5" value="${settings.sync.wearable_interval_hours}"><span>hours</span></div>`)}`) : ""}
       ${isOwner() ? section("Updates", "", html`<div id="upd-panel" class="upd-panel"><div class="skeleton" style="height:64px"></div></div>`, "upd-card") : ""}
       ${section("About", "", html`
-        ${row("Getting started", "Walk through connecting your other devices, your data and an AI again.",
+        ${limited() ? "" : row("Getting started", "Walk through connecting your other devices, your data and an AI again.",
           html`<button class="btn btn-sm" data-action="onboarding">Show the setup steps</button>`)}
         ${row("Version", "", html`<span class="mono">${settings.version}</span>`)}
         ${row("Source code", "Free and open source under the GNU AGPL-3.0.",

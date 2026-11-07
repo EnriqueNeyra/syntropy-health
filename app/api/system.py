@@ -91,7 +91,8 @@ def status(request: Request) -> dict:
         account = accounts.get(principal.account_id)
         out["account"] = _account_summary(account, principal)
         out["preferences"] = preferences(account)
-        out["onboarding"] = bool(account and account["onboarding"])
+        # The first-run steps are the account's: a phone paired for someone else couldn't finish them.
+        out["onboarding"] = bool(account and account["onboarding"]) and not principal.limited
         out["terms_accepted"] = terms_accepted(account)
         out["adult_age"] = settings.get("people.adult_age")
         out["developer_mode"] = settings.developer_mode()
@@ -139,6 +140,7 @@ def _accept_terms(account_id: Optional[str]) -> None:
 
 @router.post("/api/terms/accept")
 def accept_terms(principal: auth.Principal = Depends(auth.require_user_to_set_password)) -> dict:
+    auth.refuse_if_limited(principal)       # the account's own to accept, not a phone paired for someone else
     _accept_terms(principal.account_id)
     return {"ok": True}
 
@@ -209,10 +211,21 @@ class PreferencesRequest(BaseModel):
     units: Optional[str] = None     # "metric", "us", or "" to follow the device's region
 
 
-@router.put("/api/preferences")
-def put_preferences(req: PreferencesRequest, principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
+def _own_preferences(principal: auth.Principal) -> None:
+    """Display choices are the account's own. A phone paired for someone else (a child's phone a parent paired) reads
+    them, to show its person's data in the same units, but doesn't change them: not with its token, nor its screens."""
     if not principal.account_id:
         raise HTTPException(400, "Sign in to change your preferences.")
+    auth.refuse_if_limited(principal)
+    if principal.kind == "device":
+        account = accounts.get(principal.account_id)
+        if not account or account["profile_id"] != principal.profile_id:
+            raise HTTPException(403, "This phone sends someone else's data, so it doesn't change the preferences of whoever paired it.")
+
+
+@router.put("/api/preferences")
+def put_preferences(req: PreferencesRequest, principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
+    _own_preferences(principal)
     if req.accent is not None:
         if req.accent not in ACCENTS:
             raise HTTPException(400, f"Accent must be one of: {', '.join(ACCENTS)}.")
@@ -279,6 +292,7 @@ def setup(req: SetupRequest, request: Request, response: Response) -> dict:
 
 @router.post("/api/onboarding/done")
 def onboarding_done(principal: auth.Principal = Depends(auth.require_user)) -> dict:
+    auth.refuse_if_limited(principal)
     if principal.account_id:
         accounts.set_flags(principal.account_id, onboarding=False)
     return {"ok": True}
@@ -287,6 +301,7 @@ def onboarding_done(principal: auth.Principal = Depends(auth.require_user)) -> d
 @router.post("/api/onboarding/restart")
 def onboarding_restart(principal: auth.Principal = Depends(auth.require_user)) -> dict:
     """Settings → General: walk through other devices, data and AI again."""
+    auth.refuse_if_limited(principal)
     if principal.account_id:
         accounts.set_flags(principal.account_id, onboarding=True)
     return {"ok": True}
