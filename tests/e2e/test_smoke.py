@@ -209,10 +209,15 @@ def test_long_names_dont_widen_the_page(browser, fresh_server):
     name = "A" * 80
     r = s.ctx.request.post(f"{fresh_server.url}/api/profiles", data={"name": name, "relationship": "child"}, headers={"X-Requested-With": "syntropy"})
     assert r.ok
+    # A title with no spaces in it, as some files and portals name things.
+    title = "Discharge_Summary_20240301_final_version_scanned_copy.pdf"
+    lab = s.ctx.request.post(f"{fresh_server.url}/api/labs", headers={"X-Requested-With": "syntropy"}, data={
+        "profile_id": r.json()["id"], "collected": "2026-01-20", "results": [{"test": title, "value": 6.4, "unit": "mmol/L", "ref_low": 3.5, "ref_high": 5.1}]})
+    assert lab.ok, lab.text()
     page = s.open("#/settings/people")
     page.evaluate(f"localStorage.setItem('syntropy-profile', '{r.json()['id']}')")
     page.reload()
-    for hash_ in ("#/overview", "#/sources", "#/report", "#/settings/people", "#/settings/security"):
+    for hash_ in ("#/overview", "#/timeline", "#/records", "#/sources", "#/report", "#/settings/people", "#/settings/security"):
         page = s.open(hash_)
         widest = page.evaluate("""() => [...document.querySelectorAll('body *')]
           .filter((e) => e.getBoundingClientRect().right > innerWidth + 1 && !e.closest('.table-wrap, .truncate'))
@@ -222,6 +227,14 @@ def test_long_names_dont_widen_the_page(browser, fresh_server):
     page.set_viewport_size({"width": 320, "height": 700})
     _no_overflow(s.open("#/settings/general"))
     _no_overflow(s.open("#/report"))
+    page = s.open("#/timeline")
+    assert title in page.inner_text("#view")
+    _no_overflow(page)
+    # Its record, opened.
+    page.locator(".ev[data-action=open]").first.click()
+    page.wait_for_selector(".drawer .kv")
+    assert not page.evaluate("""() => [...document.querySelectorAll('.drawer *')].some((e) => e.getBoundingClientRect().right > innerWidth + 1
+      && !e.closest('.table-wrap, .truncate, pre, svg'))""")
     c.close()
     s.close()
 
