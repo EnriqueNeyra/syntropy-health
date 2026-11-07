@@ -1,6 +1,7 @@
 """Local models, other OpenAI-compatible services, models without tools, agents on this computer and MCP last calls."""
 
 import json
+import os
 import stat
 import sys
 import textwrap
@@ -252,3 +253,78 @@ def test_starting_an_agent_doesnt_hold_up_the_server(client, fake_tools, monkeyp
     events, stall = longest_stall(ask)
     assert events[-1] == {"type": "answer", "text": "People: Alex"}
     assert stall < 0.3, f"the event loop was held up for {stall:.2f}s"
+
+
+# What Gemini CLI 0.66 keeps of a session: a transcript and logs in ~/.gemini/tmp/<name>, a history folder, a
+# ".project_root" in each naming the working folder, and the name in ~/.gemini/projects.json.
+FAKE_GEMINI = """
+import json, os, sys, time
+args = sys.argv[1:]
+if "--help" in args:
+    print("--skip-trust --policy --output-format --allowed-mcp-server-names " + os.environ.get("FAKE_HELP", "")); sys.exit(0)
+json.dump({"args": args, "cwd": os.getcwd(), "settings": json.load(open(".gemini/settings.json"))}, open(os.environ["FAKE_LOG"], "w"))
+here = os.getcwd()
+base = os.path.join(os.environ["HOME"], ".gemini")
+name = os.path.basename(here).replace("_", "-")
+for sub in ("tmp", "history"):
+    os.makedirs(os.path.join(base, sub, name, "chats" if sub == "tmp" else "x"), exist_ok=True)
+    open(os.path.join(base, sub, name, ".project_root"), "w").write(here)
+open(os.path.join(base, "tmp", name, "chats", "session-1.jsonl"), "w").write('{"content": "What is my A1c?"}')
+registry = os.path.join(base, "projects.json")
+data = json.load(open(registry)) if os.path.exists(registry) else {"projects": {}}
+data["projects"][here] = name
+json.dump(data, open(registry, "w"))
+if os.environ.get("FAKE_SLOW"):
+    time.sleep(30)
+print(json.dumps({"type": "message", "role": "assistant", "content": "Your A1c was 5.4.", "delta": True}))
+print(json.dumps({"type": "result", "status": "success"}))
+"""
+
+
+@pytest.fixture
+def fake_gemini(fake_tools, tmp_path, monkeypatch):
+    path = tmp_path / "bin" / "gemini"
+    path.write_text(f"#!{sys.executable}\n{textwrap.dedent(FAKE_GEMINI)}")
+    path.chmod(path.stat().st_mode | stat.S_IEXEC)
+    home = tmp_path / "home"
+    gemini = home / ".gemini"
+    # Someone's own project, a question still being answered, and one from before this was fixed.
+    temp = os.path.realpath(ai_agents.tempfile.gettempdir())
+    live = ai_agents.tempfile.mkdtemp(prefix="syntropy-agent-")
+    projects = {"/Users/me/garden": "garden", os.path.realpath(live): "live", f"{temp}/syntropy-agent-old": "old"}
+    for root, name in projects.items():
+        for sub in ("tmp", "history"):
+            (gemini / sub / name).mkdir(parents=True)
+            (gemini / sub / name / ".project_root").write_text(root)
+    (gemini / "projects.json").write_text(json.dumps({"projects": projects}))
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("GEMINI_CLI_HOME", raising=False)
+    monkeypatch.setattr(ai_agents, "_help_cache", {})
+    yield gemini
+    os.rmdir(live)
+
+
+def _left(gemini):
+    return sorted(p.name for p in (gemini / "tmp").iterdir()), sorted(json.loads((gemini / "projects.json").read_text())["projects"].values())
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_gemini_cli_keeps_no_transcript_of_a_question(client, fake_gemini):
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "gemini", "acknowledged": True})
+    events = _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "What is my A1c?"}]}))
+    assert next(e for e in events if e["type"] == "answer")["text"] == "Your A1c was 5.4."
+    # This question's folder and the one left before are gone; someone's own project and a question being answered stay.
+    assert _left(fake_gemini) == (["garden", "live"], ["garden", "live"])
+    assert sorted(p.name for p in (fake_gemini / "history").iterdir()) == ["garden", "live"]
+    assert not (fake_gemini / "projects.json.lock").exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_gemini_cli_keeps_nothing_of_a_question_that_ran_out_of_time(client, fake_gemini, monkeypatch):
+    monkeypatch.setenv("FAKE_SLOW", "1")
+    monkeypatch.setattr(ai_agents, "RUN_TIMEOUT_S", 2)
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "gemini", "acknowledged": True})
+    started = time.monotonic()
+    events = _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "What is my A1c?"}]}))
+    assert events[0]["type"] == "error" and "took longer" in events[0]["message"] and time.monotonic() - started < 15
+    assert _left(fake_gemini) == (["garden", "live"], ["garden", "live"])

@@ -11,7 +11,10 @@ tool's own flow, as the vendors' terms require.
 from __future__ import annotations
 
 import asyncio
+import functools
+import hashlib
 import json
+import logging
 import os
 import re
 import shutil
@@ -26,6 +29,8 @@ from typing import Any, AsyncIterator, Optional
 from app import mcp_server
 from app.core import context
 from app.services.ai_local import in_docker
+
+log = logging.getLogger("syntropy.ai")
 
 SERVER = "syntropy"          # the MCP server's name inside the agent
 RUN_TIMEOUT_S = 300
@@ -301,6 +306,118 @@ def _gemini(binary: str, work: Path, mcp: dict[str, Any], model: Optional[str]) 
     return args
 
 
+# Gemini CLI has no switch to stop it keeping a transcript of each session (for 30 days, by default). It keeps them in
+# a folder of its own for each working folder: ~/.gemini/tmp/<name>/chats, beside that session's logs, with a history
+# folder in ~/.gemini/history/<name>. A ".project_root" file in each names the working folder, and ~/.gemini/projects.json
+# lists the names. Before version 0.2x the name was the working folder's SHA-256 and there was no ".project_root".
+WORK_PREFIX = "syntropy-agent-"
+
+
+def _gemini_dirs() -> list[Path]:
+    """Where Gemini CLI keeps what it writes: in ~/.gemini (or under GEMINI_CLI_HOME), or ~/.cache/.gemini when it runs
+    in the Mac's sandbox."""
+    home = Path(os.environ.get("GEMINI_CLI_HOME") or Path.home())
+    return [home / ".gemini", home / ".cache" / ".gemini"]
+
+
+def _same_path(path: str) -> str:
+    """A path as Gemini CLI compares them (it lowercases them on Windows)."""
+    return os.path.normcase(os.path.abspath(path))
+
+
+def _was_ours(project: str) -> bool:
+    """Whether Gemini CLI's folder was made for one of Syntropy's working folders that's been removed: the folder of a
+    question that has finished, here or before, and never one that's still being answered."""
+    temp = {_same_path(tempfile.gettempdir()), _same_path(os.path.realpath(tempfile.gettempdir()))}
+    path = _same_path(project)
+    return (os.path.dirname(path) in temp and os.path.basename(path).startswith(WORK_PREFIX)
+            and not os.path.exists(path))
+
+
+def _forget_gemini_runs(work: Path) -> None:
+    """Removes what Gemini CLI kept of this question and of any earlier one asked here: transcripts, logs and history,
+    and their entries in its list of folders."""
+    hashed = {hashlib.sha256(str(p).encode()).hexdigest() for p in (work, os.path.realpath(work))}
+    for base in _gemini_dirs():
+        for sub in ("tmp", "history"):
+            try:
+                folders = [f for f in (base / sub).iterdir() if f.is_dir()]
+            except OSError:
+                continue
+            for folder in folders:
+                try:
+                    project = (folder / ".project_root").read_text(encoding="utf-8").strip()
+                except OSError:
+                    project = None
+                if (project and _was_ours(project)) or (project is None and folder.name in hashed):
+                    shutil.rmtree(folder, ignore_errors=True)
+        _unlist(base / "projects.json")
+
+
+def _unlist(registry: Path) -> None:
+    """Takes Syntropy's finished folders out of Gemini CLI's list, under the same lock Gemini CLI takes (a folder named
+    after the file). If Gemini CLI holds it for longer than a moment, they stay listed: a name, nothing of the question."""
+    if not registry.exists():
+        return
+    lock = registry.with_name(registry.name + ".lock")
+    for _ in range(40):
+        try:
+            lock.mkdir()
+            break
+        except FileExistsError:
+            time.sleep(0.05)
+        except OSError:
+            return
+    else:
+        return
+    try:
+        data = json.loads(registry.read_text(encoding="utf-8"))
+        projects = data["projects"]
+        keep = {path: name for path, name in projects.items() if not _was_ours(path)}
+        if len(keep) < len(projects):
+            fresh = registry.with_name(f"{registry.name}.{os.getpid()}.syntropy.tmp")
+            fresh.write_text(json.dumps({**data, "projects": keep}, indent=2), encoding="utf-8")
+            os.replace(fresh, registry)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        pass
+    finally:
+        try:
+            lock.rmdir()
+        except OSError:
+            pass
+
+
+def _stop(proc: subprocess.Popen) -> None:
+    """Stops the tool and what it started. Gemini CLI answers in a copy of itself that it starts: asked to stop, it passes
+    that on, and on Windows, where it can't be asked, the whole tree is ended."""
+    if proc.poll() is not None:
+        return
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    else:
+        proc.terminate()
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def _finish(agent_id: str, proc: subprocess.Popen, work: Path) -> None:
+    """After a question, answered or not: the tool is stopped, then nothing it was given or wrote is left behind."""
+    _stop(proc)
+    shutil.rmtree(work, ignore_errors=True)
+    if agent_id == "gemini":
+        try:
+            _forget_gemini_runs(work)
+        except Exception:  # noqa: BLE001 - the answer stands; the log says what was left
+            log.warning("Couldn't remove what Gemini CLI kept of a question", exc_info=True)
+
+
 def _short_tool(name: str) -> str:
     """'mcp__syntropy__get_daily_metric' or 'syntropy__get_daily_metric' → 'get_daily_metric'."""
     return name.rsplit("__", 1)[-1]
@@ -377,7 +494,7 @@ def _start(agent_id: str, profile_id: str, system: str, turns: list[dict[str, An
     binary = find_binary(spec["binary"])
     if not binary:
         raise AgentError(f"{spec['label']} isn't installed on this computer. {spec['install']}")
-    work = Path(tempfile.mkdtemp(prefix="syntropy-agent-"))
+    work = Path(tempfile.mkdtemp(prefix=WORK_PREFIX))
     mcp = mcp_server.stdio_command(profile_id, actor=actor)
     prompt = system + AGENT_NOTE + "\n\n" + _transcript(turns)
     try:
@@ -402,12 +519,11 @@ def _start(agent_id: str, profile_id: str, system: str, turns: list[dict[str, An
     return proc, work, prompt
 
 
-def _stop_unused(starting: asyncio.Future) -> None:
+def _stop_unused(agent_id: str, starting: asyncio.Future) -> None:
     if starting.cancelled() or starting.exception() is not None:
         return
     proc, work, _ = starting.result()
-    proc.kill()
-    shutil.rmtree(work, ignore_errors=True)
+    threading.Thread(target=_finish, args=(agent_id, proc, work), daemon=True).start()
 
 
 async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str, Any]],
@@ -427,7 +543,8 @@ async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str,
     try:
         proc, work, prompt = await asyncio.shield(starting)
     except asyncio.CancelledError:
-        starting.add_done_callback(_stop_unused)       # the person stopped before it started: it's stopped once it has
+        # The person stopped before it started: it's stopped once it has.
+        starting.add_done_callback(functools.partial(_stop_unused, agent_id))
         raise
 
     # A thread reads the tool's output so this works on every event loop (Windows' default can't run subprocesses
@@ -483,6 +600,5 @@ async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str,
         raise AgentError(_signin_error(agent_id, detail) or
                          f"{spec['label']} stopped without an answer{f': {detail[:400]}' if detail else '.'}")
     finally:
-        if proc.poll() is None:
-            proc.kill()
-        shutil.rmtree(work, ignore_errors=True)
+        # In a thread, which finishes even if this is stopped again while it waits.
+        await asyncio.to_thread(_finish, agent_id, proc, work)
