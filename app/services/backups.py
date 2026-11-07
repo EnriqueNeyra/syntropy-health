@@ -933,7 +933,7 @@ def restore_in_server(app: Any, item: Staged, accept_key_problem: bool = False) 
     nothing is touching the database does the swap happen. If that can't be had, nothing has changed."""
     from app import main
     from app.core import data_fixes
-    from app.services import imports
+    from app.services import imports, updates
 
     if not item.report["key"]["ok"] and (not accept_key_problem or item.report["key"].get("blocking")):
         raise BackupProblem(item.report["key"]["message"])
@@ -954,6 +954,7 @@ def restore_in_server(app: Any, item: Staged, accept_key_problem: bool = False) 
             app.state.problem = None
             maintenance.start()
             data_fixes.start()
+            updates.now_working()
         except db.StartupProblem as exc:
             app.state.problem = str(exc)
         except (sqlite3.Error, OSError) as exc:

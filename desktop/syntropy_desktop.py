@@ -723,8 +723,12 @@ class DesktopApp:
         self.bring_up_own_server()
 
     def start_own_server(self) -> None:
+        import updater
+
         network_controller(self.request_lan)
         update_installer(self.updater())
+        # A problem got past later (the key unlocked with a password, a backup restored) is a new version that works.
+        when_working(lambda: updater.started_fine(self.data / "updates"))
         host = "0.0.0.0" if self.prefs.get("lan") else "127.0.0.1"
         saved = self.prefs.port()
         port = choose_port(saved)
@@ -1201,6 +1205,11 @@ def network_controller(fn: Optional[Callable[[bool], None]]) -> None:
 def update_installer(fn: Optional[Callable[[dict, bool], None]]) -> None:
     from app.services import updates
     updates.set_installer(fn)
+
+
+def when_working(fn: Optional[Callable[[], None]]) -> None:
+    from app.services import updates
+    updates.set_on_working(fn)
 
 
 def window_icon() -> dict[str, str]:

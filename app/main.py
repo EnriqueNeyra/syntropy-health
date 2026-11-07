@@ -293,6 +293,7 @@ def create_app() -> FastAPI:
             return HTMLResponse(_problem_page(str(exc), True), status_code=503)
         request.app.state.problem = None
         _begin_work(request.app)
+        await asyncio.to_thread(updates.now_working)      # an update that started with the key lost is no longer one to undo
         return RedirectResponse("/", status_code=303)
 
     @app.get("/api/openapi.json", include_in_schema=False)
