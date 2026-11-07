@@ -11,7 +11,7 @@ from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationError, field_validator
 
 from app.api.deps import check_access, phone_origin, request_origin, resolve_profile, visible_profile_ids
-from app.core import auth, config, context
+from app.core import auth, config, context, settings
 from app.core.uploads import UPLOAD_ENCODINGS
 from app.services import healthkit_import
 from app.store import accounts, activity, biometrics, connections, devices, sleep, training
@@ -481,7 +481,10 @@ def pairing_info(request: Request) -> dict:
             # Uploads may be compressed (health samples shrink about tenfold); older servers leave this out.
             "upload_encodings": list(UPLOAD_ENCODINGS),
             # The web app can run inside the iPhone app's native navigation (tab bar, title bars): companion mode.
-            "app_shell": 1}
+            "app_shell": 1,
+            # Which server this is, and that a paired phone can ask it to prove it (POST /api/devices/prove) before
+            # sending its token: another server at the same address can't.
+            "server_id": settings.server_id(), "device_proof": 1}
 
 
 class PairingCodeRequest(BaseModel):
@@ -525,7 +528,35 @@ def pair(req: PairRequest, request: Request) -> dict:
         _all_pair_failures.append(now)
         raise HTTPException(400, "That pairing code is invalid or has expired.")
     _pair_failures.pop(ip, None)
-    return {**result, "server_url": request_origin(request)}
+    return {**result, "server_url": request_origin(request), "server_id": settings.server_id()}
+
+
+class ProveRequest(BaseModel):
+    device_id: str = Field(..., max_length=200)
+    nonce: str = Field(..., min_length=16, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
+
+
+_prove_failures: dict[str, list[float]] = {}
+PROVE_WINDOW, PROVE_MAX_FAILURES = 900, 10
+
+
+@router.post("/api/devices/prove")
+def prove(req: ProveRequest, request: Request) -> dict:
+    """A paired phone checks it's talking to the server it paired with, before it sends its token: the answer is its
+    nonce signed with the hash of that token, which only this server keeps. Asks for no token itself. Phones this
+    server doesn't know get a 404, and an address asking about many of them is made to wait, as for pairing codes."""
+    ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    recent = [t for t in _prove_failures.get(ip, []) if now - t < PROVE_WINDOW]
+    if len(recent) >= PROVE_MAX_FAILURES:
+        raise HTTPException(429, "Too many attempts. Wait a few minutes and try again.")
+    signed = devices.proof(req.device_id, req.nonce)
+    if signed is None:
+        if len(_prove_failures) > 10000:
+            _prove_failures.clear()
+        _prove_failures[ip] = recent + [now]
+        raise HTTPException(404, "This phone isn't paired with this server.")
+    return {"server_id": settings.server_id(), "proof": signed}
 
 
 @router.post("/api/devices/web-session")

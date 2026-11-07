@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import time
 from typing import Any, Optional
 
@@ -95,6 +97,16 @@ def get_device(device_id: str) -> Optional[dict[str, Any]]:
     with read() as conn:
         row = conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
     return dict(row) if row else None
+
+
+def proof(device_id: str, nonce: str) -> Optional[str]:
+    """That this is the server the phone paired with: its nonce signed with what only this server keeps of its token
+    (the hash, which the phone works out from the token itself). None for a phone that isn't paired here."""
+    with read() as conn:
+        row = conn.execute("SELECT token_hash FROM devices WHERE id = ? AND revoked_at IS NULL", (device_id,)).fetchone()
+    if not row or not row["token_hash"]:
+        return None
+    return hmac.new(row["token_hash"].encode("utf-8"), nonce.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def revoke(device_id: str) -> None:
