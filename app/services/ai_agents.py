@@ -64,7 +64,8 @@ AGENTS: dict[str, dict[str, Any]] = {
         "usage": "Counts toward your Gemini CLI quota. Google recommends an AI Studio API key for apps like this; "
                  "that's the main Google option under Your own key.",
         "terms": "Questions fall under Google's terms for Gemini CLI and your Google account's data settings, not "
-                 "API terms.",
+                 "API terms. If you keep your own instructions for Gemini CLI (~/.gemini/GEMINI.md), current versions "
+                 "send them with every question too: Ask can't leave them out.",
     },
 }
 
@@ -252,6 +253,10 @@ def _claude(binary: str, work: Path, mcp: dict[str, Any], system: str, model: Op
         args += ["--permission-mode", "dontAsk"]    # anything not allowed above is refused, never asked
     if "--no-session-persistence" in help_text:
         args.append("--no-session-persistence")
+    if "--setting-sources" in help_text:
+        # Not the person's own settings, which hold their CLAUDE.md instructions (sent with every question otherwise)
+        # and hooks. Signing in doesn't depend on them. This empty folder has no project or local settings.
+        args += ["--setting-sources", "project,local"]
     if "--include-partial-messages" in help_text:
         args.append("--include-partial-messages")  # the answer as it's written, shown in Ask while it streams
     if model:
@@ -286,16 +291,24 @@ def _codex(binary: str, work: Path, mcp: dict[str, Any], model: Optional[str]) -
     return [*args, "-"]                          # the prompt comes on stdin
 
 
+NO_CONTEXT_FILE = "SYNTROPY-NO-CONTEXT.md"
+
+
 def _gemini(binary: str, work: Path, mcp: dict[str, Any], model: Optional[str]) -> list[str]:
     help_text = _help(binary)
     (work / ".gemini").mkdir()
-    (work / ".gemini/settings.json").write_text(json.dumps({"mcpServers": {SERVER: {**mcp, "trust": True}}}))
+    # A context file that doesn't exist, for the person's own GEMINI.md instructions. Versions that replace the name with
+    # this one leave them out; 0.66 adds it beside GEMINI.md and reads that anyway, so the terms say so.
+    (work / ".gemini/settings.json").write_text(json.dumps({"mcpServers": {SERVER: {**mcp, "trust": True}},
+                                                            "context": {"fileName": NO_CONTEXT_FILE}}))
     # Everything is refused except Syntropy's tools.
     (work / "policy.toml").write_text(f'[[rule]]\ntoolName = "*"\ndecision = "deny"\npriority = 1\n\n'
                                       f'[[rule]]\nmcpName = "{SERVER}"\ndecision = "allow"\npriority = 900\n')
     args = [*_command(binary), "-p", " ", "--output-format", "stream-json", "--allowed-mcp-server-names", SERVER]
     if "--skip-trust" in help_text:
         args.append("--skip-trust")
+    if "--extensions" in help_text:
+        args += ["--extensions", "none"]         # nor the context files, servers and hooks of the person's extensions
     # The policy is what limits it to Syntropy's read-only tools, so it doesn't run without one.
     if "--policy" not in help_text:
         raise AgentError("This version of Gemini CLI can't be limited to read-only lookups, so Ask won't run it. Update "
