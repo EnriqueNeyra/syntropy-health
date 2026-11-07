@@ -26,8 +26,9 @@ NAME = "records-renormalize-2"
 
 _DERIVED = ("category", "title", "code_system", "code", "code_display", "effective_at", "effective_end", "status", "value_num", "value_text",
             "unit", "value_norm", "unit_norm", "ref_low", "ref_high", "ref_text", "interpretation", "details_json", "narrative", "dedup_key")
-# Details added after normalization, from outside the resource.
-_KEPT_DETAILS = ("panel", "body_fingerprint", "body_stale", "result_refs")
+# Details added after normalization, from outside the resource: by the set it came in (panel, result_refs), or by a sync fetching a
+# note's or report's text from its link (body_fingerprint, body_stale, and full_text, a report's whole text beside its conclusion).
+_KEPT_DETAILS = ("panel", "body_fingerprint", "body_stale", "result_refs", "full_text")
 _NO_NAME = {fhir_normalize.UNNAMED_MEDICATION, "Medication"}
 
 
