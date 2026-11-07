@@ -618,6 +618,40 @@ def test_a_rebuild_finds_a_reading_from_the_far_side_of_the_world(client):
     assert _daily_all(profile) == {"2026-10-13": 70}
 
 
+def test_a_phone_says_where_each_sample_workout_and_event_happened(client):
+    """The contract the phones send to: tz_offset_min, minutes east of UTC, on samples, workouts and events."""
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    code = client.post("/api/devices/pairing-code", json={}).json()["code"]
+    phone = TestClient(client.app, base_url=BASE)
+    headers = {"X-Syntropy-Device-Token": phone.post("/api/devices/pair", json={"code": code, "device_name": "iPhone"}).json()["device_token"]}
+    wake_day = TODAY - timedelta(days=2)
+    bed = datetime(wake_day.year, wake_day.month, wake_day.day, tzinfo=timezone.utc) - timedelta(hours=10)    # 23:00 in Tokyo
+    stamp = lambda t: t.strftime("%Y-%m-%dT%H:%M:%SZ")
+    run = bed + timedelta(hours=9)          # 08:00 in Tokyo on the morning after, 19:00 the evening before in New York
+    workout = {"id": "W1", "name": "Running", "start": stamp(run), "end": stamp(run + timedelta(minutes=30)), "duration_s": 1800,
+               "source_name": "Apple Watch"}
+    event = {"id": "E1", "event_type": "headache", "category": "symptoms", "start": stamp(run), "source_name": "Health"}
+    batch = {"device_id": "ios-1", "device_name": "iPhone",
+             "samples": [_s("N1", "sleep_analysis_core", 8 * 3600, stamp(bed), stamp(bed + timedelta(hours=8)), unit="s", tz_offset_min=540),
+                         _s("S1", value=500, start=stamp(run), end=stamp(run + timedelta(minutes=30)), tz_offset_min=540)],
+             "workouts": [workout], "events": [event]}
+    r = phone.post("/api/ingest/wearables", json=batch, headers=headers).json()
+    assert (r["inserted"], r["workouts_inserted"], r["events_inserted"]) == (2, 1, 1)
+    night = sleep.nights(profile, days=10)["nights"][-1]
+    assert night["day"] == wake_day.isoformat() and "T23:00" in night["bed"]
+    assert _daily(profile, "step_count") == {wake_day.isoformat(): _daily(profile, "step_count")[wake_day.isoformat()]}
+    # A workout and an event stored before the phone said where they happened take it when they're sent again with it.
+    again = phone.post("/api/ingest/wearables", json={**batch, "samples": [], "workouts": [{**workout, "tz_offset_min": 540}],
+                                                      "events": [{**event, "tz_offset_min": 540}]}, headers=headers).json()
+    assert (again["workouts_updated"], again["events_updated"]) == (1, 1)
+    with read() as conn:
+        assert conn.execute("SELECT tz_offset_min FROM workouts WHERE id = 'W1'").fetchone()[0] == 540
+        assert conn.execute("SELECT tz_offset_min FROM health_events WHERE id = 'E1'").fetchone()[0] == 540
+    # An offset that can't be one gives way to the zone HealthKit kept with the reading.
+    assert biometrics.reading_offset({"tz_offset_min": 100000}, {"HKTimeZone": "Asia/Tokyo"}, "2026-10-12T10:00:00Z") == 540
+
+
 def test_oura_and_whoop_and_google_offsets_are_kept():
     oura_rows = oura.normalize({"sleep": [{"id": "s", "day": "2026-10-01", "type": "long_sleep", "bedtime_start": "2026-09-30T23:00:00+09:00",
                                            "bedtime_end": "2026-10-01T07:00:00+09:00", "total_sleep_duration": 25000}]})

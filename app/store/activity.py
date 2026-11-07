@@ -137,9 +137,10 @@ def store_workouts(profile_id: str, connection_id: Optional[str], workouts: Iter
                     # Whatever this send leaves out stays as stored, and a default filled in above isn't a change.
                     changes = {k: v for k, v in fresh.items() if v is not None and v != row[k]
                                and not (k == "name" and not w.get("name")) and not (k == "source_name" and not w.get("source_name"))}
-                    if changes:
-                        sets = ", ".join(f"{k} = ?" for k in changes)
-                        conn.execute(f"UPDATE workouts SET {sets}, tz_offset_min = COALESCE(?, tz_offset_min), updated_at = ? WHERE rowid = ?",
+                    # Where it happened, sent for a workout stored before the phone said: the day it belongs to can move.
+                    if changes or (offset is not None and offset != row["tz_offset_min"]):
+                        sets = "".join(f"{k} = ?, " for k in changes)
+                        conn.execute(f"UPDATE workouts SET {sets}tz_offset_min = COALESCE(?, tz_offset_min), updated_at = ? WHERE rowid = ?",
                                      (*changes.values(), offset, now, row["rowid"]))
                         updated += 1
                     continue
@@ -184,9 +185,9 @@ def store_events(profile_id: str, connection_id: Optional[str], events: Iterable
                     fresh = {"name": name if e.get("name") else None, "start_date": start, "end_date": end, "value": e.get("value"),
                              "value_label": e.get("value_label"), "metadata_json": metadata}
                     changes = {k: v for k, v in fresh.items() if v is not None and v != row[k]}
-                    if changes and not row["manual"]:
-                        sets = ", ".join(f"{k} = ?" for k in changes)
-                        conn.execute(f"UPDATE health_events SET {sets}, tz_offset_min = COALESCE(?, tz_offset_min), updated_at = ? WHERE rowid = ?",
+                    if (changes or (offset is not None and offset != row["tz_offset_min"])) and not row["manual"]:
+                        sets = "".join(f"{k} = ?, " for k in changes)
+                        conn.execute(f"UPDATE health_events SET {sets}tz_offset_min = COALESCE(?, tz_offset_min), updated_at = ? WHERE rowid = ?",
                                      (*changes.values(), offset, now, row["rowid"]))
                         updated += 1
                     continue
