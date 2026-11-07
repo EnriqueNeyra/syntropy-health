@@ -131,7 +131,8 @@ def _fix_fetch_again(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
 
 
 def _fix_rollups(conn: sqlite3.Connection, cursor: Any, size: int) -> Any:
-    """Everyone's daily numbers, under the rules of this DAILY_VERSION, a month at a time."""
+    """Everyone's daily numbers, under the rules of this DAILY_VERSION, a month at a time. Version 5 puts right a day whose
+    total was sent again from another time zone and counted twice."""
     if cursor is None:
         biometrics.queue_all_rebuilds(conn)
         return 1

@@ -10,7 +10,8 @@ A row that's a group of readings (an hour's or a day's steps) grows as the day g
 value replaces the last rather than adding to it. The iPhone app says which it's sending in the ``automation-aggregation``
 header. With no header, a row with no end date is taken to be a group, as Health Auto Export's are; rows with the same date in
 one request are then different readings, and are added together. A summed row at midnight alone on its date is then either a
-whole day or the first hour of one, which only what else arrives for that day can settle (see ``biometrics._rollup``). A plain
+whole day or the first hour of one, which only what else arrives for that day can settle (see ``biometrics._rollup``). A day's
+total sent again from another time zone replaces the first rather than adding to it, though it starts at another moment. A plain
 sample keeps its own identity, value included, so two entries at one moment both count. Aggregated sleep belongs to its day,
 wherever its start and end move.
 """
@@ -320,7 +321,9 @@ def _settle_groups(samples: list[dict[str, Any]], grain: str) -> list[dict[str, 
         at = biometrics.parse_ts(s["start_date"])
         alone = on_date[(s["metric_type"], s["source_name"], str(s["start_date"])[:10])] == 1
         if grain == "days":
-            s["metadata"] = {**(s.get("metadata") or {}), "daily_total": True}
+            # The day it was counted for, where it was counted. Sent again after a flight, the same day starts at another moment
+            # and so has another id; the day is what makes the new figure replace the old one rather than add to it.
+            s["metadata"] = {**(s.get("metadata") or {}), "daily_total": True, "day": at.date().isoformat()}
         elif not grain and alone and not at.hour and not at.minute:
             s["metadata"] = {**(s.get("metadata") or {}), "daily_total_if_alone": True}
     return out

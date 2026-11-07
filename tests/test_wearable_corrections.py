@@ -1450,6 +1450,32 @@ def test_the_automation_saying_days_makes_a_midnight_row_the_whole_days_whatever
     assert _daily(_profile(client), "step_count")[day]["value"] == 8000
 
 
+@pytest.mark.parametrize("headers", [{"automation-aggregation": "days"}, {}])
+def test_a_days_total_sent_again_from_another_time_zone_replaces_the_first(client, headers):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    day = (TODAY - timedelta(days=3)).isoformat()
+    # Exported in Los Angeles, then the same day again after flying to New York: the day starts three hours earlier.
+    for clock, qty in (("00:00:00 -0700", 9000), ("00:00:00 -0400", 8800)):
+        r = client.post("/api/ingest/healthkit-export", json=_export("step_count", "count", {"date": f"{day} {clock}", "qty": qty, "source": "Fit"}),
+                        headers=headers)
+        assert r.status_code == 200
+    assert _daily(profile, "step_count")[day]["value"] == 8800
+
+
+def test_a_day_counted_twice_before_is_put_right_by_the_upgrade(client):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    d = TODAY - timedelta(days=3)
+    with db() as conn:
+        for sid, value, start, offset, created in (("hx_la", 9000, _iso(d, "07:00:00"), -420, 1.0), ("hx_ny", 8800, _iso(d, "04:00:00"), -240, 2.0)):
+            conn.execute("INSERT INTO biometric_samples(id, profile_id, metric_type, value, unit, start_date, end_date, source_name, metadata_json, "
+                         "created_at, tz_offset_min) VALUES (?, ?, 'step_count', ?, 'count', ?, ?, 'Fit', ?, ?, ?)",
+                         (sid, profile, value, start, start, '{"daily_total":true}', created, offset))
+    biometrics.rebuild_daily(profile, [d.isoformat()])
+    assert _daily(profile, "step_count")[d.isoformat()]["value"] == 8800
+
+
 def _core(sample_id, start, end):
     return _s(sample_id, "sleep_analysis_core", (biometrics.parse_ts(end) - biometrics.parse_ts(start)).total_seconds(), start, end, unit="s")
 
