@@ -274,6 +274,34 @@ def test_steps_merge_watch_and_phone_like_apple_health(client):
     assert pts[-1]["value"] == 3000 and pts[-1]["source"] == "Combined"
 
 
+def test_entries_at_one_moment_from_two_apps_add_up(client):
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    assert client.put("/api/settings/general", json={"timezone": "UTC"}).status_code == 200
+    d = (datetime.now(timezone.utc).date() - timedelta(days=3)).isoformat()
+
+    def entry(i, metric, value, clock, source, unit):
+        return {"id": f"e{i}", "metric_type": metric, "value": value, "unit": unit, "start_date": f"{d}T{clock}:00Z",
+                "end_date": f"{d}T{clock}:00Z", "source_name": source}
+    biometrics.insert_samples(profile, None, [
+        entry(1, "dietary_water", 500, "08:00", "WaterMinder", "mL"), entry(2, "dietary_water", 750, "14:00", "MyFitnessPal", "mL"),
+        entry(3, "dietary_energy", 600, "08:00", "MyFitnessPal", "kcal"), entry(4, "dietary_energy", 900, "19:00", "Cronometer", "kcal")])
+    water = {p["day"]: p for p in biometrics.daily_series(profile, "dietary_water", days=10)["points"]}[d]
+    energy = {p["day"]: p for p in biometrics.daily_series(profile, "dietary_energy", days=10)["points"]}[d]
+    assert (water["value"], water["source"]) == (1250, "Combined")
+    assert (energy["value"], energy["source"]) == (1500, "Combined")
+
+
+def test_a_moment_inside_a_preferred_sources_interval_counts_once():
+    from app.store.biometrics import merge_interval_sources
+    rank = {"Watch": 0, "Phone": 1, "Log": 2}.get
+    items = [("2026-09-18T10:00:00Z", "2026-09-18T11:00:00Z", 1000, "Watch"),
+             ("2026-09-18T10:30:00Z", "2026-09-18T10:30:00Z", 400, "Log"),     # inside the Watch's hour: already counted
+             ("2026-09-18T11:00:00Z", "2026-09-18T11:00:00Z", 300, "Log"),     # the moment the Watch's hour ends: not inside it
+             ("2026-09-18T12:00:00Z", "2026-09-18T12:00:00Z", 200, "Phone"),   # nothing else then
+             ("2026-09-18T12:00:00Z", "2026-09-18T12:30:00Z", 100, "Log")]     # a moment covers no time, so this counts in full
+    assert merge_interval_sources(items, rank) == 1600
+
+
 def _night(profile, day, source, hours, i):
     end = datetime.fromisoformat(f"{day}T06:30:00+00:00")
     return {"id": f"n{i}-{source}", "metric_type": "sleep_analysis_core", "value": hours * 3600, "unit": "s",
