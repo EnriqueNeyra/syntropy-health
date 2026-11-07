@@ -227,7 +227,9 @@ def _vendor(provider: str, agent: Optional[str] = None, base_url: Optional[str] 
 
 def config(include_key: bool = False, chat: bool = False) -> dict[str, Any]:
     """The AI in use: the server's default, or with ``chat`` what this person's questions in Ask go to. That's the owner's
-    default unless they picked another for themselves. Only Ask reads a person's own pick: everything else uses the default."""
+    default unless they picked another for themselves. Only Ask reads a person's own pick: everything else uses the default.
+    Whether a server is on the home network may mean looking up its name, which can take seconds: on the event loop,
+    call this in a thread (``await asyncio.to_thread(config, ...)``)."""
     choice = _member_choice() if chat else None
     provider = (choice["provider"] if choice else settings.get("ai.provider")) or ""
     agent_id = (choice.get("agent") if choice else settings.get("ai.agent")) or None
@@ -567,7 +569,7 @@ def _group_vendor(provider: str, agent: Optional[str], base_url: Optional[str]) 
 async def choices() -> dict[str, Any]:
     """What Ask's model menu offers: every AI that's connected, grouped, with all of its models (the saved and recently
     used ones first), plus the one in use."""
-    cfg = config(chat=True)
+    cfg = await asyncio.to_thread(config, chat=True)
     groups: list[dict[str, Any]] = []
 
     def options(provider: str, listed: list[dict[str, Any]], pinned: list[str]) -> list[dict[str, Any]]:
@@ -587,7 +589,7 @@ async def choices() -> dict[str, Any]:
         _agents(),
     )
     if local["base_url"]:
-        private = ai_local.is_private_host(urlsplit(local["base_url"]).hostname or "")
+        private = await asyncio.to_thread(ai_local.is_private_host, urlsplit(local["base_url"]).hostname or "")
         groups.append({"id": "local", "kind": "local", "label": local["label"], "private": private, "reachable": bool(found),
                        **_group_vendor("local", None, local["base_url"]),
                        "options": options("local", found, [local["model"]] if not found else
@@ -1291,7 +1293,7 @@ async def _check_old_no_again(cfg: dict[str, Any]) -> None:
 
 
 async def test_connection() -> dict[str, Any]:
-    cfg = config(include_key=True)
+    cfg = await asyncio.to_thread(config, include_key=True)
     if not cfg.get("configured"):
         raise AIError("Finish setting up the assistant first.")
     started = time.time()
@@ -1720,12 +1722,12 @@ async def chat(profile_id: str, history: list[dict[str, Any]],
                expect: Optional[dict[str, Any]] = None) -> AsyncIterator[dict[str, Any]]:
     """Answers with the chosen AI, yielding progress events and finally the answer. With ``expect``, sends nothing if the
     AI in use isn't the one the page is showing."""
-    cfg = config(include_key=True, chat=True)
+    cfg = await asyncio.to_thread(config, include_key=True, chat=True)
     if not cfg.get("configured"):
         yield {"type": "error", "message": "Choose an AI for the assistant in Settings → AI first."}
         return
     if _changed_since_page_drew(expect, cfg):
-        yield {"type": "error", "code": "ai_changed", "config": config(chat=True),
+        yield {"type": "error", "code": "ai_changed", "config": await asyncio.to_thread(config, chat=True),
                "message": f"Ask now uses {_byline(cfg)}. Your question wasn't sent. Try again to send it there, or choose another AI."}
         return
     profile = next((p for p in profiles.list_profiles() if p["id"] == profile_id), None)
@@ -1857,7 +1859,7 @@ def _parse_json(text: str) -> dict[str, Any]:
 
 async def extract_lab_results(data: bytes, content_type: str, filename: str,
                               profile_id: Optional[str] = None) -> dict[str, Any]:
-    cfg = config(include_key=True)
+    cfg = await asyncio.to_thread(config, include_key=True)
     if not cfg.get("configured"):
         raise AIError("Reading reports uses your AI provider. Choose one in Settings → AI, or enter results by hand.")
     if cfg["provider"] == "agent":

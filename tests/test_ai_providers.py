@@ -1230,3 +1230,27 @@ def test_a_hosted_model_is_sent_only_so_much_for_one_question(client, vendor, mo
     vendor.script += [[LOOKUP, "[DONE]"], _text("Done.")]
     _chat(client)
     assert budgets[-1] == 5_000
+
+
+def test_no_server_name_is_looked_up_on_the_event_loop(client, monkeypatch):
+    import socket
+    on_loop = []
+
+    def lookup(host, *args, **kwargs):
+        try:
+            asyncio.get_running_loop()
+            on_loop.append(host)
+        except RuntimeError:
+            pass
+        raise socket.gaierror("no answer")          # a name that takes a while and then doesn't resolve
+    monkeypatch.setattr(ai_local.socket, "getaddrinfo", lookup)
+    r = client.put("/api/ai/config", json={"provider": "local", "base_url": "http://gpu.example.org:11434/v1", "model": "m",
+                                           "allow_public_http": True, "acknowledged": True})
+    assert r.status_code == 200 and r.json()["sends_elsewhere"]
+    me = client.get("/api/status").json()["account"]["profile_id"]
+    client.get("/api/ai/choices")
+    client.get("/api/ai/local/context")
+    client.post("/api/ai/test")
+    assert _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))[-1]["type"] == "done"
+    client.post("/api/labs/extract", files={"file": ("r.png", b"x", "image/png")}, data={"method": "ai", "profile_id": me})
+    assert on_loop == []

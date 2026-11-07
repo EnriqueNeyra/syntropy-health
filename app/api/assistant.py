@@ -145,7 +145,7 @@ async def check_local(req: LocalCheck) -> dict:
 @router.get("/api/ai/local/context")
 async def local_context() -> dict:
     """How much the local model in use has room for at once, for the warning in Settings."""
-    cfg = ai.config()
+    cfg = await run_in_threadpool(ai.config)        # it may look up the server's name
     if cfg.get("provider") != "local" or not cfg.get("configured"):
         return {"tokens": None}
     return await ai_local.context_info(cfg["base_url"], cfg["model"], ai.saved_key_for("local"))
