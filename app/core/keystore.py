@@ -23,6 +23,7 @@ import base64
 import json
 import logging
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -122,16 +123,20 @@ def _keychain_args() -> list[str]:
     return [chosen] if chosen else []
 
 
-def _keychain_read(account: Optional[str]) -> Optional[bytes]:
-    """None when there's no such item. Without an account, whichever this service finds first, for when key.json is gone."""
-    who = ["-a", account] if account else []
+def _keychain_tool(args: list[str]) -> subprocess.CompletedProcess:
     try:
-        done = subprocess.run([SECURITY_TOOL, "find-generic-password", "-s", KEYCHAIN_SERVICE, *who, "-w", *_keychain_args()],
-                              capture_output=True, text=True, timeout=_KEYCHAIN_WAIT_S, stdin=subprocess.DEVNULL)
+        return subprocess.run([SECURITY_TOOL, *args, *_keychain_args()], capture_output=True, text=True, errors="replace",
+                              timeout=_KEYCHAIN_WAIT_S, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired as exc:
         raise Unreachable("The Keychain didn't answer. It may be locked: unlock this Mac, then start Syntropy Health again.") from exc
     except OSError as exc:
         raise Unreachable(f"The Keychain didn't answer: {exc}") from exc
+
+
+def _keychain_read(account: Optional[str]) -> Optional[bytes]:
+    """None when there's no such item. Without an account, whichever this service finds first."""
+    who = ["-a", account] if account else []
+    done = _keychain_tool(["find-generic-password", "-s", KEYCHAIN_SERVICE, *who, "-w"])
     if done.returncode == _KEYCHAIN_NOT_FOUND:
         return None
     if done.returncode:
@@ -139,11 +144,43 @@ def _keychain_read(account: Optional[str]) -> Optional[bytes]:
     return decode_key(done.stdout.encode())
 
 
+def _folder_tag() -> Optional[str]:
+    """Which data folder an item is for, kept with it (as its "generic attribute") so that removing this folder's key removes
+    every one it ever had, and no other folder's: the desktop app, a server installed by script and a copy of the code each
+    have their own items under the one service name. None for a path the tool's input can't carry."""
+    folder = str(_data_dir().resolve())
+    return None if any(c in folder for c in '"\\') or not folder.isprintable() else folder
+
+
+_ATTRIBUTE = re.compile(r'^\s*"(acct|svce|gena)"<blob>=(?:"(.*)"|0x([0-9A-Fa-f]+)\b.*)$')
+
+
+def _keychain_items() -> list[dict[str, str]]:
+    """Every item of this service, by account and folder (see _folder_tag), from a listing of what the keychains hold. The
+    listing shows names, never the secrets, and asks nothing."""
+    done = _keychain_tool(["dump-keychain"])
+    if done.returncode:
+        raise Unreachable(f"The Keychain didn't answer: {done.stderr.strip()[:200]}")
+    items: list[dict[str, str]] = []
+    for line in done.stdout.splitlines():
+        if line.startswith("keychain:"):
+            items.append({})
+        elif items and (found := _ATTRIBUTE.match(line)):
+            name, text, hexed = found.groups()
+            try:
+                items[-1][name] = text if text is not None else bytes.fromhex(hexed).decode()
+            except (ValueError, UnicodeDecodeError):
+                pass
+    return [i for i in items if i.get("svce") == KEYCHAIN_SERVICE and i.get("acct")]
+
+
 def _keychain_write(account: str, key: bytes) -> None:
     """Through the tool's standard input, since anything on a command line can be seen by every program on the computer."""
     value = base64.urlsafe_b64encode(key).decode()
     keychain = " ".join(f'"{k}"' for k in _keychain_args())
-    command = (f'add-generic-password -U -s "{KEYCHAIN_SERVICE}" -a "{account}" -l "{KEYCHAIN_SERVICE}" '
+    folder = _folder_tag()
+    tag = f'-G "{folder}" ' if folder else ""
+    command = (f'add-generic-password -U -s "{KEYCHAIN_SERVICE}" -a "{account}" -l "{KEYCHAIN_SERVICE}" {tag}'
                f'-j "Opens this computer\'s Syntropy Health data. Deleting it can make that data unreadable." '
                f'-T "{SECURITY_TOOL}" -w "{value}" {keychain}\n')
     try:
@@ -154,12 +191,19 @@ def _keychain_write(account: str, key: bytes) -> None:
         raise CantSave(f"The Keychain didn't take it: {done.stderr.strip()[:200]}")
 
 
-def _keychain_delete(account: str) -> None:
+def _keychain_delete(match: list[str]) -> bool:
+    """One item matching, whichever is found first. Whether one was there to delete."""
     try:
-        subprocess.run([SECURITY_TOOL, "delete-generic-password", "-s", KEYCHAIN_SERVICE, "-a", account, *_keychain_args()],
-                       capture_output=True, timeout=_KEYCHAIN_WAIT_S, stdin=subprocess.DEVNULL)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        return not _keychain_tool(["delete-generic-password", "-s", KEYCHAIN_SERVICE, *match]).returncode
+    except Unreachable as exc:
         log.warning("Couldn't remove the key from the Keychain: %s", exc)
+        return False
+
+
+def _keychain_delete_all(match: list[str]) -> None:
+    for _ in range(1000):       # however many there are, but never for ever
+        if not _keychain_delete(match):
+            return
 
 
 # ---------------------------------------------------------------------------
@@ -227,18 +271,38 @@ def explicit_file() -> Optional[Path]:
 
 
 def from_store() -> Optional[bytes]:
-    """The key in the system's store, if that's where key.json says it is. Raises Unreachable if the store can't answer."""
+    """The key in the system's store, if that's where key.json says it is. Raises Unreachable if the store can't answer.
+
+    Only that one. The Keychain can hold others, left by a data folder deleted by hand or by an uninstall that kept them, and
+    a new database given one of those would have a key that nothing here names: backups would leave it out, and nothing could
+    open them anywhere else."""
     info = _read_info()
     store = info.get("store")
     if store == DPAPI:
         return _dpapi_read(info)
     if store == KEYCHAIN:
         return _keychain_read(info.get("account"))
-    # Without key.json (removed by hand, or lost with a partial copy) the Keychain may still hold it. The caller checks
-    # that it opens this database.
-    if not info and wanted_store() == KEYCHAIN:
-        return _keychain_read(None)
     return None
+
+
+def unrecorded() -> Iterator[tuple[str, bytes]]:
+    """Without key.json (removed by hand, or lost with a partial copy), the keys the Keychain holds for this app, by account:
+    one may be what opens the data here. This folder's first. Only for data that's already there, which the caller tries each
+    against, then records the one that opens it (``record``). Raises Unreachable."""
+    if _read_info() or wanted_store() != KEYCHAIN:
+        return
+    folder = _folder_tag()
+    items = sorted(_keychain_items(), key=lambda i: i.get("gena") != folder)
+    for account in dict.fromkeys(i["acct"] for i in items):
+        if key := _keychain_read(account):
+            yield account, key
+
+
+def record(account: str) -> None:
+    """key.json again, for a key found in the Keychain without it."""
+    info = _read_info()
+    info.update(version=1, store=KEYCHAIN, account=account)
+    _write_info(info)
 
 
 def store_of_record() -> Optional[str]:
@@ -259,6 +323,9 @@ def save_to_store(key: bytes) -> str:
             _keychain_write(account, key)
             if _keychain_read(account) != key:
                 raise CantSave("The Keychain didn't give the key back as it was saved.")
+            if info.get("store") == KEYCHAIN and info.get("account") and info["account"] != account:
+                # So that forgetting this folder's key finds the ones it had before, including those saved without a folder.
+                info["earlier_accounts"] = list(dict.fromkeys([*info.get("earlier_accounts", []), info["account"]]))[-50:]
             info.update(account=account)
         else:
             _dpapi_save(info, key)
@@ -274,10 +341,15 @@ def save_to_store(key: bytes) -> str:
 
 
 def forget() -> None:
-    """When the data is being deleted for good, the key goes too."""
+    """When the data is being deleted for good, the key goes too: every one this folder has had in the Keychain, including
+    those of a folder here before it that was deleted by hand. Other folders' are left alone."""
     info = _read_info()
-    if info.get("store") == KEYCHAIN and info.get("account"):
-        _keychain_delete(info["account"])
+    if info.get("store") == KEYCHAIN or wanted_store() == KEYCHAIN:
+        for account in dict.fromkeys([info.get("account"), *(info.get("earlier_accounts") or [])]):
+            if isinstance(account, str) and account:
+                _keychain_delete(["-a", account])
+        if folder := _folder_tag():
+            _keychain_delete_all(["-G", folder])
     _info_path().unlink(missing_ok=True)
 
 

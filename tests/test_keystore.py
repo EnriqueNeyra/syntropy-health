@@ -192,6 +192,79 @@ def test_forgetting_removes_it_from_the_keychain(keychain, tmp_path):
     assert not (tmp_path / "key.json").exists() and keystore._keychain_read(None) is None
 
 
+def _empty_the_folder(tmp_path: Path) -> None:
+    """As someone deleting the data folder to start again does: what's in the Keychain stays."""
+    _background_finished()
+    db.close_readers()
+    _fresh_start()
+    for entry in tmp_path.iterdir():
+        shutil.rmtree(entry) if entry.is_dir() else entry.unlink()
+
+
+@on_a_mac
+def test_starting_again_in_an_emptied_folder_makes_a_key_of_its_own_that_backups_carry(keychain, tmp_path):
+    """Not the one the Keychain kept from before, which nothing would name: backups left it out, and opened nowhere else."""
+    from app.services import backups
+    with _start() as c:
+        _set_up(c)
+    before = security.master_key()
+    _empty_the_folder(tmp_path)
+    with _start() as c:
+        _set_up(c)
+        made = backups.create(tmp_path / "out", passphrase="correct horse battery")
+    key = security.master_key()
+    assert key != before and keystore.store_of_record() == keystore.KEYCHAIN and keystore.from_store() == key
+    assert backups.key_source() == "file" and made["key"] == "included"
+    # Elsewhere, with none of this Keychain: the backup brings its key.
+    account = json.loads((tmp_path / "key.json").read_text())["account"]
+    assert keystore._keychain_delete(["-a", account])
+    db.close_readers()
+    _fresh_start()
+    item = backups.check(Path(made["path"]), "correct horse battery")
+    assert item.report["key"]["status"] == "included"
+    backups.discard(item.id)
+
+
+@on_a_mac
+def test_without_key_json_the_key_that_opens_the_data_is_found_among_others_and_recorded(keychain, tmp_path):
+    """As an install whose key.json went missing has it, including one that took a key left in the Keychain before this was
+    fixed: the next start finds which opens the data, whichever comes first, and names it again, so backups carry it."""
+    from app.services import backups
+    keystore._keychain_write("left-from-before", os.urandom(32))
+    with _start() as c:
+        _set_up(c)
+    key = security.master_key()
+    assert key != keystore._keychain_read("left-from-before")
+    account = json.loads((tmp_path / "key.json").read_text())["account"]
+    (tmp_path / "key.json").unlink()
+    _fresh_start()
+    assert backups.key_source() == "file"       # an encrypted database relies on a key, whatever names it
+    assert security.master_key() == key
+    assert json.loads((tmp_path / "key.json").read_text()) == {"version": 1, "store": keystore.KEYCHAIN, "account": account}
+    with _start():
+        assert backups.create(tmp_path / "out", passphrase="correct horse battery")["key"] == "included"
+
+
+@on_a_mac
+def test_forgetting_removes_every_key_this_folder_had_and_no_other_folders(keychain, tmp_path, monkeypatch):
+    with _start() as c:
+        _set_up(c)
+    first = json.loads((tmp_path / "key.json").read_text())["account"]
+    security.adopt_key(os.urandom(32))      # a backup's key: a second item
+    second = json.loads((tmp_path / "key.json").read_text())["account"]
+    other = tmp_path.parent / f"{tmp_path.name}-other"
+    with monkeypatch.context() as m:
+        m.setenv("SYNTROPY_DATA_DIR", str(other))
+        keystore._keychain_write("another-folders-key", os.urandom(32))
+    keystore._keychain_write("left-by-this-folder-before", os.urandom(32))
+    accounts = {i["acct"] for i in keystore._keychain_items()}
+    assert {first, second, "another-folders-key", "left-by-this-folder-before"} <= accounts
+    keystore.forget()
+    assert {i["acct"] for i in keystore._keychain_items()} == {"another-folders-key"}
+    assert not (tmp_path / "key.json").exists()
+    shutil.rmtree(other, ignore_errors=True)
+
+
 def test_a_keychain_that_will_not_answer_is_not_a_lost_key(monkeypatch, tmp_path):
     """Locked, or reached over SSH: nothing is made, nothing is changed, and it says what to do."""
     with _start() as c:
