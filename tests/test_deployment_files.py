@@ -230,6 +230,25 @@ def test_nothing_goes_unwatched_between_releases():
     assert "--ignore=tests/test_deployment_files.py" in _read(".github/workflows/docker-refresh.yml")
 
 
+def test_latest_moves_one_publish_at_a_time_and_only_to_what_was_tested():
+    """The weekly refresh publishes half an hour after its check. It used to take main's packaging again then, untested, and
+    could push the release it checked over a newer one that came out meanwhile."""
+    refresh = yaml.safe_load(_read(".github/workflows/docker-refresh.yml"))["jobs"]
+    release = yaml.safe_load(_read(".github/workflows/docker.yml"))["jobs"]["publish"]
+    assert refresh["publish"]["concurrency"]["group"] == "docker-latest"
+    assert release["concurrency"]["group"].startswith("${{ startsWith(github.ref, 'refs/tags/v') && 'docker-latest' ||")
+    assert refresh["check"]["outputs"]["main"] == "${{ steps.packaging.outputs.main }}"
+    steps = refresh["publish"]["steps"]
+    packaging = next(s for s in steps if "$PACKAGING" in s.get("run", ""))
+    assert packaging["env"]["MAIN"] == "${{ needs.check.outputs.main }}" and "origin main" not in packaging["run"]
+    current = next(i for i, s in enumerate(steps) if s.get("name") == "The release is still the latest")
+    assert "gh release view" in steps[current]["run"]
+    pushing = [i for i, s in enumerate(steps) if "login-action" in s.get("uses", "") or s.get("id") == "publish"
+               or "attest-build-provenance" in s.get("uses", "")]
+    assert len(pushing) == 3 and min(pushing) > current
+    assert all(steps[i]["if"] == "steps.current.outputs.latest == 'true'" for i in pushing)
+
+
 def test_what_runs_pull_requests_has_no_write_permissions():
     workflow = yaml.safe_load(_read(".github/workflows/docker.yml"))
     assert workflow["permissions"] == {"contents": "read"}
