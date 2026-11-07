@@ -593,6 +593,22 @@ def test_a_night_abroad_has_its_clock_times_from_there(client):
     assert night["day"] == wake_day.isoformat() and "T23:00" in night["bed"] and "T07:00" in night["wake"]
 
 
+def test_a_night_abroad_in_an_export_xml_has_its_clock_times_from_there(client):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    wake_day = TODAY - timedelta(days=2)
+    start = datetime(wake_day.year, wake_day.month, wake_day.day, tzinfo=timezone.utc) - timedelta(hours=10)    # 23:00 in Tokyo the night before
+    end = start + timedelta(hours=8)
+    # The export was made back home, so its dates are New York's: 10:00 to 18:00 the day before, which isn't the night.
+    stamp = lambda t: t.astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M:%S %z")
+    record = (f'<Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Watch" startDate="{stamp(start)}" endDate="{stamp(end)}" '
+              'value="HKCategoryValueSleepAnalysisAsleepCore"><MetadataEntry key="HKTimeZone" value="Asia/Tokyo"/></Record>')
+    assert _import(client, profile, _export_xml(record))["status"] == "completed"
+    night = sleep.nights(profile, days=10)["nights"][-1]
+    assert night["day"] == wake_day.isoformat() and "T23:00" in night["bed"] and "T07:00" in night["wake"]
+    assert _daily(profile, "sleep_duration") == {wake_day.isoformat(): _daily(profile, "sleep_duration")[wake_day.isoformat()]}
+
+
 def test_a_rebuild_finds_a_reading_from_the_far_side_of_the_world(client):
     profile = _profile(client)
     client.put("/api/settings/general", json={"timezone": "Pacific/Pago_Pago"})     # UTC-11
