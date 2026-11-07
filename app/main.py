@@ -273,8 +273,10 @@ def create_app() -> FastAPI:
         _can_unlock says so; otherwise there's nothing to unlock. The same guessing limits as signing in."""
         if not getattr(request.app.state, "problem", None):
             return Response(status_code=404)
-        origin = request.headers.get("origin")
-        if origin and origin.split("://")[-1] != request.headers.get("host"):     # another site's page posting a guess here
+        origin, host = request.headers.get("origin"), request.headers.get("host", "")
+        # Another site's page posting a guess here, including one whose own name it has pointed at this computer (DNS
+        # rebinding): its address and its origin agree, but the name isn't one of this computer's.
+        if (origin and origin.split("://")[-1] != host) or not network.is_local_name(host):
             return Response(status_code=403)
         try:
             auth.check_attempts(request, "unlock")
