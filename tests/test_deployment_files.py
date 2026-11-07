@@ -195,6 +195,18 @@ def test_actions_are_pinned_to_commits():
                 assert re.search(r"@[0-9a-f]{40}$", use), f"{workflow.name}: {use}"
 
 
+def test_every_test_that_needs_playwright_runs_in_the_browser_job():
+    """Only that job installs Playwright. A test that needs it anywhere but tests/e2e skips itself in every job, as the 52
+    tests of Ask in a browser once did, and the job fails rather than pass without it."""
+    uses_playwright = re.compile(r"^\s*(?:from|import) playwright\b|importorskip\(\s*[\"']playwright", re.M)
+    outside = [p.relative_to(ROOT).as_posix() for p in (ROOT / "tests").rglob("*.py")
+               if (ROOT / "tests" / "e2e") not in p.parents and uses_playwright.search(p.read_text(encoding="utf-8"))]
+    assert outside == []
+    runs = [s.get("run", "") for s in yaml.safe_load(_read(".github/workflows/ci.yml"))["jobs"]["browser"]["steps"]]
+    checked = next(i for i, run in enumerate(runs) if 'python -c "import playwright.sync_api"' in run)
+    assert checked < next(i for i, run in enumerate(runs) if "pytest -q tests/e2e" in run)
+
+
 def test_dependabot_moves_the_lock_and_the_base_image():
     updates = yaml.safe_load(_read(".github/dependabot.yml"))["updates"]
     ecosystems = {u["package-ecosystem"]: u for u in updates}

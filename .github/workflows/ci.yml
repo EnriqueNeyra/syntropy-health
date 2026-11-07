@@ -126,8 +126,9 @@ jobs:
         run: npm test
 
   browser:
-    # The web app in Chrome (the runner's own): first run, every page at each width and theme, the bridge the phone apps use,
-    # and an axe accessibility pass. axe-core is fetched here only, checked against its hash, and is never part of the app.
+    # The web app in Chrome (the runner's own): first run, every page at each width and theme, Ask, the bridge the phone
+    # apps use, and an axe accessibility pass. Every test that needs Playwright lives in tests/e2e, so it runs here.
+    # axe-core is fetched here only, checked against its hash, and is never part of the app.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -138,7 +139,8 @@ jobs:
         with:
           version: "0.11.15"      # the same in the Dockerfile and the installers
       - run: uv sync --frozen --python 3.12 --group dev --extra checks
-      # The tests skip themselves where there's no Chrome, which here would pass with nothing tested.
+      # The tests skip themselves where there's no Playwright or no Chrome, which here would pass with nothing tested.
+      - run: uv run --frozen --no-sync python -c "import playwright.sync_api"
       - run: google-chrome --version
       - name: Fetch axe-core
         run: |
