@@ -228,3 +228,81 @@ def test_reading_a_report_again_keeps_the_full_text_fetched_from_its_link():
     assert details["full_text"] == full
     assert {k: details.get(k) for k in ("body_fingerprint", "body_stale", "panel", "result_refs")} == \
         {"body_fingerprint": fn.body_fingerprint(res), "body_stale": True, "panel": "Imaging", "result_refs": ["Observation/x"]}
+
+
+# ---- Image files with many pages, or very large ones
+
+def _tiff(frames, size=(1000, 1000)):
+    import io
+
+    from PIL import Image
+
+    page = Image.new("L", size, 255)
+    buf = io.BytesIO()
+    page.save(buf, "TIFF", save_all=True, append_images=[page] * (frames - 1), compression="tiff_deflate")
+    return buf.getvalue()
+
+
+@pytest.fixture
+def decoded(monkeypatch):
+    """How many frames were decoded to colour."""
+    from PIL import Image
+
+    count = [0]
+    real = Image.Image.convert
+
+    def counting(self, *args, **kwargs):
+        count[0] += 1
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(Image.Image, "convert", counting)
+    return count
+
+
+def test_only_the_pages_read_of_a_long_tiff_are_decoded(decoded):
+    """A 300 KB TIFF of 200 blank pages was decoded whole, 3 MB a page, before all but 30 were dropped: 2,000 such pages took 3.5 GB."""
+    from app.services import lab_report
+
+    pages = lab_report._open_images(_tiff(200), "image/tiff")
+    assert len(pages) == lab_report.MAX_PAGES and decoded[0] == lab_report.MAX_PAGES
+
+
+def test_pages_declaring_more_pixels_than_can_be_kept_are_refused_before_decoding(decoded, monkeypatch):
+    from app.services import lab_report
+
+    monkeypatch.setattr(lab_report, "MAX_PIXELS", 3_500_000)
+    with pytest.raises(lab_report.ReportError, match="too large"):
+        lab_report._open_images(_tiff(5), "image/tiff")
+    assert decoded[0] == 3
+
+
+def test_a_heic_declaring_too_many_pixels_is_refused_before_decoding(monkeypatch):
+    import types
+
+    from app.services import lab_report
+
+    heif = types.SimpleNamespace(size=(40_000, 40_000), to_pillow=lambda: pytest.fail("decoded"))
+    monkeypatch.setitem(sys.modules, "pi_heif", types.SimpleNamespace(open_heif=lambda data: heif))
+    monkeypatch.setattr(lab_report, "_heic_from_macos", lambda data: None)
+    with pytest.raises(lab_report.ReportError, match="too large"):
+        lab_report._heic_to_jpeg(b"heic")
+
+
+@pytest.mark.parametrize("size", [(100, 12_000), (10, 100_000), (12_000, 100)])
+@pytest.mark.parametrize("used", ["tesseract", "vision"])
+def test_a_narrow_strip_isnt_widened_into_a_billion_pixels_for_ocr(monkeypatch, size, used):
+    """OCR reads a page at least 1,800 wide, which made a strip 10 pixels wide and 100,000 tall into 32 billion pixels."""
+    from PIL import Image
+
+    from app.services import lab_report
+
+    monkeypatch.setattr(lab_report, "PREPARED_PIXELS", 1_000_000, raising=False)
+    real = Image.Image.resize
+
+    def resize(self, target, *args, **kwargs):
+        assert target[0] * target[1] <= 1_000_000, f"resized to {target}"
+        return real(self, target, *args, **kwargs)
+
+    monkeypatch.setattr(Image.Image, "resize", resize)
+    prepared, _ = lab_report._prepare(Image.new("RGB", size, "white"), used)
+    assert prepared.width * prepared.height <= 1_000_000
