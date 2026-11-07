@@ -7,7 +7,9 @@ from __future__ import annotations
 import base64
 import difflib
 import io
+import itertools
 import logging
+import math
 import os
 import re
 import sys
@@ -29,6 +31,11 @@ OCR_WORKERS = 4
 PREVIEW_WIDTH = 1240        # sharp enough to check a decimal point against, small enough to send to a phone
 PREVIEW_QUALITY = 72
 LONGEST_SIDE = 2000.0       # a hostile page can declare any size: rendering is scaled down to fit within this many points
+# An image file's pages together, as they're kept while read: 30 pages scanned at 300 dpi fit, or a few of a phone's largest photos.
+# A file of a few MB can declare far more (a blank page compresses to almost nothing), and every pixel takes 3 bytes once decoded.
+MAX_PIXELS = 300_000_000
+PREPARED_PIXELS = 60_000_000    # one page made ready for OCR: a narrow strip widened to reading size mustn't become a billion
+TOO_LARGE = "That image is too large to read. Save it at a lower resolution, or as a PDF, and try again."
 MIN_TEXT = 40               # a page with less than this in its text layer is a scan
 STAMP_TEXT = 200            # with less than this and a picture over most of the page, likewise: a fax header on a scan
 HEIC_BRANDS = (b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1")
@@ -71,12 +78,18 @@ def _flatten(img: Any, reach: int = 15, blur: int = 25) -> Any:
     return ImageOps.autocontrast(ImageOps.invert(ImageChops.subtract(paper, img)), cutoff=1)
 
 
+def _fit(img: Any, width: int) -> tuple[int, int]:
+    """The size of ``img`` at ``width`` wide, or narrower where that would be over PREPARED_PIXELS."""
+    width = max(1, min(width, int((PREPARED_PIXELS * img.width / img.height) ** 0.5)))
+    return width, max(1, round(img.height * width / img.width))
+
+
 def _skew(img: Any) -> float:
     """The angle that lines the text rows up horizontally: rows of text and the gaps between them then give the
     most uneven row darkness."""
     from PIL import Image
 
-    small = img.resize((600, max(1, round(img.height * 600 / img.width)))).point(lambda v: 255 if v < 140 else 0)
+    small = img.resize(_fit(img, 600)).point(lambda v: 255 if v < 140 else 0)
 
     def unevenness(angle: float) -> float:
         rows = small.rotate(angle, expand=False, resample=Image.BILINEAR).resize((1, small.height), Image.BOX).tobytes()
@@ -92,7 +105,7 @@ def _prepare(image: Any, used: Optional[str]) -> tuple[Any, float]:
     from PIL import Image, ImageFilter, ImageOps
 
     def at_width(img: Any, width: int) -> Any:
-        return img.resize((width, round(img.height * width / img.width)), Image.LANCZOS)
+        return img.resize(_fit(img, width), Image.LANCZOS)
 
     img = ImageOps.grayscale(image)
     # Reads best at print resolution: enlarge small images, shrink huge ones so it stays quick.
@@ -105,6 +118,10 @@ def _prepare(image: Any, used: Optional[str]) -> tuple[Any, float]:
         img = _flatten(at_width(img, 2400).filter(ImageFilter.UnsharpMask(radius=3, percent=180, threshold=2)))
     if abs(angle) < 0.3:
         return img, 0.0
+    turn = math.radians(angle)
+    if (img.width * abs(math.cos(turn)) + img.height * abs(math.sin(turn))) * (img.width * abs(math.sin(turn)) + img.height * abs(math.cos(turn))) \
+            > PREPARED_PIXELS:
+        return img, 0.0     # a long strip turned even slightly needs a far bigger page around it, and isn't a page to straighten
     return img.rotate(angle, expand=True, fillcolor=255, resample=Image.BICUBIC), angle
 
 
@@ -152,9 +169,13 @@ def _heic_to_jpeg(data: bytes) -> bytes:
     try:
         import pi_heif
 
-        img = pi_heif.open_heif(data).to_pillow()
+        heif = pi_heif.open_heif(data)       # decoded only when its pixels are asked for, so its size can be checked first
+        width, height = heif.size
+        img = heif.to_pillow() if width * height <= MAX_PIXELS else None
     except Exception as exc:  # noqa: BLE001 - not installed, or a damaged or unusual file
         raise ReportError("Couldn't open that HEIC photo. Save it as JPEG or PNG and try again.") from exc
+    if img is None:
+        raise ReportError(TOO_LARGE)
     buf = io.BytesIO()
     img.convert("RGB").save(buf, "JPEG", quality=92)
     return buf.getvalue()
@@ -173,7 +194,14 @@ def _open_images(data: bytes, kind: str) -> list[Any]:
 
     try:
         img = Image.open(io.BytesIO(_heic_to_jpeg(data) if kind == "image/heic" else data))
-        return [ImageOps.exif_transpose(frame.convert("RGB")) for frame in ImageSequence.Iterator(img)][:MAX_PAGES]
+        pages, pixels = [], 0
+        # The pages kept, and no others, are decoded, each after its size (from the file's header) is known to fit with the rest.
+        for frame in itertools.islice(ImageSequence.Iterator(img), MAX_PAGES):
+            pixels += frame.width * frame.height
+            if pixels > MAX_PIXELS:
+                raise ReportError(TOO_LARGE)
+            pages.append(ImageOps.exif_transpose(frame.convert("RGB")))
+        return pages
     except ReportError:
         raise
     except Exception as exc:  # noqa: BLE001 - unusual and damaged files
