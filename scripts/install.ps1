@@ -11,7 +11,8 @@ For a background server with no app window, pass -Server:
 -Server installs uv (Astral's Python installer) if it's missing, Syntropy Health with its own Python, the
 syntropy-health command, and a task that starts the server when you sign in. Data lives in
 %LOCALAPPDATA%\Syntropy Health either way. Run it again to update: the server keeps the port and address it has.
-What it downloads from a release is checked against that release's SHA256SUMS first.
+What it downloads from a release is checked against that release's SHA256SUMS first. With -Server -Source,
+-Constraints <requirements file> installs its dependencies at the versions in that file (as `uv export` writes it).
 
 Options: -Server  -Port N (default: the port it has now, or 8000)  -NoService
          -Source <wheel, path, requirement, or setup .exe, as a path or address>  -Uninstall [-Purge]
@@ -20,6 +21,7 @@ param(
   [switch]$Server,
   [int]$Port = 0,
   [string]$Source = "",
+  [string]$Constraints = "",
   [switch]$NoService,
   [switch]$Uninstall,
   [switch]$Purge
@@ -177,6 +179,11 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 $Record = $Source
 $work = New-WorkFolder
 $pinned = @()
+if ($Constraints) {
+  if (-not $Source) { throw "-Constraints goes with -Source: a release brings its own." }
+  if (-not (Test-Path $Constraints)) { throw "There's no file at $Constraints." }
+  $pinned = @("--constraints", (Resolve-Path $Constraints).Path)
+}
 if (-not $Source) {
   $Record = "latest"
   $tag = Get-LatestTag

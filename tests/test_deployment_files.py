@@ -14,6 +14,7 @@ import yaml
 
 from app import cli
 from app.core import config, settings
+from tests.test_install_scripts import machine  # noqa: F401 - fixture
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
@@ -118,6 +119,32 @@ def test_ci_starts_the_sandbox_check_with_one_argument_per_setting(tmp_path):
     assert [a.removeprefix("--property=") for a in passed] == [line for line in unit.splitlines() if line.startswith((
         "User=", "NoNewPrivileges=", "Protect", "Private", "Restrict", "Lock", "Capability", "SystemCall", "ReadWritePaths="))]
     assert "--property=RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" in passed
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="a POSIX shell script")
+def test_an_install_from_source_can_take_the_lock(machine, tmp_path):
+    machine.has_uv()
+    lock = tmp_path / "requirements.txt"
+    lock.write_text("pillow==13.0.0\n")
+    done = machine.run("--source", "/some/own.whl", "--constraints", str(lock))
+    assert done.returncode == 0, done.stderr
+    install = next(line for line in machine.log.read_text().splitlines() if line.startswith("uv pip install"))
+    assert f"-c {lock}" in install and install.endswith("/some/own.whl")
+    done = machine.run("--constraints", str(lock))
+    assert done.returncode != 0 and "goes with --source" in done.stderr
+
+
+def test_ci_installs_what_it_builds_with_the_lock_as_a_release_does():
+    """--source alone resolves the wheel's ranges afresh. Each installer job passes the dependency list a release ships."""
+    exported = "uv export --frozen --no-dev --no-emit-project --no-header -o dist/"
+    assert exported + "Syntropy-Health-requirements.txt" in _read(".github/workflows/desktop.yml")
+    jobs = yaml.safe_load(_read(".github/workflows/ci.yml"))["jobs"]
+    for name in ("linux-install", "mac-install", "windows-install"):
+        runs = [s.get("run", "") for s in jobs[name]["steps"]]
+        assert exported + "requirements.txt" in runs, name
+        installs = [line for run in runs for line in run.splitlines() if re.search(r"install\.(sh|ps1) .*-(-s|S)ource ", line)]
+        assert installs and all(re.search(r" -(-c|C)onstraints dist/requirements\.txt\b", line) for line in installs), name
+    assert '$pinned = @("--constraints", (Resolve-Path $Constraints).Path)' in _read("scripts/install.ps1")
 
 
 def test_the_installers_fetch_a_fixed_uv():
