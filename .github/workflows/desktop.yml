@@ -62,7 +62,8 @@ jobs:
         with:
           version: "0.11.15"
           enable-cache: false      # the wheel is a release file; build it without a shared cache
-      - run: uv build --wheel -o dist .
+      # With the build backend pyproject.toml names, checked against its hashes.
+      - run: uv build --wheel --build-constraints .github/build-constraints.txt --require-hashes -o dist .
       # The exact dependencies the installers and `syntropy-health update` install with this wheel, what's in the wheel
       # and the apps, and the installers themselves, so that each release has its own.
       - name: The dependency list, SBOMs and installers

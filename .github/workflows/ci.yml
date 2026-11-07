@@ -160,7 +160,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.11.15"      # the same in the Dockerfile and the installers
-      - run: uv build --wheel -o dist .
+      - run: uv build --wheel --build-constraints .github/build-constraints.txt --require-hashes -o dist .
       # What a release installs with its wheel (desktop.yml's Syntropy-Health-requirements.txt): the installers take it
       # with --constraints, so these jobs install uv.lock's versions, checked against its hashes, as people do.
       - run: uv export --frozen --no-dev --no-emit-project --no-header -o dist/requirements.txt
@@ -236,7 +236,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.11.15"      # the same in the Dockerfile and the installers
-      - run: uv build --wheel -o dist .
+      - run: uv build --wheel --build-constraints .github/build-constraints.txt --require-hashes -o dist .
       # What a release installs with its wheel (desktop.yml's Syntropy-Health-requirements.txt): the installers take it
       # with --constraints, so these jobs install uv.lock's versions, checked against its hashes, as people do.
       - run: uv export --frozen --no-dev --no-emit-project --no-header -o dist/requirements.txt
@@ -260,7 +260,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.11.15"      # the same in the Dockerfile and the installers
-      - run: uv build --wheel -o dist .
+      - run: uv build --wheel --build-constraints .github/build-constraints.txt --require-hashes -o dist .
       # What a release installs with its wheel (desktop.yml's Syntropy-Health-requirements.txt): the installers take it
       # with --constraints, so these jobs install uv.lock's versions, checked against its hashes, as people do.
       - run: uv export --frozen --no-dev --no-emit-project --no-header -o dist/requirements.txt
