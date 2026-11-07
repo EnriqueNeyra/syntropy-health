@@ -249,6 +249,15 @@ def test_latest_moves_one_publish_at_a_time_and_only_to_what_was_tested():
     assert all(steps[i]["if"] == "steps.current.outputs.latest == 'true'" for i in pushing)
 
 
+def test_the_cla_check_rests_on_who_opened_the_pull_request():
+    """A commit's author is whatever its email says. A pull request whose commits claim the maintainer still needs its
+    opener's signature, and the maintainer's own, since the maintainer didn't open it."""
+    script = yaml.safe_load(_read(".github/workflows/cla.yml"))["jobs"]["cla"]["steps"][0]["with"]["script"]
+    assert "const opener = pr.user.login;" in script and "new Set([opener])" in script
+    assert "if (openedByExempt && exempt(login)) return true;" in script
+    assert script.count("MAINTAINERS.includes(login)") == 1
+
+
 def test_what_runs_pull_requests_has_no_write_permissions():
     workflow = yaml.safe_load(_read(".github/workflows/docker.yml"))
     assert workflow["permissions"] == {"contents": "read"}
