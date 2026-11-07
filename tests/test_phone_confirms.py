@@ -155,7 +155,7 @@ def test_where_sign_ins_go_takes_the_password_from_a_phone(client):
         assert r.status_code == 403 and "password" in r.json()["detail"], (path, r.status_code, r.text)
         assert phone.request(method, path, json={**body, "password": "not it"}).status_code == 403, path
     snapshot = client.get("/api/settings").json()
-    assert not (snapshot["wearables"]["oura"].get("relay_url") or "").startswith("https://relay.example.net")
+    assert not snapshot["wearables"]["oura"].get("relay_url")      # still the built-in relay: nothing of theirs was saved
     assert client.put("/api/settings/developer", json={"enabled": False}).status_code == 200     # a browser, as before
     r = phone.request("PUT", "/api/settings/developer", json={"enabled": True, "password": PASSPHRASE})
     assert r.status_code == 200, r.text
