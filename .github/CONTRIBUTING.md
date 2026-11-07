@@ -84,7 +84,7 @@ Add an entry under **Unreleased** in [CHANGELOG.md](../CHANGELOG.md).
 | Release | a `v*` tag; changes under `desktop/` | builds and checks the Mac and Windows apps; a tag also runs CI and publishes the release |
 | Tag release | a change to `APP_VERSION` merged into main | tags that version, which starts Release |
 | CodeQL | pushes to main, pull requests, weekly | security scanning (public repository only) |
-| CLA | pull requests | checks everyone with commits in it has signed the CLA |
+| CLA | pull requests | checks that whoever opened it, and everyone with commits in it, has signed the CLA (the maintainer and bots need not, in pull requests they opened) |
 
 Pull requests into main need **CI passed** (every CI job succeeded), **image** and **CLA**.
 
