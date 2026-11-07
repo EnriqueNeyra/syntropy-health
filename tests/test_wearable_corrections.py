@@ -946,6 +946,62 @@ def test_a_phone_can_say_what_was_deleted_for_its_own_person_only(client):
     assert sample_counts.for_profile(alex) == 1
 
 
+HC_RECORD = "hc-5f2b1c3e-9a7d-4e21-8b3f-0c6d2e4a1b97"
+
+
+def _stage(index, metric, start_h, end_h, d, record=HC_RECORD):
+    return _s(f"{record}-{index}", metric, (end_h - start_h) * 3600, _iso(d, f"{start_h:02d}:00:00"), _iso(d, f"{end_h:02d}:00:00"),
+              source="Samsung Health", unit="s")
+
+
+def test_a_stage_relabelled_on_the_phone_moves_to_its_new_kind(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = TODAY - timedelta(days=3)
+    biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_core", 1, 3, d), _stage(1, "sleep_analysis_core", 3, 4, d)])
+    r = biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_deep", 1, 3, d), _stage(1, "sleep_analysis_core", 3, 4, d)])
+    assert (r["updated"], r["duplicates"]) == (1, 1)
+    assert _daily(profile, "sleep_deep")[d.isoformat()]["value"] == 2
+    assert _daily(profile, "sleep_core")[d.isoformat()]["value"] == 1
+    assert _daily(profile, "sleep_duration")[d.isoformat()]["value"] == 3
+
+
+def test_a_night_edited_to_fewer_stages_leaves_none_of_the_old_ones_behind(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = TODAY - timedelta(days=3)
+    biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_core", 1, 3, d), _stage(1, "sleep_analysis_deep", 3, 4, d),
+                                              _stage(2, "sleep_analysis_rem", 4, 5, d), _stage(3, "sleep_analysis_core", 5, 7, d)])
+    # Edited on the phone: the deep stretch went, and the stages after it moved up one. Stage 3 isn't sent any more.
+    r = biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_core", 1, 4, d), _stage(1, "sleep_analysis_rem", 4, 5, d),
+                                                  _stage(2, "sleep_analysis_core", 5, 7, d)])
+    assert r["removed"] == 1
+    assert {s["id"] for s in biometrics.recent_samples(profile)} == {f"{HC_RECORD}-{i}" for i in range(3)}
+    assert d.isoformat() not in _daily(profile, "sleep_deep")
+    assert _daily(profile, "sleep_duration")[d.isoformat()]["value"] == 6
+    assert _daily(profile, "sleep_core")[d.isoformat()]["value"] == 5
+
+
+def test_a_record_split_between_two_uploads_keeps_both_halves(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = TODAY - timedelta(days=3)
+    stages = [_stage(i, "sleep_analysis_core", i, i + 1, d) for i in range(6)]
+    for _ in range(2):      # a first send, then the record sent again, each time split three and three
+        biometrics.insert_samples(profile, None, stages[:3])
+        biometrics.insert_samples(profile, None, stages[3:])
+        assert len(biometrics.recent_samples(profile)) == 6
+    assert _daily(profile, "sleep_duration")[d.isoformat()]["value"] == 6
+    # Other records, and the same record for someone else, aren't touched.
+    jordan = client.post("/api/profiles", json={"name": "Jordan", "relationship": "partner"}).json()["id"]
+    other = "hc-0b1c2d3e-4f50-4a61-8b72-9c8d7e6f5a4b"
+    biometrics.insert_samples(jordan, None, stages[:4])
+    biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_core", 13, 14, d, other), _stage(1, "sleep_analysis_core", 14, 15, d, other)])
+    biometrics.insert_samples(profile, None, [_stage(0, "sleep_analysis_core", 0, 1, d)])
+    assert len(biometrics.recent_samples(profile)) == 3
+    assert len(biometrics.recent_samples(jordan)) == 4
+
+
 # ---------------------------------------------------------------------------
 # What can't be true (F051)
 # ---------------------------------------------------------------------------
