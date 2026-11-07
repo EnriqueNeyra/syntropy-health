@@ -227,6 +227,7 @@ class Server:
         deadline = time.time() + START_WAIT
         while time.time() < deadline and self.thread.is_alive():
             if self.server.started:
+                self.note_serving()
                 return
             time.sleep(0.1)
         if self.thread.is_alive():
@@ -237,6 +238,14 @@ class Server:
     def running(self) -> bool:
         return bool(self.thread and self.thread.is_alive())
 
+    def note_serving(self) -> None:
+        """As `syntropy-health serve` does, so that `syntropy-health restore` knows not to replace the database under it."""
+        from app import cli
+        try:
+            cli.note_serving(self.port)
+        except OSError as exc:
+            log.warning("Couldn't note that the server is running: %s", exc)
+
     def stop(self) -> bool:
         """Whether the server has really finished: until then its scheduler and announcements are still its own, and a
         new server started beside it would share them and leave none when this one ended."""
@@ -244,6 +253,9 @@ class Server:
             self.server.should_exit = True
         if self.thread:
             self.thread.join(STOP_WAIT)
+        if not self.running:
+            from app import cli
+            cli.note_stopped()
         return not self.running
 
     def restart(self, host: str) -> None:

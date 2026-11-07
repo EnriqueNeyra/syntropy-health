@@ -878,6 +878,57 @@ def test_another_program_using_the_database_stops_a_restore_in_the_server(client
     assert client.get("/api/profiles").status_code == 200
 
 
+_HOLDER = """
+import sys
+from app.core import db
+from app.core.sqlite import sqlite3
+conn = sqlite3.connect(sys.argv[1], isolation_level=None)
+db.use_key(conn, sys.argv[2])
+conn.execute("SELECT COUNT(*) FROM t").fetchone()
+print("open", flush=True)
+sys.stdin.read()
+"""
+
+
+def test_a_program_holding_the_database_stops_a_restore_when_it_can_not_be_read_here(tmp_path):
+    """The command line without the key (a Keychain locked over SSH, say) can't read an encrypted database, and SQLite asks for
+    its lock only after reading: the desktop app holding the file looked like nothing at all, and a restore went ahead under it."""
+    from app.core.sqlite import HAS_ENCRYPTION, sqlite3 as cipher
+    if not HAS_ENCRYPTION:
+        pytest.skip("needs sqlcipher3")
+    import subprocess
+    path, key = config.db_path(), "x'" + "11" * 32 + "'"
+    conn = cipher.connect(str(path), isolation_level=None)
+    db.use_key(conn, key)
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("CREATE TABLE t(x)")
+    conn.close()
+    assert db.is_encrypted(path)
+    with pytest.raises(db.StartupProblem):      # no key here
+        security.master_key()
+    holder = subprocess.Popen([sys.executable, "-c", _HOLDER, str(path), key], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              text=True, cwd=config.REPO_ROOT, env={**os.environ, "PYTHONPATH": str(config.REPO_ROOT)})
+    try:
+        assert holder.stdout.readline().strip() == "open"
+        assert "Another program is using the database" in (backups.in_use_elsewhere() or "")
+    finally:
+        holder.communicate("", timeout=30)
+    assert backups.in_use_elsewhere() is None       # let go: a damaged or unopenable file can still be restored over
+    cli._pid_file().write_text(f"{os.getpid()} 8123")      # the desktop app says it's serving, as `serve` does
+    try:
+        assert cli._running_port() == 8123
+    finally:
+        cli.note_stopped()
+    assert not cli._pid_file().exists()
+
+
+def test_a_system_lock_that_can_not_be_asked_about_stops_a_restore(tmp_path, monkeypatch):
+    config.db_path().write_bytes(os.urandom(8192))       # can't be read: no key, or damage
+    monkeypatch.setattr(backups, "_locked_by_another_program", lambda path: (_ for _ in ()).throw(OSError(errno.ENOLCK, "No locks")))
+    said = backups.in_use_elsewhere()
+    assert said and "couldn't tell" in said and "No locks" in said
+
+
 def test_while_restoring_everything_else_is_told_to_wait(client, monkeypatch):
     raw = client.get(client.post("/api/backups", json={"passphrase": SECRET}).json()["download"]).content
     report = _check(client, raw).json()

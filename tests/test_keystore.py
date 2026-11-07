@@ -564,6 +564,50 @@ def test_a_backup_brings_the_key_back_when_the_store_is_gone(dpapi, tmp_path, mo
     assert db.opens(config.db_path(), security.database_key())
 
 
+def test_a_restore_waits_for_a_store_that_can_not_answer_and_changes_nothing(tmp_path, monkeypatch):
+    """A locked Keychain looked like no key at all: the restore went ahead, and the keys kept from before were replaced by
+    an empty list."""
+    from app.services import backups
+    held: dict[str, bytes] = {}
+    monkeypatch.setenv("SYNTROPY_KEY_STORE", keystore.KEYCHAIN)
+    monkeypatch.setattr(keystore, "_keychain_write", lambda account, key: held.__setitem__(account, key))
+    monkeypatch.setattr(keystore, "_keychain_read", lambda account: held.get(account))
+    with _start() as c:
+        _set_up(c)
+        made = backups.create(tmp_path / "out", passphrase="correct horse battery")
+    security.adopt_key(os.urandom(32))       # so there's a list of earlier keys to lose
+    db.close_readers()
+    item = backups.check(Path(made["path"]), "correct horse battery")
+    before = {f: (tmp_path / f).read_bytes() for f in ("key.json", "syntropy.db")}
+
+    def locked(account):
+        raise keystore.Unreachable("User interaction is not allowed.")
+    monkeypatch.setattr(keystore, "_keychain_read", locked)
+    with pytest.raises(backups.BackupProblem) as caught:
+        backups.apply(item)
+    assert "Unlock" in str(caught.value) and "wasn't restored" in str(caught.value)
+    assert {f: (tmp_path / f).read_bytes() for f in before} == before
+    with pytest.raises(keystore.Unreachable):
+        security.adopt_key(os.urandom(32))
+    assert (tmp_path / "key.json").read_bytes() == before["key.json"]
+    backups.discard(item.id)
+
+
+def test_a_key_brought_back_with_a_password_keeps_the_keys_it_had_replaced(dpapi, tmp_path, monkeypatch):
+    """The store has lost the key, so nothing says what it was: the list of keys it had replaced, which copies kept from
+    before still need, was replaced by an empty one."""
+    with _start() as c:
+        _set_up(c)
+    first = security.master_key()
+    second = os.urandom(32)
+    security.adopt_key(second)      # a backup's key, as restoring one brings
+    assert security._retired_keys(second) == [first]
+    _lose_the_store(tmp_path, monkeypatch)
+    assert security.existing_key() is None
+    security.adopt_key(second)      # as security.recover_key does with it
+    assert security._retired_keys(second) == [first]
+
+
 def test_restoring_on_a_computer_with_a_store_puts_the_key_there(dpapi, tmp_path, monkeypatch):
     from app.services import backups
     with monkeypatch.context() as m:

@@ -117,7 +117,7 @@ def _find_key(path: Path) -> bytes:
         if not unreachable and (left := _left_in_store(database)):
             return left
         if unreachable:
-            raise db.StartupProblem("key_locked", _locked_text(unreachable))
+            raise db.StartupProblem("key_locked", locked_text(unreachable))
         if damaged:
             raise damaged
         raise db.StartupProblem("key", f"Your records are encrypted, and the key that opens them isn't on this computer, or the "
@@ -125,7 +125,7 @@ def _find_key(path: Path) -> bytes:
     if found:
         return found[0]
     if unreachable:
-        raise db.StartupProblem("key_locked", _locked_text(unreachable))
+        raise db.StartupProblem("key_locked", locked_text(unreachable))
     if damaged:
         raise damaged
     if _stored_secrets():
@@ -148,11 +148,11 @@ def _left_in_store(database: Path) -> Optional[bytes]:
                 keystore.record(account)
                 return key
     except keystore.Unreachable as exc:
-        raise db.StartupProblem("key_locked", _locked_text(exc)) from exc
+        raise db.StartupProblem("key_locked", locked_text(exc)) from exc
     return None
 
 
-def _locked_text(exc: Exception) -> str:
+def locked_text(exc: Exception) -> str:
     return (f"Syntropy Health can't reach its encryption key right now: {exc}. Unlock your keychain, or sign in to this computer "
             "(rather than connecting from elsewhere), and try again. Nothing has been changed.")
 
@@ -273,13 +273,18 @@ def _retired_keys(key: bytes) -> list[bytes]:
     """Keys replaced when a backup brought its own. Copies kept from before (pre-restore/) still need them, and a crash
     partway through a restore can leave the old database with the new key. Kept encrypted with the current key, so the
     list is no more readable than the data."""
+    return _earlier_keys(key) or []
+
+
+def _earlier_keys(key: bytes) -> Optional[list[bytes]]:
+    """As _retired_keys, but None when there's a list this key can't read."""
     sealed = keystore.retired_blob()
     if not sealed:
         return []
     try:
         return [base64.b64decode(k) for k in json.loads(_fernet_for(key).decrypt(sealed.encode()))]
     except (InvalidToken, ValueError):
-        return []
+        return None
 
 
 def known_database_keys() -> list[str]:
@@ -296,9 +301,10 @@ def explicit_source() -> Optional[str]:
     return "key-file" if keystore.explicit_file() else None
 
 
-def existing_key() -> Optional[bytes]:
+def existing_key(*, strict: bool = False) -> Optional[bytes]:
     """The key this computer has now, if any, without making one. For looking, not relying on: it doesn't check that the key
-    opens anything."""
+    opens anything. ``strict``: a store that can't answer raises keystore.Unreachable, rather than looking like no key, for
+    what's about to replace it."""
     if config.env("SYNTROPY_SECRET_KEY") or keystore.explicit_file():
         try:
             return master_key()
@@ -309,7 +315,11 @@ def existing_key() -> Optional[bytes]:
         if path.exists() and (in_file := key_from_file(path.read_bytes())):
             return in_file
         return keystore.from_store()
-    except (OSError, keystore.Unreachable):
+    except OSError:
+        return None
+    except keystore.Unreachable:
+        if strict:
+            raise
         return None
 
 
@@ -324,13 +334,17 @@ def key_in_use() -> bool:
 
 def adopt_key(new: bytes, *, keep_replaced: bool = True) -> None:
     """A key from a backup, or unlocked with a password, becomes this computer's. Saved before anything relies on it, and
-    read back. The one it replaces is kept, encrypted with the new one (see _retired_keys)."""
+    read back. The one it replaces is kept, encrypted with the new one (see _retired_keys). Raises keystore.Unreachable,
+    having changed nothing, if the store can't say what the key is now: the keys kept from before can't be carried over
+    without it."""
     if len(new) != keystore.KEY_BYTES:
         raise ValueError("A key is 32 bytes.")
     path = _key_file()
     with _key_lock:
-        old = existing_key()
-        keep = [k for k in ([old] if old else []) + (_retired_keys(old) if old else []) if k != new]
+        old = existing_key(strict=True)
+        # A key brought back with a password is the one the list was saved with, though the store has lost it.
+        earlier = _earlier_keys(old or new)
+        keep = [k for k in dict.fromkeys(([old] if old else []) + (earlier or [])) if k != new]
         store = keystore.save_to_store(new)
         if store == keystore.FILE:
             if keep_replaced and path.exists() and key_from_file(path.read_bytes()) not in (new, None):
@@ -338,8 +352,9 @@ def adopt_key(new: bytes, *, keep_replaced: bool = True) -> None:
             _write_new_key(path, replace=True, key=new)
         else:
             path.unlink(missing_ok=True)
-        keystore.save_retired_blob(_fernet_for(new).encrypt(json.dumps([base64.b64encode(k).decode() for k in keep]).encode()).decode()
-                                   if keep else None)
+        if keep or earlier is not None:     # never an empty list in place of one that couldn't be read
+            keystore.save_retired_blob(_fernet_for(new).encrypt(json.dumps([base64.b64encode(k).decode() for k in keep]).encode()).decode()
+                                       if keep else None)
         _key_cache[str(path)] = new
     _key_mismatch.pop(str(config.db_path()), None)
 
