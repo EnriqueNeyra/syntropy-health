@@ -15,8 +15,8 @@ async function backOnline() {
   return false;
 }
 
-export async function switchNetwork(enabled, { withoutPassword = false } = {}) {
-  const res = await put("/api/system/network", { enabled, without_password: withoutPassword });
+export async function switchNetwork(enabled, { withoutPassword = false, password } = {}) {
+  const res = await put("/api/system/network", { enabled, without_password: withoutPassword, ...(password ? { password } : {}) });
   if (res.restarting && !(await backOnline())) throw new Error("Syntropy Health didn't come back. Quit and reopen it.");
   return networkStatus();
 }
@@ -44,14 +44,15 @@ function explain(net) {
 
 /**
  * The on/off switch (Mac and Windows apps) or the addresses (servers), with the password requirement.
- * `onChange(net)` runs after a switch, when the server answers on its new address.
+ * `onChange(net)` runs after a switch, when the server answers on its new address. `askPassword(enabled)`, on a phone's
+ * screens, resolves to the password a switch takes there (null: don't switch).
  */
-export function renderNetworkPanel(el, net, { onChange, waited = 0 } = {}) {
+export function renderNetworkPanel(el, net, { onChange, askPassword, waited = 0 } = {}) {
   // syntropyhealth.local is announced a few seconds after the server starts listening; show it once it is.
   if (net.on_network && !net.local_name && waited < 3) {
     setTimeout(async () => {
       if (!el.isConnected) return;
-      try { renderNetworkPanel(el, await networkStatus(), { onChange, waited: waited + 1 }); } catch {}
+      try { renderNetworkPanel(el, await networkStatus(), { onChange, askPassword, waited: waited + 1 }); } catch {}
     }, 3000);
   }
   const needsChoice = net.managed && !net.on_network && !net.password_set;
@@ -73,15 +74,17 @@ export function renderNetworkPanel(el, net, { onChange, waited = 0 } = {}) {
 
   const apply = async (enabled, withoutPassword = false) => {
     const box = $("#net-on", el);
+    const password = askPassword ? await askPassword(enabled) : undefined;
+    if (password === null) { if (box) box.checked = !enabled; return; }
     if (box) box.disabled = true;
     try {
-      const next = await switchNetwork(enabled, { withoutPassword });
+      const next = await switchNetwork(enabled, { withoutPassword, password });
       toast(enabled ? "Your other devices can connect now" : "Only this computer can connect now", "good");
-      renderNetworkPanel(el, next, { onChange });
+      renderNetworkPanel(el, next, { onChange, askPassword });
       onChange && onChange(next);
     } catch (err) {
       toast(err.message, "bad");
-      renderNetworkPanel(el, net, { onChange });
+      renderNetworkPanel(el, net, { onChange, askPassword });
     }
   };
   $("#net-on", el)?.addEventListener("change", (e) => {

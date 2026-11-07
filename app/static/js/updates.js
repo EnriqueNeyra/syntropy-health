@@ -30,10 +30,12 @@ function switchRow(id, title, hint, on, disabled = false) {
     <div class="set-control"><span class="switch"><input type="checkbox" id="${id}" ${on ? "checked" : ""} ${disabled ? "disabled" : ""}><span></span></span></div></label>`;
 }
 
-export async function renderUpdates(el) {
+/** `askPassword()`, on a phone's screens, resolves to the password installing takes there (null: don't install). */
+export async function renderUpdates(el, { askPassword } = {}) {
   let u;
   try { u = await get("/api/system/updates", {}, { fresh: true }); }
   catch (err) { mount(el, html`<p class="small muted upd-how">${err.message}</p>`); return; }
+  el._askPassword = askPassword;
   draw(el, u);
 }
 
@@ -71,7 +73,9 @@ function draw(el, u) {
         toast(next.available ? `Syntropy Health ${next.latest.version} is available` : next.error ? next.error : "You have the latest version", next.error && !next.available ? "bad" : undefined);
         draw(el, next);
       } else {
-        draw(el, await post("/api/system/updates/install"));
+        const password = el._askPassword ? await el._askPassword() : undefined;
+        if (password === null) { b.disabled = false; return; }
+        draw(el, await post("/api/system/updates/install", password ? { password } : {}));
         follow(el);
       }
     } catch (err) { toast(err.message, "bad"); b.disabled = false; }

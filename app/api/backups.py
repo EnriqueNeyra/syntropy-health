@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field
 from app.core import auth, config, context, db, maintenance
 from app.core.sqlite import sqlite3
 from app.services import backup_file, backup_schedule, backups
-from app.store import accounts
 
 router = APIRouter(prefix="/api", tags=["backups"])
 owner = Depends(auth.require_owner)
@@ -45,13 +44,13 @@ def backup_status() -> dict:
 
 
 @router.post("/backups", dependencies=[owner])
-def make_backup(req: BackupRequest) -> dict:
+def make_backup(req: BackupRequest, request: Request) -> dict:
     """Makes the file. The browser then fetches it from the address in the answer. A phone's screens are open with its token,
     without a password, which is fine for what the phone's owner sees. A backup is every person on the server, and the
-    passphrase is whatever the person holding the phone chooses, so that takes the password."""
-    principal = context.principal()
-    if principal and principal.device_id and not accounts.verify_password(principal.account_id or "", req.password or ""):
-        raise HTTPException(403, "A backup holds everyone's records. Enter your password to make one from this phone.")
+    passphrase is whatever the person holding the phone chooses, so that takes the password (counted like a sign-in, so
+    the phone can't guess at it)."""
+    auth.confirm_from_phone(request, context.principal(), req.password,
+                            "A backup holds everyone's records. Enter your password to make one from this phone.")
     try:
         return backups.prepare_download(req.passphrase, req.unencrypted)
     except backups.BackupProblem as exc:
@@ -76,10 +75,19 @@ class ScheduleRequest(BaseModel):
     every_hours: int = 24
     keep: int = backup_schedule.KEEP_DEFAULT
     passphrase: Optional[str] = Field(None, max_length=1024)     # needed the first time, or to change it
+    password: Optional[str] = Field(None, max_length=256)       # from a phone's own screens
+
+
+class PasswordRequest(BaseModel):
+    password: Optional[str] = Field(None, max_length=256)       # from a phone's own screens
 
 
 @router.put("/backups/schedule", dependencies=[owner])
-def set_schedule(req: ScheduleRequest) -> dict:
+def set_schedule(req: ScheduleRequest, request: Request) -> dict:
+    """Where everyone's records go from now on, and the passphrase they're locked with: from a phone, with the password,
+    or whoever held it could send them to a folder of their own."""
+    auth.confirm_from_phone(request, context.principal(), req.password,
+                            "Scheduled backups hold everyone's records. Enter your password to set them up from this phone.")
     try:
         backup_schedule.configure(req.folder, req.every_hours, req.keep, req.passphrase)
     except backups.BackupProblem as exc:
@@ -95,8 +103,10 @@ def stop_schedule() -> dict:
 
 
 @router.post("/backups/schedule/run", dependencies=[owner])
-def run_schedule() -> dict:
+def run_schedule(request: Request, req: Optional[PasswordRequest] = None) -> dict:
     """One now, to see that it works. Waits for it: a failure comes back in the answer."""
+    auth.confirm_from_phone(request, context.principal(), req.password if req else None,
+                            "A backup holds everyone's records. Enter your password to make one from this phone.")
     backup_schedule.run_now()
     return status_of()
 
@@ -156,6 +166,7 @@ async def restore_check(file: UploadFile = File(...), passphrase: Optional[str] 
 class RestoreApply(BaseModel):
     id: str = Field(..., max_length=100)
     accept_key_problem: bool = False
+    password: Optional[str] = Field(None, max_length=256)       # from a phone's own screens
 
 
 @router.post("/restore/apply", dependencies=[Depends(_may_restore)])
@@ -163,6 +174,8 @@ def restore_apply(req: RestoreApply, request: Request) -> dict:
     item = backups.staged(req.id)
     if not item:
         raise HTTPException(404, "That check has expired. Choose the backup again.")
+    auth.confirm_from_phone(request, context.principal(), req.password,
+                            "Restoring replaces everyone's records. Enter your password to do it from this phone.")
     try:
         done = backups.restore_in_server(request.app, item, req.accept_key_problem)
     except backups.BackupProblem as exc:
