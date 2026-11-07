@@ -114,6 +114,9 @@ RETRY_LONGEST_S = 20.0
 HIDDEN_TOOLS = {"list_profiles"}
 # Assumed context window for hosted models answering without tools (all current ones allow far more).
 HOSTED_CONTEXT_TOKENS = 32_000
+# The most lookup results one question sends a hosted model (about 65,000 tokens). Each round of lookups sends all the
+# earlier ones again, and the provider bills every time: past this, the model is told to answer from what it has.
+QUESTION_RESULT_CHARS = 200_000
 
 
 class AIError(Exception):
@@ -1574,6 +1577,7 @@ async def _answer_with_tools(client: httpx.AsyncClient, cfg: dict[str, Any], sys
             yield {"type": "note", "text": LEFT_OUT_OF_CONVERSATION}
         turns = kept
     messages: list[dict[str, Any]] = list(turns)
+    hosted, sent = cfg["provider"] != "local", 0        # characters of lookup results sent so far
     for _ in range(MAX_TOOL_ROUNDS):
         reply, shown = None, False
         async for kind, value in _complete_stream(client, cfg, system, messages, tools, ASK_MAX_TOKENS):
@@ -1599,8 +1603,12 @@ async def _answer_with_tools(client: httpx.AsyncClient, cfg: dict[str, Any], sys
         if window is not None and window < SMALL_WINDOW:
             tools = _tools(core_only=True)
         # A result that overflowed a small window would push out the instructions and the question, which go first.
-        room = None if window is None else ((window * CHARS_PER_TOKEN - REPLY_ROOM_CHARS - _request_chars(system, tools, messages))
-                                            // min(len(reply.calls), MAX_CALLS_PER_ROUND))
+        calls = min(len(reply.calls), MAX_CALLS_PER_ROUND)
+        room = None if window is None else (window * CHARS_PER_TOKEN - REPLY_ROOM_CHARS - _request_chars(system, tools, messages)) // calls
+        budget_left = (QUESTION_RESULT_CHARS - sent) // calls if hosted else None
+        spent = budget_left is not None and budget_left < MIN_RESULT_CHARS
+        if budget_left is not None:
+            room = budget_left if room is None else min(room, budget_left)
         results = []
         for i, call in enumerate(reply.calls):
             result = {"id": call["id"], "name": call["name"], "error": True}
@@ -1609,11 +1617,14 @@ async def _answer_with_tools(client: httpx.AsyncClient, cfg: dict[str, Any], sys
             elif i >= MAX_CALLS_PER_ROUND:
                 result["content"] = json.dumps({"code": "too_many_calls", "message": f"Only {MAX_CALLS_PER_ROUND} lookups run at once, so this one didn't. Ask again for what you still need."})
             elif room is not None and room < MIN_RESULT_CHARS:
-                result["content"] = json.dumps({"code": "no_room", "message": "This model's context is full, so this wasn't looked up. Answer from what you have, and say what you couldn't check."})
+                result["content"] = json.dumps({"code": "no_room", "message": (
+                    "This question has already looked up as much as one question can, so this wasn't looked up." if spent else
+                    "This model's context is full, so this wasn't looked up.") + " Answer from what you have, and say what you couldn't check."})
             else:
                 yield {"type": "tool", "name": call["name"], "label": _tool_label(call["name"], call["args"])}
                 budget = TOOL_RESULT_CHARS if room is None else min(TOOL_RESULT_CHARS, room)
                 text, is_error = await asyncio.to_thread(_run_tool, call["name"], call["args"], profile_id, budget)
+                sent += len(text)
                 used.append(call["name"])
                 result.update(content=text, error=is_error)
             results.append(result)
