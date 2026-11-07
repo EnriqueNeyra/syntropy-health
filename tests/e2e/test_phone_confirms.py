@@ -6,8 +6,8 @@ import httpx
 from tests.e2e.conftest import CSRF, PASSWORD, Session, seed
 
 
-def _phone_tab(browser, server, client) -> Session:
-    code = client.post("/api/devices/pairing-code", json={}).json()["code"]
+def _phone_tab(browser, server, client, profile_id=None) -> Session:
+    code = client.post("/api/devices/pairing-code", json={"profile_id": profile_id}).json()["code"]
     with httpx.Client(base_url=server.url) as phone:
         paired = phone.post("/api/devices/pair", json={"code": code, "device_name": "Phone"}).json()
         cookie = phone.post("/api/devices/web-session", headers={"X-Syntropy-Device-Token": paired["device_token"]}).json()["cookie"]
@@ -73,5 +73,17 @@ def test_scheduled_backups_from_a_phone_ask_for_the_password(browser, fresh_serv
     page.wait_for_selector(".modal", state="detached", timeout=60000)
     assert "a backup was made" in page.locator("#toasts").inner_text()
     assert list(folder.glob("*.syntropy"))
+    s.close()
+    c.close()
+
+
+def test_a_childs_phone_isnt_offered_the_parents_choices(browser, fresh_server):
+    c = seed(fresh_server, simulated=False)
+    kid = c.post("/api/profiles", json={"name": "Robin", "relationship": "child"}).json()["id"]
+    s = _phone_tab(browser, fresh_server, c, kid)
+    page = s.open("#/settings/general")
+    assert page.locator("[data-action=accent]").count() == 0 and page.locator("[data-action=units]").count() == 0
+    assert page.locator("[data-action=onboarding]").count() == 0
+    assert not s.errors, s.errors
     s.close()
     c.close()
