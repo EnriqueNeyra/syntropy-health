@@ -145,12 +145,12 @@ def accept_terms(principal: auth.Principal = Depends(auth.require_user_to_set_pa
 
 def _visitor(request: Request) -> Optional[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]]:
     """Who's asking, when that can be known."""
-    host = request.client.host if request.client else ""
+    host = network.client_address(request)      # None behind FORWARDED_ALLOW_IPS="*": anyone could have written it
     # A proxy puts who it heard from last; anything before that is only what the visitor sent. One this server was told to
     # trust (FORWARDED_ALLOW_IPS) has already put that same address in ``client``. Any other address there is a proxy's own,
-    # and says nothing about who's behind it.
+    # and says nothing about who's behind it; nor does the address of a proxy that doesn't say whom it's passing on for.
     forwarded = request.headers.getlist("x-forwarded-for")
-    if forwarded and forwarded[-1].rsplit(",", 1)[-1].strip() != host:
+    if not host or (forwarded and forwarded[-1].rsplit(",", 1)[-1].strip() != host) or (network.through_a_proxy(request) and not forwarded):
         return None
     try:
         return ipaddress.ip_address(host.split("%")[0])
@@ -165,9 +165,9 @@ def _nearby(request: Request) -> bool:
 
 
 def _on_this_computer(request: Request) -> bool:
-    """The server's own computer, asked for by name: a web page can point its own address here too."""
-    ip = _visitor(request)
-    return bool(ip) and ip.is_loopback and network.is_local_name(request.headers.get("host", ""))
+    """The server's own computer, asked for by name: a web page can point its own address here too. Not through a proxy,
+    even one on this computer: the request is from whoever it heard from."""
+    return network.from_this_computer(request) and network.is_local_name(request.headers.get("host", ""))
 
 
 def _may_claim(request: Request, code: Optional[str]) -> None:

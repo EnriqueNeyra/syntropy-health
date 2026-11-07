@@ -13,7 +13,7 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, ValidationEr
 from app.api.deps import check_access, phone_origin, request_origin, resolve_profile, visible_profile_ids
 from app.core import auth, config, context, settings
 from app.core.uploads import UPLOAD_ENCODINGS
-from app.services import healthkit_import
+from app.services import healthkit_import, network
 from app.store import accounts, activity, biometrics, connections, devices, sleep, training
 
 router = APIRouter(tags=["biometrics"])
@@ -514,7 +514,7 @@ PAIR_WINDOW, PAIR_MAX_FAILURES, PAIR_MAX_FAILURES_ALL = 900, 10, 200
 
 @router.post("/api/devices/pair")
 def pair(req: PairRequest, request: Request) -> dict:
-    ip = request.client.host if request.client else "unknown"
+    ip = network.client_address(request) or "forwarded"     # see auth._tries_from
     now = time.time()
     recent = [t for t in _pair_failures.get(ip, []) if now - t < PAIR_WINDOW]
     _all_pair_failures[:] = [t for t in _all_pair_failures if now - t < PAIR_WINDOW]
@@ -545,7 +545,7 @@ def prove(req: ProveRequest, request: Request) -> dict:
     """A paired phone checks it's talking to the server it paired with, before it sends its token: the answer is its
     nonce signed with the hash of that token, which only this server keeps. Asks for no token itself. Phones this
     server doesn't know get a 404, and an address asking about many of them is made to wait, as for pairing codes."""
-    ip = request.client.host if request.client else "unknown"
+    ip = network.client_address(request) or "forwarded"
     now = time.time()
     recent = [t for t in _prove_failures.get(ip, []) if now - t < PROVE_WINDOW]
     if len(recent) >= PROVE_MAX_FAILURES:

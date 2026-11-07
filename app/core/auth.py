@@ -28,6 +28,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core import config, context, security, settings
 from app.core.db import audit, db, read
+from app.services import network
 from app.store import accounts
 
 SESSION_COOKIE = "syntropy_session"
@@ -42,10 +43,16 @@ SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 # Failed guesses, for each address and thing being guessed (one person's password, invitation codes...). Someone guessing
 # only uses up their own tries: a refusal never reaches the right password from another address. Across all addresses
 # (someone guessing from many at once) answers slow down instead of stopping, so nobody can lock the household out.
+# One thing guessed at from everywhere at once does stop, after more tries than one address gets: addresses can be had
+# by the thousand (on IPv6, or where a proxy passes on whatever address it's told), and that would otherwise be as
+# many guesses as there are addresses. This computer, connecting directly, can still try then, so the person it belongs
+# to can always sign in at the server itself.
 _failed_logins: dict[str, deque[float]] = defaultdict(deque)
 _all_failures: deque[float] = deque()
 LOGIN_WINDOW, LOGIN_MAX_FAILURES, LOGIN_SLOW_AFTER, LOGIN_SLOW_S = 300, 8, 40, 1.0
+LOGIN_MAX_FAILURES_ANYWHERE = 20
 _ATTEMPTS_KEPT = 10000
+_ANYWHERE = "*"         # the address part of the key counting every address's tries (an address is never "*")
 
 
 @dataclass
@@ -200,18 +207,28 @@ def validate_password(p: str) -> None:
 
 
 def _client_ip(request: Request) -> str:
+    """The address to show (in the log, and where someone's signed in): what the request says, which behind a proxy
+    trusting everyone (FORWARDED_ALLOW_IPS="*") can be anything. Limits go by _tries_from instead."""
     return request.client.host if request.client else "unknown"
 
 
+def _tries_from(request: Request) -> str:
+    """Whose tries these are: the connection's address, or behind a proxy named in FORWARDED_ALLOW_IPS, the address it
+    says it's for. Where that's only what the sender wrote, everything forwarded counts as one (network.client_address)."""
+    return network.client_address(request) or "forwarded"
+
+
 def check_attempts(request: Request, what: str) -> None:
-    """Guessing limits: tries from this address at ``what`` (an account, or "invite"). They're counted before the answer
-    is known (note_failure), so sending many at once doesn't get more tries than sending them one by one."""
+    """Guessing limits: tries from this address at ``what`` (an account, or "invite"), and from every address at once.
+    They're counted before the answer is known (note_failure), so sending many at once doesn't get more tries than
+    sending them one by one."""
     now = time.time()
-    window = _failed_logins[f"{_client_ip(request)}|{what}"]
-    for q in (window, _all_failures):
+    window = _failed_logins[f"{_tries_from(request)}|{what}"]
+    anywhere = _failed_logins[f"{_ANYWHERE}|{what}"]
+    for q in (window, anywhere, _all_failures):
         while q and now - q[0] > LOGIN_WINDOW:
             q.popleft()
-    if len(window) >= LOGIN_MAX_FAILURES:
+    if len(window) >= LOGIN_MAX_FAILURES or (len(anywhere) >= LOGIN_MAX_FAILURES_ANYWHERE and not network.from_this_computer(request)):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many attempts. Try again in a few minutes.")
     if len(_all_failures) >= LOGIN_SLOW_AFTER:
         time.sleep(LOGIN_SLOW_S)
@@ -222,13 +239,18 @@ def note_failure(request: Request, what: str) -> None:
     if len(_failed_logins) > _ATTEMPTS_KEPT:      # addresses and names that haven't been back are all that's dropped
         for key in [k for k, q in _failed_logins.items() if not q or now - q[-1] > LOGIN_WINDOW]:
             del _failed_logins[key]
-    _failed_logins[f"{_client_ip(request)}|{what}"].append(now)
+    _failed_logins[f"{_tries_from(request)}|{what}"].append(now)
+    _failed_logins[f"{_ANYWHERE}|{what}"].append(now)
     _all_failures.append(now)
 
 
 def forget_failure(request: Request, what: str) -> None:
-    """It was right: the tries at this from this address start over (other addresses' tries aren't this one's to clear)."""
-    _failed_logins.pop(f"{_client_ip(request)}|{what}", None)
+    """It was right: the tries at this from this address start over (other addresses' tries aren't this one's to clear),
+    and this one try no longer counts against everyone's."""
+    _failed_logins.pop(f"{_tries_from(request)}|{what}", None)
+    anywhere = _failed_logins.get(f"{_ANYWHERE}|{what}")
+    if anywhere:
+        anywhere.pop()
     if _all_failures:
         _all_failures.pop()
 
