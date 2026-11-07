@@ -446,11 +446,11 @@ def delete_journal_entry(entry_id: str, profile: Optional[str] = None) -> dict:
 
 @router.get("/api/wearables/summary")
 def wearables_summary(principal: auth.Principal = Depends(auth.require_device_or_user)) -> dict:
-    """Used by the companion app to show the server-side total."""
+    """Used by the companion app to show the server-side total, after every sync. The phones read ``data.total_samples``."""
     profile_id = principal.profile_id or resolve_profile(None)["id"]
-    ov = biometrics.overview(profile_id)
-    return {"success": True, "data": {"total_samples": ov["total_samples"], "history_span": ov["history_span"],
-                                      "last_sync": ov["last_batch"]}}
+    found = biometrics.summary(profile_id)
+    return {"success": True, "data": {"total_samples": found["total_samples"], "history_span": found["history_span"],
+                                      "last_sync": found["last_batch"]}}
 
 
 class HistoryStatus(BaseModel):
