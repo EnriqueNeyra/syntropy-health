@@ -1066,6 +1066,8 @@ class FhirClient:
                             break
             except SmartError as exc:
                 out.stopped = exc
+            if not out.stopped:
+                await self._read_missing_medications(client, out)
         out_of_budget = self.time_left() <= 0 or self.fetched >= MAX_RESOURCES_PER_SYNC
         for run in waiting:
             self._settle(run, run.label in finished)
@@ -1079,8 +1081,6 @@ class FhirClient:
                 and all(s.startswith("error:") or s in ("paused", "recent") for s in statuses):
             out.stopped = SmartError("The source isn't answering right now. Syntropy will try again.", "network",
                                      retry_after=(self.come_back_at - time.time()) if self.come_back_at else None)
-            if not out.stopped:
-                await self._read_missing_medications(client, out)
         return out
 
     async def _read_missing_medications(self, client: httpx.AsyncClient, out: FetchResult) -> None:
@@ -1102,6 +1102,8 @@ class FhirClient:
             if kind.rsplit("/", 1)[-1] == "Medication" and _FHIR_ID.fullmatch(mid) and mid not in have and mid not in wanted:
                 wanted.append(mid)
         for mid in wanted[:MAX_MEDICATION_READS]:
+            if self.come_back_at is not None:
+                return      # the server asked for a pause: these can wait for the next sync, as the queries do
             try:
                 med = await self.read(client, f"Medication/{mid}")
             except (httpx.HTTPError, SmartError) as exc:

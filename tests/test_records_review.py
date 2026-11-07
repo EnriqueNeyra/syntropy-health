@@ -77,3 +77,55 @@ def test_unit_spellings_still_meet(unit, key):
 def test_a_number_written_with_spaces_around_it_is_still_a_number():
     r = lab([], valueString="   < 5.2   ")
     assert r["value_num"] == 5.2 and r["details"]["comparator"] == "<"
+
+
+# ---- A sync against a mock FHIR server
+
+BASE = "https://ehr.example/fhir"
+
+
+@pytest.fixture
+def fhir_server(monkeypatch):
+    """A FHIR server answering through ``handler``, which a test sets; every request is noted in ``asked``."""
+    import httpx
+
+    from app.connectors import smart
+
+    server = type("Server", (), {"handler": None, "asked": []})()
+
+    def answer(request):
+        server.asked.append(request.url)
+        if request.url.path.endswith("/Patient/p"):
+            return httpx.Response(200, json={"resourceType": "Patient", "id": "p"})
+        return server.handler(request) or httpx.Response(200, json={"resourceType": "Bundle", "entry": []})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(smart, "http_client", lambda simulated=False, timeout=30.0: real(transport=httpx.MockTransport(answer), timeout=timeout))
+    monkeypatch.setattr(smart, "_sleep", lambda seconds: _no_wait())
+    return server
+
+
+async def _no_wait():
+    return None
+
+
+async def test_a_medication_sent_only_as_a_reference_is_read_and_named_during_a_sync(fhir_server):
+    import httpx
+
+    from app.connectors import smart
+
+    def handler(request):
+        if request.url.path.endswith("/Medication/m1"):
+            return httpx.Response(200, json={"resourceType": "Medication", "id": "m1", "code": {"text": "Lisinopril 10 mg"}})
+        if request.url.path.endswith("/MedicationRequest"):        # ignores _include: a bare reference, no Medication
+            return httpx.Response(200, json={"resourceType": "Bundle", "entry": [{"resource": {
+                "resourceType": "MedicationRequest", "id": "mr1", "status": "active", "intent": "order",
+                "medicationReference": {"reference": "Medication/m1"}}}]})
+        return None
+
+    fhir_server.handler = handler
+    out = await smart.FhirClient(BASE, {"access_token": "t"}, "p").fetch_all({})
+    assert out.stopped is None
+    assert [u.path for u in fhir_server.asked if "/Medication/" in u.path] == ["/fhir/Medication/m1"]
+    _, recs = fn.normalize_resources([out.patient] + out.resources)
+    assert [r["title"] for r in recs if r["category"] == "medications"] == ["Lisinopril 10 mg"]
