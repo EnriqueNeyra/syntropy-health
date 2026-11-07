@@ -499,6 +499,8 @@ def insert_samples(
     affected: set[str] = set()
     changed: set[str] = set()
     sources_seen: dict[str, tuple[str, Optional[str], bool]] = {}
+    several_devices: set[str] = set()
+    rebuild_all = False
     samples = list(samples)
     with db() as conn:
         check_source(conn, profile_id, connection_id)
@@ -537,8 +539,12 @@ def insert_samples(
                 flagged += 1
             if not flag:
                 # A cloud connector knows what it's connected to, whatever device a reading passed through.
-                sources_seen[source] = (s.get("device_kind") or device_kind(source, s.get("device_name"), meta), s.get("device_name"),
-                                        bool(s.get("device_kind") or meta.get("device_type") or _kind_from_words(s.get("device_name"))))
+                seen = (s.get("device_kind") or device_kind(source, s.get("device_name"), meta), s.get("device_name"),
+                        bool(s.get("device_kind") or meta.get("device_type") or _kind_from_words(s.get("device_name"))))
+                before = sources_seen.get(source)
+                if before and before[2] and seen[2] and before[0] != seen[0]:
+                    several_devices.add(source)
+                sources_seen[source] = seen
             if row:
                 same = (row["metric_type"] == metric and abs(row["value"] - s["value"]) < 1e-9 and row["start_date"] == start
                         and row["end_date"] == end and row["flag"] == flag and (offset is None or offset == row["tz_offset_min"])
@@ -592,9 +598,18 @@ def insert_samples(
                  batch_meta.get("os_version"), batch_meta.get("app_version"), batch_meta.get("sync_trigger") or "manual",
                  received, inserted, now),
             )
-        _note_sources(conn, profile_id, sources_seen, now)
+        # An app recording on several devices (Samsung Health on a watch and a phone) says a different device for each
+        # reading. Which one came last in an upload says nothing about the app, so it keeps the kind it has.
+        for source in several_devices:
+            sources_seen[source] = (*sources_seen[source][:2], False)
+        if _combined_with(conn, profile_id, _note_sources(conn, profile_id, sources_seen, now)):
+            # A source that turned out to be another kind of device moves in the merge order of the days it was merged into.
+            queue_rebuild(conn, profile_id)
+            rebuild_all = True
         if affected:
             _rollup(conn, profile_id, sorted(affected), changed, tz, orders)
+    if rebuild_all:
+        resume_rebuilds()
     sample_counts.added(profile_id, connection_id, inserted - removed)
     for was, n in moved:
         sample_counts.moved(profile_id, was, connection_id, n)
@@ -606,8 +621,10 @@ def insert_samples(
     }
 
 
-def _note_sources(conn: Any, profile_id: str, seen: dict[str, tuple[str, Optional[str], bool]], now: float) -> None:
-    """Keeps what each source is. A batch whose readings say which device took them overrides a guess from a name."""
+def _note_sources(conn: Any, profile_id: str, seen: dict[str, tuple[str, Optional[str], bool]], now: float) -> set[str]:
+    """Keeps what each source is. A batch whose readings say which device took them overrides a guess from a name.
+    Returns the sources already known that are now another kind."""
+    known = source_kinds(profile_id, conn) if seen else {}
     for source, (kind, device, said_so) in seen.items():
         conn.execute(
             """INSERT INTO data_sources(profile_id, source_name, device_kind, device_name, updated_at) VALUES (?, ?, ?, ?, ?)
@@ -615,6 +632,17 @@ def _note_sources(conn: Any, profile_id: str, seen: dict[str, tuple[str, Optiona
                    device_name = COALESCE(excluded.device_name, device_name), updated_at = excluded.updated_at
                WHERE ? AND excluded.device_kind <> data_sources.device_kind""",
             (profile_id, source, kind, device, now, said_so))
+    return {source for source, (kind, _, said_so) in seen.items() if said_so and source in known and known[source] != kind}
+
+
+def _combined_with(conn: Any, profile_id: str, sources: Iterable[str]) -> bool:
+    """Whether any of these sources was merged into a stored Combined row."""
+    for source in sources:
+        pattern = "%" + dumps(source).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        if conn.execute("SELECT 1 FROM biometric_daily WHERE profile_id = ? AND source_name = ? AND contributors LIKE ? ESCAPE '\\' "
+                        "LIMIT 1", (profile_id, MERGED_SOURCE, pattern)).fetchone():
+            return True
+    return False
 
 
 def delete_sample(profile_id: str, sample_id: str) -> bool:
@@ -1204,6 +1232,8 @@ def source_orders() -> dict[str, list[str]]:
 
 
 def set_source_orders(orders: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Saves the order and, when it changed, works out again the Combined rows it decides: each was merged in the order of
+    its day. Queued before the change, as a time zone change is, so a kill partway is finished at the next start."""
     clean = {}
     for group, order in orders.items():
         if group not in PRIORITY_GROUPS or not isinstance(order, list):
@@ -1211,7 +1241,16 @@ def set_source_orders(orders: dict[str, list[str]]) -> dict[str, list[str]]:
         if sorted(order) != sorted(SOURCE_KINDS):
             raise ValueError(f"The order for {group} must list each of: {', '.join(SOURCE_KINDS)}.")
         clean[group] = order
+    before = source_orders()
+    moved = any(before[group] != order for group, order in clean.items())
+    if moved:
+        with db() as conn:
+            for (profile_id,) in conn.execute("SELECT DISTINCT profile_id FROM biometric_daily WHERE source_name = ?",
+                                              (MERGED_SOURCE,)).fetchall():
+                queue_rebuild(conn, profile_id)
     settings.set("biometrics.source_order", {**(settings.get("biometrics.source_order") or {}), **clean})
+    if moved:
+        run_queued_rebuilds()
     return source_orders()
 
 
