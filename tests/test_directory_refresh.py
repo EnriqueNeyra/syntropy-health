@@ -479,8 +479,8 @@ def test_the_workflow_cannot_hide_a_failure():
 
 
 def test_the_workflow_refreshes_without_a_token_and_says_what_is_missing():
-    steps = WORKFLOW.split("steps:")[1]
-    assert steps.index("Refresh") < steps.index("DIRECTORY_TOKEN isn't set")
+    # The refresh job never has the token; the pull-request job, which does, says when it's missing.
+    assert WORKFLOW.index("name: Refresh") < WORKFLOW.index("DIRECTORY_TOKEN isn't set")
     assert "actions/upload-artifact" in WORKFLOW and "Open or update the pull request" in WORKFLOW
     assert re.search(r"name: Open or update the pull request\n\s+if: .*HAS_TOKEN == 'true'", WORKFLOW)
     assert "Settings" in WORKFLOW.split("DIRECTORY_TOKEN isn't set")[1].split("\n")[0]

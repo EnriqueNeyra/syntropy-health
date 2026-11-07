@@ -134,13 +134,58 @@ def test_the_image_is_built_from_fixed_digests_and_the_lock():
     assert "tomllib" not in dockerfile
 
 
+def _unlocked_pip_installs(text: str) -> list[str]:
+    """Each `pip install` that could take versions or files nobody checked. One installs a list with hashes
+    (--require-hashes), or this checkout alone (--no-deps .)."""
+    found = []
+    for line in text.splitlines():
+        for command in re.split(r"&&|\|\||[;|]", line.split(" #")[0]):
+            match = re.search(r"\bpip3? install\b(.*)", command)
+            if not match:
+                continue
+            words = match.group(1).split()
+            if "--require-hashes" in words or ("--no-deps" in words and [w for w in words if not w.startswith("-")] == ["."]):
+                continue
+            found.append(line.strip())
+    return found
+
+
+@pytest.mark.parametrize("line", [
+    'pip install -q -e ".[checks]"',        # the directory refresh, which then pushed with the owner's token
+    "pip install -e . --group dev",
+    "python -m pip install -U pip && python -m pip install -r requirements.txt",
+    "pip3 install --quiet playwright",
+])
+def test_an_install_without_the_lock_is_caught(line):
+    assert _unlocked_pip_installs(f"        run: {line}")
+
+
 def test_builds_install_from_the_lock():
     apps = _read(".github/workflows/apps.yml")
     assert "--require-hashes" in apps and 'pip install -e ".[desktop]"' not in apps
     assert "--version=" in apps.split("choco install innosetup")[1].splitlines()[0]
+    assert not _unlocked_pip_installs('python -m pip install --require-hashes --no-deps -r "$RUNNER_TEMP/locked.txt"')
+    assert not _unlocked_pip_installs("python -m pip install --no-deps -e .")
     for workflow in WORKFLOWS:
-        for line in workflow.read_text(encoding="utf-8").splitlines():
-            assert not re.search(r"pip install (-e|--group|-U)\b", line), f"{workflow.name}: {line.strip()}"
+        assert not _unlocked_pip_installs(workflow.read_text(encoding="utf-8")), workflow.name
+
+
+def test_the_directory_token_is_only_where_nothing_from_the_repository_runs():
+    """The weekly refresh installs Playwright and runs the repository's scripts against the internet. DIRECTORY_TOKEN is
+    the owner's and can push to this repository, so only a job that installs nothing, runs none of that code, and turns
+    git's hooks off has it."""
+    jobs = yaml.safe_load(_read(".github/workflows/directory.yml"))["jobs"]
+    assert [name for name, job in jobs.items() if re.search(r"secrets\.DIRECTORY_TOKEN\s*}}", str(job))] == ["pull-request"]
+    assert "DIRECTORY_TOKEN" not in str(jobs["refresh"])
+    assert any("uv sync --frozen" in step.get("run", "") for step in jobs["refresh"]["steps"])
+    for step in jobs["pull-request"]["steps"]:
+        if "uses" in step:
+            assert step["uses"].split("@")[0] in ("actions/checkout", "actions/download-artifact"), step["uses"]
+            assert step["with"].get("persist-credentials", False) is False
+        run = step.get("run", "")
+        assert not re.search(r"\b(pip3?|uvx?|python3?|node|npm|npx|sh|bash|make|source)\b|scripts/|\.(sh|py)\b", run), step.get("name")
+        if re.search(r"(^|[\s;&|(])git\s", run):
+            assert run.splitlines()[0] == 'git() { command git -c core.hooksPath=/dev/null "$@"; }', step.get("name")
 
 
 def test_actions_are_pinned_to_commits():
