@@ -21,6 +21,7 @@ from datetime import date
 from typing import Any, Optional
 from xml.parsers import expat
 
+from app.connectors import fhir_normalize
 from app.connectors.apple_health import _implausible
 from app.core.uploads import MAX_INFLATED
 
@@ -571,8 +572,25 @@ def _vital(ctx: _Document, sec: _Section, entry: ET.Element) -> list[dict[str, A
                         "status": parts[SYSTOLIC]["status"], "category": parts[SYSTOLIC]["category"],
                         "code": {"coding": [{"system": "http://loinc.org", "code": PRESSURE_PANEL, "display": "Blood pressure"}], "text": "Blood pressure"},
                         **ctx.subject(), **_some(effectiveDateTime=moment),
-                        "component": [{"code": parts[c]["code"], "valueQuantity": parts[c]["valueQuantity"]} for c in (SYSTOLIC, DIASTOLIC)]})
+                        # Each part keeps its own flag and range, and the whole is flagged as its worse part is.
+                        "component": [{"code": parts[c]["code"], "valueQuantity": parts[c]["valueQuantity"],
+                                       **_some(interpretation=parts[c].get("interpretation"), referenceRange=parts[c].get("referenceRange"))}
+                                      for c in (SYSTOLIC, DIASTOLIC)],
+                        **_some(interpretation=_worse_flag(parts[SYSTOLIC], parts[DIASTOLIC]))})
     return out
+
+
+_FLAG_CODES = {"critical_high": ("HH", "Critical high"), "critical_low": ("LL", "Critical low"), "critical": ("AA", "Critical abnormal"),
+               "high": ("H", "High"), "low": ("L", "Low"), "abnormal": ("A", "Abnormal"), "normal": ("N", "Normal")}
+
+
+def _worse_flag(*parts: dict[str, Any]) -> Optional[list[dict[str, Any]]]:
+    """The interpretation of the part furthest from normal, by its own flag or its own range, as a FHIR interpretation."""
+    flag = fhir_normalize.worst_flag((fhir_normalize.normalize_observation(p) or {}).get("interpretation") for p in parts)
+    if flag is None:
+        return None
+    code, display = _FLAG_CODES[flag]
+    return [{"coding": [{"system": fhir_normalize.V3_INTERPRETATION, "code": code, "display": display}], "text": display}]
 
 
 def _immunization(ctx: _Document, sec: _Section, entry: ET.Element) -> list[dict[str, Any]]:
