@@ -436,6 +436,33 @@ def test_a_partial_day_counts_toward_an_at_least_goal_only_once_met(client):
     assert p["met"] == 0 and p["days"] == 1
 
 
+def test_a_day_with_nothing_recorded_counts_against_a_goal_and_breaks_the_streak(client):
+    pid = _prof()
+    # Eight days ago to yesterday, with the fifth and second days ago missing (the watch stayed on the charger).
+    _daily(pid, "step_count", [9000, 9000, 9000, None, 9000, 9000, None, 9000], end_days_ago=1)
+    goals.set_goal(pid, "step_count", 8000, "min")
+    p = goals.progress(pid, 7)[0]
+    assert (p["days"], p["met"], p["recorded"], p["streak"]) == (6, 4, 4, 1)
+    assert not insights._goal_notes(pid)            # too little recorded this week to say how it went
+
+
+def test_the_goal_note_counts_the_days_of_the_week_not_the_days_with_figures(client):
+    pid = _prof()
+    _daily(pid, "step_count", [9000, 9000, 9000, 9000, None, 9000, 9000], end_days_ago=1)
+    goals.set_goal(pid, "step_count", 8000, "min")
+    note = insights._goal_notes(pid)[0]
+    assert note["title"].endswith("5 of 6 days") and "on 5 of the last 6 days" in note["text"]
+    assert note["data"]["streak"] == 2
+
+
+def test_days_before_the_first_figure_dont_count_against_a_goal(client):
+    pid = _prof()
+    _daily(pid, "step_count", [9000, 9000], end_days_ago=1)
+    goals.set_goal(pid, "step_count", 8000, "min")
+    p = goals.progress(pid, 7)[0]
+    assert (p["days"], p["met"], p["streak"]) == (2, 2, 2)
+
+
 def test_a_broken_generator_is_logged_without_health_values_and_hides_nothing(client, monkeypatch, caplog):
     pid = _prof()
     goals.set_goal(pid, "step_count", 1000)
