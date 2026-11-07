@@ -1,5 +1,5 @@
 {
- "checked": "2026-11-03",
+ "checked": "2026-11-07",
  "servers": {
   "https://arrprd.kdmc.net/fhir/api/fhir/r4": {
    "status": "client_unknown",
@@ -20,6 +20,13 @@
   "https://epic-fhir-prd.upmc.com/fhir-prd/api/fhir/r4": {
    "status": "portal_error",
    "since": "2026-10-03"
+  },
+  "https://epicedi.leememorial.org/fhir-prd/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-11-03",
+   "instead": [
+    "epic-lee-health"
+   ]
   },
   "https://epicprdext.stfranciscare.org/fhirproxy/api/fhir/r4": {
    "status": "client_unknown",
@@ -114,6 +121,10 @@
   "https://fhir4.healow.com/fhir/r4/abchaa": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/abciba": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/abcidd": {
    "status": "error_page",
@@ -328,6 +339,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/agaddd": {
+   "status": "error_page",
+   "since": "2026-11-07"
+  },
   "https://fhir4.healow.com/fhir/r4/agagaa": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -379,6 +394,10 @@
   "https://fhir4.healow.com/fhir/r4/ahgaba": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/ahhfaa": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/ahihaa": {
    "status": "error_page",
@@ -1173,6 +1192,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/cejcdd": {
+   "status": "error_page",
+   "since": "2026-11-07"
+  },
   "https://fhir4.healow.com/fhir/r4/cejjdd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -1648,6 +1671,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/dgheba": {
+   "status": "error_page",
+   "since": "2026-11-07"
+  },
   "https://fhir4.healow.com/fhir/r4/dgihdd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -1675,6 +1702,10 @@
   "https://fhir4.healow.com/fhir/r4/dhdaba": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/dhdddd": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/dhecda": {
    "status": "error_page",
@@ -1784,6 +1815,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/ebagba": {
+   "status": "error_page",
+   "since": "2026-11-07"
+  },
   "https://fhir4.healow.com/fhir/r4/ebbdbd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -1875,6 +1910,10 @@
   "https://fhir4.healow.com/fhir/r4/edcibd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/eddddd": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/eddgba": {
    "status": "error_page",
@@ -2192,6 +2231,10 @@
   "https://fhir4.healow.com/fhir/r4/facfdd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/fadaed": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/fadbba": {
    "status": "error_page",
@@ -2646,6 +2689,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/gaebbd": {
+   "status": "error_page",
+   "since": "2026-11-07"
+  },
   "https://fhir4.healow.com/fhir/r4/gafgcd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -2688,6 +2735,10 @@
   "https://fhir4.healow.com/fhir/r4/gbghbd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/gbhidd": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/gbicdd": {
    "status": "error_page",
@@ -2844,6 +2895,10 @@
   "https://fhir4.healow.com/fhir/r4/geehba": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/gehaed": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/gehcdd": {
    "status": "error_page",
@@ -3056,6 +3111,10 @@
   "https://fhir4.healow.com/fhir/r4/hadadd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/hadaed": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/hadbed": {
    "status": "error_page",
@@ -3759,6 +3818,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/ifcaed": {
+   "status": "error_page",
+   "since": "2026-11-07"
+  },
   "https://fhir4.healow.com/fhir/r4/iffbcd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -3859,9 +3922,17 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/ihicaa": {
+   "status": "error_page",
+   "since": "2026-11-07"
+  },
   "https://fhir4.healow.com/fhir/r4/ihihad": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/ihjfba": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/ihjiad": {
    "status": "error_page",
@@ -4062,10 +4133,6 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
-  "https://fhir4.healow.com/fhir/r4/jchhdd": {
-   "status": "error_page",
-   "since": "2026-11-03"
-  },
   "https://fhir4.healow.com/fhir/r4/jcjaaa": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -4093,6 +4160,10 @@
   "https://fhir4.healow.com/fhir/r4/jddgbd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/jdfhdd": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/jdgfca": {
    "status": "error_page",
@@ -4158,6 +4229,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/jefibd": {
+   "status": "error_page",
+   "since": "2026-11-07"
+  },
   "https://fhir4.healow.com/fhir/r4/jegdcd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -4206,6 +4281,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/jfggdd": {
+   "status": "error_page",
+   "since": "2026-11-07"
+  },
   "https://fhir4.healow.com/fhir/r4/jfiaba": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -4237,6 +4316,10 @@
   "https://fhir4.healow.com/fhir/r4/jgdcdd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/jgfcaa": {
+   "status": "error_page",
+   "since": "2026-11-07"
   },
   "https://fhir4.healow.com/fhir/r4/jgfcba": {
    "status": "error_page",
@@ -4405,8 +4488,20 @@
    "status": "client_unknown",
    "since": "2026-10-03"
   },
+  "https://moc.beaumont.org/fhir/api/fhir/r4": {
+   "status": "portal_error",
+   "since": "2026-11-07"
+  },
   "https://ocsoapprd.nebraskamed.com/fhir-prd/home/api/fhir/r4": {
    "status": "portal_error",
+   "since": "2026-11-03"
+  },
+  "https://prodinterconnect.leonmedicalcenters.com/fhir-prd/myleon/api/fhir/r4": {
+   "status": "portal_error",
+   "since": "2026-11-07"
+  },
+  "https://rmgpxy.riverbendmedical.com/fhir_proxy/api/fhir/r4": {
+   "status": "unreachable",
    "since": "2026-11-03"
   },
   "https://rxhub.luhs.org/fhir/api/fhir/r4": {
@@ -4425,6 +4520,10 @@
    "status": "unreachable",
    "since": "2026-10-03"
   },
+  "https://uhhsportal.uhhospitals.org/oauth2-prd/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-11-03"
+  },
   "https://w1soap.wakehealth.edu/fhirproxy/api/fhir/r4": {
    "status": "client_unknown",
    "since": "2026-10-03"
@@ -4438,21 +4537,9 @@
   }
  },
  "watching": {
-  "https://api.baptist-health.org/interconnect-fhir/api/fhir/r4": {
+  "https://fhir.mainehealth.org/fhirprd/api/fhir/r4": {
    "status": "unreachable",
-   "since": "2026-11-03"
-  },
-  "https://epicedi.leememorial.org/fhir-prd/api/fhir/r4": {
-   "status": "unreachable",
-   "since": "2026-11-03"
-  },
-  "https://rmgpxy.riverbendmedical.com/fhir_proxy/api/fhir/r4": {
-   "status": "unreachable",
-   "since": "2026-11-03"
-  },
-  "https://uhhsportal.uhhospitals.org/oauth2-prd/api/fhir/r4": {
-   "status": "unreachable",
-   "since": "2026-11-03"
+   "since": "2026-11-07"
   }
  }
 }

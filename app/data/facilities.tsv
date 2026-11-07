@@ -98,7 +98,7 @@ epic-acumen-physician-solutions-llc	Associates in Nephrology, S.C. Trinity Trans
 epic-acumen-physician-solutions-llc	Atlanta Kidney Care, LLC	Atlanta	GA
 epic-acumen-physician-solutions-llc	Atlanta Nephrology Associates Atlanta Main	Atlanta	GA
 epic-acumen-physician-solutions-llc	Aurora Kidney LLC	Anchorage	AK
-epic-acumen-physician-solutions-llc	Aurora Kidney LLC Aurora Kidney	Homer	AK
+epic-acumen-physician-solutions-llc	Aurora Kidney LLC Aurora Kidney	Anchorage	AK
 epic-acumen-physician-solutions-llc	Aurora Kidney LLC Denali	Anchorage	AK
 epic-acumen-physician-solutions-llc	Aurora Kidney LLC Homer	Homer	AK
 epic-acumen-physician-solutions-llc	Aurora Kidney LLC Laurel Street	Anchorage	AK
@@ -298,6 +298,13 @@ epic-acumen-physician-solutions-llc	East Tennessee Nephrology PC	Knoxville	TN
 epic-acumen-physician-solutions-llc	East Tennessee Nephrology PC Knoxville	Knoxville	TN
 epic-acumen-physician-solutions-llc	East Tennessee Nephrology PC Morristown	Morristown	TN
 epic-acumen-physician-solutions-llc	East Tennessee Nephrology PC South Knoxville	Knoxville	TN
+epic-acumen-physician-solutions-llc	East Texas Kidney Specialists	Longview	TX
+epic-acumen-physician-solutions-llc	East Texas Kidney Specialists Gilmer	Gilmer	TX
+epic-acumen-physician-solutions-llc	East Texas Kidney Specialists Henderson	Henderson	TX
+epic-acumen-physician-solutions-llc	East Texas Kidney Specialists Longview	Longview	TX
+epic-acumen-physician-solutions-llc	East Texas Kidney Specialists Longview 4th	Longview	TX
+epic-acumen-physician-solutions-llc	East Texas Kidney Specialists Marshall	Marshall	TX
+epic-acumen-physician-solutions-llc	East Texas Kidney Specialists Shreveport	Shreveport	LA
 epic-acumen-physician-solutions-llc	Eastern Nephrology Associates PLLC	Greenville	NC
 epic-acumen-physician-solutions-llc	Eastern Nephrology Associates PLLC Ahoskie	Ahoskie	NC
 epic-acumen-physician-solutions-llc	Eastern Nephrology Associates PLLC Clinton	Clinton	NC
@@ -484,6 +491,7 @@ epic-acumen-physician-solutions-llc	Island Kidney Care Kauai	Lihue	HI
 epic-acumen-physician-solutions-llc	Island Kidney Care Maui	Wailuku	HI
 epic-acumen-physician-solutions-llc	Jersey Coast Nephrology & Hypertension Associates LLC RCC	Brick	NJ
 epic-acumen-physician-solutions-llc	Joplin Nephrology	Joplin	MO
+epic-acumen-physician-solutions-llc	Joplin Nephrology Ft Scott Clinic	Fort Scott	KS
 epic-acumen-physician-solutions-llc	Joplin Nephrology Joplin Clinic	Joplin	MO
 epic-acumen-physician-solutions-llc	Joplin Nephrology Pittsburg Clinic	Pittsburg	KS
 epic-acumen-physician-solutions-llc	Kanawha Nephrology Incorporated	Charleston	WV
@@ -886,6 +894,7 @@ epic-acumen-physician-solutions-llc	Nephrology Associates of Northern Indiana FT
 epic-acumen-physician-solutions-llc	Nephrology Associates of Northern Indiana FTW Kendallville	Kendallville	IN
 epic-acumen-physician-solutions-llc	Nephrology Associates of Northern Indiana FTW Marion	Marion	IN
 epic-acumen-physician-solutions-llc	Nephrology Associates of Northern Indiana FTW Parkview	Fort Wayne	IN
+epic-acumen-physician-solutions-llc	Nephrology Associates of Northern Indiana FTW Portland	Portland	IN
 epic-acumen-physician-solutions-llc	Nephrology Associates of Northern Indiana FTW Van Wert	Van Wert	OH
 epic-acumen-physician-solutions-llc	Nephrology Associates of Northern Indiana FTW Wabash	Wabash	IN
 epic-acumen-physician-solutions-llc	Nephrology Associates of Northern Indiana FTW Warsaw	Warsaw	IN
@@ -946,6 +955,7 @@ epic-acumen-physician-solutions-llc	Nephrology Physicians LLC Elkhart	Elkhart	IN
 epic-acumen-physician-solutions-llc	Nephrology Physicians LLC Goshen	Goshen	IN
 epic-acumen-physician-solutions-llc	Nephrology Physicians LLC Mishawaka	Mishawaka	IN
 epic-acumen-physician-solutions-llc	Nephrology Physicians LLC Plymouth	Plymouth	IN
+epic-acumen-physician-solutions-llc	Nephrology and Hypertension Associates, LTD Ruleville Office	Ruleville	MS
 epic-acumen-physician-solutions-llc	Nephrology and Hypertension Consultants, PC	Anniston	AL
 epic-acumen-physician-solutions-llc	Nephrology and Hypertension Consultants, PC Anniston	Anniston	AL
 epic-acumen-physician-solutions-llc	Nephrology and Hypertension Consultants, PC Jacksonville	Jacksonville	AL
@@ -1009,6 +1019,7 @@ epic-acumen-physician-solutions-llc	Northeast Florida Kidney Partners Bartram Pa
 epic-acumen-physician-solutions-llc	Northeast Florida Kidney Partners OP Kingsley	Orange Park	FL
 epic-acumen-physician-solutions-llc	Northeast Florida Kidney Partners Orange Park	Orange Park	FL
 epic-acumen-physician-solutions-llc	Northeast Florida Kidney Partners San Pablo	Jacksonville	FL
+epic-acumen-physician-solutions-llc	Northeast Kidney Care, LLC - Modern Nephrology & Transplant, LLC Modern Nephro	West Orange	NJ
 epic-acumen-physician-solutions-llc	Northeast Kidney Care, LLC - Nephrological Associates	Florham Park	NJ
 epic-acumen-physician-solutions-llc	Northeast Kidney Care, LLC - Nephrological Associates Bloomfield	Bloomfield	NJ
 epic-acumen-physician-solutions-llc	Northeast Kidney Care, LLC - Nephrological Associates Denville	Denville	NJ
@@ -4395,6 +4406,7 @@ epic-alameda-health-system	South Shore Rehab and Wellness	Alameda	CA
 epic-albany-county-department-of-health		Albany	NY
 epic-albany-med-health-system	AMC AMSTERDAM	Amsterdam	NY
 epic-albany-med-health-system	AMC ANE MALTA ASC	Malta	NY
+epic-albany-med-health-system	AMC CROSSINGS BLVD	Clifton Park	NY
 epic-albany-med-health-system	AMC DELMAR	Delmar	NY
 epic-albany-med-health-system	AMC ED TOX 67P S250	Hudson	NY
 epic-albany-med-health-system	AMC LATHAM	Latham	NY
@@ -4409,6 +4421,7 @@ epic-albany-med-health-system	AMC OTO HEAR 35 HACKETT	Albany	NY
 epic-albany-med-health-system	AMC OTO PED SSC	Saratoga Springs	NY
 epic-albany-med-health-system	AMC SUR CTHR 102PRK	Glens Falls	NY
 epic-albany-med-health-system	AMC SUR CTHR SWOODS	Albany	NY
+epic-albany-med-health-system	AMCH HACKETT BLVD	Albany	NY
 epic-albany-med-health-system	AMCH LOUDON AVE	Cohoes	NY
 epic-albany-med-health-system	AMCH PFT 16NS	Albany	NY
 epic-albany-med-health-system	Albany Medical Center Hospital	Albany	NY
@@ -4421,7 +4434,6 @@ epic-albany-med-health-system	Amc 6 Executive Park Dr	Albany	NY
 epic-albany-med-health-system	Amc 99 Delaware Ave	Delmar	NY
 epic-albany-med-health-system	Amc Atcm 1 Clara	Albany	NY
 epic-albany-med-health-system	Amc Clifton Park RT9	Clifton Park	NY
-epic-albany-med-health-system	Amc Crossings BLVD	Clifton Park	NY
 epic-albany-med-health-system	Amc Jordan Road	Troy	NY
 epic-albany-med-health-system	Amc Kingston	Kingston	NY
 epic-albany-med-health-system	Amc Med 50 New Scotland Ave	Albany	NY
@@ -4434,7 +4446,6 @@ epic-albany-med-health-system	Amc Wellness Way	Latham	NY
 epic-albany-med-health-system	Amch Clifton Park RT 146	Clifton Park	NY
 epic-albany-med-health-system	Amch Draw 178 Washington	Albany	NY
 epic-albany-med-health-system	Amch Draw Station Manning	Albany	NY
-epic-albany-med-health-system	Amch Hackett BLVD	Albany	NY
 epic-albany-med-health-system	Amch Union St	Niskayuna	NY
 epic-albany-med-health-system	CMH COPAKE	Copake	NY
 epic-albany-med-health-system	CMH FAM MED LAFAY	Coxsackie	NY
@@ -5581,6 +5592,7 @@ epic-anmed-health	AnMed Therapy – Lymphedema	Anderson	SC
 epic-anmed-health	AnMed Transitional Care Medicine	Anderson	SC
 epic-anmed-health	AnMed Urology	Anderson	SC
 epic-anmed-health	AnMed Vascular Surgery	Anderson	SC
+epic-anmed-health	AnMed Windsor Place	Anderson	SC
 epic-anmed-health	AnMed Wound and Hyperbaric Medicine	Anderson	SC
 epic-anmed-health	AnMed Young Adult Primary Care	Anderson	SC
 epic-anmed-health	Anderson ENT PA	Anderson	SC
@@ -5597,6 +5609,7 @@ epic-anmed-health	Anmed Orthopedics & Sports Medicine - Pickens	Pickens	SC
 epic-anmed-health	Anmed Orthopedics & Sports Medicine - Windsor Place	Anderson	SC
 epic-anmed-health	Anmed Outpatient Infusion	Anderson	SC
 epic-anmed-health	Anmed Pediatrics - Piedmont	Piedmont	SC
+epic-anmed-health	Anmed Primary Care & Pediatrics - Seneca	Oconee	SC
 epic-anmed-health	Anmed Primary Care - Piedmont	Piedmont	SC
 epic-anmed-health	Anmed Specialty Care - Piedmont	Piedmont	SC
 epic-anmed-health	Anmed Sports Medicine - AU Athletics	Anderson	SC
@@ -5813,9 +5826,9 @@ epic-asante-health-system	Asante Physician Partners - Family Medicine - White Ci
 epic-asante-health-system	Asante Physician Partners - Family Medicine Two	Grants Pass	OR
 epic-asante-health-system	Asante Physician Partners - Family Medicine, Ashland	Ashland	OR
 epic-asante-health-system	Asante Physician Partners - Family Medicine, Grants Pass	Grants Pass	OR
+epic-asante-health-system	Asante Physician Partners - Family Medicine, Medford	Medford	OR
 epic-asante-health-system	Asante Physician Partners - Family Medicine/Gynecology	Ashland	OR
 epic-asante-health-system	Asante Physician Partners - Grants Pass	Grants Pass	OR
-epic-asante-health-system	Asante Physician Partners - Medford	Medford	OR
 epic-asante-health-system	Asante Physician Partners - Surgical Group	Grants Pass	OR
 epic-asante-health-system	Asante Physician Partners - Work Health - Medford	Medford	OR
 epic-asante-health-system	Asante Physician Partners Behavioral Health	Medford	OR
@@ -6605,6 +6618,7 @@ epic-atlantic-health	AHUC BLOOMFIELD	Bloomfield	NJ
 epic-atlantic-health	AHUC HACKETTSTOWN	Hackettstown	NJ
 epic-atlantic-health	AHUC HOWELL	Wall	NJ
 epic-atlantic-health	AHUC LEDGEWOOD	Ledgewood	NJ
+epic-atlantic-health	AHUC ROCKAWAY	Rockaway	NJ
 epic-atlantic-health	AHUC TOTOWA	Totowa	NJ
 epic-atlantic-health	AHUC WATCHUNG	Watchung	NJ
 epic-atlantic-health	AMG GSU 3155	Denville	NJ
@@ -6676,7 +6690,6 @@ epic-atlantic-health	Ahuc Hamilton	Hamilton	NJ
 epic-atlantic-health	Ahuc Imaging Hamilton	Hamilton	NJ
 epic-atlantic-health	Ahuc Imaging Lodi	Lodi	NJ
 epic-atlantic-health	Ahuc Linden	Linden	NJ
-epic-atlantic-health	Ahuc Rockaway	Rockaway	NJ
 epic-atlantic-health	Ahuc Springfield Township	Springfield	NJ
 epic-atlantic-health	Ahuc Wall	Wall	NJ
 epic-atlantic-health	Aih DX Imaging Bridgewater	Bridgewater	NJ
@@ -10444,7 +10457,6 @@ epic-baptist-memorial-health-care	BMG Booneville Surgical Associates	Booneville	
 epic-baptist-memorial-health-care	BMG Breast MultiD Clinic	Germantown	TN
 epic-baptist-memorial-health-care	BMG COVID Testing	Memphis	TN
 epic-baptist-memorial-health-care	BMG CV and Thoracic Surgery Desoto	Southaven	MS
-epic-baptist-memorial-health-care	BMG Cardiovascular and Thoracic Surgery	Memphis	TN
 epic-baptist-memorial-health-care	BMG Carroll County General Surgery	Huntingdon	TN
 epic-baptist-memorial-health-care	BMG Carroll County Pulmonology	Huntingdon	TN
 epic-baptist-memorial-health-care	BMG Center for Urinary and Pelvic Disorders	Memphis	TN
@@ -10508,6 +10520,7 @@ epic-baptist-memorial-health-care	BMG Memphis Family Medicine	Memphis	TN
 epic-baptist-memorial-health-care	BMG Memphis Genetics	Memphis	TN
 epic-baptist-memorial-health-care	BMG Memphis Internal Medicine	Germantown	TN
 epic-baptist-memorial-health-care	BMG Meridian Womens Wellness Institute	Meridian	MS
+epic-baptist-memorial-health-care	BMG Metro Cardiovascular and Thoracic Surgery	Memphis	TN
 epic-baptist-memorial-health-care	BMG Metro General Surgery	Memphis	TN
 epic-baptist-memorial-health-care	BMG Mid-South Medical Professionals Memphis	Memphis	TN
 epic-baptist-memorial-health-care	BMG Minimally Invasive Surgery Marion	Marion	AR
@@ -10668,7 +10681,7 @@ epic-baptist-memorial-health-care	Baptist Medical Group- Richland Primary Care	R
 epic-baptist-memorial-health-care	Baptist Medical Group- Thaggard Road Primary Care	Madden	MS
 epic-baptist-memorial-health-care	Baptist Medical Group- Walnut Grove Primary Care	Walnut Grove	MS
 epic-baptist-memorial-health-care	Baptist Medical Group- Yazoo Speech Therapy	Yazoo City	MS
-epic-baptist-memorial-health-care	Baptist Medical Group-Anderson Premier Women’s Center	Meridian	MS
+epic-baptist-memorial-health-care	Baptist Medical Group-Anderson Premier Women's Center	Meridian	MS
 epic-baptist-memorial-health-care	Baptist Medical Group-Belhaven Physical Therapy	Jackson	MS
 epic-baptist-memorial-health-care	Baptist Medical Group-Belhaven Primary Care	Jackson	MS
 epic-baptist-memorial-health-care	Baptist Medical Group-Brandon Primary Care	Brandon	MS
@@ -10710,6 +10723,7 @@ epic-baptist-memorial-health-care	Baptist Memorial Hospital-Oktibbeha County STK
 epic-baptist-memorial-health-care	Baptist Memorial Hospital-Oxford	Oxford	MS
 epic-baptist-memorial-health-care	Baptist Memorial Hospital-Paragould	Paragould	AR
 epic-baptist-memorial-health-care	Baptist Memorial Hospital-Rankin	Brandon	MS
+epic-baptist-memorial-health-care	Baptist Memorial Hospital-Rankin County	Rankin	MS
 epic-baptist-memorial-health-care	Baptist Memorial Hospital-Tipton	Covington	TN
 epic-baptist-memorial-health-care	Baptist Memorial Hospital-Union City	Union City	TN
 epic-baptist-memorial-health-care	Baptist Memorial Hospital-Union County	New Albany	MS
@@ -10818,6 +10832,7 @@ epic-baptist-memorial-health-care	CC Zenith Vascular and Fibroid Center Memphis	
 epic-baptist-memorial-health-care	CC Zenith Vascular and Fibroid Center Southaven	Southaven	MS
 epic-baptist-memorial-health-care	CC Zenith Vascular and Fibroid Center US	Memphis	TN
 epic-baptist-memorial-health-care	CCP Carroll County Pulmonary	Huntingdon	TN
+epic-baptist-memorial-health-care	Calhoun Wound Care	Calhoun City	MS
 epic-baptist-memorial-health-care	Columbus Childrens Clinic	Columbus	MS
 epic-baptist-memorial-health-care	Concern	Memphis	TN
 epic-baptist-memorial-health-care	Desoto Ath Club-PT	Southaven	MS
@@ -15048,6 +15063,7 @@ epic-catholic-health-long-island-ny	Gastroenterology, Ambulatory Care at East Hi
 epic-catholic-health-long-island-ny	Gastroenterology, Ambulatory Care at Lake Success	Lake Success	NY
 epic-catholic-health-long-island-ny	Gastroenterology, Ambulatory Care at Merrick	Merrick	NY
 epic-catholic-health-long-island-ny	Gastroenterology, Babylon	Babylon	NY
+epic-catholic-health-long-island-ny	Gastroenterology, Inwood	Inwood	NY
 epic-catholic-health-long-island-ny	Gastroenterology, Massapequa	Massapequa	NY
 epic-catholic-health-long-island-ny	Gastroenterology, Plainview	Plainview	NY
 epic-catholic-health-long-island-ny	Gastroenterology, Port Jefferson Station	Port Jefferson Station	NY
@@ -15072,6 +15088,7 @@ epic-catholic-health-long-island-ny	Hicksville Fam Medicine	Hicksville	NY
 epic-catholic-health-long-island-ny	High Horizon Medical	W Hempstead	NY
 epic-catholic-health-long-island-ny	Hillside Pediatrics PC	Floral Park	NY
 epic-catholic-health-long-island-ny	Husain Neurology Associates	Valley Stream	NY
+epic-catholic-health-long-island-ny	Infectious Disease, Ambulatory & Urgent Care at Melville	Melville	NY
 epic-catholic-health-long-island-ny	Infectious Disease, Ambulatory Care at East Hills	East Hills	NY
 epic-catholic-health-long-island-ny	Infectious Disease, Centereach	Centereach	NY
 epic-catholic-health-long-island-ny	Infectious Disease, Rockville CTR	Rockville Centre	NY
@@ -15209,6 +15226,7 @@ epic-catholic-health-long-island-ny	Nephrology, Stony Brook	Stony Brook	NY
 epic-catholic-health-long-island-ny	Neurology, Ambulatory & Urgent Care at Centereach	Centereach	NY
 epic-catholic-health-long-island-ny	Neurology, Ambulatory Care at Westbury	Westbury	NY
 epic-catholic-health-long-island-ny	Neurology, Bethpage	Bethpage	NY
+epic-catholic-health-long-island-ny	Neurology, Inwood	Inwood	NY
 epic-catholic-health-long-island-ny	Neurology, Plainview	Plainview	NY
 epic-catholic-health-long-island-ny	Neurology, Port Jefferson	Port Jefferson	NY
 epic-catholic-health-long-island-ny	Neurology, Riverhead	Riverhead	NY
@@ -15289,6 +15307,7 @@ epic-catholic-health-long-island-ny	Pediatrics, Oakdale	Oakdale	NY
 epic-catholic-health-long-island-ny	Pediatrics, Port Jefferson	Port Jefferson	NY
 epic-catholic-health-long-island-ny	Pediatrics, West Islip	West Islip	NY
 epic-catholic-health-long-island-ny	Pelvic Health Center, Babylon	Babylon	NY
+epic-catholic-health-long-island-ny	Pelvic Health Center, East Hills	East Hills	NY
 epic-catholic-health-long-island-ny	Pelvic Health Center, Rockville Centre	Rockville Centre	NY
 epic-catholic-health-long-island-ny	Pelvic Health, Ambulatory Care at Commack	Commack	NY
 epic-catholic-health-long-island-ny	Physical Medicine Rehab, Port Jefferson	Port Jefferson	NY
@@ -15455,6 +15474,7 @@ epic-catholic-health-long-island-ny	Urology, East Patchogue	E Patchogue	NY
 epic-catholic-health-long-island-ny	Urology, Port Jefferson	Port Jefferson	NY
 epic-catholic-health-long-island-ny	Urology, Port Jefferson, Suite 106	Port Jefferson	NY
 epic-catholic-health-long-island-ny	Urology, Port Jefferson, Suite 201	Port Jefferson	NY
+epic-catholic-health-long-island-ny	Urology, West Babylon	West Babylon	NY
 epic-catholic-health-long-island-ny	Vasc Surgery, East Hills	East Hills	NY
 epic-catholic-health-long-island-ny	Vasc Surgery, Merrick	Merrick	NY
 epic-catholic-health-long-island-ny	Vascular Surgery, Ambulatory Care at Commack	Commack	NY
@@ -16035,6 +16055,8 @@ epic-centracare	Henning Clinic	Henning	MN
 epic-centracare	Henning Medical Clinic	Henning	MN
 epic-centracare	Henning Physical Therapy Clinic	Henning	MN
 epic-centracare	Hinkley Corporate Lodge Addiction Services (Old Corporate Lodge)	Hinkley	MN
+epic-centracare	Janning ENT Center	Willmar	MN
+epic-centracare	Janning Ear Nose and Throat	Willmar	MN
 epic-centracare	Johnson Memorial Health Services	Dawson	MN
 epic-centracare	Johnson Memorial Hospital	Dawson	MN
 epic-centracare	Lakeland Clinic	Willmar	MN
@@ -16330,6 +16352,7 @@ epic-centralus-health	Crouse Medical Practice Manlius	Manlius	NY
 epic-centralus-health	Crouse Medical Practice Neuroscience Brittonfield	East Syracuse	NY
 epic-centralus-health	Crouse Medical Practice OBGYN Fayetteville	Fayeteville	NY
 epic-centralus-health	Crouse Medical Practice Taft	Liverpool	NY
+epic-centralus-health	Crouse Medical Practice UroGynecology East Syracuse	East Syracuse	NY
 epic-centralus-health	Crouse Medical Practice Utica	New Hartford	NY
 epic-centralus-health	Crouse Physicians' Office Building	Syracuse	NY
 epic-centralus-health	Falck Cancer Center	Elmira	NY
@@ -16668,6 +16691,7 @@ epic-chi-health	St. Joseph's Health Park Rapids	Park Rapids	MN
 epic-chi-health	St. Vincent’s-A Prospera Community	Bismarck	ND
 epic-chi-health	Sunset Drive-A Prospera Community	Mandan	ND
 epic-chi-health	TPN NHI Imperial	Imperial	NE
+epic-chi-health	TPN Nebraska Northwoods Clinic	Lincoln	NE
 epic-chi-health	Turtle Lake Family Clinic	Turtle Lake	ND
 epic-chi-health	Washburn Family Clinic	Washburn	ND
 epic-chi-health	West Broadway Medical Clinic	Council Bluffs	IA
@@ -17023,7 +17047,7 @@ epic-children-s-healthcare-of-atlanta	PC Snapfinger Woods	Decatur	GA
 epic-children-s-healthcare-of-atlanta	Pediatric Adolescent Surgical Associates	Atlanta	GA
 epic-children-s-healthcare-of-atlanta	Pediatric Neurosurgery Associates	Atlanta	GA
 epic-children-s-healthcare-of-atlanta	Pediatric Surgery Practice (PSP)	Atlanta	GA
-epic-children-s-healthcare-of-atlanta	Satellite BLVD OP Lab Collections	Duluth	GA
+epic-children-s-healthcare-of-atlanta	SATELLITE BLVD OP LAB COLLECTIONS	Duluth	GA
 epic-children-s-healthcare-of-atlanta	Scottish Rite Hospital	Atlanta	GA
 epic-children-s-healthcare-of-atlanta	Snapfinger Woods Pediatrics Location	Decatur	GA
 epic-children-s-healthcare-of-atlanta	Snellville Rehab	Snellville	GA
@@ -17173,6 +17197,7 @@ epic-children-s-hospital-colorado	Children's Hospital Colorado Health Pavilion	A
 epic-children-s-hospital-colorado	Children's Hospital Colorado Kidstreet Anschutz	Denver	CO
 epic-children-s-hospital-colorado	Children's Hospital Colorado Kidstreet YMCA	Denver	CO
 epic-children-s-hospital-colorado	Children's Hospital Colorado North Campus	Broomfield	CO
+epic-children-s-hospital-colorado	Children's Hospital Colorado Orthopedic and Sports Medicine Center	Highlands Ranch	CO
 epic-children-s-hospital-colorado	Children's Hospital Colorado Outpatient Care Briargate	Colorado Springs	CO
 epic-children-s-hospital-colorado	Children's Hospital Colorado Outpatient Care Parker	Parker	CO
 epic-children-s-hospital-colorado	Children's Hospital Colorado Outpatient and Urgent Care Southeast Aurora	Aurora	CO
@@ -17305,6 +17330,7 @@ epic-children-s-hospital-of-philadelphia	Specialty Care and Surgery Center - Voo
 epic-children-s-hospital-of-philadelphia	St. Peter's University Hospital - Cardiology	New Brunswick	NJ
 epic-children-s-hospital-of-philadelphia	The Children's Hospital of Philadelphia	Philadelphia	PA
 epic-children-s-hospital-of-philadelphia	Virtua Specialty Care Center	Voorhees	NJ
+epic-children-s-mercy-kansas-city	CM Shawnee	Shawnee	KS
 epic-children-s-mercy-kansas-city	Children's Mercy Adele Hall Hospital	Kansas City	MO
 epic-children-s-mercy-kansas-city	Children's Mercy Blue Valley	Overland Park	KS
 epic-children-s-mercy-kansas-city	Children's Mercy Bolivar	Bolivar	MO
@@ -18370,7 +18396,6 @@ epic-cleveland-clinic	CPC West End Pediatrics	Lakewood	OH
 epic-cleveland-clinic	CPE DR ELSAWY BAINBRIDGE	Chagrin Falls	OH
 epic-cleveland-clinic	CPE DR KHALAFI MD LLC	Warrensville Hts	OH
 epic-cleveland-clinic	CPE DR M GHAYURI BEACHWOOD	Beachwood	OH
-epic-cleveland-clinic	CPE DRS BAILIN/SUNDRESH EUCLID	Euclid	OH
 epic-cleveland-clinic	CPE GERBLICH MD INC	Beachwood	OH
 epic-cleveland-clinic	CPE NORTHCOAST ENT - SOLON	Solon	OH
 epic-cleveland-clinic	CPE NORTHCOAST ENT - STREETSBORO	Streetsboro	OH
@@ -18719,6 +18744,7 @@ epic-cleveland-clinic	Cpe Cleveland Advanced Surgical Euclid	Euclid	OH
 epic-cleveland-clinic	Cpe Cleveland Advanced Surgical Willoughby	Willoughby	OH
 epic-cleveland-clinic	Cpe Cleveland Nasal Sinus Sleep Center	Cleveland	OH
 epic-cleveland-clinic	Cpe Cleveland Vascular Institute	Warrensville Heights	OH
+epic-cleveland-clinic	Cpe DRS Bailin/Sundresh Euclid	Euclid	OH
 epic-cleveland-clinic	Cpe Dr David Berzon	Mayfield Hts	OH
 epic-cleveland-clinic	Cpe Dr Rao Pediatrics	Mayfield Heights	OH
 epic-cleveland-clinic	Cpe Emmanuel Tuffuor MD Inc	East Cleveland	OH
@@ -18750,11 +18776,11 @@ epic-cleveland-clinic	Cuyahoga Falls Lab	Cuyahoga Falls	OH
 epic-cleveland-clinic	Derm Elyria MC	Elyria	OH
 epic-cleveland-clinic	ELYRIA	Elyria	OH
 epic-cleveland-clinic	EMH ELYRIA	Elyria	OH
-epic-cleveland-clinic	EUCLID MOB	Euclid	OH
 epic-cleveland-clinic	East Professional Center	Cleveland	OH
 epic-cleveland-clinic	Educare Kids	South Euclid	OH
 epic-cleveland-clinic	El Centro Mob	Lorain	OH
 epic-cleveland-clinic	Elyria Family Health Center	Elyria	OH
+epic-cleveland-clinic	Euclid Mob	Euclid	OH
 epic-cleveland-clinic	FAMP AUSTINTOWN MOC	Austintown	OH
 epic-cleveland-clinic	Fairview Mob MC	Cleveland	OH
 epic-cleveland-clinic	Fairview Wound CTR	Westlake	OH
@@ -18806,6 +18832,7 @@ epic-cleveland-clinic	Lyndhurst Campus	Lyndhurst	OH
 epic-cleveland-clinic	MANOR MAYFIELD	Mayfield Hts	OH
 epic-cleveland-clinic	MANOR N OLMSTED	North Olmsted	OH
 epic-cleveland-clinic	MANOR PARMA	Parma	OH
+epic-cleveland-clinic	MANOR WILLOUGHBY	Willoughby	OH
 epic-cleveland-clinic	MC ASC TWINSBURG OR	Twinsburg	OH
 epic-cleveland-clinic	MC Asc Lorain	Lorain	OH
 epic-cleveland-clinic	MC Cole Eye Institute	Cleveland	OH
@@ -18821,7 +18848,6 @@ epic-cleveland-clinic	MO ENDO Shell	Mentor	OH
 epic-cleveland-clinic	MPC Release of Information	Cleveland	OH
 epic-cleveland-clinic	Macedonia Rec Center	Macedonia	OH
 epic-cleveland-clinic	Manor Twin	Twinsburg	OH
-epic-cleveland-clinic	Manor Willoughby	Willoughby	OH
 epic-cleveland-clinic	Martin Health Concierge Medicine of Stuart	Stuart	FL
 epic-cleveland-clinic	Martin Health North Hospital MC	Stuart	FL
 epic-cleveland-clinic	Martin Health Rehabilitation Center	Palm City	FL
@@ -19316,7 +19342,7 @@ epic-commonspirit-ar-ga-ky-tn-tx	CHI St. Vincent Women's Clinic - Hot Springs	Ho
 epic-commonspirit-ar-ga-ky-tn-tx	CHI St. Vincent Wound Care Center - Hot Springs	Hot Springs National Park	AR
 epic-commonspirit-ar-ga-ky-tn-tx	Christus Dubuis Hospital of Hot Springs	Hot Springs	AR
 epic-commonspirit-ar-ga-ky-tn-tx	CommonSpirit Memorial North Georgia Hospital	Ringgold	GA
-epic-commonspirit-ar-ga-ky-tn-tx	Commonspirit Health (AR, GA, KY, TN, TX)	Houston	TX
+epic-commonspirit-ar-ga-ky-tn-tx	Commonspirit Health (AR, GA, KY, TN, TX) - Archived Records	Houston	TX
 epic-commonspirit-ar-ga-ky-tn-tx	Community Emergency Center - Baylor St. Luke's Holcombe	Houston	TX
 epic-commonspirit-ar-ga-ky-tn-tx	Community Emergency Center - Baylor St. Luke's Pearland	Pearland	TX
 epic-commonspirit-ar-ga-ky-tn-tx	Community Emergency Center - Baylor St. Luke's San Felipe	Houston	TX
@@ -19359,8 +19385,275 @@ epic-commonspirit-ar-ga-ky-tn-tx	The Chattanooga Heart Institute - Hixson	Hixson
 epic-commonspirit-ar-ga-ky-tn-tx	The Chattanooga Heart Institute - Jasper	Jasper	TN
 epic-commonspirit-ar-ga-ky-tn-tx	The Chattanooga Heart Institute - Parkway	Ringold	GA
 epic-commonspirit-ar-ga-ky-tn-tx	The Texas Heart Institute Center for Cardiovascular Care	Houston	TX
+epic-commonspirit-health		Chicago	IL
+epic-commonspirit-health	Arkansas Extended Care Hospital of Hot Springs	Hot Springs	AR
 epic-commonspirit-health	Cassel Crag	Seattle	WA
-epic-commonspirit-health	Commonspirit Health (WA)	Chicago	IL
+epic-commonspirit-health	Common Spirit - Convenient Care - Cleveland	Cleveland	TN
+epic-commonspirit-health	CommonSpirit - Baylor St. Luke's Medical Center - Draw Station - Bertner Campus - Houston	Houston	TX
+epic-commonspirit-health	CommonSpirit - Baylor St. Luke's Medical Center - Holcombe-Houston	Houston	TX
+epic-commonspirit-health	CommonSpirit - Baylor St. Luke's Medical Center - McNair Campus - Houston	Houston	TX
+epic-commonspirit-health	CommonSpirit - Baylor St. Luke's Medical Center - O'Quinn Medical Tower- Houston	Houston	TX
+epic-commonspirit-health	CommonSpirit - Baylor St. Luke's Medical Center - Transplant Center - Houston	Houston	TX
+epic-commonspirit-health	CommonSpirit - Continuing Care Hospital - East Lexington	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Continuing Care Hospital - Lexington	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Convenient Care - Corbin	Bardstown	KY
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Arkadelphia	Arkadelphia	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Cabot	Cabot	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Camden	Camden	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Cardiovascular Surgery - Little Rock	Little Rock	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Clinton	Clinton	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Crossett	Crossett	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Fordyce	Fordyce	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Heber Springs	Heber Springs	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Hot Springs	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Hot Springs Village	Hot Springs Village	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Jacksonville (1300 Braden)	Jacksonville	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Jacksonville (1401 Braden)	Jacksonville	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Little Rock (12th St)	Little Rock	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Little Rock (Kanis Rd)	Little Rock	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Little Rock (Saint Vincent)	Little Rock	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Malvern (1002 Schneider)	Malvern	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Malvern (850 Henry)	Malvern	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - McGehee	McGehee	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Monticello	Monticello	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Morrilton	Morrilton	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Nashville	Nashville	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - North Little Rock	North Little Rock	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Pine Bluff	Pine Bluff	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Russellville	Russellville	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Stuttgart	Stuttgart	AR
+epic-commonspirit-health	CommonSpirit - Heart Clinic Arkansas - Warren	Warren	AR
+epic-commonspirit-health	CommonSpirit - Jamail Specialty Care Center - OSC - Houston	Houston	TX
+epic-commonspirit-health	CommonSpirit - Medical Group - Agape Primary Care - The Woodlands	The Woodlands	TX
+epic-commonspirit-health	CommonSpirit - Medical Group - East Lexington	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Medical Group - Livingston	Livingston	TX
+epic-commonspirit-health	CommonSpirit - Medical Group - Primary Care - Tomball	Tomball	TX
+epic-commonspirit-health	CommonSpirit - Memorial Hospital - Cardiothoracic Surgery - Chattanooga	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit - Memorial Hospital - Chattanooga	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit - Memorial Hospital - Cleveland	Cleveland	TN
+epic-commonspirit-health	CommonSpirit - Memorial Hospital - Hamilton Family YMCA	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit - Memorial Hospital - Hixson	Hixson	TN
+epic-commonspirit-health	CommonSpirit - Memorial Hospital - Imaging Center - Ooltewah	Ooltewah	TN
+epic-commonspirit-health	CommonSpirit - Memorial Hospital - North Georgia	Ringgold	GA
+epic-commonspirit-health	CommonSpirit - Memorial Hospital - Research - Chattanooga	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit - Memorial Hospital - Sleep Lab - Atrium	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit - Memorial Hospital- Imaging Center - North Georgia	Ringgold	GA
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Bardstown (4305 New Shepherdsville)	Bardstown	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Bardstown (4359 New Sheperdsville)	Bardstown	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Berea	Berea	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Blazer Rad Onc - Lexington	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Cardiac Rehabilitation & Imaging - London	London	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Corbin	Corbin	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Diagnostic Imaging - Fountain Court	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Hematology and Oncology - Corbin	Corbin	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Imaging - London	London	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Lexington	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - London	London	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Mount Sterling (225 Falcon Dr)	Mount Sterling	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Mount Sterling (227 Falcon Dr)	Mt Sterling	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Nicholasville	Nicholasville	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Oncology - London Mountain View	London	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - PT/OT - London Mountain View	London	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - PT/OT/SLP - Bardstown	Bardstown	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - PT/OT/SLP - C.M. Gatton Beaumont YMCA	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - PT/OT/SLP - Maysville Road	Mt Sterling	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Pediatric PT/OT/SLP - Bardstown	Bardstown	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Physical Therapy & Rehabilitation - Flemingsburg	Flemingsburg	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Radiation Oncology - Lexington	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital - Saint Joseph Office Park	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Hospital -Imaging - London Mountain View	London	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Medical Center - East Lexington	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Medical Center - East Lexington (3470 Blazer)	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Medical Center - East Lexington Medical Building	Lexington	KY
+epic-commonspirit-health	CommonSpirit - Saint Joseph Medical Center -Winchester	Winchester	KY
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Bryan (1600 Joseph Dr)	Bryan	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Bryan (2722 Osler Blvd)	Bryan	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Burleson County	Caldwell	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - College Station (1602 Rock Prairie Rd)	College Station	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - College Station (1604 Rock Prairie Rd)	College Station	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Draw Station - Bryan	Bryan	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Draw Station - College Station	College Station	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Family Medicine - Lufkin	Lufkin	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Grimes County	Navasota	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Imaging Center - College Station	College Station	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Madison County	Madisonville	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - OP Behavioral Health - Burleson County	Caldwell	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - OP Nutrition - Bryan	Bryan	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Orthopedic Imaging - College Station	College Station	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - PT/OT - Bryan	College Station	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - PT/OT/SLP - College Station	College Station	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Pain Medicine - Bryan	Bryan	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Physical Therapy and Rehabilitation - Brenham	Brenham	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Physical Therapy and Rehabilitation - Bryan	College Station	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Radiation Oncology - Bryan	Bryan	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Rehab & Wound Care - Burleson County	Caldwell	TX
+epic-commonspirit-health	CommonSpirit - St. Joseph Hospital - Wound Care - College Station	College Station	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Brazosport	Lake Jackson	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Cardiology - Lufkin	Lufkin	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Diagnostic Imaging - Lufkin	Lufkin	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Emergency Center - Huntsville	Huntsville	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Infectious Disease & Oncology - The Woodlands	The Woodlands	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Lakeside	The Woodlands	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Livingston	Livingston	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Lufkin	Lufkin	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - OP Lab - Lufkin	Lufkin	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - OP Lab - San Augustine	San Augustine	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Orthopedics & Sports Medicine - Pasadena	Pasadena	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - PT/OT/SLP - Lufkin	Lufkin	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Pasadena	Pasadena	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Rehab - Brazosport	Lake Jackson	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Rehab - Pasadena	Pasadena	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - San Augustine	San Augustine	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Springwoods Village	Spring	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Sugar Land	Sugar Land	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - The Woodlands	The Woodlands	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Vintage	Houston	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital - Wound Care - Pasadena	Pasadena	TX
+epic-commonspirit-health	CommonSpirit - St. Luke's Hospital The Woodlands 3	The Woodlands	TX
+epic-commonspirit-health	CommonSpirit - St. Luke’s Hospital - Bryan	Bryan	TX
+epic-commonspirit-health	CommonSpirit - St. Luke’s Hospital -Emergency Center - Pasadena	Pasadena	TX
+epic-commonspirit-health	CommonSpirit - St. Vincent Hospital - Diagnostic Imaging - Hot Springs Village	Hot Springs Village	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Hospital - Hot Springs	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Hospital - Hot Springs MOB	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Hospital - Morrilton	Morrilton	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Hospital - PT/OT/SLP - Hot Springs	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Hospital - Rad Onc - Hot Springs	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Hospital - Sherwood	Sherwood	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Infirmary - Imaging - Little Rock	Little Rock	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Infirmary - Little Rock	Little Rock	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Infirmary - Little Rock Lile Diagnostic Center	Little Rock	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Infirmary - Sleep Center - Little Rock	Little Rock	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Infirmary - Wound Care - Hot Springs	Hot Springs National Park	AR
+epic-commonspirit-health	CommonSpirit - St. Vincent Infirmary - Wound Care - Little Rock	Little Rock	AR
+epic-commonspirit-health	CommonSpirit - The Chattanooga Heart Institute - Atrium	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit - The Chattanooga Heart Institute - Chattanooga	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit - The Chattanooga Heart Institute - Cleveland	Cleveland	TN
+epic-commonspirit-health	CommonSpirit - The Chattanooga Heart Institute - Dayton	Dayton	TN
+epic-commonspirit-health	CommonSpirit - The Chattanooga Heart Institute - Hixson	Hixson	TN
+epic-commonspirit-health	CommonSpirit - The Chattanooga Heart Institute - Jasper	Jasper	TN
+epic-commonspirit-health	CommonSpirit - The Chattanooga Heart Institute - Non-Invasive Cardiology- Atrium	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit - The Chattanooga Heart Institute - North Georgia	Ringgold	GA
+epic-commonspirit-health	CommonSpirit Baylor St. Luke's Medical Center - Bertner Campus - Houston	Houston	TX
+epic-commonspirit-health	CommonSpirit Medical Group - ARMOMS Women's Health - Hot Springs	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Bardstown (4359 New Shepherdsville)	Bardstown	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Berea	Berea	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Brazosort	Lake Jackson	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Bryan	Bryan	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Cardiology & Orthopedics - Lebanon	Lebanon	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Cardiology & Pulmonology- Corbin	Corbin	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Cardiology - Barbourville	Barbourville	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Cardiology - Danville	Danville	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Cardiology - Huntsville	Huntsville	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Cardiothoracic Surgery - Maysville	Maysville	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Chattanooga (605 Glenwood)	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Chattanooga (721 Glenwood)	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Chattanooga (725 Glenwood)	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Chest & Lung Cancer Center - Chattanooga	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Community Care - Hixson	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Community Care - Little Rock	Little Rock	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Conroe	The Woodlands	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine & Obstetrics - Richmond	Richmond	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine & Primary Care - Kirby	Kirby	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine - Chickamauga	Chickamauga	GA
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine - Cleveland	Cleveland	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine - Dayton	Dayton	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine - Harrison	Harrison	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine - Hot Springs Village	Hot Springs Village	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine - Lafayette	Lafayette	GA
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine - San Augustine	San Augustine	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine - Soddy Daisy	Soddy Daisy	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine - Spring City	Spring City	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Family Medicine - Trenton	Trenton	GA
+epic-commonspirit-health	CommonSpirit Medical Group - Flemingsburg	Flemingsburg	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Fountain Court	Lexington	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Gastroenterology - Little Rock	Little Rock	AR
+epic-commonspirit-health	CommonSpirit Medical Group - General Surgery - Little Rock	Little Rock	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Hixson	Hixson	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Hot Springs MOB	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Integrative Medicine - Chattanooga	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Integrative Medicine - Signal Mountain	Signal Mountain	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Internal Medicine - Hixson Pike	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Kingston	Berea	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Kingwood	Kingwood	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Laboratory Services - Palomar	Lexington	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Lake Jackson	Lake Jackson	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Little Rock Lile Diagnostic Center	Little Rock	AR
+epic-commonspirit-health	CommonSpirit Medical Group - London	London	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Lufkin	Lufkin	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Mount Sterling	Mount Sterling	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Multispecialty Care - Sherwood	Sherwood	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Neurology - Beaumont	Lexington	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Neurology - London	London	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Neurology - Sherwood	Sherwood	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Obstetrics & Gynecology - East Lexington	Lexington	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Occupational Medicine - Bryan	Bryan	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Ooltewah	Ooltewah	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Orthopedics & Podiatry - Maysville Road	Mount Sterling	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Orthopedics - 148 London Mountain View	London	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Orthopedics - 160 London Mountain View	London	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Orthopedics - Corbin	Corbin	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Orthopedics - Giddings	Giddings	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Orthopedics - Hot Springs	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Orthopedics - Nashville	Nashville	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Palomar	Lexington	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Pediatrics - London	London	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care & Convenient Care - Little Rock	Little Rock	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care & Orthopedics - Hot Springs Village	Hot Springs Village	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care & Pediatrics - Hot Springs	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - 29th Street	Bryan	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Atrium	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Bank Street	Mount Sterling	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Beaumont	Lexington	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Brenham	Brenham	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Bryan 2210 E. 29th	Bryan	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Bryan University	Bryan	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Bryan West Villa Maria	Bryan	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Cleveland	Cleveland	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - College Station 4401 State Highway 6	College Station	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - College Station 4421 State Highway 6	College Station	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Conroe	Conroe	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Corbin	Corbin	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Creekside	The Woodlands	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Frankfort	Frankfort	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Georgetown	Georgetown	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Glenwood	Glenwood	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Hot Springs (Albert Pike)	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Hot Springs (Mcgowan)	Hot Springs	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Jacksonville (1401 Braden)	Jacksonville	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Jacksonville (W. Main)	Jacksonville	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Little Rock Kanis	Little Rock	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Little Rock Midtowne	Little Rock	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - London City Hill	London	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Lufkin	Lufkin	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Magnolia	Magnolia	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Malvern	Malvern	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Maumelle	Maumelle	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Morrilton	Morrilton	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Mount Ida	Mount Ida	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Mount Sterling	Mount Sterling	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Murfreesboro	Murfreesboro	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Oak Drive	Lake Jackson	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Richmond	Richmond	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Primary Care - Sherwood	Sherwood	AR
+epic-commonspirit-health	CommonSpirit Medical Group - Ringgold	Ringgold	GA
+epic-commonspirit-health	CommonSpirit Medical Group - Rock Prairie	College Station	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Saint Joseph Office Park	Lexington	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Sleep Medicine - The Woodlands	The Woodlands	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Springwoods Village	Spring	TX
+epic-commonspirit-health	CommonSpirit Medical Group - The Woodlands	The Woodlands	TX
+epic-commonspirit-health	CommonSpirit Medical Group - The Woodlands 2	The Woodlands	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Urgent Care - Bryan	Bryan	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Urology - Holtzclaw	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Vascular Surgery - Chattanooga	Chattanooga	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Vascular Surgery - Dayton	Dayton	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Vascular Surgery - Jasper	Jasper	TN
+epic-commonspirit-health	CommonSpirit Medical Group - Vintage	Houston	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Winchester	Winchester	KY
+epic-commonspirit-health	CommonSpirit Medical Group - Woodlands North Houston Heart Center - Willis	Willis	TX
+epic-commonspirit-health	CommonSpirit Medical Group - Wound Care, Podiatry, & Cardiology - Nicholasville	Nicholsville	KY
+epic-commonspirit-health	CommonSpirit Medical Group- Bardstown (4371 New Shepherdsville)	Bardstown	KY
+epic-commonspirit-health	CommonSpirit Medical Group- Sugar Land	Sugar Land	TX
+epic-commonspirit-health	CommonSpirit Pharmacy Saint Joseph Medical Center - East Lexington	Lexington	KY
 epic-commonspirit-health	The Doctors Clinic - Cavalon Place	Silverdale	WA
 epic-commonspirit-health	The Doctors Clinic - Port Orchard	Port Orchard	WA
 epic-commonspirit-health	The Doctors Clinic - Poulsbo	Poulsbo	WA
@@ -19411,10 +19704,12 @@ epic-commonspirit-mountain-region	CommonSpirit Associated Surgeons St. Anthony	L
 epic-commonspirit-mountain-region	CommonSpirit Audiology Siena	Garden City	KS
 epic-commonspirit-mountain-region	CommonSpirit Bariatrics St. Anthony North	Westminster	CO
 epic-commonspirit-mountain-region	CommonSpirit Behavioral Health 6 Springs	Colorado Springs	CO
+epic-commonspirit-mountain-region	CommonSpirit Brain & Spine Jordan Valley	West Jordan	UT
 epic-commonspirit-mountain-region	CommonSpirit Cancer Center Mercy	Durango	CO
 epic-commonspirit-mountain-region	CommonSpirit Cardiac & Thoracic Surgery Durango	Durango	CO
 epic-commonspirit-mountain-region	CommonSpirit Cardiac & Thoracic Surgery North Nevada	Colorado Springs	CO
 epic-commonspirit-mountain-region	CommonSpirit Cardiac and Thoracic Surgery Associates - St Anthony	Lakewood	CO
+epic-commonspirit-mountain-region	CommonSpirit Cardiology Penrose	Colorado Springs	CO
 epic-commonspirit-mountain-region	CommonSpirit Center for Breast Care St Anthony Hospital	Lakewood	CO
 epic-commonspirit-mountain-region	CommonSpirit Center for Rehabilitation Pueblo West	Pueblo West	CO
 epic-commonspirit-mountain-region	CommonSpirit Center for Therapy St. Anthony Hospital	Lakewood	CO
@@ -19454,6 +19749,7 @@ epic-commonspirit-mountain-region	CommonSpirit Internal Medicine Dodge City	Dodg
 epic-commonspirit-mountain-region	CommonSpirit Internal Medicine Fort Morgan	Fort Morgan	CO
 epic-commonspirit-mountain-region	CommonSpirit Internal Medicine Siena	Garden City	KS
 epic-commonspirit-mountain-region	CommonSpirit Internal Medicine St. Anthony North	Westminster	CO
+epic-commonspirit-mountain-region	CommonSpirit Maternal Fetal Medicine Jordan Valley	West Jordan	UT
 epic-commonspirit-mountain-region	CommonSpirit Medical Oncology St Anthony North	Westminster	CO
 epic-commonspirit-mountain-region	CommonSpirit Mercy Cardiology Associates	Durango	CO
 epic-commonspirit-mountain-region	CommonSpirit Mercy Medical Office Building	Durango	CO
@@ -19549,6 +19845,7 @@ epic-commonspirit-mountain-region	CommonSpirit Timberview Clinic Meridian	Parker
 epic-commonspirit-mountain-region	CommonSpirit Urgent Care Cañon City	Canon City	CO
 epic-commonspirit-mountain-region	CommonSpirit Urgent Care Fort Morgan	Fort Morgan	CO
 epic-commonspirit-mountain-region	CommonSpirit Urgent Care Tri-Lakes	Monument	CO
+epic-commonspirit-mountain-region	CommonSpirit Urology Colorado Springs	Colorado Springs	CO
 epic-commonspirit-mountain-region	CommonSpirit Urology Durango	Durango	CO
 epic-commonspirit-mountain-region	CommonSpirit Urology Pueblo	Pueblo	CO
 epic-commonspirit-mountain-region	CommonSpirit Urology Siena	Garden City	KS
@@ -19565,6 +19862,7 @@ epic-commonspirit-mountain-region	Evergreen Urgent Care	Evergreen	CO
 epic-commonspirit-mountain-region	Family Medicine Kaysville	Kaysville	UT
 epic-commonspirit-mountain-region	Foot & Ankle Lehi Mountain Point	Lehi	UT
 epic-commonspirit-mountain-region	Fountain Urgent Care	Fountain	CO
+epic-commonspirit-mountain-region	HCMG Cardiology West Jordan	West Jordan	UT
 epic-commonspirit-mountain-region	Health Images at Cherry Hill	Engelwood	CO
 epic-commonspirit-mountain-region	Highlands Ranch Emergency and Urgent Care Center	Highlands Ranch	CO
 epic-commonspirit-mountain-region	Holy Cross Davis	Layton	UT
@@ -19922,6 +20220,7 @@ epic-community-health-network	Sports Med North	Indianapolis	IN
 epic-community-health-network	Uindy Wellness Center	Indianapolis	IN
 epic-community-health-network	VCOM REG CCC/CHOP NTH	Greenwood	IN
 epic-community-health-network	WSTVW RADIOLOGIST	Indianapolis	IN
+epic-community-health-northwest-florida		Pensacola	FL
 epic-community-health-of-central-washington		Yakima	WA
 epic-community-health-of-south-florida		Washington	DC
 epic-community-health-of-south-florida	Beloved Community Family Wellness Center Blue Island	Chicago	IL
@@ -19959,7 +20258,6 @@ epic-community-health-of-south-florida	Christian Community Health Center South H
 epic-community-health-of-south-florida	CommWell Health Mobile Bus Unit 2	Four Oaks	NC
 epic-community-health-of-south-florida	CommWell Health Mobile Dental Bus Unit 1	Dunn	NC
 epic-community-health-of-south-florida	CommWell Health of Penderlea	Willard	NC
-epic-community-health-of-south-florida	Community Health Northwest Florida	Pensacola	FL
 epic-community-health-of-south-florida	Community Health Northwest Florida 12th Ave Pediatrics	Pensacola	FL
 epic-community-health-of-south-florida	Community Health Northwest Florida C.A. Weis Elementary School	Pensacola	FL
 epic-community-health-of-south-florida	Community Health Northwest Florida Cantonment Pediatrics	Cantonment	FL
@@ -20126,7 +20424,6 @@ epic-community-health-of-south-florida	Health Care District Community Health Cen
 epic-community-health-of-south-florida	Health Care District Community Health Center - St. Ann Place	West Palm Beach	FL
 epic-community-health-of-south-florida	Health Care District Community Health Center - West Palm Beach	West Palm Beach	FL
 epic-community-health-of-south-florida	Health Choice Network	Doral	FL
-epic-community-health-of-south-florida	Honor Community Health	Pontiac	MI
 epic-community-health-of-south-florida	Honor Community Health Avondale High School	Auburn Hills	MI
 epic-community-health-of-south-florida	Honor Community Health Baldwin Health Center	Pontiac	MI
 epic-community-health-of-south-florida	Honor Community Health Baldwin Health Center for Children	Pontiac	MI
@@ -20323,8 +20620,6 @@ epic-community-health-of-south-florida	Miami Beach Community Health Center North
 epic-community-health-of-south-florida	Miami Beach Community Health Center North Shore Medical Center	Miami	FL
 epic-community-health-of-south-florida	Miami Beach Community Health Center OP Jackson North Medical Center Outpatient	Miami	FL
 epic-community-health-of-south-florida	Miami Beach Community Health Center Stanley C. Myers Center	Miami Beach	FL
-epic-community-health-of-south-florida	Muskegon Family Care	Muskegon	MI
-epic-community-health-of-south-florida	MyCare Health Center	Center Line	MI
 epic-community-health-of-south-florida	NEOMED Center Aguas Buenas Campo	Aguas Buenas	PR
 epic-community-health-of-south-florida	NEOMED Center Aguas Buenas Pueblo	Aguas Buenas	PR
 epic-community-health-of-south-florida	NEOMED Center Clinic	Gurabo	PR
@@ -20429,7 +20724,6 @@ epic-community-health-of-south-florida	Tampa Family Health Centers South Westsho
 epic-community-health-of-south-florida	Tampa Family Health Centers Swan	Tampa	FL
 epic-community-health-of-south-florida	Tampa Family Health Centers West Fletcher	Tampa	FL
 epic-community-health-of-south-florida	Tampa Family Health Centers West Waters	Tampa	FL
-epic-community-health-of-south-florida	Thunder Bay Community Health Service Inc	Hillman	MI
 epic-community-health-of-south-florida	Thunder Bay Community Health Service Inc Atlanta Community School	Atlanta	MI
 epic-community-health-of-south-florida	Thunder Bay Community Health Service Inc Atlanta Health Center	Atlanta	MI
 epic-community-health-of-south-florida	Thunder Bay Community Health Service Inc Cheboygan East Elementary School	Cheboygan	MI
@@ -20483,12 +20777,10 @@ epic-community-health-of-south-florida	True Health Center Hoffner	Orlando	FL
 epic-community-health-of-south-florida	True Health Center Lake Underhill	Orlando	FL
 epic-community-health-of-south-florida	True Health Center Sanford	Sanford	FL
 epic-community-health-of-south-florida	True Health Center Southside	Orlando	FL
-epic-community-health-of-south-florida	Western Wayne Family Health Centers	Dearborn	MI
 epic-community-health-of-south-florida	Western Wayne Family Health Centers Dearborn	Dearborn	MI
 epic-community-health-of-south-florida	Western Wayne Family Health Centers Inkster	Inkster	MI
 epic-community-health-of-south-florida	Western Wayne Family Health Centers Lincoln Park	Lincoln Park	MI
 epic-community-health-of-south-florida	Western Wayne Family Health Centers Taylor	Taylor	MI
-epic-community-health-of-south-florida	Whiteside County Community Health Clinic	Rock Falls	IL
 epic-community-health-of-south-florida	Whiteside County Community Health Clinic Mobile Unit	Rock Falls	IL
 epic-community-health-of-south-florida	Whiteside County Community Health Clinic Morrison High School	Morrison	IL
 epic-community-health-of-south-florida	Whiteside County Community Health Clinic Sterling High School	Sterling	IL
@@ -20784,6 +21076,7 @@ epic-complete-cardiovascular-care	Our Lady of the Lake Physician Group Ascension
 epic-complete-cardiovascular-care	Our Lady of the Lake Regional Medical Center	Baton Rouge	LA
 epic-complete-cardiovascular-care	Pediatric Cardiology of Louisiana	Baton Rouge	LA
 epic-complete-cardiovascular-care	Pediatric Surgery of Louisiana	Baton Rouge	LA
+epic-complete-cardiovascular-care	Pointe Coupee General Hospital	New Roads	LA
 epic-complete-cardiovascular-care	Southwest Mississippi Regional Medical Center	McComb	MS
 epic-complete-cardiovascular-care	Specialty Hospital Monroe	Monroe	LA
 epic-complete-cardiovascular-care	St. Dominic Jackson Memorial Hospital	Jackson	MS
@@ -21470,19 +21763,10 @@ epic-cook-children-s-health-care-system	Cook Children's Urology in Tulsa	Tulsa	O
 epic-cook-children-s-health-care-system	Cook Children's Waco Multispecialty Clinic	Waco	TX
 epic-cook-children-s-health-care-system	Cook Children's X-ray Imaging in Prosper	Prosper	TX
 epic-cook-children-s-health-care-system	Endocrinology Midland Multi-Specialty	Midland	TX
-epic-cooper-university-health-care		Princeton	NJ
-epic-cooper-university-health-care		Salem	NJ
 epic-cooper-university-health-care	AMI at Cooper Imaging at Rio Grande	Rio Grande	NJ
 epic-cooper-university-health-care	Cape Regional UC Cape May Court House Imaging	Cape May Court House	NJ
 epic-cooper-university-health-care	Cape Regional UC Marmora Imaging	Marmora	NJ
 epic-cooper-university-health-care	Cape Regional UC Wildwood Imaging	Wildwood	NJ
-epic-cooper-university-health-care	Cooper Ambulatory Surgery Center at Moorestown Campus	Moorestown	NJ
-epic-cooper-university-health-care	Cooper Behavioral Health at Chambers Street	Camden	NJ
-epic-cooper-university-health-care	Cooper Behavioral Health at Voorhees Campus	Voorhees	NJ
-epic-cooper-university-health-care	Cooper Behavioral Health at the Voorhees Learning Center	Voorhees	NJ
-epic-cooper-university-health-care	Cooper Bone and Joint at Marmora	Marmora	NJ
-epic-cooper-university-health-care	Cooper Bone and Joint at Voorhees Campus	Voorhees	NJ
-epic-cooper-university-health-care	Cooper Cancer Center at Medical Commons	Cape May Court House	NJ
 epic-cooper-university-health-care	Cooper Cape Physical Therapy at Medical Commons	Williamstown	NJ
 epic-cooper-university-health-care	Cooper Cape Physical Therapy at Seaville	Ocean View	NJ
 epic-cooper-university-health-care	Cooper Care Alliance at Cooper Landing Road	Cherry Hill	NJ
@@ -21504,82 +21788,89 @@ epic-cooper-university-health-care	Cooper Care Alliance at W Knight Avenue	Colli
 epic-cooper-university-health-care	Cooper Care Alliance at Willingboro	Willingboro	NJ
 epic-cooper-university-health-care	Cooper Care Alliance at Woodbury	Woodbury	NJ
 epic-cooper-university-health-care	Cooper Care Alliance at marmora	Marmora	NJ
-epic-cooper-university-health-care	Cooper Center for Comprehensive Care at Sheridan Pavilion	Camden	NJ
-epic-cooper-university-health-care	Cooper Center for Wound Healing at Cape May Court House	Cape May Court House	NJ
 epic-cooper-university-health-care	Cooper Department of Neurology	Camden	NJ
-epic-cooper-university-health-care	Cooper Dermatologic Surgery at Marlton	Marlton	NJ
-epic-cooper-university-health-care	Cooper Direct Primary Care	Haddonfield	NJ
-epic-cooper-university-health-care	Cooper Early Intevention Program at Sheridan Pavilion	Westampton	NJ
 epic-cooper-university-health-care	Cooper Endocrinology at Cherry Hill	Cherry Hill	NJ
 epic-cooper-university-health-care	Cooper Endoscopy Center at Willingboro	Willingboro	NJ
-epic-cooper-university-health-care	Cooper Gastroenterology at Fire Road	Egg Harbor Township	NJ
-epic-cooper-university-health-care	Cooper Gastroenterology at Medical Commons	Cape May Court House	NJ
-epic-cooper-university-health-care	Cooper Gastroenterology at Mount Laurel	Mt Laurel	NJ
 epic-cooper-university-health-care	Cooper Gynecologic Oncology Associates	Trenton	NJ
 epic-cooper-university-health-care	Cooper Gynecology at Medical Commons	Cape May Court House	NJ
 epic-cooper-university-health-care	Cooper Heart Station at Cooper University Hospital	Camden	NJ
 epic-cooper-university-health-care	Cooper Internal Medicine at Browns Mills	Meadowbrook	PA
 epic-cooper-university-health-care	Cooper Laboratory at Moorestown	Moorestown	NJ
 epic-cooper-university-health-care	Cooper Multispecialty Care at Marlton	Marlton	NJ
-epic-cooper-university-health-care	Cooper Multispecialty Center at 808 Market Street	Camden	NJ
 epic-cooper-university-health-care	Cooper Nephrology at Mannington	Mannington	NJ
 epic-cooper-university-health-care	Cooper Nephrology, Cherry Hill	Cherry Hill	NJ
-epic-cooper-university-health-care	Cooper Neuropsychology at Cherry Hill	Cherry Hill	NJ
+epic-cooper-university-health-care	Cooper Neuropsychology at North Kings Highway	Cherry Hill	NJ
+epic-cooper-university-health-care	Cooper Norcross Ambulatory Surgery Center at Moorestown Campus	Moorestown	NJ
+epic-cooper-university-health-care	Cooper Norcross Behavioral Health at Chambers Street	Camden	NJ
+epic-cooper-university-health-care	Cooper Norcross Behavioral Health at Voorhees Campus	Voorhees	NJ
+epic-cooper-university-health-care	Cooper Norcross Behavioral Health at the Voorhees Learning Center	Voorhees	NJ
+epic-cooper-university-health-care	Cooper Norcross Bone and Joint at Marmora	Marmora	NJ
+epic-cooper-university-health-care	Cooper Norcross Bone and Joint at Voorhees Campus	Voorhees	NJ
+epic-cooper-university-health-care	Cooper Norcross Cancer Center at Medical Commons	Cape May Court House	NJ
+epic-cooper-university-health-care	Cooper Norcross Center for Comprehensive Care at Sheridan Pavilion	Camden	NJ
+epic-cooper-university-health-care	Cooper Norcross Center for Wound Healing at Cape May Court House	Cape May Court House	NJ
+epic-cooper-university-health-care	Cooper Norcross Dermatologic Surgery at Marlton	Marlton	NJ
+epic-cooper-university-health-care	Cooper Norcross Direct Primary Care at Haddonfield	Haddonfield	NJ
+epic-cooper-university-health-care	Cooper Norcross Early Intervention Program at Burlington County Health Department	Westampton	NJ
+epic-cooper-university-health-care	Cooper Norcross Foundation	Camden	NJ
+epic-cooper-university-health-care	Cooper Norcross Gastroenterology at Fire Road	Egg Harbor Township	NJ
+epic-cooper-university-health-care	Cooper Norcross Gastroenterology at Medical Commons	Cape May Court House	NJ
+epic-cooper-university-health-care	Cooper Norcross Gastroenterology at Mount Laurel	Mt Laurel	NJ
 epic-cooper-university-health-care	Cooper Norcross Health	Camden	NJ
+epic-cooper-university-health-care	Cooper Norcross Maternal-Fetal Medicine at Princeton	Princeton	NJ
+epic-cooper-university-health-care	Cooper Norcross Multispecialty Care at Marlton	Marlton	NJ
+epic-cooper-university-health-care	Cooper Norcross Multispecialty Center at 808 Market Street	Camden	NJ
+epic-cooper-university-health-care	Cooper Norcross Pain Management at Sheridan Pavilion	Camden	NJ
+epic-cooper-university-health-care	Cooper Norcross Pediatric Care at Burlington	Burlington	NJ
+epic-cooper-university-health-care	Cooper Norcross Pediatric Care at Voorhees Campus	Voorhees	NJ
+epic-cooper-university-health-care	Cooper Norcross Pediatric Specialty Care at Marter Avenue	Moorestown	NJ
+epic-cooper-university-health-care	Cooper Norcross Physical Medicine and Rehabilitation at Brighton Plaza	Cape May Court House	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary Care at Camden County College	Blackwood	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary Care at Church Street	Moorestown	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary Care at Gloucester City	Gloucester	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary Care at Haddon Commons	Haddon Township	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary Care at Haddon Heights	Haddon Heights	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary Care at Kroc Center	Camden	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary Care at Medford	Medford	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary Care at Mount Laurel	Cherry Hill	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary Care at Runnemede	Runnemede	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary Care at Sewell	Sewell	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary and Specialty Care at JFK	Willingboro	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary and Specialty Care at Sewell	Sewell	NJ
+epic-cooper-university-health-care	Cooper Norcross Primary and Specialty Care at Thorofare	Thorofare	NJ
+epic-cooper-university-health-care	Cooper Norcross Specialty Care at Bridgeview	Camden	NJ
+epic-cooper-university-health-care	Cooper Norcross Specialty Care at Cherry Hill Campus	Cherry Hill	NJ
+epic-cooper-university-health-care	Cooper Norcross Specialty Care at Glassboro	Glassboro	NJ
+epic-cooper-university-health-care	Cooper Norcross Specialty Care at Medical Commons	Cape May Court House	NJ
+epic-cooper-university-health-care	Cooper Norcross Specialty Care at Moorestown Campus	Moorestown	NJ
+epic-cooper-university-health-care	Cooper Norcross Specialty Care at Woodstown	Woodstown	NJ
+epic-cooper-university-health-care	Cooper Norcross Surgical Care at Evesham Road	Voorhees	NJ
+epic-cooper-university-health-care	Cooper Norcross Surgical Care at Mount Laurel	Mt Laurel	NJ
 epic-cooper-university-health-care	Cooper Norcross Surgical Care at Sewell	Sewell	NJ
+epic-cooper-university-health-care	Cooper Norcross Surgical Care at Sicklerville	Sicklerville	NJ
+epic-cooper-university-health-care	Cooper Norcross Surgical Care at Voorhees Campus	Voorhees	NJ
 epic-cooper-university-health-care	Cooper Norcross University Hospital Cape Regional	Cape May Court House	NJ
+epic-cooper-university-health-care	Cooper Norcross Urgent Care at Audubon	Audubon	NJ
+epic-cooper-university-health-care	Cooper Norcross Urgent Care at Cherry Hill	Cherry Hill	NJ
+epic-cooper-university-health-care	Cooper Norcross Urgent Care at Cinnaminson	Cinnaminson	NJ
+epic-cooper-university-health-care	Cooper Norcross Women's Health at Burlington	Burlington	NJ
+epic-cooper-university-health-care	Cooper Norcross Women's Health at Sewell	Sewell	NJ
 epic-cooper-university-health-care	Cooper Outpatient Lab at Cherry Hill Campus	Cherry Hill	NJ
 epic-cooper-university-health-care	Cooper Outpatient Radiology at Cooper University Hospital	Camden	NJ
-epic-cooper-university-health-care	Cooper Pain Management at Sheridan Pavilion	Camden	NJ
-epic-cooper-university-health-care	Cooper Pediatric Care at Burlington	Burlington	NJ
-epic-cooper-university-health-care	Cooper Pediatric Care at Voorhees Campus	Voorhees	NJ
-epic-cooper-university-health-care	Cooper Pediatric Specialty Care at Marter Avenue	Moorestown	NJ
 epic-cooper-university-health-care	Cooper Physical Medicine and Rehab at Cherry Hill	Cherry Hill	NJ
-epic-cooper-university-health-care	Cooper Physical Medicine and Rehabilitation at Brighton Plaza	Cape May Court House	NJ
-epic-cooper-university-health-care	Cooper Physical and Occupational Therapy at Cherry Hill Campus	Cherry Hill	NJ
 epic-cooper-university-health-care	Cooper Physical and Occupational Therapy at Moorestown Campus	Moorestown	NJ
-epic-cooper-university-health-care	Cooper Primary Care at Camden County College	Blackwood	NJ
-epic-cooper-university-health-care	Cooper Primary Care at Church Street	Moorestown	NJ
 epic-cooper-university-health-care	Cooper Primary Care at Clementon	Clementon	NJ
 epic-cooper-university-health-care	Cooper Primary Care at Collingswood	Collingswood	NJ
-epic-cooper-university-health-care	Cooper Primary Care at Gloucester City	Gloucester	NJ
-epic-cooper-university-health-care	Cooper Primary Care at Haddon Commons	Haddon Township	NJ
-epic-cooper-university-health-care	Cooper Primary Care at Haddon Heights	Haddon Heights	NJ
 epic-cooper-university-health-care	Cooper Primary Care at Joint Base McGuire-Dix-Lakehurst	Browns Mills	NJ
-epic-cooper-university-health-care	Cooper Primary Care at Kroc Center	Camden	NJ
-epic-cooper-university-health-care	Cooper Primary Care at Medford	Medford	NJ
-epic-cooper-university-health-care	Cooper Primary Care at Mount Laurel	Cherry Hill	NJ
-epic-cooper-university-health-care	Cooper Primary Care at Runnemede	Runnemede	NJ
-epic-cooper-university-health-care	Cooper Primary Care at Sewell	Sewell	NJ
-epic-cooper-university-health-care	Cooper Primary and Specialty Care at JFK	Willingboro	NJ
 epic-cooper-university-health-care	Cooper Primary and Specialty Care at Pennsville	Pennsville	NJ
-epic-cooper-university-health-care	Cooper Primary and Specialty Care at Sewell	Sewell	NJ
-epic-cooper-university-health-care	Cooper Primary and Specialty Care at Thorofare	Thorofare	NJ
 epic-cooper-university-health-care	Cooper Specialty Care at Bala Cynwyd	Bala Cynwyd	PA
-epic-cooper-university-health-care	Cooper Specialty Care at Bridgeview	Camden	NJ
-epic-cooper-university-health-care	Cooper Specialty Care at Cherry Hill Campus 2nd Floor	Cherry Hill	NJ
-epic-cooper-university-health-care	Cooper Specialty Care at Cherry Hill Campus 3rd Floor	Cherry Hill	NJ
-epic-cooper-university-health-care	Cooper Specialty Care at Cherry Hill Campus 4th Floor	Cherry Hill	NJ
-epic-cooper-university-health-care	Cooper Specialty Care at Glassboro	Glassboro	NJ
-epic-cooper-university-health-care	Cooper Specialty Care at Medical Commons	Cape May Court House	NJ
-epic-cooper-university-health-care	Cooper Specialty Care at Moorestown Campus	Moorestown	NJ
 epic-cooper-university-health-care	Cooper Specialty Care at Newtown Square	Newton Square	PA
-epic-cooper-university-health-care	Cooper Specialty Care at Woodstown	Woodstown	NJ
-epic-cooper-university-health-care	Cooper Surgical Care at Evesham Road	Voorhees	NJ
 epic-cooper-university-health-care	Cooper Surgical Care at Marlton	Marlton	NJ
-epic-cooper-university-health-care	Cooper Surgical Care at Mount Laurel	Mt Laurel	NJ
-epic-cooper-university-health-care	Cooper Surgical Care at Sicklerville	Sicklerville	NJ
-epic-cooper-university-health-care	Cooper Surgical Care at Voorhees Campus	Voorhees	NJ
-epic-cooper-university-health-care	Cooper University Health Care	Camden	NJ
-epic-cooper-university-health-care	Cooper University Hospital Cape Regional	Cape May Court House	NJ
 epic-cooper-university-health-care	Cooper University Hospital Cape Regional UC Cape May Imaging	Hammonton	NJ
-epic-cooper-university-health-care	Cooper Urgent Care at Audubon	Audubon	NJ
-epic-cooper-university-health-care	Cooper Urgent Care at Cherry Hill	Cherry Hill	NJ
 epic-cooper-university-health-care	Cooper Urgent Care at Cinnaminson	Cinnaminson	NJ
-epic-cooper-university-health-care	Cooper Women's Health at Burlington	Burlington	NJ
-epic-cooper-university-health-care	Cooper Women's Health at Sewell	Sewell	NJ
 epic-cooper-university-health-care	Cooper and Inspira Cardiac Care at Mullica Hill	Mullica Hill	NJ
 epic-cooper-university-health-care	Cooper and Inspira Cardiac Care at Sewell	Washington Twp	NJ
+epic-cooper-university-health-care	Cooper and Inspira Medical Center at Mannington	Salem	NJ
 epic-cooper-university-health-care	Cooper and Inspira Neuroscience at Woodstown	Woodstown	NJ
 epic-cooper-university-health-care	Cooper and Inspira Neurosciences at Deptford	Deptford	NJ
 epic-cooper-university-health-care	Cooper and Inspira neuroscience at Millville	Milville	NJ
@@ -21587,6 +21878,7 @@ epic-cooper-university-health-care	MD Anderson Cancer Center at Cooper - Camden	
 epic-cooper-university-health-care	MD Anderson Cancer Center at Cooper - Egg Harbor Township	Egg Harbor	NJ
 epic-cooper-university-health-care	MD Anderson Cancer Center at Cooper - Moorestown	Moorestown	NJ
 epic-cooper-university-health-care	MD Anderson Cancer Center at Cooper - Moorestown Campus	Moorestown	NJ
+epic-cooper-university-health-care	MD Anderson Cancer Center at Cooper - Voorhees	Voorhees	NJ
 epic-cooper-university-health-care	MD Anderson Cancer Center at Cooper - Willingboro	Willingboro	NJ
 epic-cooper-university-health-care	Physical Medicine & Rehab	Cherryhill	NJ
 epic-cooper-university-health-care	Ripa Center for Women's Health at Haddonfield	Haddonfield	NJ
@@ -22885,6 +23177,7 @@ epic-covenant-healthcare	Andrew Lafleur MD	Saginaw	MI
 epic-covenant-healthcare	Anwar & Farrukh	Caro	MI
 epic-covenant-healthcare	Arshad Aqil MD	Caro	MI
 epic-covenant-healthcare	Aspire Bad Axe RHC	Bad Axe	MI
+epic-covenant-healthcare	Aspire Specialty Clinic Marlette	Marlette	MI
 epic-covenant-healthcare	Aspire Tuscola Jail Healthcare Services	Caro	MI
 epic-covenant-healthcare	Beverly A Jarema DO	Saginaw	MI
 epic-covenant-healthcare	Breast Health Center State Street	Saginaw	MI
@@ -25331,6 +25624,7 @@ epic-davita-physician-solutions	Greater Hartford Nephrology - Glastonbury	Glasto
 epic-davita-physician-solutions	Greater Hartford Nephrology LLC - Bloomfield	Bloomfield	CT
 epic-davita-physician-solutions	Greater Hartford Nephrology LLC - Enfield	Enfield	CT
 epic-davita-physician-solutions	Greater Hartford Nephrology LLC - Rocky Hill	Rocky Hill	CT
+epic-davita-physician-solutions	Greater Heights Nephrology - Houston	Houston	TX
 epic-davita-physician-solutions	Guillermo J Morell MD	Houston	TX
 epic-davita-physician-solutions	Hector Diaz-Luna MD - El Paso	El Paso	TX
 epic-davita-physician-solutions	Hector Diaz-Luna MD - Las Palmas	El Paso	TX
@@ -25517,7 +25811,9 @@ epic-davita-physician-solutions	Nephrology Associates of Central Florida - Dr. P
 epic-davita-physician-solutions	Nephrology Associates of Central Florida - Lake Mary	Lake Mary	FL
 epic-davita-physician-solutions	Nephrology Associates of Central Florida - Lake Underhill	Orlando	FL
 epic-davita-physician-solutions	Nephrology Associates of Central Florida - Orlando	Orlando	FL
+epic-davita-physician-solutions	Nephrology Associates of Central Florida - Oviedlo	Oviedo	FL
 epic-davita-physician-solutions	Nephrology Associates of Central Kentucky - Bardstown	Bardstown	KY
+epic-davita-physician-solutions	Nephrology Associates of Central Kentucky - Bardstown Baptist	Bardstown	KY
 epic-davita-physician-solutions	Nephrology Associates of Central Kentucky - Bowling Green	Bowling Green	KY
 epic-davita-physician-solutions	Nephrology Associates of Central Kentucky - Campbellsville	Elizabethtown	KY
 epic-davita-physician-solutions	Nephrology Associates of Central Kentucky - Columbia	Elizabethtown	KY
@@ -26356,6 +26652,7 @@ epic-duke-health	Duke Primary Care Pickett	Durham	NC
 epic-duke-health	Duke Primary Care Pickett Rd Tower Blvd	Durham	NC
 epic-duke-health	Duke Primary Care Riverview Health Center	Durham	NC
 epic-duke-health	Duke Primary Care Sage Rd	Durham	NC
+epic-duke-health	Duke Primary Care Sweetwater	Apex	NC
 epic-duke-health	Duke Primary Care Timberlyne	Chapel Hill	NC
 epic-duke-health	Duke Primary Care Triangle Family Practice	Durham	NC
 epic-duke-health	Duke Primary Care Wake Forest	Wake Forest	NC
@@ -26563,8 +26860,10 @@ epic-duly-health-and-care	DMG- 1300 Arlington Heights RD	Itasca	IL
 epic-duly-health-and-care	DuPage Medical Group	Downers Grove	IL
 epic-duly-health-and-care	DuPage Medical Group - Ogden	Naperville	IL
 epic-duly-health-and-care	DuPage Medical Group GE MOB	Glen Ellyn	IL
+epic-duly-health-and-care	Duly Fox Valley Imaging	Naperville	IL
 epic-duly-health-and-care	Duly Lemont 127 Internal Med	Lemont	IL
 epic-duly-health-and-care	Duly Lombard 805 S Main	Lombard	IL
+epic-duly-health-and-care	Duly New Lenox Pediatrics	New Lenox	IL
 epic-duly-health-and-care	Duly Woodridge 7530 Woodward	Woodridge	IL
 epic-duly-health-and-care	Duly-South BLVD	Oak Park	IL
 epic-duly-health-and-care	Dupage Medical GRP Lombard Mob	Lombard	IL
@@ -27620,7 +27919,7 @@ epic-ent-and-allergy-associates	Enta Williamsburg ENT	Brooklyn	NY
 epic-ent-and-allergy-associates	Enta Woodbridge Alg	Iselin	NJ
 epic-ent-and-allergy-associates	Enta Woodbridge Aud	Iselin	NJ
 epic-ent-and-allergy-associates	Enta Woodbridge ENT	Iselin	NJ
-epic-epic-management-beaver-medical-group	Alessandro BLVD	Moreno Valley	CA
+epic-epic-management-beaver-medical-group	ALESSANDRO BLVD	Moreno Valley	CA
 epic-epic-management-beaver-medical-group	BMG Redlands Beaver Advantage	Redlands	CA
 epic-epic-management-beaver-medical-group	BMG Sundance	Beaumont	CA
 epic-epic-management-beaver-medical-group	Banning Primary Care Center	Banning	CA
@@ -27732,9 +28031,9 @@ epic-erlanger-health-system	Erlanger Primary Care - Western Carolina Andrews	And
 epic-erlanger-health-system	Erlanger Primary Care - Western Carolina Hayesville	Hayesville	NC
 epic-erlanger-health-system	Erlanger Primary Care - Western Carolina Murphy	Murphy	NC
 epic-erlanger-health-system	Erlanger Primary Care - Western Carolina Peachtree	Murphy	NC
-epic-erlanger-health-system	Erlanger Primary Care – Cleveland	Cleveland	TN
-epic-erlanger-health-system	Erlanger Primary Care – Dalton	Dalton	GA
-epic-erlanger-health-system	Erlanger Primary Care – North Cleveland	Cleveland	TN
+epic-erlanger-health-system	Erlanger Primary Care Cleveland	Cleveland	TN
+epic-erlanger-health-system	Erlanger Primary Care Dalton	Dalton	GA
+epic-erlanger-health-system	Erlanger Primary Care North Cleveland	Cleveland	TN
 epic-erlanger-health-system	Erlanger Radiation Oncology	Chattanooga	TN
 epic-erlanger-health-system	Erlanger Sequatchie Valley	Dunlap	TN
 epic-erlanger-health-system	Erlanger Sleep Clinic	Chattanooga	TN
@@ -27926,6 +28225,7 @@ epic-essentia-health	Essentia Health St. Joseph's Brainerd Clinic	Brainerd	MN
 epic-essentia-health	Essentia Health St. Joseph's Crosslake Clinic	Crosslake	MN
 epic-essentia-health	Essentia Health St. Joseph's Emily Clinic	Emily	MN
 epic-essentia-health	Essentia Health St. Joseph's Medical Center	Brainerd	MN
+epic-essentia-health	Essentia Health St. Joseph's Orthopedics Center	Baxter	MN
 epic-essentia-health	Essentia Health St. Joseph's Orthopedics Clinic	Brainerd	MN
 epic-essentia-health	Essentia Health St. Joseph's Pequot Lakes Clinic	Pequot Lakes	MN
 epic-essentia-health	Essentia Health St. Joseph's Pierz Clinic	Pierz	MN
@@ -28490,6 +28790,7 @@ epic-fastmed	FastMed AZ Thunderbird Urgent Care	Phoenix	AZ
 epic-fastmed	FastMed AZ University Urgent Care	Mesa	AZ
 epic-fastmed	FastMed AZ Val Vista Urgent Care	Mesa	AZ
 epic-fastmed	FastMed AZ Valencia Urgent Care	Tucson	AZ
+epic-fastmed	FastMed and AvanceCare	Durham	NC
 epic-fastmed	Fastmed NC Aberdeen	Aberdeen	NC
 epic-fastmed	Fastmed NC Apex	Apex	NC
 epic-fastmed	Fastmed NC Asheville	Asheville	NC
@@ -29608,6 +29909,7 @@ epic-geisinger	Endoscopy, Lock Haven	Lock Haven	PA
 epic-geisinger	Evangelical Community Hospital		
 epic-geisinger	Forest City Nursing and Rehab Center	Forest City	PA
 epic-geisinger	Frank M and Dorothea Henry Cancer Center	Wilkes-Barre	PA
+epic-geisinger	GEISINGER BUCKHORN 240 MALL BLVD	Danville	PA
 epic-geisinger	GEISINGER LEWISTOWN 4TH ST	Lewistown	PA
 epic-geisinger	GLH Community Cancer Treatment Center	Lewistown	PA
 epic-geisinger	GMC Hazleton Cancer Center	Hazleton	PA
@@ -29641,7 +29943,6 @@ epic-geisinger	Geisinger Bloomsburg Lows Road	Bloomsburg	PA
 epic-geisinger	Geisinger Bloomsburg Orthopaedics Central Road	Bloomsburg	PA
 epic-geisinger	Geisinger Bloomsburg Reichart Road	Bloomsburg	PA
 epic-geisinger	Geisinger Breast Care Center Kingston	Kingston	PA
-epic-geisinger	Geisinger Buckhorn 240 Mall BLVD	Danville	PA
 epic-geisinger	Geisinger Bucknell Autism & Developmental Medicine Center	Lewisburg	PA
 epic-geisinger	Geisinger Cancer Center Lewisburg	Lewisburg	PA
 epic-geisinger	Geisinger Cancer Services	Pottsville	PA
@@ -30099,6 +30400,7 @@ epic-genesis-healthcare-system	MVHC Women's Health Bethesda Dr.	Zanesville	OH
 epic-genesis-healthcare-system	MVHC Zanesville Schools	Zanesville	OH
 epic-genesis-healthcare-system	MVHC Zanesville Schools Dental	Zanesville	OH
 epic-genesis-healthcare-system	Maria S. Jamiolkowski DO, Inc.	Zanesville	OH
+epic-genesis-healthcare-system	Medical Associates of Cambridge Inc	Cambridge	OH
 epic-genesis-healthcare-system	Medical Home Primary Care CTR	Zanesville	OH
 epic-genesis-healthcare-system	Morgan County Family Practice	McConnelsville	OH
 epic-genesis-healthcare-system	Muskingum TB Respiratory Clinic aka Rambo Memorial Health Cen	Zanesville	OH
@@ -30604,13 +30906,13 @@ epic-hackensack-meridian-health	HMMG MRI Imaging Old Bridge	Old Bridge	NJ
 epic-hackensack-meridian-health	HMMG Pet-CT Imaging Old Bridge	Old Bridge	NJ
 epic-hackensack-meridian-health	HMMG Sendo 4Hartford 11	Tinton Falls	NJ
 epic-hackensack-meridian-health	HMMG URGPLUS 5 MARINEVIEW 20	Hoboken	NJ
+epic-hackensack-meridian-health	HMMG URGPLUS 769NORTHFIELD 20	West Orange	NJ
+epic-hackensack-meridian-health	HMMG URGPLUS CT 769NORTHFIELD 20	West Orange	NJ
+epic-hackensack-meridian-health	HMMG URGPLUS XR 769NORTHFIELD 20	West Orange	NJ
 epic-hackensack-meridian-health	HMMG US Imaging Old Bridge	Old Bridge	NJ
 epic-hackensack-meridian-health	HMMG Urgplus 327Franklin 20	Wyckoff	NJ
-epic-hackensack-meridian-health	HMMG Urgplus 769Northfield 20	West Orange	NJ
 epic-hackensack-meridian-health	HMMG Urgplus CT 327Franklin 20	Wyckoff	NJ
-epic-hackensack-meridian-health	HMMG Urgplus CT 769Northfield 20	West Orange	NJ
 epic-hackensack-meridian-health	HMMG Urgplus XR 327Franklin 20	Wyckoff	NJ
-epic-hackensack-meridian-health	HMMG Urgplus XR 769Northfield 20	West Orange	NJ
 epic-hackensack-meridian-health	HMMG XR Imaging Old Bridge	Old Bridge	NJ
 epic-hackensack-meridian-health	HMMGC Urgent 1180Raritan 20	Clark	NJ
 epic-hackensack-meridian-health	HMMGE CNEU 135RT35 11	Eatontown	NJ
@@ -30782,6 +31084,8 @@ epic-hackensack-meridian-health	HUMG HOBG 150OVERLOOK 11	Hackensack	NJ
 epic-hackensack-meridian-health	HUMG INEU JURIST 40PROSP 11	Hackensack	NJ
 epic-hackensack-meridian-health	HUMG JORS 5MARINE 11	Hoboken	NJ
 epic-hackensack-meridian-health	HUMG LDER SANZARI 11	Hackensack	NJ
+epic-hackensack-meridian-health	HUMG MEND 385PROSP 11	Hackensack	NJ
+epic-hackensack-meridian-health	HUMG MEND PARAMUS 11	Paramus	NJ
 epic-hackensack-meridian-health	HUMG MGAS 5MARINE 11	Hoboken	NJ
 epic-hackensack-meridian-health	HUMG MGER CUPOLA 33	Paramus	NJ
 epic-hackensack-meridian-health	HUMG MGER DELLRIDGE 31	Paramus	NJ
@@ -30807,6 +31111,7 @@ epic-hackensack-meridian-health	HUMGA AOBG BERGENOB 11	River Edge	NJ
 epic-hackensack-meridian-health	HUMGA APED 260WYCKO 11	Wyckoff	NJ
 epic-hackensack-meridian-health	HUMGA ARHU 150OVRLK 11	Hackensack	NJ
 epic-hackensack-meridian-health	HUMGA ARHU PARAMUS 11	Paramus	NJ
+epic-hackensack-meridian-health	HUMGA MEND STE306 385 PROSP 11	Hackensack	NJ
 epic-hackensack-meridian-health	HUMGC (ACI) Fletcher Ave	Fort Lee	NJ
 epic-hackensack-meridian-health	HUMGC (CCC) Edgewater	Edgewater	NJ
 epic-hackensack-meridian-health	HUMGC (SAH) Englewood	Englewood	NJ
@@ -30879,8 +31184,6 @@ epic-hackensack-meridian-health	Humg Lder 1Metro 11	Clifton	NJ
 epic-hackensack-meridian-health	Humg MCFR 1Metro 11	Clifton	NJ
 epic-hackensack-meridian-health	Humg MWMH Ste102 160Essex 11	Lodi	NJ
 epic-hackensack-meridian-health	Humg Mcci 1Metro 11	Clifton	NJ
-epic-hackensack-meridian-health	Humg Mend 385Prosp 11	Hackensack	NJ
-epic-hackensack-meridian-health	Humg Mend Paramus 11	Paramus	NJ
 epic-hackensack-meridian-health	Humg Mexh 1Metro 11	Clifton	NJ
 epic-hackensack-meridian-health	Humg Mgas 1Metro 11	Clifton	NJ
 epic-hackensack-meridian-health	Humg Mger Harmony Paramus 13	Paramus	NJ
@@ -30917,7 +31220,6 @@ epic-hackensack-meridian-health	Humga Amed 4Hunter 11	Lodi	NJ
 epic-hackensack-meridian-health	Humga Anep 301Bridge 11	Fort Lee	NJ
 epic-hackensack-meridian-health	Humga Aobg River 11	Hackensack	NJ
 epic-hackensack-meridian-health	Humga Apul Essex 11	Lodi	NJ
-epic-hackensack-meridian-health	Humga Mend Ste306 385 Prosp 11	Hackensack	NJ
 epic-hackensack-meridian-health	Humgc Aci 400 Frank 11	Teaneck	NJ
 epic-hackensack-meridian-health	Humgc Card 1900Union 11	Hewitt	NJ
 epic-hackensack-meridian-health	Humgc Cardio 301Bridge 11	Fort Lee	NJ
@@ -31117,6 +31419,7 @@ epic-harness-health-pharmacy	Bon Secours Diagnostic Imaging Grove	Greenville	SC
 epic-harness-health-pharmacy	Bon Secours Diagnostic Imaging Marcus	Greenville	SC
 epic-harness-health-pharmacy	Bon Secours Emporia Ear, Nose, Throat and Allergy Care	Emporia	VA
 epic-harness-health-pharmacy	Bon Secours Emporia Family Medicine	Emporia	VA
+epic-harness-health-pharmacy	Bon Secours Front Porch Health Center	Greenville	SC
 epic-harness-health-pharmacy	Bon Secours Gateway Primary Care	Travelers Rest	SC
 epic-harness-health-pharmacy	Bon Secours Greenville - Maple Tree	Greenville	SC
 epic-harness-health-pharmacy	Bon Secours Greenville Blue Ridge Electric	Pickens	SC
@@ -32121,6 +32424,13 @@ epic-hartford-healthcare	Charlotte Hungerford Hospital Radiation Oncology	Torrin
 epic-hartford-healthcare	Charlotte Hungerford Hospital Sleep Center - Torrington	Torrington	CT
 epic-hartford-healthcare	Charlotte Hungerford Hospital Wound Care & Hyperbaric Medicine	Torrington	CT
 epic-hartford-healthcare	Chartlotte Hungerford Hospital - Winsted	Winsted	CT
+epic-hartford-healthcare	Comprehensive Orthopaedics - Bristol Hospital	Bristol	CT
+epic-hartford-healthcare	Comprehensive Orthopaedics - Cheshire - 714 South Main ST	Cheshire	CT
+epic-hartford-healthcare	Comprehensive Orthopaedics - Cheshire - 765 W Johnson Ave	Cheshire	CT
+epic-hartford-healthcare	Comprehensive Orthopaedics - Meriden	Meriden	CT
+epic-hartford-healthcare	Comprehensive Orthopaedics - ST Francis Hospital	Hartford	CT
+epic-hartford-healthcare	Comprehensive Orthopaedics - ST Marys Hospital	Waterbury	CT
+epic-hartford-healthcare	Comprehensive Orthopaedics - Southington	Southington	CT
 epic-hartford-healthcare	Connecticut Back Center - Bloomfield	Bloomfield	CT
 epic-hartford-healthcare	Connecticut Back Center - Manchester	Manchester	CT
 epic-hartford-healthcare	Connecticut Back Center - Vernon	Vernon	CT
@@ -32132,12 +32442,16 @@ epic-hartford-healthcare	Connecticut Ear, Nose & Throat Associates - Farmington	
 epic-hartford-healthcare	Connecticut Ear, Nose & Throat Associates - Glastonbury	Glastonbury	CT
 epic-hartford-healthcare	Connecticut Ear, Nose & Throat Associates - South Windsor	South Windsor	CT
 epic-hartford-healthcare	Connecticut Ear, Nose & Throat Associates - Southington	Southington	CT
+epic-hartford-healthcare	Connecticut GI - Asylum	Hartford	CT
 epic-hartford-healthcare	Connecticut GI - Avon	Avon	CT
 epic-hartford-healthcare	Connecticut GI - Bloomfield	Bloomfield	CT
+epic-hartford-healthcare	Connecticut GI - Bloomfield - 360 Bloomfield Ave	Windsor	CT
 epic-hartford-healthcare	Connecticut GI - Bloomfield - Endoscopy	Bloomfield	CT
 epic-hartford-healthcare	Connecticut GI - Bridgeport	Bridgeport	CT
 epic-hartford-healthcare	Connecticut GI - Bristol - 25 Newell	Bristol	CT
+epic-hartford-healthcare	Connecticut GI - Cottage Grove Road	Bloomfield	CT
 epic-hartford-healthcare	Connecticut GI - Diagnostic Endoscopy Center	Stamford	CT
+epic-hartford-healthcare	Connecticut GI - East Granby	East Granby	CT
 epic-hartford-healthcare	Connecticut GI - Ellington	Ellington	CT
 epic-hartford-healthcare	Connecticut GI - Enfield	Enfield	CT
 epic-hartford-healthcare	Connecticut GI - Fairfield	Fairfield	CT
@@ -32147,6 +32461,7 @@ epic-hartford-healthcare	Connecticut GI - Granby	Granby	CT
 epic-hartford-healthcare	Connecticut GI - Greenwich	Greenwich	CT
 epic-hartford-healthcare	Connecticut GI - Greenwich - Endoscopy	Greenwich	CT
 epic-hartford-healthcare	Connecticut GI - Hartford	Hartford	CT
+epic-hartford-healthcare	Connecticut GI - Haynes ST	Manchester	CT
 epic-hartford-healthcare	Connecticut GI - Johnson Memorial Surgery Center	Enfield	CT
 epic-hartford-healthcare	Connecticut GI - Manchester	Manchester	CT
 epic-hartford-healthcare	Connecticut GI - Meridan	Meriden	CT
@@ -32168,7 +32483,9 @@ epic-hartford-healthcare	Connecticut GI - Stafford Springs	Stafford Springs	CT
 epic-hartford-healthcare	Connecticut GI - Stamford - 32 Strawberry Hill	Stamford	CT
 epic-hartford-healthcare	Connecticut GI - Storrs	Storrs	CT
 epic-hartford-healthcare	Connecticut GI - Stratford	Stratford	CT
+epic-hartford-healthcare	Connecticut GI - Suffield	Suffield	CT
 epic-hartford-healthcare	Connecticut GI - Torrington	Torrington	CT
+epic-hartford-healthcare	Connecticut GI - Trinity Hospital	Hartford	CT
 epic-hartford-healthcare	Connecticut GI - Vernon	Vernon	CT
 epic-hartford-healthcare	Connecticut GI - Wallingford	Wallingford	CT
 epic-hartford-healthcare	Connecticut GI - Waterford - 196 Waterford Pkwy	Waterford	CT
@@ -32223,6 +32540,10 @@ epic-hartford-healthcare	Connecticut Orthopaedics at Surgery Center of Fairfield
 epic-hartford-healthcare	Connecticut Orthopaedics at Yale Hospital	New Haven	CT
 epic-hartford-healthcare	Connecticut Orthopaedics at Yale McGivney Advanced Surgery Center	New Haven	CT
 epic-hartford-healthcare	Connecticut Orthopaedics at Yale St Raphael Hospital	New Haven	CT
+epic-hartford-healthcare	Connecticut Orthopedic Specialists - Farmington	Farmington	CT
+epic-hartford-healthcare	Connecticut Orthopedic Specialists - Lighthouse Surgery Center	Hartford	CT
+epic-hartford-healthcare	Connecticut Orthopedic Specialists - Middlebury	Middlebury	CT
+epic-hartford-healthcare	Connecticut Orthopedic Specialists - New Milford	New Milford	CT
 epic-hartford-healthcare	Connecticut Surgery Center	Farmington	CT
 epic-hartford-healthcare	Constitution Surgery Center East	Waterford	CT
 epic-hartford-healthcare	Consulting Cardiology - Wallingford	Wallingford	CT
@@ -32402,7 +32723,6 @@ epic-hartford-healthcare	Hartford HealthCare - Stamford - 623 Newfield	Stamford	
 epic-hartford-healthcare	Hartford HealthCare - Storrs	Storrs	CT
 epic-hartford-healthcare	Hartford HealthCare - Stratford - 2890 Main	Stratford	CT
 epic-hartford-healthcare	Hartford HealthCare - Stratford - 3272 Main	Stratford	CT
-epic-hartford-healthcare	Hartford HealthCare - Suffield	Suffield	CT
 epic-hartford-healthcare	Hartford HealthCare - The Village	Hartford	CT
 epic-hartford-healthcare	Hartford HealthCare - Thomaston	Thomaston	CT
 epic-hartford-healthcare	Hartford HealthCare - Tolland	Tolland	CT
@@ -32438,7 +32758,9 @@ epic-hartford-healthcare	Hartford HealthCare - Windsor - 1060 Day Hill	Windsor	C
 epic-hartford-healthcare	Hartford HealthCare - Windsor - 74 Mack	Windsor	CT
 epic-hartford-healthcare	Hartford HealthCare - Winsted	Winsted	CT
 epic-hartford-healthcare	Hartford HealthCare Bariatric Surgery - Wethersfield	Wethersfield	CT
+epic-hartford-healthcare	Hartford HealthCare Behavior Health - Norwich	Norwich	CT
 epic-hartford-healthcare	Hartford HealthCare Behavioral Health - Bridgeport	Bridgeport	CT
+epic-hartford-healthcare	Hartford HealthCare Behavioral Health - Manchester	Manchester	CT
 epic-hartford-healthcare	Hartford HealthCare Behavioral Health - Milford	Milford	CT
 epic-hartford-healthcare	Hartford HealthCare Behavioral Health - Quinnipiac North Haven Campus	North Haven	CT
 epic-hartford-healthcare	Hartford HealthCare Bone & Joint Institute - 31 Seymour	Hartford	CT
@@ -32473,6 +32795,7 @@ epic-hartford-healthcare	Hartford HealthCare Medical Group Internal Medicine Nor
 epic-hartford-healthcare	Hartford HealthCare Medical Group Podiatry - Avon	Avon	CT
 epic-hartford-healthcare	Hartford HealthCare Medical Group Podiatry - Groton	Groton	CT
 epic-hartford-healthcare	Hartford HealthCare Medical Group Urgent Care Wilton	Wilton	CT
+epic-hartford-healthcare	Hartford HealthCare Medical Mission - Willimantic	Willimantic	CT
 epic-hartford-healthcare	Hartford HealthCare Midstate Radiology - Wallingford Imaging Center	Wallingford	CT
 epic-hartford-healthcare	Hartford HealthCare Neighborhood Health - Hartford - 150 Charter Oak	Hartford	CT
 epic-hartford-healthcare	Hartford HealthCare Neighborhood Health - Hartford - 300 Market	Hartford	CT
@@ -32532,11 +32855,14 @@ epic-hartford-healthcare	Hartford Healthcare Manchester Memorial Hospital	Manche
 epic-hartford-healthcare	Hartford Healthcare Manchester Memorial Hospital RC	Vernon Rockville	CT
 epic-hartford-healthcare	Hartford Healthcare Medical Group - 130 Hartford	Manchester	CT
 epic-hartford-healthcare	Hartford Healthcare Medical Group - 2400 Tamarack	South Windsor	CT
+epic-hartford-healthcare	Hartford Healthcare Medical Group - 2600 Tamarack	South Windsor	CT
+epic-hartford-healthcare	Hartford Healthcare Medical Group - 2800 Tamarack	South Windsor	CT
 epic-hartford-healthcare	Hartford Healthcare Medical Group - 29 Haynes	Manchester	CT
 epic-hartford-healthcare	Hartford Healthcare Medical Group - 6 Fieldstone	Tolland	CT
 epic-hartford-healthcare	Hartford Healthcare Medical Group - Avon	Avon	CT
 epic-hartford-healthcare	Hartford Healthcare Medical Group - Ellington	Ellington	CT
 epic-hartford-healthcare	Hartford Healthcare Medical Group - Manchester - 250 N Main	Manchester	CT
+epic-hartford-healthcare	Hartford Healthcare Medical Group - Southington	Southington	CT
 epic-hartford-healthcare	Hartford Healthcare Medical Group Endo - Vernon	Vernon	CT
 epic-hartford-healthcare	Hartford Healthcare Medical Group Osteopathy - Manchester	Manchester	CT
 epic-hartford-healthcare	Hartford Healthcare Medical Group Podiatry	Manchester	CT
@@ -32587,6 +32913,7 @@ epic-hartford-healthcare	MediQuick Meriden	Meriden	CT
 epic-hartford-healthcare	MidState Gastroenterology Specialists - Branford	Branford	CT
 epic-hartford-healthcare	MidState Gastroenterology Specialists - Bristol - 22 Pine	Bristol	CT
 epic-hartford-healthcare	MidState Gastroenterology Specialists - Bristol - 25 Newell	Bristol	CT
+epic-hartford-healthcare	MidState Gastroenterology Specialists - Bristol - 508 Birch	Bristol	CT
 epic-hartford-healthcare	MidState Gastroenterology Specialists - Cheshire	Cheshire	CT
 epic-hartford-healthcare	MidState Gastroenterology Specialists - East Haven	East Haven	CT
 epic-hartford-healthcare	MidState Gastroenterology Specialists - Farmington	Farmington	CT
@@ -32640,6 +32967,7 @@ epic-hartford-healthcare	North Windham Elementary School Health Center	Willimant
 epic-hartford-healthcare	Northeast Alliance Surgery Center	Hamden	CT
 epic-hartford-healthcare	OBGYN Services - Gynecology	Norwich	CT
 epic-hartford-healthcare	OBGYN Services - Obstetrics	Norwich	CT
+epic-hartford-healthcare	Orthopedic Associates of Hartford - Charlotte Hungerford Hospital	Torrington	CT
 epic-hartford-healthcare	Orthopedic Associates of Hartford - Enfield	Enfield	CT
 epic-hartford-healthcare	Orthopedic Associates of Hartford - Farmington - 499 Farmington	Farmington	CT
 epic-hartford-healthcare	Orthopedic Associates of Hartford - Glastonbury	Glastonbury	CT
@@ -32653,6 +32981,7 @@ epic-hartford-healthcare	Orthopedic Associates of Hartford - Plainville	Plainvil
 epic-hartford-healthcare	Orthopedic Associates of Hartford - Rocky Hill	Rocky Hill	CT
 epic-hartford-healthcare	Orthopedic Associates of Hartford - South Windsor	South Windsor	CT
 epic-hartford-healthcare	Orthopedic Associates of Hartford - Springfield - Baystate	Springfield	MA
+epic-hartford-healthcare	Orthopedic Associates of Hartford - Torrington - 1598 East Main St	Torrington	CT
 epic-hartford-healthcare	Orthopedic Associates of Hartford - West Hartford	West Hartford	CT
 epic-hartford-healthcare	PACT - Ansonia	Ansonia	CT
 epic-hartford-healthcare	PACT - Chapel St New Haven	New Haven	CT
@@ -32685,9 +33014,12 @@ epic-hartford-healthcare	PACT Primary Care and Nephrology	West Haven	CT
 epic-hartford-healthcare	PACT Rheumatology Orange	Orange	CT
 epic-hartford-healthcare	PACT Surgical Specialists	North Haven	CT
 epic-hartford-healthcare	PACT Women's Health - West Haven	West Haven	CT
+epic-hartford-healthcare	PACT Womens Health - Derby	Derby	CT
 epic-hartford-healthcare	PRISM Sports Medicine	Hartford	CT
 epic-hartford-healthcare	Pact Endocrine Orange250	Orange	CT
 epic-hartford-healthcare	Plainville Endoscopy Center	Plainville	CT
+epic-hartford-healthcare	Pulmonary Physicians of Norwich - Norwich - 79 Wawecus St	Norwich	CT
+epic-hartford-healthcare	Pulmonary Physicians of Norwich - Waterford - 196 Waterford	Waterford	CT
 epic-hartford-healthcare	Pulmonary Physicians of Norwich, P.C	Colchester	CT
 epic-hartford-healthcare	Quality of Life - Avon	Avon	CT
 epic-hartford-healthcare	Quality of Life - Hartford	Hartford	CT
@@ -32723,6 +33055,7 @@ epic-hartford-healthcare	St Vincent's Medical Center	Bridgeport	CT
 epic-hartford-healthcare	St Vincent's Medical Center - Westport Center	Westport	CT
 epic-hartford-healthcare	St Vincent's Medical Offices	Trumbull	CT
 epic-hartford-healthcare	Starling Physicians	Rocky Hill	CT
+epic-hartford-healthcare	Starling Physicians - Berlin - 1166 Farmington Ave	Berlin	CT
 epic-hartford-healthcare	Starling Physicians - Bloomfield	Bloomfield	CT
 epic-hartford-healthcare	Starling Physicians - Cromwell	Cromwell	CT
 epic-hartford-healthcare	Starling Physicians - Enfield	Enfield	CT
@@ -32756,6 +33089,8 @@ epic-hartford-healthcare	The Ridge ITP Assessment - Willimantic	Willimantic	CT
 epic-hartford-healthcare	Thompson Medical	North Grosvenordale	CT
 epic-hartford-healthcare	Vein Centers of CT - Madison	Madison	CT
 epic-hartford-healthcare	Vein Centers of CT - New Britain	New Britain	CT
+epic-hartford-healthcare	Vipul Dua MD	South Windsor	CT
+epic-hartford-healthcare	Vipul Dua MD at Hartford Surgery Center	Hartford	CT
 epic-hartford-healthcare	Wallingford Endoscopy Center	Wallingford	CT
 epic-hartford-healthcare	Windham GI	Willimantic	CT
 epic-hartford-healthcare	Windham High School Wellness Center	Willimantic	CT
@@ -33779,7 +34114,7 @@ epic-henry-ford-health-system	HFSJH 17900 23 Mile RD	Macomb	MI
 epic-henry-ford-health-system	HFSJH 18303 E 10 Mile RD Ste 500	Roseville	MI
 epic-henry-ford-health-system	HFSJH 19901 E 10 Mile RD	St Clair Shores	MI
 epic-henry-ford-health-system	HFSJH 21000 E 12 Mile RD	Saint Clair Shores	MI
-epic-henry-ford-health-system	HFSJH 21099 Masonic BLVD	St Clair Shores	MI
+epic-henry-ford-health-system	HFSJH 21099 MASONIC BLVD	St Clair Shores	MI
 epic-henry-ford-health-system	HFSJH 22151 MOROSS	Detroit	MI
 epic-henry-ford-health-system	HFSJH 22201 MOROSS	Detroit	MI
 epic-henry-ford-health-system	HFSJH 24100 Little Mack Ave	Saint Clair Shores	MI
@@ -34697,6 +35032,7 @@ epic-hometown-health-clinic	Hometown Health Clinic- Camden	Camden	TN
 epic-hometown-health-clinic	Hometown Health Clinic- Dresden	Dresden	TN
 epic-hometown-health-clinic	Hometown Health Clinic- Gleason	Gleason	TN
 epic-hometown-health-clinic	Hometown Health Clinic- Huntingdon	Huntingdon	TN
+epic-honor-community-health		Pontiac	MI
 epic-honorhealth	AZ Premier Surgery - Chandler	Chandler	AZ
 epic-honorhealth	AZ Premier Surgery In Collaboration with HonorHealth - Chandler	Chandler	AZ
 epic-honorhealth	AZ Sports Medicine in collaboration with HonorHealth-PIMA CENTER	Scottsdale	AZ
@@ -35589,6 +35925,7 @@ epic-houston-methodist	Texas Kidney Specialists, P.A.	Sugar Land	TX
 epic-houston-methodist	The Center for Family and Preventive Medicine	Crosby	TX
 epic-houston-methodist	Younis Cardiology Associates	Houston	TX
 epic-howard-brown-health		Chicago	IL
+epic-hurley-medical-center	(Inactive) Gastroenterology and Liver Institute PC	Lapeer	MI
 epic-hurley-medical-center	(inactive)- Advanced Cardiovascular Clinic, PC- Villa Linde	Flint	MI
 epic-hurley-medical-center	A Arif & M Syed Clinic	Flint	MI
 epic-hurley-medical-center	A Arif & M Syed Clinics	Flint	MI
@@ -35610,7 +35947,6 @@ epic-hurley-medical-center	Dr. Sierra Cuthpert DO	Flint	MI
 epic-hurley-medical-center	Elmahdi Saeed- MOB	Flint	MI
 epic-hurley-medical-center	Flushing Road Internal Medicine and Pediatrics	Flint	MI
 epic-hurley-medical-center	Flushing Road Urgent Care	Flint	MI
-epic-hurley-medical-center	Gastroenterology and Liver Institute PC	Lapeer	MI
 epic-hurley-medical-center	Genesee Colo-Rectal Center - Charter Dr	Flint	MI
 epic-hurley-medical-center	Genesee Colo-Rectal Center - Grand Blanc	Grand Blanc	MI
 epic-hurley-medical-center	Genesee Colo-Rectal Center - Hill Rd	Grand Blanc	MI
@@ -35844,6 +36180,7 @@ epic-infirmary	DMC West	Mobile	AL
 epic-infirmary	DMC at Thomas	Fairhope	AL
 epic-infirmary	Daphne Surgery Center	Daphne	AL
 epic-infirmary	Eastern Shore Medical Specialists	Fairhope	AL
+epic-infirmary	FBL Physicians, P.C.	Mobile	AL
 epic-infirmary	FM SEMMES	Mobile	AL
 epic-infirmary	FM West	Mobile	AL
 epic-infirmary	Fairhope Internal Medicine, P.C.	Fairhope	AL
@@ -36018,6 +36355,7 @@ epic-inova-health-system	Gatehouse Road 8110	Falls Church	VA
 epic-inova-health-system	Gibson Street 211 Leesburg	Leesburg	VA
 epic-inova-health-system	Greensboro 8201	McLean	VA
 epic-inova-health-system	Greensboro Drive 8201 SA10	McLean	VA
+epic-inova-health-system	HEATHCOTE BLVD 15195	Haymarket	VA
 epic-inova-health-system	HMH RHC	Romney	WV
 epic-inova-health-system	HRT Fairfax Office	Falls Church	VA
 epic-inova-health-system	HRT Lansdowne	Lansdowne	VA
@@ -36031,7 +36369,6 @@ epic-inova-health-system	HRT VA Heart Tysons	Vienna	VA
 epic-inova-health-system	HRT Vienna	Vienna	VA
 epic-inova-health-system	Hamaker Court 3020	Fairfax	VA
 epic-inova-health-system	Hampshire Memorial Hospital	Romney	WV
-epic-inova-health-system	Heathcote BLVD 15195	Haymarket	VA
 epic-inova-health-system	Heathcote Village Way 7051	Gainesville	VA
 epic-inova-health-system	Herndon Parkway 365	Herndon	VA
 epic-inova-health-system	Icph Innovation Park 8100	Fairfax	VA
@@ -36426,6 +36763,7 @@ epic-integris-health	Family Health Center South	Oklahoma City	OK
 epic-integris-health	Family Physicians of the Plains	Enid	OK
 epic-integris-health	Fountain Park Family Physicians	Oklahoma City	OK
 epic-integris-health	Garber Family Clinic	Garber	OK
+epic-integris-health	Grand Lake Ear Nose and Throat	Grove	OK
 epic-integris-health	Grand Lake Healthcare, LLC	Grove	OK
 epic-integris-health	Grand Lake OB/GYN	Grove	OK
 epic-integris-health	Grand Lake Orthopedic Surgery	Grove	OK
@@ -36491,6 +36829,7 @@ epic-integris-health	INTEGRIS Advanced Cardiac Care of Arkansas	Fort Smith	AR
 epic-integris-health	INTEGRIS Advanced Cardiac Care of Kansas	Wichita	KS
 epic-integris-health	INTEGRIS Advanced Cardiac Care of Louisiana	Shreveport	LA
 epic-integris-health	INTEGRIS Anticoagulation Clinic	Oklahoma City	OK
+epic-integris-health	INTEGRIS Aortic Clinic	Oklahoma City	OK
 epic-integris-health	INTEGRIS Arcadia Trails Addiction Medicine Clinic	Edmond	OK
 epic-integris-health	INTEGRIS Arrhythmia Clinic	Oklahoma City	OK
 epic-integris-health	INTEGRIS Atoka 2 Cardiolvascular Clinic	Atoka	OK
@@ -36566,7 +36905,7 @@ epic-integris-health	INTEGRIS Elk City Cardiovascular Clinic	Elk City	OK
 epic-integris-health	INTEGRIS Endocrinology - North	Oklahoma City	OK
 epic-integris-health	INTEGRIS Endocrinology North	Oklahoma City	OK
 epic-integris-health	INTEGRIS Endocrinology South	Oklahoma City	OK
-epic-integris-health	INTEGRIS Express Care	Miami	OK
+epic-integris-health	INTEGRIS Express Care Miami	Miami	OK
 epic-integris-health	INTEGRIS Facial Plastics and Reconstruction	Edmond	OK
 epic-integris-health	INTEGRIS Fairview Cardiovascular Clinic	Fairview	OK
 epic-integris-health	INTEGRIS Family Care - Del City	Del City	OK
@@ -36651,6 +36990,7 @@ epic-integris-health	INTEGRIS Health Medical Group Fairview Outreach Clinic - Ge
 epic-integris-health	INTEGRIS Health Medical Group Fairview Outreach Clinic - Orthopedics	Fairview	OK
 epic-integris-health	INTEGRIS Health Medical Group Family Care Norman	Norman	OK
 epic-integris-health	INTEGRIS Health Medical Group Gastroenterology Edmond	Edmond	OK
+epic-integris-health	INTEGRIS Health Medical Group Gastroenterology Yukon	Yukon	OK
 epic-integris-health	INTEGRIS Health Medical Group General and Colorectal Surgery South	Oklahoma City	OK
 epic-integris-health	INTEGRIS Health Medical Group Grand Health	Grove	OK
 epic-integris-health	INTEGRIS Health Medical Group Guthrie	Guthrie	OK
@@ -36785,6 +37125,7 @@ epic-integris-health	Integris Health Medical Group Spine Physiatry Baptist	Oklah
 epic-integris-health	Integris Health Medical Group Surrey Hills	Yukon	OK
 epic-integris-health	Integris Health Medical Group Urology	Oklahoma City	OK
 epic-integris-health	Integris Heart Failure Institute	Oklahoma City	OK
+epic-integris-health	Integris Heart Hospital	Oklahoma City	OK
 epic-integris-health	Integris Medical Supply	Oklahoma City	OK
 epic-integris-health	Integris Mental Health	Oklahoma City	OK
 epic-integris-health	Integris Nephrology South	Oklahoma City	OK
@@ -36819,6 +37160,10 @@ epic-integris-health	MS O'BRIEN, MD- FOUNTAIN PARK MEDICAL PLAZA - Yukon	Yukon	O
 epic-integris-health	MS O'BRIEN, MD- YUKON	Yukon	OK
 epic-integris-health	MS O'Brien, MD- Fountain Park Medical Plaza	Oklahoma City	OK
 epic-integris-health	Mangum Cardiovascular Clinic	Mangum	OK
+epic-integris-health	McBride Pediatric ENT of Oklahoma - First Floor RL	Oklahoma City	OK
+epic-integris-health	McBride Pediatric ENT of Oklahoma Second Floor RL	Oklahoma City	OK
+epic-integris-health	McBride Pediatric ENT of Oklahoma at Eastern Oklahoma ENT RL	Tulsa	OK
+epic-integris-health	McBride Pediatric ENT of Oklahoma at Hearts for Hearing RL	Oklahoma City	OK
 epic-integris-health	Mcgowan Stewart Stout Clinic	Miami	OK
 epic-integris-health	Mease Medical Clinic	Jay	OK
 epic-integris-health	Medford Family Clinic	Medford	OK
@@ -39580,12 +39925,12 @@ epic-kettering-health-network	KH Troy	Troy	OH
 epic-kettering-health-network	KH Washington Township	Dayton	OH
 epic-kettering-health-network	KH YANKEE	Centerville	OH
 epic-kettering-health-network	KHMG Alex Bell	Dayton	OH
+epic-kettering-health-network	KHMG BREIEL BLVD	Middletown	OH
 epic-kettering-health-network	KHMG BYERS RD	Miamisburg	OH
 epic-kettering-health-network	KHMG Behavioral Health	Moraine	OH
 epic-kettering-health-network	KHMG Brain Far Hills Ave	Kettering	OH
 epic-kettering-health-network	KHMG Brandt Pike	Huber Heights	OH
 epic-kettering-health-network	KHMG Breast Center Lincoln Park BLVD	Kettering	OH
-epic-kettering-health-network	KHMG Breiel BLVD	Middletown	OH
 epic-kettering-health-network	KHMG Byers RD South	Miamisburg	OH
 epic-kettering-health-network	KHMG CEREAL AVE	Hamilton	OH
 epic-kettering-health-network	KHMG CHANNINGWAY	Fairborn	OH
@@ -39650,9 +39995,9 @@ epic-kettering-health-network	KHMG PC National RD	Vandalia	OH
 epic-kettering-health-network	KHMG PC STANFIELD RD	Troy	OH
 epic-kettering-health-network	KHMG PC STROOP RD	Kettering	OH
 epic-kettering-health-network	KHMG PC Wilmington Pike	Dayton	OH
+epic-kettering-health-network	KHMG PENTAGON BLVD	Beavercreek	OH
 epic-kettering-health-network	KHMG Paragon RD	Centerville	OH
 epic-kettering-health-network	KHMG Peds N Fairfield RD	Beavercreek	OH
-epic-kettering-health-network	KHMG Pentagon BLVD	Beavercreek	OH
 epic-kettering-health-network	KHMG Philadelphia Dr	Dayton	OH
 epic-kettering-health-network	KHMG Progressive Womens	Centerville	OH
 epic-kettering-health-network	KHMG S Main St	Dayton	OH
@@ -39750,7 +40095,7 @@ epic-kettering-health-network	Precious Beginnings	Kettering	OH
 epic-kettering-health-network	Pulmonary Critical Care and Sleep Medicine	Hamilton	OH
 epic-kettering-health-network	Richard Byers, MD	Xenia	OH
 epic-kettering-health-network	Ronald Taylor, MD	Xenia	OH
-epic-kettering-health-network	SCC Breiel BLVD	Middletown	OH
+epic-kettering-health-network	SCC BREIEL BLVD	Middletown	OH
 epic-kettering-health-network	SCC Brigids Path	Kettering	OH
 epic-kettering-health-network	SCC Centerville Business Pkwy	Centerville	OH
 epic-kettering-health-network	SCC Cova OBGYN	Centerville	OH
@@ -45773,7 +46118,7 @@ epic-midwestern-university-clinics	MWU Illinois Clinics	Downers Grove	IL
 epic-midwestern-university-clinics	MWU Spectra	Phoenix	AZ
 epic-milwaukee-health-services	Milwaukee Health Services, Inc.	Milwaukee	WI
 epic-minidoka-memorial-hospital		Rupert	ID
-epic-minneapolis-clinic-of-neurology-mychart	Minneapolis Clinic of Neurology - Golden Valley	Golden Valley	MN
+epic-minneapolis-clinic-of-neurology-mychart	Minneapolis Clinic of Neurology	Golden Valley	MN
 epic-mission-neighborhood-health-center		San Francisco	CA
 epic-mississippi-pediatric-endocrine-care-pllc	CC Mississippi Pediatric Endocrine Care Columbus	Columbus	MS
 epic-mississippi-pediatric-endocrine-care-pllc	CC Mississippi Pediatric Endocrine Care New Albany	New Albany	MS
@@ -46442,6 +46787,7 @@ epic-montefiore-medical-center	SLC GIDNEY AVE AT 400	Newburgh	NY
 epic-montefiore-medical-center	SLC Hudson Valley Ave at 575	New Windsor	NY
 epic-montefiore-medical-center	SLC Laurel Ave at 21	Cornwall	NY
 epic-montefiore-medical-center	SLC Westage Business Center Drive at 400	Fishkill	NY
+epic-montefiore-medical-center	STRANG BLVD AT 2651-WP	Yorktown	NY
 epic-montefiore-medical-center	Saratoga RD at 42	Scotia	NY
 epic-montefiore-medical-center	Saw Mill River Road at 24-WP	Hawthorne	NY
 epic-montefiore-medical-center	Scarsdale Medical Group		NY
@@ -46466,7 +46812,6 @@ epic-montefiore-medical-center	State Route 7 at 2403	Cobleskill	NY
 epic-montefiore-medical-center	Steuben Avenue at 3314	Bronx	NY
 epic-montefiore-medical-center	Stewart Avenue at 1600 - Westburg Motion SM	Westbury	NY
 epic-montefiore-medical-center	Stoneleigh Avenue at 667 - Carmel Motion SM	Carmel	NY
-epic-montefiore-medical-center	Strang BLVD at 2651-WP	Yorktown	NY
 epic-montefiore-medical-center	TAFT	Bronx	NY
 epic-montefiore-medical-center	Tarrytown Practice	Tarrytown	NY
 epic-montefiore-medical-center	Tarrytown Practice at S Bdwy	Tarrytown	NY
@@ -46905,7 +47250,7 @@ epic-mountsinai	465 Ocean Parkway	New York	NY
 epic-mountsinai	476 Klondike Avenue Pos 11	Staten Island	NY
 epic-mountsinai	485 Merrick RD Rockville Centre	Rockville Centre	NY
 epic-mountsinai	495 Central Pk Ave Scsdle NY	Scarsdale	NY
-epic-mountsinai	4982 Hylan BLVD	Staten Island	NY
+epic-mountsinai	4982 HYLAN BLVD	Staten Island	NY
 epic-mountsinai	5 Cuba Hill RD	Greenlawn	NY
 epic-mountsinai	5 E 98TH ST	New York	NY
 epic-mountsinai	5 EAST 98th Street	New York	NY
@@ -47222,7 +47567,6 @@ epic-multicare	MultiCare Bonney Lake Internal Medicine	Bonney Lake	WA
 epic-multicare	MultiCare Bonney Lake Pharmacy	Bonney Lake	WA
 epic-multicare	MultiCare Cancer Genetics Clinic	Tacoma	WA
 epic-multicare	MultiCare Cancer Institute North Spokane	Spokane	WA
-epic-multicare	MultiCare Cancer Institute Puyallup	Puyallup	WA
 epic-multicare	MultiCare Cancer Institute Tacoma General	Tacoma	WA
 epic-multicare	MultiCare Capital Anticoagulation Clinic	Olympia	WA
 epic-multicare	MultiCare Capital Bariatric & Obesity Surgical Services	Olympia	WA
@@ -47354,6 +47698,7 @@ epic-multicare	MultiCare Indigo Urgent Care Kennewick	Kennewick	WA
 epic-multicare	MultiCare Indigo Urgent Care Puyallup Meridian & 43rd	Puyallup	WA
 epic-multicare	MultiCare Indigo Urgent Care Renton	Renton	WA
 epic-multicare	MultiCare Indigo Urgent Care Richland	Richland	WA
+epic-multicare	MultiCare Indigo Urgent Care Silverdale	Silverdale	WA
 epic-multicare	MultiCare Indigo Urgent Care West Seattle	Seattle	WA
 epic-multicare	MultiCare Indigo Urgent Care Yelm	Yelm	WA
 epic-multicare	MultiCare Indigo Urgent Care and Occupational Medicine Frederickson	Tacoma	WA
@@ -47372,6 +47717,7 @@ epic-multicare	MultiCare Mary Bridge Children's Emergency Department	Tacoma	WA
 epic-multicare	MultiCare Mary Bridge Children's Hospital Main	Tacoma	WA
 epic-multicare	MultiCare Mary Bridge Children's Hospital NICU	Tacoma	WA
 epic-multicare	MultiCare Medical Office Bonney Lake	Bonney Lake	WA
+epic-multicare	MultiCare Medical Office Building Puyallup	Puyallup	WA
 epic-multicare	MultiCare Medical Office Olympia Lilly Rd	Olympia	WA
 epic-multicare	MultiCare Medical Office Poulsbo	Poulsbo	WA
 epic-multicare	MultiCare Medical Office Puyallup 5th St	Puyallup	WA
@@ -47750,6 +48096,7 @@ epic-muscogee-creek-nation	Muscogee Healing and Recovery Clinic	Muskogee	OK
 epic-muscogee-creek-nation	Okmulgee Indian Health Center	Okmulgee	OK
 epic-muscogee-creek-nation	Sapulpa Indian Health Center	Sapulpa	OK
 epic-muscogee-creek-nation	Wetumka Clinic	Wetumka	OK
+epic-muskegon-family-care		Muskegon	MI
 epic-muslim-community-and-health-care	Muslim Community and Health Center		
 epic-muslim-community-and-health-care	Muslim Community and Health Center of Wisconsin	Milwaukee	WI
 epic-my-dr-now	MY DR NOW - 107th & Olive	Peoria	AZ
@@ -47817,6 +48164,7 @@ epic-my-dr-now	MY DR NOW - Texas 360 & Broad St	Mansfield	TX
 epic-my-dr-now	MY DR NOW - Thompson Peak & Frank Lloyd Wright	Scottsdale	AZ
 epic-my-dr-now	MY DR NOW - Verrado & Roosevelt	Buckeye	AZ
 epic-my-dr-now	MY DR NOW - Walnut Grove & FM 1387	Midlothian	TX
+epic-mycare-health-center		Center Line	MI
 epic-myconnect-health-portal	Lehigh Family & Geriatric Associates	Lehighton	PA
 epic-myconnect-health-portal	Maureen C Persin DO	Bethlehem	PA
 epic-myconnect-health-portal	Pocono Adult and Pediatric Medical Group	E Stroudsburg	PA
@@ -48474,7 +48822,6 @@ epic-noms	NOMS CHARDON 5TH	Chardon	OH
 epic-noms	NOMS COLUMBIANA ST RT 14	Columbiana	OH
 epic-noms	NOMS Cleveland E22	Cleveland	OH
 epic-noms	NOMS Cleveland E22 2322	Cleveland	OH
-epic-noms	NOMS EUCLID EUCLID	Euclid	OH
 epic-noms	NOMS FAIRLAWN MERZ	Fairlawn	OH
 epic-noms	NOMS FAIRLAWN RIDGEWOOD	Fairlawn	OH
 epic-noms	NOMS GENOA ST RT 51 W	Genoa	OH
@@ -48497,6 +48844,7 @@ epic-noms	NOMS STRUTHERS YOUNGSTOWN POLAND	Struthers	OH
 epic-noms	NOMS TIFFIN ST RT 100	Tiffin	OH
 epic-noms	NOMS YOUNGSTOWN CYPSY	Youngstown	OH
 epic-noms	New York Affiliate	Amherst	OH
+epic-noms	New York Revenue Location	Massapequa	NY
 epic-noms	Noms Akron Springside	Akron	OH
 epic-noms	Noms Alliance w State	Alliance	OH
 epic-noms	Noms Andover w Main	Andover	OH
@@ -48520,6 +48868,7 @@ epic-noms	Noms Concord Township Auburn 8003	Concord Twp	OH
 epic-noms	Noms Concord Township Auburn 8007	Concord Twp	OH
 epic-noms	Noms Concord Township Fredle	Concord Twp	OH
 epic-noms	Noms East Liverpool St Clair	East Liverpool	OH
+epic-noms	Noms Euclid Euclid	Euclid	OH
 epic-noms	Noms Findlay West Pearl	Findlay	OH
 epic-noms	Noms Findlay Western	Findlay	OH
 epic-noms	Noms Fremont Bartson	Fremont	OH
@@ -48580,6 +48929,7 @@ epic-noms	Noms Willard w Walton	Willard	OH
 epic-noms	Noms Willoughby Euclid	Willoughby	OH
 epic-noms	Noms Youngstown Belmont	Youngstown	OH
 epic-noms	Noms Youngstown Market	Youngstown	OH
+epic-noms	Vytal Medical Group	Amherst	OH
 epic-nor-lea-hospital-district		Lovington	NM
 epic-north-carolina-department-of-health-and-human-services		Raleigh	NC
 epic-north-carolina-department-of-health-and-human-services	DSOHF Black Mountain Neuro Medical	Black Mountain	NC
@@ -49921,6 +50271,7 @@ epic-northwell-health	Northwell Health Physician Partners at 242 MASON AVE	State
 epic-northwell-health	Northwell Health Physician Partners at 245 East 54th Street	New York	NY
 epic-northwell-health	Northwell Health Physician Partners at 247 3rd Avenue	New York	NY
 epic-northwell-health	Northwell Health Physician Partners at 2649 Strang Boulevard	Yorktown Heights	NY
+epic-northwell-health	Northwell Health Physician Partners at 2700 Ocean Ave	Brooklyn	NY
 epic-northwell-health	Northwell Health Physician Partners at 29 Elm Street	Tuckahoe	NY
 epic-northwell-health	Northwell Health Physician Partners at 293 Route 100	Somers	NY
 epic-northwell-health	Northwell Health Physician Partners at 32845 Main Road	Cutchogue	NY
@@ -49938,6 +50289,7 @@ epic-northwell-health	Northwell Health Physician Partners at 525 West 36th Stree
 epic-northwell-health	Northwell Health Physician Partners at 584 Forest Avenue	Staten Island	NY
 epic-northwell-health	Northwell Health Physician Partners at 6144 Route 25A	Wading River	NY
 epic-northwell-health	Northwell Health Physician Partners at 657 E MAIN ST	Mount Kisco	NY
+epic-northwell-health	Northwell Health Physician Partners at 855 Valley Rd	Clifton	NJ
 epic-northwell-health	Northwell Health Physician Partners at 8622 Bay Parkway	Brooklyn	NY
 epic-northwell-health	Northwell Health Physician Partners at 889 Harrison Avenue	Riverhead	NY
 epic-northwell-health	Northwell Health Physician Partners at 999 JAMAICA AVENUE	Brooklyn	NY
@@ -50322,6 +50674,8 @@ epic-northwestern-medicine	My Healthcare Option, PLLC Affiliate of Northwestern 
 epic-northwestern-medicine	Nephrology Assoc of Illinois - Geneva Affiliate of Northwestern Medicine	Geneva	IL
 epic-northwestern-medicine	Nephrology Assoc of Illinois - Winfield Affiliate of Northwestern Medicine	Winfield	IL
 epic-northwestern-medicine	Northwestern Cardiology & Internal Medicine, S.C. Affiliate of Northwestern Medicine	Chicago	IL
+epic-northwestern-medicine	Northwestern Medicine 10390 Haligus Rd	Huntley	IL
+epic-northwestern-medicine	Northwestern Medicine 4525 Weaver Parkway	Warrenville	IL
 epic-northwestern-medicine	Northwestern Medicine Algonquin 1118 N Main St	Algonquin	IL
 epic-northwestern-medicine	Northwestern Medicine Algonquin 1465 Commerce Dr	Algonquin	IL
 epic-northwestern-medicine	Northwestern Medicine Aurora 2635 Church Rd	Aurora	IL
@@ -51126,6 +51480,7 @@ epic-novant-health	Novant Health Breast Center Winston Salem	Winston-Salem	NC
 epic-novant-health	Novant Health Breast Imaging Center - Greensboro	Greensboro	NC
 epic-novant-health	Novant Health Breast Imaging Center Langtree	Mooresville	NC
 epic-novant-health	Novant Health Breast Surgery - Ardmore	Winston-Salem	NC
+epic-novant-health	Novant Health Breast Surgery - East Cooper	Mount Pleasant	SC
 epic-novant-health	Novant Health Breast Surgery - Kernersville	Kernersville	NC
 epic-novant-health	Novant Health Breast Surgery - Rural Hall	Rural Hall	NC
 epic-novant-health	Novant Health Breastfeeding - SouthPark	Charlotte	NC
@@ -51156,6 +51511,7 @@ epic-novant-health	Novant Health Cancer Institute - Elizabeth (Palliative Care)	
 epic-novant-health	Novant Health Cancer Institute - Elizabeth (Risk & Genetics)	Charlotte	NC
 epic-novant-health	Novant Health Cancer Institute - Elizabeth (Thoracic)	Charlotte	NC
 epic-novant-health	Novant Health Cancer Institute - Forsyth (Behavioral Health)	Winston Salem	NC
+epic-novant-health	Novant Health Cancer Institute - Forsyth (Cellular Therapy & Apheresis)	Winston-Salem	NC
 epic-novant-health	Novant Health Cancer Institute - Forsyth (Genetics)	Winston-Salem	NC
 epic-novant-health	Novant Health Cancer Institute - Forsyth (Hematology)	Winston-Salem	NC
 epic-novant-health	Novant Health Cancer Institute - Forsyth (Medical Oncology) (fka Oncology Specialists)	Winston-Salem	NC
@@ -51263,12 +51619,11 @@ epic-novant-health	Novant Health Digital Care Group - Virginia	Richmond	VA
 epic-novant-health	Novant Health Dilworth Pediatrics	Charlotte	NC
 epic-novant-health	Novant Health Durham Internal Medicine Associates - Durham	Durham	NC
 epic-novant-health	Novant Health Durham Internal Medicine Associates - Southpoint	Durham	NC
-epic-novant-health	Novant Health East Cooper Breast and General Surgery	Mount Pleasant	SC
 epic-novant-health	Novant Health East Cooper Coastal Family Physicians	Mount Pleasant	SC
-epic-novant-health	Novant Health East Cooper Maternal Fetal Medicine - Dayfield Park	Summerville	SC
 epic-novant-health	Novant Health East Cooper Maternal Fetal Medicine - East Cooper	Mount Pleasant	SC
 epic-novant-health	Novant Health East Cooper Maternal Fetal Medicine - Island Park	Daniel Island	SC
 epic-novant-health	Novant Health East Cooper Maternal Fetal Medicine - Santee	Georgetown	SC
+epic-novant-health	Novant Health East Cooper Maternal-Fetal Medicine - Nexton (FKA Dayfield Park)	Summerville	SC
 epic-novant-health	Novant Health East Cooper Medical Center	Mount Pleasant	SC
 epic-novant-health	Novant Health East Cooper Medical Center Comprehensive Wound Clinic	Mount Pleasant	SC
 epic-novant-health	Novant Health East Cooper OB/GYN - East Cooper (FKA Novant Health East Cooper OB/GYN - Mullis)	Mount Pleasant	SC
@@ -51328,6 +51683,7 @@ epic-novant-health	Novant Health Gastroenterology - Wilmington	Wilmington	NC
 epic-novant-health	Novant Health Gastroenterology Brunswick	Supply	NC
 epic-novant-health	Novant Health Gateway Family Medicine	Winston-Salem	NC
 epic-novant-health	Novant Health Gatroenterology - Brunswick Forest	Wilmington	NC
+epic-novant-health	Novant Health General Surgery & Bariatrics - Nexton (FKA Dayfield Park)	Summerville	SC
 epic-novant-health	Novant Health General Surgery & Bariatrics - Wilmington	Wilmington	NC
 epic-novant-health	Novant Health General Surgery - Belfair	Bluffton	SC
 epic-novant-health	Novant Health General Surgery - Hardeeville	Hardeeville	SC
@@ -51337,7 +51693,6 @@ epic-novant-health	Novant Health General Surgery - New Hanover (Acute Care Surge
 epic-novant-health	Novant Health General Surgery - New Hanover (General & Cancer)	Wilmington	NC
 epic-novant-health	Novant Health General Surgery - Scotts Hill	Wilmington	NC
 epic-novant-health	Novant Health General Surgery and Bariatrics - Beaufort Plaza	Beaufort	SC
-epic-novant-health	Novant Health General Surgery and Bariatrics - Dayfield Park	Summerville	SC
 epic-novant-health	Novant Health General Surgery and Bariatrics - Goose Creek	Goose Creek	SC
 epic-novant-health	Novant Health General Surgery and Bariatrics - Mount Pleasant	Mount Pleasant	SC
 epic-novant-health	Novant Health Gestational Diabetes	Charlotte	NC
@@ -52028,6 +52383,8 @@ epic-novant-health	Novant Health Southern Surgery Specialists - Hampton	Hampton	
 epic-novant-health	Novant Health Southern Surgery Specialists - Hardeeville	Hardeeville	SC
 epic-novant-health	Novant Health Specialty Pharmacy - Westgate	Winston-Salem	NC
 epic-novant-health	Novant Health Spine & Headache Rehabilitation	Huntersville	NC
+epic-novant-health	Novant Health Spine & Scoliosis Specialists - Braxton (FKA Greensboro)	Greensboro	NC
+epic-novant-health	Novant Health Spine & Scoliosis Specialists - Hickory Branch (FKA High Point)	Greensboro	NC
 epic-novant-health	Novant Health Spine Specialists - Ballantyne (fka Total Spine Specialists)	Charlotte	NC
 epic-novant-health	Novant Health Spine Specialists - Bermuda Run	Bermuda Run	NC
 epic-novant-health	Novant Health Spine Specialists - Greensboro	Greensboro	NC
@@ -52183,8 +52540,6 @@ epic-novant-health	Southeastern Spine Institute - East Cooper	Mount Pleasant	SC
 epic-novant-health	Southeastern Spine Institute - Murrel's Inlet	Murrells Inlet	SC
 epic-novant-health	Southeastern Spine Institute - Orangeburg	Orangeburg	SC
 epic-novant-health	Southeastern Spine Institute - West Ashley	Charleston	SC
-epic-novant-health	Spine & Scoliosis Specialists Novant Health - Greensboro	Greensboro	NC
-epic-novant-health	Spine & Scoliosis Specialists Novant Health - High Point	Greensboro	NC
 epic-novant-health	St. Jude Affiliate Clinic at NH Hemby Children's Hospital	Charlotte	NC
 epic-novant-health	Triad Radiology Associates (Business Office)	Winston-Salem	NC
 epic-novant-health	Urology Specialists of the Carolinas - CBO	Charlotte	NC
@@ -54121,6 +54476,7 @@ epic-ochin	Franklin Primary Health Center - Lillie B Williamson	Mobile	AL
 epic-ochin	Franklin Primary Health Center - Loxley	Loxley	AL
 epic-ochin	Franklin Primary Health Center - M&DE	Mobile	AL
 epic-ochin	Franklin Primary Health Center - Maysville	Mobile	AL
+epic-ochin	Franklin Primary Health Center - NextGen Care Express	Mobile	AL
 epic-ochin	Franklin Primary Health Center - North Baldwin	Bay Minette	AL
 epic-ochin	Franklin Primary Health Center - W Mobile FMC	Mobile	AL
 epic-ochin	Franklin Primary Health Center - WS & V	Mobile	AL
@@ -55579,6 +55935,7 @@ epic-ochin	Santa Barbara County Public Health Department - Franklin Health Care 
 epic-ochin	Santa Barbara County Public Health Department - Franklin Health Care Center at Rescue Mission	Santa Barbara	CA
 epic-ochin	Santa Barbara County Public Health Department - Lompoc Health Care Center	Lompoc	CA
 epic-ochin	Santa Barbara County Public Health Department - Lompoc Health Care Center at Bridge House	Lompoc	CA
+epic-ochin	Santa Barbara County Public Health Department - Reentry Services	Santa Barbara	CA
 epic-ochin	Santa Barbara County Public Health Department - Santa Barbara Health Care Center	Santa Barbara	CA
 epic-ochin	Santa Barbara County Public Health Department - Santa Maria Health Care Center	Santa Maria	CA
 epic-ochin	Santa Barbara County Public Health Department - Santa Maria Health Care Center at Good Samaritan	Santa Maria	CA
@@ -57902,7 +58259,7 @@ epic-osf-healthcare	SAHC ALTON MOB	Alton	IL
 epic-osf-healthcare	SEMC YMCA	Ottawa	IL
 epic-osf-healthcare	SFMC Pulmonary Rehab	Peoria	IL
 epic-osf-healthcare	SFMC RAD ONC PEKIN	Pekin	IL
-epic-osf-healthcare	SFMC Rad Onc Peoria RT 91	Peoria	IL
+epic-osf-healthcare	SFMC RAD ONC PEORIA RT 91	Peoria	IL
 epic-osf-healthcare	Sahc Alton Square Mall	Alton	IL
 epic-osf-healthcare	Sahc CC Oncology Services	Alton	IL
 epic-osf-healthcare	Sahc St Clares Hospital	Alton	IL
@@ -57932,6 +58289,7 @@ epic-ou-health	DMEI Lawton	Lawton	OK
 epic-ou-health	DMEI Northwest OKC	Oklahoma City	OK
 epic-ou-health	DMEI Oklahoma Children's Hospital	Oklahoma City	OK
 epic-ou-health	DMEI Oklahoma Health Center	Oklahoma City	OK
+epic-ou-health	DMEI Oklahoma Health Center - EDM MOB Opthalmology	Edmond	OK
 epic-ou-health	Dean McGee Eye Institute Business Office	Oklahoma City	OK
 epic-ou-health	Elkview General Hospital	Hobart	OK
 epic-ou-health	Family Tree Clinic	Oklahoma City	OK
@@ -58063,6 +58421,7 @@ epic-ou-health	OU Health Stephenson Cancer Center at Norman Regional	Norman	OK
 epic-ou-health	OU Health Transplant	Oklahoma City	OK
 epic-ou-health	OU Health University of Oklahoma Medical Center	Oklahoma City	OK
 epic-ou-health	OU Health Urgent Care & ER Czech Hall Marketplace	Yukon	OK
+epic-ou-health	OU Health at Northwest Medical Center	Oklahoma City	OK
 epic-ou-health	OU Physicians Building Retail Pharmacy	Oklahoma City	OK
 epic-ou-health	OU Physicians Corporate Health & Wellness	Oklahoma City	OK
 epic-ou-health	OU Retail Pharmacy Business Office	Oklahoma City	OK
@@ -58313,6 +58672,7 @@ epic-owensboro-health	Owensboro Health Neurology	Owensboro	KY
 epic-owensboro-health	Owensboro Health Oncology and Hematology	Owensboro	KY
 epic-owensboro-health	Owensboro Health Pulmonology and Sleep Medicine	Owensboro	KY
 epic-owensboro-health	Owensboro Health Regional Hospital	Owensboro	KY
+epic-owensboro-health	Owensboro Health Telehealth	Owensboro	KY
 epic-owensboro-health	Owensboro Health Twin Lakes Medical Center	Leitchfield	KY
 epic-owensboro-health	Owensboro Health Wound Center	Owensboro	KY
 epic-owensboro-health	Owensboro Pediatrics	Owensboro	KY
@@ -62948,6 +63308,7 @@ epic-premise-health	Humana Louisville Tower	Louisville	KY
 epic-premise-health	Humana Tampa Health and Well-being Center	Tampa	FL
 epic-premise-health	Hurst Boiler Health & Wellness Center	Coolidge	GA
 epic-premise-health	Husqvarna Wellness Center	Cordova	SC
+epic-premise-health	Hyster – Yale Avon Health Center	Avon	IN
 epic-premise-health	Hyster-Yale Materials Handling Berea	Berea	KY
 epic-premise-health	Hyster-Yale Materials Handling Danville	Danville	IL
 epic-premise-health	Hyster-Yale Materials Handling Portland	Fairview	OR
@@ -63726,6 +64087,8 @@ epic-prime-healthcare	Saint Francis Olympia Fields	Olympia Fields	IL
 epic-prime-healthcare	Saint Francis Pharmacotherapy	Chiacgo	IL
 epic-prime-healthcare	Saint John Hospital	Leavenworth	KS
 epic-prime-healthcare	Saint Joseph Medical Center	Kansas City	MO
+epic-prime-healthcare	Saint Joseph Medical Center Shorewood	Shorewood	IL
+epic-prime-healthcare	Saint Joseph Medical Center-Joliet	Joliet	IL
 epic-prime-healthcare	Saint Mary's Medical Center	Blue Springs	MO
 epic-prime-healthcare	Saint Mary's Regional Medical Center	Reno	NV
 epic-prime-healthcare	Saint Mary's Regional Medical Center Mammography	Reno	NV
@@ -64286,7 +64649,7 @@ epic-prisma-health	Prisma Health Behavioral Health and Wellness Pavilion-Grove R
 epic-prisma-health	Prisma Health Behavioral Health-Taylor St.	Columbia	SC
 epic-prisma-health	Prisma Health Blount Memorial Surgical Center	Maryville	TN
 epic-prisma-health	Prisma Health Blount Memorial Wound Care	Maryville	TN
-epic-prisma-health	Prisma Health Blount Physician Clinics-Maryville-Suite 200	Maryville	TN
+epic-prisma-health	Prisma Health Blount Physician Clinics-Maryville	Maryville	TN
 epic-prisma-health	Prisma Health Blue Ridge Orthopedics - Easley	Easley	SC
 epic-prisma-health	Prisma Health Breast Health Center - Patewood	Greenville	SC
 epic-prisma-health	Prisma Health Cancer Institute - Andrews	Greenville	SC
@@ -66157,6 +66520,7 @@ epic-renown	Carson Valley Specialty Care - Virginia Ranch	Gardnerville	NV
 epic-renown	Comprehensive Health Assessment (CHA) Los Altos	Sparks	NV
 epic-renown	Continuecare Hospital (21) Pos	Carson City	NV
 epic-renown	Geriatric Specialty Care	Reno	NV
+epic-renown	Kaiser Permanente - Del Monte	Reno	NV
 epic-renown	Kaiser Permanente Ion Drive	Sparks	NV
 epic-renown	Keystone	Reno	NV
 epic-renown	Lake Tahoe Surgery Center	Zephyr Cove	NV
@@ -66192,10 +66556,9 @@ epic-renown	Renown Health North Carson	Carson City	NV
 epic-renown	Renown Health North Hills	Reno	NV
 epic-renown	Renown Health Northwest	Reno	NV
 epic-renown	Renown Health Pharmacy Locust	Reno	NV
-epic-renown	Renown Health Premeir Care	Reno	NV
+epic-renown	Renown Health Premier Care	Reno	NV
 epic-renown	Renown Health Robb Drive	Reno	NV
 epic-renown	Renown Health Ryland	Reno	NV
-epic-renown	Renown Health Senior Care - Del Monte	Reno	NV
 epic-renown	Renown Health South Carson	Carson City	NV
 epic-renown	Renown Health South Meadows	Reno	NV
 epic-renown	Renown Health Summit Ridge	Reno	NV
@@ -67199,9 +67562,11 @@ epic-rwjbarnabas-health	RWJBarnabas Health - 10 ELIZABETH STREET	River Edge	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 10 Industrial Way East	Eatontown	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 10 PLUM STREET	New Brunswick	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 100 Kirkpatrick St.	New Brunswick	NJ
+epic-rwjbarnabas-health	RWJBarnabas Health - 101 Crawfords Corner	Holmdel	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 101 Old Short Hills Road Satellite	West Orange	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 102 JAMES ST SATELLITE	Edison	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 102 James St.	Edison	NJ
+epic-rwjbarnabas-health	RWJBarnabas Health - 1100 Clifton Avenue	Clifton	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 1128 Campus Drive	Morganville	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 116 NEWARK AVE SATELLITE	Jersey City	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 1163 Route 37 West	Toms River	NJ
@@ -67211,6 +67576,7 @@ epic-rwjbarnabas-health	RWJBarnabas Health - 123 Franklin Corner Rd.	Lawerencevi
 epic-rwjbarnabas-health	RWJBarnabas Health - 1251 ROUTE 37 WEST	Toms River	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 1255 Route 70	Lakewood	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 128 Rehill Avenue	Somerville	NJ
+epic-rwjbarnabas-health	RWJBarnabas Health - 129 Route 37	W. Toms River	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 130 Kinderkamack Road	River Edge	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 1301 Washington Avenue	Hoboken	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 1345 KUSER ROAD	Hamilton	NJ
@@ -67231,6 +67597,7 @@ epic-rwjbarnabas-health	RWJBarnabas Health - 1825 JOHN F KENNEDY BLVD SATELLITE	
 epic-rwjbarnabas-health	RWJBarnabas Health - 185 Washington Street	Newark	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 195 Campus Drive	Kearny	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 1980 Highway 9	Old Bridge	NJ
+epic-rwjbarnabas-health	RWJBarnabas Health - 199 Prospect Street	Lakewood	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 200 Hudson Street	Jersey City	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 206 BERGEN AVENUE	Kearny	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 2130 Millburn Avenue	Maplewood	NJ
@@ -67271,6 +67638,7 @@ epic-rwjbarnabas-health	RWJBarnabas Health - 530 LAKEHURST RD	Toms River	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 560 Springfield Ave	Westfield	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 570 Park Ave	East Orange	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 600 Pavonia Avenue	Jersey City	NJ
+epic-rwjbarnabas-health	RWJBarnabas Health - 637 River Avenue	Lakewood	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 67 Highway 37 West Satellite	Toms River	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 671 MOUNT PROSPECT AVE	Newark	NJ
 epic-rwjbarnabas-health	RWJBarnabas Health - 716 Broad Street	Clifton	NJ
@@ -67299,11 +67667,13 @@ epic-rwjbarnabas-health	RWJMS West Orange Pediatrics Allergy	West Orange	NJ
 epic-rwjbarnabas-health	RWJPE Bridgewater Medical Group Family Medicine	Bridgewater	NJ
 epic-rwjbarnabas-health	RWJPE Cardiology Associates of New Brunswick	East Brunswick	NJ
 epic-rwjbarnabas-health	RWJPE Care First Internal Medicine	Somerset	NJ
+epic-rwjbarnabas-health	RWJPE Comprehensive Family Medicine	Warren	NJ
 epic-rwjbarnabas-health	RWJPE Cranbury Medical Group Family Medicine	East Brunswick	NJ
 epic-rwjbarnabas-health	RWJPE Franklin Internal Medicine	Somerset	NJ
 epic-rwjbarnabas-health	RWJPE Hamilton Internal Medicine	Hamilton	NJ
 epic-rwjbarnabas-health	RWJPE Highland Park Family Practice	Highland Park	NJ
 epic-rwjbarnabas-health	RWJPE James Tovey MD	Hillsborough	NJ
+epic-rwjbarnabas-health	RWJPE Kendall Park Family Medicine	Kendall Park	NJ
 epic-rwjbarnabas-health	RWJPE New Brunswick Cardiology Group	East Brunswick	NJ
 epic-rwjbarnabas-health	RWJPE Old Bridge Family Medicine	Old Bridge	NJ
 epic-rwjbarnabas-health	RWJPE Primary Care Center at Hillsborough	Hillsborough	NJ
@@ -67808,7 +68178,7 @@ epic-salinas-valley-health	Salinas Valley Health Ortho	Salinas	CA
 epic-salinas-valley-health	Salinas Valley Health Outpatient Imaging	Salinas	CA
 epic-salinas-valley-health	Salinas Valley Health Outpatient Infusion	Salinas	CA
 epic-salinas-valley-health	Salinas Valley Health Physical Therapy	Salinas	CA
-epic-salinas-valley-health	Salinas Valley Health Plastic Surgery & PrimeCare	Salinas	CA
+epic-salinas-valley-health	Salinas Valley Health Plastic Surgery	Salinas	CA
 epic-salinas-valley-health	Salinas Valley Health PrimeCare Lab	Salinas	CA
 epic-salinas-valley-health	Salinas Valley Health PrimeCare Monterey	Monterey	CA
 epic-salinas-valley-health	Salinas Valley Health PrimeCare North Salinas	Salinas	CA
@@ -69036,6 +69406,7 @@ epic-select-medical	Concentra Onsite - City of Longview	Longview	TX
 epic-select-medical	Concentra Onsite - Denton ISD	Denton	TX
 epic-select-medical	Concentra Onsite - Denton ISD East Annex	Cross Roads	TX
 epic-select-medical	Concentra Onsite - Fort Bend County	Richmond	TX
+epic-select-medical	Concentra Onsite - Fujifilm Greenwood	Greenwood	SC
 epic-select-medical	Concentra Onsite - Louisville Metro Govt Downtown	Louisville	KY
 epic-select-medical	Concentra Onsite - Louisville Metro Govt Fern Valley	Louisville	KY
 epic-select-medical	Concentra Onsite - San Diego Fire	San Diego	CA
@@ -69373,7 +69744,6 @@ epic-sentara-healthcare	Harrisonburg OB/GYN Outpatient Services	Harrisonburg	VA
 epic-sentara-healthcare	Hospice House - Sentara Way	Virginia Beach	VA
 epic-sentara-healthcare	James Madison University Outpatient Services	Harrisonburg	VA
 epic-sentara-healthcare	Jordan Young Institute	Virginia Beach	VA
-epic-sentara-healthcare	Kingsmill Therapy Center	Williamsburg	VA
 epic-sentara-healthcare	Lifecare	New Market	VA
 epic-sentara-healthcare	Macon & Joan Brock VHS EVMS Comprehensive Sickle Cell Program at ODU	Norfolk	VA
 epic-sentara-healthcare	Macon & Joan Brock VHS EVMS Dermatology PA at ODU	Virginia Beach	VA
@@ -69485,7 +69855,7 @@ epic-sentara-healthcare	Sentara Blue Ridge Internal Medicine	Charlottesville	VA
 epic-sentara-healthcare	Sentara Breast Care - Harrisonburg	Harrisonburg	VA
 epic-sentara-healthcare	Sentara Breast Surgery Specialists - Martha Jefferson	Charlottesville	VA
 epic-sentara-healthcare	Sentara Buckingham Family Medicine	Dillwyn	VA
-epic-sentara-healthcare	Sentara Cancer Center - Norfolk	Norfolk	VA
+epic-sentara-healthcare	Sentara Cancer Center	Norfolk	VA
 epic-sentara-healthcare	Sentara Cardiology Specialist Gloucester	Gloucester	VA
 epic-sentara-healthcare	Sentara Cardiology Specialist OBICI	Suffolk	VA
 epic-sentara-healthcare	Sentara Cardiology Specialists - BelleHarbour	Suffolk	VA
@@ -69792,13 +70162,13 @@ epic-sentara-healthcare	Sentara Surgical Clinic - Harrisonburg	Harrisonburg	VA
 epic-sentara-healthcare	Sentara Surgical Oncology CarePlex	Hampton	VA
 epic-sentara-healthcare	Sentara Telehealth Services VA	Virginia Beach	VA
 epic-sentara-healthcare	Sentara Therapy Center - Blocker	Norfolk	VA
-epic-sentara-healthcare	Sentara Therapy Center - Centerville	Virginia Beach	VA
 epic-sentara-healthcare	Sentara Therapy Center - Century	Woodbridge	VA
 epic-sentara-healthcare	Sentara Therapy Center - Century Pediatrics	Woodbridge	VA
 epic-sentara-healthcare	Sentara Therapy Center - Granby	Norfolk	VA
 epic-sentara-healthcare	Sentara Therapy Center - Independence	Virginia Beach	VA
 epic-sentara-healthcare	Sentara Therapy Center - Oceanfront	Virginia Beach	VA
 epic-sentara-healthcare	Sentara Therapy Center Albemarle Family YMCA	Elizabeth City	NC
+epic-sentara-healthcare	Sentara Therapy Center Centerville	Virginia Beach	VA
 epic-sentara-healthcare	Sentara Therapy Center Chestnut	Newport News	VA
 epic-sentara-healthcare	Sentara Therapy Center Coliseum	Hampton	VA
 epic-sentara-healthcare	Sentara Therapy Center Cox Rehabilitation Center	South Boston	VA
@@ -69808,11 +70178,13 @@ epic-sentara-healthcare	Sentara Therapy Center Fort Norfolk	Norfolk	VA
 epic-sentara-healthcare	Sentara Therapy Center Gloucester	Gloucester	VA
 epic-sentara-healthcare	Sentara Therapy Center Great Bridge	Chesapeake	VA
 epic-sentara-healthcare	Sentara Therapy Center Greenbrier	Chesapeake	VA
+epic-sentara-healthcare	Sentara Therapy Center Hampton YMCA	Hampton	VA
 epic-sentara-healthcare	Sentara Therapy Center Hand Therapy - Norfolk	Norfolk	VA
 epic-sentara-healthcare	Sentara Therapy Center Healthy Way	Virginia Beach	VA
 epic-sentara-healthcare	Sentara Therapy Center Healthy Way Neuro Peds	Virginia Beach	VA
 epic-sentara-healthcare	Sentara Therapy Center Indian River	Virginia Beach	VA
 epic-sentara-healthcare	Sentara Therapy Center King and Queen	Mattaponi	VA
+epic-sentara-healthcare	Sentara Therapy Center Kingsmill	Williamsburg	VA
 epic-sentara-healthcare	Sentara Therapy Center Kitty Hawk	Kitty Hawk	NC
 epic-sentara-healthcare	Sentara Therapy Center Lynnhaven	Virginia Beach	VA
 epic-sentara-healthcare	Sentara Therapy Center Manassas	Manassas	VA
@@ -69839,7 +70211,6 @@ epic-sentara-healthcare	Sentara Therapy Center Treyburn Peds	Williamsburg	VA
 epic-sentara-healthcare	Sentara Therapy Center Wakefield	Wakefield	VA
 epic-sentara-healthcare	Sentara Therapy Center Wards Corner	Norfolk	VA
 epic-sentara-healthcare	Sentara Therapy Center Williamsburg YMCA	Williamsburg	VA
-epic-sentara-healthcare	Sentara Therapy Center Yorktown	Hampton	VA
 epic-sentara-healthcare	Sentara Therapy Services - RMH Bridgewater	Bridgewater	VA
 epic-sentara-healthcare	Sentara Therapy Solutions	Richmond	VA
 epic-sentara-healthcare	Sentara Therapy Solutions - Dumfries	Dumfries	VA
@@ -76017,6 +76388,7 @@ epic-templehealth	Fair Hill Community Physicians Comprehensive Health Center	Phi
 epic-templehealth	Fair Hill Community Physicians Hunting Park	Philadelphia	PA
 epic-templehealth	Fair Hill Community Physicians Liberty Square	Philadelphia	PA
 epic-templehealth	Fair Hill Community Physicians Nicetown	Philadelphia	PA
+epic-templehealth	Fair Hill Community Physicians Northeastern	Philadelphia	PA
 epic-templehealth	Fox Chase Cancer Center (FCCC)	Philadelphia	PA
 epic-templehealth	Fox Chase Cancer Center (FCCC) East Norriton	East Norriton	PA
 epic-templehealth	Fox Chase Cancer Center (FCCC) Heritage Center	Furlong	PA
@@ -76208,6 +76580,7 @@ epic-texas-health-resources	Cardiovascular Specialists - Flower Mound	Flower Mou
 epic-texas-health-resources	City of Fort Worth Employee Health Center	Fort Worth	TX
 epic-texas-health-resources	Consultants in Cardiology	Fort Worth	TX
 epic-texas-health-resources	Diabetes and Endocrine Associates of Tarrant County	Fort Worth	TX
+epic-texas-health-resources	Fort Worth Brain & Spine Institute	Granbury	TX
 epic-texas-health-resources	Fort Worth Orthopedic Trauma Specialists	Fort Worth	TX
 epic-texas-health-resources	Fort Worth Orthopedics - Keller	Keller	TX
 epic-texas-health-resources	Gynecological And Obstetrical Associates	Dallas	TX
@@ -76773,6 +77146,7 @@ epic-the-nebraska-medical-center	Platte Valley Womens Mullen	Mullen	NE
 epic-the-nebraska-medical-center	Primary Care Clinic	Fairfax	MO
 epic-the-nebraska-medical-center	Village Pointe Aesthetic Surgery	Omaha	NE
 epic-the-nebraska-medical-center	Z Family Practice	Omaha	NE
+epic-the-ohio-state-university-wexner-medical-center	Adena Health Lancaster	Lancaster	OH
 epic-the-ohio-state-university-wexner-medical-center	Adena Health Lucasville	Lucasville	OH
 epic-the-ohio-state-university-wexner-medical-center	Arthur G. James Hospital and Richard J. Solove Research Institute	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	CarePoint East	Columbus	OH
@@ -76782,6 +77156,7 @@ epic-the-ohio-state-university-wexner-medical-center	Cramblett Medical Clinic	Co
 epic-the-ohio-state-university-wexner-medical-center	Havener Eye Institute	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	JamesCare Mammography at Macys Easton Town Center	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	Martha Morehouse Medical Plaza	Columbus	OH
+epic-the-ohio-state-university-wexner-medical-center	Mercer Health Maria Stein	Maria Stein	OH
 epic-the-ohio-state-university-wexner-medical-center	OSU Center for Women's Health	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	OSU College of Dentistry	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	OSU Dental Faculty Practice	Columbus	OH
@@ -77863,6 +78238,7 @@ epic-thomas-jefferson-university-health-system	Thomas Jefferson University Hospi
 epic-thomas-jefferson-university-health-system	WHITEMARSH	Lafayette Hill	PA
 epic-thunder-basin	Thunder Basin Orthopedics	Gillette	WY
 epic-thunder-basin	Thunder Basin Orthopedics - Douglas	Douglas	WY
+epic-thunder-bay-community-health-service-inc		Hillman	MI
 epic-tiburcio-vasquez-health-center		Union City	CA
 epic-tidalhealth	Coastal Hospice	Salisbury	MD
 epic-tidalhealth	Delmarva Kidney & Hypertension	Salisbury	MD
@@ -77872,16 +78248,12 @@ epic-tidalhealth	Natesan Medical Group	Salisbury	MD
 epic-tidalhealth	Neurology Center of South Delaware Georgetown	Seaford	DE
 epic-tidalhealth	Neurology Center of South Delaware Seaford	Seaford	DE
 epic-tidalhealth	PRMC Liver Clinic	Salisbury	MD
-epic-tidalhealth	Peninsula Orthopaedic Glen Ave Salisbury	Salisbury	MD
-epic-tidalhealth	Peninsula Orthopaedic Healthy Way Rehoboth	Rehoboth Beach	DE
-epic-tidalhealth	Peninsula Orthopaedic John J Williams Hwy Rehoboth	Rehoboth Beach	DE
-epic-tidalhealth	Peninsula Orthopaedic Lewes	Lewes	DE
-epic-tidalhealth	Peninsula Orthopaedic Milford	Milford	DE
-epic-tidalhealth	Peninsula Orthopaedic Millsboro	Millsboro	DE
-epic-tidalhealth	Peninsula Orthopaedic Oceanpines	Berlin	MD
-epic-tidalhealth	Peninsula Orthopaedic S Salisbury	Salisbury	MD
-epic-tidalhealth	Peninsula Orthopaedic Seaford	Seaford	DE
-epic-tidalhealth	Peninsula Orthopaedic Woodbrooke Salisbury	Salisbury	MD
+epic-tidalhealth	Peninsula Orthopaedic Institute Milford	Milford	DE
+epic-tidalhealth	Peninsula Orthopaedic Institute Millsboro	Millsboro	DE
+epic-tidalhealth	Peninsula Orthopaedic Institute Oceanpines	Berlin	MD
+epic-tidalhealth	Peninsula Orthopaedic Institute S Salisbury	Salisbury	MD
+epic-tidalhealth	Peninsula Orthopaedic Institute Seaford	Seaford	DE
+epic-tidalhealth	Peninsula Orthopaedic Institute Woodbrooke Salisbury	Salisbury	MD
 epic-tidalhealth	Reeves Professional Building	Salisbury	MD
 epic-tidalhealth	Sailwinds Medical Group Cambridge	Cambridge	MD
 epic-tidalhealth	Sailwinds Primary Care Riverside Drive Salisbury	Salisbury	MD
@@ -77931,6 +78303,10 @@ epic-tidalhealth	TidalHealth Orthopedics Seaford	Seaford	DE
 epic-tidalhealth	TidalHealth Pain Management	Salisbury	MD
 epic-tidalhealth	TidalHealth Palliative Care	Salisbury	MD
 epic-tidalhealth	TidalHealth Pediatric Specialty Services	Salisbury	MD
+epic-tidalhealth	TidalHealth Peninsula Orthopaedic Institute Glen Ave Salisbury	Salisbury	MD
+epic-tidalhealth	TidalHealth Peninsula Orthopaedic Institute Healthy Way Rehoboth	Rehoboth Beach	DE
+epic-tidalhealth	TidalHealth Peninsula Orthopaedic Institute John J Williams Hwy Rehoboth	Rehoboth Beach	DE
+epic-tidalhealth	TidalHealth Peninsula Orthopaedic Institute Lewes	Lewes	DE
 epic-tidalhealth	TidalHealth Pocomoke	Pocomoke City	MD
 epic-tidalhealth	TidalHealth Primary Care Berlin	Berlin	MD
 epic-tidalhealth	TidalHealth Primary Care Federalsburg	Federalsburg	MD
@@ -78620,8 +78996,10 @@ epic-trinity-health		Idaho Falls	ID
 epic-trinity-health		Oakbrook Terrace	IL
 epic-trinity-health		Orland Park	IL
 epic-trinity-health	1 Maple Commons Dr Building	Saratoga Springs	NY
+epic-trinity-health	115 Saratoga Rd Building	Glenville	NY
 epic-trinity-health	1211 W Main St Building	Waterbury	CT
 epic-trinity-health	1360 Caduceus Way Building	Watkinsville	GA
+epic-trinity-health	145 Vly Road Building	Niskayuna	NY
 epic-trinity-health	421 W Columbia Building	Cohoes	NY
 epic-trinity-health	612 Maple Ave Building	Saratoga Springs	NY
 epic-trinity-health	624 McClellan St Building	Schenectady	NY
@@ -78652,6 +79030,7 @@ epic-trinity-health	Apartments - Grant Village	Syracuse	NY
 epic-trinity-health	Apartments - Hiddenbrook	Liverpool	NY
 epic-trinity-health	Apartments - King James	Syracuse	NY
 epic-trinity-health	ArrIVe Infusion Therapy - Brighton	Brighton	MI
+epic-trinity-health	Arterial Plaza Building	Gloversville	NY
 epic-trinity-health	Associated Gastroenterologists of CNY - Camillus	Camillus	NY
 epic-trinity-health	Associates In Physical Medicine & Rehabilitation - Ypsilanti	Ypsilanti	MI
 epic-trinity-health	Associates in Physical Medicine & Rehabilitation - Brighton	Brighton	MI
@@ -78668,6 +79047,7 @@ epic-trinity-health	Athens Internal Medicine Associates	Athens	GA
 epic-trinity-health	Athens Medical Complex	Athens	GA
 epic-trinity-health	Auburn Hills Diagnostics	Auburn Hills	MI
 epic-trinity-health	Avon Access Center	Avon	CT
+epic-trinity-health	Balltown Rd Building	Schenectady	NY
 epic-trinity-health	Bariatric Surgery - Enfield	Enfield	CT
 epic-trinity-health	Bariatric Surgery - Rocky Hill	Rocky Hill	CT
 epic-trinity-health	Bariatric Surgery - Springfield	Springfield	MA
@@ -78726,6 +79106,7 @@ epic-trinity-health	Collaborative Laboratory Services - Rocky Hill	Rocky Hill	CT
 epic-trinity-health	Collins Surgical Assoc - Avon	Avon	CT
 epic-trinity-health	Collins Surgical Assoc - Rocky Hill	Rocky Hill	CT
 epic-trinity-health	Collins Surgical Assoc Avon 40 Dale Rd	Avon	CT
+epic-trinity-health	Collins Surgical Assoc Enfield	Enfield	CT
 epic-trinity-health	Collins Surgical Associates - Glastonbury	Glastonbury	CT
 epic-trinity-health	Collins Surgical Associates - Hartford	Hartford	CT
 epic-trinity-health	Colon and Rectal Surgeons of Greater Hartford	Bloomfield	CT
@@ -78758,6 +79139,7 @@ epic-trinity-health	Connecticut Gastroenterology Assoc - Manchester	Manchester	C
 epic-trinity-health	Connecticut Gastroenterology Assoc - Rocky Hill	Rocky Hill	CT
 epic-trinity-health	Connecticut Gastroenterology Assoc - South Windsor	South Windsor	CT
 epic-trinity-health	Connecticut Gastroenterology Assoc - Windsor	Windsor	CT
+epic-trinity-health	Connecticut Gastroenterology Assoc East Granby	East Granby	CT
 epic-trinity-health	Connecticut Gastroenterology Associates	Hartford	CT
 epic-trinity-health	Connecticut Gastroenterology Associates - Hartford	Hartford	CT
 epic-trinity-health	Contemporary OBGYN Womens Care Center at MercyOne Genesis Moline	Moline	IL
@@ -78800,6 +79182,7 @@ epic-trinity-health	General Surgery - Enfield	Enfield	CT
 epic-trinity-health	General Surgery - Hartford	Hartford	CT
 epic-trinity-health	General Surgery - Springfield	Springfield	MA
 epic-trinity-health	General Surgery - Windsor Locks	Widsor Locks	CT
+epic-trinity-health	Gengras Medical Office Building	Hartford	CT
 epic-trinity-health	Georgia Neurological Surgery - Athens	Athens	GA
 epic-trinity-health	Georgia Neurological Surgery - Greensboro	Greensboro	GA
 epic-trinity-health	Georgia Neurological Surgery - Lavonia	Lavonia	GA
@@ -78807,6 +79190,7 @@ epic-trinity-health	Georgia Neurological Surgery - Monroe	Monroe	GA
 epic-trinity-health	Glacier Hills Care and Rehabilitation Center	Ann Arbor	MI
 epic-trinity-health	Gottlieb Memorial Hospital	Melrose Park	IL
 epic-trinity-health	Groveport Draw Station	Groveport	OH
+epic-trinity-health	Guy Park Ave Building	Amsterdam	NY
 epic-trinity-health	Gynecologic Oncology Muskegon	Muskegon	MI
 epic-trinity-health	HCCSU Coral Springs Urgent Care	Coral Springs	FL
 epic-trinity-health	HCCSU Physical Therapy	Coral Springs	FL
@@ -78927,6 +79311,7 @@ epic-trinity-health	IHA Canton Primary Care	Canton	MI
 epic-trinity-health	IHA Cardiovascular and Thoracic Surgery at St Joes Ann Arbor	Ypsilanti	MI
 epic-trinity-health	IHA Chelsea Pediatrics	Chelsea	MI
 epic-trinity-health	IHA Chelsea Primary Care	Chelsea	MI
+epic-trinity-health	IHA Cherry Hill Medical Building	Canton	MI
 epic-trinity-health	IHA Cherry Hill Pediatrics	Canton	MI
 epic-trinity-health	IHA Cherry Hill Primary Care	Canton	MI
 epic-trinity-health	IHA Clinton Primary Care	Clinton	MI
@@ -79065,6 +79450,7 @@ epic-trinity-health	Laureen Forgione-Rubino - Manchester	Manchester	CT
 epic-trinity-health	Laurel Internal Medicine	Laurel	MD
 epic-trinity-health	Lighthouse Family Practice	Lavonia	GA
 epic-trinity-health	Livonia Recreation Center	Livonia	MI
+epic-trinity-health	Logan Medical Arts Building	Logan	OH
 epic-trinity-health	Loyola Center for Dialysis on Roosevelt	Maywood	IL
 epic-trinity-health	Loyola Center for Health Mendota	Peoria	IL
 epic-trinity-health	Loyola Center for Health Peoria	Peoria	IL
@@ -79153,6 +79539,7 @@ epic-trinity-health	Malta House of Care - Hartford	Hartford	CT
 epic-trinity-health	Malta House of Care - Waterbury	Waterbury	CT
 epic-trinity-health	Mary Free Bed Rehabilitation Hospital	Grand Rapids	MI
 epic-trinity-health	Medical Arts LPS	Langhorne	PA
+epic-trinity-health	Medical Office Center	Syracuse	NY
 epic-trinity-health	Memory and Neuropsychology Clinic	Muskegon	MI
 epic-trinity-health	Mercy Breast Surgery at Fitzgerald	Darby	PA
 epic-trinity-health	Mercy Breast Surgery at Nazareth	Philadelphia	PA
@@ -79296,6 +79683,7 @@ epic-trinity-health	MercyOne Forest City Family Medicine	Forest City	IA
 epic-trinity-health	MercyOne Forest Park Family Medicine - Mason City	Mason City	IA
 epic-trinity-health	MercyOne Genesis 7th Street Physical Therapy	Moline	IL
 epic-trinity-health	MercyOne Genesis Aledo Family Medicine & Specialty Care	Aledo	IL
+epic-trinity-health	MercyOne Genesis Aledo FirstMed Pharmacy	Aledo	IL
 epic-trinity-health	MercyOne Genesis Aledo Medical Center	Aledo	IL
 epic-trinity-health	MercyOne Genesis Aledo Medical Center Parent Location	Aledo	IL
 epic-trinity-health	MercyOne Genesis Alpha Family Medicine	Alpha	IL
@@ -79332,6 +79720,8 @@ epic-trinity-health	MercyOne Genesis DeWitt Medical Center Parent Location	DeWit
 epic-trinity-health	MercyOne Genesis Devils Glen Physical Therapy	Bettendorf	IA
 epic-trinity-health	MercyOne Genesis Dexter Court	Davenport	IA
 epic-trinity-health	MercyOne Genesis Division Street Physical Therapy	Davenport	IA
+epic-trinity-health	MercyOne Genesis Durant Family Medicine	Durant	IA
+epic-trinity-health	MercyOne Genesis E Kimberly Rd FirstMed Pharmacy	Davenport	IA
 epic-trinity-health	MercyOne Genesis Eldridge Family Medicine & Convenient Care	Eldridge	IA
 epic-trinity-health	MercyOne Genesis Eldridge Physical Therapy	Eldridge	IA
 epic-trinity-health	MercyOne Genesis Family Medical Center	Davenport	IA
@@ -79341,6 +79731,7 @@ epic-trinity-health	MercyOne Genesis Maplecrest Health Plaza	Bettendorf	IA
 epic-trinity-health	MercyOne Genesis Moline Endocrinology Care	Moline	IL
 epic-trinity-health	MercyOne Genesis Moline Health Plaza	Moline	IL
 epic-trinity-health	MercyOne Genesis Northwest Convenient Care	Davenport	IA
+epic-trinity-health	MercyOne Genesis Scott Drug Pharmacy	De Witt	IA
 epic-trinity-health	MercyOne Genesis Silvis Laboratory	Silvis	IL
 epic-trinity-health	MercyOne Genesis Silvis Larson Center Health Plaza	Silvis	IL
 epic-trinity-health	MercyOne Genesis Silvis Medical Center	Silvis	IL
@@ -80228,6 +80619,7 @@ epic-trinity-health	Trinity Health - Genoa Medical Center [2671002]	Brighton	MI
 epic-trinity-health	Trinity Health - System Office	Livonia	MI
 epic-trinity-health	Trinity Health - System Office (Livonia, MI)	Livonia	MI
 epic-trinity-health	Trinity Health - Woodward Medical Office Building	Pontiac	MI
+epic-trinity-health	Trinity Health Allendale	Allendale	MI
 epic-trinity-health	Trinity Health At Home Hospice - Southeast Michigan	Livonia	MI
 epic-trinity-health	Trinity Health At Home, Home Health - Southeast Michigan	Livonia	MI
 epic-trinity-health	Trinity Health Grand Haven Hospital	Grand Haven	MI
@@ -80263,6 +80655,7 @@ epic-trinity-health	Trinity Health Lab - Wyoming	Wyoming	MI
 epic-trinity-health	Trinity Health Livingston Hospital	Brighton	MI
 epic-trinity-health	Trinity Health Livingston Parent Location	Brighton	MI
 epic-trinity-health	Trinity Health Medical Center - Brighton	Brighton	MI
+epic-trinity-health	Trinity Health Medical Center - Clarkston	Clarkston	MI
 epic-trinity-health	Trinity Health Medical Center - Dominos Farms	Ann Arbor	MI
 epic-trinity-health	Trinity Health Medical Center - East Brighton	Brighton	MI
 epic-trinity-health	Trinity Health Medical Center - Norton Shores	Norton Shores	MI
@@ -80329,6 +80722,7 @@ epic-trinity-health	Trinity Health Woodward Building - Oakland Campus	Pontiac	MI
 epic-trinity-health	Trinity Health Workplace Health - Grand Haven	Grand Haven	MI
 epic-trinity-health	Trinity Health Workplace Health - Grand Rapids Downtown	Grand Rapids	MI
 epic-trinity-health	Trinity Health Wound Care - Grand Rapids Campus	Grand Rapids	MI
+epic-trinity-health	Trinity Health at Home Hospice/Home Health - Southwest Michigan	Livonia	MI
 epic-trinity-health	Trinity Health of New England at Home	Hartford	CT
 epic-trinity-health	Trinity Health of New England, Office of Gino Mercadante DO - Ludlow	Ludlow	MA
 epic-trinity-health	TrinityElite Sports Performance - Birmingham	Birmingham	MI
@@ -82433,6 +82827,7 @@ epic-ui-health	NAPERVILLE MEDICAL OFFICES - UI Health	Chicago	IL
 epic-ui-health	NEUROPSYCHIATRIC INSTITUTE - UI Health	Chicago	IL
 epic-ui-health	NPI - UI Health	Chicago	IL
 epic-ui-health	OCC - UI Health	Chicago	IL
+epic-ui-health	OSF HEALTHCARE BLOOMINGTON - UI Health	Bloomington	IL
 epic-ui-health	OSF Healthcare Peoria - UI Health	Peoria	IL
 epic-ui-health	OSF LITTLE COMPANY OF MARY - UI Health	Evergreen Park	IL
 epic-ui-health	OUTPATIENT CARE CENTER - UI Health	Chicago	IL
@@ -82448,6 +82843,7 @@ epic-ui-health	UI Health MSHC Primary and Immediate Care Center	Chicago	IL
 epic-ui-health	UI Health Outpatient Pharmacies	Chicago	IL
 epic-ui-health	UI Hospital	Chicago	IL
 epic-ui-health	UIC	Chicago	IL
+epic-ui-health	UIC COD PILSEN - UI Health	Chicago	IL
 epic-ui-health	UIC Medical Center	Chicago	IL
 epic-ui-health	UIC PILSEN FAMILY HEALTH CENTER - UI Health	Chicago	IL
 epic-ui-health	UIPG GURNEE - UI Health	Gurnee	IL
@@ -82459,6 +82855,7 @@ epic-ui-health	UIPG PARK RIDGE - UI Health	Park Ridge	IL
 epic-ui-health	UIPG SOUTH LOOP - UI Health	Chicago	IL
 epic-ui-health	UIPG UNIVERSITY VILLAGE - UI Health	Chicago	IL
 epic-ui-health	UIPG UNIVERSITY VILLAGE MULTISPECIALTY AMBULATORY CLINIC - UI Health	Chicago	IL
+epic-ui-health	UNIVERSITY OF ILLINOIS CHICAGO COLLEGE OF DENTISTRY - UI Health	Chicago	IL
 epic-ui-health	Uih 55th and Pulaski	Chicago	IL
 epic-ui-health	University of Illinois in Chicago Health and Sciences System	Chicago	IL
 epic-ui-health	WEST HARRISON BUILDING - UI Health	Chicago	IL
@@ -85621,6 +86018,7 @@ epic-university-of-miami-uhealth	UHealth Diabetes Research Institute	Miami	FL
 epic-university-of-miami-uhealth	UHealth Doral Commons Multi Specialty Clinic	Doral	FL
 epic-university-of-miami-uhealth	UHealth Doral Medical Center Building A	Doral	FL
 epic-university-of-miami-uhealth	UHealth Doral Medical Center Building B	Doral	FL
+epic-university-of-miami-uhealth	UHealth Doral Medical Center Building C	Doral	FL
 epic-university-of-miami-uhealth	UHealth Downtown West Palm Beach	West Palm Beach	FL
 epic-university-of-miami-uhealth	UHealth ENT at Children's Hospital	Miami	FL
 epic-university-of-miami-uhealth	UHealth Endocrinology Coral Gables	Coral Gables	FL
@@ -86043,16 +86441,48 @@ epic-university-of-mississippi-medical-center	Vicksburg Ophthalmology Satellite 
 epic-university-of-mississippi-medical-center	Watkins Clinic Building	Jackson	MS
 epic-university-of-mississippi-medical-center	West Jackson Family Medicine	Jackson	MS
 epic-university-of-rochester-medical-center	FF Thompson Hospital	Canandaigua	NY
-epic-university-of-rochester-medical-center	Geneva General Hospital Medical Office Building	Geneva	NY
+epic-university-of-rochester-medical-center	Geneva General Hospital	Geneva	NY
 epic-university-of-rochester-medical-center	Highland Hospital	Rochester	NY
 epic-university-of-rochester-medical-center	Highlands Living Center	Pittsford	NY
 epic-university-of-rochester-medical-center	Highlands at Brighton	Rochester	NY
 epic-university-of-rochester-medical-center	Jones Memorial Hospital	Wellsville	NY
 epic-university-of-rochester-medical-center	Noyes Memorial Hospital	Dansville	NY
-epic-university-of-rochester-medical-center	Soldiers and Sailors Hospital Medical Arts Building	Penn Yan	NY
+epic-university-of-rochester-medical-center	Soldiers and Sailors Memorial Hospital	Penn Yan	NY
 epic-university-of-rochester-medical-center	St James Hospital	Hornell	NY
 epic-university-of-rochester-medical-center	Strong Memorial Hospital	Rochester	NY
 epic-university-of-rochester-medical-center	Trillium Health at Jefferson Ave	Rochester	NY
+epic-university-of-rochester-medical-center	URochester Medicine Finger Lakes College of Nursing	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine Finger Lakes Surgical Center	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine Geneva Living Center North	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine Geneva Living Center South	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine Hubbs Health Center	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine Huntington Living Center	Waterloo	NY
+epic-university-of-rochester-medical-center	URochester Medicine Keuka Park	Keuka Park	NY
+epic-university-of-rochester-medical-center	URochester Medicine Robert A Bristol Field House	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine Seneca Falls Northeast College	Seneca Falls	NY
+epic-university-of-rochester-medical-center	URochester Medicine Urgent Care at Finger Lakes Commons in Geneva	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine Urgent Care at Lifecare Health Center in Seneca Falls	Seneca Falls	NY
+epic-university-of-rochester-medical-center	URochester Medicine Urgent Care in Penn Yan	Penn Yan	NY
+epic-university-of-rochester-medical-center	URochester Medicine at 1150 Route 5 & 20 in Geneva	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine at 120 Clifton Springs Professional Park	Clifton Springs	NY
+epic-university-of-rochester-medical-center	URochester Medicine at 1331 E Victor Rd in Victor	Victor	NY
+epic-university-of-rochester-medical-center	URochester Medicine at 430 Clifton Springs Professional Park	Clifton Springs	NY
+epic-university-of-rochester-medical-center	URochester Medicine at 650 Pre Emption Rd in Geneva	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine at 70 Mason St in Geneva	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Clyde Health Center	Clyde	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Dundee Health Center	Dundee	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Finger Lakes Commons in Geneva	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Finger Lakes Surgical Center in Geneva	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Geneva General Hospital Medical Office Building	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Geneva General Infusion Center	Geneva	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Lifecare Health Center in Seneca Falls (GGH)	Seneca Falls	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Lifecare Health Center in Seneca Falls (SSH)	Seneca Falls	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Lyons Health Center	Lyons	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Seneca Health Center in Waterloo	Waterloo	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Soldiers & Sailors Family Health Center	Penn Yan	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Soldiers and Sailors Hospital Medical Arts Building	Penn Yan	NY
+epic-university-of-rochester-medical-center	URochester Medicine at Taylor Brown Health Center in Waterloo	Waterloo	NY
+epic-university-of-rochester-medical-center	URochester Medicine the Homestead at Soldiers and Sailors	Penn Yan	NY
 epic-university-of-rochester-medical-center	University of Rochester Medical Center	Rochester	NY
 epic-university-of-rochester-medical-center	University of Rochester Medicine	Rochester	NY
 epic-university-of-rochester-medical-center	University of Rochester Medicine at 100 Meridian Centre	Rochester	NY
@@ -86233,7 +86663,6 @@ epic-university-of-rochester-medical-center	University of Rochester Medicine at 
 epic-university-of-rochester-medical-center	University of Rochester Medicine at Lakeville Office Park on Thomas Dr	Lakeville	NY
 epic-university-of-rochester-medical-center	University of Rochester Medicine at Lattimore Medical Center	Rochester	NY
 epic-university-of-rochester-medical-center	University of Rochester Medicine at Leroy Village Plaza	Le Roy	NY
-epic-university-of-rochester-medical-center	University of Rochester Medicine at Lyons Health Center	Lyons	NY
 epic-university-of-rochester-medical-center	University of Rochester Medicine at MM Ewing Continuing Care Center	Canandaigua	NY
 epic-university-of-rochester-medical-center	University of Rochester Medicine at Manhattan Sq Medical Bldg in Rochester	Rochester	NY
 epic-university-of-rochester-medical-center	University of Rochester Medicine at Marketplace Orthopaedic and Physical Performance Ct	Rochester	NY
@@ -87058,6 +87487,7 @@ epic-upmc-patient-portal	CHC New Kensington-UPMC	New Kensington	PA
 epic-upmc-patient-portal	CHC SHADYSIDE-UPMC	Pittsburgh	PA
 epic-upmc-patient-portal	CHC SHINGLEHOUSE-UPMC	Shinglehouse	PA
 epic-upmc-patient-portal	CHC THEISS-UPMC	Pittsburgh	PA
+epic-upmc-patient-portal	Cameron and Murthy, MD	Zelienople	PA
 epic-upmc-patient-portal	Camp Hill Internal Medicine	Camp Hill	PA
 epic-upmc-patient-portal	Camp Hill Rheumatology-UPMC	Camp Hill	PA
 epic-upmc-patient-portal	Canterbury Place-UPMC	Pittsburgh	PA
@@ -87124,6 +87554,7 @@ epic-upmc-patient-portal	Family Hospice Altoona-UPMC	Altoona	PA
 epic-upmc-patient-portal	Family Hospice Ebensburg-UPMC	Ebensburg	PA
 epic-upmc-patient-portal	Family Hospice Erie	Erie	PA
 epic-upmc-patient-portal	Family Hospice Huntingdon-UPMC	Huntingdon	PA
+epic-upmc-patient-portal	Family Hospice Seven Fields	Seven Fields	PA
 epic-upmc-patient-portal	Family Hospice Williamsport	Williamsport	PA
 epic-upmc-patient-portal	Family Practice at Steelton - Hamilton Health Center	Steelton	PA
 epic-upmc-patient-portal	Fifth Ave Place (Allegheny County Residential Program)	McKeesport	PA
@@ -87266,6 +87697,7 @@ epic-upmc-patient-portal	OC Lewisburg Specialty Care-UPMC	Lewisburg	PA
 epic-upmc-patient-portal	OC Murrysville Specialty Care-UPMC	Murrysville	PA
 epic-upmc-patient-portal	OC Westfield-UPMC	Westfield	PA
 epic-upmc-patient-portal	OC York Whiteford-UPMC	York	PA
+epic-upmc-patient-portal	Obstetrics and Gynecology Waynesburg	Waynesburg	PA
 epic-upmc-patient-portal	Old Post Road 2808-UPMC	Harrisburg	PA
 epic-upmc-patient-portal	Olean Dermatology	Olean	NY
 epic-upmc-patient-portal	Orthopaedic & Sports Medicine of Erie - UPMC	Erie	PA
@@ -87364,6 +87796,7 @@ epic-upmc-patient-portal	UPMC Altoona	Altoona	PA
 epic-upmc-patient-portal	UPMC Altoona Campus	Altoona	PA
 epic-upmc-patient-portal	UPMC Altoona Station Medical Center	Altoona	PA
 epic-upmc-patient-portal	UPMC Arthritis and Autoimmunity Center	Wexford	PA
+epic-upmc-patient-portal	UPMC Arthritis and Autoimmunity Center - Wexford	Wexford	PA
 epic-upmc-patient-portal	UPMC Associates in Family Medicine	York	PA
 epic-upmc-patient-portal	UPMC Bayfront Ear, Nose, and Throat	Erie	PA
 epic-upmc-patient-portal	UPMC Bayside Family Medicine	Erie	PA
@@ -87427,11 +87860,13 @@ epic-upmc-patient-portal	UPMC Children's Hospital of Pittsburgh	Pittsburgh	PA
 epic-upmc-patient-portal	UPMC Children's North	Sewickley	PA
 epic-upmc-patient-portal	UPMC Children's Pediatric Dental - Hampton	Allison Park	PA
 epic-upmc-patient-portal	UPMC Children's Pine Center	Wexford	PA
+epic-upmc-patient-portal	UPMC Children's Rehabilitation Therapies - McMurray	McMurray	PA
 epic-upmc-patient-portal	UPMC Children's South	Bridgeville	PA
 epic-upmc-patient-portal	UPMC Children's Specialty Care Center Johnstown	Johnstown	PA
 epic-upmc-patient-portal	UPMC Children's Specialty Care Center Peach Street	Erie	PA
 epic-upmc-patient-portal	UPMC Children's Specialty Care Center Wheeling	Triadelphia	WV
 epic-upmc-patient-portal	UPMC Children's Specialty Services in Chambersburg	Chambersburg	PA
+epic-upmc-patient-portal	UPMC Childrens Sleep Lab North	Sewickley	PA
 epic-upmc-patient-portal	UPMC Cole	Coudersport	PA
 epic-upmc-patient-portal	UPMC Cole Rheumatology	Coudersport	PA
 epic-upmc-patient-portal	UPMC Community Life	McKeesport	PA
@@ -87448,21 +87883,26 @@ epic-upmc-patient-portal	UPMC Digestive Health Care - Greenville	Greenville	PA
 epic-upmc-patient-portal	UPMC Divine Mercy Womens Health	Carlisle	PA
 epic-upmc-patient-portal	UPMC Divine Mercy Womens Health (Grandview Ave.)	Camp Hill	PA
 epic-upmc-patient-portal	UPMC East	Monroeville	PA
+epic-upmc-patient-portal	UPMC East Side Surgery Center	Pittsburgh	PA
 epic-upmc-patient-portal	UPMC Elizabeth Township Family Medicine	Elizabeth	PA
 epic-upmc-patient-portal	UPMC Ephrata Primary Care	Ephrata	PA
 epic-upmc-patient-portal	UPMC Events Center at Robert Morris University	Moon Township	PA
 epic-upmc-patient-portal	UPMC Everett Primary Care Group	Everett	PA
 epic-upmc-patient-portal	UPMC Family Medicine of Corry	Corry	PA
 epic-upmc-patient-portal	UPMC Frankstown Rd - Penn Hills	Pittsburgh	PA
+epic-upmc-patient-portal	UPMC Gastroenterology Associates of Central PA	Camp Hill	PA
 epic-upmc-patient-portal	UPMC Gateway Medical Group	Carnegie	PA
 epic-upmc-patient-portal	UPMC General Internal Medicine South	West Mifflin	PA
 epic-upmc-patient-portal	UPMC General Internal Medicine at Birmingham Free Clinic	Pittsburgh	PA
 epic-upmc-patient-portal	UPMC General Surgery Hanover	Hanover	PA
+epic-upmc-patient-portal	UPMC Geriatric Medicine - Lititz	Lititz	PA
 epic-upmc-patient-portal	UPMC GoHealth Urgent Care - Greensburg	Greensburg	PA
 epic-upmc-patient-portal	UPMC GoHealth Urgent Care - McMurray	McMurray	PA
+epic-upmc-patient-portal	UPMC GoHealth Urgent Care - Washington	Washington	PA
 epic-upmc-patient-portal	UPMC Grandview Family Practice	Erie	PA
 epic-upmc-patient-portal	UPMC Greater Pittsburgh OB/GYN	Pittsburgh	PA
 epic-upmc-patient-portal	UPMC Greater Pittsburgh OB/GYN - Butler	Butler	PA
+epic-upmc-patient-portal	UPMC HVI St. Barnabas Gibsonia	Gibsonia	PA
 epic-upmc-patient-portal	UPMC Hamot	Erie	PA
 epic-upmc-patient-portal	UPMC Hamot Medical Park	Johnsonburg	PA
 epic-upmc-patient-portal	UPMC Hamot Medical Park-Mt. Jewett	Mt. Jewett	PA
@@ -87473,6 +87913,7 @@ epic-upmc-patient-portal	UPMC Hanover	Hanover	PA
 epic-upmc-patient-portal	UPMC Harbor Gardens Professional Building	Pittsburgh	PA
 epic-upmc-patient-portal	UPMC Harrisburg	Harrisburg	PA
 epic-upmc-patient-portal	UPMC Harrisburg - Southgate Building	Harrisburg	PA
+epic-upmc-patient-portal	UPMC Harrisburg Learning Institute	Harrisburg	PA
 epic-upmc-patient-portal	UPMC Harrisburg, Alex Grass Medical Building	Harrisburg	PA
 epic-upmc-patient-portal	UPMC Healthy Families Primary Care	Erie	PA
 epic-upmc-patient-portal	UPMC Heart and Vascular Center - Muncy	Muncy	PA
@@ -87542,6 +87983,7 @@ epic-upmc-patient-portal	UPMC Mercy, Mercy Professional Building	Pittsburgh	PA
 epic-upmc-patient-portal	UPMC Molecular and Genomic Pathology Laboratory	Pittsburgh	PA
 epic-upmc-patient-portal	UPMC Montefiore	Pittsburgh	PA
 epic-upmc-patient-portal	UPMC Muncy	Muncy	PA
+epic-upmc-patient-portal	UPMC MyHealth Marywood University	Scranton	PA
 epic-upmc-patient-portal	UPMC Neurological Institute - McKeesport	McKeesport	PA
 epic-upmc-patient-portal	UPMC North Hills Dermatology	Wexford	PA
 epic-upmc-patient-portal	UPMC Northwest	Seneca	PA
@@ -87615,6 +88057,7 @@ epic-upmc-patient-portal	UPMC Pleasant Ave. Medical Building	Somerset	PA
 epic-upmc-patient-portal	UPMC Polyclinic Medical Building	Harrisburg	PA
 epic-upmc-patient-portal	UPMC Presbyterian	Pittsburgh	PA
 epic-upmc-patient-portal	UPMC Presbyterian, Eye & Ear Institute	Pittsburgh	PA
+epic-upmc-patient-portal	UPMC Primary Care - Cumberland	Cumberland	MD
 epic-upmc-patient-portal	UPMC Primary Care - LaVale Plaza	LaVale	MD
 epic-upmc-patient-portal	UPMC Primary Care Boiling Springs	Boiling Springs	PA
 epic-upmc-patient-portal	UPMC Primary Care Chambersburg	Chambersburg	PA
@@ -87720,6 +88163,7 @@ epic-upmc-patient-portal	UPMC West Shore, Medical Office Building 1	Mechanicsbur
 epic-upmc-patient-portal	UPMC West Shore, Medical Office Building 2	Mechanicsburg	PA
 epic-upmc-patient-portal	UPMC West Shore, Outpatient Services	Mechanicsburg	PA
 epic-upmc-patient-portal	UPMC Western BH at Mon Yough-Adult Outpatient Services	McKeesport	PA
+epic-upmc-patient-portal	UPMC Western Behavioral Health - Harrisburg	Harrisburg	PA
 epic-upmc-patient-portal	UPMC Western Behavioral Health - In-Home Services (Shaw Ave)	McKeesport	PA
 epic-upmc-patient-portal	UPMC Western Behavioral Health Beaver Crisis Services	Beaver Falls	PA
 epic-upmc-patient-portal	UPMC Western Behavioral Health at Mon Yough	McKeesport	PA
@@ -87856,7 +88300,7 @@ epic-ut-medicine	Family Wellness Clinic	Austin	TX
 epic-ut-medicine	HDB - Health Discovery Building	Austin	TX
 epic-ut-medicine	HTB - Health Transformation Building	Austin	TX
 epic-ut-medicine	School of Nursing	Austin	TX
-epic-ut-medicine	UT Medicine at The University of Texas at Austin	Austin	TX
+epic-ut-medicine	UT Dell Medicine at The University of Texas at Austin	Austin	TX
 epic-ut-medicine-san-antonio	UT Health San Antonio and Affiliates	San Antonio	TX
 epic-ut-medicine-san-antonio	UTHSA AVANCE CASTROVILLE	San Antonio	TX
 epic-ut-medicine-san-antonio	UTHSA COHR/Center for Oral Health Care & Research Dentistry	San Antonio	TX
@@ -88618,7 +89062,9 @@ epic-vanderbilt-university-medical-center	Vanderbilt Children's Plastic Surgery 
 epic-vanderbilt-university-medical-center	Vanderbilt Children's Primary Care Lebanon	Lebanon	TN
 epic-vanderbilt-university-medical-center	Vanderbilt Children's Primary Care Smyrna	Smyrna	TN
 epic-vanderbilt-university-medical-center	Vanderbilt Children's Pulmonary Memphis	Memphis	TN
+epic-vanderbilt-university-medical-center	Vanderbilt Children's Rheumatology Chattanooga	Chattanooga	TN
 epic-vanderbilt-university-medical-center	Vanderbilt Clarksville Acute	Clarksville	TN
+epic-vanderbilt-university-medical-center	Vanderbilt Clarksville Hospital Wound Care	Clarksville	TN
 epic-vanderbilt-university-medical-center	Vanderbilt Clarksville Rehabilitation	Clarksville	TN
 epic-vanderbilt-university-medical-center	Vanderbilt Clarksville Sango ED	Clarksville	TN
 epic-vanderbilt-university-medical-center	Vanderbilt Concierge Medicine - Cool Springs	Franklin	TN
@@ -88845,6 +89291,7 @@ epic-vcu-health	VCU Health Community Memorial Hospital (CMH)	South Hill	VA
 epic-vcu-health	VCU Health Internal Medicine at South Hill		
 epic-vcu-health	VCU Health Sports Medicine	Richmond	VA
 epic-vcu-health	VCU Health Tappahannock Hospital	Tappahannock	VA
+epic-vcu-health	VCU Health at Lee’s Hill Medical Plaza	Fredericksburg	VA
 epic-vcu-health	VCU Health at Reynolds Crossing	Richmond	VA
 epic-vcu-health	VCU Health at Ridgefield Parkway	Richmond	VA
 epic-vcu-health	VCU Health at Tanglewood	Bracey	VA
@@ -91606,6 +92053,7 @@ epic-west-tennessee-healthcare	Sports Plus Scotts Hill Physical Therapy	Scotts H
 epic-west-tennessee-healthcare	Sports Plus South Physical Therapy	Jackson	TN
 epic-west-tennessee-healthcare	Sports Plus Trenton Physical Therapy	Trenton	TN
 epic-west-tennessee-healthcare	WTH Bolivar General Hospital	Bolivar	TN
+epic-west-tennessee-healthcare	WTH Bolivar Hospital	Bolivar	TN
 epic-west-tennessee-healthcare	WTH Camden General Hospital	Camden	TN
 epic-west-tennessee-healthcare	WTH Cardiology Dyersburg	Dyersburg	TN
 epic-west-tennessee-healthcare	WTH Cardiology Martin	Martin	TN
@@ -91878,6 +92326,7 @@ epic-west-virginia-university-medicine	Health and Education Building	Morgantown	
 epic-west-virginia-university-medicine	Health and Education Building/CPASS	Morgantown	WV
 epic-west-virginia-university-medicine	Healthways, Weirton	Weirton	WV
 epic-west-virginia-university-medicine	Healthy Minds Center	Morgantown	WV
+epic-west-virginia-university-medicine	Healthy Minds Kids, Wheeling	Wheeling	WV
 epic-west-virginia-university-medicine	Heart and Vascular Institute - Charleston	South Charleston	WV
 epic-west-virginia-university-medicine	Heritage Professional Building	Uniontown	PA
 epic-west-virginia-university-medicine	Hess Family Medicine	Bridgeport	WV
@@ -91951,6 +92400,7 @@ epic-west-virginia-university-medicine	Memorial Drive Specialty Center	Oakland	M
 epic-west-virginia-university-medicine	Mercer Medical Group_UHA	Princeton	WV
 epic-west-virginia-university-medicine	Michael Family Practice	Berkeley Springs	WV
 epic-west-virginia-university-medicine	Mid Ohio Valley Medical Group - Belpre	Belpre	OH
+epic-west-virginia-university-medicine	Mid Ohio Valley Medical Group - St Mary's	Saint Marys	WV
 epic-west-virginia-university-medicine	Mid Ohio Valley Medical Group STE 4	Vienna	WV
 epic-west-virginia-university-medicine	Mid-Ohio Valley Medicine & Pediatrics	Parkersburg	WV
 epic-west-virginia-university-medicine	Mineral County Internal Medicine Keyser	Keyser	WV
@@ -92044,6 +92494,7 @@ epic-west-virginia-university-medicine	Princeton Center for Cancer Care-Uha	Prin
 epic-west-virginia-university-medicine	Princeton Community Hospital	Princeton	WV
 epic-west-virginia-university-medicine	Princeton Community Hospital - Bluefield	Bluefield	WV
 epic-west-virginia-university-medicine	Princeton MMG Blue Ridge Internal Medicine	Princeton	WV
+epic-west-virginia-university-medicine	Princeton Medical Arts Building	Princeton	WV
 epic-west-virginia-university-medicine	Princeton Mercer Medical Group General Surgery	Princeton	WV
 epic-west-virginia-university-medicine	Princeton Twelfth Street Specialty Center	Princeton	WV
 epic-west-virginia-university-medicine	Professional Building Cadiz	Cadiz	OH
@@ -92079,6 +92530,7 @@ epic-west-virginia-university-medicine	Riverside Rural Health Piedmont Clinic	Pi
 epic-west-virginia-university-medicine	Riverview Medical Plaza	South Charleston	WV
 epic-west-virginia-university-medicine	Robert C Byrd Clinic-Uha	Lewisburg	WV
 epic-west-virginia-university-medicine	Rockdale Road Specialty Center	Follansbee	WV
+epic-west-virginia-university-medicine	Rockefeller Neuroscience Institute, Glen Dale	Glen Dale	WV
 epic-west-virginia-university-medicine	Ruby Memorial	Morgantown	WV
 epic-west-virginia-university-medicine	Ruby Memorial Hospital	Morgantown	WV
 epic-west-virginia-university-medicine	Rural Health BRX Elk Memorial	Gassaway	WV
@@ -92223,6 +92675,7 @@ epic-west-virginia-university-medicine	Urgent Care McHenry Plaza	McHenry	MD
 epic-west-virginia-university-medicine	Urgent Care-CAMDEN CLARKE MEDICAL-Mar-UC	Marietta	OH
 epic-west-virginia-university-medicine	Valley Health Care Elkins	Elkins	WV
 epic-west-virginia-university-medicine	Valley Health Care Mill Creek	Mill Creek	WV
+epic-west-virginia-university-medicine	Viking Way Commons Suite 208	Martinsburg	WV
 epic-west-virginia-university-medicine	Vikings Way Commons	Martinsburg	WV
 epic-west-virginia-university-medicine	Village Plaza (On Campus Outpatient Hospital)	Wheeling	WV
 epic-west-virginia-university-medicine	Virginia Area Practice	Winchester	VA
@@ -92248,6 +92701,7 @@ epic-west-virginia-university-medicine	WVU Heart Institute Davis	Elkins	WV
 epic-west-virginia-university-medicine	WVU Innovation Center	Morgantown	WV
 epic-west-virginia-university-medicine	WVU Medical Laboratory Services	Morgantown	WV
 epic-west-virginia-university-medicine	WVU OB/GYN-MARTINSBURG	Martinsburg	WV
+epic-west-virginia-university-medicine	WVU Operations Support Center	Morgantown	WV
 epic-west-virginia-university-medicine	WVU Rockefeller Neuroscience Institute	Morgantown	WV
 epic-west-virginia-university-medicine	WVUH Community Pharmacy at Suncrest	Morgantown	WV
 epic-west-virginia-university-medicine	Waynesburg Area Hospitals	Waynesburg	PA
@@ -92453,6 +92907,7 @@ epic-western-washington-medical-group	Western Wa Medical Group Mukilteo - Endocr
 epic-western-washington-medical-group	Western Wa Medical Group Podiatry - Everett	Everett	WA
 epic-western-washington-medical-group	Western Wa Medical Group Snohomish	Snohomish	WA
 epic-western-washington-medical-group	Western Wa Medical Group Whidbey Island Clinic	Oak Harbor	WA
+epic-western-wayne-family-health-centers		Dearborn	MI
 epic-western-wisconsin-urology-oakleaf-medical-network	WW Urology Baldwin	Baldwin	WI
 epic-western-wisconsin-urology-oakleaf-medical-network	WW Urology Black River Falls	Black River Falls	WI
 epic-western-wisconsin-urology-oakleaf-medical-network	WW Urology Chippewa Falls	Chippewa Falls	WI
@@ -92473,6 +92928,7 @@ epic-western-wisconsin-urology-oakleaf-medical-network	WW Urology Whitehall	Whit
 epic-western-wisconsin-urology-oakleaf-medical-network	WWU - St Croix Falls	St Croix Fls	WI
 epic-western-wisconsin-urology-oakleaf-medical-network	Western Wisconsin Urology	Eau Claire	WI
 epic-whatley-health-services	Whatley Health Services Inc	Tuscaloosa	AL
+epic-whiteside-county-community-health-clinic		Rock Falls	IL
 epic-whole-care-pediatrics	CC Whole Care Pediatrics	Houston	TX
 epic-willapa-harbor-hospital	Willapa Medical Clinic	South Bend	WA
 epic-wilmington-community-clinic		Wilmington	CA
