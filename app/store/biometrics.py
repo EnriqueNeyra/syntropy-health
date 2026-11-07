@@ -728,18 +728,20 @@ def _day_spans(days: Iterable[str], tz: tzinfo) -> list[tuple[str, str]]:
 
 def _split_by_day(start: str, end: str, value: float, offset: Optional[int], tz: tzinfo) -> list[tuple[str, str, str, float]]:
     """(day, start, end, share) for each local day an interval covers, shared by time. Steps from 23:30 to 00:30 are half
-    on each day."""
+    on each day. Times are measured as elapsed seconds: two times in one zone subtract as clock times, which on the night the
+    clocks change is an hour out."""
     zone = zone_at(offset, tz)
     s, e = parse_ts(start).astimezone(zone), parse_ts(end).astimezone(zone)
-    length = (e - s).total_seconds()
+    until = e.timestamp()
+    length = until - s.timestamp()
     if length <= 0 or length > SPLIT_MAX_S or s.date() == (e - timedelta(seconds=1)).date():
         return [(s.date().isoformat(), start, end, value)]
     pieces = []
     cursor = s
-    while cursor < e:
+    while cursor.timestamp() < until:
         midnight = datetime.combine(cursor.date() + timedelta(days=1), datetime.min.time(), zone)
-        stop = min(midnight, e)
-        share = value * (stop - cursor).total_seconds() / length
+        stop = midnight if midnight.timestamp() < until else e
+        share = value * (stop.timestamp() - cursor.timestamp()) / length
         pieces.append((cursor.date().isoformat(), cursor.astimezone(timezone.utc).strftime(_ISO),
                        stop.astimezone(timezone.utc).strftime(_ISO), share))
         cursor = stop
@@ -1124,7 +1126,8 @@ def _sleep_nights(stages: dict[str, list[tuple[float, float, str, Optional[int]]
 # 4: flagged readings left out; naps apart from the night; heart rate weighted by time; intervals shared across midnight;
 #    a source's daily total wins over its intraday readings; every metric the iPhone sends; a reading's own offset.
 # 5: a day's total from the export route sent again from another time zone replaces the first rather than adding to it;
-#    samples at one moment (water, food) from several apps add up in Combined.
+#    samples at one moment (water, food) from several apps add up in Combined; an interval across midnight on the night
+#    the clocks change is shared by the time that really passed.
 DAILY_VERSION = 5
 
 

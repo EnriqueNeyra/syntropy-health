@@ -1330,6 +1330,19 @@ def test_an_interval_across_midnight_is_shared_between_its_days(client):
     assert _daily_all(profile) == {"2026-10-13": 400, "2026-10-14": 400}
 
 
+@pytest.mark.parametrize("start, end, shares", [
+    # 23:00 EDT to 03:00 EST on the night the clocks go back: five hours, one of them before midnight.
+    ("2026-11-01T03:00:00Z", "2026-11-01T08:00:00Z", {"2026-10-31": 200, "2026-11-01": 800}),
+    # 23:00 EST to 04:00 EDT on the night they go forward: four hours, one of them before midnight.
+    ("2026-03-08T04:00:00Z", "2026-03-08T08:00:00Z", {"2026-03-07": 250, "2026-03-08": 750}),
+])
+def test_an_interval_across_midnight_on_the_night_the_clocks_change_is_shared_by_real_time(client, start, end, shares):
+    profile = _profile(client)
+    _set_zone(client, "America/New_York")
+    biometrics.insert_samples(profile, None, [_s("dst", value=1000, start=start, end=end)])
+    assert _daily_all(profile) == shares
+
+
 def test_a_workouts_odd_route_time_and_fine_grained_heart_rate(client):
     profile = _profile(client)
     w = {"id": "w", "name": "Run", "start": _iso(YESTERDAY), "end": _iso(YESTERDAY, "12:30:00"), "duration_s": 1800, "source_name": "App",
