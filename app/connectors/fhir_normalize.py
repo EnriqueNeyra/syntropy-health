@@ -534,7 +534,8 @@ def _read_value(src: dict[str, Any]) -> dict[str, Any]:
     elif "valueString" in src:
         text = src["valueString"]
         out["text"] = str(text) if text not in (None, "") else None
-        found = _NUMERIC_TEXT.match(out["text"] or "")
+        written = (out["text"] or "").strip()
+        found = _NUMERIC_TEXT.match(written) if len(written) <= 64 else None     # a number, never a page of text with spaces to try
         if found:
             out["num"] = float(found.group(2))
             out["comparator"] = {"≤": "<=", "≥": ">="}.get(found.group(1) or "", found.group(1))
@@ -644,8 +645,18 @@ _LIMIT_AFTER = re.compile(rf"^\s*{_NUMBER}\s*(\S+)?\s+or\s+(greater|higher|more|
 _USUAL_BAND = {"normal", "normal range", "reference", "reference range", "reference interval", "ref range", "range", "sufficient", "sufficiency",
                "optimal", "desirable", "adequate"}
 _BAND_SPLIT = re.compile(r"\s*(?:[;\n|]|,(?!\d))\s*")
-_BAND_FIRST = re.compile(r"^([a-z][a-z ]*?)\s*(?::|=|\s-\s|\s)\s*(?=[\d<>≤≥.=])(.+)$", re.I)
-_BAND_AFTER = re.compile(rf"^([\d<>≤≥.=].*?)\s*[(:-]?\s*\b({'|'.join(sorted(_USUAL_BAND, key=len, reverse=True))})\)?$", re.I)
+# On text from _range_words, where a space is never next to another, so no two parts of a pattern can share one: "Sufficient: 30-100",
+# "Normal - 30-100", "Optimal 30-80"; "30-100 (normal)", "30-100 ng/mL Optimal".
+_BAND_FIRST = re.compile(r"^([a-z]+(?: [a-z]+)*)(?: ?[:=] ?| - | )(?=[\d<>≤≥.=])(.+)$", re.I)
+_BAND_AFTER = re.compile(rf"^([\d<>≤≥.=].*?) ?(?:[(:-] ?)?\b({'|'.join(sorted(_USUAL_BAND, key=len, reverse=True))})\)?$", re.I)
+# Longer than any one range a lab writes. Text a source pads with thousands of spaces or digits is never put to a pattern whole.
+_RANGE_PIECE_MAX = 200
+
+
+def _range_words(text: str) -> str:
+    """Range text with each run of spaces made one space and each run of line breaks one line break: read this way before any
+    pattern sees it, as patterns that try each way of sharing a long run of spaces between them can take hours."""
+    return "\n".join(line for line in (" ".join(raw.split()) for raw in text.splitlines()) if line)
 
 
 def _plain_limits(text: str) -> str:
@@ -661,8 +672,10 @@ def _plain_limits(text: str) -> str:
 def _usual_band(text: str) -> Optional[str]:
     """The one band a lab's wording marks as the usual range, or None when it doesn't mark exactly one."""
     usual = []
-    for part in _BAND_SPLIT.split(text.strip()):
+    for part in _BAND_SPLIT.split(_range_words(text)):
         part = part.rstrip(".")
+        if len(part) > _RANGE_PIECE_MAX:
+            continue
         first, after = _BAND_FIRST.match(part), _BAND_AFTER.match(part)
         label, value = (first.group(1), first.group(2)) if first else (after.group(2), after.group(1)) if after else (None, None)
         if label and label.strip().lower() in _USUAL_BAND:
@@ -677,7 +690,8 @@ def _written_bounds(rr: dict[str, Any]) -> Optional[tuple[Optional[float], Optio
     text = rr.get("text")
     if not isinstance(text, str):
         return None
-    match = _WRITTEN_RANGE.match(_plain_limits(_usual_band(text) or text))
+    written = _usual_band(text) or _range_words(text)
+    match = _WRITTEN_RANGE.match(_plain_limits(written)) if len(written) <= _RANGE_PIECE_MAX else None
     if not match:
         return None
     if match.group(1):
