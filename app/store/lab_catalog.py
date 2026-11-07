@@ -44,7 +44,11 @@ TEST_GROUPS = (
     ("1751-7", "61151-7"),                                     # albumin
     ("19123-9", "2601-3"),                                     # magnesium
     ("2777-1", "14879-1"),                                     # phosphate
-    ("98979-8", "62238-1", "33914-3", "77147-7", "48642-3", "48643-1", "88293-6", "88294-4", "69405-9"),  # eGFR, by any formula
+    ("98979-8", "62238-1", "33914-3", "77147-7", "69405-9"),  # eGFR, by any formula that gives one estimate
+    # Until 2021 labs gave two estimates of each eGFR, for Black patients and for everyone else, from the same blood. One
+    # history held both, so a single draw showed as a change between them, and which one was "latest" was a tie. Each is its own.
+    ("88294-4", "48642-3"),                                    # eGFR if not Black (CKD-EPI, MDRD)
+    ("88293-6", "48643-1"),                                    # eGFR if Black (CKD-EPI, MDRD)
     # Vitals
     ("29463-7", "3141-9"),                                     # weight
     ("8302-2", "8306-3"),                                      # height
