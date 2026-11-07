@@ -817,6 +817,10 @@ class FhirClient:
             except (httpx.HTTPError, httpx.InvalidURL) as exc:
                 log.warning("FHIR %s query failed: %s", rtype, type(exc).__name__)
                 return _Search(results, "error:network", place, suppressed)
+            if pages and 400 <= resp.status_code < 500:
+                # A page its own next link led to: whatever the refusal says, this search didn't finish, and the server can't
+                # mean it doesn't offer what it has just been sending. The next sync carries on from here.
+                return _Search(results, f"error:{resp.status_code}", place, suppressed)
             if resp.status_code == 403:
                 return _Search(results, "forbidden", None, suppressed)
             if resp.status_code in (400, 404, 405, 410, 422, 501):
@@ -830,8 +834,10 @@ class FhirClient:
             kind = bundle.get("resourceType") if isinstance(bundle, dict) else None
             if kind == "OperationOutcome":
                 failed, left_out = _outcome_verdict(bundle)
-                if failed:
-                    return _Search(results, "error:outcome", place, suppressed)
+                # Only a search's first page may answer it this way ("no results"). Instead of a later page, or the page a
+                # saved place leads to, it's how a server says the paging ran out, however mildly: the search didn't finish.
+                if failed or place is not None:
+                    return _Search(results, "error:outcome", place, suppressed or left_out)
                 return _Search(results, "ok" if results else "empty", None, suppressed or left_out)
             if kind != "Bundle":            # a gateway's own JSON isn't an answer, and certainly not an empty one
                 return _Search(results, "error:invalid-json", place, suppressed)
