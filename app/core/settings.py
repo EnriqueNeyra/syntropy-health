@@ -8,6 +8,8 @@ Environment variables provide first-run defaults for credentials.
 from __future__ import annotations
 
 import json
+import re
+import secrets
 import time
 from typing import Any, Optional
 
@@ -125,6 +127,29 @@ def delete_prefix_in(conn: Any, prefix: str) -> None:
 
 def timezone_name() -> str:
     return get("display.timezone") or config.timezone_name()
+
+
+SERVER_ID = "server.id"
+_SERVER_ID_FORM = re.compile(r"^[0-9a-f]{32}$")
+
+
+def server_id() -> str:
+    """Which server this is, for the phone apps to tell it from another one answering at the same address: 32 hex
+    characters, made the first time it's asked for. It's kept in the database, so it lasts through restarts and moves
+    with a backup restored on another computer, along with the phones' tokens it vouches for."""
+    current = get(SERVER_ID)
+    if isinstance(current, str) and _SERVER_ID_FORM.match(current):
+        return current
+    with db() as conn:
+        # Two requests asking at once both keep whichever was written first.
+        conn.execute("INSERT OR IGNORE INTO app_settings(key, value, updated_at) VALUES (?, ?, ?)",
+                     (SERVER_ID, json.dumps(secrets.token_hex(16)), time.time()))
+        row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (SERVER_ID,)).fetchone()
+        kept = json.loads(row["value"])
+        if not (isinstance(kept, str) and _SERVER_ID_FORM.match(kept)):
+            kept = secrets.token_hex(16)
+            conn.execute("UPDATE app_settings SET value = ?, updated_at = ? WHERE key = ?", (json.dumps(kept), time.time(), SERVER_ID))
+    return kept
 
 
 # ---------------------------------------------------------------------------
