@@ -538,6 +538,12 @@ def test_another_sites_page_can_not_post_guesses(dpapi, tmp_path, monkeypatch):
     with _start() as c:
         r = c.post("/unlock", data={"password": "a guess"}, headers={"Origin": "https://example.com"})
         assert r.status_code == 403
+        # Nor one that has pointed its own name at this computer (DNS rebinding), so that its address and origin agree.
+        rebound = {"Host": "attacker.example:8000", "Origin": "http://attacker.example:8000"}
+        assert c.post("/unlock", data={"password": PASSPHRASE}, headers=rebound).status_code == 403
+        assert c.app.state.problem_kind == "key" and c.get("/health").status_code == 503
+        assert c.post("/unlock", data={"password": PASSPHRASE}, headers={"Host": "attacker.example:8000"}).status_code == 403
+        assert c.post("/unlock", data={"password": PASSPHRASE}, follow_redirects=False).status_code == 303
 
 
 def test_guesses_are_limited_like_signing_in(dpapi, tmp_path, monkeypatch):
