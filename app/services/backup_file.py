@@ -190,3 +190,20 @@ def unseal(fh: BinaryIO, passphrase: Optional[str] = None, key: Optional[SealKey
 
 def is_sealed(first_bytes: bytes) -> bool:
     return first_bytes.startswith(MAGIC)
+
+
+def check_value(key: SealKey) -> str:
+    """What a file sealed with this key says in its header to show which passphrase opens it. A passphrase run through
+    scrypt again, with a new salt, as every backup made by hand is, gives another."""
+    return _check_value(key.material)
+
+
+def sealed_with(path: Any) -> Optional[str]:
+    """The check value in a sealed backup's header (see check_value), read without opening anything. None for any other file."""
+    try:
+        with open(path, "rb") as fh:
+            _, header = _read_header(fh)
+    except (OSError, BackupFileError):
+        return None
+    check = header.get("check")
+    return check if isinstance(check, str) else None

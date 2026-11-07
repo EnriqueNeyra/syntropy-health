@@ -82,9 +82,12 @@ def configure(folder: str, every_hours: int, keep: int, passphrase: Optional[str
     current = _settings() or {}
     if passphrase:
         key = backup_file.new_seal_key(backups.validate_passphrase(passphrase))
-        sealed = {"kdf": key.kdf, "key_enc": security.encrypt_json(base64.b64encode(key.material).decode())}
+        # Backups made with the passphrase before are still this schedule's, to keep the last few of.
+        earlier = [c for c in _checks(current) if c != backup_file.check_value(key)][-20:]
+        sealed = {"kdf": key.kdf, "key_enc": security.encrypt_json(base64.b64encode(key.material).decode()),
+                  "check": backup_file.check_value(key), "earlier_checks": earlier}
     elif current.get("key_enc"):
-        sealed = {"kdf": current["kdf"], "key_enc": current["key_enc"]}
+        sealed = {k: current[k] for k in ("kdf", "key_enc", "check", "earlier_checks") if k in current}
     else:
         raise backups.BackupProblem(f"Choose a passphrase of at least {backup_file.MIN_PASSPHRASE} characters.")
     _try_folder(path)
@@ -114,23 +117,39 @@ def status() -> dict[str, Any]:
     return {"enabled": True, "folder": plan["folder"], "every_hours": plan["every_hours"], "keep": plan["keep"],
             "same_disk": _same_disk(folder), "state": state, "running": _running.locked(),
             "next_at": last + every if last else plan["enabled_at"],
-            "scheduler_off": not backups.config.scheduler_enabled(), "files": _files(folder)}
+            "scheduler_off": not backups.config.scheduler_enabled(), "files": _files(folder, plan)}
 
 
-def _files(folder: Path) -> list[dict[str, Any]]:
+def _files(folder: Path, plan: dict[str, Any]) -> list[dict[str, Any]]:
     try:
-        return [{"name": f.name, "size_bytes": f.stat().st_size, "at": f.stat().st_mtime} for f in _ours(folder)][::-1]
+        return [{"name": f.name, "size_bytes": f.stat().st_size, "at": f.stat().st_mtime} for f in _ours(folder, plan)][::-1]
     except OSError:
         return []
 
 
-def _ours(folder: Path) -> list[Path]:
-    """Backups this made, oldest first (the name holds the time). Nothing else in that folder is ever touched."""
-    return sorted(folder.glob(f"{backups.NAME_PREFIX}*{backups.SEALED_SUFFIX}"), key=lambda f: f.name)
+def _checks(plan: dict[str, Any]) -> list[str]:
+    """How this schedule's backups say which passphrase seals them (backup_file.check_value): the one now, and those before
+    it. A schedule saved by an earlier version has its key, to work it out from."""
+    checks = [c for c in [*(plan.get("earlier_checks") or []), plan.get("check")] if isinstance(c, str)]
+    if not plan.get("check") and plan.get("key_enc"):
+        try:
+            checks.append(backup_file.check_value(_seal_key(plan)))
+        except backups.BackupProblem:
+            pass
+    return list(dict.fromkeys(checks))
 
 
-def _prune(folder: Path, keep: int) -> int:
-    old = _ours(folder)[:-keep]
+def _ours(folder: Path, plan: dict[str, Any]) -> list[Path]:
+    """Backups this schedule made, oldest first (the name holds the time). Their header says so: they're sealed with the
+    schedule's own key, which no backup made by hand shares, even with the same passphrase. Nothing else in that folder is
+    ever touched, including backups someone made there themselves."""
+    checks = set(_checks(plan))
+    named = sorted(folder.glob(f"{backups.NAME_PREFIX}*{backups.SEALED_SUFFIX}"), key=lambda f: f.name)
+    return [f for f in named if backup_file.sealed_with(f) in checks] if checks else []
+
+
+def _prune(folder: Path, keep: int, plan: dict[str, Any]) -> int:
+    old = _ours(folder, plan)[:-keep]
     for f in old:
         f.unlink(missing_ok=True)
     # A backup cut off by a power cut leaves its unfinished file, as large as a real one, and nothing else would remove it.
@@ -173,7 +192,7 @@ def run_now() -> dict[str, Any]:
             if not folder.is_dir():
                 raise backups.BackupProblem(f"The backup folder {folder} isn't there. If it's on a drive, plug it in.")
             result = backups.create(folder, seal_key=_seal_key(plan), made_by="schedule")
-            pruned = _prune(folder, plan["keep"])
+            pruned = _prune(folder, plan["keep"], plan)
             state = {**state, "last_attempt_at": started, "last_success_at": time.time(), "last_error": None, "last_error_at": None,
                      "last_file": result["filename"], "last_size_bytes": result["size_bytes"], "holds": result["holds"], "pruned": pruned}
         except db.StartupProblem as exc:
