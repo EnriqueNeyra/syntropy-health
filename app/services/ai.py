@@ -252,6 +252,8 @@ def config(include_key: bool = False, chat: bool = False) -> dict[str, Any]:
     kind = "local" if provider == "local" else "key"
     out = {**base, **cfg, "kind": kind, "has_key": bool(key), "configured": _configured(provider, {**cfg, "key": key}),
            "model_name": next((m["name"] for m in cached_models(provider) if m["id"] == cfg["model"]), cfg["model"])}
+    if not include_key:                  # what everyone sees: never a password saved in an address
+        out["base_url"] = ai_local.shown_address(cfg["base_url"])
     if cfg["base_url"] and PROVIDERS[provider].get("custom_url"):
         out["address"] = {"private": ai_local.is_private_host(urlsplit(cfg["base_url"]).hostname or "")}
     out["sends_elsewhere"] = not out.get("address", {}).get("private")     # a hosted provider, or a server on the internet
@@ -270,7 +272,7 @@ def _provider_list() -> list[dict[str, Any]]:
         out.append({"id": k, "label": _label(k), "default_model": v["default_model"], "key_hint": v["key_hint"],
                     "custom_url": bool(v.get("custom_url")), "needs_key": v.get("needs_key", True),
                     "saved_model": settings.get(f"ai.model.{k}") or "", "has_key": bool(spec["key"]),
-                    "base_url": settings.get(f"ai.base_url.{k}") or v["base_url"], "tools": spec["tools"],
+                    "base_url": ai_local.shown_address(settings.get(f"ai.base_url.{k}") or v["base_url"]), "tools": spec["tools"],
                     **({"private": ai_local.is_private_host(urlsplit(spec["base_url"]).hostname or "")}
                        if k == "local" and spec["base_url"] else {}),
                     "connected": _configured(k, spec), "models": len(cached_models(k))})
@@ -306,7 +308,7 @@ def save_config(provider: str, model: Optional[str] = None, api_key: Optional[st
     if spec.get("custom_url"):
         if base_url is not None:
             try:
-                url = ai_local.normalize_base_url(base_url)
+                url = typed_address(provider, base_url)
             except ValueError as exc:
                 raise AIError(str(exc)) from exc
             address = ai_local.describe_address(url)
@@ -329,6 +331,15 @@ def save_config(provider: str, model: Optional[str] = None, api_key: Optional[st
     if api_key is not None:
         settings.set(f"ai.key.{provider}", api_key.strip() or None)
     return config(chat=True)
+
+
+def typed_address(provider: str, typed: str) -> str:
+    """An address from a form, tidied. The saved one as it's shown (with *** for a password saved in it before those
+    were refused) stands for the saved one, so saving the form unchanged keeps it."""
+    saved = settings.get(f"ai.base_url.{provider}") or ""
+    if saved and typed.strip() == ai_local.shown_address(saved):
+        return saved
+    return ai_local.normalize_base_url(typed)
 
 
 def _check_model_name(provider: str, model: Optional[str]) -> None:
@@ -684,7 +695,7 @@ def _unreachable(cfg: dict[str, Any], exc: Exception) -> AIError:
         return AIError(f"{cfg['label']} took too long to answer. A local model may still be loading, or the question may need "
                        "too much of it. Try again, or ask something narrower.")
     if PROVIDERS[cfg["provider"]].get("custom_url"):
-        return AIError(f"Couldn't reach {cfg['label']} at {cfg['base_url']} ({exc.__class__.__name__}). Check that it's "
+        return AIError(f"Couldn't reach {cfg['label']} at {ai_local.shown_address(cfg['base_url'])} ({exc.__class__.__name__}). Check that it's "
                        "running and that this computer can reach it.")
     return AIError(f"Couldn't reach {cfg['label']} ({exc.__class__.__name__}). Check this computer's internet connection.")
 
@@ -1230,7 +1241,7 @@ async def list_models(provider: Optional[str] = None, api_key: Optional[str] = N
         raise AIError("Choose a provider first.")
     if base_url:
         try:
-            base_url = ai_local.normalize_base_url(base_url)
+            base_url = typed_address(provider, base_url)
         except ValueError as exc:
             raise AIError(str(exc)) from exc
     cfg = _resolve(provider, api_key, base_url)
