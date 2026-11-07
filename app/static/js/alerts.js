@@ -9,7 +9,9 @@ import { fmtDate, html, icon, mount, plural } from "./ui.js";
 const OLD_KEYS = { seen: "syntropy-alerts-seen", dismissed: "syntropy-alerts-dismissed" };
 
 let alerts = [];
-let profileId = null;
+let profileId = null;            // whose alerts these are
+let onScreen = () => profileId;  // whose the bell should show: the person the app has open (it says how to tell)
+let asked = 0;                   // each refresh's turn: only the latest one's answer is shown
 let listeners = [];
 let seen = new Set();
 let dismissed = new Set();
@@ -137,31 +139,52 @@ function collect({ profile, summary, connections, status }) {
   return out;
 }
 
+/** How to tell which person the app has open: alerts worked out for anyone else are never shown. */
+export function alertsFollow(currentProfileId) { onScreen = currentProfileId; }
+
+/** Another person: their alerts start empty, at once, rather than showing the last person's until theirs have loaded. */
+function switchTo(id) {
+  if (id === profileId) return;
+  profileId = id;
+  alerts = [];
+  seen = new Set();
+  dismissed = new Set();
+  listeners.forEach((fn) => fn());
+}
+
 /** Recomputes the alerts. Pass data a page already fetched to avoid asking for it twice. */
 export async function refreshAlerts(profile, status, data = null) {
-  if (!profile) return;
-  profileId = profile.id;
+  // A page still loading for the person switched away from has nothing to say about the one on screen now.
+  if (!profile || profile.id !== onScreen()) return;
+  switchTo(profile.id);
+  const turn = ++asked;
+  let next = null;
   try {
     const [summary, connections, marks] = await Promise.all([
       data ? data.summary : get("/api/summary", { profile: profile.id }),
       data ? data.connections : get("/api/connections", { profile: profile.id }).then((r) => r.connections),
       loadState(profile.id),
     ]);
-    if (profileId !== profile.id) return;   // switched profile while loading
-    ({ seen, dismissed } = marks);
-    alerts = collect({ profile, summary, connections, status }).filter((a) => !dismissed.has(a.id));
-  } catch { return; }
+    next = { marks, list: collect({ profile, summary, connections, status }) };
+  } catch { /* nothing to show, rather than what was there before */ }
+  // Asked again since (or switched person while loading): that answer is the one to show.
+  if (turn !== asked || profile.id !== profileId || profile.id !== onScreen()) return;
+  ({ seen, dismissed } = next ? next.marks : { seen: new Set(), dismissed: new Set() });
+  alerts = next ? next.list.filter((a) => !dismissed.has(a.id)) : [];
   listeners.forEach((fn) => fn());
 }
 
 export function onAlertsChange(fn) { listeners.push(fn); return () => { listeners = listeners.filter((f) => f !== fn); }; }
 
+/** The alerts to show: none while they're someone else's (another person was opened, or someone else signed in). */
+const shown = () => (profileId === onScreen() ? alerts : []);
+
 export function unreadCount() {
-  return alerts.filter((a) => !seen.has(a.id)).length;
+  return shown().filter((a) => !seen.has(a.id)).length;
 }
 
 export function markAllSeen() {
-  const fresh = alerts.filter((a) => !seen.has(a.id)).map((a) => a.id);
+  const fresh = shown().filter((a) => !seen.has(a.id)).map((a) => a.id);
   if (!fresh.length) return;
   fresh.forEach((id) => seen.add(id));
   saveState({ seen: fresh });
@@ -177,6 +200,7 @@ export function dismiss(id) {
 
 /** The panel's contents. Unread alerts are marked, so opening the panel shows what's new before it's cleared. */
 export function renderPanel(el) {
+  const alerts = shown();
   const labs = alerts.filter((a) => a.level === "lab");
   const other = alerts.filter((a) => a.level !== "lab");
   const item = (a) => html`<div class="alert-item ${seen.has(a.id) ? "" : "unread"}">
