@@ -77,12 +77,14 @@ Add an entry under **Unreleased** in [CHANGELOG.md](../CHANGELOG.md).
 
 | Workflow | When | What |
 |---|---|---|
-| CI | pushes to main, pull requests | lint, the test suite (Python 3.12 and the newest), the relay worker's tests, and the installers on real Linux, Mac and Windows machines |
+| CI | pushes to main, pull requests, and Release on a tag | lint and `uv.lock`'s freshness, an audit of what's locked, the test suite (Python 3.12 and the newest, and on Mac and Windows), the browser tests in Chrome, the relay worker's tests, the installers on real Linux, Mac and Windows machines, and the Mac and Windows apps (apps.yml) |
 | Docker image | pushes to main, pull requests, releases | builds, runs and scans the image; publishes `:main` from main, and `:latest` and the version for a release (arm64 runs first, under emulation). Publishing needs the `SYNTROPY_RELAY_KEY` repository secret |
-| Docker image refresh | weekly | rebuilds the latest release's code on today's base image and `uv.lock`, once its own tests pass with them, and moves `:latest` and `:1.2`. `:1.2.3` stays as released |
+| Docker image refresh | weekly | rebuilds the latest release's code on today's base image and `uv.lock`, once its own tests pass with them, and moves `:latest` and `:1.2`, unless a newer release came out meanwhile. `:1.2.3` stays as released |
+| Directory refresh | weekly | rebuilds the health-system directory from each vendor's published list and checks every sign-in, then opens a pull request that merges by itself unless a person should look. Opening it needs the `DIRECTORY_TOKEN` repository secret |
 | Supply chain | weekly | audits `uv.lock`, scans the published image, and tries the suite on the newest dependencies; anything wrong opens one issue |
-| Release | a `v*` tag; changes under `desktop/` | builds and checks the Mac and Windows apps; a tag also runs CI and publishes the release |
+| Release | a `v*` tag on a commit on main; by hand | builds and checks the Mac and Windows apps; a tag also runs CI and publishes the release. By hand (Actions → Release → Run workflow), it builds them without releasing anything |
 | Tag release | a change to `APP_VERSION` merged into main | tags that version, which starts Release |
+| Relay | changes to `cloudflare-worker/` on main | deploys the OAuth relay to Cloudflare once its tests pass |
 | CodeQL | pushes to main, pull requests, weekly | security scanning (public repository only) |
 | CLA | pull requests | checks that whoever opened it, and everyone with commits in it, has signed the CLA (the maintainer and bots need not, in pull requests they opened) |
 
@@ -90,7 +92,8 @@ Pull requests into main need **CI passed** (every CI job succeeded), **image** a
 
 Dependabot proposes dependency updates weekly (Python, in `uv.lock`, and the Docker base image's digest) and monthly (the
 workflows' actions). uv's own version moves by hand: it's in the Dockerfile, the installers and the workflows, and
-`tests/test_deployment_files.py` keeps them the same.
+`tests/test_deployment_files.py` keeps them the same. So does setuptools, which builds the wheel: `pyproject.toml` names
+its version and `.github/build-constraints.txt` its hashes.
 
 ## Releasing
 

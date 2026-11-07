@@ -244,6 +244,14 @@ def test_every_test_that_needs_playwright_runs_in_the_browser_job():
     assert checked < next(i for i, run in enumerate(runs) if "pytest -q tests/e2e" in run)
 
 
+def test_contributing_lists_every_workflow_that_runs_by_itself():
+    rows = {line.split("|")[1].strip() for line in _read(".github/CONTRIBUTING.md").splitlines() if line.startswith("| ")}
+    for workflow in WORKFLOWS:
+        loaded = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+        if set(loaded[True]) != {"workflow_call"}:      # (YAML reads `on:` as true)
+            assert loaded["name"] in rows, workflow.name
+
+
 def test_dependabot_moves_the_lock_and_the_base_image():
     updates = yaml.safe_load(_read(".github/dependabot.yml"))["updates"]
     ecosystems = {u["package-ecosystem"]: u for u in updates}
