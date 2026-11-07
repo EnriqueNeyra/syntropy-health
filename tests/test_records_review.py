@@ -449,3 +449,85 @@ def test_which_flagged_results_are_older_is_decided_by_the_callers_day(client, m
     monkeypatch.setattr(insights, "_today", lambda profile_id=None: date(2020, 1, 1))
     insights._lab_notes(pid)
     assert seen == [date(2020, 1, 1)]
+
+
+# ---- Disconnecting
+
+def _live_source(credentials):
+    from app.store import connections, profiles
+
+    pid = profiles.list_profiles()[0]["id"]
+    return connections.create(pid, "ehr", "epic", "Clinic", mode="live", fhir_base_url=BASE, patient_ref="p",
+                              credentials={"access_token": "at", "client_id": "app", "token_endpoint": f"{BASE}/token", **credentials})
+
+
+@pytest.mark.parametrize("delete_data", [False, True])
+def test_disconnecting_asks_the_source_to_end_the_access_it_granted(client, fhir_server, delete_data):
+    import httpx
+
+    from app.store import connections
+
+    sent = []
+
+    def handler(request):
+        if request.url.path.endswith("/revoke"):
+            sent.append(dict(httpx.QueryParams(request.content.decode())))
+            return httpx.Response(200)
+        return None
+
+    fhir_server.handler = handler
+    conn = _live_source({"refresh_token": "rt", "revocation_endpoint": f"{BASE}/revoke"})
+    assert client.delete(f"/api/connections/{conn['id']}", params={"delete_data": delete_data}).status_code == 200
+    assert sent == [{"token": "rt", "token_type_hint": "refresh_token", "client_id": "app"}]
+    gone = connections.get(conn["id"], include_credentials=True)
+    assert gone is None if delete_data else gone["status"] == "disconnected" and not gone["credentials"]
+
+
+def test_a_source_connected_before_its_revocation_address_was_kept_is_asked_where_it_is(client, fhir_server):
+    import httpx
+
+    sent = []
+
+    def handler(request):
+        if request.url.path.endswith("/.well-known/smart-configuration"):
+            return httpx.Response(200, json={"authorization_endpoint": f"{BASE}/authorize", "token_endpoint": f"{BASE}/token",
+                                             "revocation_endpoint": f"{BASE}/revoke"})
+        if request.url.path.endswith("/revoke"):
+            sent.append(dict(httpx.QueryParams(request.content.decode())))
+            return httpx.Response(200)
+        return None
+
+    fhir_server.handler = handler
+    conn = _live_source({})
+    assert client.delete(f"/api/connections/{conn['id']}").status_code == 200
+    assert sent == [{"token": "at", "token_type_hint": "access_token", "client_id": "app"}]
+
+
+@pytest.mark.parametrize("answer", ["refuses", "fails", "hangs", "insecure", "none"])
+def test_a_source_that_wont_end_its_access_never_stops_a_disconnect(client, fhir_server, monkeypatch, answer):
+    import asyncio
+    import time
+
+    import httpx
+
+    from app.connectors import smart
+    from app.store import connections
+
+    monkeypatch.setattr(smart, "REVOKE_SECONDS", 0.3)
+
+    async def handler(request):
+        if answer == "hangs":
+            await asyncio.sleep(5)
+        if answer == "fails":
+            raise httpx.ConnectError("down")
+        return httpx.Response(503 if answer == "refuses" else 404)
+
+    fhir_server.handler = lambda request: None if request.url.path.endswith("/Patient/p") else handler(request)
+    real = httpx.AsyncClient
+    monkeypatch.setattr(smart, "http_client", lambda simulated=False, timeout=30.0: real(transport=httpx.MockTransport(handler), timeout=timeout))
+    endpoint = {"insecure": "http://ehr.example/revoke", "none": None}.get(answer, f"{BASE}/revoke")
+    conn = _live_source({"refresh_token": "rt", "revocation_endpoint": endpoint})
+    started = time.monotonic()
+    assert client.delete(f"/api/connections/{conn['id']}").status_code == 200
+    assert time.monotonic() - started < 3
+    assert connections.get(conn["id"])["status"] == "disconnected"
