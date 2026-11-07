@@ -2702,6 +2702,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/DIEEAA"
 },
 {
+"id": "ecw-ebjded",
+"name": "Advanced Orthopedics and Sports Medicine PC",
+"location": "Casa Grande, AZ",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/EBJDED"
+},
+{
 "id": "ecw-achedd",
 "name": "Advanced Orthopedics and Sports Medicine, PLLC",
 "location": "Twin Falls, ID",
@@ -2945,6 +2952,13 @@
 "location": "Sebring, FL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/IJBCDD"
+},
+{
+"id": "ecw-hfgded",
+"name": "Advanced Regenerative Health, LLC",
+"location": "Englewood, CO",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/HFGDED"
 },
 {
 "id": "ecw-efgddd",
@@ -6279,6 +6293,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CAFDCA"
 },
 {
+"id": "ecw-chided",
+"name": "ALINE C. ZERINGUE, ACNS-BC, PLLC dba ATX Primary Care",
+"location": "Austin, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/CHIDED"
+},
+{
 "id": "ecw-abhbdd",
 "name": "Alive and Well Community Partners LLC",
 "location": "Miami, FL",
@@ -6382,6 +6403,13 @@
 "location": "Lafayette, LA",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/GFFCED"
+},
+{
+"id": "ecw-adided",
+"name": "All Access Healthcare LLC",
+"location": "Trinity, FL",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/ADIDED"
 },
 {
 "id": "ecw-cfhgcd",
@@ -11758,6 +11786,13 @@
 "location": "Houston, TX",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/EDHCDA"
+},
+{
+"id": "ecw-hgided",
+"name": "At Home Care and House Calls Cuidados En Casa PLLC",
+"location": "Grand Prairie, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/HGIDED"
 },
 {
 "id": "ecw-cddcdd",
@@ -19649,6 +19684,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/EEGCDA"
 },
 {
+"id": "ecw-ebgded",
+"name": "Care N Care Insurance Company of North Carolina, Inc",
+"location": "Greensboro, NC",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/EBGDED"
+},
+{
 "id": "ecw-fheecd",
 "name": "Care Plus Family Medicine LLC",
 "location": "Chamblee, GA",
@@ -21994,6 +22036,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/GDICDD"
 },
 {
+"id": "ecw-gcided",
+"name": "Cero Estres Cero Depresion LLC",
+"location": "Homestead, FL",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/GCIDED"
+},
+{
 "id": "ecw-aidbba",
 "name": "Cerritos Medical Center",
 "location": "Cerritos, CA",
@@ -23546,6 +23595,13 @@
 "location": "Crestview, FL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/DHBJAA"
+},
+{
+"id": "ecw-hcided",
+"name": "Christopher Noah",
+"location": "Middleville, MI",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/HCIDED"
 },
 {
 "id": "ecw-hhghad",
@@ -26206,6 +26262,13 @@
 "location": "La Vergne, TN",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/IGFBAA"
+},
+{
+"id": "ecw-iaided",
+"name": "Community Roots Health",
+"location": "Palatka, FL",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/IAIDED"
 },
 {
 "id": "ecw-dddded",
@@ -34440,6 +34503,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/FBFJCA"
 },
 {
+"id": "ecw-cggced",
+"name": "East Valley Cardiology",
+"location": "Chandler, AZ",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/CGGCED"
+},
+{
 "id": "ecw-eddgba",
 "name": "East Valley Dermatology",
 "location": "Chandler, AZ",
@@ -37014,6 +37084,13 @@
 "location": "Lewiston, ID",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CGGADD"
+},
+{
+"id": "ecw-fifded",
+"name": "EssentialMD, PLLC",
+"location": "Tulsa, OK",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/FIFDED"
 },
 {
 "id": "ecw-dhhbed",
@@ -54075,6 +54152,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CJEBBA"
 },
 {
+"id": "ecw-eiaiad",
+"name": "Inland Empire Womens Clinic",
+"location": "San Bernardino, CA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/EIAIAD"
+},
+{
 "id": "ecw-afdada",
 "name": "Inland Family Practice Center",
 "location": "Hattiesburg, MS",
@@ -66220,6 +66304,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/JJEGDD"
 },
 {
+"id": "ecw-bfjded",
+"name": "Make Orthopedics Great Again dba Torrez Orthopedics",
+"location": "Cedar Falls, IA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/BFJDED"
+},
+{
 "id": "ecw-ggijcd",
 "name": "Making Opportunity Count, Inc.",
 "location": "Fitchburg, MA",
@@ -66358,6 +66449,13 @@
 "location": "Malvern, AR",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/EIHCCA"
+},
+{
+"id": "ecw-ibjded",
+"name": "MALWA DOCTORS, INC. dba Horizon Psychiatry Associates",
+"location": "Roseville, CA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/IBJDED"
 },
 {
 "id": "ecw-eejfaa",
@@ -76326,6 +76424,13 @@
 "location": "Attleboro, MA",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/HGABBA"
+},
+{
+"id": "ecw-jdjded",
+"name": "Neurology PC",
+"location": "Waterloo, IA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/JDJDED"
 },
 {
 "id": "ecw-eiiadd",
@@ -88016,6 +88121,13 @@
 "location": "Kissimmee, FL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/JCCCDD"
+},
+{
+"id": "ecw-hbhded",
+"name": "Paula Tremayne, D.O., A Professional Medical Corporation",
+"location": "Modesto, CA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/HBHDED"
 },
 {
 "id": "ecw-eddiaa",
@@ -120050,6 +120162,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/BGDECD"
 },
 {
+"id": "ecw-caiced",
+"name": "VCare Physician Management PC",
+"location": "Nashville, TN",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/CAICED"
+},
+{
 "id": "ecw-bcjgca",
 "name": "Veasey Family Health Urgent Care",
 "location": "Dickinson, TX",
@@ -123191,6 +123310,13 @@
 "location": "Lubbock, TX",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/BECFCD"
+},
+{
+"id": "ecw-gacfbd",
+"name": "West Texas Pain Institute",
+"location": "El Paso, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/GACFBD"
 },
 {
 "id": "ecw-jhfgca",

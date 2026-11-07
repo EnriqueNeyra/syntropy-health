@@ -481,13 +481,6 @@
 "fhir_base_url": "https://acadianaoto.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-accelerate-orthopedics",
-"name": "Accelerate Orthopedics",
-"location": "Sioux Falls, SD",
-"platform": "modmed",
-"fhir_base_url": "https://accelerate.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-accent-dermatology-and-laser-center-high-david",
 "name": "Accent Dermatology and Laser Center (High, David)",
 "location": "Medford, NJ",
@@ -7982,6 +7975,13 @@
 "fhir_base_url": "https://brookvalley.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-brooke-plaza-optical-inc",
+"name": "Brooke Plaza Optical Inc",
+"location": "Oceanside, NY",
+"platform": "modmed",
+"fhir_base_url": "https://plazaoptical.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-brookhaven-family-eye-center",
 "name": "Brookhaven Family Eye Center",
 "location": "Brookhaven, PA",
@@ -10292,6 +10292,13 @@
 "fhir_base_url": "https://centuryeyewear.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-spokane-digestive-disease-ctr",
+"name": "Century Health",
+"location": "Spokane, WA",
+"platform": "modmed",
+"fhir_base_url": "https://bf309c36-3f75-40b3-9e93-b5d9bde50285.gastro.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-ceres-eye-care",
 "name": "Ceres Eye Care",
 "location": "Ceres, CA",
@@ -11258,13 +11265,6 @@
 "fhir_base_url": "https://clarity.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-clarity-dermatology-2",
-"name": "Clarity Dermatology",
-"location": "Lancaster, TX",
-"platform": "modmed",
-"fhir_base_url": "https://clarityderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-clarity-ent-llc",
 "name": "Clarity ENT, LLC",
 "location": "Langhorne, PA",
@@ -11833,7 +11833,7 @@
 {
 "id": "modmed-coastal-ent-associates",
 "name": "Coastal ENT Associates",
-"location": "Ocean Springs, MS",
+"location": "Biloxi, MS",
 "platform": "modmed",
 "fhir_base_url": "https://coastalent.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -40044,7 +40044,7 @@
 {
 "id": "modmed-mosaic-dermatology",
 "name": "Mosaic Dermatology",
-"location": "Houston, TX",
+"location": "Webster, TX",
 "platform": "modmed",
 "fhir_base_url": "https://mosaicderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -50526,7 +50526,7 @@
 {
 "id": "modmed-riverside-eye-and-laser-specialists-p-a",
 "name": "Riverside Eye and Laser Specialists, P.A.",
-"location": "Fernandina Beach, FL",
+"location": "Jacksonville, FL",
 "platform": "modmed",
 "fhir_base_url": "https://reals.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -55799,13 +55799,6 @@
 "fhir_base_url": "https://spokanederm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-spokane-digestive-disease-ctr",
-"name": "Spokane Digestive Disease Ctr",
-"location": "Spokane, WA",
-"platform": "modmed",
-"fhir_base_url": "https://bf309c36-3f75-40b3-9e93-b5d9bde50285.gastro.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-sports-medicine-orthopaedic-centers-llc",
 "name": "Sports Medicine & Orthopaedic Centers, LLC",
 "location": "Mount Pleasant, SC",
@@ -56457,7 +56450,7 @@
 {
 "id": "modmed-steven-frank-dpm-llc",
 "name": "Steven Frank, DPM, LLC",
-"location": "Saint Louis, MO",
+"location": "St. Louis, MO",
 "platform": "modmed",
 "fhir_base_url": "https://premierpodiatry.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -56647,13 +56640,6 @@
 "location": "Kirkland, WA",
 "platform": "modmed",
 "fhir_base_url": "https://strother.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-stubbs-center-for-cosmetic-surgery",
-"name": "Stubbs Center for Cosmetic Surgery",
-"location": "Fayetteville, AR",
-"platform": "modmed",
-"fhir_base_url": "https://stubbscenter.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-sturbridge-foot-care",
@@ -57569,6 +57555,7 @@
 {
 "id": "modmed-taylor-randich-od-pllc",
 "name": "Taylor Randich OD PLLC",
+"location": "Harrisburg, NC",
 "platform": "modmed",
 "fhir_base_url": "https://taylorrandichodpllc.ef.prod.fhir.ema-api.com/fhir/r4/"
 },

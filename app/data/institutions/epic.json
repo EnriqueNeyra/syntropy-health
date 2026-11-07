@@ -863,7 +863,7 @@
 "platform": "epic",
 "fhir_base_url": "https://mobileprod.arcmd.com/FHIR/api/FHIR/R4",
 "featured": true,
-"network": "Covenant Management Systems",
+"network": "Covenant Management Systems, LP",
 "places": [
 "Austin TX",
 "Round Rock TX",
@@ -1732,6 +1732,13 @@
 ]
 },
 {
+"id": "epic-buffalo-neuromusculoskeletal-medicine",
+"name": "Buffalo Neuromusculoskeletal Medicine",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1144.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Catholic Health System, Inc."
+},
+{
 "id": "epic-burnett-medical-center",
 "name": "Burnett Medical Center",
 "platform": "epic",
@@ -2258,8 +2265,8 @@
 "network": "The St. Cloud Hospital",
 "places": [
 "St. Cloud MN",
-"Saint Cloud MN",
 "Willmar MN",
+"Saint Cloud MN",
 "Monticello MN",
 "Alexandria MN",
 "Paynesville MN",
@@ -2273,6 +2280,13 @@
 "platform": "epic",
 "fhir_base_url": "https://webprd.ochin.org/prd-fhir/CENTRALCITYCONCERN/api/FHIR/R4",
 "network": "OCHIN, Inc."
+},
+{
+"id": "epic-central-coast-nephrology",
+"name": "Central Coast Nephrology",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1146.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Salinas Valley Memorial Healthcare System"
 },
 {
 "id": "epic-communitycare-health-centers",
@@ -2365,8 +2379,8 @@
 "Corning NY",
 "Syracuse NY",
 "Montour Falls NY",
-"Bath NY",
-"Liverpool NY"
+"East Syracuse NY",
+"Bath NY"
 ]
 },
 {
@@ -2516,8 +2530,8 @@
 "network": "CommonSpirit Health National",
 "places": [
 "Omaha NE",
-"Bismarck ND",
 "Lincoln NE",
+"Bismarck ND",
 "Grand Island NE",
 "Kearney NE",
 "Council Bluffs IA",
@@ -2674,9 +2688,9 @@
 "Colorado Springs CO",
 "Centennial CO",
 "Parker CO",
+"Highlands Ranch CO",
 "Littleton CO",
-"Billings MT",
-"Highlands Ranch CO"
+"Billings MT"
 ]
 },
 {
@@ -3034,6 +3048,13 @@
 "network": "OCHIN, Inc."
 },
 {
+"id": "epic-cmh",
+"name": "CMH",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et0714.epichosted.com/APIProxyPRD/api/FHIR/R4",
+"network": "Altru Health System"
+},
+{
 "id": "epic-cnmri",
 "name": "CNMRI",
 "location": "Milford, DE",
@@ -3212,19 +3233,19 @@
 {
 "id": "epic-commonspirit-health",
 "name": "CommonSpirit Health",
-"location": "WA, IL",
+"location": "TX, AR, KY, TN and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1482.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "CommonSpirit Health National",
 "places": [
-"Seattle WA",
-"Silverdale WA",
-"Federal Way WA",
-"Lynnwood WA",
-"Port Orchard WA",
-"Bainbridge Island WA",
-"Chicago IL",
-"Issaquah WA"
+"Lexington KY",
+"Chattanooga TN",
+"Little Rock AR",
+"Bryan TX",
+"London KY",
+"Hot Springs AR",
+"College Station TX",
+"The Woodlands TX"
 ]
 },
 {
@@ -3241,8 +3262,8 @@
 "Garden City KS",
 "Lakewood CO",
 "Pueblo CO",
-"Frisco CO",
-"West Jordan UT"
+"West Jordan UT",
+"Frisco CO"
 ]
 },
 {
@@ -3324,6 +3345,17 @@
 ]
 },
 {
+"id": "epic-community-health-northwest-florida",
+"name": "Community Health Northwest Florida",
+"location": "Pensacola, FL",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Health Choice Network, Inc.",
+"places": [
+"Pensacola FL"
+]
+},
+{
 "id": "epic-community-health-of-central-washington",
 "name": "Community Health of Central Washington",
 "location": "Yakima, WA",
@@ -3348,8 +3380,8 @@
 "Missoula MT",
 "Homestead FL",
 "Providence RI",
-"Pontiac MI",
-"Chicago IL"
+"Chicago IL",
+"Miami Gardens FL"
 ]
 },
 {
@@ -3863,8 +3895,8 @@
 "Saginaw MI",
 "Bay City MI",
 "Caro MI",
-"Frankenmuth MI",
 "Marlette MI",
+"Frankenmuth MI",
 "Midland MI",
 "Tawas City MI",
 "Flint MI"
@@ -4413,6 +4445,13 @@
 ]
 },
 {
+"id": "epic-eden-primary-care",
+"name": "Eden Primary Care",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1144.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Catholic Health System, Inc."
+},
+{
 "id": "epic-edward-elmhurst-healthcare",
 "name": "Edward-Elmhurst Healthcare",
 "platform": "epic",
@@ -4761,7 +4800,7 @@
 "Park Rapids MN",
 "Bismarck ND",
 "Detroit Lakes MN",
-"Virginia MN"
+"Baxter MN"
 ]
 },
 {
@@ -5086,6 +5125,13 @@
 "places": [
 "Portland OR"
 ]
+},
+{
+"id": "epic-fare-well-medical-practice",
+"name": "Fare Well Medical Practice",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1144.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Catholic Health System, Inc."
 },
 {
 "id": "epic-fastmed",
@@ -5415,6 +5461,13 @@
 "platform": "epic",
 "fhir_base_url": "https://soapproxy.umc.edu/FHIRProxy/GAC/api/FHIR/R4",
 "network": "the University of Mississippi Medical Center, a Mississippi governmental entity"
+},
+{
+"id": "epic-gaddi-family-medicine-pllc",
+"name": "Gaddi Family Medicine PLLC",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1144.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Catholic Health System, Inc."
 },
 {
 "id": "epic-gardner-health-services",
@@ -5913,8 +5966,8 @@
 "Hartford CT",
 "Norwich CT",
 "Manchester CT",
-"New Britain CT",
 "Torrington CT",
+"New Britain CT",
 "Willimantic CT",
 "Southington CT",
 "Hamden CT"
@@ -6245,7 +6298,7 @@
 "name": "Henry Ford Health",
 "location": "MI, GA",
 "platform": "epic",
-"fhir_base_url": "https://fhir.hfhs.org/tesseractproxy/api/FHIR/R4",
+"fhir_base_url": "https://fhir.hfhs.org/tesseractproxy/HFH/api/FHIR/R4",
 "network": "Henry Ford Health System",
 "places": [
 "Jackson MI",
@@ -6372,7 +6425,7 @@
 "name": "Hoag Memorial Hospital Presbyterian",
 "location": "CA",
 "platform": "epic",
-"fhir_base_url": "https://epicproxy.et1197.epichosted.com/FHIRProxy/api/FHIR/R4",
+"fhir_base_url": "https://epicproxy.et1197.epichosted.com/FHIRProxy/HOAG/api/FHIR/R4",
 "network": "Hoag Clinic",
 "places": [
 "Newport Beach CA",
@@ -6428,6 +6481,17 @@
 "Dresden TN",
 "McKenzie TN",
 "Bruceton TN"
+]
+},
+{
+"id": "epic-honor-community-health",
+"name": "Honor Community Health",
+"location": "Pontiac, MI",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Health Choice Network, Inc.",
+"places": [
+"Pontiac MI"
 ]
 },
 {
@@ -6941,6 +7005,13 @@
 "places": [
 "Indianapolis IN"
 ]
+},
+{
+"id": "epic-janning-ent",
+"name": "Janning ENT",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et0515.epichosted.com/APIProxyPRD/MOBILE/api/FHIR/R4",
+"network": "The St. Cloud Hospital"
 },
 {
 "id": "epic-jefferson-county-health-center",
@@ -8566,6 +8637,13 @@
 ]
 },
 {
+"id": "epic-medical-care-of-western-new-york",
+"name": "Medical Care of Western New York",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1144.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Catholic Health System, Inc."
+},
+{
 "id": "epic-medisys-health-network",
 "name": "MediSys Health Network",
 "location": "NY",
@@ -9495,6 +9573,17 @@
 ]
 },
 {
+"id": "epic-muskegon-family-care",
+"name": "Muskegon Family Care",
+"location": "Muskegon, MI",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Health Choice Network, Inc.",
+"places": [
+"Muskegon MI"
+]
+},
+{
 "id": "epic-muslim-community-and-health-care",
 "name": "Muslim Community and Health Care",
 "location": "Milwaukee, WI",
@@ -9521,6 +9610,17 @@
 "Glendale AZ",
 "Gilbert AZ",
 "Surprise AZ"
+]
+},
+{
+"id": "epic-mycare-health-center",
+"name": "MyCare Health Center",
+"location": "Center Line, MI",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Health Choice Network, Inc.",
+"places": [
+"Center Line MI"
 ]
 },
 {
@@ -9581,7 +9681,7 @@
 "Altoona PA",
 "York PA",
 "Carlisle PA",
-"Williamsport PA"
+"Wexford PA"
 ]
 },
 {
@@ -9735,6 +9835,13 @@
 "network": "Franciscan Missionaries of Our Lady Health System, Inc."
 },
 {
+"id": "epic-neighbors-pediatrics-health",
+"name": "Neighbors Pediatrics Health",
+"platform": "epic",
+"fhir_base_url": "https://fhirprod.musc.edu/fhirprod/api/FHIR/R4",
+"network": "Medical University Hospital Authority"
+},
+{
 "id": "epic-nemours",
 "name": "Nemours",
 "platform": "epic",
@@ -9768,6 +9875,13 @@
 "places": [
 "Gurabo PR"
 ]
+},
+{
+"id": "epic-nephrology-practice-of-niagara",
+"name": "Nephrology Practice of Niagara",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1144.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Catholic Health System, Inc."
 },
 {
 "id": "epic-neuroscience-group",
@@ -9866,7 +9980,7 @@
 {
 "id": "epic-noms",
 "name": "NOMS",
-"location": "OH, PA",
+"location": "OH, PA, NY",
 "platform": "epic",
 "fhir_base_url": "https://prdproxy.nomshealthcare.com/PRD-OAuth2/NOMS/api/FHIR/R4",
 "network": "Northern Ohio Medical Specialists, LLC",
@@ -10060,7 +10174,7 @@
 {
 "id": "epic-northwell-health",
 "name": "Northwell Health",
-"location": "NY, CT, FL, PA and more",
+"location": "NY, CT, FL, NJ and more",
 "platform": "epic",
 "fhir_base_url": "https://call.api.northwell.io/epic-proxy/api/fhir/R4/",
 "network": "Northwell Health, Inc.",
@@ -10109,9 +10223,9 @@
 "Chicago IL",
 "Geneva IL",
 "Sycamore IL",
+"Huntley IL",
 "Wheaton IL",
 "Winfield IL",
-"Huntley IL",
 "Crystal Lake IL",
 "Dekalb IL"
 ]
@@ -10133,6 +10247,13 @@
 "Bowling Green KY",
 "Clarksville IN"
 ]
+},
+{
+"id": "epic-nottawaseppi-huron-band-of-the-potawatomi",
+"name": "Nottawaseppi Huron Band of the Potawatomi",
+"platform": "epic",
+"fhir_base_url": "https://webprd.ochin.org/prd-fhir/api/FHIR/R4",
+"network": "OCHIN, Inc."
 },
 {
 "id": "epic-novant-health",
@@ -11612,8 +11733,8 @@
 "Evanston IL",
 "Reno NV",
 "Lewiston ME",
-"Kankakee IL",
 "Joliet IL",
+"Kankakee IL",
 "Passaic NJ",
 "Chiacgo IL"
 ]
@@ -12697,14 +12818,10 @@
 "Gonzales CA",
 "Seaside CA",
 "Hollister CA"
+],
+"former_ids": [
+"epic-salinas-valley-health-affiliates"
 ]
-},
-{
-"id": "epic-salinas-valley-health-affiliates",
-"name": "Salinas Valley Health Affiliates",
-"platform": "epic",
-"fhir_base_url": "https://epicproxy.et1146.epichosted.com/FHIRProxy/api/FHIR/R4",
-"network": "Salinas Valley Memorial Healthcare System"
 },
 {
 "id": "epic-samaritan-health-services",
@@ -13777,6 +13894,13 @@
 ]
 },
 {
+"id": "epic-southtowns-neurology-of-western-new-york",
+"name": "Southtowns Neurology of Western New York",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1144.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Catholic Health System, Inc."
+},
+{
 "id": "epic-southwest-community-health-center",
 "name": "Southwest Community Health Center",
 "location": "Bridgeport, CT",
@@ -14396,6 +14520,13 @@
 ]
 },
 {
+"id": "epic-surgical-associates-of-western-new-york",
+"name": "Surgical Associates of Western New York",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1144.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Catholic Health System, Inc."
+},
+{
 "id": "epic-surgical-clinic-associates",
 "name": "Surgical Clinic Associates",
 "location": "MS",
@@ -14941,6 +15072,17 @@
 ]
 },
 {
+"id": "epic-thunder-bay-community-health-service-inc",
+"name": "Thunder Bay Community Health Service Inc",
+"location": "Hillman, MI",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Health Choice Network, Inc.",
+"places": [
+"Hillman MI"
+]
+},
+{
 "id": "epic-tiburcio-vasquez-health-center",
 "name": "Tiburcio Vasquez Health Center",
 "location": "Union City, CA",
@@ -15455,8 +15597,8 @@
 "Elmhurst IL",
 "Gurnee IL",
 "Aurora IL",
-"Libertyville IL",
-"River Forest IL"
+"Bloomington IL",
+"Libertyville IL"
 ]
 },
 {
@@ -16031,13 +16173,13 @@
 "fhir_base_url": "https://ercd-sproxy.urmc.rochester.edu/mips/api/FHIR/R4",
 "places": [
 "Rochester NY",
+"Geneva NY",
 "Canandaigua NY",
 "Webster NY",
-"Geneva NY",
 "Pittsford NY",
 "Geneseo NY",
 "Dansville NY",
-"Hornell NY"
+"Penn Yan NY"
 ]
 },
 {
@@ -17033,10 +17175,10 @@
 "Dyersburg TN",
 "Paris TN",
 "Martin TN",
+"Bolivar TN",
 "Milan TN",
 "Camden TN",
-"Selmer TN",
-"Bolivar TN"
+"Selmer TN"
 ]
 },
 {
@@ -17116,6 +17258,17 @@
 ]
 },
 {
+"id": "epic-western-wayne-family-health-centers",
+"name": "Western Wayne Family Health Centers",
+"location": "Dearborn, MI",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Health Choice Network, Inc.",
+"places": [
+"Dearborn MI"
+]
+},
+{
 "id": "epic-western-wisconsin-health",
 "name": "Western Wisconsin Health",
 "platform": "epic",
@@ -17149,6 +17302,17 @@
 "network": "OCHIN, Inc.",
 "places": [
 "Tuscaloosa AL"
+]
+},
+{
+"id": "epic-whiteside-county-community-health-clinic",
+"name": "Whiteside County Community Health Clinic",
+"location": "Rock Falls, IL",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1256.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "Health Choice Network, Inc.",
+"places": [
+"Rock Falls IL"
 ]
 },
 {
