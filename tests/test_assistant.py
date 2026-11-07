@@ -142,7 +142,8 @@ def test_read_lab_report_with_model(client, fake_model):
     script.append({"choices": [{"message": {"content": '```json\n{"collected": "2026-08-30", "lab": "LabCorp", "results": '
                                            '[{"test": "Ferritin", "value": 48, "unit": "ng/mL", "ref_low": 30, "ref_high": 400}]}\n```'}}]})
     files = {"file": ("report.jpg", b"\xff\xd8\xff fake jpeg", "image/jpeg")}
-    out = client.post("/api/labs/extract", files=files, data={"method": "ai"}).json()
+    me = client.get("/api/status").json()["account"]["profile_id"]
+    out = client.post("/api/labs/extract", files=files, data={"method": "ai", "profile_id": me}).json()
     assert out["results"][0]["loinc"] == "2276-4" and out["read_as"] == "image"
     part = calls[0]["body"]["messages"][1]["content"][0]
     assert part["type"] == "image_url" and part["image_url"]["url"].startswith("data:image/jpeg;base64,")
