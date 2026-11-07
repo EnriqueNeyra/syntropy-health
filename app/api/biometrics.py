@@ -213,7 +213,7 @@ class IngestBatch(BaseModel):
     samples: list[Any] = Field(default_factory=list, max_length=20000)
     workouts: list[Any] = Field(default_factory=list, max_length=2000)
     events: list[Any] = Field(default_factory=list, max_length=20000)
-    deleted: list[IngestDeleted] = Field(default_factory=list, max_length=20000)     # what was deleted on the phone
+    deleted: list[Any] = Field(default_factory=list, max_length=20000)     # what was deleted on the phone
     profile_id: Optional[str] = None
 
 
@@ -266,10 +266,11 @@ async def ingest(batch: IngestBatch, principal: auth.Principal = Depends(auth.re
         samples, samples_wrong = _readable(IngestSample, batch.samples)
         workouts, workouts_wrong = _readable(IngestWorkout, batch.workouts)
         events, events_wrong = _readable(IngestEvent, batch.events)
+        deleted, deleted_wrong = _readable(IngestDeleted, batch.deleted)
         result = _store(profile_id, connection_id, samples, workouts, events,
                         {"device_id": batch.device_id, "device_name": batch.device_name, "os_version": batch.os_version,
                          "app_version": batch.app_version, "sync_trigger": batch.sync_trigger},
-                        deleted=[d.model_dump() for d in batch.deleted])
+                        deleted=deleted)
         n = sum(samples_wrong.values())
         result["received"] += n
         result["rejected"] += n
@@ -277,8 +278,11 @@ async def ingest(batch: IngestBatch, principal: auth.Principal = Depends(auth.re
         result["workouts_rejected"] += sum(workouts_wrong.values())
         result["events_received"] += sum(events_wrong.values())
         result["events_rejected"] += sum(events_wrong.values())
-        if samples_wrong or workouts_wrong or events_wrong:
-            result["rejected_fields"] = {"samples": samples_wrong, "workouts": workouts_wrong, "events": events_wrong}
+        if deleted_wrong:
+            result["deleted_rejected"] = sum(deleted_wrong.values())
+        if samples_wrong or workouts_wrong or events_wrong or deleted_wrong:
+            result["rejected_fields"] = {"samples": samples_wrong, "workouts": workouts_wrong, "events": events_wrong,
+                                         "deleted": deleted_wrong}
         return result
     return await run_in_threadpool(store)
 
