@@ -541,8 +541,10 @@ def plain_copies(path: Optional[Path] = None) -> list[Path]:
 
 
 def _convert_copy(copy: Path, key: str) -> None:
-    """One kept copy, encrypted where it lies. It stays in place if anything goes wrong, or if there's no room."""
+    """One kept copy, encrypted where it lies. It stays in place if anything goes wrong, or if there's no room. It keeps its
+    times: an earlier version, putting back the copy made since an update began, goes by when the file was last changed."""
     temp = copy.with_name(copy.name + TEMP_SUFFIX)
+    made = copy.stat()
     source = sqlite3.connect(str(copy), isolation_level=None, timeout=2.0)
     try:
         version = source.execute("PRAGMA user_version").fetchone()[0]
@@ -553,6 +555,7 @@ def _convert_copy(copy: Path, key: str) -> None:
         raise
     finally:
         source.close()
+    os.utime(temp, ns=(made.st_atime_ns, made.st_mtime_ns))
     aside = copy.with_name(copy.name + ".plain")
     os.link(copy, aside) if _can_link(copy, aside) else shutil.copy2(copy, aside)
     try:
