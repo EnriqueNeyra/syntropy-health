@@ -196,10 +196,11 @@ def _stored_day(metadata_json: Optional[str], start: Optional[str] = None) -> Op
 
 
 def reading_offset(s: dict[str, Any], meta: dict[str, Any], start: str) -> Optional[int]:
-    """The reading's own offset: the optional per-record field, then the zone HealthKit keeps in its metadata."""
+    """The reading's own offset: the optional per-record field (``tz_offset_min``, minutes east of UTC where it was measured,
+    as the phones send on samples, workouts and events), then the zone HealthKit keeps in its metadata."""
     raw = s.get("tz_offset_min")
-    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
-        return int(raw) if abs(raw) <= OFFSET_MAX_MIN else None
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and abs(raw) <= OFFSET_MAX_MIN:
+        return int(raw)
     name = meta.get("HKTimeZone") or meta.get("TimeZone")
     if not isinstance(name, str):
         return None
