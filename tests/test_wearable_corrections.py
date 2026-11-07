@@ -1538,6 +1538,27 @@ def test_a_days_total_sent_again_from_another_time_zone_replaces_the_first(clien
     assert _daily(profile, "step_count")[day]["value"] == 8800
 
 
+@pytest.mark.parametrize("grain", ["weeks", "months", "years"])
+def test_totals_grouped_by_more_than_a_day_arent_stored_as_one_day(client, grain):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    monday = TODAY - timedelta(days=TODAY.weekday() + 7)
+    rows = {"data": {"metrics": [
+        {"name": "step_count", "units": "count", "data": [{"date": f"{monday} 00:00:00 +0000", "qty": 63000, "source": "Fit"}]},
+        {"name": "resting_heart_rate", "units": "count/min", "data": [{"date": f"{monday} 00:00:00 +0000", "qty": 58, "source": "Fit"}]},
+        {"name": "mindful_minutes", "data": [{"date": f"{monday} 00:00:00 +0000", "qty": 95, "source": "Calm"}]},
+        {"name": "sleep_analysis", "units": "hr", "data": [
+            {"date": f"{monday} 00:00:00 +0000", "totalSleep": 51.5, "deep": 7.0, "source": "S"},
+            {"startDate": f"{monday} 01:00:00 +0000", "endDate": f"{monday} 03:00:00 +0000", "value": "Core", "source": "Watch"}]}]}}
+    r = client.post("/api/ingest/healthkit-export", json=rows, headers={"automation-aggregation": grain})
+    assert r.status_code == 200, r.text
+    assert monday.isoformat() not in _daily(profile, "step_count", days=20)
+    assert monday.isoformat() not in _daily(profile, "sleep_deep", days=20)
+    assert _daily(profile, "sleep_duration", days=20)[monday.isoformat()]["value"] == 2      # the Watch's stage, not 51.5 hours
+    assert _daily(profile, "resting_heart_rate", days=20)[monday.isoformat()]["value"] == 58    # an average stands for its stretch
+    assert r.json()["events_received"] == 0
+
+
 def test_a_day_counted_twice_before_is_put_right_by_the_upgrade(client):
     profile = _profile(client)
     _set_zone(client, "America/New_York")
