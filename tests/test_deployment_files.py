@@ -215,6 +215,16 @@ def test_the_directory_token_is_only_where_nothing_from_the_repository_runs():
             assert run.splitlines()[0] == 'git() { command git -c core.hooksPath=/dev/null "$@"; }', step.get("name")
 
 
+def test_the_wheel_is_built_with_a_fixed_backend_checked_against_its_hashes():
+    requires = tomllib.loads(_read("pyproject.toml"))["build-system"]["requires"]
+    assert len(requires) == 1 and re.fullmatch(r"setuptools==[\d.]+", requires[0]), requires
+    constraints = _read(".github/build-constraints.txt")
+    assert re.search(rf"^{re.escape(requires[0])} \\\n(\s+--hash=sha256:[0-9a-f]{{64}}( \\)?\n)+", constraints, re.M), "move them together"
+    builds = [line for workflow in WORKFLOWS for line in workflow.read_text(encoding="utf-8").splitlines() if "uv build" in line]
+    assert len(builds) >= 4
+    assert all("--build-constraints .github/build-constraints.txt --require-hashes" in line for line in builds), builds
+
+
 def test_actions_are_pinned_to_commits():
     for workflow in WORKFLOWS:
         for use in re.findall(r"^\s*(?:- )?uses:\s*(\S+)", workflow.read_text(encoding="utf-8"), re.M):
