@@ -500,6 +500,26 @@ def test_the_page_brings_the_key_back_with_the_right_password_only(dpapi, tmp_pa
         assert c.post("/unlock", data={"password": PASSPHRASE}).status_code == 404      # nothing left to unlock
 
 
+def test_unlocking_tells_an_update_waiting_to_hear_that_the_new_version_works(dpapi, tmp_path, monkeypatch):
+    """Otherwise the update script, hearing nothing, put the earlier version back after 25 minutes, and with it the database
+    from before the update: whatever was done since unlocking was gone."""
+    monkeypatch.syspath_prepend(str(config.REPO_ROOT / "desktop"))
+    import updater
+    from app.services import updates
+    with _start() as c:
+        _set_up(c)
+    _lose_the_store(tmp_path, monkeypatch)
+    folder = tmp_path / "updates"
+    folder.mkdir()
+    (folder / updater.ATTEMPT).write_text(json.dumps({"version": config.APP_VERSION, "from": "1.0.0", "at": time.time()}))
+    monkeypatch.setattr(updates, "_on_working", None)
+    updates.set_on_working(lambda: updater.started_fine(folder))       # as the desktop app does
+    with _start() as c:
+        assert c.app.state.problem_kind == "key" and not (folder / updater.OK_MARK).exists()
+        assert c.post("/unlock", data={"password": PASSPHRASE}, follow_redirects=False).status_code == 303
+        assert (folder / updater.OK_MARK).exists() and not (folder / updater.ATTEMPT).exists()
+
+
 def test_nobody_can_try_passwords_from_another_computer(dpapi, tmp_path, monkeypatch):
     with _start() as c:
         _set_up(c)
