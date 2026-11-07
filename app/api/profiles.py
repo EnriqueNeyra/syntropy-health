@@ -226,11 +226,18 @@ def set_access(profile_id: str, req: AccessRequest) -> dict:
     return get_access(profile_id)
 
 
+class InviteRequest(BaseModel):
+    password: Optional[str] = Field(None, max_length=1024)     # from a phone's Syntropy tab
+
+
 @router.post("/{profile_id}/invite", dependencies=[whole_account])
-def invite(profile_id: str, request: Request) -> dict:
+def invite(profile_id: str, request: Request, req: Optional[InviteRequest] = None) -> dict:
     """A one-time code (a week) for this person to choose their own password. Once they do, their data is theirs:
-    whoever manages them now stops seeing it unless they share it back."""
+    whoever manages them now stops seeing it unless they share it back. So from a phone it takes the password: whoever
+    held the phone could otherwise take someone's records away from the people who look after them."""
     check_access(profile_id, "manage")
+    auth.confirm_from_phone(request, context.principal(), req.password if req else None,
+                            "Inviting someone hands them their records. Enter your password to do it from this phone.")
     if not auth.auth_required():
         raise HTTPException(400, "Set a password for yourself first (Settings → Security). Without one, anyone who opens "
                                  "Syntropy Health is signed in as you, so a password of their own wouldn't protect them.")
