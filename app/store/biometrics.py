@@ -387,15 +387,44 @@ def _drop_other_day_rows(conn: Any, s: dict[str, Any], profile_id: str, connecti
 
 def _same_reading(conn: Any, s: dict[str, Any], profile_id: str, source: str) -> Optional[Any]:
     """The stored row this sample repeats under another id, if any: the same one from another path (the phone and an
-    export.xml import) is stored once, while two different entries one app logged at the same moment both count."""
+    export.xml import) is stored once, while two different entries one app logged at the same moment both count. Another
+    part of the same Health Connect record isn't a repeat: it's that record's next stage, about to be sent again too."""
     path = _id_path(s["id"])
+    member = _HC_MEMBER.fullmatch(s["id"])
     for row in conn.execute(
             "SELECT rowid, id, value, connection_id FROM biometric_samples WHERE profile_id = ? AND metric_type = ? "
             "AND start_date = ? AND end_date = ? AND source_name = ?",
             (profile_id, s["metric_type"], s["start_date"], s["end_date"], source)).fetchall():
+        if member and row["id"].startswith(member.group(1)):
+            continue
         if row["value"] == s["value"] or (_id_path(row["id"]) != path and _close(row["value"], s["value"])):
             return row
     return None
+
+
+# Health Connect gives one record several samples, hc-{record}-{index}: the stages of a night, the readings of a heart rate
+# series. Its record ids are UUIDs, which is what tells hc-{record}-3 from a record with no index.
+_HC_MEMBER = re.compile(r"(hc-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-)(\d+)(?:@.*)?")
+
+
+def _gone_from_records(conn: Any, profile_id: str, arriving: Iterable[str]) -> list[str]:
+    """The stored parts of the Health Connect records arriving here that the phone no longer sends: a record edited on the
+    phone (a night with fewer stages, a stage merged into the next) comes again whole, under the same indexes from 0. A record
+    long enough to be split between two uploads comes in index order, so what's below the lowest index in this upload is
+    from the upload before, and stays."""
+    sent: dict[str, set[int]] = defaultdict(set)
+    for item in arriving:
+        if isinstance(item, str) and (m := _HC_MEMBER.fullmatch(item)):
+            sent[m.group(1)].add(int(m.group(2)))
+    gone = []
+    for prefix, indexes in sent.items():
+        lowest = min(indexes)
+        for (stored_id,) in conn.execute("SELECT id FROM biometric_samples WHERE profile_id = ? AND id >= ? AND id < ?",
+                                         (profile_id, prefix, _prefix_end(prefix))).fetchall():
+            m = _HC_MEMBER.fullmatch(stored_id)
+            if m and m.group(1) == prefix and int(m.group(2)) > lowest and int(m.group(2)) not in indexes:
+                gone.append(stored_id)
+    return gone
 
 
 class SourceGone(Exception):
@@ -424,8 +453,9 @@ def insert_samples(
     deleted_prefixes: Iterable[str] = (),
 ) -> dict[str, Any]:
     """Stores readings and, in the same transaction, the daily rows they change. A new id is inserted, a known id with a
-    changed value corrects the stored row, and anything else counts under ``duplicates``. ``deleted_*`` go first, so a
-    replacement isn't taken for a repeat of what it replaces. A row that can't be read is counted under ``rejected``
+    changed value (or type: a stage relabelled on the phone) corrects the stored row, and anything else counts under
+    ``duplicates``. ``deleted_*`` go first, so a replacement isn't taken for a repeat of what it replaces, and so do the parts of
+    a Health Connect record it no longer has (``_gone_from_records``). A row that can't be read is counted under ``rejected``
     rather than failing the batch: senders only move on after a success, so a rejected batch would be retried (and
     rejected) forever."""
     now = time.time()
@@ -436,11 +466,13 @@ def insert_samples(
     affected: set[str] = set()
     changed: set[str] = set()
     sources_seen: dict[str, tuple[str, Optional[str], bool]] = {}
+    samples = list(samples)
     with db() as conn:
         check_source(conn, profile_id, connection_id)
         removed_ids = {r[0] for r in conn.execute("SELECT sample_id FROM sample_tombstones WHERE profile_id = ?", (profile_id,))}
         imports = {r[0] for r in conn.execute("SELECT id FROM connections WHERE profile_id = ? AND kind = 'import'", (profile_id,))}
-        removed += _remove_samples(conn, profile_id, deleted_ids, deleted_prefixes, affected, changed, tz)
+        gone = _gone_from_records(conn, profile_id, (raw.get("id") for raw in samples if isinstance(raw, dict)))
+        removed += _remove_samples(conn, profile_id, [*deleted_ids, *gone], deleted_prefixes, affected, changed, tz)
         for raw in samples:
             received += 1
             try:
@@ -473,21 +505,21 @@ def insert_samples(
                 sources_seen[source] = (s.get("device_kind") or device_kind(source, s.get("device_name"), meta), s.get("device_name"),
                                         bool(s.get("device_kind") or meta.get("device_type") or _kind_from_words(s.get("device_name"))))
             if row:
-                same = (abs(row["value"] - s["value"]) < 1e-9 and row["start_date"] == start and row["end_date"] == end
-                        and row["flag"] == flag and (offset is None or offset == row["tz_offset_min"])
+                same = (row["metric_type"] == metric and abs(row["value"] - s["value"]) < 1e-9 and row["start_date"] == start
+                        and row["end_date"] == end and row["flag"] == flag and (offset is None or offset == row["tz_offset_min"])
                         and (meta_json == row["metadata_json"] if replaces else meta_json is None or meta_json == row["metadata_json"]))
                 if same:
                     continue
                 conn.execute(
-                    """UPDATE biometric_samples SET value = ?, unit = ?, start_date = ?, end_date = ?, source_name = ?,
-                           hk_identifier = COALESCE(?, hk_identifier), device_id = COALESCE(?, device_id),
+                    """UPDATE biometric_samples SET metric_type = ?, value = ?, unit = ?, start_date = ?, end_date = ?,
+                           source_name = ?, hk_identifier = COALESCE(?, hk_identifier), device_id = COALESCE(?, device_id),
                            device_name = COALESCE(?, device_name), metadata_json = ?, flag = ?,
                            tz_offset_min = COALESCE(?, tz_offset_min), updated_at = ? WHERE rowid = ?""",
-                    (s["value"], s.get("unit") or "", start, end, source, s.get("hk_identifier"), s.get("device_id"),
+                    (metric, s["value"], s.get("unit") or "", start, end, source, s.get("hk_identifier"), s.get("device_id"),
                      s.get("device_name"), meta_json if replaces else meta_json or row["metadata_json"], flag, offset, now,
                      row["rowid"]))
                 updated += 1
-                changed.add(metric)
+                changed.update((metric, row["metric_type"]))
                 affected |= days | _stored_row_days(row, tz)
                 continue
             if connection_id and s.get("one_per_day") and day:
