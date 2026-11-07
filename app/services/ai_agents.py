@@ -368,14 +368,9 @@ def _parse(agent_id: str, event: dict[str, Any], state: dict[str, Any]) -> list[
     return out
 
 
-async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str, Any]],
-              model: Optional[str] = None) -> AsyncIterator[dict[str, Any]]:
-    """Asks the agent; yields {"type": "tool", "name", "args"} as it looks things up, {"type": "delta", "text"} (and
-    {"type": "reset"}) as the answer is written, where the tool reports that, then {"type": "answer"}."""
-    if agent_id not in AGENTS:
-        raise AgentError("Unknown agent.")
-    if model and not valid_model(model):
-        raise AgentError(f"The model saved for {AGENTS[agent_id]['label']} isn't a model name. Choose another in Ask's model menu.")
+def _start(agent_id: str, profile_id: str, system: str, turns: list[dict[str, Any]], model: Optional[str],
+           actor: str) -> tuple[subprocess.Popen, Path, str]:
+    """Starts the tool in a new empty folder: (the process, the folder, what goes on its standard input)."""
     if in_docker():
         raise AgentError(detect()["reason"])
     spec = AGENTS[agent_id]
@@ -383,9 +378,6 @@ async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str,
     if not binary:
         raise AgentError(f"{spec['label']} isn't installed on this computer. {spec['install']}")
     work = Path(tempfile.mkdtemp(prefix="syntropy-agent-"))
-    principal = context.principal()
-    # Named in the access log, so what was looked up shows to the account that asked.
-    actor = f"agent:{agent_id}:{principal.account_id}" if principal and principal.account_id else f"agent:{agent_id}"
     mcp = mcp_server.stdio_command(profile_id, actor=actor)
     prompt = system + AGENT_NOTE + "\n\n" + _transcript(turns)
     try:
@@ -400,12 +392,6 @@ async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str,
     except (AgentError, OSError):
         shutil.rmtree(work, ignore_errors=True)
         raise
-
-    # A thread reads the tool's output so this works on every event loop (Windows' default can't run subprocesses
-    # under every server configuration).
-    loop = asyncio.get_running_loop()
-    lines: asyncio.Queue[Optional[str]] = asyncio.Queue()
-    stderr_tail: list[str] = []
     try:
         proc = subprocess.Popen(args, cwd=work, env=_env(binary), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
@@ -413,6 +399,42 @@ async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str,
     except OSError as exc:
         shutil.rmtree(work, ignore_errors=True)
         raise AgentError(f"Couldn't start {spec['label']} ({exc}).") from exc
+    return proc, work, prompt
+
+
+def _stop_unused(starting: asyncio.Future) -> None:
+    if starting.cancelled() or starting.exception() is not None:
+        return
+    proc, work, _ = starting.result()
+    proc.kill()
+    shutil.rmtree(work, ignore_errors=True)
+
+
+async def run(agent_id: str, profile_id: str, system: str, turns: list[dict[str, Any]],
+              model: Optional[str] = None) -> AsyncIterator[dict[str, Any]]:
+    """Asks the agent; yields {"type": "tool", "name", "args"} as it looks things up, {"type": "delta", "text"} (and
+    {"type": "reset"}) as the answer is written, where the tool reports that, then {"type": "answer"}."""
+    if agent_id not in AGENTS:
+        raise AgentError("Unknown agent.")
+    if model and not valid_model(model):
+        raise AgentError(f"The model saved for {AGENTS[agent_id]['label']} isn't a model name. Choose another in Ask's model menu.")
+    spec = AGENTS[agent_id]
+    principal = context.principal()
+    # Named in the access log, so what was looked up shows to the account that asked.
+    actor = f"agent:{agent_id}:{principal.account_id}" if principal and principal.account_id else f"agent:{agent_id}"
+    # Beside the server, which keeps answering: finding the tool and reading its --help start other programs.
+    starting = asyncio.ensure_future(asyncio.to_thread(_start, agent_id, profile_id, system, turns, model, actor))
+    try:
+        proc, work, prompt = await asyncio.shield(starting)
+    except asyncio.CancelledError:
+        starting.add_done_callback(_stop_unused)       # the person stopped before it started: it's stopped once it has
+        raise
+
+    # A thread reads the tool's output so this works on every event loop (Windows' default can't run subprocesses
+    # under every server configuration).
+    loop = asyncio.get_running_loop()
+    lines: asyncio.Queue[Optional[str]] = asyncio.Queue()
+    stderr_tail: list[str] = []
 
     def pump() -> None:
         try:

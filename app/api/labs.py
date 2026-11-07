@@ -303,16 +303,17 @@ async def extract(file: UploadFile = File(...), method: str = Form("local"), pro
             out = await run_in_threadpool(lab_report.read, data, content_type, filename)
     except (ai.AIError, lab_report.ReportError) as exc:
         raise HTTPException(400, str(exc))
-    for r in out["results"]:
-        # Fill in a LOINC code from the common list when the reader didn't give one.
-        codes = lab_catalog.loinc_codes(r["test"]) if not r.get("loinc") and isinstance(r.get("test"), str) else []
-        if codes:
-            r["loinc"] = codes[0]
-            # Shown on the row for review: which test its history joins is the person's to check.
-            r["matched_test"] = lab_catalog.matched_test(r["test"])["name"]
 
-    def record() -> None:
+    def match_and_record() -> None:
+        """Beside the server, which keeps answering: a model can send back hundreds of rows to match."""
+        for r in out["results"]:
+            # Fill in a LOINC code from the common list when the reader didn't give one.
+            codes = lab_catalog.loinc_codes(r["test"]) if not r.get("loinc") and isinstance(r.get("test"), str) else []
+            if codes:
+                r["loinc"] = codes[0]
+                # Shown on the row for review: which test its history joins is the person's to check.
+                r["matched_test"] = lab_catalog.matched_test(r["test"])["name"]
         with db() as c:
             audit(c, "user", "labs.report_read", {"method": method, "read_as": out.get("read_as"), "engine": out.get("engine"), "results": len(out["results"])})
-    await run_in_threadpool(record)
+    await run_in_threadpool(match_and_record)
     return out
