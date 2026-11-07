@@ -523,7 +523,10 @@ def _start(agent_id: str, profile_id: str, system: str, turns: list[dict[str, An
     if not binary:
         raise AgentError(f"{spec['label']} isn't installed on this computer. {spec['install']}")
     work = Path(tempfile.mkdtemp(prefix=WORK_PREFIX))
+    if not profile_id:
+        raise AgentError("Choose whose records to ask about.")
     mcp = mcp_server.stdio_command(profile_id, actor=actor)
+    mcp["args"] = [*mcp["args"], "--profile", profile_id]       # besides its environment: either limits it to one person
     prompt = system + AGENT_NOTE + "\n\n" + _transcript(turns)
     try:
         if agent_id == "claude":

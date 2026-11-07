@@ -1304,6 +1304,16 @@ def _reply_line(line: str) -> Optional[str]:
 
 
 def main(profile: Optional[str] = None) -> None:
+    # Set by stdio_command for agents started by the built-in assistant, or chosen for an app in its setup: one person's
+    # records, named in the log. An agent the assistant starts is told who twice, on its command line and in its
+    # environment, so losing one still limits it. With neither, or two that disagree, it doesn't start, rather than read
+    # everyone's records.
+    actor, named = config.env("SYNTROPY_MCP_ACTOR"), config.env("SYNTROPY_MCP_PROFILE")
+    who = profile or named
+    if actor.startswith("agent:") and (not who or (profile and named and profile != named)):
+        sys.stderr.write("Syntropy Health's MCP server was started for the built-in assistant without one person to read, "
+                         "so it won't start.\n")
+        sys.exit(2)
     ensure_migrated()     # here, so an unusable database is explained rather than failing every call
     # MCP is UTF-8 whatever the computer's own language setting is. Windows would otherwise read a client's "María" in the
     # system's code page, and find no one by that name. A line that isn't UTF-8 gets a parse error, not a crash. Should
@@ -1311,13 +1321,10 @@ def main(profile: Optional[str] = None) -> None:
     for stream, errors in ((sys.stdin, "replace"), (sys.stdout, "backslashreplace")):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors=errors, newline="\n")
-    # Set by stdio_command for agents started by the built-in assistant, or chosen for an app in its setup: one person's
-    # records, named in the log.
-    who = profile or config.env("SYNTROPY_MCP_PROFILE")
     if who:
         SCOPED_PROFILE.set(_one_person(who))
-    if config.env("SYNTROPY_MCP_ACTOR"):
-        ACTOR.set(config.env("SYNTROPY_MCP_ACTOR"))
+    if actor:
+        ACTOR.set(actor)
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -1332,4 +1339,7 @@ def main(profile: Optional[str] = None) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(prog="python -m app.mcp_server", description="The MCP server on stdio.")
+    parser.add_argument("--profile", help="read only this person's records (a name or id); without it, everyone's")
+    main(parser.parse_args().profile)
