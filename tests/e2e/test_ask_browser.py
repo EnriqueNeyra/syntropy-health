@@ -1,5 +1,5 @@
 """Ask in a real browser: what ends up on screen, which only the page itself can show. A fake model on this computer stands
-in for the AI. Skipped where Playwright or Chrome isn't available."""
+in for the AI. Skipped where Playwright (see conftest.py) or Chrome isn't available; CI's browser job has both."""
 
 import json
 import os
@@ -14,8 +14,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-
-playwright_api = pytest.importorskip("playwright.sync_api")
+from playwright import sync_api as playwright_api
 
 CSRF = {"X-Requested-With": "syntropy"}
 TABLE = "| Test | Value |\n|---|---|\n| A1c | 6.1 % |\n| Glucose | 114 mg/dL |\n| LDL | 162 mg/dL |"
@@ -100,7 +99,7 @@ def app(tmp_path_factory):
     env = {**os.environ, "SYNTROPY_DATA_DIR": str(tmp_path_factory.mktemp("ask")), "SYNTROPY_SCHEDULER": "false", "SYNTROPY_MDNS": "0",
            "SYNTROPY_ALLOW_NO_PASSWORD": "1"}
     server = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(port), "--log-level", "warning"],
-                              env=env, cwd=Path(__file__).parent.parent, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                              env=env, cwd=Path(__file__).parents[2], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     base = f"http://127.0.0.1:{port}"
     api = httpx.Client(base_url=base, headers=CSRF, trust_env=False, timeout=20)
     try:
