@@ -6,7 +6,7 @@ from typing import Optional
 from zoneinfo import available_timezones
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app import directory
@@ -84,10 +84,12 @@ class PlatformPatch(BaseModel):
     mode: Optional[str] = None      # used while developer mode is on
     sandbox_client_id: Optional[str] = Field(None, max_length=200)
     production_client_id: Optional[str] = Field(None, max_length=200)
+    password: Optional[str] = Field(None, max_length=1024)
 
 
 @router.put("/platforms/{platform}", dependencies=[owner])
-def update_platform(platform: str, req: PlatformPatch) -> dict:
+def update_platform(platform: str, req: PlatformPatch, request: Request) -> dict:
+    _from_phone(request, req.password)
     try:
         return settings.set_platform_config(platform, req.mode, req.sandbox_client_id, req.production_client_id)
     except KeyError:
@@ -96,13 +98,25 @@ def update_platform(platform: str, req: PlatformPatch) -> dict:
         raise HTTPException(400, str(exc))
 
 
+# What a phone's Syntropy tab can't change without the password: where sign-ins and refresh tokens go, and which app a
+# health system or wearable sees. Whoever holds the phone holds its screens (see auth.confirm_from_phone).
+PHONE_NEEDS_PASSWORD = ("Where sign-ins go is changed with your password from a phone. Change it on a computer, or send "
+                        "your password with it.")
+
+
+def _from_phone(request: Request, password: Optional[str]) -> None:
+    auth.confirm_from_phone(request, context.principal(), password, PHONE_NEEDS_PASSWORD)
+
+
 class DeveloperPatch(BaseModel):
     enabled: bool
+    password: Optional[str] = Field(None, max_length=1024)
 
 
 @router.put("/developer", dependencies=[owner])
-def update_developer(req: DeveloperPatch) -> dict:
+def update_developer(req: DeveloperPatch, request: Request) -> dict:
     """Developer mode: each platform uses its own mode (simulator, sandbox) instead of connecting for real."""
+    _from_phone(request, req.password)
     settings.set_developer_mode(req.enabled)
     return _snapshot()
 
@@ -112,6 +126,7 @@ class WearablePatch(BaseModel):
     client_secret: Optional[str] = Field(None, max_length=400)
     redirect_uri: Optional[str] = Field(None, max_length=500)
     relay_url: Optional[str] = Field(None, max_length=500)
+    password: Optional[str] = Field(None, max_length=1024)
 
 
 def _check_relay(provider: str, value: Optional[str]) -> None:
@@ -129,7 +144,8 @@ def _check_redirect(value: Optional[str]) -> None:
 
 
 @router.put("/wearables/{provider}", dependencies=[owner])
-def update_wearable(provider: str, req: WearablePatch) -> dict:
+def update_wearable(provider: str, req: WearablePatch, request: Request) -> dict:
+    _from_phone(request, req.password)
     _check_redirect(req.redirect_uri)
     _check_relay(provider, req.relay_url)
     try:
@@ -150,6 +166,7 @@ class GeneralPatch(BaseModel):
     timezone: Optional[str] = None
     units: Optional[str] = None     # "metric", "us", or "" to follow the browser
     adult_age: Optional[int] = Field(None, ge=14, le=25)
+    password: Optional[str] = Field(None, max_length=1024)     # from a phone, with a new redirect_uri
 
 
 @router.put("/source-order", dependencies=[owner])
@@ -187,7 +204,7 @@ def encrypt_at_next_start(req: EncryptChoice) -> dict:
 
 
 @router.put("/general")
-def update_general(req: GeneralPatch) -> dict:
+def update_general(req: GeneralPatch, request: Request) -> dict:
     principal = context.principal()
     auth.refuse_if_limited(principal)        # it's the preferences of the account that paired this phone
     if req.units is not None:
@@ -195,11 +212,12 @@ def update_general(req: GeneralPatch) -> dict:
             raise HTTPException(400, "Units must be metric or us.")
         if principal and principal.account_id:
             accounts.set_pref(principal.account_id, "units", req.units or None)
-    server_wide = req.model_dump(exclude_none=True, exclude={"units"})
+    server_wide = req.model_dump(exclude_none=True, exclude={"units", "password"})
     if server_wide and principal and not principal.owner:
         raise HTTPException(403, "Only the server's owner can change this.")
     _check_redirect(req.redirect_uri)
     if req.redirect_uri is not None:
+        _from_phone(request, req.password)
         settings.set("relay.redirect_uri", req.redirect_uri or None)
     if req.adult_age is not None:
         settings.set("people.adult_age", req.adult_age)

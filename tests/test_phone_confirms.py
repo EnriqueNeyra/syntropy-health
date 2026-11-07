@@ -138,3 +138,34 @@ def test_the_right_password_makes_a_backup_from_a_phone(client):
     assert phone.post("/api/backups", json={"passphrase": SECRET}).status_code == 403
     r = phone.post("/api/backups", json={"passphrase": SECRET, "password": PASSPHRASE})
     assert r.status_code == 200, r.text
+
+
+def test_where_sign_ins_go_takes_the_password_from_a_phone(client):
+    """A relay of the phone holder's choosing would be handed refresh tokens, and a redirect of theirs the sign-ins."""
+    phone = _phone_session(client)
+    attempts = [
+        ("PUT", "/api/settings/wearables/oura", {"relay_url": "https://relay.example.net"}),
+        ("PUT", "/api/settings/wearables/oura", {"client_id": "theirs", "client_secret": "theirs"}),
+        ("PUT", "/api/settings/platforms/epic", {"production_client_id": "theirs"}),
+        ("PUT", "/api/settings/developer", {"enabled": True}),
+        ("PUT", "/api/settings/general", {"redirect_uri": "https://example.net/callback"}),
+    ]
+    for method, path, body in attempts:
+        r = phone.request(method, path, json=body)
+        assert r.status_code == 403 and "password" in r.json()["detail"], (path, r.status_code, r.text)
+        assert phone.request(method, path, json={**body, "password": "not it"}).status_code == 403, path
+    snapshot = client.get("/api/settings").json()
+    assert not (snapshot["wearables"]["oura"].get("relay_url") or "").startswith("https://relay.example.net")
+    assert client.put("/api/settings/developer", json={"enabled": False}).status_code == 200     # a browser, as before
+    r = phone.request("PUT", "/api/settings/developer", json={"enabled": True, "password": PASSPHRASE})
+    assert r.status_code == 200, r.text
+    assert phone.put("/api/settings/general", json={"units": "us"}).status_code == 200      # one's own units need nothing
+
+
+def test_inviting_someone_from_a_phone_takes_the_password(client):
+    sam = profiles.create_profile("Sam")["id"]
+    phone = _phone_session(client)
+    r = phone.post(f"/api/profiles/{sam}/invite")
+    assert r.status_code == 403 and "password" in r.json()["detail"]
+    assert phone.post(f"/api/profiles/{sam}/invite", json={"password": PASSPHRASE}).status_code == 200
+    assert client.post(f"/api/profiles/{sam}/invite").status_code == 200       # a browser, as before
