@@ -763,7 +763,7 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
 def _goal_notes(profile_id: str) -> list[dict[str, Any]]:
     out = []
     for g in goals.progress(profile_id, 7):
-        if g["days"] < 5:
+        if g["recorded"] < 5:       # a week with too little recorded to say how it went
             continue
         tone = "good" if g["met"] >= g["days"] - 1 else "info"
         out.append({
