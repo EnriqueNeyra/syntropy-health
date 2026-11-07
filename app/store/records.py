@@ -1354,15 +1354,16 @@ def lab_status(latest_by_code: dict[str, dict[str, Any]]) -> dict[str, int]:
     return {"total": len(interpretations), "flagged": flagged, "in_range": in_range, "not_assessed": len(interpretations) - flagged - in_range}
 
 
-def flagged_labs(profile_id: str) -> list[dict[str, Any]]:
+def flagged_labs(profile_id: str, today: Optional[date] = None) -> list[dict[str, Any]]:
     """Tests whose latest result is out of range, as in the summary, but for Insights on every Overview: without reading
-    the rest of the summary, or the full text of every result. These rows have no details or narrative."""
+    the rest of the summary, or the full text of every result. These rows have no details or narrative. ``today``: the day
+    that decides which are ``older``, the caller's own (Insights' is the person's), else the server's."""
     with read() as conn:
         rows = rows_to_dicts(conn.execute(
             f"SELECT {_LAB_FLAG_COLUMNS} FROM clinical_records WHERE profile_id = ? AND category = 'labs' "
             "ORDER BY coalesce(effective_at, '') DESC, updated_at DESC", (profile_id,)).fetchall())
     record_overrides.attach(profile_id, rows)
-    return _out_of_range(_latest_labs(_dedupe([r for r in rows if not _said_wrong(r)])[:SUMMARY_LABS]))
+    return _out_of_range(_latest_labs(_dedupe([r for r in rows if not _said_wrong(r)])[:SUMMARY_LABS]), today)
 
 
 def procedures_by_finished(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:

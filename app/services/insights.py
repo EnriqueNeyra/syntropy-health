@@ -732,7 +732,7 @@ def _lab_notes(profile_id: str) -> list[dict[str, Any]]:
     """Out-of-range lab results that moved meaningfully, drifted over years or came back: the numbers, and which side of
     the range they're on when the record can say."""
     found = []
-    for lab in records.flagged_labs(profile_id):
+    for lab in records.flagged_labs(profile_id, _today(profile_id)):
         # An old result stays on the out-of-range list, marked as older. It isn't news.
         if lab.get("code") and not lab.get("older"):
             note = _lab_note(lab, records.observation_series(profile_id, lab["code"], "labs"))

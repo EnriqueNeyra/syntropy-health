@@ -424,3 +424,28 @@ def test_a_time_without_an_offset_is_filtered_by_the_day_it_says(client, monkeyp
     assert ids(since="2025-03-02T06:00:00Z", until="2025-03-03T04:00:00Z") == {"early", "evening", "day"}   # 01:00 to 23:00 there
     assert ids(until="2025-03-01") == {"late", "zoned"}
 
+
+# ---- Which day it is
+
+def test_which_flagged_results_are_older_is_decided_by_the_callers_day(client, monkeypatch):
+    """Insights asks on the person's day, which a test can set. The flagged list used the server's own, so the golden snapshot,
+    frozen at 1 June 2026, would have found its results older than 548 days from 15 September 2027 on."""
+    from datetime import date
+
+    from app.services import insights
+    from app.store import connections, profiles, records
+
+    pid = profiles.list_profiles()[0]["id"]
+    conn = connections.create(pid, "import", "fhir_file", "Lab", mode="live")
+    _, recs = fn.normalize_resources([_lab("a", "2345-7", 250, "2019-12-01T08:00:00Z", "mg/dL") | {
+        "referenceRange": [{"low": {"value": 70, "unit": "mg/dL"}, "high": {"value": 99, "unit": "mg/dL"}}]}])
+    records.upsert_records(pid, conn["id"], "Lab", recs)
+    assert [bool(l.get("older")) for l in records.flagged_labs(pid, date(2020, 1, 1))] == [False]
+    assert [bool(l.get("older")) for l in records.flagged_labs(pid)] == [True]
+
+    seen = []
+    real = records.flagged_labs
+    monkeypatch.setattr(records, "flagged_labs", lambda profile_id, today=None: seen.append(today) or real(profile_id, today))
+    monkeypatch.setattr(insights, "_today", lambda profile_id=None: date(2020, 1, 1))
+    insights._lab_notes(pid)
+    assert seen == [date(2020, 1, 1)]
