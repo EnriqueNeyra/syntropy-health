@@ -99,6 +99,27 @@ def test_pairing_and_device_ingest(client):
     assert anon.post("/api/ingest/wearables", json=batch, headers={"X-Syntropy-Device-Token": token}).status_code == 401
 
 
+def test_the_phones_summary_after_a_sync_reads_no_daily_figures_and_no_sample_twice(client):
+    code = client.post("/api/devices/pairing-code", json={}).json()["code"]
+    anon = TestClient(client.app, base_url=BASE)
+    token = anon.post("/api/devices/pair", json={"code": code, "device_name": "Alex's iPhone"}).json()["device_token"]
+    headers = {"X-Syntropy-Device-Token": token}
+    batch = {"device_id": "ios-1", "device_name": "Alex's iPhone",
+             "samples": [_sample(1, "step_count", 1200), _sample(2, "heart_rate", 61, unit="count/min"),
+                         {**_sample(3, "step_count", 5), "start_date": "2105-01-01T00:00:00Z", "end_date": "2105-01-01T00:00:00Z"}]}
+    assert anon.post("/api/ingest/wearables", json=batch, headers=headers).json()["inserted"] == 3
+    with patch.object(biometrics, "overview", side_effect=AssertionError("counts every sample")), \
+            patch.object(biometrics, "headline", side_effect=AssertionError("works out the Overview's figures")):
+        r = anon.get("/api/wearables/summary", headers=headers)
+    assert r.status_code == 200, r.text
+    data = r.json()["data"]
+    assert data["total_samples"] == 3
+    assert data["history_span"]["latest"] < "2105" and data["history_span"]["earliest"] <= data["history_span"]["latest"]
+    assert data["last_sync"]["device_name"] == "Alex's iPhone" and data["last_sync"]["sample_count"] == 3
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    assert data["history_span"] == biometrics.overview(profile)["history_span"]
+
+
 def test_pair_info_is_public_and_secret_free(raw_client):
     info = raw_client.get("/api/wearables/pair").json()
     assert "token" not in str(info).lower()

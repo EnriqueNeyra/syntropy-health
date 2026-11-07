@@ -1594,6 +1594,21 @@ def overview(profile_id: str) -> dict[str, Any]:
     }
 
 
+def summary(profile_id: str) -> dict[str, Any]:
+    """What a phone shows after each sync: how many readings the server holds for the person, how far back they go, and the
+    last upload. Asked after every sync, so none of it reads every sample as ``overview`` does: the count is kept as samples
+    arrive (sample_counts), and each end of the span is one step along the person's date index. A reading that can't be
+    true (dated 2105) is kept, but doesn't say how far the history runs."""
+    span = "SELECT start_date FROM biometric_samples WHERE profile_id = ? AND flag IS NULL ORDER BY start_date {} LIMIT 1"
+    with read() as conn:
+        first = conn.execute(span.format("ASC"), (profile_id,)).fetchone()
+        last = conn.execute(span.format("DESC"), (profile_id,)).fetchone()
+        last_batch = conn.execute("SELECT * FROM sync_batches WHERE profile_id = ? ORDER BY synced_at DESC LIMIT 1", (profile_id,)).fetchone()
+    return {"total_samples": sample_counts.for_profile(profile_id),
+            "history_span": {"earliest": first[0] if first else None, "latest": last[0] if last else None},
+            "last_batch": dict(last_batch) if last_batch else None}
+
+
 def recent_samples(profile_id: str, metric: Optional[str] = None, limit: int = 100, left_out_only: bool = False,
                    until: Optional[str] = None) -> list[dict[str, Any]]:
     q = ("SELECT id, metric_type, value, unit, start_date, end_date, device_name, source_name, flag "
