@@ -25,6 +25,8 @@
 #   --no-ocr           skip Tesseract
 #   --source SPEC      install from SPEC instead of the latest release (a path, wheel or pip requirement; on a Mac
 #                      without --server, a .dmg). `syntropy-health update` then reinstalls from SPEC too.
+#   --constraints FILE with --source: install SPEC's dependencies at the versions in FILE, a requirements file (as
+#                      `uv export` writes one, with hashes), where a release brings its own
 #   --import DIR       Linux: copy an existing data folder (e.g. the ./data of a Docker install) before starting
 #   --uninstall        remove the program and service; keeps your data (add --purge to delete it too)
 #
@@ -40,6 +42,7 @@ UV_VERSION=0.11.15      # the same in the Dockerfile and the workflows (tests/te
 TEAM_ID=RJ2YA2S2C8      # who signs the Mac app
 REPO=https://github.com/EnriqueNeyra/syntropy-health
 SOURCE=""
+CONSTRAINTS=""
 SERVICE=1
 OCR=1
 IMPORT=""
@@ -58,6 +61,7 @@ while [ $# -gt 0 ]; do
     --no-service) SERVICE=0; shift;;
     --no-ocr) OCR=0; shift;;
     --source) SOURCE="$2"; shift 2;;
+    --constraints) CONSTRAINTS="$2"; shift 2;;
     --import) IMPORT="$2"; shift 2;;
     --uninstall) UNINSTALL=1; shift;;
     --purge) PURGE=1; shift;;
@@ -96,10 +100,14 @@ install_uv() {
 # The latest release's wheel, downloaded and checked. Sets PACKAGE; LOCK, the exact dependencies that release was built
 # with (none for one from before they were published); and RECORD: what `syntropy-health update` installs from later
 # ("latest" follows releases). Never the source code instead: only a release build carries Syntropy's sign-in
-# registrations.
+# registrations. With --source, LOCK is --constraints, if given.
 resolve_package() {
   LOCK=""
-  if [ -n "$SOURCE" ]; then PACKAGE="$SOURCE"; RECORD="$SOURCE"; return; fi
+  if [ -n "$CONSTRAINTS" ]; then
+    [ -n "$SOURCE" ] || die "--constraints goes with --source: a release brings its own."
+    [ -f "$CONSTRAINTS" ] || die "there's no file at $CONSTRAINTS"
+  fi
+  if [ -n "$SOURCE" ]; then PACKAGE="$SOURCE"; RECORD="$SOURCE"; LOCK="$CONSTRAINTS"; return; fi
   RECORD=latest
   TAG="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$REPO/releases/latest" 2>/dev/null | sed -n 's|.*/releases/tag/||p')"
   [ -n "$TAG" ] || die "Couldn't find the latest release on GitHub. Check the internet connection and try again."
