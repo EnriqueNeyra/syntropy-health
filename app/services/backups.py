@@ -709,7 +709,7 @@ def _swap(item: Staged) -> tuple[Optional[Path], Optional[bytes]]:
     data, path = config.data_dir(), config.db_path()
     siblings = [Path(f"{path}{extra}") for extra in ("-wal", "-shm")]
     key, uploads = data / keystore.KEY_FILE, data / "uploads"
-    old_key = security.existing_key()
+    old_key = security.existing_key(strict=True)     # without it, putting things back if this fails couldn't open them
     aside = None
     if path.exists() or key.exists() or uploads.exists():
         if path.exists():
@@ -759,7 +759,10 @@ def _put_back(aside: Optional[Path], old_key: Optional[bytes] = None) -> None:
     for extra in ("-wal", "-shm"):
         Path(f"{path}{extra}").unlink(missing_ok=True)
     if old_key and not security.explicit_source():
-        security.adopt_key(old_key, keep_replaced=False)
+        try:
+            security.adopt_key(old_key, keep_replaced=False)
+        except keystore.Unreachable as exc:     # the key that came in keeps it among the keys it replaced
+            log.warning("Couldn't make the earlier key current again: %s", exc)
     if aside is None:
         path.unlink(missing_ok=True)
         (data / keystore.KEY_FILE).unlink(missing_ok=True)
@@ -818,6 +821,10 @@ def apply(item: Staged, accept_key_problem: bool = False, *, actor: str = "cli",
         raise BackupProblem(report["key"]["message"])
     if uses := in_use_elsewhere():
         raise BackupProblem(uses)
+    try:
+        security.existing_key(strict=True)
+    except keystore.Unreachable as exc:
+        raise BackupProblem(f"{security.locked_text(exc)} The backup wasn't restored.") from exc
     _encrypt_what_came_in(item)
     aside, old_key = _swap(item)
     try:
@@ -836,13 +843,26 @@ def apply(item: Staged, accept_key_problem: bool = False, *, actor: str = "cli",
     return {**report, "safety_copy": str(aside) if aside else None}
 
 
+IN_USE_TEXT = ("Another program is using the database: the Syntropy Health app or server, the command line, or an AI app using "
+               "its MCP server. Close it, then try again.")
+CANT_TELL_TEXT = ("Syntropy Health couldn't tell whether another program is using the database ({}), so it hasn't been "
+                  "replaced. Close the Syntropy Health app or server, and any AI app using its MCP server, then try again.")
+# Where SQLite locks a database file, on every system: a reader holds a shared lock on part of this range, a writer the whole.
+_SHARED_FIRST = 0x40000000 + 2
+_SHARED_SIZE = 510
+
+
 def in_use_elsewhere() -> Optional[str]:
-    """Another program with the database open. In WAL mode every open connection holds a shared lock on the file, so
-    an exclusive lock can only be had when nothing else has it open, however idle."""
+    """Another program with the database open, in words for the person, or None. In WAL mode every open connection holds a
+    shared lock on the file, so an exclusive lock can only be had when nothing else has it open, however idle. SQLite asks
+    for that lock only once it has read the file, which it can't without the key, or when the file is damaged: both are when
+    a backup is wanted, so then the system's lock is tried directly. If that can't be had either, the answer is that it
+    can't be told, and nothing is replaced."""
     path = config.db_path()
     if not path.exists() or not path.stat().st_size:
         return None
     conn = None
+    unread: Optional[Exception] = None
     try:
         try:
             conn = db.open_connection(path, timeout=0.2)
@@ -854,14 +874,54 @@ def in_use_elsewhere() -> Optional[str]:
         conn.execute("COMMIT")
     except sqlite3.OperationalError as exc:
         if db.is_busy(exc):
-            return ("Another program is using the database: the Syntropy Health server, the command line, or an AI app using its "
-                    "MCP server. Close it, then try again.")
-    except sqlite3.DatabaseError:       # damaged is exactly when this is wanted
-        pass
+            return IN_USE_TEXT
+        unread = exc
+    except sqlite3.DatabaseError as exc:
+        unread = exc
     finally:
         if conn:
             conn.close()
-    return None
+    if unread is None:
+        return None
+    try:
+        return IN_USE_TEXT if _locked_by_another_program(path) else None
+    except OSError as exc:
+        log.warning("Couldn't tell whether the database is in use: %s (and SQLite: %s)", exc, unread)
+        return CANT_TELL_TEXT.format(exc.strerror or exc)
+
+
+def _locked_by_another_program(path: Path) -> bool:
+    """Whether another program holds SQLite's lock on this file, asked of the system rather than of SQLite. The lock is held
+    for an instant if it can be had. Raises OSError when the question can't be asked. This process's own connections are
+    closed first: on a Mac or Linux closing any handle on a file lets go of every lock this process has on it."""
+    db.close_readers()
+    fd = os.open(path, os.O_RDWR | getattr(os, "O_BINARY", 0))
+    try:
+        if os.name == "nt":
+            import msvcrt
+            os.lseek(fd, _SHARED_FIRST, os.SEEK_SET)
+            try:
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, _SHARED_SIZE)
+            except PermissionError:
+                return True
+            except OSError as exc:
+                if exc.errno in (errno.EACCES, errno.EDEADLOCK):
+                    return True
+                raise
+            os.lseek(fd, _SHARED_FIRST, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, _SHARED_SIZE)
+            return False
+        import fcntl
+        try:
+            fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB, _SHARED_SIZE, _SHARED_FIRST, os.SEEK_SET)
+        except OSError as exc:
+            if exc.errno in (errno.EACCES, errno.EAGAIN):
+                return True
+            raise
+        fcntl.lockf(fd, fcntl.LOCK_UN, _SHARED_SIZE, _SHARED_FIRST, os.SEEK_SET)
+        return False
+    finally:
+        os.close(fd)
 
 
 RESTORING_TEXT = "Syntropy Health is putting a backup back. This usually takes a minute, then you can sign in again."

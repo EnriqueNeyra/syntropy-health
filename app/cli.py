@@ -109,7 +109,7 @@ def serve(host: str = "0.0.0.0", port: int = DEFAULT_PORT, reload: bool = False)
     # the server, and would leave the pid file behind.
     signal.signal(signal.SIGTERM, _leave_cleanly)
     try:
-        _pid_file().write_text(f"{os.getpid()} {port}")
+        note_serving(port)
     except OSError as exc:      # a full disk, perhaps: the records can still be read, and that's when they may be needed
         print(f"Couldn't write {_pid_file().name}, but starting anyway: {exc}")
     # So pairing can give the iPhone a reachable address, and syntropyhealth.local is announced on the network.
@@ -124,7 +124,7 @@ def serve(host: str = "0.0.0.0", port: int = DEFAULT_PORT, reload: bool = False)
                     forwarded_allow_ips=config.env("FORWARDED_ALLOW_IPS") or "127.0.0.1", log_level="info",
                     timeout_graceful_shutdown=10)      # a local AI answer or a long download doesn't hold up stopping
     finally:
-        _pid_file().unlink(missing_ok=True)
+        note_stopped()
 
 
 def info(port: Optional[int]) -> None:
@@ -477,12 +477,28 @@ def _pid_file() -> Path:
     return config.data_dir() / "server.pid"
 
 
+def note_serving(port: int) -> None:
+    """This process serves the data folder's database, on this port: for `restore`, which mustn't replace it underneath a
+    server, and `info`. `serve` and the desktop app both say so."""
+    _pid_file().write_text(f"{os.getpid()} {port}")
+
+
+def note_stopped() -> None:
+    """Only if it's still this process's: another server may have said so since."""
+    try:
+        if _pid_file().read_text().split()[0] == str(os.getpid()):
+            _pid_file().unlink()
+    except (OSError, IndexError):
+        pass
+
+
 def _running_port() -> Optional[int]:
-    """The port the server started by `serve` (or the service) is on, while it runs."""
+    """The port the server started by `serve` (or the service, or the desktop app) is on, while it runs."""
     try:
         pid, port = _pid_file().read_text().split()
         if sys.platform == "win32":
-            if not _is_our_server(_windows_command_line(int(pid))):
+            command = _windows_command_line(int(pid))
+            if not (_is_our_server(command) or _is_the_app(command)):
                 return None
         else:
             os.kill(int(pid), 0)
@@ -499,6 +515,10 @@ def _windows_command_line(pid: int) -> str:
 
 def _is_our_server(command_line: str) -> bool:
     return re.search(r"\bserve\b", command_line) is not None and re.search(r"python|syntropy", command_line, re.I) is not None
+
+
+def _is_the_app(command_line: str) -> bool:
+    return re.search(r"syntropy health\.exe", command_line, re.I) is not None
 
 
 def _windows_run_entry(command: Optional[str]) -> Optional[str]:
@@ -530,9 +550,11 @@ def _windows_stop() -> None:
         pid = int(_pid_file().read_text().split()[0])
     except (OSError, ValueError, IndexError):
         return
-    if _is_our_server(_windows_command_line(pid)):      # after a restart, that number may be some other program's by now
+    command = _windows_command_line(pid)
+    if _is_our_server(command):      # after a restart, that number may be some other program's by now
         _run(["taskkill", "/F", "/PID", str(pid)], check=False)
-    _pid_file().unlink(missing_ok=True)
+    if not _is_the_app(command):     # the desktop app's, which this doesn't stop, stays while it runs
+        _pid_file().unlink(missing_ok=True)
 
 
 def _run(cmd: list[str], check: bool = True, env: Optional[dict[str, str]] = None) -> subprocess.CompletedProcess:
@@ -1170,10 +1192,14 @@ def main(argv: Optional[list[str]] = None) -> None:
 
     from app.core.db import StartupProblem
 
+    from app.core import keystore, security
+
     try:
         _command(argv)
     except StartupProblem as exc:
         sys.exit(str(exc))
+    except keystore.Unreachable as exc:
+        sys.exit(security.locked_text(exc))
     except sqlite3.Error as exc:
         sys.exit(f"Syntropy Health couldn't use its database in {config.data_dir()}: {exc}")
 
