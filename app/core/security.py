@@ -114,6 +114,8 @@ def _find_key(path: Path) -> bytes:
             for candidate in (key, *_retired_keys(key)):
                 if db.opens(database, database_key(candidate)):
                     return candidate
+        if not unreachable and (left := _left_in_store(database)):
+            return left
         if unreachable:
             raise db.StartupProblem("key_locked", _locked_text(unreachable))
         if damaged:
@@ -127,9 +129,27 @@ def _find_key(path: Path) -> bytes:
     if damaged:
         raise damaged
     if _stored_secrets():
+        if left := _left_in_store(database):
+            return left
         raise db.StartupProblem("key", f"The encryption key file is missing ({path}). Saved passwords, sign-ins and AI keys "
                                        f"can't be read without it, so a new one hasn't been made. {_KEY_ADVICE}")
+    # Nothing here needs a key, so it gets a new one, recorded in key.json: never one the Keychain still holds from data
+    # deleted before, which nothing here would name, and which backups would then leave out.
     return _new_key(path)
+
+
+def _left_in_store(database: Path) -> Optional[bytes]:
+    """key.json is gone, but the data is here: of the keys the Keychain still holds for this app, the one that opens it. It's
+    recorded in key.json again, so backups carry it and forgetting this folder's key removes it. The store not answering is
+    a locked key, not a lost one."""
+    try:
+        for account, key in keystore.unrecorded():
+            if opens(database, key):
+                keystore.record(account)
+                return key
+    except keystore.Unreachable as exc:
+        raise db.StartupProblem("key_locked", _locked_text(exc)) from exc
+    return None
 
 
 def _locked_text(exc: Exception) -> str:
@@ -291,6 +311,15 @@ def existing_key() -> Optional[bytes]:
         return keystore.from_store()
     except (OSError, keystore.Unreachable):
         return None
+
+
+def key_in_use() -> bool:
+    """Whether what's here relies on a key, wherever it's kept, without making one: the one this process is using, one this
+    computer has, or the one an encrypted database needs."""
+    with _key_lock:
+        if _key_cache.get(str(keystore.explicit_file() or _key_file())):
+            return True
+    return existing_key() is not None or db.is_encrypted(config.db_path())
 
 
 def adopt_key(new: bytes, *, keep_replaced: bool = True) -> None:

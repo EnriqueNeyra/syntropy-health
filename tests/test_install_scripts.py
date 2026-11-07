@@ -383,18 +383,28 @@ def test_uninstalling_on_a_mac_takes_out_only_the_lines_it_added(mac):
 
 
 def test_deleting_everything_takes_the_key_from_the_keychain_too(mac):
-    """Only the key that opened this data, named in key.json. A stand-in for the tool: this must never reach a real keychain."""
+    """Every key this data folder has had: those key.json names, and the others saved for this folder, such as one a folder
+    deleted by hand left behind. A stand-in for the tool, which has two of those: this must never reach a real keychain."""
     calls = mac.root / "security-calls"
+    left = mac.root / "left-for-this-folder"
+    left.write_text("2")
     tool = mac.stubs / "security"
-    tool.write_text(f'#!/bin/sh\necho "$@" >> "{calls}"\n')
+    tool.write_text(f'#!/bin/sh\necho "$@" >> "{calls}"\ncase "$*" in *" -G "*)\n'
+                    f'  n=$(cat "{left}"); [ "$n" -gt 0 ] || exit 44; echo $((n - 1)) > "{left}";;\nesac\n')
     tool.chmod(0o755)
     data = mac.home / "Library/Application Support/Syntropy Health"
     data.mkdir(parents=True, exist_ok=True)
-    (data / "key.json").write_text(json.dumps({"store": "keychain", "account": "abc123"}, indent=1))
+    now, before = "a" * 32, "b" * 32
+    (data / "key.json").write_text(json.dumps({"store": "keychain", "account": now, "earlier_accounts": [before]}, indent=1))
     assert mac.run("--uninstall", env=mac.mac_env).returncode == 0
     assert not calls.exists() and data.exists()     # keeping the data keeps its key
     assert mac.run("--uninstall", "--purge", env=mac.mac_env).returncode == 0
-    assert "delete-generic-password" in calls.read_text() and "abc123" in calls.read_text() and not data.exists()
+    said = calls.read_text().splitlines()
+    assert f"delete-generic-password -s Syntropy Health encryption key -a {now}" in said
+    assert f"delete-generic-password -s Syntropy Health encryption key -a {before}" in said
+    assert f"delete-generic-password -s Syntropy Health encryption key -G {data}" in said
+    assert left.read_text().strip() == "0" and not data.exists()
+    assert all(f"-a {now}" in s or f"-a {before}" in s or f"-G {data}" in s for s in said)     # nothing of any other folder's
 
 
 def test_uninstalling_leaves_a_path_line_someone_wrote_themselves(mac):

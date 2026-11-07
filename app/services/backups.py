@@ -74,10 +74,11 @@ def validate_passphrase(passphrase: Optional[str]) -> str:
 
 
 def key_source() -> str:
-    """Where this computer's encryption key lives: ``setting`` is one chosen by hand, in the environment or a key file."""
+    """Where this computer's encryption key lives: ``setting`` is one chosen by hand, in the environment or a key file. Any
+    key the data relies on counts, wherever it was found: a backup without it can't be opened anywhere else."""
     if security.explicit_source():
         return "setting"
-    if (config.data_dir() / keystore.KEY_FILE).exists() or keystore.store_of_record() in keystore.PROTECTED_STORES:
+    if security.key_in_use():
         return "file"
     return "none"
 

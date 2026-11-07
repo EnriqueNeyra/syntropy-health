@@ -101,7 +101,13 @@ if ($Uninstall) {
     if (Test-Admin) { Remove-NetFirewallRule -DisplayName $FirewallRule }
     else { Write-Host "    To close the port it opened, run this as administrator: Remove-NetFirewallRule -DisplayName `"$FirewallRule`"" }
   }
-  if ($Purge) { Remove-Item -Recurse -Force $Data -ErrorAction SilentlyContinue; Say "Removed Syntropy Health and its data." }
+  if ($Purge) {
+    # The key lives only in key.json, protected for this Windows account (DPAPI): nothing of it is kept anywhere else. It
+    # goes first, so that a file something still holds open, which stops the folder going, can't keep the key here.
+    foreach ($kept in "key.json", "secret.key") { Remove-Item -Force (Join-Path $Data $kept) -ErrorAction SilentlyContinue }
+    Remove-Item -Recurse -Force $Data -ErrorAction SilentlyContinue
+    Say "Removed Syntropy Health and its data."
+  }
   else { Say "Removed Syntropy Health. Your data is still in $Data (delete it with -Uninstall -Purge)." }
   return
 }
