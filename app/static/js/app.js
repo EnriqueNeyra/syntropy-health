@@ -1,7 +1,7 @@
 // Application shell: session bootstrap, hash router, navigation and profile switching.
 
 import { api, clearCache, get, onDataChanged, onUnauthorized, post, put, unreachableMessage } from "./api.js";
-import { markAllSeen, onAlertsChange, refreshAlerts, renderPanel, dismiss, unreadCount } from "./alerts.js";
+import { alertsFollow, markAllSeen, onAlertsChange, refreshAlerts, renderPanel, dismiss, unreadCount } from "./alerts.js";
 import {
   $, appMenuChosen, busy, closeAnimated, closeDialogs, holdDialogs, html, icon, initials, loading, modal, mount, onAction, pageScroller,
   scrollToTop, toast, esc, wordmark, SIGNED_OUT,
@@ -184,9 +184,10 @@ function redirect(hash) { history.replaceState(null, "", hash); route(); }
 export function setProfile(id) {
   state.profileId = id;
   try { localStorage.setItem("syntropy-profile", id); } catch {}
+  // First, so the bell is already empty of the last person's alerts when the shell is drawn for this one.
+  refreshAlerts(state.profile, state.status);
   renderShell();
   route();
-  refreshAlerts(state.profile, state.status);
 }
 
 export async function refreshProfiles() {
@@ -404,6 +405,7 @@ function drawAlertBadge(reason) {
   if (nativeNav && reason !== "seen" && parseHash().route === ALERTS) renderAlertsPage();
 }
 onAlertsChange(drawAlertBadge);
+alertsFollow(() => state.profile?.id ?? null);
 
 // ------------------------------------------------------------------ shell
 function navLink(key, current) {

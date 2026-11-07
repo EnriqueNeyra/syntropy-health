@@ -520,8 +520,9 @@ export async function render({ el, state, navigate }) {
 
   await load();
   draw();
-  // The bell's alerts come from the same summary and sources (other pages ask for them themselves).
-  refreshAlerts(profile, state.status, { summary: data.summary, connections: data.connections });
+  // The bell's alerts come from the same summary and sources (other pages ask for them themselves). Not when another
+  // person was chosen while this page loaded: they'd be this person's, shown for the next.
+  if (profile.id === state.profile?.id) refreshAlerts(profile, state.status, { summary: data.summary, connections: data.connections });
 
   const off = onAction(el, {
     record: ({ id }) => openRecord(id),
