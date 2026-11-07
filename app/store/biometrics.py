@@ -428,6 +428,38 @@ def _gone_from_records(conn: Any, profile_id: str, arriving: Iterable[str]) -> l
     return gone
 
 
+# A reading the person removed is remembered by what it was as well as by its id (see delete_sample), so the same reading
+# arriving by another path (an export.xml import, an export automation) under an id of that path's own stays out too.
+_REMOVED_READING = "fp:"
+
+
+def _removed_reading(metric: str, start: str, end: str, source: str, value: float, sample_id: str) -> str:
+    return _REMOVED_READING + json.dumps([metric, start, end, source, value, _id_path(sample_id)], separators=(",", ":"))
+
+
+def _tombstones(conn: Any, profile_id: str) -> tuple[set[str], dict[tuple[str, str, str, str], list[tuple[float, str]]]]:
+    """The ids the person removed, and what the removed readings were: {(metric, start, end, source): [(value, path)]}."""
+    ids: set[str] = set()
+    readings: dict[tuple[str, str, str, str], list[tuple[float, str]]] = defaultdict(list)
+    for (item,) in conn.execute("SELECT sample_id FROM sample_tombstones WHERE profile_id = ?", (profile_id,)):
+        if item.startswith(_REMOVED_READING):
+            try:
+                metric, start, end, source, value, path = json.loads(item[len(_REMOVED_READING):])
+                readings[(metric, start, end, source)].append((float(value), path))
+                continue
+            except (ValueError, TypeError):
+                pass
+        ids.add(item)
+    return ids, readings
+
+
+def _was_removed(readings: dict[tuple[str, str, str, str], list[tuple[float, str]]], s: dict[str, Any], source: str) -> bool:
+    """Whether this is a reading the person removed, under another id: matched as _same_reading matches a repeat."""
+    path = _id_path(s["id"])
+    return any(value == s["value"] or (was != path and _close(value, s["value"]))
+               for value, was in readings.get((s["metric_type"], s["start_date"], s["end_date"], source), ()))
+
+
 class SourceGone(Exception):
     """The person or source this data belongs to was deleted while it was on its way, so it goes nowhere."""
 
@@ -470,7 +502,7 @@ def insert_samples(
     samples = list(samples)
     with db() as conn:
         check_source(conn, profile_id, connection_id)
-        removed_ids = {r[0] for r in conn.execute("SELECT sample_id FROM sample_tombstones WHERE profile_id = ?", (profile_id,))}
+        removed_ids, removed_readings = _tombstones(conn, profile_id)
         imports = {r[0] for r in conn.execute("SELECT id FROM connections WHERE profile_id = ? AND kind = 'import'", (profile_id,))}
         gone = _gone_from_records(conn, profile_id, (raw.get("id") for raw in samples if isinstance(raw, dict)))
         removed += _remove_samples(conn, profile_id, [*deleted_ids, *gone], deleted_prefixes, affected, changed, tz)
@@ -498,6 +530,8 @@ def insert_samples(
                 sample_id = f"{sample_id}@{profile_id}"
                 row = conn.execute(f"SELECT {_SAMPLE_COLUMNS} FROM biometric_samples WHERE id = ?", (sample_id,)).fetchone()
             s["id"] = sample_id
+            if row is None and removed_readings and _was_removed(removed_readings, s, source):
+                continue
             replaces = bool(s.get("replaces"))
             if flag:
                 flagged += 1
@@ -584,17 +618,23 @@ def _note_sources(conn: Any, profile_id: str, seen: dict[str, tuple[str, Optiona
 
 
 def delete_sample(profile_id: str, sample_id: str) -> bool:
-    """Removes one reading the person says is wrong. A sync that brings the same id back leaves it out."""
+    """Removes one reading the person says is wrong. A sync that brings the same id back leaves it out, and so does an
+    import that brings the same reading under an id of its own (the phone's weight, then the same one in an export.xml)."""
     tz = _tz(profile_id)
     orders = source_orders()
     affected: set[str] = set()
     changed: set[str] = set()
     with db() as conn:
+        found = conn.execute("SELECT id, metric_type, start_date, end_date, source_name, value FROM biometric_samples "
+                             "WHERE profile_id = ? AND id IN (?, ?)", (profile_id, sample_id, f"{sample_id}@{profile_id}")).fetchall()
         n = _remove_samples(conn, profile_id, [sample_id], (), affected, changed, tz)
         if not n:
             return False
-        conn.execute("INSERT OR REPLACE INTO sample_tombstones(profile_id, sample_id, deleted_at) VALUES (?, ?, ?)",
-                     (profile_id, sample_id, time.time()))
+        now = time.time()
+        for item in [sample_id, *(_removed_reading(r["metric_type"], r["start_date"], r["end_date"], r["source_name"] or "Unknown",
+                                                   r["value"], r["id"]) for r in found)]:
+            conn.execute("INSERT OR REPLACE INTO sample_tombstones(profile_id, sample_id, deleted_at) VALUES (?, ?, ?)",
+                         (profile_id, item, now))
         if affected:
             _rollup(conn, profile_id, sorted(affected), changed, tz, orders)
         mark_daily_changed(conn, profile_id)
