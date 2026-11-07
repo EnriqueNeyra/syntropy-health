@@ -1254,3 +1254,27 @@ def test_no_server_name_is_looked_up_on_the_event_loop(client, monkeypatch):
     assert _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))[-1]["type"] == "done"
     client.post("/api/labs/extract", files={"file": ("r.png", b"x", "image/png")}, data={"method": "ai", "profile_id": me})
     assert on_loop == []
+
+
+def test_a_password_in_a_servers_address_is_refused(client):
+    r = client.put("/api/ai/config", json={"provider": "local", "base_url": "http://me:hunter2@192.168.1.5:11434", "model": "m"})
+    assert r.status_code == 400 and "key field" in r.json()["detail"]
+    assert client.post("/api/ai/local/check", json={"base_url": "me:hunter2@192.168.1.5:11434"}).status_code == 400
+    assert not settings.get("ai.base_url.local")
+
+
+def test_a_password_saved_in_an_address_before_is_shown_to_no_one_and_still_used(raw_client):
+    owner, maria, _ = _app_with_people(raw_client)
+    saved = "http://me:hunter2@127.0.0.1:9/v1"           # nothing listens on port 9
+    owner.put("/api/ai/config", json={"provider": "local", "base_url": "http://127.0.0.1:9/v1", "model": "m"})
+    settings.set("ai.base_url.local", saved)
+    for who in (owner, maria):
+        for chat in (False, True):
+            assert "hunter2" not in who.get("/api/ai/config", params={"chat": chat}).text
+        events = _events(who.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+        assert "Couldn't reach" in json.dumps(events) and "hunter2" not in json.dumps(events)
+    shown = owner.get("/api/ai/config").json()["base_url"]
+    assert shown == "http://***@127.0.0.1:9/v1"
+    # Saving the form as it's shown changes the model and keeps the address.
+    assert owner.put("/api/ai/config", json={"provider": "local", "base_url": shown, "model": "m2"}).status_code == 200
+    assert ai.config(include_key=True)["base_url"] == saved and ai.config()["model"] == "m2"

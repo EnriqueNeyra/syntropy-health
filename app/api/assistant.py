@@ -136,7 +136,7 @@ class LocalCheck(BaseModel):
 async def check_local(req: LocalCheck) -> dict:
     """Connects to a server the person typed in and lists its models."""
     try:
-        url = ai_local.normalize_base_url(req.base_url)
+        url = ai.typed_address("local", req.base_url)
         return await ai_local.check(url, req.api_key or ai.saved_key_for("local", url))
     except ValueError as exc:
         raise HTTPException(400, str(exc))
