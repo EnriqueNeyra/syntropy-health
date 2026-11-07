@@ -226,3 +226,30 @@ def test_an_ai_apps_access_starts_at_the_one_person_and_everyone_says_it_include
     assert "including people added later" in who.locator("option[value='']").inner_text()
     c.close()
     s.close()
+
+
+def test_a_visit_question_that_couldnt_be_saved_stays_in_the_box_to_try_again(browser, fresh_server):
+    c = seed(fresh_server, simulated=False)
+    alex = c.get("/api/profiles").json()["profiles"][0]["id"]
+    s = Session(browser, fresh_server)
+    page = s.open("#/prepare")
+    failing = lambda route: route.fulfill(status=500, json={"detail": "The disk is full."}) if route.request.method == "PUT" else route.fallback()
+    page.route("**/api/report/preferences", failing)
+    page.fill("#prep-question", "Should I keep taking the iron?")
+    page.click("#prep-form button[type=submit]")
+    page.locator(".toast", has_text="Couldn't save").wait_for()
+    assert page.input_value("#prep-question") == "Should I keep taking the iron?"
+    assert page.locator("#prep-questions li").count() == 0
+    page.unroute("**/api/report/preferences")
+    page.click("#prep-form button[type=submit]")
+    page.locator("#prep-questions li", has_text="iron").wait_for()
+    assert page.input_value("#prep-question") == ""
+    assert c.get("/api/report/preferences", params={"profile": alex}).json()["questions"] == ["Should I keep taking the iron?"]
+    # Taking one off that can't be saved leaves it on the list too.
+    page.route("**/api/report/preferences", failing)
+    page.click("[data-remove-question='0']")
+    page.locator(".toast", has_text="Couldn't save").last.wait_for()
+    page.wait_for_timeout(200)
+    assert page.locator("#prep-questions li", has_text="iron").count() == 1
+    c.close()
+    s.close()

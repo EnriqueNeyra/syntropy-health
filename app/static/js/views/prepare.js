@@ -81,26 +81,31 @@ export async function render({ el, state }) {
 
   const drawQuestions = () => mount($("#prep-questions", el), questions.map((q, i) => html`<li><span>${q}</span>
     <button class="btn btn-ghost btn-icon btn-sm no-print" data-remove-question="${i}" aria-label="Remove this question" title="Remove">${icon("x")}</button></li>`));
-  const saveQuestions = async () => {
-    try { await put("/api/report/preferences", { profile_id: pid, questions }); }
-    catch (err) { toast(`Couldn't save that: ${err.message}`, "bad"); }
-  };
+  // The list shows what's saved: a change is drawn once the server has it, so one that couldn't be saved doesn't look
+  // saved. One save at a time, each changing the list the last one left, so two quick changes can't undo each other.
+  let saving = Promise.resolve();
+  const saveQuestions = (change) => (saving = saving.then(async () => {
+    const next = change(questions);
+    try { await put("/api/report/preferences", { profile_id: pid, questions: next }); }
+    catch (err) { toast(`Couldn't save that: ${err.message}`, "bad"); return false; }
+    questions = next;
+    drawQuestions();
+    return true;
+  }));
   drawQuestions();
   $("#prep-form", el).addEventListener("submit", async (e) => {
     e.preventDefault();
     const input = $("#prep-question", el);
-    if (!input.value.trim()) return;
-    questions = [...questions, input.value.trim()];
-    input.value = "";
-    drawQuestions();
-    await busy(e.submitter, saveQuestions);
+    const asked = input.value.trim();
+    if (!asked) return;
+    // Cleared once it's saved: a question that couldn't be is still in the box, to try again.
+    if (await busy(e.submitter, () => saveQuestions((qs) => [...qs, asked])) && input.value.trim() === asked) input.value = "";
   });
   $("#prep-questions", el).addEventListener("click", async (e) => {
     const b = e.target.closest("[data-remove-question]");
     if (!b) return;
-    questions = questions.filter((_, i) => i !== Number(b.dataset.removeQuestion));
-    drawQuestions();
-    await saveQuestions();
+    const at = Number(b.dataset.removeQuestion);
+    await busy(b, () => saveQuestions((qs) => qs.filter((_, i) => i !== at)));
   });
 
   const box = $("#prep-digest", el);
