@@ -204,3 +204,27 @@ async def test_a_first_page_that_says_there_is_nothing_is_still_an_answer(fhir_s
     fhir_server.handler = handler
     out = await smart.FhirClient(BASE, {"access_token": "t"}, "p").fetch_all({})
     assert out.status[LABS] == "empty"
+
+
+# ---- Reading stored records again
+
+def test_reading_a_report_again_keeps_the_full_text_fetched_from_its_link():
+    """A report with a conclusion keeps the text fetched from its link beside it, in details. Read again by a later normalizer,
+    it lost that text, which the stored resource can't give back: a file import never fetches it again."""
+    import json
+
+    from app.services import renormalize
+
+    res = {"resourceType": "DiagnosticReport", "id": "r1", "status": "final", "code": {"text": "CT chest"},
+           "category": [{"coding": [{"code": "RAD"}]}], "effectiveDateTime": "2024-03-01", "conclusion": "No acute findings.",
+           "presentedForm": [{"contentType": "text/html", "url": "Binary/abc"}]}
+    rec = fn.normalize_one(res)
+    full = "FULL REPORT: 4 mm nodule in the right upper lobe; follow-up CT in 12 months."
+    rec["details"].update(full_text=full, body_fingerprint=fn.body_fingerprint(res), body_stale=True, panel="Imaging",
+                          result_refs=["Observation/x"])
+    row = {k: rec.get(k) for k in renormalize._DERIVED if k != "details_json"}
+    row.update(raw_json=json.dumps(res), details_json=json.dumps(rec["details"]), narrative=rec["narrative"], connection_id="c")
+    details = json.loads(renormalize.reread(row, None)["details_json"])
+    assert details["full_text"] == full
+    assert {k: details.get(k) for k in ("body_fingerprint", "body_stale", "panel", "result_refs")} == \
+        {"body_fingerprint": fn.body_fingerprint(res), "body_stale": True, "panel": "Imaging", "result_refs": ["Observation/x"]}
