@@ -394,3 +394,43 @@ def test_looking_for_agents_at_once_looks_once(fake_tools, monkeypatch):
     for t in threads:
         t.join()
     assert len(started) == 2 * once
+
+
+
+def _mcp_people(isolated_data, *args, **env):
+    """Whom the stdio MCP server lists, started with these arguments and environment: (0, names), or (exit code, error)."""
+    import subprocess
+    from tests.test_mcp_protocol import _WINDOWS_BASICS, _msg
+    basics = {k: os.environ[k] for k in _WINDOWS_BASICS if k in os.environ} if sys.platform == "win32" else {}
+    out = subprocess.run([sys.executable, "-m", "app.mcp_server", *args], capture_output=True, timeout=60,
+                         input=json.dumps(_msg("tools/call", name="list_profiles", arguments={})).encode() + b"\n",
+                         env={**basics, "SYNTROPY_DATA_DIR": str(isolated_data), "PATH": "/usr/bin:/bin",
+                              "SYNTROPY_NO_DOTENV": "1", "SYNTROPY_KEY_STORE": "file", **env})
+    if out.returncode:
+        return out.returncode, out.stderr.decode()
+    return 0, [p["name"] for p in json.loads(json.loads(out.stdout)["result"]["content"][0]["text"])["people"]]
+
+
+def test_the_mcp_server_an_agent_uses_never_reads_everyone(client, isolated_data):
+    sam = client.post("/api/profiles", json={"name": "Sam", "relationship": "child"}).json()["id"]
+    alex = client.get("/api/status").json()["account"]["profile_id"]
+    # Started for the assistant with the person lost: it doesn't start.
+    code, said = _mcp_people(isolated_data, SYNTROPY_MCP_ACTOR="agent:claude:acc_1")
+    assert code == 2 and "won't start" in said
+    # Either the command line or the environment limits it; two that disagree don't start.
+    assert _mcp_people(isolated_data, "--profile", sam, SYNTROPY_MCP_ACTOR="agent:claude") == (0, ["Sam"])
+    assert _mcp_people(isolated_data, SYNTROPY_MCP_ACTOR="agent:claude", SYNTROPY_MCP_PROFILE=sam) == (0, ["Sam"])
+    assert _mcp_people(isolated_data, "--profile", sam, SYNTROPY_MCP_ACTOR="agent:codex", SYNTROPY_MCP_PROFILE=alex)[0] == 2
+    # An app set up for everyone, as the setup offers, still reads everyone.
+    assert sorted(_mcp_people(isolated_data)[1]) == ["Alex", "Sam"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_an_agents_mcp_server_is_told_who_on_its_command_line_too(client, fake_tools):
+    me = client.get("/api/status").json()["account"]["profile_id"]
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "codex", "acknowledged": True})
+    _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+    args = json.loads(fake_tools.read_text())["args"]
+    server_args = next(args[i + 1] for i, a in enumerate(args) if a == "-c" and args[i + 1].startswith("mcp_servers.syntropy.args="))
+    assert server_args.endswith(f'"--profile", "{me}"]')
+    assert "--profile" not in ai_agents.mcp_server.stdio_command(me)["args"]       # an app's offered setup is unchanged
