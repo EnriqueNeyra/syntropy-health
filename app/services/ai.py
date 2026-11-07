@@ -1775,6 +1775,9 @@ EXTRACT_PROMPT = """Extract every lab test result from this lab report. Reply wi
 Copy numbers exactly as printed. Skip headers, patient details and comments. If nothing is readable, return {"results": []}."""
 
 MAX_REPORT_BYTES = 15 * 1024 * 1024
+# Reading a report's text can take many seconds of work: it's done beside the server, which keeps answering, and a
+# report that takes longer than this is sent as the file itself, like a scanned one.
+PDF_TEXT_TIMEOUT_S = 20.0
 
 
 def _pdf_text(data: bytes) -> str:
@@ -1783,6 +1786,14 @@ def _pdf_text(data: bytes) -> str:
         reader = PdfReader(io.BytesIO(data))
         return "\n".join((page.extract_text() or "") for page in reader.pages[:30]).strip()
     except Exception:  # noqa: BLE001 - scanned or unusual PDFs fall back to sending the file itself
+        return ""
+
+
+async def _report_text(data: bytes) -> str:
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(_pdf_text, data), PDF_TEXT_TIMEOUT_S)
+    except TimeoutError:
+        log.info("Reading a lab report's text took over %s seconds; sending the file itself", PDF_TEXT_TIMEOUT_S)
         return ""
 
 
@@ -1815,12 +1826,13 @@ async def extract_lab_results(data: bytes, content_type: str, filename: str,
     is_pdf = content_type == "application/pdf" or filename.lower().endswith(".pdf")
     if not is_pdf and not content_type.startswith("image/"):
         raise AIError("Upload a PDF or a photo (JPEG, PNG, HEIC converted to JPEG).")
-    text = _pdf_text(data) if is_pdf else ""
+    text = await _report_text(data) if is_pdf else ""
     if text:
         report: dict[str, Any] = {"type": "text", "text": f"Lab report text:\n\n{text[:60_000]}"}
     else:
+        encoded = await asyncio.to_thread(lambda: base64.b64encode(data).decode())     # up to 20 MB of text
         report = {"type": "pdf" if is_pdf else "image", "media_type": content_type, "filename": filename or "report.pdf",
-                  "data": base64.b64encode(data).decode()}
+                  "data": encoded}
     async with _client() as client:
         reply = await _complete(client, cfg, "You transcribe lab reports into structured data.",
                                 [{"role": "user", "content": [report, {"type": "text", "text": EXTRACT_PROMPT}]}], None, 8192)

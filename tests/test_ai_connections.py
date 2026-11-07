@@ -4,11 +4,13 @@ import json
 import stat
 import sys
 import textwrap
+import time
 
 import httpx
 import pytest
 
 from app.services import ai, ai_agents, ai_local
+from tests.test_ai_providers import longest_stall
 from tests.test_assistant import _events, fake_model  # noqa: F401 - fixture
 
 
@@ -237,3 +239,16 @@ def test_mcp_tokens_remember_their_last_call(client):
                               "params": {"name": "get_health_summary", "arguments": {}}}, headers=headers)
     [listed] = client.get("/api/agents/tokens").json()["tokens"]
     assert listed["last_call"] == "get_health_summary" and listed["last_call_at"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_starting_an_agent_doesnt_hold_up_the_server(client, fake_tools, monkeypatch):
+    help_text = "--tools --permission-mode dontAsk --no-session-persistence --system-prompt-file"
+    monkeypatch.setattr(ai_agents, "_help", lambda binary, *sub: (time.sleep(0.6), help_text)[1])   # a slow --help
+    me = client.get("/api/status").json()["account"]["profile_id"]
+
+    async def ask():
+        return [e async for e in ai_agents.run("claude", me, "Instructions", [{"role": "user", "content": "Hi"}])]
+    events, stall = longest_stall(ask)
+    assert events[-1] == {"type": "answer", "text": "People: Alex"}
+    assert stall < 0.3, f"the event loop was held up for {stall:.2f}s"

@@ -4,6 +4,7 @@ per provider family. Nothing here contacts a real vendor."""
 import asyncio
 import json
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -1097,3 +1098,56 @@ def test_the_whole_question_up_to_the_stated_limit_is_sent(client, vendor):
     vendor.script.append(_text("Fine."))
     _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "x" * 39_990 + "THE END"}]}))
     assert vendor.bodies[-1]["messages"][-1]["content"].endswith("THE END")
+
+
+# ------------------------------------------------------------------ a review of 1.7.1
+
+def longest_stall(make):
+    """Runs ``make()``'s coroutine beside a 10 ms ticker: (its result, the longest the event loop was held up)."""
+    async def main():
+        gaps, stop = [], asyncio.Event()
+
+        async def ticker():
+            last = time.monotonic()
+            while not stop.is_set():
+                await asyncio.sleep(0.01)
+                now = time.monotonic()
+                gaps.append(now - last)
+                last = now
+        task = asyncio.create_task(ticker())
+        await asyncio.sleep(0.03)
+        try:
+            result = await make()
+        finally:
+            stop.set()
+            await task          # the tick held up last is counted too
+        return result, max(gaps)
+    return asyncio.run(main())
+
+
+def _reads_reports_with(monkeypatch, read):
+    monkeypatch.setattr(ai, "config", lambda include_key=False, chat=False: {
+        "configured": True, "provider": "local", "sends_elsewhere": False, "api": "openai", "label": "Local", "model": "m",
+        "base_url": "http://x"})
+    sent = []
+
+    async def complete(client, cfg, system, messages, tools=None, max_tokens=4096):
+        sent.append(messages[0]["content"][0])
+        return ai.Reply(text='{"results": []}')
+    monkeypatch.setattr(ai, "_complete", complete)
+    monkeypatch.setattr(ai, "_pdf_text", read)
+    return sent
+
+
+def test_reading_a_reports_text_doesnt_hold_up_the_server(monkeypatch):
+    sent = _reads_reports_with(monkeypatch, lambda data: (time.sleep(0.6), "Ferritin 48 ng/mL")[1])
+    out, stall = longest_stall(lambda: ai.extract_lab_results(b"%PDF-1.4", "application/pdf", "r.pdf", None))
+    assert out["read_as"] == "text" and "Ferritin" in sent[0]["text"]
+    assert stall < 0.3, f"the event loop was held up for {stall:.2f}s"
+
+
+def test_a_report_whose_text_takes_too_long_is_sent_as_the_file(monkeypatch):
+    sent = _reads_reports_with(monkeypatch, lambda data: (time.sleep(0.5), "late")[1])
+    monkeypatch.setattr(ai, "PDF_TEXT_TIMEOUT_S", 0.05)
+    out = asyncio.run(ai.extract_lab_results(b"%PDF-1.4", "application/pdf", "r.pdf", None))
+    assert out["read_as"] == "document" and sent[0]["type"] == "pdf"
