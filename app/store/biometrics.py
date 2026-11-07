@@ -10,9 +10,10 @@ so totals such as steps are never double-counted when an Apple Watch, an iPhone 
 A reading belongs to the day where the person was: its own offset from UTC when the source gives one, otherwise that
 person's home time zone (``profiles.timezone``, or the server's).
 
-For summed metrics recorded as time intervals by several sources (steps from an Apple Watch and an iPhone), an extra
+For summed metrics recorded by several sources (steps from an Apple Watch and an iPhone, water from two apps), an extra
 "Combined" row merges them the way Apple Health does: the preferred source counts in full and each other sample only for
-the share of its interval the preferred sources did not cover. Steps taken with only the phone are kept.
+the share of its interval the preferred sources did not cover. Steps taken with only the phone are kept, and so is a glass
+of water logged in a second app: a sample at one moment counts unless a preferred source's interval covers it.
 """
 
 from __future__ import annotations
@@ -766,6 +767,10 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
                     readings[(d, metric, source)].append(share)
                     intervals[(d, metric)].append((piece_start, piece_end, share, source))
                 continue
+            if path != "json":
+                # A moment (a glass of water, a meal logged) joins the merge too, so two apps' entries add up. The export route's
+                # dated rows aren't moments but an hour's or a day's worth, with no say over which hours: they stay out of it.
+                intervals[(day or local_day(start, tz, offset), metric)].append((start, end, value, source))
         d = day or local_day(end if metric in OVERNIGHT_METRICS else start, tz, offset)
         key = (d, metric, source)
         readings[key].append(value)
@@ -1050,14 +1055,16 @@ def _sleep_nights(stages: dict[str, list[tuple[float, float, str, Optional[int]]
 #    wrist temperature and breathing disturbances count toward the morning too.
 # 4: flagged readings left out; naps apart from the night; heart rate weighted by time; intervals shared across midnight;
 #    a source's daily total wins over its intraday readings; every metric the iPhone sends; a reading's own offset.
-# 5: a day's total from the export route sent again from another time zone replaces the first rather than adding to it.
+# 5: a day's total from the export route sent again from another time zone replaces the first rather than adding to it;
+#    samples at one moment (water, food) from several apps add up in Combined.
 DAILY_VERSION = 5
 
 
 def merge_interval_sources(items: list[tuple[str, str, float, str]], rank: Optional[Callable[[str], Any]] = None) -> float:
-    """Sums interval samples from several sources without double counting overlapping time.
+    """Sums samples from several sources without double counting overlapping time.
     Sources are taken in priority order; a sample counts for the fraction of its interval not already
-    covered by a higher-priority source (the same proportional rule HealthKit statistics use)."""
+    covered by a higher-priority source (the same proportional rule HealthKit statistics use). A sample at
+    one moment counts in full, unless a higher-priority source's interval covers that moment."""
     by_source: dict[str, list[tuple[float, float, float]]] = defaultdict(list)
     for start, end, value, source in items:
         by_source[source].append((parse_ts(start).timestamp(), parse_ts(end).timestamp(), value))
@@ -1067,13 +1074,17 @@ def merge_interval_sources(items: list[tuple[str, str, float, str]], rank: Optio
         samples = by_source[source]
         ends = [ce for _, ce in covered]
         for s, e, v in samples:
+            first = bisect.bisect_right(ends, s)     # the first covered span ending after s
+            if e <= s:
+                total += 0.0 if first < len(covered) and covered[first][0] <= s else v
+                continue
             overlap = 0.0
-            for cs, ce in covered[bisect.bisect_right(ends, s):]:   # first covered span ending after s
+            for cs, ce in covered[first:]:
                 if cs >= e:
                     break
                 overlap += min(e, ce) - max(s, cs)
             total += v * max(0.0, 1 - overlap / (e - s))
-        covered = _union(covered + [(s, e) for s, e, _ in samples])
+        covered = _union(covered + [(s, e) for s, e, _ in samples if e > s])
     return total
 
 
