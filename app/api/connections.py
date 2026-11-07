@@ -179,18 +179,26 @@ def rename(connection_id: str, req: RenameRequest) -> dict:
 
 
 @router.delete("/api/connections/{connection_id}", dependencies=[user])
-def remove(connection_id: str, delete_data: bool = False) -> dict:
+def remove(connection_id: str, background: BackgroundTasks, delete_data: bool = False) -> dict:
     conn = _mine(connection_id)
     if sync.is_running(connection_id):
         raise HTTPException(409, "This source is syncing right now. Try again in a minute.")
     if conn["kind"] == "device":
         devices.revoke_for_connection(connection_id)   # the phone stops sending to a source that's gone
+    signed_in = connections.get(connection_id, include_credentials=True) if conn["kind"] == "ehr" and conn["mode"] != "simulated" else None
     if delete_data:
         records.delete_for_connection(connection_id)
     connections.disconnect(connection_id, delete_data=delete_data)
     if delete_data:
         biometrics.delete_for_connection(connection_id, conn["profile_id"])
+    if signed_in and signed_in.get("credentials"):
+        background.add_task(_end_access, signed_in)     # after the answer: the disconnect never waits on the source
     return {"ok": True}
+
+
+async def _end_access(conn: dict) -> None:
+    smart.GUARDED.set(connect.guard_for(conn))
+    await smart.revoke(conn["credentials"], conn.get("fhir_base_url"))
 
 
 class DiscoverRequest(BaseModel):
