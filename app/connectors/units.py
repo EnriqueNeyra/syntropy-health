@@ -49,11 +49,13 @@ def unit_key(unit: Optional[str]) -> str:
     """One spelling for each unit, for telling whether two results can share an axis. "" for no unit at all."""
     if not unit:
         return ""
-    u = re.sub(r"\{\s*(1\.73[^}]*)\}", r"\1", unit)     # the one annotation that's part of the unit
-    u = re.sub(r"\{[^}]*\}", "", u).strip()
-    u = re.sub(r"\s*\((?:calc|calculated|est|estimated)\)$", "", u, flags=re.I)
+    # An annotation never holds a brace (UCUM), so a stray "{" with no "}" after it is passed over at once, not scanned to the end
+    # from each one; nor does any pattern here start in a run of spaces and scan it, as a unit padded with thousands would be.
+    u = re.sub(r"\{\s*(1\.73[^{}]*)\}", r"\1", unit)     # the one annotation that's part of the unit
+    u = re.sub(r"\{[^{}]*\}", "", u).strip()
+    u = re.sub(r"\((?:calc|calculated|est|estimated)\)$", "", u, flags=re.I).rstrip()
     u = u.lower().replace("µ", "u").replace("μ", "u").replace("mcg", "ug").replace("mcmol", "umol").replace("mcl", "ul").strip()
-    u = re.sub(r"\s*/\s*", "/", u)
+    u = "/".join(side.strip() for side in u.split("/"))
     u = re.sub(r"^ml/min(?:/|\s+per\s+)1\.73.*$", "ml/min/1.73m2", u)
     return _SPELLINGS.get(u, u)
 
@@ -218,4 +220,4 @@ def _strip_annotations(unit: str) -> Optional[str]:
     """UCUM curly-brace annotations are labels, not units: "{score}" -> None, "{beats}/min" -> "/min"."""
     if "{" not in unit:
         return unit
-    return re.sub(r"\{[^}]*\}", "", unit).strip() or None
+    return re.sub(r"\{[^{}]*\}", "", unit).strip() or None
