@@ -532,7 +532,8 @@ def test_the_pages_are_drawn_here_whoever_reads_it_and_a_heic_goes_as_a_jpeg(cli
     monkeypatch.setattr(lab_report, "_heic_to_jpeg", lambda data: JPEG)
     monkeypatch.setattr(lab_report_api.lab_report, "_open_images", lambda data, kind: [report_image()])
     heic = b"\0\0\0\x18ftypheic" + b"\0" * 20
-    out = client.post("/api/labs/extract", files={"file": ("IMG_1.HEIC", heic, "image/heic")}, data={"method": "ai"}).json()
+    me = client.get("/api/status").json()["account"]["profile_id"]
+    out = client.post("/api/labs/extract", files={"file": ("IMG_1.HEIC", heic, "image/heic")}, data={"method": "ai", "profile_id": me}).json()
     assert sent == {"data": JPEG, "content_type": "image/jpeg", "filename": "IMG_1.jpg"}
     assert out["results"][0]["test"] == "Glucose" and len(out["pages"]) == 1
 
@@ -550,8 +551,9 @@ def test_reading_with_ai_without_agreeing_is_refused_and_nothing_is_sent(client,
     monkeypatch.setattr(lab_report_api.ai, "config", lambda include_key=False: {"configured": True, "provider": "claude", "sends_elsewhere": True, "vendor_key": "anthropic", "vendor_name": "Anthropic"})
     monkeypatch.setattr(lab_report_api.ai, "cloud_acknowledged", lambda *a, **k: False)
     monkeypatch.setattr(httpx.AsyncClient, "send", lambda *a, **k: (_ for _ in ()).throw(AssertionError("Sent without agreement")))
-    r = client.post("/api/labs/extract", files={"file": ("two.pdf", two_columns(), "application/pdf")}, data={"method": "ai"})
-    assert r.status_code == 400
+    me = client.get("/api/status").json()["account"]["profile_id"]
+    r = client.post("/api/labs/extract", files={"file": ("two.pdf", two_columns(), "application/pdf")}, data={"method": "ai", "profile_id": me})
+    assert r.status_code == 400 and "confirm" in r.json()["detail"]
 
 
 def test_what_a_report_says_stays_factual(client):
