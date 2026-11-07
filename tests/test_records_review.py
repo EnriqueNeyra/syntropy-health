@@ -364,3 +364,38 @@ def test_a_blood_pressure_flagged_only_on_a_part_is_flagged():
     rec = fn.normalize_observation(res)
     assert rec["interpretation"] == "high"
     assert [c.get("interpretation") for c in rec["details"]["components"]] == ["high", "normal"]
+
+
+# ---- One draw reported two ways
+
+def _lab(rid, code, value, when, unit="mL/min/{1.73_m2}"):
+    return {"resourceType": "Observation", "id": rid, "status": "final", "category": [{"coding": [{"code": "laboratory"}]}],
+            "code": {"coding": [{"system": fn.LOINC, "code": code}], "text": f"Test {code}"}, "effectiveDateTime": when,
+            "valueQuantity": {"value": value, "unit": unit, "system": "http://unitsofmeasure.org", "code": unit},
+            "referenceRange": [{"low": {"value": 60, "unit": unit}}]}
+
+
+def _catalog(*resources):
+    from app.store import connections, profiles, records
+
+    pid = profiles.list_profiles()[0]["id"]
+    conn = connections.create(pid, "import", "fhir_file", "Lab", mode="live")
+    _, recs = fn.normalize_resources(list(resources))
+    records.upsert_records(pid, conn["id"], "Lab", recs)
+    return {e["key"]: e for e in records.observation_catalog(pid)}
+
+
+def test_an_egfr_given_for_black_patients_and_for_everyone_else_is_two_tests(client):
+    """Labs gave both estimates from one draw until 2021. As one test, the draw showed as a trend between them, and the latest was a tie."""
+    cat = _catalog(_lab("a", "48642-3", 52, "2019-06-01T08:00:00Z"), _lab("b", "48643-1", 63, "2019-06-01T08:00:00Z"),
+                   _lab("c", "88294-4", 50, "2020-06-01T08:00:00Z"), _lab("d", "88293-6", 58, "2020-06-01T08:00:00Z"),
+                   _lab("e", "98979-8", 55, "2022-06-01T08:00:00Z"))
+    assert {k: (e["latest"]["value_num"], e["count"], e["trend"]) for k, e in cat.items()} == {
+        "88294-4": (50, 2, "down"), "88293-6": (58, 2, "down"), "98979-8": (55, 1, None)}
+
+
+def test_one_sample_reported_under_two_codes_for_one_test_isnt_a_change(client):
+    cat = _catalog(_lab("a", "13457-7", 100, "2025-01-01T08:00:00Z", "mg/dL"), _lab("b", "18262-6", 110, "2025-01-01T08:00:00Z", "mg/dL"))
+    assert cat["13457-7"]["count"] == 2 and cat["13457-7"]["trend"] is None
+    cat = _catalog(_lab("c", "13457-7", 130, "2024-01-01T08:00:00Z", "mg/dL"))
+    assert cat["13457-7"]["trend"] == "down"

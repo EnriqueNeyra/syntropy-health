@@ -1147,12 +1147,16 @@ def observation_catalog(profile_id: str, category: str = "labs") -> list[dict[st
         entry["count"] += 1
         if r.get("code") and r["code"] not in entry["codes"]:
             entry["codes"].append(r["code"])
-        # Only results in the latest one's unit compare with it, and a bound like "<5" isn't a level to measure a change from.
-        if _row_value(r) is not None and _unit_group(r) == _unit_group(entry["latest"]) and len(entry["values"]) < 2:
+        # Only results in the latest one's unit compare with it, and a bound like "<5" isn't a level to measure a change from. Nor is
+        # a result from the same moment: one sample reported two ways (by two codes for one test) hasn't changed.
+        if _row_value(r) is not None and _unit_group(r) == _unit_group(entry["latest"]) and len(entry["values"]) < 2 \
+                and (not entry["values"] or r.get("effective_at") != entry["since"]):
             entry["values"].append(None if _comparator(r) else _row_value(r))
+            entry["since"] = r.get("effective_at")
     out = []
     for e in catalog.values():
         vals = e.pop("values")
+        e.pop("since", None)
         e["trend"] = None
         if len(vals) == 2 and vals[0] is not None and vals[1]:
             change = (vals[0] - vals[1]) / abs(vals[1])
