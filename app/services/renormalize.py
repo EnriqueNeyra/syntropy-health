@@ -22,7 +22,7 @@ from app.core import data_fixes
 from app.core.db import audit, dumps
 from app.core.sqlite import sqlite3
 
-NAME = "records-renormalize-2"
+NAME = "records-renormalize-3"       # 3: a result with parts is flagged as its parts are
 
 _DERIVED = ("category", "title", "code_system", "code", "code_display", "effective_at", "effective_end", "status", "value_num", "value_text",
             "unit", "value_norm", "unit_norm", "ref_low", "ref_high", "ref_text", "interpretation", "details_json", "narrative", "dedup_key")

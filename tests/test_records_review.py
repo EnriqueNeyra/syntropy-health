@@ -306,3 +306,61 @@ def test_a_narrow_strip_isnt_widened_into_a_billion_pixels_for_ocr(monkeypatch, 
     monkeypatch.setattr(Image.Image, "resize", resize)
     prepared, _ = lab_report._prepare(Image.new("RGB", size, "white"), used)
     assert prepared.width * prepared.height <= 1_000_000
+
+
+# ---- A blood pressure's flags
+
+def _ccda_pressure(systolic_flag, diastolic_flag, systolic_range=""):
+    from tests.test_ccda_import import HEADER
+
+    def part(root, code, name, value, flag, ranges=""):
+        flagged = f'<interpretationCode code="{flag}" codeSystem="2.16.840.1.113883.5.83"/>' if flag else ""
+        return f"""<component><observation><id root="{root}"/><code code="{code}" codeSystem="2.16.840.1.113883.6.1" displayName="{name}"/>
+          <statusCode code="completed"/><effectiveTime value="20250210"/><value xsi:type="PQ" value="{value}" unit="mm[Hg]"/>{flagged}{ranges}
+          </observation></component>"""
+
+    return HEADER + f"""<component><structuredBody><component><section><code code="8716-3" codeSystem="2.16.840.1.113883.6.1"/>
+      <title>Vitals</title><text>v</text><entry><organizer classCode="CLUSTER" moodCode="EVN"><id root="v0"/><effectiveTime value="20250210"/>
+      {part("v1", "8480-6", "Systolic", 182, systolic_flag, systolic_range)}{part("v2", "8462-4", "Diastolic", 88, diastolic_flag)}
+      </organizer></entry></section></component></structuredBody></component></ClinicalDocument>"""
+
+
+SYSTOLIC_RANGE = """<referenceRange><observationRange><value xsi:type="IVL_PQ"><low value="90" unit="mm[Hg]"/><high value="129" unit="mm[Hg]"/>
+  </value></observationRange></referenceRange>"""
+
+
+def _pressure(raw):
+    from app.services import ccda
+
+    resources = ccda.read_upload(raw.encode(), "v.xml").resources
+    _, recs = fn.normalize_resources(resources)
+    panel = next(r for r in resources if r["resourceType"] == "Observation" and r.get("component"))
+    return panel, next(r for r in recs if r["title"] == "Blood pressure")
+
+
+@pytest.mark.parametrize("systolic_flag, diastolic_flag, systolic_range, flag", [
+    ("HH", "N", SYSTOLIC_RANGE, "critical_high"), ("H", "", "", "high"), ("N", "H", "", "high"),
+    ("", "N", SYSTOLIC_RANGE, "high"),        # flagged by its own range, as the lone systolic would have been
+    ("N", "N", "", "normal"), ("", "", "", None),
+])
+def test_a_ccda_blood_pressure_keeps_the_flags_of_its_two_parts(systolic_flag, diastolic_flag, systolic_range, flag):
+    """C-CDA has two observations where FHIR has one with two parts. Merged, the parts lost the flags and range the source gave them."""
+    panel, rec = _pressure(_ccda_pressure(systolic_flag, diastolic_flag, systolic_range))
+    assert rec["value_text"] == "182/88 mmHg" and rec["interpretation"] == flag
+    systolic, diastolic = panel["component"]
+    assert bool(systolic.get("referenceRange")) == bool(systolic_range)
+    assert bool(systolic.get("interpretation")) == bool(systolic_flag) and bool(diastolic.get("interpretation")) == bool(diastolic_flag)
+
+
+def test_a_blood_pressure_flagged_only_on_a_part_is_flagged():
+    """As Epic sends one: the panel has no flag of its own, its systolic part does."""
+    res = {"resourceType": "Observation", "id": "bp", "status": "final", "category": [{"coding": [{"code": "vital-signs"}]}],
+           "code": {"coding": [{"system": fn.LOINC, "code": "85354-6", "display": "Blood pressure"}]}, "effectiveDateTime": "2025-02-10",
+           "component": [
+               {"code": {"coding": [{"system": fn.LOINC, "code": "8480-6"}]}, "valueQuantity": {"value": 151, "unit": "mm[Hg]"},
+                "interpretation": [{"coding": [{"system": fn.V3_INTERPRETATION, "code": "H"}]}]},
+               {"code": {"coding": [{"system": fn.LOINC, "code": "8462-4"}]}, "valueQuantity": {"value": 79, "unit": "mm[Hg]"},
+                "referenceRange": [{"low": {"value": 60, "unit": "mm[Hg]"}, "high": {"value": 80, "unit": "mm[Hg]"}}]}]}
+    rec = fn.normalize_observation(res)
+    assert rec["interpretation"] == "high"
+    assert [c.get("interpretation") for c in rec["details"]["components"]] == ["high", "normal"]

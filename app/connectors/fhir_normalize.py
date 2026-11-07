@@ -469,6 +469,16 @@ def _interpretation(res: dict[str, Any], value: Optional[float], low: Optional[f
     return stated or computed
 
 
+# How far a flag is from normal, for the one a result with parts is given: its worst part's.
+FLAG_SEVERITY = {"normal": 1, "abnormal": 2, "high": 3, "low": 3, "critical": 4, "critical_high": 4, "critical_low": 4}
+
+
+def worst_flag(flags: Any) -> Optional[str]:
+    """The flag furthest from normal, the first of those as far; None when nothing was flagged."""
+    known = [f for f in flags if f in FLAG_SEVERITY]
+    return max(known, key=lambda f: FLAG_SEVERITY[f]) if known else None
+
+
 def _obs_category(res: dict[str, Any]) -> str:
     codes = set()
     for cat in res.get("category") or []:
@@ -766,6 +776,23 @@ def _range_unit(rr: dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _component_flag(comp: dict[str, Any], value: dict[str, Any], person: Optional[dict[str, Any]], when: Optional[str]) -> Optional[str]:
+    """A part's own flag, as the source gave it or from the part's own range, as a whole result's is found."""
+    chosen, _ = _choose_range([rr for rr in comp.get("referenceRange") or [] if isinstance(rr, dict)], person, when)
+    low = high = None
+    open_limit = False
+    if chosen:
+        low, high = _bounds(chosen)
+        range_unit = _range_unit(chosen)
+        written = _written_bounds(chosen) if low is None and high is None and value["num"] is not None else None
+        if written:
+            low, high, open_limit, written_unit = written
+            range_unit = written_unit or range_unit
+        if range_unit and units.unit_key(range_unit) not in (units.unit_key(value["unit"]), units.unit_key(value["convert_unit"])):
+            low = high = None       # another unit: nothing here converts a part's range
+    return _interpretation(comp, value["num"], low, high, value["comparator"], open_limit)
+
+
 def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] = None) -> Optional[dict[str, Any]]:
     """``person``: the patient's gender and birth_date when known, for choosing between ranges for different populations."""
     if (res.get("status") or "").lower() in ("entered-in-error", "cancelled"):
@@ -788,6 +815,9 @@ def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] 
                  "text": (c_value["text"] or concept_text(comp.get("dataAbsentReason")) or None) if c_value["num"] is None or c_value["comparator"] else None}
         if c_value["comparator"]:
             entry["comparator"] = c_value["comparator"]
+        flag = _component_flag(comp, c_value, person, rec["effective_at"])
+        if flag:
+            entry["interpretation"] = flag
         comps.append(entry)
 
     reported = _read_value(res)
@@ -852,6 +882,9 @@ def normalize_observation(res: dict[str, Any], person: Optional[dict[str, Any]] 
         "unit_norm": units.pretty_unit(unit_norm), "ref_low": ref_low, "ref_high": ref_high, "ref_text": ref_text,
         "interpretation": _interpretation(res, compare[0], compare[1], compare[2], comparator, open_limit),
     })
+    if rec["interpretation"] is None and not reported["present"]:
+        # A blood pressure flagged only on its systolic part is flagged: the parts are the result.
+        rec["interpretation"] = worst_flag(c.get("interpretation") for c in comps)
     details: dict[str, Any] = {"components": comps} if comps else {}
     if comparator:
         details["comparator"] = comparator
