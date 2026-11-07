@@ -152,6 +152,21 @@ def confirm_password(request: Request, account_id: Optional[str], password: Opti
     forget_failure(request, who)
 
 
+def confirm_from_phone(request: Request, principal: Optional[Principal], password: Optional[str],
+                       needed: str = "From a phone, this takes your password.") -> None:
+    """A phone's screens are signed in with its token (/api/devices/web-session), not a password, so whoever holds the
+    phone holds them. What can't be undone, or hands everyone's records to whoever asks, takes the password there as
+    well, with the same guessing limits. A browser or the desktop app signed in with it, and isn't asked again.
+    ``needed`` says so when none was sent: nothing was guessed, so it isn't counted."""
+    if principal is None or not principal.device_id:
+        return
+    if not password:
+        if principal.account_id and accounts.has_password(principal.account_id):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, needed)
+        return
+    confirm_password(request, principal.account_id, password)
+
+
 def change_password(request: Request, account_id: str, current: Optional[str], new: Optional[str]) -> None:
     confirm_password(request, account_id, current, "Current password is incorrect.")
     account = accounts.get(account_id)

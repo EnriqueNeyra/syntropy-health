@@ -112,7 +112,9 @@ def _account_summary(account: Optional[dict], principal: auth.Principal) -> Opti
     everyone = accounts.list_accounts()
     return {"id": account["id"], "name": account["name"], "profile_id": account["profile_id"], "owner": principal.owner,
             "has_password": account["has_password"], "members": len(everyone), "limited": principal.limited,
-            "owner_name": next((a["name"] for a in everyone if a["role"] == "owner"), None)}
+            "owner_name": next((a["name"] for a in everyone if a["role"] == "owner"), None),
+            # A phone's screens: what can't be undone asks for the password (auth.confirm_from_phone).
+            "confirms_with_password": bool(principal.device_id and account["has_password"])}
 
 
 # What the person acknowledges at setup (and once more when this changes): their records are on their own computer and
@@ -301,15 +303,18 @@ async def network_status(request: Request) -> dict:
 class NetworkRequest(BaseModel):
     enabled: bool
     without_password: bool = False
+    password: Optional[str] = Field(None, max_length=256)       # from a phone's own screens
 
 
-@router.put("/api/system/network", dependencies=[Depends(auth.require_owner)])
-def set_network(req: NetworkRequest) -> dict:
+@router.put("/api/system/network")
+def set_network(req: NetworkRequest, request: Request, principal: auth.Principal = Depends(auth.require_owner)) -> dict:
     """The Mac and Windows apps: listen on the home network and Tailscale too, or only on this computer. The server
     restarts on the new address a moment after this answers."""
     if not network.managed():
         raise HTTPException(409, "This server's network access is set where it's started (for example "
                                  "`syntropy-health serve --host 127.0.0.1`), not here.")
+    auth.confirm_from_phone(request, principal, req.password,
+                            "Who can reach your records is for you to change. Enter your password to do it from this phone.")
     password = auth.auth_required()
     if req.enabled and not password and not (req.without_password and auth.password_optional()):
         raise HTTPException(400, "Set a password first, so other people on your network can't open your records.")
@@ -355,9 +360,16 @@ def set_update_settings(req: UpdateSettings) -> dict:
     return updates.status()
 
 
-@router.post("/api/system/updates/install", dependencies=[Depends(auth.require_owner)])
-def install_update() -> dict:
+class ConfirmRequest(BaseModel):
+    password: Optional[str] = Field(None, max_length=256)       # from a phone's own screens
+
+
+@router.post("/api/system/updates/install")
+def install_update(request: Request, req: Optional[ConfirmRequest] = None,
+                   principal: auth.Principal = Depends(auth.require_owner)) -> dict:
     """The Mac and Windows apps: download and install the latest release, then open again."""
+    auth.confirm_from_phone(request, principal, req.password if req else None,
+                            "Installing an update restarts Syntropy Health. Enter your password to do it from this phone.")
     try:
         result = updates.install()
     except ValueError as exc:
