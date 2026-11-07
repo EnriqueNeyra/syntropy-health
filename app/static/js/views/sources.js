@@ -463,21 +463,20 @@ function importZones() {
     <div id="imp-status" class="src-drop-status" role="status"></div>`;
 }
 
-async function uploadApple(file, profile, statusEl, refresh, left) {
+async function uploadApple(file, profile, show, refresh, left) {
   const form = new FormData();
   form.append("file", file);
   form.append("profile_id", profile.id);
-  mount(statusEl, html`<div class="small">Uploading ${file.name}…</div><div class="progress working"><div></div></div>`);
+  show(html`<div class="small">Uploading ${file.name}…</div><div class="progress working"><div></div></div>`);
   const { job_id } = await api("/api/imports/apple-health", { method: "POST", form });
-  await watchImport(job_id, statusEl, refresh, left);
+  await watchImport(job_id, show, refresh, left);
 }
 
-// How the last import went. The page is drawn again once it's done, and this stays on it.
-let importNote = null;
-
-/** What became of an import: progress while it runs, then how it went. Also picks one up again after leaving the page. */
-async function watchImport(job_id, statusEl, refresh, left) {
-  importNote = null;
+/**
+ * What became of an import: progress while it runs, then how it went. Also picks one up again after leaving the page.
+ * `show` puts it in the page's import box, whichever box that is by then: the list is drawn again while an import runs.
+ */
+async function watchImport(job_id, show, refresh, left) {
   let misses = 0;
   for (;;) {
     await new Promise((r) => setTimeout(r, 800));
@@ -490,7 +489,7 @@ async function watchImport(job_id, statusEl, refresh, left) {
       if (err.status || ++misses > 10) throw err;
       continue;
     }
-    if (job.status === "error" || job.status === "interrupted") { mount(statusEl, html`<div class="banner bad">${job.error}</div>`); return; }
+    if (job.status === "error" || job.status === "interrupted") { show(html`<div class="banner bad">${job.error}</div>`); return; }
     if (job.status === "completed") {
       const r = job.result || {};
       const leftAside = Object.values(r.types?.skipped || {}).reduce((a, b) => a + b, 0);
@@ -498,14 +497,13 @@ async function watchImport(job_id, statusEl, refresh, left) {
         r.rejected ? `Couldn't be read: ${plural(r.rejected, "row")}.` : "",
         r.clinical?.not_read ? `Couldn't be read: ${plural(r.clinical.not_read, "health record")}.` : "",
         leftAside ? `Skipped, as Syntropy Health doesn't use these kinds of record: ${plural(leftAside, "record")}.` : ""].filter(Boolean).join(" ");
-      importNote = html`<div class="banner ${r.warning ? "warn" : "info"}">${icon(r.warning ? "alert" : "check")}<div class="grow">Imported ${plural(r.inserted || 0, "new sample")} (${plural(r.samples || 0, "sample")} read)${r.clinical ? ` and ${plural(r.clinical.records, "clinical record")}` : ""}.
+      show(html`<div class="banner ${r.warning ? "warn" : "info"}">${icon(r.warning ? "alert" : "check")}<div class="grow">Imported ${plural(r.inserted || 0, "new sample")} (${plural(r.samples || 0, "sample")} read)${r.clinical ? ` and ${plural(r.clinical.records, "clinical record")}` : ""}.
         ${r.warning ? html`<div>${r.warning}</div>` : ""}${notes ? html`<div class="small muted">${notes}</div>` : ""}
-        ${r.skipped_files?.length ? html`<p class="small">Left out because they're far larger than an export's files should be: ${r.skipped_files.join(", ")}.</p>` : ""}</div></div>`;
-      mount(statusEl, importNote);
+        ${r.skipped_files?.length ? html`<p class="small">Left out because they're far larger than an export's files should be: ${r.skipped_files.join(", ")}.</p>` : ""}</div></div>`);
       refresh();
       return;
     }
-    mount(statusEl, html`<div class="small">Importing… ${plural(job.processed, "sample")} processed</div><div class="progress working"><div></div></div>`);
+    show(html`<div class="small">Importing… ${plural(job.processed, "sample")} processed</div><div class="progress working"><div></div></div>`);
   }
 }
 
@@ -631,18 +629,24 @@ export async function render({ el, params, state, navigate }) {
     if (all.some((c) => c.syncing)) pollTimer = setTimeout(() => refresh(true).catch(() => { if (!gone) pollTimer = setTimeout(() => refresh(true), 5000); }), 1500);
   };
 
+  // What the import box says: progress, then how the last import went. The list is drawn again while an import runs
+  // (a source syncing) and once it's done, so it's kept here and put back in the box each time, never in one now gone.
+  let importNote = "";
+  const showImport = (content) => {
+    importNote = content || "";
+    mount($("#imp-status", el), importNote);
+  };
+
   // An import in progress, or one a restart cut off in the last day, is found again rather than forgotten with the page.
   let importLookedFor = false;
-  importNote = null;
   const resumeImport = async () => {
     if (importLookedFor) return;
     importLookedFor = true;
     const { imports = [] } = await get("/api/imports", { profile: profile.id }, { fresh: true }).catch(() => ({}));
     const job = imports[0];
-    const box = $("#imp-status", el);
-    if (!job || !box || gone) return;
-    if (["queued", "running"].includes(job.status)) watchImport(job.id, box, () => refresh(true), () => gone).catch(() => {});
-    else if (job.status === "interrupted" && job.finished_at > Date.now() / 1000 - 86400) mount(box, html`<div class="banner warn">${icon("alert")}<div class="grow">${job.filename}: ${job.error}</div></div>`);
+    if (!job || !$("#imp-status", el) || gone) return;
+    if (["queued", "running"].includes(job.status)) watchImport(job.id, showImport, () => refresh(true), () => gone).catch(() => {});
+    else if (job.status === "interrupted" && job.finished_at > Date.now() / 1000 - 86400) showImport(html`<div class="banner warn">${icon("alert")}<div class="grow">${job.filename}: ${job.error}</div></div>`);
   };
 
   let arriving = null;
@@ -691,11 +695,11 @@ export async function render({ el, params, state, navigate }) {
     if (location.hash.startsWith("#/sources")) history.replaceState(null, "", "#/sources");
   };
 
-  const importFhir = async (file, status) => {
+  const importFhir = async (file) => {
     const form = new FormData();
     form.append("file", file);
     form.append("profile_id", profile.id);
-    mount(status, html`<div class="small"><span class="spinner"></span> Importing ${file.name}…</div>`);
+    showImport(html`<div class="small"><span class="spinner"></span> Importing ${file.name}…</div>`);
     try {
       const r = await api("/api/imports/fhir", { method: "POST", form });
       const kept = r.kept_both ? ` ${plural(r.kept_both, "record")} differed from what's here, so both were kept.` : "";
@@ -703,24 +707,23 @@ export async function render({ el, params, state, navigate }) {
       if (r.already_imported) toast("This file has already been imported, so nothing changed.");
       else if (r.matched_earlier) toast(`Updated the earlier import from this source: ${plural(r.inserted, "new record")}, ${plural(r.updated, "change")}${r.removed ? `, ${r.removed} taken back` : ""}`, "good");
       else toast(`Imported ${plural(r.inserted, "new record")}.${again}${kept}`, "good");
+      // Kept for the list drawn again with the new file in it.
+      showImport(r.warnings?.length ? html`<div class="banner warn"><div class="grow"><b>Imported ${plural(r.records, "record")}, with something to check.</b>
+        ${r.warnings.map((w) => html`<p>${w}</p>`)}</div></div>` : "");
       await refresh();
-      // After the refresh, which redraws what's around it.
-      if (r.warnings?.length) mount(status, html`<div class="banner warn"><div class="grow"><b>Imported ${plural(r.records, "record")}, with something to check.</b>
-        ${r.warnings.map((w) => html`<p>${w}</p>`)}</div></div>`);
-    } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
+    } catch (err) { showImport(html`<div class="banner bad">${err.message}</div>`); }
   };
-  const importApple = async (file, status) => {
-    try { await uploadApple(file, profile, status, refresh, () => gone); } catch (err) { mount(status, html`<div class="banner bad">${err.message}</div>`); }
+  const importApple = async (file) => {
+    try { await uploadApple(file, profile, showImport, refresh, () => gone); } catch (err) { showImport(html`<div class="banner bad">${err.message}</div>`); }
   };
 
   const importLabReport = (file) => openLabEntry(profile, (address) => navigate(address), { file });
 
   const wireUploads = () => {
-    const status = $("#imp-status", el);
-    if (importNote && status) mount(status, importNote);
+    if (importNote) mount($("#imp-status", el), importNote);
     // The value is cleared each time, so choosing the same file again after a failure counts as a choice.
-    $("#imp-apple", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importApple(file, status); });
-    $("#imp-fhir", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importFhir(file, status); });
+    $("#imp-apple", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importApple(file); });
+    $("#imp-fhir", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importFhir(file); });
     $("#imp-lab", el)?.addEventListener("change", (e) => { const file = e.target.files[0]; e.target.value = ""; if (file) importLabReport(file); });
     // Drag a file onto a box.
     for (const zone of el.querySelectorAll("[data-drop]")) {
@@ -731,7 +734,7 @@ export async function render({ el, params, state, navigate }) {
         zone.classList.remove("over");
         const file = e.dataTransfer.files[0];
         if (file && zone.dataset.drop === "lab") importLabReport(file);
-        else if (file) (zone.dataset.drop === "apple" ? importApple : importFhir)(file, status);
+        else if (file) (zone.dataset.drop === "apple" ? importApple : importFhir)(file);
       });
     }
   };
