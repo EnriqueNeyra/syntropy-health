@@ -129,3 +129,78 @@ async def test_a_medication_sent_only_as_a_reference_is_read_and_named_during_a_
     assert [u.path for u in fhir_server.asked if "/Medication/" in u.path] == ["/fhir/Medication/m1"]
     _, recs = fn.normalize_resources([out.patient] + out.resources)
     assert [r["title"] for r in recs if r["category"] == "medications"] == ["Lisinopril 10 mg"]
+
+
+LAB = [{"coding": [{"code": "laboratory"}]}]
+LABS = "Observation?category=laboratory"
+PAGE_2 = f"{BASE}/Observation?page=2&category=laboratory"
+
+
+def _labs_then(page_2):
+    """Labs on two pages, the second answered by ``page_2``: the first page's lab is o1."""
+    import httpx
+
+    def handler(request):
+        query = dict(request.url.params)
+        if request.url.path.endswith("/Observation") and query.get("category") == "laboratory" and "page" not in query:
+            return httpx.Response(200, json={"resourceType": "Bundle", "link": [{"relation": "next", "url": PAGE_2}], "entry": [
+                {"resource": {"resourceType": "Observation", "id": "o1", "status": "final", "category": LAB}}]})
+        if query.get("page") == "2":
+            return page_2()
+        return None
+    return handler
+
+
+@pytest.mark.parametrize("status, body", [
+    (200, {"resourceType": "OperationOutcome", "issue": [{"severity": "information", "code": "informational", "diagnostics": "Paging session expired"}]}),
+    (200, {"resourceType": "OperationOutcome", "issue": [{"severity": "warning", "code": "processing"}]}),
+    (410, {"resourceType": "OperationOutcome", "issue": [{"severity": "information", "code": "informational"}]}),
+    (404, {"resourceType": "OperationOutcome", "issue": [{"severity": "error", "code": "not-found"}]}),
+    (400, {}), (403, {}), (422, {}),
+    (200, {"resourceType": "Parameters"}),
+])
+async def test_a_later_page_that_fails_leaves_the_search_unfinished(fhir_server, status, body):
+    """A page after the first answered with anything but a Bundle, or refused, isn't the end of the results: what was stored from
+    the pages not read is kept, the source isn't said not to offer labs, and the next sync carries on from that page."""
+    import httpx
+
+    from app.connectors import smart
+    from app.services import sync
+
+    fhir_server.handler = _labs_then(lambda: httpx.Response(status, json=body))
+    out = await smart.FhirClient(BASE, {"access_token": "t"}, "p").fetch_all({})
+    assert out.status[LABS].startswith("error:")
+    assert out.counts[LABS] == 1
+    assert out.prune_verdict({"resourceType": "Observation", "id": "o2", "status": "final", "category": LAB}) == "keep"
+    assert out.state()[LABS]["next_url"] == PAGE_2
+    described = next(d for d in sync.describe_queries([{"stats": {"queries": out.status, "counts": out.counts}}]) if d["query"] == LABS)
+    assert not described["ok"] and "try again" in described["words"]
+
+
+async def test_the_next_sync_carries_on_from_the_page_that_failed(fhir_server):
+    import httpx
+
+    from app.connectors import smart
+
+    pages = iter([httpx.Response(410, json={}), httpx.Response(200, json={"resourceType": "Bundle", "entry": [
+        {"resource": {"resourceType": "Observation", "id": "o2", "status": "final", "category": LAB}}]})])
+    fhir_server.handler = _labs_then(lambda: next(pages))
+    first = await smart.FhirClient(BASE, {"access_token": "t"}, "p").fetch_all({})
+    second = await smart.FhirClient(BASE, {"access_token": "t"}, "p").fetch_all(first.state())
+    assert "o2" in {r.get("id") for r in second.resources}
+    assert second.state()[LABS]["next_url"] is None
+
+
+async def test_a_first_page_that_says_there_is_nothing_is_still_an_answer(fhir_server):
+    import httpx
+
+    from app.connectors import smart
+
+    def handler(request):
+        if request.url.path.endswith("/Observation") and request.url.params.get("category") == "laboratory":
+            return httpx.Response(200, json={"resourceType": "OperationOutcome", "issue": [{"severity": "information", "code": "informational"}]})
+        return None
+
+    fhir_server.handler = handler
+    out = await smart.FhirClient(BASE, {"access_token": "t"}, "p").fetch_all({})
+    assert out.status[LABS] == "empty"
