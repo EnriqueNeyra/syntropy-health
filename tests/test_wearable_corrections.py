@@ -927,6 +927,25 @@ def test_a_reading_removed_here_doesnt_come_back(client):
     assert _daily(profile, "body_mass")[day]["value"] == 25
 
 
+def test_a_reading_removed_here_doesnt_come_back_by_another_path(client):
+    profile = _profile(client)
+    _set_zone(client, "UTC")
+    d = (TODAY - timedelta(days=3)).isoformat()
+    # The phone sends a weight that's wrong (a child on the scale), and the person removes it.
+    biometrics.insert_samples(profile, None, [_s("8F1C-UUID", "body_mass", 25.0, start=f"{d}T07:00:00Z", source="Withings", unit="kg")])
+    assert biometrics.delete_sample(profile, "8F1C-UUID")
+    # The same reading in an export.xml import, under that path's own id, and in an export automation (in pounds, rounded).
+    r = biometrics.insert_samples(profile, None, [
+        _s("ah-0123456789abcdef01234567", "body_mass", 25.0, start=f"{d}T07:00:00Z", source="Withings", unit="kg", strict_units=True),
+        _s("hx_0123456789abcdef01234567", "body_mass", 55.1, start=f"{d}T07:00:00Z", source="Withings", unit="lb", strict_units=True)])
+    assert r["inserted"] == 0
+    assert d not in _daily(profile, "body_mass")
+    # A different reading at that moment, or the same one from another scale, is a reading of its own.
+    r = biometrics.insert_samples(profile, None, [_s("ah-1", "body_mass", 71.0, start=f"{d}T07:00:00Z", source="Withings", unit="kg"),
+                                                  _s("ah-2", "body_mass", 25.0, start=f"{d}T07:00:00Z", source="Eufy", unit="kg")])
+    assert r["inserted"] == 2
+
+
 def test_a_phone_can_say_what_was_deleted_for_its_own_person_only(client):
     alex = _profile(client)
     jordan = client.post("/api/profiles", json={"name": "Jordan", "relationship": "partner"}).json()["id"]
