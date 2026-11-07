@@ -1278,3 +1278,13 @@ def test_a_password_saved_in_an_address_before_is_shown_to_no_one_and_still_used
     # Saving the form as it's shown changes the model and keeps the address.
     assert owner.put("/api/ai/config", json={"provider": "local", "base_url": shown, "model": "m2"}).status_code == 200
     assert ai.config(include_key=True)["base_url"] == saved and ai.config()["model"] == "m2"
+
+
+def test_reading_a_report_with_an_outside_ai_says_whose_it_is(raw_client, vendor):
+    client, maria, maria_id = _app_with_people(raw_client)
+    _connect(client)                    # the uploader has agreed; Maria hasn't
+    r = client.post("/api/labs/extract", files={"file": ("r.png", b"x", "image/png")}, data={"method": "ai"})
+    assert r.status_code == 400 and "whose report" in r.json()["detail"] and vendor.bodies == []
+    with pytest.raises(ai.AIError, match="whose report"):
+        asyncio.run(ai.extract_lab_results(b"x", "image/png", "r.png", None))
+    assert vendor.bodies == []

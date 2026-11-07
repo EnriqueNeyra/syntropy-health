@@ -1876,9 +1876,10 @@ async def extract_lab_results(data: bytes, content_type: str, filename: str,
     if cfg["provider"] == "agent":
         raise AIError("Reading reports needs a local model or an API key; agents can't read files here. Choose one in "
                       "Settings → AI, or enter results by hand.")
+    if cfg.get("sends_elsewhere") and not profile_id:
+        raise AIError("Say whose report this is: whoever it's about agrees before it goes to an AI outside your network.")
     if cfg.get("sends_elsewhere") and not cloud_acknowledged(cfg["vendor_key"], profile_id):
-        other = _someone_elses_agreement(profile_id, cfg["vendor_name"]) if profile_id else None
-        raise AIError(other or CLOUD_ACK_NEEDED.format(name=cfg["vendor_name"]))
+        raise AIError(_someone_elses_agreement(profile_id, cfg["vendor_name"]) or CLOUD_ACK_NEEDED.format(name=cfg["vendor_name"]))
     if len(data) > MAX_REPORT_BYTES:
         raise AIError("That file is larger than 15 MB.")
     is_pdf = content_type == "application/pdf" or filename.lower().endswith(".pdf")

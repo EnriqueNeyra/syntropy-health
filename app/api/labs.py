@@ -293,8 +293,11 @@ async def extract(file: UploadFile = File(...), method: str = Form("local"), pro
     content_type, filename = file.content_type or "", file.filename or ""
     try:
         if method == "ai":
-            # An outside AI needs the agreement of the person the report is about.
-            subject = (await run_in_threadpool(resolve_profile, profile_id))["id"] if profile_id else None
+            # An outside AI needs the agreement of the person the report is about, so whose it is has to be said: the
+            # uploader's own agreement doesn't cover someone else's report.
+            if not profile_id:
+                raise HTTPException(400, "Say whose report this is before it's read with an AI.")
+            subject = (await run_in_threadpool(resolve_profile, profile_id))["id"]
             sent, sent_type, sent_name = await run_in_threadpool(lab_report.for_ai, data, content_type, filename)
             out = await ai.extract_lab_results(sent, sent_type, sent_name, subject)
             # The pages to check it against are drawn here, whoever did the reading.
