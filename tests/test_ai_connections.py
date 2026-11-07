@@ -328,3 +328,25 @@ def test_gemini_cli_keeps_nothing_of_a_question_that_ran_out_of_time(client, fak
     events = _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "What is my A1c?"}]}))
     assert events[0]["type"] == "error" and "took longer" in events[0]["message"] and time.monotonic() - started < 15
     assert _left(fake_gemini) == (["garden", "live"], ["garden", "live"])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_claude_code_leaves_out_the_persons_own_instructions(client, fake_tools, monkeypatch):
+    monkeypatch.setenv("FAKE_HELP", "--system-prompt-file --setting-sources")
+    monkeypatch.setattr(ai_agents, "_help_cache", {})
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "claude", "acknowledged": True})
+    _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+    args = json.loads(fake_tools.read_text())["args"]
+    assert args[args.index("--setting-sources") + 1] == "project,local"     # not "user": no ~/.claude/CLAUDE.md
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_gemini_cli_leaves_out_the_persons_own_instructions_where_it_can_and_says_where_not(client, fake_gemini, fake_tools, monkeypatch):
+    monkeypatch.setenv("FAKE_HELP", "--extensions")
+    client.put("/api/ai/config", json={"provider": "agent", "agent": "gemini", "acknowledged": True})
+    _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "Hi"}]}))
+    run = json.loads(fake_tools.read_text())
+    assert run["args"][run["args"].index("--extensions") + 1] == "none"
+    assert run["settings"]["context"]["fileName"] == ai_agents.NO_CONTEXT_FILE
+    gemini = next(a for a in client.get("/api/ai/agents").json()["agents"] if a["id"] == "gemini")
+    assert "GEMINI.md" in gemini["terms"]
