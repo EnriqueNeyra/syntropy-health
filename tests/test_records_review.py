@@ -399,3 +399,28 @@ def test_one_sample_reported_under_two_codes_for_one_test_isnt_a_change(client):
     assert cat["13457-7"]["count"] == 2 and cat["13457-7"]["trend"] is None
     cat = _catalog(_lab("c", "13457-7", 130, "2024-01-01T08:00:00Z", "mg/dL"))
     assert cat["13457-7"]["trend"] == "down"
+
+
+# ---- A time a source gave without an offset
+
+def test_a_time_without_an_offset_is_filtered_by_the_day_it_says(client, monkeypatch):
+    """01:30 on 2 March with no offset is a time on the clock where it happened: it's the 2nd, as its date is, though 01:30 UTC is
+    still the 1st in New York. It was compared as UTC with New York's midnight, so it fell on the wrong day."""
+    from app.core import settings
+    from app.store import connections, profiles, records
+
+    monkeypatch.setattr(settings, "timezone_name", lambda: "America/New_York")
+    pid = profiles.list_profiles()[0]["id"]
+    conn = connections.create(pid, "import", "fhir_file", "Lab", mode="live")
+    times = {"late": "2025-03-01T23:30:00", "early": "2025-03-02T01:30:00", "evening": "2025-03-02T22:30:00",
+             "after": "2025-03-03T00:30:00", "zoned": "2025-03-02T03:00:00Z", "day": "2025-03-02"}
+    _, recs = fn.normalize_resources([_lab(rid, "2345-7", 90, when, "mg/dL") for rid, when in times.items()])
+    records.upsert_records(pid, conn["id"], "Lab", recs)
+
+    def ids(**bounds):
+        return {r["resource_id"] for r in records.list_records(pid, "labs", dedupe=False, **bounds)["items"]}
+
+    assert ids(since="2025-03-02", until="2025-03-02") == {"early", "evening", "day"}      # 03:00Z is 22:00 on the 1st in New York
+    assert ids(since="2025-03-02T06:00:00Z", until="2025-03-03T04:00:00Z") == {"early", "evening", "day"}   # 01:00 to 23:00 there
+    assert ids(until="2025-03-01") == {"late", "zoned"}
+

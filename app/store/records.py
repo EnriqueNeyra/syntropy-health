@@ -609,12 +609,21 @@ def _dedupe(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-def _local_midnight_utc(day: date) -> str:
+def _local_zone() -> ZoneInfo:
     try:
-        tz = ZoneInfo(settings.timezone_name())
+        return ZoneInfo(settings.timezone_name())
     except Exception:  # noqa: BLE001
-        tz = ZoneInfo("UTC")
-    return datetime(day.year, day.month, day.day, tzinfo=tz).astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        return ZoneInfo("UTC")
+
+
+def _local_midnight_utc(day: date) -> str:
+    return datetime(day.year, day.month, day.day, tzinfo=_local_zone()).astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _on_the_clock(value: str) -> str:
+    """A bound as the time on the person's clock, to compare with a time a source gave without an offset."""
+    moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return (moment.astimezone(_local_zone()).replace(tzinfo=None) if moment.tzinfo else moment).isoformat(timespec="seconds")
 
 
 def _parse_bound(value: Optional[str]) -> tuple[Optional[date], bool]:
@@ -629,9 +638,12 @@ def _parse_bound(value: Optional[str]) -> tuple[Optional[date], bool]:
         return None, False
 
 
-# A record's time as stored, which can carry any offset, or be just a date (a whole day, and not in any time zone).
+# A record's time as stored, which can carry any offset, or be just a date (a whole day, and not in any time zone), or be a time
+# with no offset. That's the time on the clock where it happened, so like a date it's compared with the time on the person's clock,
+# and never as if it were UTC: 01:00 on the 2nd in New York is the 2nd there, though it's 06:00 on the 2nd in UTC.
 _WHEN = "coalesce(datetime(effective_at), effective_at)"
 _DATE_ONLY = "length(effective_at) <= 10"
+_NO_OFFSET = "(upper(substr(effective_at, -1)) != 'Z' AND substr(effective_at, -6, 1) NOT IN ('+', '-'))"
 
 
 def _since_clause(since: Optional[str]) -> tuple[str, list[Any]]:
@@ -642,8 +654,8 @@ def _since_clause(since: Optional[str]) -> tuple[str, list[Any]]:
         return "effective_at >= ?", [since]
     if not day or day.year == date.min.year:
         return "", []
-    return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at >= ? ELSE {_WHEN} >= datetime(?) END)",
-            [day.isoformat(), _local_midnight_utc(day) if plain else since])
+    return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at >= ? WHEN {_NO_OFFSET} THEN {_WHEN} >= datetime(?) ELSE {_WHEN} >= datetime(?) END)",
+            [day.isoformat(), day.isoformat() if plain else _on_the_clock(since), _local_midnight_utc(day) if plain else since])
 
 
 def _until_clause(until: Optional[str]) -> tuple[str, list[Any]]:
@@ -655,9 +667,10 @@ def _until_clause(until: Optional[str]) -> tuple[str, list[Any]]:
     if not day or day.year == date.max.year:
         return "", []
     if plain:
-        return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? ELSE {_WHEN} < datetime(?) END)",
-                [day.isoformat(), _local_midnight_utc(day + timedelta(days=1))])
-    return f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? ELSE {_WHEN} <= datetime(?) END)", [day.isoformat(), until]
+        return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? WHEN {_NO_OFFSET} THEN {_WHEN} < datetime(?) ELSE {_WHEN} < datetime(?) END)",
+                [day.isoformat(), (day + timedelta(days=1)).isoformat(), _local_midnight_utc(day + timedelta(days=1))])
+    return (f"(CASE WHEN {_DATE_ONLY} THEN effective_at <= ? WHEN {_NO_OFFSET} THEN {_WHEN} <= datetime(?) ELSE {_WHEN} <= datetime(?) END)",
+            [day.isoformat(), _on_the_clock(until), until])
 
 
 # Narrowing by what's been added to an entry: a document kept with it, or the person's own words.
