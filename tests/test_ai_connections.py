@@ -350,3 +350,47 @@ def test_gemini_cli_leaves_out_the_persons_own_instructions_where_it_can_and_say
     assert run["settings"]["context"]["fileName"] == ai_agents.NO_CONTEXT_FILE
     gemini = next(a for a in client.get("/api/ai/agents").json()["agents"] if a["id"] == "gemini")
     assert "GEMINI.md" in gemini["terms"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_only_an_owner_can_make_the_server_look_for_agents_again_and_not_over_and_over(raw_client, fake_tools, monkeypatch):
+    from tests.test_access_matrix import _app_with_people
+    owner, maria, _ = _app_with_people(raw_client)
+    started = []
+    real = ai_agents._run_quick
+    monkeypatch.setattr(ai_agents, "_run_quick", lambda args, *rest, **kw: (started.append(args), real(args, *rest, **kw))[1])
+    assert owner.get("/api/ai/agents").json()["agents"][0]["installed"]
+    looked = len(started)
+    assert looked
+    for _ in range(3):
+        maria.get("/api/ai/agents", params={"refresh": True})
+        owner.get("/api/ai/agents", params={"refresh": True})        # just looked
+    assert len(started) == looked
+    now = time.time()
+    monkeypatch.setattr(ai_agents.time, "time", lambda: now + ai_agents.REFRESH_MIN_S + 1)
+    maria.get("/api/ai/agents", params={"refresh": True})
+    assert len(started) == looked
+    owner.get("/api/ai/agents", params={"refresh": True})
+    assert len(started) == 2 * looked
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tools are shell scripts")
+def test_looking_for_agents_at_once_looks_once(fake_tools, monkeypatch):
+    import threading
+    started = []
+    real = ai_agents._run_quick
+
+    def slow(args, *rest, **kw):
+        started.append(args)
+        time.sleep(0.05)
+        return real(args, *rest, **kw)
+    monkeypatch.setattr(ai_agents, "_run_quick", slow)
+    ai_agents.detect(True)
+    once = len(started)
+    monkeypatch.setattr(ai_agents, "_detected", (0.0, []))
+    threads = [threading.Thread(target=ai_agents.detect, args=(True,)) for _ in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(started) == 2 * once
