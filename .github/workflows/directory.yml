@@ -8,8 +8,8 @@ name: Directory refresh
 # Installed apps get the new directory with their next update.
 #
 # It then checks that every Epic, Oracle Health and eClinicalWorks health system still reaches its sign-in
-# (scripts/check_sign_in.py, with a headless Chrome pass for sites that turn away scripts; about three hours, most of it
-# eClinicalWorks's 17,000 practices) and records the ones that don't in app/data/sign_in_status.json, so the app warns
+# (scripts/check_sign_in.py, with a headless Chrome pass for sites that turn away scripts; about twenty minutes, most of
+# it eClinicalWorks's 18,000 practices) and records the ones that don't in app/data/sign_in_status.json, so the app warns
 # before sending someone to a sign-in that won't work.
 #
 # A vendor that can't be refreshed keeps its last list. The others carry on, and the job fails at the end, saying which.

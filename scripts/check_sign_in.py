@@ -1,7 +1,7 @@
 """
 Checks that every Epic, Oracle Health and eClinicalWorks health system in the directory takes a patient to its sign-in.
 
-    ./run.sh check-sign-in                     # every health system (eClinicalWorks's 17,000 practices take ~2.5 hours)
+    ./run.sh check-sign-in                     # every health system (about twenty minutes, most of it eClinicalWorks's)
     ./run.sh check-sign-in --platform epic     # one vendor's: epic, cerner (Oracle Health) or healow (eClinicalWorks)
     ./run.sh check-sign-in --only kaiser       # names containing "kaiser"
     ./run.sh check-sign-in --json report.json  # also save every result
@@ -35,9 +35,14 @@ before sending someone to a sign-in that won't work: when the check ran (``check
 date it was first seen failing (``since``), and other listings of the same health system that work (``instead``, by name:
 UPMC → UPMC Patient Portal). ``blocked`` and ``unclear`` servers aren't recorded, since nobody knows they're broken. An
 ``unreachable`` one waits under ``watching`` until it fails a second week running: one bad night isn't worth a warning.
+Because a blocked server isn't recorded, a vendor turning the checker away (rate-limiting it, say) would quietly drop real
+warnings, so a run where too many of one vendor's servers were blocked leaves the file as it was.
+
+Servers on one host are checked a few at a time, more on a vendor's host that serves many health systems (all of
+eClinicalWorks's practices are on one), and every check shares one pool of connections.
 
 Exits with status 1 when any health system isn't ``ok``. With ``--write-status`` a failing health system is what the file
-is for, so only a crash does.
+is for, so only a crash, or a run too many servers turned away, does.
 """
 
 from __future__ import annotations
@@ -71,9 +76,14 @@ RECORDED = ("portal_error", "error_page", "unreachable", "client_unknown", "reje
 SECOND_WEEK = ("unreachable",)
 REFUSALS = (401, 403, 407, 429, 451)     # an answer, and about whoever's asking rather than the server
 MAX_HOPS = 20
-CONCURRENCY = 6
-PER_HOST = 2
+CONCURRENCY = 24
+PER_HOST = 2                   # at once on one health system's own server
+SHARED_HOST = 8                # at once on a vendor's host that serves many health systems
+SHARED_AT = 50                 # servers on one host that make it a vendor's shared one
 RETRY_DELAYS = (2.0, 6.0)      # a busy name resolver or a moment's 503 isn't the health system's fault
+RETRY_AFTER_MAX = 30.0         # the longest a 429's Retry-After is waited for
+MOST_BLOCKED = 0.02            # --write-status keeps the last file when more of one vendor's servers than this were blocked,
+BLOCKED_FLOOR = 20             # and more than this many
 
 # A real browser runs these; following them is how Kaiser's pages reach sign-in.
 _SCRIPT_REDIRECT = re.compile(r"""(?:(?:top|window|document)\.)?location(?:\.href)?\s*=\s*['"]([^'"]+)['"]"""
@@ -91,6 +101,12 @@ _ERROR = ("page not found", "needs some care", "oauth2 error", "invalid_client",
           "invalid request")     # eClinicalWorks practices without patient access
 _ERROR_TITLE = ("error", "not found", "access denied", "unavailable", "needs some care")
 _CLIENT_ERROR = ("oauth2 error", "invalid_client", "unauthorized_client", "unknown-client", "invalid client")
+# What a page shows is what decides whether it's an error page: Oracle Health's sign-in page carries its whole script,
+# "An error occurred while setting a property" included.
+_HIDDEN = re.compile(r"<(script|style|noscript)\b.*?</\1\s*>", re.I | re.S)
+# Pages a browser shows just as the first pass found them, so Chrome isn't asked again: eClinicalWorks's own page for
+# a practice that doesn't offer patients online access (Chrome agreed on all 1,072 of them on 3 November 2026).
+_SETTLED = (("/apps/jsp/fhir/error.jsp", "invalid request"),)
 
 
 @dataclass
@@ -116,6 +132,17 @@ def _looks_like_sign_in(title: str, has_password: bool) -> bool:
     return not any(s in lower for s in _ERROR_TITLE) and (has_password or any(s in lower for s in _SIGN_IN_TITLE))
 
 
+def _shows_an_error(title: str, text: str) -> bool:
+    return any(s in _HIDDEN.sub(" ", text).lower() for s in _ERROR) or any(s in title.lower() for s in _ERROR_TITLE)
+
+
+def _settled(result: Result) -> bool:
+    """A first-pass answer that opening the page in Chrome wouldn't change."""
+    last = result.hops[-1] if result.hops else ""
+    return result.status == "error_page" and any(last.endswith(path) and title in result.detail.lower()
+                                                 for path, title in _SETTLED)
+
+
 def _page_redirect(url: str, text: str) -> Optional[str]:
     """The next address a browser would load from a page that redirects by script or meta refresh."""
     head = _NOSCRIPT.sub("", text[:20000])      # a browser with scripts on ignores these fallbacks (Mercy's loop)
@@ -135,12 +162,21 @@ def _page_redirect(url: str, text: str) -> Optional[str]:
     return None
 
 
+def _retry_after(resp: httpx.Response) -> float:
+    try:
+        return min(float(resp.headers.get("retry-after", 0)), RETRY_AFTER_MAX)
+    except ValueError:      # a date instead of seconds
+        return 0.0
+
+
 async def _get(client: httpx.AsyncClient, url: str, **kwargs: Any) -> httpx.Response:
+    """A GET that tries again after a moment's 502, 503 or 504, or a 429 (as long as it asks, within reason)."""
     for delay in (*RETRY_DELAYS, None):
         try:
             resp = await client.get(url, **kwargs)
-            if resp.status_code not in (502, 503, 504) or delay is None:
+            if resp.status_code not in (429, 502, 503, 504) or delay is None:
                 return resp
+            delay = max(delay, _retry_after(resp))
         except httpx.TransportError:
             if delay is None:
                 raise
@@ -206,8 +242,9 @@ async def check_server(base: str, client_id: str, redirect_uri: str,
             text = resp.text
             lower = text.lower()
             title = _title(text)
-            if resp.status_code == 403 and urlparse(url).hostname != authorize_host:
-                result.status, result.detail = "blocked", f"HTTP 403 at {_where(url)}" + (f" ({title})" if title else "")
+            if resp.status_code == 429 or (resp.status_code == 403 and urlparse(url).hostname != authorize_host):
+                result.status = "blocked"
+                result.detail = f"HTTP {resp.status_code} at {_where(url)}" + (f" ({title})" if title else "")
                 return result
             if resp.status_code >= 400:
                 result.status = "client_unknown" if at_authorize and any(s in lower for s in _CLIENT_ERROR) else "portal_error"
@@ -225,7 +262,7 @@ async def check_server(base: str, client_id: str, redirect_uri: str,
                 continue
             if sign_in:
                 result.status, result.detail = "ok", f"{_where(url)}: {title}"
-            elif any(s in lower for s in _ERROR) or any(s in title.lower() for s in _ERROR_TITLE):
+            elif _shows_an_error(title, text):
                 result.status, result.detail = "error_page", f"{_where(url)}: {title or 'error page'}"
             elif any(s in lower for s in _SIGN_IN):
                 result.status, result.detail = "ok", f"{_where(url)}: {title}"
@@ -256,12 +293,12 @@ def classify_page(*, status: Optional[int], url: str, title: str, has_password: 
     if _looks_like_sign_in(title, has_password):
         return "ok", f"{where}: {title}"
     if status and status >= 400:
-        return ("blocked" if status == 403 else "portal_error"), f"HTTP {status} at {where}" + (f" ({title})" if title else "")
+        return ("blocked" if status in (403, 429) else "portal_error"), f"HTTP {status} at {where}" + (f" ({title})" if title else "")
     if title.lower().startswith("loading"):       # Oracle Health's script page, caught before it moved on
         return "unclear", f"{where}: still loading ({title[:60]})"
-    lower = text.lower()
-    if any(s in lower for s in _ERROR) or any(s in title.lower() for s in _ERROR_TITLE):
+    if _shows_an_error(title, text):
         return "error_page", f"{where}: {title or 'error page'}"
+    lower = text.lower()
     if any(s in lower for s in _SIGN_IN):
         return "ok", f"{where}: {title}"
     return "unclear", f"{where}: {title or 'page without a title'}"
@@ -300,7 +337,7 @@ async def _open_in_browser(browser: Any, user_agent: str, url: str, redirect_hos
 
 async def browser_pass(results: list[Result], redirect_uri: str) -> Optional[str]:
     """Opens each server that didn't come out ok in headless Chrome and keeps what it finds. Returns why it couldn't."""
-    todo = [r for r in results if r.status not in ("ok", "unreachable", "client_unknown") and r.start_url]
+    todo = [r for r in results if r.status not in ("ok", "unreachable", "client_unknown") and r.start_url and not _settled(r)]
     if not todo:
         return None
     try:
@@ -388,26 +425,65 @@ def health_system_servers(platforms: Iterable[str], only: Optional[str] = None) 
     return servers
 
 
-async def check_all(servers: dict[str, tuple[str, list[str]]], redirect_uri: str) -> list[Result]:
+class _SharedPool(httpx.AsyncBaseTransport):
+    """One pool of connections lent to every server's client, so a vendor's sign-in hosts are connected to once, not
+    for each practice. Each check keeps its own client, so no cookies pass between health systems; a client closes
+    what it's given when it's done, so closing is left to the run."""
+
+    def __init__(self, pool: httpx.AsyncBaseTransport) -> None:
+        self.pool = pool
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        return await self.pool.handle_async_request(request)
+
+    async def aclose(self) -> None:
+        pass
+
+
+def _host(url: str) -> str:
+    return (urlparse(url).hostname or "").lower()
+
+
+async def check_all(servers: dict[str, tuple[str, list[str]]], redirect_uri: str,
+                    transport: Optional[httpx.AsyncBaseTransport] = None) -> list[Result]:
+    pool = transport or httpx.AsyncHTTPTransport(limits=httpx.Limits(max_connections=CONCURRENCY * 4,
+                                                                    max_keepalive_connections=CONCURRENCY * 4))
+    shared = _SharedPool(pool)
     overall = asyncio.Semaphore(CONCURRENCY)
-    per_host: dict[str, asyncio.Semaphore] = defaultdict(lambda: asyncio.Semaphore(PER_HOST))
+    on_host = Counter(_host(base) for base in servers)
+    per_host = {host: asyncio.Semaphore(SHARED_HOST if n >= SHARED_AT else PER_HOST) for host, n in on_host.items()}
     done = 0
 
     async def one(base: str, platform: str, names: list[str]) -> Result:
         nonlocal done
         client_id = settings.EHR_PLATFORMS[platform]["default_client_ids"]["production"]
-        async with overall, per_host[(urlparse(base).hostname or "").lower()]:
+        # The host's turn first: a check waiting for a busy host doesn't hold a place another host could use.
+        async with per_host[_host(base)], overall:
             try:
-                result = await check_server(base, client_id, redirect_uri)
+                result = await check_server(base, client_id, redirect_uri, shared)
             except Exception as exc:  # noqa: BLE001 - one odd server shouldn't stop the run
                 result = Result("unreachable", f"{type(exc).__name__}: {exc}"[:300], base)
         result.names, result.platform = sorted(names), platform
         done += 1
-        if done % 50 == 0 or done == len(servers):
+        if done % 500 == 0 or done == len(servers):
             print(f"  {done}/{len(servers)} checked", file=sys.stderr)
         return result
 
-    return list(await asyncio.gather(*(one(base, platform, names) for base, (platform, names) in servers.items())))
+    try:
+        return list(await asyncio.gather(*(one(base, platform, names) for base, (platform, names) in servers.items())))
+    finally:
+        if transport is None:
+            await pool.aclose()
+
+
+def too_many_blocked(results: list[Result]) -> list[str]:
+    """The vendors that turned the checker away too often for this run's warnings to replace the last ones."""
+    per_platform: dict[str, Counter] = defaultdict(Counter)
+    for r in results:
+        per_platform[r.platform][r.status] += 1
+    return [f"{platform}: {counts['blocked']} of {sum(counts.values())} blocked"
+            for platform, counts in sorted(per_platform.items())
+            if counts["blocked"] > max(BLOCKED_FLOOR, MOST_BLOCKED * sum(counts.values()))]
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -437,6 +513,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.json:
         args.json.write_text(json.dumps([asdict(r) for r in results], indent=1))
     if args.write_status:
+        if refused := too_many_blocked(results):
+            print(f"\nToo many servers turned the check away to trust its warnings ({'; '.join(refused)}), so "
+                  f"{STATUS_FILE.relative_to(REPO_ROOT)} keeps the last ones.", file=sys.stderr)
+            return 1
         previous = json.loads(STATUS_FILE.read_text()) if STATUS_FILE.exists() else {}
         write_json(STATUS_FILE, sign_in_status(results, _entries(), previous, date.today().isoformat()), indent=1)
         return 0
