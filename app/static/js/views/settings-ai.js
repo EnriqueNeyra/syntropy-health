@@ -215,7 +215,7 @@ export async function renderAiTab(body, { state, redraw }) {
       <button class="btn btn-sm btn-primary" data-action="connect-app">${icon("plus")} Connect an app</button></header>
     ${tokens.length ? html`<div class="list" style="border-top:1px solid var(--border)">${tokens.map((t) => html`<div class="list-item">
         <span class="ai-token-icon">${icon("key")}</span>
-        <div class="grow" style="min-width:0"><b>${t.name}</b><div class="meta">${t.profile_name ? `Only ${t.profile_name}` : "Everyone you can see"} ·
+        <div class="grow" style="min-width:0"><b>${t.name}</b><div class="meta">${t.profile_name ? `Only ${t.profile_name}` : "Everyone you can see, and people added later"} ·
           ${t.last_call ? html`last looked up ${t.last_call.replaceAll("_", " ")} ${fmtAgo(t.last_call_at)}`
             : t.last_used_at ? `connected ${fmtAgo(t.last_used_at)}` : `created ${fmtDate(t.created_at)}, not connected yet`}
           ${t.expires_at ? (t.expires_at * 1000 < Date.now() ? ` · expired ${fmtDate(t.expires_at)}` : ` · works until ${fmtDate(t.expires_at)}`) : ""}</div></div>
@@ -590,6 +590,9 @@ function connectApp({ url, local, profiles, state, onToken }) {
   let token = null;
   let localNow = local;  // the setup for whoever the connection on this computer is limited to
   let localWho = profiles.find((p) => p.is_self)?.id || profiles[0]?.id || "";
+  // A token starts with the person open (or the only one). Leaving it to no one in particular reaches everyone this account
+  // can see, people added later included, so that's never the default, and says so.
+  const tokenWho = profiles.some((p) => p.id === state.profile?.id) ? state.profile.id : profiles[0]?.id || "";
   const m = modal({ title: "Connect an app", wide: true, body: "" });
   const copy = async (text) => {
     try { await navigator.clipboard.writeText(text); toast("Copied"); }
@@ -609,8 +612,8 @@ function connectApp({ url, local, profiles, state, onToken }) {
           <div class="field"><label class="label" for="tok-name">Name</label>
             <input class="input" id="tok-name" value="${name}" maxlength="80"></div>
           <div class="field"><label class="label" for="tok-profile">Can read</label>
-            <select class="input" id="tok-profile"><option value="">${profiles.length > 1 ? "Everyone you can see" : "Your records"}</option>
-              ${profiles.map((p) => html`<option value="${p.id}" ${p.id === state.profile?.id && profiles.length > 1 ? "selected" : ""}>Only ${p.name}'s records</option>`)}</select></div>
+            <select class="input" id="tok-profile">${profiles.map((p) => html`<option value="${p.id}" ${p.id === tokenWho ? "selected" : ""}>Only ${p.name}'s records</option>`)}
+              <option value="" ${tokenWho ? "" : "selected"}>Everyone you can see, including people added later</option></select></div>
           <div class="field"><label class="label" for="tok-expires">Works for</label>
             <select class="input" id="tok-expires"><option value="">Until you revoke it</option><option value="30">30 days</option>
               <option value="90">90 days</option><option value="365">A year</option></select></div></div>
