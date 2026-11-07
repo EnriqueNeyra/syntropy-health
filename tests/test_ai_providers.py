@@ -1209,3 +1209,24 @@ def test_a_long_reasoning_costs_no_more_for_each_piece():
     for piece in ["<think>", *["abcd"] * 16_000, "</think>", *["wxyz"] * 2_000]:
         visible.add(piece)
     assert visible.sent == "wxyz" * 2_000 and time.process_time() - started < 1.0
+
+
+def test_a_hosted_model_is_sent_only_so_much_for_one_question(client, vendor, monkeypatch):
+    _connect(client)
+    monkeypatch.setattr(ai, "QUESTION_RESULT_CHARS", 5_000)
+    budgets = []
+
+    def fake(name, args, profile, budget=ai.TOOL_RESULT_CHARS):
+        budgets.append(budget)
+        return "x" * budget, False
+    monkeypatch.setattr(ai, "_run_tool", fake)
+    two = _calls({"index": 0, "id": "a", "function": _fn("get_health_summary")}, {"index": 1, "id": "b", "function": _fn("get_goals")})
+    vendor.script += [two, [LOOKUP, "[DONE]"], _text("Done.")]
+    events = _chat(client)
+    assert budgets == [2_500, 2_500] and next(e for e in events if e["type"] == "answer")["text"] == "Done."
+    last = vendor.bodies[-1]["messages"][-1]
+    assert last["role"] == "tool" and json.loads(last["content"])["code"] == "no_room" and "as much as one question" in last["content"]
+    # The next question starts again.
+    vendor.script += [[LOOKUP, "[DONE]"], _text("Done.")]
+    _chat(client)
+    assert budgets[-1] == 5_000
