@@ -1,10 +1,12 @@
 """Wearables (simulated Oura/WHOOP), companion pairing, ingest and daily rollups."""
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from app.connectors import oura, whoop
+from app.core.db import read
 from app.store import biometrics
 from tests.conftest import BASE
 
@@ -330,6 +332,56 @@ def test_source_order_per_metric_group(client):
     assert r.json()["orders"]["sleep"][0] == "watch"
     assert {p["day"]: p for p in biometrics.daily_series(profile, "sleep_duration", days=5)["points"]}[d1]["source"] == "Alex's Apple Watch"
     assert client.put("/api/settings/source-order", json={"sleep": ["watch"]}).status_code == 400
+
+
+def _steps(i, source, d, start, end, value, **extra):
+    return {"id": f"st{i}", "metric_type": "step_count", "value": value, "unit": "count", "source_name": source,
+            "start_date": f"{d}T{start}:00Z", "end_date": f"{d}T{end}:00Z", **extra}
+
+
+def _combined(profile, d):
+    with read() as conn:
+        return conn.execute("SELECT value FROM biometric_daily WHERE profile_id = ? AND day = ? AND metric_type = 'step_count' "
+                            "AND source_name = 'Combined'", (profile, d)).fetchone()[0]
+
+
+def test_changing_the_source_order_works_out_combined_days_again(client):
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    assert client.put("/api/settings/general", json={"timezone": "UTC"}).status_code == 200
+    d = (datetime.now(timezone.utc).date() - timedelta(days=3)).isoformat()
+    biometrics.insert_samples(profile, None, [
+        _steps(1, "Apple Watch", d, "10:00", "11:00", 1000), _steps(2, "iPhone", d, "10:00", "11:00", 800),
+        _steps(3, "iPhone", d, "15:00", "16:00", 500)])
+    assert _combined(profile, d) == 1500             # the Watch's hour, and the phone's own
+    biometrics.set_source_orders({"activity": ["phone", "watch", "ring", "other"]})
+    assert _combined(profile, d) == 1300             # the phone's two hours; the Watch's hour was the phone's too
+    r = client.put("/api/settings/source-order", json={"activity": ["watch", "phone", "ring", "other"]})
+    assert r.status_code == 200
+    assert _combined(profile, d) == 1500
+
+
+def test_a_source_found_to_be_another_kind_of_device_moves_in_combined_days(client):
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    assert client.put("/api/settings/general", json={"timezone": "UTC"}).status_code == 200
+    today = datetime.now(timezone.utc).date()
+    d1, d2 = (today - timedelta(days=20)).isoformat(), (today - timedelta(days=2)).isoformat()
+    biometrics.insert_samples(profile, None, [_steps(1, "Band App", d1, "10:00", "11:00", 1000), _steps(2, "iPhone", d1, "10:00", "11:00", 800)])
+    assert _combined(profile, d1) == 800             # "Band App" says nothing of what it is: the phone comes first
+    # Weeks later its readings say they come from a band, which ranks before a phone for steps.
+    biometrics.insert_samples(profile, None, [_steps(3, "Band App", d2, "09:00", "10:00", 300, metadata={"device_type": "band"})])
+    biometrics.run_queued_rebuilds()
+    assert biometrics.source_kinds(profile)["Band App"] == "ring"
+    assert _combined(profile, d1) == 1000
+
+
+def test_an_app_recording_on_several_devices_keeps_its_kind(client):
+    profile = client.get("/api/status").json()["profiles"][0]["id"]
+    d = (datetime.now(timezone.utc).date() - timedelta(days=2)).isoformat()
+    biometrics.insert_samples(profile, None, [_steps(1, "Samsung Health", d, "09:00", "10:00", 300, metadata={"device_type": "watch"})])
+    with patch.object(biometrics, "queue_rebuild") as queued:
+        biometrics.insert_samples(profile, None, [_steps(2, "Samsung Health", d, "10:00", "11:00", 300, metadata={"device_type": "watch"}),
+                                                  _steps(3, "Samsung Health", d, "11:00", "12:00", 300, metadata={"device_type": "phone"})])
+    assert biometrics.source_kinds(profile)["Samsung Health"] == "watch" and not queued.called
 
 
 # ---------------------------------------------------------------------------

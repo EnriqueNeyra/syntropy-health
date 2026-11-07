@@ -154,7 +154,8 @@ class GeneralPatch(BaseModel):
 
 @router.put("/source-order", dependencies=[owner])
 def update_source_order(orders: dict[str, list[str]]) -> dict:
-    """Which kind of device wins, per group of metrics, when several report the same day."""
+    """Which kind of device wins, per group of metrics, when several report the same day. Days whose figures were merged from
+    several sources are worked out again in the new order before this returns."""
     try:
         biometrics.set_source_orders(orders)
     except ValueError as exc:
