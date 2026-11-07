@@ -194,3 +194,35 @@ def test_ask_reads_an_answer_out_once_when_its_written(browser, fresh_server):
     assert page.evaluate("window.__said.length") == 1
     assert s.errors == []
     s.close()
+
+
+def _token_dialog(page):
+    page.click("[data-action=connect-app]")
+    page.locator(".ai-app", has_text="Cursor").click()
+    return page.locator("#tok-profile")
+
+
+def test_an_ai_apps_access_starts_at_the_one_person_and_everyone_says_it_includes_people_added_later(browser, fresh_server):
+    c = seed(fresh_server, simulated=False)
+    alex = c.get("/api/profiles").json()["profiles"][0]["id"]
+    s = Session(browser, fresh_server)
+    page = s.open("#/settings/ai")
+    who = _token_dialog(page)
+    assert who.input_value() == alex
+    assert who.locator("option:checked").inner_text() == "Only Alex's records"
+    everyone = who.locator("option[value='']").inner_text()
+    assert "including people added later" in everyone and "Your records" not in everyone
+    with page.expect_request(lambda r: r.url.endswith("/api/agents/tokens") and r.method == "POST") as sent:
+        page.click("[data-step=create]")
+    assert sent.value.post_data_json["profile_id"] == alex
+    page.keyboard.press("Escape")
+    # With two people, the one open is chosen; "everyone" still says what it means.
+    sam = c.post("/api/profiles", json={"name": "Sam", "relationship": "child"}).json()["id"]
+    page.evaluate(f"localStorage.setItem('syntropy-profile', '{sam}')")
+    page.reload()
+    page = s.open("#/settings/ai")
+    who = _token_dialog(page)
+    assert who.input_value() == sam
+    assert "including people added later" in who.locator("option[value='']").inner_text()
+    c.close()
+    s.close()
