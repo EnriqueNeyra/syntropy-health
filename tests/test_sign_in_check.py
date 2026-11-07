@@ -178,8 +178,9 @@ def test_a_server_that_does_not_answer_is_recorded_the_second_week():
     assert sign_in_status(back, entries, first, "2026-10-12") == {"checked": "2026-10-12", "servers": {}, "watching": {}}
 
 
-def test_a_refusal_at_smart_discovery_is_blocked_not_unreachable():
+def test_a_refusal_at_smart_discovery_is_blocked_not_unreachable(monkeypatch):
     """A hospital firewall turning away cloud addresses says nothing about what happens from someone's home."""
+    monkeypatch.setattr("scripts.check_sign_in.RETRY_DELAYS", (0, 0))
     for status in (401, 403, 429):
         def handle(request, status=status):
             return httpx.Response(status)
@@ -245,3 +246,118 @@ def test_an_eclinicalworks_practice_without_patient_access_is_an_error_page():
         return httpx.Response(200, text="<title>healow - Invalid Request</title><p>The page you are looking for cannot be "
                                         "displayed because of an invalid request.</p>")
     assert run(pages).status == "error_page"
+
+
+def test_error_words_in_a_page_s_script_dont_make_it_an_error_page():
+    """Oracle Health's sign-in page carries its whole script, "An error occurred while setting a property" included,
+    and draws the form with it; Chrome showed every one of 423 such pages was a sign-in."""
+    page = ('<html><head><title>Example General Hospital</title></head><body><div id="root"></div>'
+            '<div data=\'{"authenticationRequestId":"1","allowCustomUsername":true}\'></div>'
+            '<script>try{x()}catch(t){log("An error occurred while setting a property of a Configurable",t)}</script>'
+            '<script src="/packs/login_framed.js"></script></body></html>')
+
+    def pages(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth2/authorize":
+            return httpx.Response(302, headers={"Location": "https://example.consumeridp.us-1.example.com/saml2/sso/login"})
+        return httpx.Response(200, text=page)
+    result = run(pages)
+    assert result.status == "ok", result
+    shown = page.replace("<script>try", "<p>An error occurred.</p><script>try")
+    assert run(lambda r: httpx.Response(200, text=shown) if r.url.path != "/oauth2/authorize" else pages(r)).status == "error_page"
+
+
+def test_chrome_isn_t_asked_again_about_a_practice_without_patient_access():
+    from scripts.check_sign_in import Result, browser_pass
+    settled = Result("error_page", "connect4.healow.com/apps/jsp/fhir/error.jsp: healow - Invalid Request", BASE,
+                     hops=["302 oauthserver.eclinicalworks.com/oauth/oauth2/authorize",
+                           "307 connect4.healow.com/apps/api/v1/fhir/oauth/authenticate",
+                           "200 connect4.healow.com/apps/jsp/fhir/error.jsp"], start_url=AUTHORIZE)
+    assert asyncio.run(browser_pass([settled], RELAY)) is None and settled.browser == ""     # nothing to open
+
+    from scripts.check_sign_in import _settled
+    elsewhere = Result("error_page", "mychart.example.org/error: Error", BASE, hops=["200 mychart.example.org/error"])
+    assert not _settled(elsewhere)
+
+
+def test_a_vendor_rate_limiting_the_check_is_waited_for_then_blocked(monkeypatch):
+    monkeypatch.setattr("scripts.check_sign_in.RETRY_DELAYS", (0, 0))
+    asked = []
+
+    def pages(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth2/authorize":
+            return httpx.Response(302, headers={"Location": "https://mychart.example.org/MyChart/Authentication/Login"})
+        asked.append(1)
+        return httpx.Response(429, headers={"Retry-After": "0"}, text="<title>Too Many Requests</title>")
+    result = run(pages)
+    assert (result.status, len(asked)) == ("blocked", 3)       # not a broken portal: nothing is recorded
+
+    asked.clear()
+    def once(request: httpx.Request) -> httpx.Response:
+        if request.url.path != "/oauth2/authorize" and not asked:
+            asked.append(1)
+            return httpx.Response(429, headers={"Retry-After": "0"})
+        return portal()(request)
+    assert run(once).status == "ok"
+
+
+def test_a_shared_host_gets_more_turns_and_doesn_t_hold_up_the_others(monkeypatch):
+    import scripts.check_sign_in as check
+    for name, value in (("CONCURRENCY", 3), ("PER_HOST", 1), ("SHARED_HOST", 2), ("SHARED_AT", 5)):
+        monkeypatch.setattr(check, name, value)
+    busy = {f"https://vendor.example.org/r4/{i}": ("epic", [f"Practice {i}"]) for i in range(10)}
+    servers = {**busy, "https://hospital.example.org/r4": ("epic", ["Hospital"])}      # listed last
+    at_once: dict[str, int] = {}
+    most: dict[str, int] = {}
+    finished: list[str] = []
+
+    async def handle(request: httpx.Request) -> httpx.Response:
+        host = request.url.host
+        if request.url.path.endswith("/.well-known/smart-configuration"):
+            at_once[host] = at_once.get(host, 0) + 1
+            most[host] = max(most.get(host, 0), at_once[host])
+            await asyncio.sleep(0.02)
+            at_once[host] -= 1
+            return httpx.Response(200, json={"authorization_endpoint": f"https://{host}/oauth2/authorize"})
+        finished.append(host)
+        return httpx.Response(200, text=LOGIN)
+
+    results = asyncio.run(check.check_all(servers, RELAY, httpx.MockTransport(handle)))
+    assert [r.status for r in results] == ["ok"] * 11
+    assert most == {"vendor.example.org": 2, "hospital.example.org": 1}
+    assert finished.index("hospital.example.org") < 3      # it didn't wait behind the vendor's queue
+
+
+def test_the_shared_pool_outlives_each_server_s_client():
+    from scripts.check_sign_in import _SharedPool
+    closed = []
+
+    class Pool(httpx.MockTransport):
+        async def aclose(self):
+            closed.append(1)
+    pool = Pool(lambda request: httpx.Response(200, text=LOGIN))
+
+    async def two_clients():
+        for _ in range(2):
+            async with httpx.AsyncClient(transport=_SharedPool(pool)) as client:
+                assert (await client.get("https://a.example.org/")).status_code == 200
+    asyncio.run(two_clients())
+    assert closed == []
+
+
+def test_write_status_keeps_the_last_warnings_when_a_vendor_turned_the_check_away(monkeypatch, tmp_path):
+    import scripts.check_sign_in as check
+    status_file = tmp_path / "status.json"
+    status_file.write_text('{"checked": "2026-11-02", "servers": {}, "watching": {}}')
+    monkeypatch.setattr(check, "STATUS_FILE", status_file)
+    monkeypatch.setattr(check, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(check, "health_system_servers", lambda *a: {})
+
+    async def throttled(servers, redirect):
+        return ([check.Result("blocked", "HTTP 429", f"https://p{i}.example.org", [f"P{i}"], platform="healow") for i in range(30)]
+                + [check.Result("ok", "", f"https://q{i}.example.org", [f"Q{i}"], platform="healow") for i in range(970)]
+                + [check.Result("blocked", "HTTP 403", "https://mayo.example.org", ["Mayo"], platform="epic")])
+    monkeypatch.setattr(check, "check_all", throttled)
+    monkeypatch.setattr(check, "_entries", lambda *a: [])
+    assert check.main(["--write-status", "--no-browser"]) == 1
+    assert json.loads(status_file.read_text())["checked"] == "2026-11-02"
+    assert check.too_many_blocked(asyncio.run(throttled({}, RELAY))) == ["healow: 30 of 1000 blocked"]      # not Mayo's one
