@@ -235,6 +235,17 @@ def test_arm64_really_runs_before_it_is_published():
     assert "linux/arm64" in next(s for s in steps if s.get("name") == "Smoke test on arm64")["run"]
 
 
+def test_only_a_tag_on_main_is_released():
+    """A v* tag on any other commit stops in the version job, which everything that signs or publishes waits for."""
+    jobs = yaml.safe_load(_read(".github/workflows/desktop.yml"))["jobs"]
+    steps = jobs["version"]["steps"]
+    assert steps[0]["uses"].startswith("actions/checkout@") and steps[0]["with"]["fetch-depth"] == 0
+    check = next(s for s in steps if s.get("name") == "A release's commit is on main")
+    assert check["if"] == "startsWith(github.ref, 'refs/tags/v')"
+    assert 'git merge-base --is-ancestor "$GITHUB_SHA" origin/main' in check["run"]
+    assert jobs["apps"]["needs"] == "version" and "version" in jobs["release"]["needs"]
+
+
 def test_a_release_publishes_its_own_dependency_list_sboms_and_installers():
     release = _read(".github/workflows/desktop.yml")
     from app.services import updates
