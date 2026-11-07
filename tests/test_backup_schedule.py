@@ -73,6 +73,49 @@ def test_only_the_last_few_are_kept_and_nothing_else_is_touched(client, tmp_path
                      "syntropy-backup-20260102-000000.syntropy", "syntropy-backup-20260103-000000.syntropy"]
 
 
+def _named(monkeypatch, *stamps: str) -> None:
+    """The next backups' names, in turn."""
+    clock = iter(stamps)
+    real = backups.time.strftime
+    monkeypatch.setattr(backups.time, "strftime", lambda f, *a: next(clock) if f == "%Y%m%d-%H%M%S" else real(f, *a))
+
+
+def test_backups_made_by_hand_in_the_same_folder_are_never_pruned(client, tmp_path, monkeypatch):
+    """They're named as scheduled ones are, and were deleted as the oldest of them, even with the same passphrase."""
+    folder = tmp_path / "drive"
+    _turn_on(client, folder, keep=2)
+    _named(monkeypatch, "20250101-000000", "20250102-000000", *(f"2026010{n}-000000" for n in range(5)))
+    by_hand = [backups.create(folder, passphrase=SECRET, made_by="command")["filename"],
+               backups.create(folder, passphrase="another passphrase entirely")["filename"]]
+    for _ in range(4):
+        backup_schedule.run_now()
+    names = sorted(f.name for f in folder.iterdir())
+    assert names == [*by_hand, "syntropy-backup-20260102-000000.syntropy", "syntropy-backup-20260103-000000.syntropy"]
+    assert [f["name"] for f in client.get("/api/backups").json()["schedule"]["files"]] == names[:1:-1]
+
+
+def test_a_new_passphrase_still_keeps_only_the_last_few(client, tmp_path, monkeypatch):
+    folder = tmp_path / "drive"
+    _turn_on(client, folder, keep=2)
+    _named(monkeypatch, *(f"2026010{n}-000000" for n in range(5)))
+    backup_schedule.run_now()
+    backup_schedule.run_now()
+    _turn_on(client, folder, keep=2, passphrase="a new passphrase for these")
+    backup_schedule.run_now()
+    assert sorted(f.name for f in folder.iterdir()) == ["syntropy-backup-20260101-000000.syntropy", "syntropy-backup-20260102-000000.syntropy"]
+
+
+def test_a_schedule_from_an_earlier_version_knows_its_own_backups(client, tmp_path, monkeypatch):
+    folder = tmp_path / "drive"
+    _turn_on(client, folder, keep=1)
+    plan = settings.get(backup_schedule.SCHEDULE_KEY)
+    settings.set(backup_schedule.SCHEDULE_KEY, {k: v for k, v in plan.items() if k not in ("check", "earlier_checks")})
+    _named(monkeypatch, *(f"2026010{n}-000000" for n in range(5)))
+    backup_schedule.run_now()
+    backup_schedule.run_now()
+    assert [f.name for f in folder.iterdir()] == ["syntropy-backup-20260101-000000.syntropy"]
+
+
 def test_an_unfinished_file_from_a_power_cut_does_not_stay_for_ever(tmp_path):
     folder = tmp_path / "drive"
     folder.mkdir()
@@ -81,7 +124,7 @@ def test_an_unfinished_file_from_a_power_cut_does_not_stay_for_ever(tmp_path):
     stale.write_bytes(b"x")
     current.write_bytes(b"x")
     os.utime(stale, (1, 1))
-    backup_schedule._prune(folder, 3)
+    backup_schedule._prune(folder, 3, {})
     assert not stale.exists() and current.exists()
 
 
