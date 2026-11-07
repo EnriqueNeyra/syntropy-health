@@ -138,7 +138,8 @@ export async function render({ el, state, params, navigate }) {
 
   if (native) mount(el, html`
     <p class="small ask-privacy" id="ask-privacy"></p>
-    <div class="chat-log" id="chat-log" aria-live="polite"></div>
+    <div class="chat-log" id="chat-log"></div>
+    <div class="sr-only" id="ask-said" role="status"></div>
     <p class="tiny faint chat-foot">Read-only access to ${profile.name}'s records. Answers come from an AI and can be wrong. Syntropy Health organizes records and doesn't give medical advice.</p>`);
   else mount(el, html`
     <div class="page-head ask-head">
@@ -162,7 +163,8 @@ export async function render({ el, state, params, navigate }) {
           <button class="btn btn-ghost btn-icon ask-bar-new" id="ask-bar-new" type="button" aria-label="New chat" title="New chat (${NEW_KEY})">${icon("plus")}</button>
           <button class="btn btn-ghost btn-icon ask-bar-more" id="ask-bar-more" type="button" aria-label="More for this conversation" title="More" aria-haspopup="menu" aria-expanded="false">${icon("more")}</button>
         </div>
-        <div class="chat-log" id="chat-log" aria-live="polite"><div class="chat-thread" id="chat-thread"></div></div>
+        <div class="chat-log" id="chat-log"><div class="chat-thread" id="chat-thread"></div></div>
+        <div class="sr-only" id="ask-said" role="status"></div>
         <div class="chat-latest-wrap" id="chat-latest-wrap"><button class="btn btn-icon chat-latest" id="chat-latest" type="button" aria-label="Scroll to the latest message" title="Scroll to the latest message">${icon("arrowDown")}</button></div>
         <form class="chat-input" id="chat-form">
           <span class="chat-input-bg" id="chat-input-bg"></span>
@@ -225,6 +227,14 @@ export async function render({ el, state, params, navigate }) {
   const titleBtn = $("#ask-title-btn", el);
   const barMore = $("#ask-bar-more", el);
   const latest = $("#chat-latest", el);
+  // The conversation isn't a live region: an answer is drawn afresh every frame as it's written, and a whole thread at
+  // once when one is opened, and a screen reader would queue each. A finished answer is read out here, once.
+  const said = $("#ask-said", el);
+  const say = (words) => {
+    said.textContent = "";
+    // Emptied first, so the same words twice are still read twice.
+    setTimeout(() => { if (!left) said.textContent = words; }, 100);
+  };
   const nodes = new Map();          // message → its element, so a streaming answer updates in place
   let controller = null;            // aborts the answer being written (the Stop button)
   const hasHover = () => window.matchMedia("(hover: hover)").matches;
@@ -315,6 +325,8 @@ export async function render({ el, state, params, navigate }) {
       note.after(more);
     }
     node.classList.toggle("streaming", !!(m.pending && shown));
+    // Still being written: a screen reader that reaches it waits until it's done.
+    if (m.pending) node.setAttribute("aria-busy", "true"); else node.removeAttribute("aria-busy");
     $(".typing", node).hidden = !(m.pending && !shown);
     const by = $(".msg-by", node);
     by.textContent = m.pending ? "" : [m.stopped ? "Stopped" : "", m.by || ""].filter(Boolean).join(" · ");
@@ -543,7 +555,11 @@ export async function render({ el, state, params, navigate }) {
       patch(reply);
       if (follow) toBottom(true, true);
       if (onScreen && text && reply.error && !reply.stopped && !text.value.trim()) { text.value = asked; autosize(); }
-      if (onScreen) focusText();
+      if (onScreen) {
+        focusText();
+        const body = $(".msg-body", nodes.get(reply));
+        say(reply.error || `${reply.stopped ? "Stopped. " : ""}${body?.innerText.trim() || ""}`);
+      }
       // Nobody's looking at this one: say so, and don't list a conversation there's nothing saved of.
       if (!onScreen && reply.error && !left && !gone) {
         toast(`The answer in your other conversation didn't finish: ${reply.error}`, "bad");

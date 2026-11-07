@@ -8,6 +8,7 @@ from datetime import date, timedelta
 import pytest
 
 from tests.e2e.conftest import Session, seed
+from tests.test_ask_browser import Model
 from tests.test_data import EXPORT_XML
 
 # Holds back the answers to chosen addresses for a while: window.__slow is a list of [part of the address, milliseconds].
@@ -153,4 +154,43 @@ def test_an_apple_health_imports_progress_shows_while_the_list_is_drawn_again(br
     page.wait_for_function("() => /processed/.test(document.querySelector('#imp-status')?.textContent)")
     page.wait_for_function("() => /[3-6]00 samples processed/.test(document.querySelector('#imp-status')?.textContent)")
     page.wait_for_function("() => /Imported/.test(document.querySelector('#imp-status')?.textContent)", timeout=20000)
+    s.close()
+
+
+def test_ask_reads_an_answer_out_once_when_its_written(browser, fresh_server):
+    model = Model()
+    c = seed(fresh_server, simulated=False)
+    assert c.put("/api/ai/config", json={"provider": "local", "base_url": model.url, "model": "m"}).status_code == 200
+    c.close()
+    answer = " ".join(f"Sentence number {i} about your sleep and your heart rate." for i in range(40))
+    model.script.append({"text": answer})
+    # With motion: the answer is written out over many frames.
+    s = Session(browser, fresh_server, reduced_motion="no-preference")
+    page = s.open("#/ask?new=1")
+    page.wait_for_selector("#chat-text")
+    # Nothing the conversation draws is read out as it's drawn: neither each frame of an answer nor a whole thread opened.
+    assert not page.evaluate("!!document.querySelector('#chat-log').closest('[aria-live], [role=status], [role=log], [role=alert]')")
+    page.evaluate("""() => { window.__said = []; window.__busy = [];
+      const status = document.querySelector('#ask-said');
+      new MutationObserver(() => { if (status.textContent.trim()) window.__said.push(status.textContent); })
+        .observe(status, { childList: true, characterData: true, subtree: true });
+      new MutationObserver(() => { for (const n of document.querySelectorAll('.msg-ai.streaming')) window.__busy.push(n.getAttribute('aria-busy')); })
+        .observe(document.querySelector('#chat-log'), { childList: true, characterData: true, subtree: true }); }""")
+    page.fill("#chat-text", "How did I sleep?")
+    page.press("#chat-text", "Enter")
+    page.wait_for_function("() => window.__said.length > 0", timeout=20000)
+    busy = page.evaluate("window.__busy")
+    assert len(busy) > 5 and set(busy) == {"true"}, busy[:10]
+    assert page.locator(".msg-ai[aria-busy]").count() == 0
+    said = page.evaluate("window.__said")
+    assert len(said) == 1 and "Sentence number 39" in said[0], said
+    assert page.get_attribute("#ask-said", "role") == "status"
+    # Opening it again draws the whole thread: nothing more is read out.
+    chat = page.url.split("#", 1)[1]
+    page.click("#ask-new")
+    page.evaluate("(h) => { location.hash = h; }", f"#{chat}")
+    page.wait_for_selector(".msg-ai")
+    page.wait_for_timeout(300)
+    assert page.evaluate("window.__said.length") == 1
+    assert s.errors == []
     s.close()
