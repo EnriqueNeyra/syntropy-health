@@ -236,6 +236,32 @@ def test_older_unencrypted_copies_are_encrypted_too(tmp_path):
     assert db.is_encrypted(older) and db.is_encrypted(aside / "syntropy.db")
 
 
+def test_encrypting_kept_copies_leaves_them_in_the_order_they_were_made(tmp_path):
+    """The copy named after damage, and the one put back when an update fails, are the newest. Encrypting each copy where it
+    lies writes a new file, which made whichever went last look newest, and a year-old copy look made since the update."""
+    path = config.db_path()
+    _plaintext_database(path)
+    folder = tmp_path / "pre-upgrade"
+    folder.mkdir(exist_ok=True)
+    oldest, older = folder / "syntropy-v40-20250101-000000.db", folder / "syntropy-v50-20260101-000000.db"
+    for copy, when in ((oldest, 1735689600), (older, 1767225600)):
+        shutil.copy(path, copy)
+        os.utime(copy, (when, when))
+    since = time.time()
+    with _start():
+        newest = db.pre_upgrade_copies(path)[0]["path"]
+        assert Path(newest).name not in (oldest.name, older.name)
+        times = {c: c.stat().st_mtime for c in (oldest, older)}
+        encryption.finish_up(path)
+    db.close_readers()
+    assert db.is_encrypted(oldest) and db.is_encrypted(older) and not encryption.plain_copies(path)
+    assert {c: c.stat().st_mtime for c in (oldest, older)} == times       # as an earlier version, going back, reads them
+    os.utime(oldest)        # whatever else touches a file, the order is in the names
+    assert [c["path"] for c in db.pre_upgrade_copies(path)] == [newest, str(older), str(oldest)]
+    assert db._copy_hint(path).endswith(f"({newest})")
+    assert db.restore_pre_upgrade(since, path) == Path(newest)
+
+
 def test_a_copy_that_can_not_be_encrypted_and_is_only_a_way_back_is_removed(tmp_path, monkeypatch):
     path = config.db_path()
     _plaintext_database(path)
