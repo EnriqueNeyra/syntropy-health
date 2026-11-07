@@ -82,6 +82,7 @@ def _start_up() -> None:
     encryption.at_start_up()
     db.ensure_migrated()
     security.check_key()
+    security.forget_former_owners()
     instance_settings.migrate_client_ids()
     biometric_store.resume_rebuilds()
     imports.recover_at_start_up()

@@ -7,7 +7,7 @@ import logging
 import time
 from typing import Any, Optional
 
-from app.core import db as db_batches, settings
+from app.core import db as db_batches, security, settings
 from app.core.db import audit, db, discard_pre_upgrade_copies, read, new_id, row_to_dict, rows_to_dicts
 from app.store import sample_counts
 
@@ -160,6 +160,8 @@ def delete_profile(profile_id: str) -> None:
         remaining = conn.execute("SELECT id FROM profiles ORDER BY created_at LIMIT 1").fetchone()
         if remaining and not conn.execute("SELECT 1 FROM profiles WHERE is_default = 1").fetchone():
             conn.execute("UPDATE profiles SET is_default = 1 WHERE id = ?", (remaining["id"],))
+    if account:     # an owner's password no longer opens the encryption key once they're gone (see security.recover_key)
+        security.forget_owner_password(account["id"])
     # With no profile row, finish_deletes picks up where this stops.
     _delete_loose(profile_id)
     sample_counts.forget()

@@ -413,6 +413,39 @@ def test_an_owner_stepping_down_stops_their_password_opening_it(dpapi, tmp_path)
         assert first["id"] not in keystore.recovery_entries()
 
 
+def test_an_owner_who_is_removed_or_leaves_no_longer_opens_it(dpapi, tmp_path):
+    from app.store import accounts, profiles
+    with _start() as c:
+        _set_up(c)
+        removed = accounts.create(profiles.create_profile("Sam")["id"], "sams own password", role="owner")
+        leaving = accounts.create(profiles.create_profile("Kim")["id"], "kims own password", role="owner")
+        assert {removed["id"], leaving["id"]} <= set(keystore.recovery_entries())
+        assert c.delete(f"/api/profiles/{removed['profile_id']}", headers=CSRF).status_code == 200
+        c.post("/api/auth/logout", headers=CSRF)
+        assert c.post("/api/auth/login", json={"account": leaving["id"], "password": "kims own password"}, headers=CSRF).status_code == 200
+        assert c.post("/api/accounts/me/delete", json={"password": "kims own password"}, headers=CSRF).status_code == 200
+        assert not {removed["id"], leaving["id"]} & set(keystore.recovery_entries())
+    assert not security.recover_key("sams own password") and not security.recover_key("kims own password")
+
+
+def test_a_lock_left_by_someone_no_longer_an_owner_opens_nothing_and_goes(dpapi, tmp_path, monkeypatch):
+    """As an earlier version left them when someone was removed, or a backup from before an owner joined brings back."""
+    with _start() as c:
+        _set_up(c)
+    key = security.master_key()
+    keystore.save_recovery("acc_gone", keystore.wrap(key, "a former owners password", security._wrap_kdf))
+    _lose_the_store(tmp_path, monkeypatch)
+    with _start() as c:
+        assert c.app.state.problem_kind == "key"
+        r = c.post("/unlock", data={"password": "a former owners password"}, follow_redirects=False)
+        assert r.status_code == 401 and "acc_gone" not in keystore.recovery_entries()
+        assert c.post("/unlock", data={"password": PASSPHRASE}, follow_redirects=False).status_code == 303
+    keystore.save_recovery("acc_gone", keystore.wrap(key, "a former owners password", security._wrap_kdf))
+    _fresh_start()
+    with _start():
+        assert "acc_gone" not in keystore.recovery_entries() and keystore.recovery_entries()
+
+
 def test_a_member_password_never_opens_it(dpapi, tmp_path):
     from app.store import accounts, profiles
     with _start() as c:

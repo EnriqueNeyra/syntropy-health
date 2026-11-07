@@ -480,13 +480,52 @@ def forget_owner_password(account_id: str) -> None:
     keystore.drop_recovery(account_id)
 
 
+def _owners_in(database: Path, key: bytes) -> Optional[set[str]]:
+    """The owners' accounts in this database, read with this key. None if they can't be read."""
+    conn = sqlite3.connect(str(database), timeout=2.0)
+    try:
+        if db.is_encrypted(database):
+            db.use_key(conn, database_key(key))
+        return {r[0] for r in conn.execute("SELECT id FROM accounts WHERE role = 'owner'")}
+    except sqlite3.Error:
+        return None
+    finally:
+        conn.close()
+
+
+def forget_former_owners() -> None:
+    """At start-up: the locks of anyone who isn't an owner here any more go, whatever left them (an account removed by an
+    earlier version, or a backup restored from before an owner joined). Their passwords stop opening the key."""
+    entries = keystore.recovery_entries()
+    if not entries:
+        return
+    try:
+        with db.read() as conn:
+            owners = {r[0] for r in conn.execute("SELECT id FROM accounts WHERE role = 'owner'")}
+        for account_id in set(entries) - owners:
+            keystore.drop_recovery(account_id)
+    except (sqlite3.Error, OSError) as exc:
+        keystore.log.warning("Couldn't check whose passwords open the encryption key: %s", exc)
+
+
 def recover_key(password: str) -> bool:
-    """Whether this password opened a lock on the key. If it did, and the key opens what's here, the key is this computer's again."""
-    for wrapped in keystore.recovery_entries().values():
+    """Whether this password opened a lock on the key. If it did, the key opens what's here, and the lock's account is still
+    an owner in it, the key is this computer's again. A lock left by someone who has since left or been removed opens
+    nothing, and goes."""
+    path = config.db_path()
+    for account_id, wrapped in keystore.recovery_entries().items():
         key = keystore.unwrap(wrapped, password, _wrap_kdf)
-        if key and (not db.is_encrypted(config.db_path()) or db.opens(config.db_path(), database_key(key))):
-            adopt_key(key)
-            return True
+        if not key or (db.is_encrypted(path) and not db.opens(path, database_key(key))):
+            continue
+        owners = _owners_in(path, key)
+        if owners is None:
+            keystore.log.warning("Couldn't check that the password's account is still an owner, so it didn't open the key")
+            continue
+        if account_id not in owners:
+            forget_owner_password(account_id)
+            continue
+        adopt_key(key)
+        return True
     return False
 
 
