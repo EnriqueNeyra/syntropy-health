@@ -678,13 +678,16 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
     rows: list[Any] = []
     for lo, hi in _day_spans(days, tz):
         rows += conn.execute(
-            "SELECT id, metric_type, value, start_date, end_date, source_name, metadata_json, tz_offset_min "
-            f"FROM biometric_samples WHERE {where}", (profile_id, lo, hi, *extra),
+            "SELECT rowid, id, metric_type, value, start_date, end_date, source_name, metadata_json, tz_offset_min, "
+            f"COALESCE(updated_at, created_at) AS stored_at FROM biometric_samples WHERE {where}", (profile_id, lo, hi, *extra),
         ).fetchall()
 
     readings: dict[tuple[str, str, str], list[float]] = defaultdict(list)
     totals: dict[tuple[str, str, str], list[float]] = defaultdict(list)    # what a source says the whole day came to
-    maybe_totals: dict[tuple[str, str, str], list[float]] = defaultdict(list)   # the same, unless more of that day turns up
+    # The export route's whole-day figures, newest first: one sent again from another time zone starts at another moment, so it
+    # has another id, but it's the same day's total. (stored, rowid, value)
+    export_totals: dict[tuple[str, str, str], list[tuple[float, int, float]]] = defaultdict(list)
+    maybe_totals: dict[tuple[str, str, str], list[tuple[float, int, float]]] = defaultdict(list)   # the same, unless more of that day turns up
     export_rows: set[tuple[str, str, str]] = set()
     last_seen: dict[tuple[str, str, str], tuple[str, float]] = {}
     timed: dict[tuple[str, str, str], list[tuple[float, float]]] = defaultdict(list)
@@ -715,10 +718,14 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
                 continue
             seen.append((value, path))
             if day or (r["metadata_json"] and '"daily_total":true' in r["metadata_json"]):
-                totals[(day or local_day(start, tz, offset), metric, source)].append(value)
+                key = (day or local_day(start, tz, offset), metric, source)
+                if path == "json":
+                    export_totals[key].append((r["stored_at"] or 0.0, r["rowid"], value))
+                else:
+                    totals[key].append(value)
                 continue
             if r["metadata_json"] and '"daily_total_if_alone":true' in r["metadata_json"]:
-                maybe_totals[(local_day(start, tz, offset), metric, source)].append(value)
+                maybe_totals[(local_day(start, tz, offset), metric, source)].append((r["stored_at"] or 0.0, r["rowid"], value))
                 continue
             if path == "json" and end == start:
                 export_rows.add((local_day(start, tz, offset), metric, source))
@@ -736,8 +743,15 @@ def _rollup(conn: Any, profile_id: str, days: list[str], metrics: Optional[Itera
         if prev is None or start >= prev[0]:
             last_seen[key] = (start, value)
 
-    for key, values in maybe_totals.items():
-        (readings if key in export_rows or len(values) > 1 else totals)[key].extend(values)
+    for key, found in export_totals.items():
+        totals[key].append(max(found)[2])
+    for key, found in maybe_totals.items():
+        # With other hours of that day, it's one of them. Otherwise it's the day's total, and two of them on one date are the same
+        # day sent from two time zones: the newer stands.
+        if key in export_rows:
+            readings[key].extend(v for _, _, v in found)
+        else:
+            totals[key].append(max(found)[2])
 
     for (day, target, source), spans in _sleep_nights(stages, tz).items():
         # A source's own summary of the night wins over adding up its stages; both would count the night twice.
@@ -1004,7 +1018,8 @@ def _sleep_nights(stages: dict[str, list[tuple[float, float, str, Optional[int]]
 #    wrist temperature and breathing disturbances count toward the morning too.
 # 4: flagged readings left out; naps apart from the night; heart rate weighted by time; intervals shared across midnight;
 #    a source's daily total wins over its intraday readings; every metric the iPhone sends; a reading's own offset.
-DAILY_VERSION = 4
+# 5: a day's total from the export route sent again from another time zone replaces the first rather than adding to it.
+DAILY_VERSION = 5
 
 
 def merge_interval_sources(items: list[tuple[str, str, float, str]], rank: Optional[Callable[[str], Any]] = None) -> float:
