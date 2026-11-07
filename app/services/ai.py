@@ -124,6 +124,10 @@ class ToolsUnsupported(AIError):
     """The model (or the server running it) can't call tools."""
 
 
+class LimitRefused(AIError):
+    """The server won't take a limit on the answer's length, or not that one."""
+
+
 class ProviderBusy(AIError):
     """Temporary trouble at the provider: worth asking again in a moment."""
 
@@ -687,6 +691,10 @@ NO_TOOLS = re.compile(r"(does not|doesn't|do not|don't) support (the use of )?(t
                       r"not support(ed)? (for )?(tools?|function)|no endpoints found that support tool", re.I)
 
 
+# What servers say when the limit on an answer's length is more than the model allows, or a parameter they don't take.
+LIMIT_REFUSED = re.compile(r"max_(completion_|new_|output_)?tokens|in the completion", re.I)
+
+
 def _retry_after(resp: httpx.Response) -> Optional[float]:
     try:
         return max(0.0, float(resp.headers.get("retry-after", "")))
@@ -702,6 +710,8 @@ def _raise_for(resp: httpx.Response, cfg: dict[str, Any]) -> None:
         if not cfg.get("key"):
             raise AIError(f"{cfg['label']} wants an API key ({detail}).")
         raise AIError(f"{cfg['label']} rejected the API key ({detail}).")
+    if resp.status_code in (400, 422) and cfg["api"] == "openai" and cfg.get("limit", True) and LIMIT_REFUSED.search(detail):
+        raise LimitRefused(f"{cfg['label']} won't take a limit on the answer's length ({detail}).")
     if resp.status_code in (400, 404, 422) and NO_TOOLS.search(detail):
         raise ToolsUnsupported(f"Model '{cfg['model']}' can't use tools ({detail}).")
     if resp.status_code == 404 and "model" in lowered:
@@ -835,8 +845,13 @@ def _openai_messages(system: str, messages: list[dict[str, Any]]) -> list[dict[s
 
 
 def _openai_body(cfg: dict[str, Any], system: str, messages: list[dict[str, Any]],
-                 tools: Optional[list[dict[str, Any]]]) -> dict[str, Any]:
+                 tools: Optional[list[dict[str, Any]]], max_tokens: int) -> dict[str, Any]:
     body: dict[str, Any] = {"model": cfg["model"], "messages": _openai_messages(system, messages)}
+    if cfg.get("limit", True):
+        # The same limit Anthropic is given, so a model that runs on can't run up the person's bill. OpenAI's newer
+        # models take only max_completion_tokens; most other servers only max_tokens. One that refuses it is asked again
+        # without it (see _complete).
+        body["max_completion_tokens" if cfg["provider"] == "openai" else "max_tokens"] = max_tokens
     if tools:
         body["tools"] = [{"type": "function", "function": {"name": t["name"], "description": t["description"],
                                                            "parameters": t["schema"]}} for t in tools]
@@ -856,7 +871,7 @@ def _openai_headers(cfg: dict[str, Any]) -> dict[str, str]:
 
 async def _openai(client: httpx.AsyncClient, cfg: dict[str, Any], system: str, messages: list[dict[str, Any]],
                   tools: Optional[list[dict[str, Any]]], max_tokens: int) -> Reply:
-    res = await _request(client, cfg, "POST", "/chat/completions", json=_openai_body(cfg, system, messages, tools),
+    res = await _request(client, cfg, "POST", "/chat/completions", json=_openai_body(cfg, system, messages, tools, max_tokens),
                          headers=_openai_headers(cfg))
     return _read_whole(cfg, _read_openai, res)
 
@@ -903,13 +918,17 @@ def _clean_answer(reply: Reply) -> Reply:
 async def _complete(client: httpx.AsyncClient, cfg: dict[str, Any], system: str, messages: list[dict[str, Any]],
                     tools: Optional[list[dict[str, Any]]] = None, max_tokens: int = 4096) -> Reply:
     adapter = _anthropic if cfg["api"] == "anthropic" else _openai
-    for attempt in range(RETRY_ATTEMPTS):
+    attempt = 0
+    while True:
         try:
             return _clean_answer(await adapter(client, cfg, system, messages, tools, max_tokens))
+        except LimitRefused:
+            cfg["limit"] = False        # asked again without one, here and for the rest of the question
         except ProviderBusy as exc:
-            if attempt == RETRY_ATTEMPTS - 1:
+            attempt += 1
+            if attempt == RETRY_ATTEMPTS:
                 raise
-            await asyncio.sleep(_pause(attempt, exc.retry_after))
+            await asyncio.sleep(_pause(attempt - 1, exc.retry_after))
 
 
 # Streaming. Ask shows the answer as it's written: the adapters below send the same requests with "stream": true and
@@ -1057,29 +1076,38 @@ async def _openai_events(payloads: AsyncIterator[dict[str, Any]]) -> AsyncIterat
 
 
 class _Visible:
-    """What of a streamed reply may be shown so far: reasoning some models inline as <think>…</think> never is."""
-    OPEN = "<think>"
+    """What of a streamed reply may be shown so far: reasoning some models inline as <think>…</think> never is, nor
+    anything after a <think> that hasn't closed (as in _clean_answer). Each piece is looked at once, so a long answer
+    costs no more per piece than a short one."""
+    OPEN, CLOSE = "<think>", "</think>"
 
     def __init__(self) -> None:
-        self.raw, self.sent = "", ""
+        self.sent = ""          # everything shown so far
+        self.held = ""          # the end of the last piece, while it may be the start of a tag ("<thi")
+        self.thinking = False
 
     def add(self, piece: str) -> Optional[str]:
-        """The new text to show after `piece` arrives ("" when nothing yet), or None if what was shown must be redrawn."""
-        self.raw += piece
-        shown = re.sub(r"<think>.*?</think>", "", self.raw, flags=re.S)
-        if self.OPEN in shown:
-            shown = shown[:shown.index(self.OPEN)]
-        # Hold back a tag that may be arriving ("<thi").
-        for n in range(len(self.OPEN) - 1, 0, -1):
-            if shown.endswith(self.OPEN[:n]):
-                shown = shown[:-n]
-                break
-        shown = shown.lstrip()
-        if not shown.startswith(self.sent):
-            self.sent = shown
-            return None
-        new, self.sent = shown[len(self.sent):], shown
-        return new
+        """The new text to show after `piece` arrives ("" when nothing yet). (None, for a redraw, is never needed.)"""
+        text, new = self.held + piece, []
+        self.held = ""
+        while text:
+            tag = self.CLOSE if self.thinking else self.OPEN
+            at = text.find(tag)
+            if at >= 0:
+                if not self.thinking:
+                    new.append(text[:at])
+                text, self.thinking = text[at + len(tag):], not self.thinking
+                continue
+            keep = next((n for n in range(len(tag) - 1, 0, -1) if text.endswith(tag[:n])), 0)
+            if not self.thinking:
+                new.append(text[:len(text) - keep])
+            self.held = text[len(text) - keep:]
+            break
+        shown = "".join(new)
+        if not self.sent:
+            shown = shown.lstrip()
+        self.sent += shown
+        return shown
 
 
 async def _complete_stream(client: httpx.AsyncClient, cfg: dict[str, Any], system: str, messages: list[dict[str, Any]],
@@ -1087,12 +1115,13 @@ async def _complete_stream(client: httpx.AsyncClient, cfg: dict[str, Any], syste
                            max_tokens: int = 4096) -> AsyncIterator[tuple[str, Any]]:
     """Like _complete, streamed: ("delta", text) to show, ("reset", None) when what was shown must be redrawn from
     later deltas, ("retry", text) while waiting to ask again, then ("reply", Reply)."""
-    for attempt in range(RETRY_ATTEMPTS):
+    attempt = 0
+    while True:
         if cfg["api"] == "anthropic":
             stream = _stream_request(client, cfg, "/v1/messages", _anthropic_body(cfg, system, messages, tools, max_tokens),
                                      _anthropic_headers(cfg), _anthropic_events, _read_anthropic)
         else:
-            stream = _stream_request(client, cfg, "/chat/completions", _openai_body(cfg, system, messages, tools),
+            stream = _stream_request(client, cfg, "/chat/completions", _openai_body(cfg, system, messages, tools, max_tokens),
                                      _openai_headers(cfg), _openai_events, _read_openai)
         visible, started = _Visible(), False
         try:
@@ -1109,12 +1138,17 @@ async def _complete_stream(client: httpx.AsyncClient, cfg: dict[str, Any], syste
                 else:
                     yield "reply", _clean_answer(value)
             return
+        except LimitRefused:
+            if started:
+                raise
+            cfg["limit"] = False
         except ProviderBusy as exc:
             # Once part of an answer has arrived, asking again would start it over: the person sees the error instead.
-            if started or attempt == RETRY_ATTEMPTS - 1:
+            attempt += 1
+            if started or attempt == RETRY_ATTEMPTS:
                 raise
             yield "retry", f"{cfg['label']} is busy. Trying again."
-            await asyncio.sleep(_pause(attempt, exc.retry_after))
+            await asyncio.sleep(_pause(attempt - 1, exc.retry_after))
         except AIError as exc:
             # A server that can't stream (some local servers with tools): the same request without streaming.
             if started or "stream" not in str(exc).lower():

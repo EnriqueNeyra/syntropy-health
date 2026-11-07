@@ -355,11 +355,26 @@ def test_openai_length_is_cut_short(client, vendor):
     assert "cut_short" in _kinds(_chat(client))
 
 
-def test_nothing_on_the_openai_path_asks_for_a_limit(client, vendor):
-    _connect(client)
+@pytest.mark.parametrize("provider, field", [("openai", "max_completion_tokens"), ("openrouter", "max_tokens"),
+                                             ("deepseek", "max_tokens")])
+def test_the_openai_path_asks_for_the_same_limit_as_anthropic(client, vendor, provider, field):
+    _connect(client, provider)
     vendor.script.append(_text("Fine."))
     _chat(client)
-    assert "max_tokens" not in vendor.bodies[0] and "max_completion_tokens" not in vendor.bodies[0]
+    assert vendor.bodies[0][field] == ai.ASK_MAX_TOKENS
+    assert ("max_tokens" if field == "max_completion_tokens" else "max_completion_tokens") not in vendor.bodies[0]
+
+
+@pytest.mark.parametrize("message", ["Invalid max_tokens value, the valid range of max_tokens is [1, 8192]",
+                                     "`inputs` tokens + `max_new_tokens` must be <= 8193",
+                                     "you requested 17000 tokens (1000 in the messages, 16000 in the completion)"])
+def test_a_server_that_refuses_the_limit_is_asked_again_without_it(client, vendor, message):
+    _connect(client, "deepseek")
+    vendor.script += [(400, {"error": {"message": message}}), [LOOKUP, "[DONE]"], _text("Fine.")]
+    events = _chat(client)
+    assert next(e for e in events if e["type"] == "answer")["text"] == "Fine."
+    assert "max_tokens" in vendor.bodies[0] and all("max_tokens" not in b for b in vendor.bodies[1:])
+    assert len(vendor.bodies) == 3      # the rest of the question went without it too, and nothing was asked twice more
 
 
 def test_anthropic_gets_room_for_a_long_answer(client, vendor):
@@ -1151,3 +1166,46 @@ def test_a_report_whose_text_takes_too_long_is_sent_as_the_file(monkeypatch):
     monkeypatch.setattr(ai, "PDF_TEXT_TIMEOUT_S", 0.05)
     out = asyncio.run(ai.extract_lab_results(b"%PDF-1.4", "application/pdf", "r.pdf", None))
     assert out["read_as"] == "document" and sent[0]["type"] == "pdf"
+
+
+def test_a_connection_test_on_a_server_that_refuses_the_limit_works(client, vendor):
+    _connect(client, "deepseek")
+    vendor.script += [(400, {"error": {"message": "Invalid max_tokens value"}}),
+                      (200, {"choices": [{"message": {"content": "", "tool_calls": [{"id": "c", "type": "function", "function": {"name": "get_health_summary", "arguments": "{}"}}]}}]}),
+                      (200, {"choices": [{"message": {"content": "OK"}}]})]
+    assert client.post("/api/ai/test").json()["tools"] is True
+    assert vendor.bodies[0]["max_tokens"] == 2000 and all("max_tokens" not in b for b in vendor.bodies[1:])
+
+
+def _shown_by_rescanning(raw):
+    """What 1.7.1 showed of a streamed reply, by looking at all of it again for each piece."""
+    import re
+    shown = re.sub(r"<think>.*?</think>", "", raw, flags=re.S)
+    shown = shown[:shown.index("<think>")] if "<think>" in shown else shown
+    for n in range(6, 0, -1):
+        if shown.endswith("<think>"[:n]):
+            shown = shown[:-n]
+            break
+    return shown.lstrip()
+
+
+@pytest.mark.parametrize("reply", ["Hello <think>secret</think> world", "  <think>a</think>\n Answer <thi", "a<think>b</thi",
+                                   "<<think>x</think>>", "x</think>y", "<think>a<think>b</think>c", "a<think>b</think>c<think>d",
+                                   "a <b> <th>ink</think>", "<think></think></think>done"])
+def test_reasoning_is_hidden_as_it_arrives_however_it_is_split(reply):
+    whole = _shown_by_rescanning(reply)
+    for size in (1, 2, 3, 5, 8):
+        visible = ai._Visible()
+        for end in range(size, len(reply) + size, size):
+            visible.add(reply[end - size:end])
+            # Never behind what was shown before, and never anything the whole reply doesn't show.
+            assert visible.sent.startswith(_shown_by_rescanning(reply[:end])) and whole.startswith(visible.sent), (reply, size, end)
+        assert visible.sent == whole
+
+
+def test_a_long_reasoning_costs_no_more_for_each_piece():
+    visible = ai._Visible()
+    started = time.process_time()
+    for piece in ["<think>", *["abcd"] * 16_000, "</think>", *["wxyz"] * 2_000]:
+        visible.add(piece)
+    assert visible.sent == "wxyz" * 2_000 and time.process_time() - started < 1.0
