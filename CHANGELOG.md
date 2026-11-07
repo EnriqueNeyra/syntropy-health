@@ -3,6 +3,104 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
+## Unreleased
+
+Fixes from a review of the whole project. The first start after upgrading works out everyone's daily figures again and
+reads stored records once more, so days and flags that were wrong are corrected.
+
+### Phones and accounts
+
+- **Paired phones check they're talking to their own server before they send their token.** A server now has an id
+  (`server_id`) and answers `POST /api/devices/prove`, so the iPhone and Android apps (from their next versions) can
+  tell it apart from another machine at the same address.
+- **From a phone's Syntropy tab, what can't be undone or reaches everyone's records takes your password.** That covers
+  removing someone, deleting data, scheduled backups, restoring, network access, installing updates, inviting someone,
+  and changing where sign-ins and wearable refreshes go. Password guesses from a phone count toward the same limits as
+  signing in. Browsers and the Mac and Windows apps are unchanged.
+- A phone paired for a child no longer changes the parent's units, accent, terms or first-run steps.
+- One malformed deletion from a phone no longer fails its whole batch.
+- A large or compressed upload is read only from a paired phone or someone signed in, and a compressed one can't grow
+  more than a hundredfold.
+- **Behind a reverse proxy, set `FORWARDED_ALLOW_IPS` to the proxy's address, not `"*"`.** With `"*"`, forwarded
+  addresses are no longer believed. Any one password stops after 20 wrong guesses in 5 minutes from anywhere but the
+  server's own computer.
+- Someone who leaves or is removed can no longer use their old password to bring back the encryption key.
+- Another website can't send password guesses to the unlock page by pointing its own name at this computer.
+
+### Your data and figures
+
+- A day's total from Health Auto Export, sent again after you change time zones, replaces the first instead of doubling
+  the day. Days already doubled are corrected after the upgrade.
+- Water, food and other entries logged in two apps now add up for the day.
+- A reading you remove stays removed when an Apple Health export or an export automation brings it back.
+- Changing the source order in Settings works out merged ("Combined") days again.
+- Sleep edited on an Android phone updates its stages and leaves no old ones behind.
+- Export automations set to weeks, months or years no longer put a whole period's total on one day. Use hours or days.
+- Sleep from an Apple Health export lands on the right morning when it was slept in another time zone. Import the
+  export again to correct nights already imported.
+- Goal progress counts every day of the week, so a day with nothing recorded counts as not met and breaks the streak.
+- A blood pressure keeps the flags its source gave its systolic and diastolic, and is flagged as the worse of them.
+  Blood pressures imported earlier from a C-CDA file stay unflagged.
+- Records on pages a sync couldn't read are kept: a later page that fails no longer counts as the end of the results.
+- Medications a health system names only by reference are read during the sync and shown by name.
+- An eGFR given both for Black patients and for everyone else (as labs did until 2021) shows as two histories, not a
+  change between them.
+- A report's full text is no longer lost when stored records are read again. Reports re-read by 1.7.x lost it: a live
+  connection fetches it again, but a file import can't.
+- Date filters put a time given without a time zone on the day it says.
+- Disconnecting a health system asks it to end the access it granted.
+
+### Backups and upgrades
+
+- **If you reinstalled after deleting your data folder or purging it, your backups may have left out the encryption key.**
+  The first start of this version finds the key and records it, and backups include it again. Make a fresh backup
+  after upgrading.
+- `syntropy-health restore` won't run while the Mac or Windows app has the database open, and waits if the Keychain is
+  locked instead of going ahead.
+- Unlocking with your password after an update is no longer undone 25 minutes later.
+- Scheduled backups no longer delete backups you made yourself in the same folder.
+- Deleting everything (the apps' erase, or `install.sh --uninstall --purge`) removes every encryption key the data folder
+  has had, and only those.
+- The copies kept from before upgrades stay in the order they were made after they're encrypted.
+
+### Ask and AI apps
+
+- Reading a lab report with an AI no longer pauses the server, and an outside AI reads one only with the agreement of
+  the person it's about.
+- Gemini CLI keeps no transcript of questions asked in Ask, and old ones are cleared. Claude Code no longer sends the
+  owner's own CLAUDE.md with everyone's questions.
+- OpenAI-compatible AIs get the same answer-length limit as Anthropic, and one question sends a hosted AI at most about
+  65,000 tokens of records.
+- A password written into a model server's address is refused; one saved earlier is hidden from everyone.
+- Only the owner can make the server look for agent apps again, and the MCP server an agent uses refuses to start
+  unless it's limited to one person.
+- Connecting an AI app gives access to one person's records by default. The "everyone" choice now says it includes
+  people added later.
+
+### On screen
+
+- After switching person, the alerts bell shows only that person's alerts, never the last person's.
+- Warnings from importing a FHIR or C-CDA file are shown, and an Apple Health import's progress stays on screen while
+  sources sync.
+- With a screen reader, Ask reads each answer once when it's finished, instead of re-reading it as it's written.
+- Long titles without spaces wrap on phones instead of making the Timeline scroll sideways.
+- A visit question that can't be saved stays in its box to try again.
+
+### Robustness
+
+- Range text padded with thousands of spaces, and lab-report images with many pages or huge sizes, no longer stall the
+  server or exhaust its memory.
+
+### Releases and CI
+
+- A release only goes out from a tag on a commit that's on main, and its wheel is built with a pinned, hash-checked
+  setuptools.
+- The weekly directory refresh installs from the lock, and only a separate job that runs nothing from the repository
+  holds the token that opens its pull request.
+- The Docker refresh publishes the packaging it tested and never moves `:latest` back to an older release.
+- The CLA check needs a signature from whoever opened the pull request.
+- The 52 browser tests of Ask run in CI, and a test no longer starts failing on 15 September 2027.
+
 ## 1.7.1
 
 A large release: records import and sync more completely, backups and upgrades are safer, and accounts, the phone
