@@ -3,7 +3,7 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
-## Unreleased
+## 1.7.2
 
 Fixes from a review of the whole project. The first start after upgrading works out everyone's daily figures again and
 reads stored records once more, so days and flags that were wrong are corrected.
@@ -85,6 +85,7 @@ reads stored records once more, so days and flags that were wrong are corrected.
 - With a screen reader, Ask reads each answer once when it's finished, instead of re-reading it as it's written.
 - Long titles without spaces wrap on phones instead of making the Timeline scroll sideways.
 - A visit question that can't be saved stays in its box to try again.
+- In **Sources → Phones & watches**, Get the app opens the iPhone app on the App Store, now that it's out.
 
 ### Robustness
 
