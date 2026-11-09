@@ -12663,6 +12663,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/FFCFDD"
 },
 {
+"id": "ecw-iajded",
+"name": "Avlo",
+"location": "New York, NY",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/IAJDED"
+},
+{
 "id": "ecw-cgdaed",
 "name": "Avmd PLLC",
 "location": "Sugar Land, TX",
@@ -15699,6 +15706,13 @@
 "location": "Miami, FL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/JBBHDD"
+},
+{
+"id": "ecw-ggided",
+"name": "BL Physician Home Care Solutions PLLC",
+"location": "Benton, AR",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/GGIDED"
 },
 {
 "id": "ecw-afigdd",
@@ -25352,6 +25366,13 @@
 "location": "Jupiter, FL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/BGCGAA"
+},
+{
+"id": "ecw-ibided",
+"name": "Coastal Neurology and Wellness Center LLC",
+"location": "Lewes, DE",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/IBIDED"
 },
 {
 "id": "ecw-fjbiad",
@@ -35215,6 +35236,13 @@
 "location": "El Centro, CA",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/HHBABA"
+},
+{
+"id": "ecw-dhfcba",
+"name": "El Dorado County Community Health Center",
+"location": "Placerville, CA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/DHFCBA"
 },
 {
 "id": "ecw-jacfca",
@@ -53221,6 +53249,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CJFECD"
 },
 {
+"id": "ecw-cajded",
+"name": "iCare360 Imaging LLC",
+"location": "Zephyrhills, FL",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/CAJDED"
+},
+{
 "id": "ecw-jdhcaa",
 "name": "ICCO, LLC.",
 "location": "Coburg, OR",
@@ -53331,6 +53366,13 @@
 "location": "West Palm Beach, FL",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/EABCDD"
+},
+{
+"id": "ecw-fddded",
+"name": "Ideal MedClinic, Inc",
+"location": "Riverdale, GA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/FDDDED"
 },
 {
 "id": "ecw-djhfad",
@@ -55424,6 +55466,13 @@
 "location": "Knoxville, TN",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/ABJGDD"
+},
+{
+"id": "ecw-cchded",
+"name": "Interstellar Pediatric Pulmonology, PLLC",
+"location": "El Paso, TX",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/CCHDED"
 },
 {
 "id": "ecw-ibbead",
@@ -57750,6 +57799,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CGHJAA"
 },
 {
+"id": "ecw-cebhaa",
+"name": "John Michael Harkless, DO",
+"location": "Wytheville, VA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/CEBHAA"
+},
+{
 "id": "ecw-dfcjbd",
 "name": "John P Malloy IV, DO",
 "location": "Lighthouse Point, FL",
@@ -58441,6 +58497,13 @@
 "location": "Jersey City, NJ",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CAJCDD"
+},
+{
+"id": "ecw-hdfced",
+"name": "Joseph K Hyon DO PA",
+"location": "Westwood, NJ",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/HDFCED"
 },
 {
 "id": "ecw-adhiba",
@@ -62916,6 +62979,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/GIEEAD"
 },
 {
+"id": "ecw-jajded",
+"name": "Letsthrivemh Corporation",
+"location": "Coral Gables, FL",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/JAJDED"
+},
+{
 "id": "ecw-fajaed",
 "name": "Leunam J. Rodriguez, M.D., PA",
 "location": "Miami, FL",
@@ -64405,6 +64475,13 @@
 "location": "Central Islip, NY",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/CCJFAD"
+},
+{
+"id": "ecw-gbided",
+"name": "Long Island Surgical, PLLC",
+"location": "Rego Park, NY",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/GBIDED"
 },
 {
 "id": "ecw-accced",
@@ -65994,6 +66071,13 @@
 "location": "Norcross, GA",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/EDFJCA"
+},
+{
+"id": "ecw-bejded",
+"name": "Magnolia Medical Clinic, LLC",
+"location": "Sheffield, AL",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/BEJDED"
 },
 {
 "id": "ecw-gbadbd",
@@ -108822,6 +108906,13 @@
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/AIGGBA"
 },
 {
+"id": "ecw-jgided",
+"name": "STL Interventional Oncology and Radiology Clinics LLC",
+"location": "Westborough, MA",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/JGIDED"
+},
+{
 "id": "ecw-aedfaa",
 "name": "Stockbridge Pediatrics PC.",
 "location": "Stockbridge, GA",
@@ -123380,6 +123471,13 @@
 "location": "Westborough, MA",
 "platform": "healow",
 "fhir_base_url": "https://fhir4.healow.com/fhir/r4/EFGDBD"
+},
+{
+"id": "ecw-eajded",
+"name": "Westbury Medical, PC",
+"location": "Westbury, NY",
+"platform": "healow",
+"fhir_base_url": "https://fhir4.healow.com/fhir/r4/EAJDED"
 },
 {
 "id": "ecw-gabfad",

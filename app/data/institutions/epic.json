@@ -504,7 +504,7 @@
 "name": "AnMed Health",
 "location": "SC, GA",
 "platform": "epic",
-"fhir_base_url": "https://epicproxy.et0971.epichosted.com/FHIRProxy/api/FHIR/R4",
+"fhir_base_url": "https://epicproxy.et0971.epichosted.com/FHIRProxy/ANMED/api/FHIR/R4",
 "places": [
 "Anderson SC",
 "Clemson SC",
@@ -1135,7 +1135,7 @@
 "name": "Baton Rouge General",
 "location": "Baton Rouge, LA",
 "platform": "epic",
-"fhir_base_url": "https://interconnect.brgeneral.org/oauth/BRG/api/FHIR/R4",
+"fhir_base_url": "https://epicproxy.et1355.epichosted.com/APIPROXYPRD/BRG/api/FHIR/R4",
 "network": "General Health System",
 "places": [
 "Baton Rouge LA",
@@ -4654,13 +4654,13 @@
 "network": "Endeavor Health",
 "places": [
 "Chicago IL",
-"Skokie IL",
+"Naperville IL",
+"Elmhurst IL",
+"Arlington Heights IL",
 "Glenview IL",
-"Evanston IL",
-"Highland Park IL",
-"Northbrook IL",
-"Gurnee IL",
-"Wilmette IL"
+"Schaumburg IL",
+"Skokie IL",
+"Evanston IL"
 ]
 },
 {
