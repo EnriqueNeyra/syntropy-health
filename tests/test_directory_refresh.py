@@ -380,8 +380,9 @@ def test_downloads_accept_a_list_served_as_a_file(monkeypatch):
         def read(self, *a):
             return b"[]"
 
-    def urlopen(req, timeout):
+    def urlopen(req, timeout, context=None):
         seen.update(req.header_items())
+        assert context is refresh.TLS
         return Response()
 
     monkeypatch.setattr(refresh, "urlopen", urlopen)
@@ -490,3 +491,15 @@ def test_auto_merge_waits_when_a_person_should_look():
     assert '"$REVIEW" = 0' in WORKFLOW
     assert '"$DROPPED"' not in WORKFLOW
     assert "app/data/facilities.tsv" in WORKFLOW
+
+
+def test_a_vendor_that_leaves_out_its_intermediate_certificate_is_still_checked_to_a_root():
+    """open.epic.com sends only its own certificate. The refresh supplies DigiCert's intermediate, and doesn't let it stand
+    in for a root (Python 3.13 would, with its partial-chain default)."""
+    import ssl
+    context = refresh.tls_context()
+    assert not context.verify_flags & getattr(ssl, "VERIFY_X509_PARTIAL_CHAIN", 0)
+    assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
+    subjects = [dict(x[0] for x in cert["subject"]).get("commonName") for cert in context.get_ca_certs()]
+    assert "DigiCert Global G2 TLS RSA SHA256 2020 CA1" in subjects
+
