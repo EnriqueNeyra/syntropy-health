@@ -424,7 +424,7 @@
 "name": "Active Healthcare",
 "location": "Knoxville, TN",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/183eb63b-80da-4d08-8dff-7d3fdafea3f4"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/183eb63b-80da-4d08-8dff-7d3fdafea3f4"
 },
 {
 "id": "practicefusion-adam-medical-center",
@@ -4207,6 +4207,13 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/361a81a7-a144-4655-ba1c-6c623fd3f0bc"
 },
 {
+"id": "practicefusion-chalmette-wellness-clinic",
+"name": "Chalmette Wellness Clinic",
+"location": "Chalmette, LA",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/0b764c5f-5513-4fe4-9fd2-1386a1463b5a"
+},
+{
 "id": "practicefusion-chanda-holmes-pllc",
 "name": "Chanda Holmes PLLC",
 "location": "Schertz, TX",
@@ -5995,13 +6002,6 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/73c87455-c59d-4312-a729-4af0cecc9060"
 },
 {
-"id": "practicefusion-diane-cuff-carney-practice",
-"name": "Diane Cuff-Carney Practice",
-"location": "Long Lake, NY",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/edcc7c69-f60f-41e5-905b-27a8db5f529d"
-},
-{
 "id": "practicefusion-diane-magliulo-do",
 "name": "Diane Magliulo, DO",
 "location": "Bay Shore, NY",
@@ -7470,6 +7470,13 @@
 "location": "Long Valley, NJ",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/043feab3-4a54-44fb-9877-12b4692ae14f"
+},
+{
+"id": "practicefusion-taylor-attar",
+"name": "ETSI Health Clinic",
+"location": "Portsmouth, VA",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/41f119b2-3fcd-4039-a483-a6a7d4c1d18b"
 },
 {
 "id": "practicefusion-euclid-health-and-wellness",
@@ -10202,6 +10209,13 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/0e57897f-e3f1-43b6-8d69-54de6e97994f"
 },
 {
+"id": "practicefusion-hoon-ji-helen-choi-m-d-endocrinology",
+"name": "Hoon-Ji Helen Choi M.D., Endocrinology",
+"location": "Los Alamitos, CA",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/0471faa5-44aa-4f14-9ae6-0ed6bbacef63"
+},
+{
 "id": "practicefusion-hope-greve-practice",
 "name": "Hope Greve Practice",
 "location": "Chesterfield, MI",
@@ -10388,7 +10402,7 @@
 "name": "Huntington Geriatric Medical Group",
 "location": "Pasadena, CA",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/5f8f90ec-8ad3-448f-859e-c61c20b3b821"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/5f8f90ec-8ad3-448f-859e-c61c20b3b821"
 },
 {
 "id": "practicefusion-huntington-mental-health-associates-inc-dba-huntington-behavioral-health",
@@ -10591,7 +10605,7 @@
 "name": "Imaging and Interventional Associates PC",
 "location": "Long Island City, NY",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/addb04f9-0ba9-462b-ab8a-d408e433d30a"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/addb04f9-0ba9-462b-ab8a-d408e433d30a"
 },
 {
 "id": "practicefusion-iman-ali-md-pa",
@@ -10648,6 +10662,13 @@
 "location": "Greeneville, TN",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/42e133eb-054f-40a2-bb54-82c55fc00b3e"
+},
+{
+"id": "practicefusion-incare-clinic",
+"name": "inCare Clinic",
+"location": "San Juan, PR",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/826c99e9-045e-4d48-be50-622e2be1d258"
 },
 {
 "id": "practicefusion-independent-medical-group",
@@ -13510,7 +13531,7 @@
 "name": "Malcolm X Clinic",
 "location": "Dallas, TX",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/0cc80b2e-2d87-4723-9e60-4aa97cc9a7d5"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/0cc80b2e-2d87-4723-9e60-4aa97cc9a7d5"
 },
 {
 "id": "practicefusion-malek-medicine",
@@ -14427,7 +14448,7 @@
 "name": "Mensana Center",
 "location": "Cortlandt Manor, NY",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/c87c6093-e655-4848-a147-fe6f67a4baf3"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/c87c6093-e655-4848-a147-fe6f67a4baf3"
 },
 {
 "id": "practicefusion-mental-autonomy-inc",
@@ -17524,6 +17545,13 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/1118403e-d07b-42bc-8068-92507776adbb"
 },
 {
+"id": "practicefusion-peace-of-mind",
+"name": "Peace of Mind",
+"location": "Peru, IN",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/1b5fbbd7-f433-4dfe-a7e4-45075e0c00cb"
+},
+{
 "id": "practicefusion-peace-of-mind-nurse-practitioner-in-psychiatry-pllc",
 "name": "Peace Of Mind Nurse Practitioner In Psychiatry PLLC",
 "location": "Lockport, NY",
@@ -18012,6 +18040,13 @@
 "location": "Atlanta, GA",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/6a010885-8cdf-4a61-8167-504a51e2817a"
+},
+{
+"id": "practicefusion-pono-health-md",
+"name": "Pono Health MD",
+"location": "Columbia, MD",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/f8e5786e-119e-4b5f-b264-fa5919240d02"
 },
 {
 "id": "practicefusion-poonam-s-dulai-m-d",
@@ -20167,7 +20202,7 @@
 "name": "Sage Medical Group, Inc.",
 "location": "Canoga Park, CA",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/0ede2b4f-ffc6-47e3-9fe5-02a1acdc0333"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/0ede2b4f-ffc6-47e3-9fe5-02a1acdc0333"
 },
 {
 "id": "practicefusion-sah-medical-consulting",
@@ -22340,13 +22375,6 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/388d82db-4b00-4dfa-a9c9-7bfc4ae5de5c"
 },
 {
-"id": "practicefusion-taylor-attar",
-"name": "Taylor Attar",
-"location": "Portsmouth, VA",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/41f119b2-3fcd-4039-a483-a6a7d4c1d18b"
-},
-{
 "id": "practicefusion-taylor-family-healthcare",
 "name": "Taylor Family Healthcare",
 "location": "Corbin, KY",
@@ -23464,7 +23492,7 @@
 "name": "Valley Cardiology and Vascular Associates, Inc.",
 "location": "Torrance, CA",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/5d5bb2b7-8470-40a0-bb8f-29c5459af253"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/5d5bb2b7-8470-40a0-bb8f-29c5459af253"
 },
 {
 "id": "practicefusion-valley-clinics",
@@ -24802,6 +24830,13 @@
 "location": "Panama City, FL",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/ffdcec3a-993b-41cc-93e9-3c8310060ae3"
+},
+{
+"id": "practicefusion-zarina-smith-practice",
+"name": "Zarina Smith Practice",
+"location": "Syracuse, NY",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/a8be7559-b3bb-4368-be01-023379aaaf95"
 },
 {
 "id": "practicefusion-zeeland-family-medicine-pc",

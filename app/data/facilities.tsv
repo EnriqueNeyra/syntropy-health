@@ -1417,6 +1417,7 @@ epic-advantagecare-physicians	ACPNY Flatiron District Medical Office	New York	NY
 epic-advantagecare-physicians	ACPNY Flushing Annex Medical Office	Flushing	NY
 epic-advantagecare-physicians	ACPNY Flushing North Medical Office	Flushing	NY
 epic-advantagecare-physicians	ACPNY Forest Hills Medical Office	Forest Hills	NY
+epic-advantagecare-physicians	ACPNY Grand Concourse Office	Bronx	NY
 epic-advantagecare-physicians	ACPNY Harlem Medical Office	New York	NY
 epic-advantagecare-physicians	ACPNY Jamaica Estates Medical Office	Queens	NY
 epic-advantagecare-physicians	ACPNY Kings Highway Medical Office	Brooklyn	NY
@@ -5609,7 +5610,7 @@ epic-anmed-health	Anmed Orthopedics & Sports Medicine - Pickens	Pickens	SC
 epic-anmed-health	Anmed Orthopedics & Sports Medicine - Windsor Place	Anderson	SC
 epic-anmed-health	Anmed Outpatient Infusion	Anderson	SC
 epic-anmed-health	Anmed Pediatrics - Piedmont	Piedmont	SC
-epic-anmed-health	Anmed Primary Care & Pediatrics - Seneca	Oconee	SC
+epic-anmed-health	Anmed Primary Care & Pediatrics - Seneca	Seneca	SC
 epic-anmed-health	Anmed Primary Care - Piedmont	Piedmont	SC
 epic-anmed-health	Anmed Specialty Care - Piedmont	Piedmont	SC
 epic-anmed-health	Anmed Sports Medicine - AU Athletics	Anderson	SC
@@ -6335,6 +6336,7 @@ epic-aspirus	Aspirus Portage Clinic	Portage	WI
 epic-aspirus	Aspirus Prentice Clinic	Prentice	WI
 epic-aspirus	Aspirus Psychology Clinic	Wausau	WI
 epic-aspirus	Aspirus QCARE Clinic	Duluth	MN
+epic-aspirus	Aspirus Retail Pharmacy - St Lukes	Duluth	MN
 epic-aspirus	Aspirus Rhinelander Clinic - N Chippewa Drive	Rhinelander	WI
 epic-aspirus	Aspirus Rhinelander Hospital	Rhinelander	WI
 epic-aspirus	Aspirus Rhinelander Orthopedic Care Clinic	Rhinelander	WI
@@ -15499,6 +15501,7 @@ epic-catholic-health-system-buffalo	BMH Mercy Hospital Cardiothoracic Surgical A
 epic-catholic-health-system-buffalo	BMH Mercy Women's Health Center	Buffalo	NY
 epic-catholic-health-system-buffalo	BMH Springville OB/GYN	Springville	NY
 epic-catholic-health-system-buffalo	CC Buffalo Neuromusculoskeletal Medicine	Williamsville	NY
+epic-catholic-health-system-buffalo	CC Gaddi Family Medicine	Buffalo	NY
 epic-catholic-health-system-buffalo	CC Gaddi Family Medicine PLLC	Buffalo	NY
 epic-catholic-health-system-buffalo	CC Medical Care of WNY	Buffalo	NY
 epic-catholic-health-system-buffalo	CC Nephrology Practice of Niagara	Niagara Falls	NY
@@ -27400,9 +27403,76 @@ epic-emplify-health	Gundersen St. Joseph's Hospital and Clinics	Hillsboro	WI
 epic-emplify-health	Gundersen Tri-County Hospital and Clinics	Whitehall	WI
 epic-emplify-health	MDV Villa Pines	Friendship	WI
 epic-empower-u		Miami	FL
+epic-endeavor-health-northshore-university-healthsystem		Geneva	IL
 epic-endeavor-health-northshore-university-healthsystem	Advocate CHRIST MED CTR EMERGENCY	Oak Lawn	IL
+epic-endeavor-health-northshore-university-healthsystem	Affiliates in Primary Care, SC - 1200 S York St	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Affiliates in Primary Care, SC - 7411 Lake St	River Forest	IL
 epic-endeavor-health-northshore-university-healthsystem	Aspire Internal Medicine - 400 Skokie Blvd	Northbrook	IL
+epic-endeavor-health-northshore-university-healthsystem	Behavioral Care PTRS	Warrenville	IL
+epic-endeavor-health-northshore-university-healthsystem	Cardiac Surgery Associates	Downers Grove	IL
+epic-endeavor-health-northshore-university-healthsystem	Cardiac Surgery Associates - Chicago	Chicago	IL
+epic-endeavor-health-northshore-university-healthsystem	Cardiac Surgery Associates - Rock Island	Rock Island	IL
+epic-endeavor-health-northshore-university-healthsystem	Cardiac Surgical Associates - 10 Martin Ave	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Cardiac Surgical Associates - 133 E Brush Hill RD	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Cardiac Surgical Associates - 1875 Dempster St	Park Ridge	IL
+epic-endeavor-health-northshore-university-healthsystem	Cardiac Surgical Associates - 3000 N Halsted	Chicago	IL
+epic-endeavor-health-northshore-university-healthsystem	Cardiac Surgical Associates - 301 N Madison	Joliet	IL
+epic-endeavor-health-northshore-university-healthsystem	Cardiac Surgical Associates - 880 w Central RD	Arlington Heights	IL
 epic-endeavor-health-northshore-university-healthsystem	Darryl Stern, MD - 9669 Kenton Avenue	Skokie	IL
+epic-endeavor-health-northshore-university-healthsystem	Edward-Elmhurst Health	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Elmhurst Memorial Hospital	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Elmhurst Outpatient Surgery Center - 1200 S York St	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Elmhurst Sleep Lab	Lombard	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor - SW 120 Spalding Dr Suite 211	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor - SW 177 E. Brush Hill RD Suite 1000	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor - SW 24600 w 127th St Suite 2000	Plainfield	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1 East County Line RD	Sandwich	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 10 Martin Ave	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 100 Spalding Dr	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1050 S Euclid Ave	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1100 Lake St	Oak Park	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 111 E Washington St	Bensenville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 120 Spalding Dr	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1200 E Lake St	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1200 S York St	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1220 Hobson RD	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1222 N Eola RD	Aurora	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1247 Rickert Dr	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 130 N Weber RD	Bolingbrook	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 130 Weber RD	Bolingbrook	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 133 E Brush Hill RD	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1331 w 75th St	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1335 N Mill St	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 155 E Brush Hill RD	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 16151 Weber RD	Crest Hill	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 16519 S Route 59	Plainfield	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 172 Schiller St	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 177 E Brush Hill RD	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1804 N Naper BLVD	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 1948 Three Farms Ave	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 2007 95th St	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 2013 Midwest RD	Oak Brook	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 2100 S Finley RD	Lombard	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 2205 Butterfield RD	Downers Grove	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 24600 w 127th St	Plainfield	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 3 S 517 Windfield RD	Warrenville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 303 w Lake St	Addison	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 3329 75th St	Woodridge	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 3805 E Main St	St. Charles	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 420 w Butterfield RD	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 429 N York St	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 500 Hicks Road	Palatine	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 552 S Washington St	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 6701 US Highway 34	Oswego	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 755 N York St	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 76 w Countryside Parkway	Yorkville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 796 Royal St. George Drive	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 8 Salt Creek Lane	Hinsdale	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 801 S Washington St	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 852 S West St	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 88 w Countryside Parkway	Yorkville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 932 Lake St	Oak Park	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor Eeh - 9697 w 191st St	Mokena	IL
 epic-endeavor-health-northshore-university-healthsystem	Endeavor Health	Evanston	IL
 epic-endeavor-health-northshore-university-healthsystem	Endeavor Health NS/SW - 1000 Central St	Evanston	IL
 epic-endeavor-health-northshore-university-healthsystem	Endeavor Health NS/SW - 1000 E Rollins Road	Round Lake Beach	IL
@@ -27476,19 +27546,102 @@ epic-endeavor-health-northshore-university-healthsystem	Endeavor Health NS/SW - 
 epic-endeavor-health-northshore-university-healthsystem	Endeavor Health NS/SW - 9669 Kenton Avenue	Skokie	IL
 epic-endeavor-health-northshore-university-healthsystem	Endeavor Health NS/SW - 9933 Woods Drive	Skokie	IL
 epic-endeavor-health-northshore-university-healthsystem	Endeavor Health NS/SW - 9977 Woods Drive	Skokie	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 100 E Roosevelt RD	Villa Park	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1051 w Rand RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 110 Hillcrest BLVD	Schaumburg	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 111 S Pfingsten RD	Deerfield	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1200 w Algonquin RD	Palatine	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1209 Dundee Ave	Elgin	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1300 Greenbrook Dr	Hanover Park	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1301 N Plum Grove RD	Schaumburg	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1345 Wiley RD	Schaumburg	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1365 Wiley RD	Schaumburg	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1400 E Golf RD	Des Plaines	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1410 N Arlington HTS RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1415 S Arlington HTS RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1430 N Arlington HTS RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1450 Busch Pkwy	Buffalo Grove	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1460 N Halsted	Chicago	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 15 S Mchenry RD	Buffalo Grove	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 150 N River RD	Des Plaines	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 150 N River RD Ste 270	Des Plaines	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1555 N Barrington RD	Hoffman Estates	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1585 N Barrington RD	Hoffman Estates	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1601 w Wise RD	Schaumburg	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1606 N Arlington HTS RD	Arlington Hts	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1614 w Central RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1632 w Central RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1879 Bay Scott Circle	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 1941 Rohlwing RD	Rolling Meadows	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 199 w Rand RD	Mount Prospect	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 2000 Golf RD	Rolling Meadows	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 201 E Strong St	Wheeling	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 201 E Strong St - Suite 2	Wheeling	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 2100 Pfingsten RD	Glenview	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 2101 S Arlington HTS RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 21481 N Rand RD	Kildeer	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 2150 N Pfingsten	Glenview	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 216 S Arlington HTS RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 2201 w Schaumburg RD	Schaumburg	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 2500 w Higgins RD	Hoffman Estates	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 2650 Ridge Ave	Evanston	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 3030 Salt Creek LN	Arlington Hts	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 3233 N Arlington HTS RD	Arlington Hts	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 3275 N Arlington HTS RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 3295 N Arlington HTS RD	Arlington Hts	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 3300 Kirchhoff RD	Rolling Meadows	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 3405 N Arlington HTS RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 3433 Kirchoff RD	Rolling Meadows	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 3540 w Seven Bridges Dr	Woodridge	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 355 w Northwest Hwy	Palatine	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 3633 w Lake Ave	Glenview	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 415 w Golf RD	Arlington Hts	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 4256 N Arlington HTS RD	Arlington Hts	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 454 w Boughton Ave	Bolingbrook	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 473 Army Trail RD	Bloomingdale	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 519 S Roselle RD	Schaumburg	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 5999 New Wilke RD	Rolling Meadows	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 600 w Lake Cook RD	Buffalo Grove	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 637 E Golf RD	Arlington Hts	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 657 E Golf RD	Arlington Hts	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 675 w Kirchhoff RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 712 Northwest Highway	Fox River Grove	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 747 N Church RD	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 800 Biesterfield RD	Elk Grove Village	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 800 E Woodfield RD	Schaumburg	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 800 w Central RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 800 w Oakton St	Arlington Hts	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 802 E Woodfield RD	Schaumburg	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 8118 N Milwaukee Ave	Niles	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 880 w Central RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 900 w Central RD	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 901 w. Kirchhoff RD.	Arlington Heights	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 921 N Plum Grove RD	Schaumburg	IL
+epic-endeavor-health-northshore-university-healthsystem	Endeavor NCH - 943 N Plum Grove RD	Schaumburg	IL
 epic-endeavor-health-northshore-university-healthsystem	EyeCare, Ltd - 1971 Second Street	Highland Park	IL
 epic-endeavor-health-northshore-university-healthsystem	EyeCare, Ltd - 9630 N. Kenton Ave	Skokie	IL
 epic-endeavor-health-northshore-university-healthsystem	First Clinic, S.C. - 9669 Kenton Avenue	Skokie	IL
+epic-endeavor-health-northshore-university-healthsystem	GROSSWEINER & BLASZAK, PC	Naperville	IL
 epic-endeavor-health-northshore-university-healthsystem	Gastroenterology Consultants of the North Shore - 2050 Pfingsten Road	Glenview	IL
 epic-endeavor-health-northshore-university-healthsystem	Gastroenterology Consultants of the North Shore - 505 Park Drive	Kenilworth	IL
 epic-endeavor-health-northshore-university-healthsystem	Glen Allergy & Asthma - 2550 Compass Rd	Glenview	IL
 epic-endeavor-health-northshore-university-healthsystem	Jasmine Wang Chao, DO, LTD - 1308 Waukegan Rd	Glenview	IL
 epic-endeavor-health-northshore-university-healthsystem	Jeffrey Grinblatt, MD - 9669 Kenton Avenue	Skokie	IL
+epic-endeavor-health-northshore-university-healthsystem	KARIM S YUNEZ MDSC	Lombard	IL
+epic-endeavor-health-northshore-university-healthsystem	Karim S. Yunez, MDSC - 1050 S Euclid Avenue	Elmhurst	IL
+epic-endeavor-health-northshore-university-healthsystem	LOMG STEEPLE RUN SCH	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Linden Oaks Hospital - 852 S West Street	Naperville	IL
 epic-endeavor-health-northshore-university-healthsystem	Mohammad A. Siddiqui, MD, Ltd - 9669 N. Kenton Avenue	Skokie	IL
 epic-endeavor-health-northshore-university-healthsystem	Paul Martin Kentor, MD, SC - 4160 IL-83	Long Grove	IL
 epic-endeavor-health-northshore-university-healthsystem	Paul Martin Kentor, MD, SC - 580 Roger Williams Avenue	Highland Park	IL
 epic-endeavor-health-northshore-university-healthsystem	Paul Martin Kentor, MD, SC - 636 Church St	Evanston	IL
+epic-endeavor-health-northshore-university-healthsystem	Premier Internists Bolingbrook	Bolingbrook	IL
+epic-endeavor-health-northshore-university-healthsystem	Premier Internists Naperville	Naperville	IL
 epic-endeavor-health-northshore-university-healthsystem	Stephen Bundra, MD, SC - 1921 Lake Avenue	Wilmette	IL
+epic-endeavor-health-northshore-university-healthsystem	Suburban Gastroenterology - 1 E County Line RD	Sandwich	IL
+epic-endeavor-health-northshore-university-healthsystem	Suburban Gastroenterology - 1243 Rickert Drive	Naperville	IL
+epic-endeavor-health-northshore-university-healthsystem	Suburban Gastroenterology - 24600 w. 127th St	Plainfield	IL
+epic-endeavor-health-northshore-university-healthsystem	WMH Orthopaedics	Elmhurst	IL
 epic-endeavor-health-northshore-university-healthsystem	Winnetka Avenue Physicians, SC - 525 Winnetka Avenue	Winnetka	IL
 epic-endeavor-health-northshore-university-healthsystem	Wyse Eyecare, SC - 900 Skokie Blvd	Northbrook	IL
 epic-endoscopy-center-of-connecticut	Endoscopy Center of CT	Hamden	CT
@@ -47943,8 +48096,8 @@ epic-multicare	Northwest Integrated Health Tacoma Westgate	Tacoma	WA
 epic-multicare	Northwest Neurology & Electrodiagnostic Ctr	Auburn	WA
 epic-multicare	Northwest Vein & Aesthetic Center Sequim	Sequim	WA
 epic-multicare	Northwest Vein & Aesthetic Center of Gig Harbor	Gig Harbor	WA
-epic-multicare	Oly Heart and Vascular	Olympia	WA
 epic-multicare	Oly Heart and Vascular Centralia	Centralia	WA
+epic-multicare	Oly Heart and Vascular Olympia	Olympia	WA
 epic-multicare	Olympic Sports & Spine - Auburn	Auburn	WA
 epic-multicare	Olympic Sports & Spine - Bonney Lake	Bonney Lake	WA
 epic-multicare	Olympic Sports & Spine - Covington	Covington	WA
@@ -48033,7 +48186,10 @@ epic-multicare	Pulse Heart Institute Vascular Services - Tacoma	Tacoma	WA
 epic-multicare	Pulse Heart Institute Yakima Creekside	Yakima	WA
 epic-multicare	Pulse Heart Institute Yelm	Yelm	WA
 epic-multicare	Pulse heart Institute Cardiology and Vascular Services Chehalis	Chehalis	WA
-epic-multicare	Quilted Health Midwifery Spokane	Spokane	WA
+epic-multicare	Quilted Health Magnolias Midwifery	Tacoma	WA
+epic-multicare	Quilted Health Midwives	Spokane	WA
+epic-multicare	Quilted Health Quintessential Birth Services	Chehalis	WA
+epic-multicare	Quilted Health Snohomish Midwives	Everett	WA
 epic-multicare	Rainier Medical Weight Loss	Gig Harbor	WA
 epic-multicare	Rainier Nephrology	Puyallup	WA
 epic-multicare	Rieder Medical Building	Puyallup	WA
@@ -48403,7 +48559,7 @@ epic-nationwide-children-s-hospital	Big Lots Behavioral Health Pavilion at Natio
 epic-nationwide-children-s-hospital	Blanchard Valley Pediatrics	Findlay	OH
 epic-nationwide-children-s-hospital	Building Blocks Pediatrics - Central Ohio Primary Care	Reynoldsburg	OH
 epic-nationwide-children-s-hospital	Canal Winchester Close To Home Center on Winchester Blvd	Canal Winchester	OH
-epic-nationwide-children-s-hospital	Canal Winchester Close to Home Center at Diley Road	Canal Winchester	OH
+epic-nationwide-children-s-hospital	Cancal Winchester Close to Home Center at Diley Road	Canal Winchester	OH
 epic-nationwide-children-s-hospital	Center for Autism Spectrum Disorder	Westerville	OH
 epic-nationwide-children-s-hospital	Central Ohio Newborn Medicine	Columbus	OH
 epic-nationwide-children-s-hospital	Child Development and Autism Centers at 187 W Schrock Rd	Westerville	OH
@@ -48844,7 +49000,6 @@ epic-noms	NOMS STRUTHERS YOUNGSTOWN POLAND	Struthers	OH
 epic-noms	NOMS TIFFIN ST RT 100	Tiffin	OH
 epic-noms	NOMS YOUNGSTOWN CYPSY	Youngstown	OH
 epic-noms	New York Affiliate	Amherst	OH
-epic-noms	New York Revenue Location	Massapequa	NY
 epic-noms	Noms Akron Springside	Akron	OH
 epic-noms	Noms Alliance w State	Alliance	OH
 epic-noms	Noms Andover w Main	Andover	OH
@@ -48929,6 +49084,7 @@ epic-noms	Noms Willard w Walton	Willard	OH
 epic-noms	Noms Willoughby Euclid	Willoughby	OH
 epic-noms	Noms Youngstown Belmont	Youngstown	OH
 epic-noms	Noms Youngstown Market	Youngstown	OH
+epic-noms	VMGNY Massapequa Broadway	Massapequa	NY
 epic-noms	Vytal Medical Group	Amherst	OH
 epic-nor-lea-hospital-district		Lovington	NM
 epic-north-carolina-department-of-health-and-human-services		Raleigh	NC
@@ -49471,6 +49627,7 @@ epic-northwell-health	Cohen Children's Northwell Health Physician Partners Gener
 epic-northwell-health	Cohen Children's Northwell Health Physician Partners General Pediatrics, 73-09 Myrtle Avenue	Glendale	NY
 epic-northwell-health	Cohen Children's Northwell Health Physician Partners Pediatric Allergy & Immunology at Mount Kisco	Mount Kisco	NY
 epic-northwell-health	Cohen Children's Northwell Health Physician Partners Pediatric Specialists At Brooklyn, 52C Broadway	Brooklyn	NY
+epic-northwell-health	Cohen Children's Northwell Health Physician Partners Pediatric Specialists at Lake Success, 1111 Marcus Avenue	New Hyde Park	NY
 epic-northwell-health	Cohen Children's Northwell Health Physician Partners Pediatric Specialists, 2460 Hylan Blvd	Staten Island	NY
 epic-northwell-health	Cohen Children's Northwell Health Physician Partners Pediatric Specialists, 261 East 78Th Street	New York	NY
 epic-northwell-health	Cohen Children's Northwell Health Physician Partners Pediatric Specialists, 8622 Bay Parkway	Brooklyn	NY
@@ -50615,7 +50772,7 @@ epic-northwest-community-hospital	NCH Pediatric Physical Rehabilitation	Arlingto
 epic-northwest-community-hospital	NCH Physical Rehabilitation at Lake Zurich	Lake Zurich	IL
 epic-northwest-community-hospital	NCH Physical Rehabilitation at Schaumburg	Schaumburg	IL
 epic-northwest-community-hospital	NCHS 1460 Headache and Migraine	Chicago	IL
-epic-northwest-community-hospital	Northwest Community Hospital	Arlington Heights	IL
+epic-northwest-community-hospital	Northwest Community Hospital – Historical as of 11/7/2026	Arlington Heights	IL
 epic-northwest-orthopaedic-specialists	NWOS Deaconess Medical Center	Spokane	WA
 epic-northwest-orthopaedic-specialists	NWOS Downtown Office	Spokane	WA
 epic-northwest-orthopaedic-specialists	NWOS Downtown Surgery Center	Spokane	WA
@@ -51383,8 +51540,8 @@ epic-norton-healthcare	Norton Women's Specialists - Mount Washington	Mount Washi
 epic-norton-healthcare	Norton Women's Specialists - Taylorsville Road	Louisville	KY
 epic-norton-healthcare	Norton Women's and Children's Hospital	Louisville	KY
 epic-norton-healthcare	Women's Care Physicians of Louisville	Louisville	KY
-epic-novant-health	Carolina Family Practice & Sports Medicine – Cary	Cary	NC
-epic-novant-health	Carolina Family Practice & Sports Medicine – North Raleigh	Raleigh	NC
+epic-novant-health	Carolina Family Practice & Sports Medicine - Cary	Cary	NC
+epic-novant-health	Carolina Family Practice & Sports Medicine - North Raleigh	Raleigh	NC
 epic-novant-health	Carolina Family Practice and Sports Med (Holly Springs)	Holly Springs	NC
 epic-novant-health	Carolinas Pain Institute - Billingsley	Charlotte	NC
 epic-novant-health	Chalotte Community Health Clinic - Dave Cathcart Pediatric Clinic	Charlotte	NC
@@ -51872,6 +52029,7 @@ epic-novant-health	Novant Health Inpatient Care Specialists - Huntersville	Hunte
 epic-novant-health	Novant Health Inpatient Care Specialists - Matthews	Matthews	NC
 epic-novant-health	Novant Health Inpatient Care Specialists - Mint Hill	Charlotte	NC
 epic-novant-health	Novant Health Inpatient Care Specialists - New Hanover	Wilmington	NC
+epic-novant-health	Novant Health Inpatient Care Specialists - New Hanover (Hospital at Home)	Wilmington	NC
 epic-novant-health	Novant Health Inpatient Care Specialists - OB/GYN	Charlotte	NC
 epic-novant-health	Novant Health Inpatient Care Specialists - Orthopedics	Charlotte	NC
 epic-novant-health	Novant Health Inpatient Care Specialists - Pender	Burgaw	NC
@@ -51882,7 +52040,6 @@ epic-novant-health	Novant Health Inpatient Care Specialists Coastal Carolina	Har
 epic-novant-health	Novant Health Inpatient Care Specialists Forsyth	Winston-Salem	NC
 epic-novant-health	Novant Health Inpatient Care Specialists Hilton Head	Hilton Head	SC
 epic-novant-health	Novant Health Inpatient Care Specialists Kernersville	Kernersville	NC
-epic-novant-health	Novant Health Inpatient Care Specialists – New Hanover (Hospital at Home)	Wilmington	NC
 epic-novant-health	Novant Health Inpatient Critical Care - Forsyth	Winston-Salem	NC
 epic-novant-health	Novant Health Inpatient Critical Care - Kernersville	Winston-Salem	NC
 epic-novant-health	Novant Health Inpatient Critical Care - Thomasville	Thomasville	NC
@@ -69549,6 +69706,7 @@ epic-select-medical	SSM Health Rehabilitation Bridgeton	Bridgeton	MO
 epic-select-medical	SSM Health Rehabilitation Hospital - Oklahoma City	Oklahoma City	OK
 epic-select-medical	SSM Health Rehabilitation Hospital Lake St. Louis	St. Louis	MO
 epic-select-medical	Select Medical Rehabilitation - Dublin	Dublin	OH
+epic-select-medical	Select Medical Rehabilitation - Miami Lakes	Miami Lakes	FL
 epic-select-medical	Select Medical Rehabilitation - Pensacola	Pensacola	FL
 epic-select-medical	Select Medical Rehabilitation - Springfield	Springfield	MO
 epic-select-medical	Select Medical Rehabilitation Hospital - Tallahassee	Tallahassee	FL
@@ -81875,6 +82033,7 @@ epic-ucsf-benioff-children-s-hospital	Monterey Peninsula Pediatric Medical Group
 epic-ucsf-benioff-children-s-hospital	Neela Parekh M.D.	Los Gatos	CA
 epic-ucsf-benioff-children-s-hospital	OBGYN of Silicon Valley	Mountain View	CA
 epic-ucsf-benioff-children-s-hospital	Pacific Pediatrics	San Francisco	CA
+epic-ucsf-benioff-children-s-hospital	Pacific Women's OB/GYN Medical Group	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	Pan Peninsula Bay Area OBGYN	Daly City	CA
 epic-ucsf-benioff-children-s-hospital	Pan Peninsula OBGYN Burlingame Stodgel	Burlingame	CA
 epic-ucsf-benioff-children-s-hospital	Pan Peninsula OBGYN San Mateo Hamilton	San Mateo	CA
@@ -81944,8 +82103,6 @@ epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - Pediat
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - Pediatric Cardiology Sonora	Sonora	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - Pediatric Early Intervention	Oakland	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - Pediatric Neurosurgery Reno	Reno	NV
-epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - Pediatric Primary Care Mount Zion	San Francisco	CA
-epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - Redwood Shores Clinic	Redwood City	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - San Mateo Clinic	San Mateo	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - San Ramon Clinic	San Ramon	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - San Ramon Specialty Clinic	San Ramon	CA
@@ -81955,6 +82112,7 @@ epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - Summit
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - Teen and Adolescent Clinic	Oakland	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Hospitals - Walnut Creek Outpatient Center	Walnut Creek	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Physicians - Bancroft Pediatrics	San Leandro	CA
+epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Physicians - Family Medicine Santa Cruz	Santa Cruz	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Physicians - Hilltop Pediatrics	Richmond	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Physicians - Laurel Heights Pediatric and Adolescent Care	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Benioff Children's Physicians - Maternal Fetal Medicine	Berkeley	CA
@@ -81991,7 +82149,6 @@ epic-ucsf-benioff-children-s-hospital	UCSF Dermatology China Basin Waterfront	Sa
 epic-ucsf-benioff-children-s-hospital	UCSF Dialysis Mount Zion	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Facial Plastic and Reconstructive Surgery	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Family Medicine Center at Lakeshore	San Francisco	CA
-epic-ucsf-benioff-children-s-hospital	UCSF Family Medicine Santa Cruz	Santa Cruz	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Gender Affirming Health Program	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF General Internal Medicine	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF General Internal Medicine at Munt Zion	San Francisco	CA
@@ -82010,6 +82167,7 @@ epic-ucsf-benioff-children-s-hospital	UCSF GoHealth Urgent Care - Valencia	San F
 epic-ucsf-benioff-children-s-hospital	UCSF GoHealth Urgent Care - W. Portal	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Golden Gate Cardiology	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Headache Center	San Francisco	CA
+epic-ucsf-benioff-children-s-hospital	UCSF Health Adult Primary Care - Stonestown	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Health Hyde Hospital	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Health Medical Foundation	Emeryville	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Health Orthopedic Surgery, St. Mary’s	San Francisco	CA
@@ -82067,6 +82225,7 @@ epic-ucsf-benioff-children-s-hospital	UCSF Pediatric Dentistry - Tenderloin	San 
 epic-ucsf-benioff-children-s-hospital	UCSF Pediatric Gastroenterology Clinic	Los Gatos	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Pediatric Neurosurgery - San Jose	San Jose	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Pediatric Neurosurgery Sacramento	Sacramento	CA
+epic-ucsf-benioff-children-s-hospital	UCSF Pediatric Primary Care Mount Zion	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Plastic Surgery Hayes Street	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Precision Spine and Peripheral Nerve Center	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Primary Care China Basin	San Francisco	CA
@@ -82081,6 +82240,7 @@ epic-ucsf-benioff-children-s-hospital	UCSF Pulmonary and Sleep Disorders Center	
 epic-ucsf-benioff-children-s-hospital	UCSF Radiology Mission Bay	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Radiology Montgomery	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Radiology at China Basin	San Francisco	CA
+epic-ucsf-benioff-children-s-hospital	UCSF Redwood Shores Specialty Care Clinic	Redwood City	CA
 epic-ucsf-benioff-children-s-hospital	UCSF Rehabilitation and Physical Therapy	San Francisco	CA
 epic-ucsf-benioff-children-s-hospital	UCSF San Mateo Primary and Specialty Care Clinic	San Mateo	CA
 epic-ucsf-benioff-children-s-hospital	UCSF School of Dentistry	San Francisco	CA

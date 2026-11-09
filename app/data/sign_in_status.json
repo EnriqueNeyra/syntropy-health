@@ -1,5 +1,5 @@
 {
- "checked": "2026-11-07",
+ "checked": "2026-11-09",
  "servers": {
   "https://arrprd.kdmc.net/fhir/api/fhir/r4": {
    "status": "client_unknown",
@@ -27,6 +27,10 @@
    "instead": [
     "epic-lee-health"
    ]
+  },
+  "https://epicmobile.presencehealth.org/fhirprd/api/fhir/r4": {
+   "status": "portal_error",
+   "since": "2026-11-09"
   },
   "https://epicprdext.stfranciscare.org/fhirproxy/api/fhir/r4": {
    "status": "client_unknown",
@@ -2152,6 +2156,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/eiiada": {
+   "status": "error_page",
+   "since": "2026-11-09"
+  },
   "https://fhir4.healow.com/fhir/r4/eiiadd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -3822,6 +3830,10 @@
    "status": "error_page",
    "since": "2026-11-07"
   },
+  "https://fhir4.healow.com/fhir/r4/ifcgdd": {
+   "status": "error_page",
+   "since": "2026-11-09"
+  },
   "https://fhir4.healow.com/fhir/r4/iffbcd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -4488,17 +4500,9 @@
    "status": "client_unknown",
    "since": "2026-10-03"
   },
-  "https://moc.beaumont.org/fhir/api/fhir/r4": {
-   "status": "portal_error",
-   "since": "2026-11-07"
-  },
   "https://ocsoapprd.nebraskamed.com/fhir-prd/home/api/fhir/r4": {
    "status": "portal_error",
    "since": "2026-11-03"
-  },
-  "https://prodinterconnect.leonmedicalcenters.com/fhir-prd/myleon/api/fhir/r4": {
-   "status": "portal_error",
-   "since": "2026-11-07"
   },
   "https://rmgpxy.riverbendmedical.com/fhir_proxy/api/fhir/r4": {
    "status": "unreachable",
@@ -4520,26 +4524,30 @@
    "status": "unreachable",
    "since": "2026-10-03"
   },
-  "https://uhhsportal.uhhospitals.org/oauth2-prd/api/fhir/r4": {
-   "status": "unreachable",
-   "since": "2026-11-03"
-  },
   "https://w1soap.wakehealth.edu/fhirproxy/api/fhir/r4": {
    "status": "client_unknown",
    "since": "2026-10-03"
   },
   "https://wavesurescripts.sansumclinic.org/fhir/api/fhir/r4": {
-   "status": "client_unknown",
-   "since": "2026-10-03",
+   "status": "portal_error",
+   "since": "2026-11-09",
    "instead": [
     "ecw-dchjdd"
    ]
   }
  },
  "watching": {
-  "https://fhir.mainehealth.org/fhirprd/api/fhir/r4": {
+  "https://cnesp001.carene.org/fhir/api/fhir/r4": {
    "status": "unreachable",
-   "since": "2026-11-07"
+   "since": "2026-11-09"
+  },
+  "https://epwebapps.acpny.com/fhirproxy/acpny/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-11-09"
+  },
+  "https://mobileprod.arcmd.com/fhir/api/fhir/r4": {
+   "status": "unreachable",
+   "since": "2026-11-09"
   }
  }
 }

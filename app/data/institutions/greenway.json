@@ -7634,13 +7634,6 @@
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.1521"
 },
 {
-"id": "greenway-ritchie-regional-health-center",
-"name": "Ritchie Regional Health Center",
-"location": "Harrisville, WV",
-"platform": "greenway",
-"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.73311"
-},
-{
 "id": "greenway-river-city-obgyn-p-c",
 "name": "River City OBGYN, P.C.",
 "location": "Midlothian, VA",
@@ -9396,13 +9389,6 @@
 "location": "Charlotte, NC",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.405"
-},
-{
-"id": "greenway-virginia-south-psychiatric-and-family-services-pc",
-"name": "Virginia South Psychiatric and Family Services, PC",
-"location": "Petersburg, VA",
-"platform": "greenway",
-"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.72142"
 },
 {
 "id": "greenway-vujevich-dermatology-associates-pc",
