@@ -890,7 +890,7 @@ sys.stdin.read()
 """
 
 
-def test_a_program_holding_the_database_stops_a_restore_when_it_can_not_be_read_here(tmp_path):
+def test_a_program_holding_the_database_stops_a_restore_when_it_can_not_be_read_here(tmp_path, monkeypatch):
     """The command line without the key (a Keychain locked over SSH, say) can't read an encrypted database, and SQLite asks for
     its lock only after reading: the desktop app holding the file looked like nothing at all, and a restore went ahead under it."""
     from app.core.sqlite import HAS_ENCRYPTION, sqlite3 as cipher
@@ -915,6 +915,8 @@ def test_a_program_holding_the_database_stops_a_restore_when_it_can_not_be_read_
         holder.communicate("", timeout=30)
     assert backups.in_use_elsewhere() is None       # let go: a damaged or unopenable file can still be restored over
     cli._pid_file().write_text(f"{os.getpid()} 8123")      # the desktop app says it's serving, as `serve` does
+    # On Windows the port is believed only from a process started as the server or the app; this one is pytest.
+    monkeypatch.setattr(cli, "_windows_command_line", lambda pid: "python -m app.cli serve" if pid == os.getpid() else "")
     try:
         assert cli._running_port() == 8123
     finally:
