@@ -601,10 +601,10 @@ export async function render({ el, params, state, navigate }) {
         html`<div class="src-rows">${phones.length ? phones.map((c) => sourceRow(c, devicesFor(c))) : html`
           ${offerRow("phone", "Syntropy Health iPhone app", "Apple Health from iPhone and Apple Watch: heart, HRV, sleep stages, steps, workouts with routes, symptoms, cycle tracking, ECG and more, synced in the background.", html`
             <button class="btn btn-sm offer-go" data-action="pair">${icon("phone")} Pair iPhone</button>
-            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener" aria-label="Get the iPhone app">Get the app</a>`)}
+            <a class="btn btn-sm btn-ghost" href="https://apps.apple.com/us/app/syntropy-health-export-sync/id6817550646" target="_blank" rel="noopener" aria-label="Get the iPhone app on the App Store">Get the app</a>`)}
           ${offerRow("phone", "Syntropy Health Android app", "Health Connect from Fitbit, Pixel Watch, Samsung Health, Oura and other apps: heart, HRV, sleep stages, steps, workouts and more, synced in the background.", html`
             <button class="btn btn-sm offer-go" data-action="pair">${icon("phone")} Pair Android phone</button>
-            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/" target="_blank" rel="noopener" aria-label="Get the Android app">Get the app</a>`)}`}</div>`)}
+            <a class="btn btn-sm btn-ghost" href="https://health.syntropylabs.io/setup/#android" target="_blank" rel="noopener" aria-label="About the Android app">Get the app</a>`)}`}</div>`)}
 
       ${group("Wearables", "Oura, WHOOP and Google Health (Fitbit, Pixel Watch) sync from their cloud every few hours. Signing in to Oura or WHOOP passes through Syntropy Labs' sign-in relay, which completes the sign-in and keeps nothing. Google Health uses your own Google Cloud app.", "",
         html`<div class="src-rows">${WEARABLES.map(([provider, label, blurb]) => {
