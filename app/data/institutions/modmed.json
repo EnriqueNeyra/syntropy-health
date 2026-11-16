@@ -2750,13 +2750,6 @@
 "fhir_base_url": "https://allergyinnovations.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-allergy-asthma-immunology-care-of-central-florida",
-"name": "Allergy, Asthma, Immunology Care of Central Florida",
-"location": "Orlando, FL",
-"platform": "modmed",
-"fhir_base_url": "https://andrade.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-allergycorp-group",
 "name": "AllergyCorp Group",
 "location": "Lewisville, NC",
@@ -5975,7 +5968,7 @@
 {
 "id": "modmed-bay-region-foot-ankle",
 "name": "Bay Region Foot & Ankle",
-"location": "Gladwin, MI",
+"location": "Bay City, MI",
 "platform": "modmed",
 "fhir_base_url": "https://brfa.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -6760,6 +6753,13 @@
 "location": "Hilo, HI",
 "platform": "modmed",
 "fhir_base_url": "https://bigislandfootcare.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
+"id": "modmed-big-rapids-family-eyecare",
+"name": "Big Rapids Family Eyecare",
+"location": "Big Rapids, MI",
+"platform": "modmed",
+"fhir_base_url": "https://bigrapidsfamilyeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-big-rapids-orthopaedics-pc",
@@ -12858,6 +12858,7 @@
 {
 "id": "modmed-cooper-clinic-p-a",
 "name": "Cooper Clinic, P.A.",
+"location": "Dallas, TX",
 "platform": "modmed",
 "fhir_base_url": "https://cooperclinic.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -14648,7 +14649,7 @@
 {
 "id": "modmed-crestwood-podiatry-wound-care-clinic",
 "name": "Delta Delta Foot and Wound Care",
-"location": "North Little Rock, AR",
+"location": "Sherwood, AR",
 "platform": "modmed",
 "fhir_base_url": "https://crestwoodpodiatry.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -19995,7 +19996,7 @@
 {
 "id": "modmed-elite-orthopedic-group",
 "name": "Elite Orthopedic Group",
-"location": "Beckley, WV",
+"location": "Ronceverte, WV",
 "platform": "modmed",
 "fhir_base_url": "https://eliteortho.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -24086,12 +24087,6 @@
 "fhir_base_url": "https://flo.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-florida-optical",
-"name": "Florida Optical",
-"platform": "modmed",
-"fhir_base_url": "https://floridaop.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-florida-plastic-surgery",
 "name": "Florida Plastic Surgery",
 "location": "Sarasota, FL",
@@ -25374,13 +25369,6 @@
 "location": "Kenilworth, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://3dcb1db9-ddbb-489e-9a0c-b7d4978268fc.gastro.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-gardendale-pain-and-wellness-llc",
-"name": "Gardendale Pain and Wellness, LLC",
-"location": "Gardendale, AL",
-"platform": "modmed",
-"fhir_base_url": "https://gardendalepain.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-gardens-dermatology",
@@ -30035,7 +30023,6 @@
 {
 "id": "modmed-iris-vision-optometry-boutique",
 "name": "Iris Vision Optometry Boutique",
-"location": "Santa Clara, CA",
 "platform": "modmed",
 "fhir_base_url": "https://irisvision.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -30164,13 +30151,6 @@
 "location": "Coupeville, WA",
 "platform": "modmed",
 "fhir_base_url": "https://ifaderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-island-foot-and-ankle-pllc",
-"name": "Island Foot and Ankle, PLLC",
-"location": "Galveston, TX",
-"platform": "modmed",
-"fhir_base_url": "https://islandfootandankle.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-island-gastroenterology-consultants-pc",
@@ -31240,13 +31220,6 @@
 "fhir_base_url": "https://jerryyasudaodinc.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-jersey-foot-ankle-institute",
-"name": "Jersey Foot & Ankle Institute",
-"location": "Hillsborough, NJ",
-"platform": "modmed",
-"fhir_base_url": "https://jerseyfoot.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-jersey-shore-ambulatory-surgery-center",
 "name": "Jersey Shore Ambulatory Surgery Center",
 "location": "Somers Point, NJ",
@@ -31853,13 +31826,6 @@
 "location": "Salinas, CA",
 "platform": "modmed",
 "fhir_base_url": "https://josephjestrada.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-joseph-j-stuckert-ii-md-llc",
-"name": "Joseph J Stuckert II, MD, LLC",
-"location": "Pittsburgh, PA",
-"platform": "modmed",
-"fhir_base_url": "https://ppd.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-joseph-j-zaladonis-jr-md-pc",
@@ -35686,6 +35652,7 @@
 {
 "id": "modmed-luis-m-perez",
 "name": "Luis M Perez",
+"location": "Los Angeles, CA",
 "platform": "modmed",
 "fhir_base_url": "https://luismperezod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -36394,6 +36361,7 @@
 {
 "id": "modmed-marc-sorsky-od",
 "name": "Marc Sorsky OD",
+"location": "Sanger, CA",
 "platform": "modmed",
 "fhir_base_url": "https://marcsorskyod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -36652,6 +36620,7 @@
 {
 "id": "modmed-markitta-barnett-and-associates",
 "name": "Markitta Barnett and Associates",
+"location": "San Antonio, TX",
 "platform": "modmed",
 "fhir_base_url": "https://markittabarnettod.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -39047,7 +39016,7 @@
 {
 "id": "modmed-millennia-womens-healthcare-inc",
 "name": "Millennia Womens Healthcare Inc",
-"location": "Youngstown, OH",
+"location": "Detroit, MI",
 "platform": "modmed",
 "fhir_base_url": "https://jleonelli.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -40023,7 +39992,7 @@
 {
 "id": "modmed-morpho-plastic-surgery-inc",
 "name": "Morpho Plastic Surgery Inc",
-"location": "Pasadena, CA",
+"location": "Alhambra, CA",
 "platform": "modmed",
 "fhir_base_url": "https://morpho.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -47149,6 +47118,7 @@
 {
 "id": "modmed-poole-villani-miller-mds",
 "name": "Poole Villani & Miller Mds",
+"location": "Miami Beach, FL",
 "platform": "modmed",
 "fhir_base_url": "https://poolevillani.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -47246,6 +47216,7 @@
 {
 "id": "modmed-poway-optometry",
 "name": "Poway Optometry",
+"location": "Poway, CA",
 "platform": "modmed",
 "fhir_base_url": "https://powayoptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -54592,6 +54563,7 @@
 {
 "id": "modmed-south-central-dermatology",
 "name": "South Central Dermatology",
+"location": "Laurel, MS",
 "platform": "modmed",
 "fhir_base_url": "https://scdc.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -62585,13 +62557,6 @@
 "fhir_base_url": "https://vuederm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-w-cosmetic-surgery",
-"name": "W Cosmetic Surgery",
-"location": "Bryn Mawr, PA",
-"platform": "modmed",
-"fhir_base_url": "https://wcosmeticsurgery.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-w-dermatology",
 "name": "W Dermatology",
 "location": "Long Beach, CA",
@@ -63096,6 +63061,7 @@
 {
 "id": "modmed-weinstein-eye-associates-pa",
 "name": "Weinstein Eye Associates PA",
+"location": "Odenton, MD",
 "platform": "modmed",
 "fhir_base_url": "https://weinsteineye.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -63793,13 +63759,6 @@
 "location": "Salem, OR",
 "platform": "modmed",
 "fhir_base_url": "https://entsalem.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-willamette-valley-dermatology",
-"name": "Willamette Valley Dermatology",
-"location": "Springfield, OR",
-"platform": "modmed",
-"fhir_base_url": "https://willamettevalleyderm.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-william-a-freundlich-dpm",

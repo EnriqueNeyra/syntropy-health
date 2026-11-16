@@ -3893,8 +3893,8 @@
 "network": "Covenant Medical Center, Inc.",
 "places": [
 "Saginaw MI",
-"Bay City MI",
 "Caro MI",
+"Bay City MI",
 "Marlette MI",
 "Frankenmuth MI",
 "Midland MI",
@@ -4041,7 +4041,7 @@
 "name": "Dartmouth",
 "location": "NH, VT",
 "platform": "epic",
-"fhir_base_url": "https://edhwebportal.hitchcock.org/FHIRProxy/MYDH/api/FHIR/R4",
+"fhir_base_url": "https://edhwebportal.hitchcock.org/FHIRProxy/api/FHIR/R4",
 "network": "Dartmouth-Hitchcock Clinic and Mary Hitchcock Memorial Hospital",
 "places": [
 "Keene NH",
@@ -4052,13 +4052,10 @@
 "Claremont NH",
 "Hanover NH",
 "Lyme NH"
+],
+"former_ids": [
+"epic-dartmouth-hitchcock-2"
 ]
-},
-{
-"id": "epic-dartmouth-hitchcock-2",
-"name": "Dartmouth-Hitchcock",
-"platform": "epic",
-"fhir_base_url": "https://edhwebportal.hitchcock.org/FHIRProxy/api/FHIR/R4/"
 },
 {
 "id": "epic-davita-physician-solutions",
@@ -6627,6 +6624,17 @@
 "network": "Hospital Sisters Health System"
 },
 {
+"id": "epic-hss-at-nch",
+"name": "HSS at NCH",
+"location": "Naples, FL",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1233.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "NCH Healthcare System, Inc.",
+"places": [
+"Naples FL"
+]
+},
+{
 "id": "epic-huntington-hospital",
 "name": "Huntington Hospital",
 "platform": "epic",
@@ -6759,6 +6767,13 @@
 "name": "Infirmary Health",
 "platform": "epic",
 "fhir_base_url": "https://ssproxyprod.infirmaryhealth.org/epicFHIR/api/FHIR/R4/"
+},
+{
+"id": "epic-inland-behavioral-and-health-services",
+"name": "Inland Behavioral and Health Services",
+"platform": "epic",
+"fhir_base_url": "https://webprd.ochin.org/prd-fhir/api/FHIR/R4",
+"network": "OCHIN, Inc."
 },
 {
 "id": "epic-innovage",
@@ -7117,9 +7132,9 @@
 "Washington DC",
 "Bethesda MD",
 "Tampa FL",
+"Frederick MD",
 "Rockville MD",
-"Lutherville MD",
-"Bradenton FL"
+"Lutherville MD"
 ]
 },
 {
@@ -9038,13 +9053,13 @@
 "network": "Middlesex Hospital",
 "places": [
 "Middletown CT",
+"Westbrook CT",
 "Essex CT",
 "Marlborough CT",
 "Cromwell CT",
 "Madison CT",
 "Old Saybrook CT",
-"Portland CT",
-"New Haven CT"
+"Portland CT"
 ]
 },
 {
@@ -9466,6 +9481,13 @@
 "network": "Louisiana Children's Medical Center d/b/a LCMC Health"
 },
 {
+"id": "epic-msu-health-care",
+"name": "MSU Health Care",
+"platform": "epic",
+"fhir_base_url": "https://fhir.hfhs.org/tesseractproxy/MSU/api/FHIR/R4",
+"network": "Henry Ford Health System"
+},
+{
 "id": "epic-mtosc",
 "name": "MTOSC",
 "location": "McLean, VA",
@@ -9761,12 +9783,6 @@
 "Lehigh Acres FL",
 "Ave Maria FL"
 ]
-},
-{
-"id": "epic-nebraska-medicine",
-"name": "Nebraska Medicine",
-"platform": "epic",
-"fhir_base_url": "https://ocsoapprd.nebraskamed.com/FHIR-PRD/api/FHIR/R4/"
 },
 {
 "id": "epic-nehalem-bay-health-center",
@@ -10506,6 +10522,13 @@
 "network": "Saint Francis Health System, Inc."
 },
 {
+"id": "epic-old-naples-concierge-medicine",
+"name": "Old Naples Concierge Medicine",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1233.epichosted.com/FHIRProxy/api/FHIR/R4",
+"network": "NCH Healthcare System, Inc."
+},
+{
 "id": "epic-olmsted-medical-center",
 "name": "Olmsted Medical Center",
 "location": "MN",
@@ -10594,7 +10617,7 @@
 "id": "epic-onechart",
 "name": "OneChart",
 "platform": "epic",
-"fhir_base_url": "https://ocsoapprd.nebraskamed.com/FHIR-PRD/HOME/api/FHIR/R4",
+"fhir_base_url": "https://ocsoapprd.nebraskamed.com/FHIR-PRD/api/FHIR/R4/",
 "network": "The Nebraska Medical Center"
 },
 {
@@ -11724,19 +11747,19 @@
 {
 "id": "epic-prime-healthcare",
 "name": "Prime Healthcare",
-"location": "IL, NJ, TX, ME and more",
+"location": "IL, NJ, ME, TX and more",
 "platform": "epic",
 "fhir_base_url": "https://phsfhir.primehealthcare.com/PHS-PRD-FHIR/api/FHIR/R4",
 "network": "Prime Healthcare Management, Inc.",
 "places": [
 "Chicago IL",
+"Lewiston ME",
 "Evanston IL",
 "Reno NV",
-"Lewiston ME",
 "Joliet IL",
 "Kankakee IL",
-"Passaic NJ",
-"Chiacgo IL"
+"Mesquite TX",
+"Passaic NJ"
 ]
 },
 {
@@ -12966,7 +12989,7 @@
 "name": "Santa Clara",
 "location": "San Jose, CA",
 "platform": "epic",
-"fhir_base_url": "https://scvhhsfhir.sccgov.org/interconnect-oauth2/api/FHIR/R4",
+"fhir_base_url": "https://epicproxy.et0855.epichosted.com/APIProxyPRD/api/FHIR/R4",
 "network": "The County of Santa Clara",
 "places": [
 "San Jose CA",
@@ -14794,9 +14817,13 @@
 {
 "id": "epic-the-baton-rouge-clinic",
 "name": "The Baton Rouge Clinic",
+"location": "Baton Rouge, LA",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0830.epichosted.com/FHIRProxy/api/FHIR/R4",
-"network": "Franciscan Missionaries of Our Lady Health System, Inc."
+"network": "Franciscan Missionaries of Our Lady Health System, Inc.",
+"places": [
+"Baton Rouge LA"
+]
 },
 {
 "id": "epic-the-center",
@@ -14890,7 +14917,7 @@
 "name": "The Nebraska Medical Center",
 "location": "NE, IA, KS, MO and more",
 "platform": "epic",
-"fhir_base_url": "https://ocsoapprd.nebraskamed.com/FHIR-PRD/HOME/api/FHIR/R4",
+"fhir_base_url": "https://ocsoapprd.nebraskamed.com/FHIR-PRD/api/FHIR/R4/",
 "places": [
 "Omaha NE",
 "North Platte NE",

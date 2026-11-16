@@ -7227,6 +7227,7 @@ epic-atrium-health	Atrium Health Floyd Medical Center	Rome	GA
 epic-atrium-health	Atrium Health Floyd Medical Center - Harbin Medical Oncology Infusion	Rome	GA
 epic-atrium-health	Atrium Health Floyd Medical Center - Heart Failure Clinic	Rome	GA
 epic-atrium-health	Atrium Health Floyd Medical Center - Home Wound Care	Rome	GA
+epic-atrium-health	Atrium Health Floyd Medical Center - Speech Language Pathologist Cancer	Rome	GA
 epic-atrium-health	Atrium Health Floyd Medical Center Chattooga Emergency Department	Trion	GA
 epic-atrium-health	Atrium Health Floyd Medical Center Family Medicine and Specialty Care Heart Failure	Rome	GA
 epic-atrium-health	Atrium Health Floyd Medical Center Heyman Hospice Care	Rome	GA
@@ -7277,6 +7278,7 @@ epic-atrium-health	Atrium Health Floyd Urgent Care - Centre Rural Health	Centre	
 epic-atrium-health	Atrium Health Floyd Urgent Care - Rockmart	Rockmart	GA
 epic-atrium-health	Atrium Health Floyd Urgent Care - Rome	Rome	GA
 epic-atrium-health	Atrium Health Floyd Urgent Care - Summerville	Summerville	GA
+epic-atrium-health	Atrium Health Floyd Weight Management	Rome	GA
 epic-atrium-health	Atrium Health Gastroenterology and Hepatology - Cleveland	Shelby	NC
 epic-atrium-health	Atrium Health Gastroenterology and Hepatology - Denver	Denver	NC
 epic-atrium-health	Atrium Health Gastroenterology and Hepatology - Huntersville	Huntersville	NC
@@ -7291,6 +7293,7 @@ epic-atrium-health	Atrium Health Gastroenterology and Hepatology - University Ci
 epic-atrium-health	Atrium Health Gateway Surgery Center	Concord	NC
 epic-atrium-health	Atrium Health General Surgery - Albemarle	Albemarle	NC
 epic-atrium-health	Atrium Health General Surgery - Denver	Denver	NC
+epic-atrium-health	Atrium Health General Surgery - Huntersville	Huntersville	NC
 epic-atrium-health	Atrium Health General Surgery - Lake Norman	Cornelius	NC
 epic-atrium-health	Atrium Health General Surgery - Lincoln	Lincolnton	NC
 epic-atrium-health	Atrium Health General Surgery - Pineville	Charlotte	NC
@@ -7968,6 +7971,7 @@ epic-atrium-health	Atrium Health Wake Forest Baptist - MHS	Winston Salem	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist - MHS Hickswood	High Point	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist - Pediatric Neonatology	Winston Salem	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist - Westwood	High Point	NC
+epic-atrium-health	Atrium Health Wake Forest Baptist - Women's GYN MIGS MPLEM	Greensboro	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist AMOS Brenner Fit	Winston Salem	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist AMOS Metabolic Syndrome and Prevention Clinic	Winston Salem	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist AMOS Pediatric Neonatology	Winston Salem	NC
@@ -8004,6 +8008,7 @@ epic-atrium-health	Atrium Health Wake Forest Baptist Card Vascular - Elkin	Elkin
 epic-atrium-health	Atrium Health Wake Forest Baptist Cardiology - Asheboro	Asheboro	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist Cardiology - Country Club	Winston Salem	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist Cardiology - High Point	High Point	NC
+epic-atrium-health	Atrium Health Wake Forest Baptist Cardiology - Kernersville	Kernersville	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist Cardiology - Medical Plaza North Elm	Greensboro	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist Cardiology - Thomasville	Thomasville	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist Cardiothoracic Surgery	High Point	NC
@@ -8128,6 +8133,7 @@ epic-atrium-health	Atrium Health Wake Forest Baptist High Point Medical Center -
 epic-atrium-health	Atrium Health Wake Forest Baptist High Point Medical Center - Hematology Oncology	High Point	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist High Point Medical Center - Oral Oncology	High Point	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist High Point Medical Center - Pulmonary Medicine	High Point	NC
+epic-atrium-health	Atrium Health Wake Forest Baptist High Point Medical Center - Pulmonary Rehabilitation	High Point	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist High Point Medical Center General Surgery Breast Clinic	High Point	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist High Point Medical Center Genetics	High Point	NC
 epic-atrium-health	Atrium Health Wake Forest Baptist High Point Medical Center Infusion & Treatments	High Point	NC
@@ -8784,7 +8790,9 @@ epic-atrium-health	Hugh Chatham Health Urgent Care - Elkin	Elkin	NC
 epic-atrium-health	Hugh Chatham Health Urology	Elkin	NC
 epic-atrium-health	Hugh Chatham Health Women's Center	Elkin	NC
 epic-atrium-health	Levine Cancer Institute - Southpark Infusion	Charlotte	NC
+epic-atrium-health	Levine Children's Hospital - Neurology	Charlotte	NC
 epic-atrium-health	Levine Children's Sleep Medicine	Charlotte	NC
+epic-atrium-health	Levine Children's Specialty Center - Doby's Bridge	Fort Mill	SC
 epic-atrium-health	Levine Children's Specialty Center - Orthopedics	Charlotte	NC
 epic-atrium-health	Lincolnton Medical Plaza	Lincolnton	NC
 epic-atrium-health	Morehouse HealthCare - Lee Street	Atlanta	GA
@@ -9695,6 +9703,7 @@ epic-baptist-health-arkansas	Arkansas Cardiology Clinic Augusta Clinic	Augusta	A
 epic-baptist-health-arkansas	Arkansas Cardiology Clinic Beebe Clinic	Beebe	AR
 epic-baptist-health-arkansas	Arkansas Cardiology Clinic Benton Clinic	Benton	AR
 epic-baptist-health-arkansas	Arkansas Cardiology Clinic Benton Family Practice	Benton	AR
+epic-baptist-health-arkansas	Arkansas Cardiology Clinic Benton/Bryant Clinic	Bryant	AR
 epic-baptist-health-arkansas	Arkansas Cardiology Clinic Bryant Clinic	Bryant	AR
 epic-baptist-health-arkansas	Arkansas Cardiology Clinic Cabot Clinic	Cabot	AR
 epic-baptist-health-arkansas	Arkansas Cardiology Clinic Cabot Medical Care	Cabot	AR
@@ -9768,6 +9777,7 @@ epic-baptist-health-arkansas	Baptist Health Cardiothoracic White Hall	White Hall
 epic-baptist-health-arkansas	Baptist Health Cardiothoracic and Vascular Surgery Center FS Plaza	Fort Smith	AR
 epic-baptist-health-arkansas	Baptist Health Community Outreach	Little Rock	AR
 epic-baptist-health-arkansas	Baptist Health Comprehensive Women's Clinic North Little Rock	North Little Rock	AR
+epic-baptist-health-arkansas	Baptist Health Comprehensive Women's Clinic North Little Rock Mob	North Little Rock	AR
 epic-baptist-health-arkansas	Baptist Health Ear, Nose, Throat, and Allergy	Fort Smith	AR
 epic-baptist-health-arkansas	Baptist Health Ear, Nose, Throat, and Allergy Van Buren	Van Buren	AR
 epic-baptist-health-arkansas	Baptist Health Endocrinology Clinic	Little Rock	AR
@@ -9858,7 +9868,6 @@ epic-baptist-health-arkansas	Baptist Health Orthopedic Clinic LR Malvern	Malvern
 epic-baptist-health-arkansas	Baptist Health Orthopedic Clinic Stuttgart	Stuttgart	AR
 epic-baptist-health-arkansas	Baptist Health Orthopedics Clinic FS Poteau	Poteau	OK
 epic-baptist-health-arkansas	Baptist Health Orthopedics Clinic Fort Smith	Fort Smith	AR
-epic-baptist-health-arkansas	Baptist Health Orthopedics Clinic Magnolia	Magnolia	AR
 epic-baptist-health-arkansas	Baptist Health Palliative Care Clinic North Little Rock	North Little Rock	AR
 epic-baptist-health-arkansas	Baptist Health Pediatric Clinic Conway	Conway	AR
 epic-baptist-health-arkansas	Baptist Health Pediatric Clinic Fort Smith	Fort Smith	AR
@@ -9911,6 +9920,7 @@ epic-baptist-health-arkansas	Baptist Health Specialty Clinic Arkadelphia	Arkadel
 epic-baptist-health-arkansas	Baptist Health Specialty Clinic Conway	Conway	AR
 epic-baptist-health-arkansas	Baptist Health Specialty Clinic Drew County	Monticello	AR
 epic-baptist-health-arkansas	Baptist Health Specialty Clinic Fort Smith	Fort Smith	AR
+epic-baptist-health-arkansas	Baptist Health Specialty Clinic Magnolia	Magnolia	AR
 epic-baptist-health-arkansas	Baptist Health Specialty Clinic North Little Rock Mob	North Little Rock	AR
 epic-baptist-health-arkansas	Baptist Health Specialty Clinic Van Buren Pointer Trail	Van Buren	AR
 epic-baptist-health-arkansas	Baptist Health Spine Center	Little Rock	AR
@@ -10826,6 +10836,7 @@ epic-baptist-memorial-health-care	CC UT Wound Care	Memphis	TN
 epic-baptist-memorial-health-care	CC UTHSC Hamilton Eye Institute Resident Clinic	Memphis	TN
 epic-baptist-memorial-health-care	CC UTHSC Hamilton Eye Institute- Dyersburg	Dyersburg	TN
 epic-baptist-memorial-health-care	CC UTHSC Hamilton Eye Institute-Cresthaven	Memphis	TN
+epic-baptist-memorial-health-care	CC UTHSC Health Hub Decaturville	Decaturville	TN
 epic-baptist-memorial-health-care	CC UTHSC ShelbyCares - Raleigh	Memphis	TN
 epic-baptist-memorial-health-care	CC University Plastic Surgeons	Memphis	TN
 epic-baptist-memorial-health-care	CC Yazoo City Medical Clinic	Yazoo City	MS
@@ -13186,7 +13197,7 @@ epic-broward-health	Broward HealthPoint Margate Care Center	Margate	FL
 epic-broward-health	Broward HealthPoint Pompano Pediatric and Adult Care Center	Pompano Beach	FL
 epic-broward-health	Broward HealthPoint Primary Care Center	Fort Lauderdale	FL
 epic-broward-health	CHS Mobile Health Center - 1101 W Broward Blvd	Fort Lauderdale	FL
-epic-broward-health	Children’s Diagnostic & Treatment Center	Fort Lauderdale	FL
+epic-broward-health	Children's Diagnostic & Treatment Center	Fort Lauderdale	FL
 epic-broward-health	Florida Atlantic University Clinic - Internal Medicine	Lighthouse Point	FL
 epic-broward-health	Florida Atlantic University Clinic - Neurology	Fort Lauderdale	FL
 epic-broward-health	Florida Atlantic University Clinic - Pulmonology	Lighthouse Point	FL
@@ -13259,7 +13270,7 @@ epic-bryan-health	BH Vas Surg Fairfax OR	Fairfax	MO
 epic-bryan-health	BH Vas Surg Falls City OR	Falls City	NE
 epic-bryan-health	BH Vas Surg Grand Island OR	Grand Island	NE
 epic-bryan-health	BH Vas Surg Hastings OR	Hastings	NE
-epic-bryan-health	BH Vas Surg Henderson OR	Lincoln	NE
+epic-bryan-health	BH Vas Surg Henderson OR	Henderson	NE
 epic-bryan-health	BH Vas Surg Lexington OR	Lexington	NE
 epic-bryan-health	BH Vas Surg Mccook OR	McCook	NE
 epic-bryan-health	BH Vas Surg North Platte OR	North Platte	NE
@@ -14148,6 +14159,7 @@ epic-carilion-clinic	Carilion Clinic - Crystal Spring	Roanoke	VA
 epic-carilion-clinic	Carilion Clinic - Daleville	Daleville	VA
 epic-carilion-clinic	Carilion Clinic - Dayton	Dayton	VA
 epic-carilion-clinic	Carilion Clinic - Dermatology & Mohs Surgery Franklin Rd	Roanoke	VA
+epic-carilion-clinic	Carilion Clinic - Diabetes Management & Prevention Program	Roanoke	VA
 epic-carilion-clinic	Carilion Clinic - Dublin	Dublin	VA
 epic-carilion-clinic	Carilion Clinic - Employee Assistance Program	Roanoke	VA
 epic-carilion-clinic	Carilion Clinic - Fallowater Lane	Roanoke	VA
@@ -14395,7 +14407,6 @@ epic-carilion-clinic	Carilion Rockbridge Community Hospital	Lexington	VA
 epic-carilion-clinic	Carilion Tazewell Community Hospital	Tazewell	VA
 epic-carilion-clinic	Carilion Wellness - Botetourt	Roanoke	VA
 epic-carilion-clinic	Carilion Wellness - Roanoke	Roanoke	VA
-epic-carilion-clinic	Crilion Clinic - Diabetes Management & Prevention Program	Roanoke	VA
 epic-carilion-clinic	Fralin Free Clinic Roanoke Rescue Mision	Roanoke	VA
 epic-carilion-clinic	Rockbridge Medical Group via Carilion Clinic	Lexington	VA
 epic-carilion-clinic	VelocityCare - Blacksburg	Blacksburg	VA
@@ -16797,6 +16808,7 @@ epic-children-s-health	Children's Health Pediatric Group Carrollton	Carrollton	T
 epic-children-s-health	Children's Health Pediatric Group Garland	Garland	TX
 epic-children-s-health	Children's Health Pediatric Group Prosper	Prosper	TX
 epic-children-s-health	Children's Health Pulmonology Prosper	Prosper	TX
+epic-children-s-health	Children's Health Specialty Center 1	Plano	TX
 epic-children-s-health	Children's Health System of Texas	Dallas	TX
 epic-children-s-health	Children's Medical Center of Dallas	Dallas	TX
 epic-children-s-health	Childrens Health	Dallas	TX
@@ -16931,7 +16943,6 @@ epic-children-s-health	Pemr Tots N Teens Mesq	Mesquite	TX
 epic-children-s-health	Pemr Tots N Teens Plan	Plano	TX
 epic-children-s-health	Pemr West Plano Peds	Plano	TX
 epic-children-s-health	Pemr Windhaven Adolesent Medicine - Scalfano	Addison	TX
-epic-children-s-health	Pla UT Neuro	Plano	TX
 epic-children-s-health	Plano Anesthesia For Children	Plano	TX
 epic-children-s-health	Poole Pediatrics	Richardson	TX
 epic-children-s-health	Prosper Andrews Clinic	Prosper	TX
@@ -21078,7 +21089,6 @@ epic-complete-cardiovascular-care	Our Lady of the Lake Physician Group	Baton Rou
 epic-complete-cardiovascular-care	Our Lady of the Lake Physician Group Ascension	Gonzales	LA
 epic-complete-cardiovascular-care	Our Lady of the Lake Regional Medical Center	Baton Rouge	LA
 epic-complete-cardiovascular-care	Pediatric Cardiology of Louisiana	Baton Rouge	LA
-epic-complete-cardiovascular-care	Pediatric Surgery of Louisiana	Baton Rouge	LA
 epic-complete-cardiovascular-care	Pointe Coupee General Hospital	New Roads	LA
 epic-complete-cardiovascular-care	Southwest Mississippi Regional Medical Center	McComb	MS
 epic-complete-cardiovascular-care	Specialty Hospital Monroe	Monroe	LA
@@ -21417,6 +21427,7 @@ epic-cone-health	Town of Mooresville Employee Care Center	Mooresville	NC
 epic-cone-health	Triad Cardiac and Thoracic Surgery	Greensboro	NC
 epic-cone-health	Triad Cardiac and Thoracic Surgery at Magnolia Street	Greensboro	NC
 epic-cone-health	Triad Cardiac and Thoracic Surgery at Wesley Long	Greensboro	NC
+epic-cone-health	Triad Foot Center	High Point	NC
 epic-cone-health	Triad Foot and Ankle Center at Alamance Regional	Burlington	NC
 epic-cone-health	Triad Foot and Ankle Center at Asheboro	Asheboro	NC
 epic-cone-health	Triad Foot and Ankle Center at Burlington	Burlington	NC
@@ -23180,6 +23191,7 @@ epic-covenant-healthcare	Andrew Lafleur MD	Saginaw	MI
 epic-covenant-healthcare	Anwar & Farrukh	Caro	MI
 epic-covenant-healthcare	Arshad Aqil MD	Caro	MI
 epic-covenant-healthcare	Aspire Bad Axe RHC	Bad Axe	MI
+epic-covenant-healthcare	Aspire Caro Medical Center	Caro	MI
 epic-covenant-healthcare	Aspire Specialty Clinic Marlette	Marlette	MI
 epic-covenant-healthcare	Aspire Tuscola Jail Healthcare Services	Caro	MI
 epic-covenant-healthcare	Beverly A Jarema DO	Saginaw	MI
@@ -23337,6 +23349,7 @@ epic-covenant-healthcare	Saginaw Family Clinic	Saginaw	MI
 epic-covenant-healthcare	Saginaw Valley Family Care	Saginaw	MI
 epic-covenant-healthcare	Saginaw Valley Foot and Ankle	Saginaw	MI
 epic-covenant-healthcare	Saginaw Valley Medical Care	Saginaw	MI
+epic-covenant-healthcare	Saginaw Valley Pediatrics PLLC	Saginaw	MI
 epic-covenant-healthcare	Saginaw Valley Primary Care	Saginaw	MI
 epic-covenant-healthcare	Saint Charles Family Practice	Saint Charles	MI
 epic-covenant-healthcare	Sajeda Nusrat MD	Saginaw	MI
@@ -32371,6 +32384,7 @@ epic-harness-health-pharmacy	Tuckahoe Orthopaedics Imaging	Mechanicsville	VA
 epic-harness-health-pharmacy	Upstate Cardiology	Easley	SC
 epic-harness-health-pharmacy	Upstate Maternal Fetal Medicine	Greenville	SC
 epic-harness-health-pharmacy	Upstate OBGYN Group	Clemson	SC
+epic-harness-health-pharmacy	Urology of Virginia - Clearfield	Virginia Beach	VA
 epic-harness-health-pharmacy	Urology of Virginia - Harbour View	Suffolk	VA
 epic-harness-health-pharmacy	Urology of Virginia - Lynnhaven	Virginia Beach	VA
 epic-harness-health-pharmacy	Urology of Virginia - Peninsula	Hampton	VA
@@ -32378,7 +32392,6 @@ epic-harness-health-pharmacy	Urology of Virginia Cancer Center	Virginia Bch	VA
 epic-harness-health-pharmacy	Urology of Virginia Penninsula	Hampton	VA
 epic-harness-health-pharmacy	Urology of Virginia Williamsburg	Williamsburg	VA
 epic-harness-health-pharmacy	Urology of Virginia – Williamsburg	Williamsburg	VA
-epic-harness-health-pharmacy	Urololgy of Virginia - Clearfield	Virginia Beach	VA
 epic-harness-health-pharmacy	VA Orthopaedic and Spine Specialist GHENT SPINE	Norfolk	VA
 epic-harness-health-pharmacy	VA Orthopaedic and Spine Specialists - Centerbooke Lane	Suffolk	VA
 epic-harness-health-pharmacy	Vascular Professionals Inc Bowling Green	Bowling Green	OH
@@ -35208,9 +35221,9 @@ epic-honorhealth	CVC Cardiovascular Consultants a Division of Atria Heart in Col
 epic-honorhealth	CVC Cardiovascular Consultants a Division of Atria Heart in Collab. with HonorHealth - Thunderbird	Glendale	AZ
 epic-honorhealth	CVC Cardiovascular Consultants a Division of Atria Heart in Collaboration with HonorHealth - Osborn	Scottsdale	AZ
 epic-honorhealth	CVC Cardiovascular Consultants a Division of Atria Heart in Collaboration with HonorHealth - Shea	Scottsdale	AZ
+epic-honorhealth	Desert Surgical Specialists - In Collaboration with HonorHealth - Peoria Medical Campus	Peoria	AZ
 epic-honorhealth	Desert Surgical Specialists in Collaboration with HonorHealth - Deer Valley	Phoenix	AZ
 epic-honorhealth	Desert Surgical Specialists in Collaboration with HonorHealth - Shea	Scottsdale	AZ
-epic-honorhealth	Desert Surgical Specialists – In Collaboration with HonorHealth – Peoria Medical Campus	Peoria	AZ
 epic-honorhealth	Home Base at HonorHealth	Scottsdale	AZ
 epic-honorhealth	Honor Health Cancer Care - East Mesa	Mesa	AZ
 epic-honorhealth	HonorHealth	Scottsdale	AZ
@@ -35566,7 +35579,7 @@ epic-honorhealth	HonorHealth Physical Medicine and Rehab - Heuser	Scottsdale	AZ
 epic-honorhealth	HonorHealth Physical Medicine and Rehab - Jomax	Phoenix	AZ
 epic-honorhealth	HonorHealth Physical Medicine and Rehab - North Phoenix	Phoenix	AZ
 epic-honorhealth	HonorHealth Physical Medicine and Rehab - Sonoran	Phoenix	AZ
-epic-honorhealth	HonorHealth Physical Medicine and Rehabilitation – Peoria Medical Campus	Peoria	AZ
+epic-honorhealth	HonorHealth Physical Medicine and Rehabilitation - Peoria Medical Campus	Peoria	AZ
 epic-honorhealth	HonorHealth Primary Care - Florence	Florence	AZ
 epic-honorhealth	HonorHealth Primary Care - Kierland	Scottsdale	AZ
 epic-honorhealth	HonorHealth Primary Care - Peoria Medical Campus	Peoria	AZ
@@ -35654,7 +35667,7 @@ epic-honorhealth	Honorhealth Primary Care - Superstition Springs	Mesa	AZ
 epic-honorhealth	Honorhealth in Collaboration With Pain Consultants of Arizona-Pima Center	Scottsdale	AZ
 epic-honorhealth	Interventional Endoscopy - Gilbert	Gilbert	AZ
 epic-honorhealth	Interventional Endoscopy - Shea	Scottsdale	AZ
-epic-honorhealth	Interventional Endoscopy Associates – In Collaboration with HonorHealth – Peoria Medical Campus	Peoria	AZ
+epic-honorhealth	Interventional Endoscopy Associates - In Collaboration with HonorHealth - Peoria Medical Campus	Peoria	AZ
 epic-honorhealth	John C. Lincoln Health Network	Scottsdale	AZ
 epic-honorhealth	Northwest Urology in collaboration with HonorHealth - Mt View	Surprise	AZ
 epic-honorhealth	Northwest Urology in collaboration with HonorHealth - Thunderbird	Sun City	AZ
@@ -35663,7 +35676,7 @@ epic-honorhealth	Presurgical Evaluation Clinic	Scottsdale	AZ
 epic-honorhealth	Scottsdale Healthcare	Scottsdale	AZ
 epic-honorhealth	Scottsdale Lincoln Health Network	Scottsdale	AZ
 epic-honorhealth	Scottsdale Shea Medical Center Structural Heart Clinic	Scottsdale	AZ
-epic-honorhealth	Sonoran Spine In Collaboration with HonorHealth – Peoria Medical Campus	Peoria	AZ
+epic-honorhealth	Sonoran Spine In Collaboration with HonorHealth - Peoria Medical Campus	Peoria	AZ
 epic-honorhealth	Sonoran Spine in Collaboration with HonorHealth - Del Lago	Peoria	AZ
 epic-honorhealth	Sonoran Spine in Collaboration with HonorHealth - Del Lago Pain	Peoria	AZ
 epic-honorhealth	Sonoran Spine in Collaboration with HonorHealth - East Mesa	Mesa	AZ
@@ -36078,6 +36091,7 @@ epic-houston-methodist	Texas Kidney Specialists, P.A.	Sugar Land	TX
 epic-houston-methodist	The Center for Family and Preventive Medicine	Crosby	TX
 epic-houston-methodist	Younis Cardiology Associates	Houston	TX
 epic-howard-brown-health		Chicago	IL
+epic-hss-at-nch	SHS Asc MSK Center	Naples	FL
 epic-hurley-medical-center	(Inactive) Gastroenterology and Liver Institute PC	Lapeer	MI
 epic-hurley-medical-center	(inactive)- Advanced Cardiovascular Clinic, PC- Villa Linde	Flint	MI
 epic-hurley-medical-center	A Arif & M Syed Clinic	Flint	MI
@@ -37126,6 +37140,7 @@ epic-integris-health	INTEGRIS Health Jim Thorpe Outpatient Rehab Woodward - Occu
 epic-integris-health	INTEGRIS Health Jim Thorpe Outpatient Rehab Woodward - Physical Therapy	Woodward	OK
 epic-integris-health	INTEGRIS Health Jim Thorpe Outpatient Rehab Woodward - Speech Therapy	Woodward	OK
 epic-integris-health	INTEGRIS Health Medical Group 19th Street	Woodward	OK
+epic-integris-health	INTEGRIS Health Medical Group Advanced Interventional Endoscopy Baptist	Oklahoma City	OK
 epic-integris-health	INTEGRIS Health Medical Group Central	Oklahoma City	OK
 epic-integris-health	INTEGRIS Health Medical Group Council Crossing	Oklahoma City	OK
 epic-integris-health	INTEGRIS Health Medical Group Cross Timbers	Edmond	OK
@@ -37287,6 +37302,7 @@ epic-integris-health	Integris Urgent Care Plus	Enid	OK
 epic-integris-health	Internal Medicine Clinic	Miami	OK
 epic-integris-health	Jeffrey Nees, MD	Oklahoma City	OK
 epic-integris-health	Kansas Medical Clinic	Kansas	OK
+epic-integris-health	Kidney Care Clinic	Oklahoma City	OK
 epic-integris-health	Kidney Care Clinic - INTEGRIS Moore Outreach	Moore	OK
 epic-integris-health	Kidney Care Clinic - Oklahoma Heart Hospital South Outreach	Oklahoma City	OK
 epic-integris-health	Kingfisher Cardiovascular Clinic	Kingfisher	OK
@@ -38845,6 +38861,7 @@ epic-johns-hopkins-medicine	JHCP AT MCLEAN	McLean	VA
 epic-johns-hopkins-medicine	JHCP AT REMINGTON	Baltimore	MD
 epic-johns-hopkins-medicine	JHCP AT URBANA	Urbana	MD
 epic-johns-hopkins-medicine	JHCP AT WESTMINISTER	Westminster	MD
+epic-johns-hopkins-medicine	JHCP Cardiology at Frederick	Frederick	MD
 epic-johns-hopkins-medicine	JHCP Fulton	Maple Lawn	MD
 epic-johns-hopkins-medicine	JHCP Heart Care - Rockville	Rockville	MD
 epic-johns-hopkins-medicine	JHCP Heart Care Germantown	Germantown	MD
@@ -38889,6 +38906,7 @@ epic-johns-hopkins-medicine	JHH White Marsh	White Marsh	MD
 epic-johns-hopkins-medicine	JHH the Smith Building	Baltimore	MD
 epic-johns-hopkins-medicine	JHM Office of Population Health	Glen Burnie	MD
 epic-johns-hopkins-medicine	JHM Outside Services	Middle River	MD
+epic-johns-hopkins-medicine	JHU Athletic Center	Baltimore	MD
 epic-johns-hopkins-medicine	JHU SAIS	Washington	DC
 epic-johns-hopkins-medicine	Johns Hopkins All Children's Bayfront Plaza	St Petersburg	FL
 epic-johns-hopkins-medicine	Johns Hopkins All Children's Hospital	St Petersburg	FL
@@ -41000,6 +41018,7 @@ epic-legacy-health	Clackamas and Oregon Pediatrics Clackamas - Connect	Clackamas
 epic-legacy-health	Clackamas and Oregon Pediatrics Happy Valley - Connect	Happy Valley	OR
 epic-legacy-health	Clackamas and Oregon Pediatrics Meridian Park - Connect	Tualatin	OR
 epic-legacy-health	Clackamas and Oregon Pediatrics NE - Connect	Portland	OR
+epic-legacy-health	Clackamas and Oregon Pediatrics Sherwood - Connect	Sherwood	OR
 epic-legacy-health	Davies Clinic - Legacy Epic for Affiliated Physicians	Canby	OR
 epic-legacy-health	Dever's Eye Institute	Portland	OR
 epic-legacy-health	Eastside Orthopedics Gresham - Connect	Gresham	OR
@@ -41060,6 +41079,7 @@ epic-legacy-health	The Children's Clinic Tualatin - Connect	Tualatin	OR
 epic-legacy-health	Unity Center for Behavioral Health	Portland	OR
 epic-legacy-health	Willamette Gen Colorectal Surg PC - Connect	Tualatin	OR
 epic-legacy-health	Willamette Surgical Clinic PC - Connect	Tualatin	OR
+epic-legacy-health	Women's Heallthcare Associates Gateway - Connect	Portland	OR
 epic-legacy-health	Women's Heallthcare Associates Happy Valley - Connect	Happy Valley	OR
 epic-legacy-health	Women's Heallthcare Associates Hillsboro - Connect	Hillsboro	OR
 epic-legacy-health	Women's Heallthcare Associates NWG PRKT - Connect	Portland	OR
@@ -46229,31 +46249,41 @@ epic-middlesex-hospital	Middlesex Health Ear, Nose, & Throat - Middletown	Middle
 epic-middlesex-hospital	Middlesex Health Ear, Nose, & Throat - Milford	Milford	CT
 epic-middlesex-hospital	Middlesex Health Ear, Nose, & Throat - New Haven	New Haven	CT
 epic-middlesex-hospital	Middlesex Health Family Medicine - East Hampton	East Hampton	CT
-epic-middlesex-hospital	Middlesex Health Family Medicine and Specialty Services - Middletown	Middletown	CT
-epic-middlesex-hospital	Middlesex Health Family Medicine, Rehab and Developmental Services - Portland	Portland	CT
+epic-middlesex-hospital	Middlesex Health Family Medicine - Middletown	Middletown	CT
+epic-middlesex-hospital	Middlesex Health Family Medicine - Portland	Portland	CT
 epic-middlesex-hospital	Middlesex Health Marlborough Medical Center	Marlborough	CT
 epic-middlesex-hospital	Middlesex Health Multispecialty Group and Sleep Center - Middletown	Middletown	CT
+epic-middlesex-hospital	Middlesex Health Multispecialty Group at the Shoreline Medical Center	Westbrook	CT
 epic-middlesex-hospital	Middlesex Health Outpatient Center	Middletown	CT
 epic-middlesex-hospital	Middlesex Health Outpatient Center - Middletown	Middletown	CT
+epic-middlesex-hospital	Middlesex Health Palliative Care Services - Middletown	Middletown	CT
+epic-middlesex-hospital	Middlesex Health Palliative Care Services at the Shoreline Medical Center	Westbrook	CT
 epic-middlesex-hospital	Middlesex Health Primary Care - Chester	Chester	CT
+epic-middlesex-hospital	Middlesex Health Primary Care - Cromwell	Cromwell	CT
 epic-middlesex-hospital	Middlesex Health Primary Care - Durham	Durham	CT
 epic-middlesex-hospital	Middlesex Health Primary Care - East Haddam	Moodus	CT
 epic-middlesex-hospital	Middlesex Health Primary Care - Essex	Essex	CT
+epic-middlesex-hospital	Middlesex Health Primary Care - Madison	Madison	CT
 epic-middlesex-hospital	Middlesex Health Primary Care - Middletown	Middletown	CT
+epic-middlesex-hospital	Middlesex Health Primary Care - Old Saybrook	Old Saybrook	CT
 epic-middlesex-hospital	Middlesex Health Primary Care - Portland	Portland	CT
 epic-middlesex-hospital	Middlesex Health Primary Care - Tritown	Essex	CT
+epic-middlesex-hospital	Middlesex Health Primary Care - Westbrook	Westbrook	CT
 epic-middlesex-hospital	Middlesex Health Primary Care Services at Covenant Living - Cromwell	Cromwell	CT
-epic-middlesex-hospital	Middlesex Health Primary Care and Rehab Services - Cromwell	Cromwell	CT
-epic-middlesex-hospital	Middlesex Health Primary Care, Urology, and Crescent St OB GYN - Madison	Madison	CT
+epic-middlesex-hospital	Middlesex Health Rehab Services - Cromwell	Cromwell	CT
 epic-middlesex-hospital	Middlesex Health Rehab Services - Madison	Madison	CT
 epic-middlesex-hospital	Middlesex Health Rehab Services - Marlborough	Marlborough	CT
 epic-middlesex-hospital	Middlesex Health Rehab Services - Middletown	Middletown	CT
 epic-middlesex-hospital	Middlesex Health Rehab and Developmental Services - Essex	Essex	CT
+epic-middlesex-hospital	Middlesex Health Rehab and Developmental Services - Portland	Portland	CT
+epic-middlesex-hospital	Middlesex Health Rheumatology	Middletown	CT
 epic-middlesex-hospital	Middlesex Health Same Day Surgery - Middletown	Middletown	CT
 epic-middlesex-hospital	Middlesex Health Shoreline Medical Center	Westbrook	CT
-epic-middlesex-hospital	Middlesex Health Specialty Services and Palliative Care at the Outpatient Center - Middletown	Middletown	CT
+epic-middlesex-hospital	Middlesex Health Specialty Services at the Outpatient Center - Middletown	Middletown	CT
+epic-middlesex-hospital	Middlesex Health Surgical Alliance at the Shoreline Medical Center	Westbrook	CT
 epic-middlesex-hospital	Middlesex Health Urgent Care - Middletown	Middletown	CT
-epic-middlesex-hospital	Middlesex Health Urgent and Primary Care - Old Saybrook	Old Saybrook	CT
+epic-middlesex-hospital	Middlesex Health Urgent Care - Old Saybrook	Old Saybrook	CT
+epic-middlesex-hospital	Middlesex Health Urology & Crescent St OB GYN - Madison	Madison	CT
 epic-middlesex-hospital	Middlesex Health Urology - Marlborough	Marlborough	CT
 epic-middlesex-hospital	Middlesex Health Urology and Weight Loss Practices - Middletown	Middletown	CT
 epic-midwestern-university-clinics	MWU AZ Eye Institute	Glendale	AZ
@@ -47138,13 +47168,14 @@ epic-mosaic-life-care	St Joseph Comprehensive Family Care	Saint Joseph	MO
 epic-mosaic-life-care	St Joseph Endocrinology at Cameron	Cameron	MO
 epic-mosaic-life-care	St Joseph Family Care N 36th Street	Saint Joseph	MO
 epic-mosaic-life-care	St Joseph Gastroenterology Clinic at Maryville	Maryville	MO
-epic-mosaic-life-care	St Joseph Home Health	St Joseph	MO
+epic-mosaic-life-care	St Joseph German American Building	Saint Joseph	MO
 epic-mosaic-life-care	St Joseph Internal Medicine and Pediatrics	Saint Joseph	MO
 epic-mosaic-life-care	St Joseph Internal Medicine, Pediatrics and Adult Care	Saint Joseph	MO
 epic-mosaic-life-care	St Joseph Medical Center Plaza 1	Saint Joseph	MO
 epic-mosaic-life-care	St Joseph Medical Center Plaza 2	Saint Joseph	MO
 epic-mosaic-life-care	St Joseph Medical Center Plaza 3	Saint Joseph	MO
 epic-mosaic-life-care	St Joseph Medical Center Plaza 4	Saint Joseph	MO
+epic-mosaic-life-care	St Joseph Mitchell Woods	St Joseph	MO
 epic-mosaic-life-care	St Joseph Nephrology	Saint Joseph	MO
 epic-mosaic-life-care	St Joseph Neurology	Saint Joseph	MO
 epic-mosaic-life-care	St Joseph North Belt Therapy and Chiropractic	Saint Joseph	MO
@@ -48696,7 +48727,6 @@ epic-nch-healthcare-system	NPG MRNGS P GL CON MED	Naples	FL
 epic-nch-healthcare-system	North Naples Hospital	Naples	FL
 epic-nch-healthcare-system	Northpark Center	Naples	FL
 epic-nch-healthcare-system	SGARS Holdings	Lutz	FL
-epic-nch-healthcare-system	SHS Asc MSK Center	Naples	FL
 epic-nch-healthcare-system	Southeast Immediate Care	Naples	FL
 epic-nch-healthcare-system	Upwell Medical Clinic	Lutz	FL
 epic-nch-healthcare-system	Vanderbilt Concierge Medicine	Naples	FL
@@ -52692,6 +52722,7 @@ epic-novant-health	Presbyterian Sameday Surgery Huntersville	Huntersville	NC
 epic-novant-health	Presbyterian Sleep Center (Ballantyne)	Charlotte	NC
 epic-novant-health	Presbyterian Surgery Center Monroe	Monroe	NC
 epic-novant-health	Salem Chest Specialists - 2932 Lyndhurst	Winston Salem	NC
+epic-novant-health	Shoreline Gastroenterology	Bluffton	SC
 epic-novant-health	South Charlotte Rheumatology	Charlotte	NC
 epic-novant-health	Southeastern Spine Institute - East Cooper	Mount Pleasant	SC
 epic-novant-health	Southeastern Spine Institute - Murrel's Inlet	Murrells Inlet	SC
@@ -53891,6 +53922,7 @@ epic-ochin	Bay Area Community Health - Monterey Plaza Clinic	San Jose	CA
 epic-ochin	Bay Area Community Health - Montpelier Clinic	San Jose	CA
 epic-ochin	Bay Area Community Health - Mowry Clinic I	Fremont	CA
 epic-ochin	Bay Area Community Health - Mowry Clinic II	Fremont	CA
+epic-ochin	Bay Area Community Health - Mowry Clinic III	Fremont	CA
 epic-ochin	Bay Area Community Health - Mt Pleasant High School Clinic	San Jose	CA
 epic-ochin	Bay Area Community Health - Silver Creek High School Clinic	San Jose	CA
 epic-ochin	Bay Area Community Health - Story Road Clinic	San Jose	CA
@@ -55875,6 +55907,7 @@ epic-ochin	Prime Health Plus - Homeward Bound	Grand Junction	CO
 epic-ochin	Prime Health Plus - Main	Grand Junction	CO
 epic-ochin	Prime Health Plus - Montrose	Montrose	CO
 epic-ochin	Prime Health Plus - Pitkin	Grand Junction	CO
+epic-ochin	Prime Health Plus - R5 Health Clinic	Grand Junction	CO
 epic-ochin	Prime Health Plus - TWC 5th St	Grand Junction	CO
 epic-ochin	Prime Health Plus - Warrior Wellness Center	Grand Junction	CO
 epic-ochin	PrimeHealthPlus	Grand Junction	CO
@@ -58493,13 +58526,13 @@ epic-ou-health	OU Health Physicians - Children's Diabetes & Endocrinology	Oklaho
 epic-ou-health	OU Health Physicians - Children's Ear, Nose & Throat and Audiology	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - Children's General & Plastic Surgery	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - Children's Healthy Futures	Oklahoma City	OK
+epic-ou-health	OU Health Physicians - Children's Multispecialty Clinic at Mercy	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - Children's Orthopedic Surgery	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - Children's Pulmonology & Cystic Fibrosis	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - Children's Urology	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - Children's Urology Norman	Norman	OK
 epic-ou-health	OU Health Physicians - Children's Urology Tulsa	Tulsa	OK
 epic-ou-health	OU Health Physicians - Children's Urology at INTEGRIS	Oklahoma City	OK
-epic-ou-health	OU Health Physicians - Children’s Multispecialty Clinic at Mercy	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - Community Health Clinic	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - Dermatology Clinic	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - Ear, Nose & Throat Clinic	Oklahoma City	OK
@@ -58538,7 +58571,7 @@ epic-ou-health	OU Health Physicians - Senior Health Clinic Epworth Villa	Oklahom
 epic-ou-health	OU Health Physicians - Sooner Pediatrics	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - South Memorial	Tulsa	OK
 epic-ou-health	OU Health Physicians - Student Health and Wellness Clinic	Oklahoma City	OK
-epic-ou-health	OU Health Physicians - Super Niños Clinic	Oklahoma City	OK
+epic-ou-health	OU Health Physicians - Super Ninos Clinic	Oklahoma City	OK
 epic-ou-health	OU Health Physicians - Surgical Specialist	Tulsa	OK
 epic-ou-health	OU Health Physicians - Telemedicine Tulsa	Tulsa	OK
 epic-ou-health	OU Health Physicians - Urology Clinic	Oklahoma City	OK
@@ -58592,13 +58625,14 @@ epic-ou-health	OUHSC Molecular Pathology Laboratory	Oklahoma City	OK
 epic-ou-health	Oklahoma Children's - Kids First Pediatric Urgent Care - Edmond	Edmond	OK
 epic-ou-health	Oklahoma Children's - Kids First Pediatric Urgent Care - Oklahoma City	Oklahoma City	OK
 epic-ou-health	Oklahoma Children's Hospital	Oklahoma City	OK
+epic-ou-health	Oklahoma Children's Hospital - Behavioral Health Center	Oklahoma City	OK
+epic-ou-health	Oklahoma Children's Hospital - Heart Center	Oklahoma City	OK
 epic-ou-health	Oklahoma Children's Hospital - Jimmy Everest Center	Oklahoma City	OK
 epic-ou-health	Oklahoma Children's Hospital - Jimmy Everest Center at Tulsa	Tulsa	OK
 epic-ou-health	Oklahoma Children's Hospital - Orthotics & Prosthetics	Oklahoma City	OK
 epic-ou-health	Oklahoma Children's Hospital - Prenatal Diagnostic Center	Oklahoma City	OK
+epic-ou-health	Oklahoma Children's Hospital - Sooner Pediatrics North	Oklahoma City	OK
 epic-ou-health	Oklahoma Children's Hospital Physicians Building	Oklahoma City	OK
-epic-ou-health	Oklahoma Children’s Hospital - Heart Center	Oklahoma City	OK
-epic-ou-health	Oklahoma Children’s Hospital - Sooner Pediatrics North	Oklahoma City	OK
 epic-ou-health	Premier Clinic Lawton	Lawton	OK
 epic-ou-health	Rockpointe Medical Clinic	Edmond	OK
 epic-ou-health	Schusterman Center	Tulsa	OK
@@ -59788,7 +59822,6 @@ epic-pacific-dental-services	Palm Springs Modern Dentistry	Palm Springs	CA
 epic-pacific-dental-services	Paradise Smiles Dentistry	Las Vegas	NV
 epic-pacific-dental-services	Park Place Dental Group	Sacramento	CA
 epic-pacific-dental-services	Park West Dental Group and Orthodontics	Stockton	CA
-epic-pacific-dental-services	Parker Dentistry	Parker	CO
 epic-pacific-dental-services	Parker Modern Dentistry and Orthodontics	Parker	CO
 epic-pacific-dental-services	Parkville Modern Dentistry and Orthodontics	Kansas City	MO
 epic-pacific-dental-services	Parkway Dental Group	Lincoln	CA
@@ -59993,6 +60026,7 @@ epic-pacific-dental-services	Sunrise Modern Dentistry	Las Vegas	NV
 epic-pacific-dental-services	Surprise Modern Dentistry	Surprise	AZ
 epic-pacific-dental-services	Swampscott Modern Dentistry	Swampscott	MA
 epic-pacific-dental-services	Sylvan Park Smiles Dentistry	Nashville	TN
+epic-pacific-dental-services	TEMP CLOSED Parker Dentistry	Parker	CO
 epic-pacific-dental-services	Tacoma Smiles Dentistry	Tacoma	WA
 epic-pacific-dental-services	Taft Plaza Dental Group	Woodland Hills	NV
 epic-pacific-dental-services	Tangerine Dental Group	Oro Valley	AZ
@@ -60576,6 +60610,8 @@ epic-pediatric-physicians-organization-at-children-s	Briarpatch Pediatrics - Yar
 epic-pediatric-physicians-organization-at-children-s	Bridgewater Pediatrics	Bridgewater	MA
 epic-pediatric-physicians-organization-at-children-s	Brookline Pediatrics	Brookline	MA
 epic-pediatric-physicians-organization-at-children-s	Cape Cod Pediatrics	Forestdale	MA
+epic-pediatric-physicians-organization-at-children-s	Chelmsford Pediatrics	Chelmsford	MA
+epic-pediatric-physicians-organization-at-children-s	Chelmsford Pediatrics - Dracut	Dracut	MA
 epic-pediatric-physicians-organization-at-children-s	Chestnut Hill Pediatrics	Chestnut Hill	MA
 epic-pediatric-physicians-organization-at-children-s	Child Health Associates	Auburn	MA
 epic-pediatric-physicians-organization-at-children-s	Child Health Associates, P.C. - Shrewsbury	Shrewsbury	MA
@@ -64064,12 +64100,16 @@ epic-prime-healthcare	Al Riverview Wound and Hyperbaric	Gadsden	AL
 epic-prime-healthcare	Al Rral Outpatient Therapies	Gadsden	AL
 epic-prime-healthcare	Alvarado Hospital Medical Center	San Diego	CA
 epic-prime-healthcare	Bridgton Hospital	Bridgton	ME
+epic-prime-healthcare	CC Joanna Stankiewicz MD	Chicago	IL
 epic-prime-healthcare	CC One Health Medical Los Angeles	Los Angeles	CA
+epic-prime-healthcare	CC PCP of Chicago Des Plaines	Des Plaines	IL
 epic-prime-healthcare	CC Roque-Ponton Medical Group	Chiacgo	IL
+epic-prime-healthcare	CENTRAL MAINE 60 High St	Lewiston	ME
 epic-prime-healthcare	CRMC Surgery, Wound Care and Podiatry	Coshocton	OH
 epic-prime-healthcare	CROH Pulmonary Clinic	Cochocton	OH
 epic-prime-healthcare	Caps Cardiology Ironbound	Newark	NJ
 epic-prime-healthcare	Caps Cardiothoracic Passaic	Passaic	NJ
+epic-prime-healthcare	Central Maine Bates Russel	Lewiston	ME
 epic-prime-healthcare	Central Maine Medical Center	Lewiston	ME
 epic-prime-healthcare	Chicago Gastroenterology Clinic	Chicago	IL
 epic-prime-healthcare	Chino Valley Medical Center	Chino	CA
@@ -64091,6 +64131,7 @@ epic-prime-healthcare	Dallas Medical Physician Group Family Medicine Galloway	Me
 epic-prime-healthcare	Dallas Medical Physician Group General Surgery	Mesquite	TX
 epic-prime-healthcare	Dallas Medical Physician Group Southwest Cardiac	Mesquite	TX
 epic-prime-healthcare	Dallas Medical Physician Group Southwest Cardiac Dallas	Dallas	TX
+epic-prime-healthcare	Dallas Medical Physician Group Southwest Cardiology	Mesquite	TX
 epic-prime-healthcare	Dallas Regional Medical Center	Mesquite	TX
 epic-prime-healthcare	Dallas Regional OP Physical Therapy Carrollton	Carrollton	TX
 epic-prime-healthcare	Dallas Regional OP Physical Therapy Dallas	Dallas	TX
@@ -64125,6 +64166,7 @@ epic-prime-healthcare	Lake Huron Medical Center	Port Huron	MI
 epic-prime-healthcare	Lake Huron Medical Center Marysville Physical Therapy	Marysville	MI
 epic-prime-healthcare	Landmark Medical Center	Woonsocket	RI
 epic-prime-healthcare	Landmark Medical Center & Physician Office Services	Woonsocket	RI
+epic-prime-healthcare	Landmark Surgical Associates	North Smithfield	RI
 epic-prime-healthcare	Lehigh Regional Medical Center	Lehigh Acres	FL
 epic-prime-healthcare	Lower Bucks Hospital	Bristol	PA
 epic-prime-healthcare	MI Garden City Medical Group	Garden City	MI
@@ -64177,12 +64219,23 @@ epic-prime-healthcare	North Vista Hospital	North Las Vegas	NV
 epic-prime-healthcare	Northshore Physician Group Primary Care	Wilmette	IL
 epic-prime-healthcare	Northwest Pulmonary Associates	Chicago	IL
 epic-prime-healthcare	Oak Grove Medical Clinic	Oak Grove	MO
+epic-prime-healthcare	Olympia Fields Behavioral Health Crawford	Olympia Fields	IL
+epic-prime-healthcare	Olympia Fields Cardiology	Olympia Fields	IL
+epic-prime-healthcare	Olympia Fields Family Medicine Governors Hwy	Homewood	IL
+epic-prime-healthcare	Olympia Fields Family Medicine Harlem Ave	Tinley Park	IL
 epic-prime-healthcare	Olympia Fields Hospital	Olympia Fields	IL
+epic-prime-healthcare	Olympia Fields Hospital Clinics	Olympia Fields	IL
 epic-prime-healthcare	Olympia Fields Medical Group Chicago Heights	Chicago Heights	IL
 epic-prime-healthcare	Olympia Fields Medical Group Homewood	Homewood	IL
 epic-prime-healthcare	Olympia Fields Medical Group Matteson	Matteson	IL
 epic-prime-healthcare	Olympia Fields Medical Group Tinley Park	Tinley Park	IL
+epic-prime-healthcare	Olympia Fields Occupational Therapy Homewood	Homewood	IL
 epic-prime-healthcare	Olympia Fields Outpatient Therapy	Olympia Fields	IL
+epic-prime-healthcare	Olympia Fields Physical Therapy Beecher	Beecher	IL
+epic-prime-healthcare	Olympia Fields Physical Therapy Frankfort	Frankfort	IL
+epic-prime-healthcare	Olympia Fields Radiology	Chicago Heights	IL
+epic-prime-healthcare	Olympia Fields Therapy Clinics Homewood	Homewood	IL
+epic-prime-healthcare	Olympia Fields Theray Chicago Heights	Chicago Heights	IL
 epic-prime-healthcare	PA Bristol Medical Center Group Bristol	Bristol	PA
 epic-prime-healthcare	PA Bristol Medical Center Group Langhorne	Langhorne	PA
 epic-prime-healthcare	PA Lower Bucks Radiology at Trenton Road	Levittown	PA
@@ -64224,6 +64277,7 @@ epic-prime-healthcare	Saint Clare's Behavioral Health -Transitions	Parsippany	NJ
 epic-prime-healthcare	Saint Clare's Behavioral Health -Wellness & Recovery Center, Morris County	Denville	NJ
 epic-prime-healthcare	Saint Clare's Behavioral Health -Wellness & Recovery Center, Warren County	Washington	NJ
 epic-prime-healthcare	Saint Clare's Health Medical Group - General Surgery	Denville	NJ
+epic-prime-healthcare	Saint Clare's Health Medical Group Surgery Landing	Landing	NJ
 epic-prime-healthcare	Saint Clare's Hopsital - Denville	Denville	NJ
 epic-prime-healthcare	Saint Clare's Hospital - Boonton Township	Boonton Township	NJ
 epic-prime-healthcare	Saint Clare's Hospital - Dover General	Dover	NJ
@@ -64275,6 +64329,8 @@ epic-prime-healthcare	Smnil Pain Clinic	Chicago	IL
 epic-prime-healthcare	South Atlanta Family Medicine	Jonesboro	GA
 epic-prime-healthcare	South Kansas City Surgicenter	Overland Park	KS
 epic-prime-healthcare	Southern Regional Medical Center	Riverdale	GA
+epic-prime-healthcare	Southern Regional Medical Group	Riverdale	GA
+epic-prime-healthcare	Southern Regional Primary Care Management Group	Riverdale	GA
 epic-prime-healthcare	St Joseph Specialty Clinic	Kansas City	MO
 epic-prime-healthcare	St Mary of Family Medical Group Medicine Cicero	Chicago	IL
 epic-prime-healthcare	St Mary of Nazareth Medical Group Endocrinology Clinic	Chicago	IL
@@ -64389,9 +64445,9 @@ epic-prisma-health	Blount Memorial Rehab-Cherokee	Maryville	TN
 epic-prisma-health	Blue Ridge Orthopaedics - Anderson	Anderson	SC
 epic-prisma-health	Blue Ridge Orthopaedics - Seneca	Seneca	SC
 epic-prisma-health	Blue Ridge Surgery Center	Seneca	SC
+epic-prisma-health	Blue Ridge Women's Center	Seneca	SC
+epic-prisma-health	Blue Ridge Women's Center - East	Seneca	SC
 epic-prisma-health	Blue Ridge Womens Center-Patrick Square	Clemson	SC
-epic-prisma-health	Blue Ridge Women’s Center	Seneca	SC
-epic-prisma-health	Blue Ridge Women’s Center–East	Seneca	SC
 epic-prisma-health	Breast Health Center	Greenville	SC
 epic-prisma-health	Business Health Sumter School District Occ	Sumter	SC
 epic-prisma-health	Business Health-A.C. Moore Elementary School	Columbia	SC
@@ -64539,7 +64595,7 @@ epic-prisma-health	Carolina Nephrology-Mills	Greenville	SC
 epic-prisma-health	Carolina Nephrology-Simpsonville	Simpsonville	SC
 epic-prisma-health	Carolina Nephrology-Spartanburg	Spartanburg	SC
 epic-prisma-health	Carolina Pediatrics of Greenville	Greenville	SC
-epic-prisma-health	Carolina Women’s Center	Clinton	SC
+epic-prisma-health	Carolina Women's Center	Clinton	SC
 epic-prisma-health	Centa Medical Group - Columbia	Columbia	SC
 epic-prisma-health	Centa Medical Group - Lexington	Lexington	SC
 epic-prisma-health	Center for Amputation Prevention	Greenville	SC
@@ -64554,16 +64610,16 @@ epic-prisma-health	Center for Vulvar Medicine	Greenville	SC
 epic-prisma-health	Child Abuse/Neglect / Forensic Peds	Greenville	SC
 epic-prisma-health	Child Advocacy Center of Aiken County	Aiken	SC
 epic-prisma-health	Children's Clinic-Simpsonville	Simpsonville	SC
-epic-prisma-health	Children’s Hospital After-hours Care	Greenville	SC
+epic-prisma-health	Children's Hospital After-hours Care	Greenville	SC
 epic-prisma-health	Christie Pediatric Group	Greenville	SC
 epic-prisma-health	Clemson-Seneca Pediatrics	Clemson	SC
 epic-prisma-health	Colon & Rectal Surgery	Greenville	SC
 epic-prisma-health	Congestive Heart Failure Clinic	Greenville	SC
 epic-prisma-health	Cross Creek Internal Medicine	Greenville	SC
 epic-prisma-health	Cypress IM–Maxwell Pointe	Greenville	SC
-epic-prisma-health	Cypress Internal Medicine–Greer	Greer	SC
-epic-prisma-health	Cypress Internal Medicine–Patewood	Greenville	SC
-epic-prisma-health	Cypress Internal Medicine–Simpsonville	Simpsonville	SC
+epic-prisma-health	Cypress Internal Medicine - Greer	Greer	SC
+epic-prisma-health	Cypress Internal Medicine - Patewood	Greenville	SC
+epic-prisma-health	Cypress Internal Medicine - Simpsonville	Simpsonville	SC
 epic-prisma-health	Developmental-Behavioral Pediatrics/Gardner Center for Developing Minds	Greenville	SC
 epic-prisma-health	Diabetes Prevention Program Columbia	Columbia	SC
 epic-prisma-health	Diabetes Prevention Program Greenville	Greenville	SC
@@ -64582,7 +64638,7 @@ epic-prisma-health	Endovascular Surgery	Greenville	SC
 epic-prisma-health	Eye Institute	Greenville	SC
 epic-prisma-health	Eye Institute-Spartanburg	Spartanburg	SC
 epic-prisma-health	FM Mountain View 405	Greer	SC
-epic-prisma-health	Family & Internal Medicine– Simpsonville	Simpsonville	SC
+epic-prisma-health	Family & Internal Medicine - Simpsonville	Simpsonville	SC
 epic-prisma-health	Family Healthcare - Clinton	Laurens	SC
 epic-prisma-health	Family Healthcare - Greenwood	Greenwood	SC
 epic-prisma-health	Family Healthcare - Newberry	Newberry	SC
@@ -64593,7 +64649,7 @@ epic-prisma-health	Family Healthcare - Tower Pointe	Greenwood	SC
 epic-prisma-health	Family Healthcare - Ware Shoals	Ware Shoals	SC
 epic-prisma-health	Family Healthcare - West Greenwood	Greenwood	SC
 epic-prisma-health	Family Healthcare Edgefield	Edgefield	SC
-epic-prisma-health	Family Medicine–Mountain View	Greer	SC
+epic-prisma-health	Family Medicine - Mountain View	Greer	SC
 epic-prisma-health	Female Pelvic Medicine & Reconstructive Surgery	Greenville	SC
 epic-prisma-health	Foothills Family Medicine	Westminster	SC
 epic-prisma-health	Full Circle Care		
@@ -64638,8 +64694,8 @@ epic-prisma-health	Greer Family Medicine	Greer	SC
 epic-prisma-health	Greer Memorial	Greer	SC
 epic-prisma-health	Greer OB/GYN	Greer	SC
 epic-prisma-health	Gynecologic Oncology	Greenville	SC
-epic-prisma-health	Heritage Pediatrics & Internal Medicine–Simpsonville	Simpsonville	SC
-epic-prisma-health	Heritage Pediatrics & Internal Medicine–Wren	Piedmont	SC
+epic-prisma-health	Heritage Pediatrics & Internal Medicine - Simpsonville	Simpsonville	SC
+epic-prisma-health	Heritage Pediatrics & Internal Medicine - Wren	Piedmont	SC
 epic-prisma-health	Hillcrest Memorial	Simpsonville	SC
 epic-prisma-health	Infectious Disease	Greenville	SC
 epic-prisma-health	Inpatient Pediatrics	Greenville	SC
@@ -64747,15 +64803,15 @@ epic-prisma-health	Palmetto Surgery Associates	Seneca	SC
 epic-prisma-health	Parkside OB-GYN	Greer	SC
 epic-prisma-health	Patewood Memorial	Greenville	SC
 epic-prisma-health	Pediatric & Adolescent Gynecology	Greenville	SC
+epic-prisma-health	Pediatric Associates - Easley	Easley	SC
 epic-prisma-health	Pediatric Associates - Greenwood	Greenwood	SC
-epic-prisma-health	Pediatric Associates–Easley	Easley	SC
-epic-prisma-health	Pediatric Associates–Greer	Greer	SC
-epic-prisma-health	Pediatric Associates–Powdersville	Greenville	SC
-epic-prisma-health	Pediatric Associates–Spartanburg	Spartanburg	SC
+epic-prisma-health	Pediatric Associates - Greer	Greer	SC
+epic-prisma-health	Pediatric Associates - Powdersville	Greenville	SC
+epic-prisma-health	Pediatric Associates - Spartanburg	Spartanburg	SC
 epic-prisma-health	Pediatric Cardiology	Greenville	SC
 epic-prisma-health	Pediatric Endocrinology	Greenville	SC
 epic-prisma-health	Pediatric Gastroenterology	Greenville	SC
-epic-prisma-health	Pediatric Hematology/Oncology / BILO Charities Children’s Cancer Center	Greenville	SC
+epic-prisma-health	Pediatric Hematology/Oncology / BILO Charities Children's Cancer Center	Greenville	SC
 epic-prisma-health	Pediatric Infectious Disease	Greenville	SC
 epic-prisma-health	Pediatric Intensive Care	Greenville	SC
 epic-prisma-health	Pediatric Nephrology & Hypertension	Greenville	SC
@@ -64767,7 +64823,7 @@ epic-prisma-health	Pediatric Rapid Access	Greenville	SC
 epic-prisma-health	Pediatric Rheumatology	Greenville	SC
 epic-prisma-health	Pediatric Sleep Medicine/Center for Pediatric Sleep Disorders	Greenville	SC
 epic-prisma-health	Pediatric Surgery	Greenville	SC
-epic-prisma-health	Pediatric Urgent Care- AnMed Women’s & Children’s Hospital	Anderson	SC
+epic-prisma-health	Pediatric Urgent Care - AnMed Women's & Children's Hospital	Anderson	SC
 epic-prisma-health	Pediatric Urology	Greenville	SC
 epic-prisma-health	Peds Cardio-AndersnMFM	Anderson	SC
 epic-prisma-health	Peds Clinic-N Grnville	Travelers Rest	SC
@@ -64785,7 +64841,7 @@ epic-prisma-health	Plastic Surgery & Aesthetics	Greenville	SC
 epic-prisma-health	Plastic/Craniofacial Surgery	Greenville	SC
 epic-prisma-health	Powdersville Medical Practice	Greenville	SC
 epic-prisma-health	Premier Pediatrics of Sumter	Sumter	SC
-epic-prisma-health	Premier Women’s Care	Greenville	SC
+epic-prisma-health	Premier Women's Care	Greenville	SC
 epic-prisma-health	Primary Care-Testing	Greenville	SC
 epic-prisma-health	Prisma Health - Blount Memorial Hospital	Maryville	TN
 epic-prisma-health	Prisma Health - Blount Memorial Surgery Center	Maryville	TN
@@ -64866,6 +64922,7 @@ epic-prisma-health	Prisma Health Dentistry - Richland	Columbia	SC
 epic-prisma-health	Prisma Health Developmental Pediatrics - Columbia	Columbia	SC
 epic-prisma-health	Prisma Health Diabetes Self Care Management-LCH	Clinton	SC
 epic-prisma-health	Prisma Health Diabetes Self Care Management-OMH	Seneca	SC
+epic-prisma-health	Prisma Health Diabetes Self Management - Parkridge	Columbia	SC
 epic-prisma-health	Prisma Health Diabetes Self Management-OBGYN Clinic	Greenville	SC
 epic-prisma-health	Prisma Health Diabetese Self Care Management-Patewood	Greenville	SC
 epic-prisma-health	Prisma Health Ear, Nose, and Throat-Columbia	Columbia	SC
@@ -65247,8 +65304,8 @@ epic-prisma-health	Rheumatology Consultants of Internal Medicine Associates of G
 epic-prisma-health	Rheumatology Specialists	Greenville	SC
 epic-prisma-health	Richland Hospital	Columbia	SC
 epic-prisma-health	Richland Springs Hospital	Columbia	SC
-epic-prisma-health	Riverside Family Medicine–Eastside	Greenville	SC
-epic-prisma-health	Riverside Family Medicine–Maxwell Pointe	Greenville	SC
+epic-prisma-health	Riverside Family Medicine - Eastside	Greenville	SC
+epic-prisma-health	Riverside Family Medicine - Maxwell Pointe	Greenville	SC
 epic-prisma-health	Roger C. Peace Rehabilitation Hospital	Greenville	SC
 epic-prisma-health	SC Cardiology Consultants	Seneca	SC
 epic-prisma-health	SC Internal Medicine Associates and Rehab	Irmo	SC
@@ -65301,7 +65358,7 @@ epic-prisma-health	Surgery-Anderson	Anderson	SC
 epic-prisma-health	Surgery-Patewood B-400	Greenville	SC
 epic-prisma-health	TH Drive-Thru	Sumter	SC
 epic-prisma-health	The Brownell Center	Greenville	SC
-epic-prisma-health	The Children’s Clinic	Greenville	SC
+epic-prisma-health	The Children's Clinic	Greenville	SC
 epic-prisma-health	The Free Medical Clinic - Columbia	Columbia	SC
 epic-prisma-health	The Hand Center	Greenville	SC
 epic-prisma-health	The Hernia Center	Greenville	SC
@@ -67265,12 +67322,14 @@ epic-rochester-regional-health	Massena Hospital	Massena	NY
 epic-rochester-regional-health	Massena Hospital Medical Office Building	Massena	NY
 epic-rochester-regional-health	Newark-Wayne Community Hospital	Newark	NY
 epic-rochester-regional-health	Parkway Campus	Rochester	NY
+epic-rochester-regional-health	Portland Pediatric Group	Rochester	NY
 epic-rochester-regional-health	Ridgeway Medical Campus	Rochester	NY
 epic-rochester-regional-health	Riedman Health Center	Rochester	NY
 epic-rochester-regional-health	Rochester General Hospital	Rochester	NY
 epic-rochester-regional-health	Rochester Regional Health Behavioral Health Center	Rochester	NY
 epic-rochester-regional-health	Rochester Regional Health Laboratories	Rochester	NY
 epic-rochester-regional-health	Rochester Regional Health Urgent Care	Rochester	NY
+epic-rochester-regional-health	Shirley J Cirillo	Rochester	NY
 epic-rochester-regional-health	Sodus Medical Campus	Sodus	NY
 epic-rochester-regional-health	Spencerport Medical Campus	Spencerport	NY
 epic-rochester-regional-health	St. Lawrence Medical Campus	Canton	NY
@@ -69877,6 +69936,7 @@ epic-sentara-healthcare	Atlantic Pediatric Specialists	Virginia Beach	VA
 epic-sentara-healthcare	Bridgewater Outpatient Services	Bridgewater	VA
 epic-sentara-healthcare	CC Atlantic Orthopaedic Specialists Obx	Kill Devil Hills	NC
 epic-sentara-healthcare	CC EVMS Obstetrics and Gynecology Wmbg	Williamsburg	VA
+epic-sentara-healthcare	CC EVMS Psychiatry and Behavioral Sciences PA	Virginia Beach	VA
 epic-sentara-healthcare	Charlottesville Home Health	Charlottesville	VA
 epic-sentara-healthcare	Chesapeake Home Health	Chesapeake	VA
 epic-sentara-healthcare	Chesapeake Hospice	Chesapeake	VA
@@ -69969,6 +70029,7 @@ epic-sentara-healthcare	SRMG Neurosurgery Specialists	Harrisonburg	VA
 epic-sentara-healthcare	STC Moyock Therapy	Moyock	NC
 epic-sentara-healthcare	SVBGH-Recurring Diabetes TRMT	Virginia Beach	VA
 epic-sentara-healthcare	SW Gloucester OP Diabetes and Nutrition	Gloucester	VA
+epic-sentara-healthcare	Sentara Adolescent Behavioral Health	Harrisonburg	VA
 epic-sentara-healthcare	Sentara Advanced Imaging Solutions	Bridgewater	VA
 epic-sentara-healthcare	Sentara Advanced Imaging Solutions 10th Street	Charlottesville	VA
 epic-sentara-healthcare	Sentara Advanced Imaging Solutions Alexandria	Alexandria	VA
@@ -76914,6 +76975,7 @@ epic-texas-health-resources	Womens Health Specialists of Dallas	Dallas	TX
 epic-texas-scottish-rite-hospital-for-children		Dallas	TX
 epic-texas-scottish-rite-hospital-for-children	Scottish Rite for Children	Frisco	TX
 epic-texas-scottish-rite-hospital-for-children	Scottish Rite for Children - STAR	Frisco	TX
+epic-the-baton-rouge-clinic	Pediatric Surgery of Louisiana	Baton Rouge	LA
 epic-the-brooklyn-hospital-center	61st Street Family Health Center	Brooklyn	NY
 epic-the-brooklyn-hospital-center	BHMA MAN AVE	Brooklyn	NY
 epic-the-brooklyn-hospital-center	Church Avenue Family Health Center	Brooklyn	NY
@@ -77304,8 +77366,6 @@ epic-the-nebraska-medical-center	Platte Valley Womens Mullen	Mullen	NE
 epic-the-nebraska-medical-center	Primary Care Clinic	Fairfax	MO
 epic-the-nebraska-medical-center	Village Pointe Aesthetic Surgery	Omaha	NE
 epic-the-nebraska-medical-center	Z Family Practice	Omaha	NE
-epic-the-ohio-state-university-wexner-medical-center	Adena Health Lancaster	Lancaster	OH
-epic-the-ohio-state-university-wexner-medical-center	Adena Health Lucasville	Lucasville	OH
 epic-the-ohio-state-university-wexner-medical-center	Arthur G. James Hospital and Richard J. Solove Research Institute	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	CarePoint East	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	CarePoint Gahanna	Gahanna	OH
@@ -78134,6 +78194,7 @@ epic-thomas-jefferson-university-health-system	Jefferson Community Physicians 70
 epic-thomas-jefferson-university-health-system	Jefferson Community Physicians CCP 1 PRESIDENTIAL BOULEVARD	Bala Cynwyd	PA
 epic-thomas-jefferson-university-health-system	Jefferson Community Physicians DELRAN	Delran	NJ
 epic-thomas-jefferson-university-health-system	Jefferson Einstein Montgomery	East Norriton	PA
+epic-thomas-jefferson-university-health-system	Jefferson Einstein Philadelphia	Philadelphia	PA
 epic-thomas-jefferson-university-health-system	Jefferson Health - Bucks	Langhorne	PA
 epic-thomas-jefferson-university-health-system	Jefferson Health - Frankford	Philadelphia	PA
 epic-thomas-jefferson-university-health-system	Jefferson Health - Lansdale	Lansdale	PA
@@ -79626,6 +79687,7 @@ epic-trinity-health	Loyola Center for Health at Oakbrook Terrace	Oak Brook	IL
 epic-trinity-health	Loyola Center for Health at Park Ridge	Park Ridge	IL
 epic-trinity-health	Loyola Center for Health at River Forest	River Forest	IL
 epic-trinity-health	Loyola Center for Health on Roosevelt	Maywood	IL
+epic-trinity-health	Loyola Center for Metabolic Surgery & Bariatric Care at Melrose Park	Melrose Park	IL
 epic-trinity-health	Loyola Center for Rehabilitation on Roosevelt	Maywood	IL
 epic-trinity-health	Loyola Elk Grove Hepatology	Elk Grove Village	IL
 epic-trinity-health	Loyola Medical Laboratory	Berwyn	IL
@@ -79686,6 +79748,7 @@ epic-trinity-health	MHSPV Pioneer Valley Cardiology Associates	Springfield	MA
 epic-trinity-health	MHSSC Thoracic Surgery Springfield	Springfield	MA
 epic-trinity-health	MHSSS Vascular Surgery Springfield	Springfield	MA
 epic-trinity-health	MHSWP Mercy Physical Therapy East Longmeadow	E Longmeadow	MA
+epic-trinity-health	MacNeal Cancer Center	Berwyn	IL
 epic-trinity-health	MacNeal HealthCare Center Archer	Chicago	IL
 epic-trinity-health	MacNeal Hospital	Berwyn	IL
 epic-trinity-health	MacNeal Interventional Imaging	Berwyn	IL
@@ -85677,7 +85740,7 @@ epic-university-of-chicago-hospitals	UChicago Medicine Family Birth Center - Hyd
 epic-university-of-chicago-hospitals	UChicago Medicine Kenwood	Chicago	IL
 epic-university-of-chicago-hospitals	UChicago Medicine Medical Group - Beverly	Chicago	IL
 epic-university-of-chicago-hospitals	UChicago Medicine Medical Group - Homewood	Homewood	IL
-epic-university-of-chicago-hospitals	UChicago Medicine Medical Group – Lansing	Lansing	IL
+epic-university-of-chicago-hospitals	UChicago Medicine Medical Group - Lansing	Lansing	IL
 epic-university-of-chicago-hospitals	UChicago Medicine Mitchell Hospital - Hyde Park	Chicago	IL
 epic-university-of-chicago-hospitals	UChicago Medicine Neuropsych Merrillville	Merrillville	IN
 epic-university-of-chicago-hospitals	UChicago Medicine Northbrook	Northbrook	IL
@@ -85689,9 +85752,9 @@ epic-university-of-chicago-hospitals	UChicago Medicine River East	Chicago	IL
 epic-university-of-chicago-hospitals	UChicago Medicine South Holland	South Holland	IL
 epic-university-of-chicago-hospitals	UChicago Medicine South Loop	Chicago	IL
 epic-university-of-chicago-hospitals	UChicago Medicine South Shore Senior Center	Chicago	IL
-epic-university-of-chicago-hospitals	UChicago Medicine Therapy Services – Beverly	Chicago	IL
+epic-university-of-chicago-hospitals	UChicago Medicine Therapy Services - Beverly	Chicago	IL
+epic-university-of-chicago-hospitals	UChicago Medicine Transplant - Hinsdale	Hinsdale	IL
 epic-university-of-chicago-hospitals	UChicago Medicine Transplant Evaluation Peoria	Peoria	IL
-epic-university-of-chicago-hospitals	UChicago Medicine Transplant – Hinsdale	Hinsdale	IL
 epic-university-of-chicago-hospitals	UChicago Medicine at Ingalls - Calumet City	Calument City	IL
 epic-university-of-chicago-hospitals	UChicago Medicine at Ingalls - Flossmoor	Flossmoor	IL
 epic-university-of-chicago-hospitals	UChicago Medicine at Ingalls - Tinley Park	Tinley Park	IL
@@ -91877,6 +91940,8 @@ epic-wellstar	Wellstar Cobb Medical Group	Austell	GA
 epic-wellstar	Wellstar Cobb Outpatient Rehab	Austell	GA
 epic-wellstar	Wellstar Cobb Senior Wellness Clinic	Marietta	GA
 epic-wellstar	Wellstar Columbia County Medical Center	Grovetown	GA
+epic-wellstar	Wellstar Columbia County Medical Office Building	Grovetown	GA
+epic-wellstar	Wellstar Columbia PT Solutions at Grovetown	Grovetown	GA
 epic-wellstar	Wellstar Comprehensive Care	Marietta	GA
 epic-wellstar	Wellstar Cornerstone Family Medicine	Acworth	GA
 epic-wellstar	Wellstar Corporate Medicine Tip Top	Marietta	GA
@@ -91884,6 +91949,7 @@ epic-wellstar	Wellstar Creekside Pediatrics	Douglasville	GA
 epic-wellstar	Wellstar Douglas Hospital	Douglasville	GA
 epic-wellstar	Wellstar Douglas Imaging Center at Professional Parkway	Douglasville	GA
 epic-wellstar	Wellstar Douglas Medical Center	Douglasville	GA
+epic-wellstar	Wellstar Douglas PT Solutions at Brownsville	Douglasville	GA
 epic-wellstar	Wellstar East Cobb Health Park	Marietta	GA
 epic-wellstar	Wellstar East Point Medical Center	East Point	GA
 epic-wellstar	Wellstar Endocrinology Marietta	Marietta	GA
@@ -91993,6 +92059,7 @@ epic-wellstar	Wellstar Pathology North Fulton	Roswell	GA
 epic-wellstar	Wellstar Paulding Medical Center	Hiram	GA
 epic-wellstar	Wellstar Paulding Nursing Services	Dallas	GA
 epic-wellstar	Wellstar Paulding Outpatient Pavilion Imaging	Hiram	GA
+epic-wellstar	Wellstar Paulding PT Solutions at Dallas	Dallas	GA
 epic-wellstar	Wellstar Pediatric Case Management	Augusta	GA
 epic-wellstar	Wellstar Pediatric Medicine Kennestone	Marietta	GA
 epic-wellstar	Wellstar Pediatric Orthopedics Surgery Atlanta	Atlanta	GA
@@ -92007,6 +92074,7 @@ epic-wellstar	Wellstar Pediatrics Kennesaw	Kennesaw	GA
 epic-wellstar	Wellstar Pediatrics Kennestone	Marietta	GA
 epic-wellstar	Wellstar Pediatrics LaGrange	Lagrange	GA
 epic-wellstar	Wellstar Pediatrics Marietta	Marietta	GA
+epic-wellstar	Wellstar Pediatrics New Hope	Dallas	GA
 epic-wellstar	Wellstar Pediatrics North Cobb	Kennesaw	GA
 epic-wellstar	Wellstar Pediatrics Professionals	Marietta	GA
 epic-wellstar	Wellstar Pediatrics Smyrna	Smyrna	GA

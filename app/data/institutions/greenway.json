@@ -3028,13 +3028,6 @@
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.71249"
 },
 {
-"id": "greenway-evergreen-family-medical-center",
-"name": "Evergreen Family Medical Center",
-"location": "San Jose, CA",
-"platform": "greenway",
-"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.831804"
-},
-{
 "id": "greenway-excelth-inc",
 "name": "EXCELth, Inc.",
 "location": "New Orleans, LA",
@@ -3802,13 +3795,6 @@
 "location": "Hastings, NE",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.71066"
-},
-{
-"id": "greenway-hawaii-ear-clinic-inc",
-"name": "Hawaii Ear Clinic, Inc.",
-"location": "Aiea, HI",
-"platform": "greenway",
-"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.511001"
 },
 {
 "id": "greenway-headache-wellness-center",
@@ -8712,13 +8698,6 @@
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.1696"
 },
 {
-"id": "greenway-surgical-group-of-orlando",
-"name": "Surgical Group of Orlando",
-"location": "Orlando, FL",
-"platform": "greenway",
-"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.72241"
-},
-{
 "id": "greenway-surgical-specialists-of-central-florida",
 "name": "Surgical Specialists of Central Florida",
 "location": "Ocoee, FL",
@@ -9536,13 +9515,6 @@
 "location": "Clearwater, FL",
 "platform": "greenway",
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.1528"
-},
-{
-"id": "greenway-west-des-moines-obgyn-associates",
-"name": "West Des Moines ObGyn Associates",
-"location": "West Des Moines, IA",
-"platform": "greenway",
-"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.1701"
 },
 {
 "id": "greenway-west-gynecology-and-medical-spa",

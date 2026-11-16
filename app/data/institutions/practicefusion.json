@@ -396,7 +396,7 @@
 "name": "ACMC",
 "location": "Milton, GA",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/f1d1e69a-4d31-4854-8a2c-b70aba8345d9"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/f1d1e69a-4d31-4854-8a2c-b70aba8345d9"
 },
 {
 "id": "practicefusion-acn-baromedical",
@@ -1523,7 +1523,7 @@
 "name": "Amore Mental Health Corp.",
 "location": "Miami, FL",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/5371eddd-4f84-435f-8b52-5e6126d57922"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/5371eddd-4f84-435f-8b52-5e6126d57922"
 },
 {
 "id": "practicefusion-amos-dare-md",
@@ -1782,7 +1782,7 @@
 "name": "Anthony Gambrah-Internal Medicine",
 "location": "Port Arthur, TX",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/5a949d56-3c81-4569-b3ff-1ba2f6706a4d"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/5a949d56-3c81-4569-b3ff-1ba2f6706a4d"
 },
 {
 "id": "practicefusion-anthropos-health-counseling-center-pllc",
@@ -2046,7 +2046,7 @@
 {
 "id": "practicefusion-ark-of-mahogany-acts-of-random-kindness-of-mahogany",
 "name": "Ark of Mahogany (Acts of Random Kindness of Mahogany)",
-"location": "Dayton, OH",
+"location": "Englewood, OH",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/6cc06733-ebce-4740-bbc4-c1b05933c905"
 },
@@ -2317,6 +2317,13 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/46afbde1-7feb-4dbf-9d48-4cbde3106ee1"
 },
 {
+"id": "practicefusion-atlis-ats",
+"name": "Atlis ATS",
+"location": "Dripping Springs, TX",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/e73ef4ef-36c1-4543-9bdf-9212d9c5f759"
+},
+{
 "id": "practicefusion-audi-ala-practice",
 "name": "AUDI ALA Practice",
 "location": "Houston, TX",
@@ -2476,13 +2483,6 @@
 "location": "Winter Park, FL",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/b4fed79d-ce03-4866-aece-d215d1e482bf"
-},
-{
-"id": "practicefusion-ayanna-carr-brown-practice",
-"name": "Ayanna Carr-Brown Practice",
-"location": "Plaquemine, LA",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/528e3dc9-6445-4f69-8490-6ddcdfd1cc31"
 },
 {
 "id": "practicefusion-ayanna-essential-healthcare-llc",
@@ -2888,7 +2888,7 @@
 "name": "Ben Rapha Medical Clinic",
 "location": "Houston, TX",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/bec5b476-9c0b-4d0b-97e7-d643db53b913"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/bec5b476-9c0b-4d0b-97e7-d643db53b913"
 },
 {
 "id": "practicefusion-benchik-medical-center",
@@ -2951,7 +2951,7 @@
 "name": "Bernard Rose, Beavertown Clinic",
 "location": "Dayton, OH",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/0c6e7727-df55-4f85-a0a5-ab6eeefccfde"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/0c6e7727-df55-4f85-a0a5-ab6eeefccfde"
 },
 {
 "id": "practicefusion-bernd-raphael-m-d-pa",
@@ -2987,13 +2987,6 @@
 "location": "Asheville, NC",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/d71d444b-a579-468c-b369-0b5019a459df"
-},
-{
-"id": "practicefusion-best-northwest-physicians",
-"name": "Best Northwest Physicians",
-"location": "Lacey, WA",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/b366003f-5dad-4f85-b03e-3e12960351a8"
 },
 {
 "id": "practicefusion-bethel-medical-clinic",
@@ -3084,7 +3077,7 @@
 "name": "Beyond Wound Care Inc",
 "location": "Schaumburg, IL",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/a64282f1-16e5-4731-a991-449745eeafc0"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/a64282f1-16e5-4731-a991-449745eeafc0"
 },
 {
 "id": "practicefusion-beyond-your-scars",
@@ -3112,7 +3105,7 @@
 "name": "Biene-Star Medical Services",
 "location": "San Juan, PR",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/51363531-7a24-4ddb-9191-f675d46e85e8"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/51363531-7a24-4ddb-9191-f675d46e85e8"
 },
 {
 "id": "practicefusion-bienestar-medical-center-corp",
@@ -3176,6 +3169,13 @@
 "location": "Tucson, AZ",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/4d676030-1e4c-4652-bde1-d357fa2487c7"
+},
+{
+"id": "practicefusion-care-physician-house-calls-llc",
+"name": "BL Physician home care solutions PLLC",
+"location": "Benton, AR",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/43a8e450-2a5f-4bcc-82b7-87a7e24e2641"
 },
 {
 "id": "practicefusion-black-onyx-care",
@@ -3344,6 +3344,13 @@
 "location": "Maitland, FL",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/a1d020b2-b62f-4ea5-8527-4b180f278871"
+},
+{
+"id": "practicefusion-braindocs",
+"name": "BRAINDOCS",
+"location": "Flower Mound, TX",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/796ad530-664f-4349-ac53-c3d60a26e164"
 },
 {
 "id": "practicefusion-brandon-howard-md-llc",
@@ -3778,13 +3785,6 @@
 "location": "San Diego, CA",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/d9dc2a90-1cd3-4d5f-9ac3-b438e1843dce"
-},
-{
-"id": "practicefusion-care-physician-house-calls-llc",
-"name": "Care Physician House Calls LLC",
-"location": "Benton, AR",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/43a8e450-2a5f-4bcc-82b7-87a7e24e2641"
 },
 {
 "id": "practicefusion-carefreewalkllc-carefreewalk-practice",
@@ -4340,6 +4340,13 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/c4ecdf06-4e90-499e-b1f8-ff8c0d9515ac"
 },
 {
+"id": "practicefusion-chiropractic-rehabilitation-source-p-c",
+"name": "Chiropractic Rehabilitation Source, P.C",
+"location": "Yonkers, NY",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/b73d3a9d-fd04-4bf5-bb60-0d7bc1713be2"
+},
+{
 "id": "practicefusion-christcare-wellness-center-pllc",
 "name": "Christcare Wellness Center PLLC",
 "location": "Leominster, MA",
@@ -4641,6 +4648,13 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/72a55130-c0db-43d2-b054-bf2b9d5b9f5a"
 },
 {
+"id": "practicefusion-clinica-hispana-vida-plus",
+"name": "Clinica Hispana Vida Plus",
+"location": "Dallas, TX",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/18647736-6e60-4776-a6e4-ab0be0e6bafd"
+},
+{
 "id": "practicefusion-clinica-latina-familiar-2-llc",
 "name": "Clinica Latina Familiar 2 LLC",
 "location": "Katy, TX",
@@ -4870,6 +4884,13 @@
 "location": "Deerfield Beach, FL",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/a19db5cd-1238-43ca-b0e6-231bc3fa7f87"
+},
+{
+"id": "practicefusion-colleen-beaufils-practice",
+"name": "Colleen Beaufils Practice",
+"location": "Queen Creek, AZ",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/79c0ebb1-ffa2-4039-b176-3c9601d479e8"
 },
 {
 "id": "practicefusion-collier-eyecare-pllc",
@@ -5530,7 +5551,7 @@
 "name": "Daniel M Katz DO",
 "location": "Olympia, WA",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/c4001e45-54b5-4e7f-b54a-fe443164c1f2"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/c4001e45-54b5-4e7f-b54a-fe443164c1f2"
 },
 {
 "id": "practicefusion-daniel-silverstein-md-llc",
@@ -5902,6 +5923,13 @@
 "location": "Waterford, MI",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/5fdd6a0d-4148-47eb-ac16-cfe9c34d8c7e"
+},
+{
+"id": "practicefusion-dewing-medicine-inc",
+"name": "Dewing Medicine Inc.",
+"location": "Laguna Beach, CA",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/374b62d6-e4c8-477f-a4e2-7f308887064d"
 },
 {
 "id": "practicefusion-dexter-pediatrics",
@@ -6483,6 +6511,13 @@
 "location": "Baltimore, MD",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/d2351dd9-42bf-4619-a76b-9700e423b917"
+},
+{
+"id": "practicefusion-dr-kuniyoshi",
+"name": "Dr. Kuniyoshi",
+"location": "Tacoma, WA",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/738c9b4b-185e-4a4c-9c25-f37fc496ab55"
 },
 {
 "id": "practicefusion-dr-leticia-hernandez-davila-endocrinology-diabetes-and-metabolism",
@@ -7124,7 +7159,7 @@
 {
 "id": "practicefusion-elmer-cupino-md",
 "name": "Elmer Cupino, MD",
-"location": "Pottstown, PA",
+"location": "White Haven, PA",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/53c20ad2-a0ce-4f62-9bec-3c267b72200a"
 },
@@ -7260,6 +7295,13 @@
 "location": "Memphis, TN",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/98ef1b0d-5f4c-4b3a-9b5f-cac5762ab69c"
+},
+{
+"id": "practicefusion-endocrine-diabetes-center",
+"name": "Endocrine & Diabetes Center",
+"location": "Vienna, VA",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/98599c1b-8dde-440a-a5a2-3a76ac3c9016"
 },
 {
 "id": "practicefusion-endocrine-partners",
@@ -8347,6 +8389,13 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/2260c81b-c1b5-48fa-a07a-d5c103fb9fe5"
 },
 {
+"id": "practicefusion-florida-kidney-hypertension-care",
+"name": "Florida Kidney & Hypertension Care",
+"location": "Fort Lauderdale, FL",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/08e2f954-42f1-48b3-aea2-d1e9aca0a1ee"
+},
+{
 "id": "practicefusion-florida-lung-and-sleep-apnea-center",
 "name": "Florida Lung And Sleep Apnea Center",
 "location": "Pembroke Pines, FL",
@@ -8613,6 +8662,13 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/80a3c4f0-1c23-45a2-a015-72e741c5bc03"
 },
 {
+"id": "practicefusion-frontier-healthcare-systems-of-il",
+"name": "Frontier Healthcare Systems of IL",
+"location": "Olympia Fields, IL",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/b685467b-7779-4cde-b720-5738bdff2d7b"
+},
+{
 "id": "practicefusion-frontline-behavioral-health",
 "name": "Frontline Behavioral Health",
 "location": "Linwood, NJ",
@@ -8730,6 +8786,13 @@
 "location": "Kaysville, UT",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/13eea03a-18ca-4740-a167-80f5c76f31f4"
+},
+{
+"id": "practicefusion-gastro-one",
+"name": "Gastro One",
+"location": "Guaynabo, PR",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/7afdad72-bfec-47be-b6a2-ff8857151bb1"
 },
 {
 "id": "practicefusion-gastro-hepatology-institute-of-puerto-rico-by-hendrick-pagan-torres-md",
@@ -8872,18 +8935,18 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/af02a2d6-fb20-461d-980a-5028df5dd375"
 },
 {
-"id": "practicefusion-gentle-hearts-family-clinic-and-urgent-care",
-"name": "Gentle Hearts Family Clinic and Urgent care",
-"location": "Murfreesboro, TN",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/6ddfae06-348f-4519-9a53-684b00dfbbf5"
-},
-{
 "id": "practicefusion-george-mackel-pmhnp-bc-llc",
 "name": "George Mackel PMHNP-BC LLC",
 "location": "Honolulu, HI",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/a1f7a022-1112-437f-8456-167dff770cfe"
+},
+{
+"id": "practicefusion-georges-c-awah-md-phd-pc",
+"name": "GEORGES. C. AWAH,MD,PHD,PC",
+"location": "Washington, DC",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/69d777d8-a91b-40a2-937c-8c61cb5ab2de"
 },
 {
 "id": "practicefusion-georgia-coast-family-medicine",
@@ -8954,6 +9017,13 @@
 "location": "Humble, TX",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/173c18db-ef38-4a4d-bc2e-94d1d12d4f4d"
+},
+{
+"id": "practicefusion-get-well-medical-care-of-south-florida-p-a",
+"name": "Get Well Medical Care of South Florida, P.A.",
+"location": "Delray Beach, FL",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/70ae8239-c288-4213-85d1-3fef3c3550a5"
 },
 {
 "id": "practicefusion-gi-surgical-specialists-pllc",
@@ -9738,13 +9808,6 @@
 "location": "Sophia, NC",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/2ae843e8-2731-4dd0-be67-ea1c901758b3"
-},
-{
-"id": "practicefusion-healing-hands-wound-care",
-"name": "Healing Hands wound care",
-"location": "Apopka, FL",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/299d5baa-0f48-4e7a-b99b-25492c090fcf"
 },
 {
 "id": "practicefusion-healing-hawaii-psychiatry",
@@ -11091,6 +11154,13 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/39e8be6d-7ab0-4930-8702-6346da54c0d3"
 },
 {
+"id": "practicefusion-island-ent-llc",
+"name": "Island ENT LLC",
+"location": "Venice, FL",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/74516fe2-7a3a-421b-93b9-1a2b6332a947"
+},
+{
 "id": "practicefusion-island-integrative-medicine",
 "name": "Island Integrative Medicine",
 "location": "Key West, FL",
@@ -11180,13 +11250,6 @@
 "location": "Brooklyn, NY",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/642343c3-84c0-4861-9566-5df1c747c655"
-},
-{
-"id": "practicefusion-j-f-k-pediatrics",
-"name": "J.F.K. Pediatrics",
-"location": "Lake Worth, FL",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/3b9ea754-a1b4-443c-b643-226ef89ac125"
 },
 {
 "id": "practicefusion-j-j-burgin-md-llc",
@@ -11620,7 +11683,7 @@
 "name": "Jessica Rosa Rodriguez",
 "location": "Carolina, PR",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/300777b9-863b-49da-bbe8-0cd014bf49d6"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/300777b9-863b-49da-bbe8-0cd014bf49d6"
 },
 {
 "id": "practicefusion-jey-institute",
@@ -11917,6 +11980,13 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/dc2832fb-2ccd-485e-96f6-94b093bbe218"
 },
 {
+"id": "practicefusion-juan-alberto-prieto-md-pa",
+"name": "Juan Alberto Prieto MD PA",
+"location": "Miami, FL",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/fa3da330-094e-4dfb-8a86-37bb8bdbac96"
+},
+{
 "id": "practicefusion-juan-liceaga-practice",
 "name": "Juan Liceaga Practice",
 "location": "Isabela, PR",
@@ -12195,13 +12265,6 @@
 "location": "Riverdale, MD",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/162026a2-9502-49eb-8d6d-5b16262845e4"
-},
-{
-"id": "practicefusion-keshava-medical-center",
-"name": "Keshava Medical Center",
-"location": "Chicago, IL",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/40c1c443-b4d9-4053-9550-5d7e11f8b027"
 },
 {
 "id": "practicefusion-kevin-chu-md",
@@ -13583,13 +13646,6 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/b26c9da8-d30f-434c-ad10-418d394ac82b"
 },
 {
-"id": "practicefusion-manhattan-pain-medicine-pllc",
-"name": "Manhattan Pain Medicine, PLLC",
-"location": "New York, NY",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/b8686d1a-3453-4b3a-948a-a2fa0d42565f"
-},
-{
 "id": "practicefusion-manish-patel-md-pc",
 "name": "Manish Patel MD PC",
 "location": "Elizabeth, NJ",
@@ -13643,7 +13699,7 @@
 "name": "Maple Pediatrics Associate PC",
 "location": "Westbury, NY",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/5c2b69f0-d175-4473-a90f-7f085601aae3"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/5c2b69f0-d175-4473-a90f-7f085601aae3"
 },
 {
 "id": "practicefusion-mapleton-medical-center",
@@ -13741,7 +13797,7 @@
 "name": "Maria Elena Narvaez Rivera MD Practice",
 "location": "San Juan, PR",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/2b999ec1-1aaf-484b-9485-7ea5903b1354"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/2b999ec1-1aaf-484b-9485-7ea5903b1354"
 },
 {
 "id": "practicefusion-maria-nida-v-barino-md-ltd",
@@ -14050,6 +14106,13 @@
 "location": "Miami, FL",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/a1add817-3de9-4343-a6b0-202e8670b745"
+},
+{
+"id": "practicefusion-mcj-surgical",
+"name": "MCJ Surgical",
+"location": "Miami, FL",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/ee9361eb-b9d4-42a5-873b-e731f42d6d2b"
 },
 {
 "id": "practicefusion-mcminnville-medical-associates-pllc",
@@ -14927,13 +14990,6 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/43c57143-44b2-4f63-9022-4c2d6d32c70b"
 },
 {
-"id": "practicefusion-millennium-health-care-llc",
-"name": "Millennium Health Care LLC",
-"location": "Las Vegas, NV",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/57795a85-52ad-4060-a6cf-fe89c05755d1"
-},
-{
 "id": "practicefusion-milton-a-jimenez-m-d-p-a",
 "name": "Milton A. Jimenez, M.D P.A",
 "location": "Miami, FL",
@@ -15277,6 +15333,13 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/b9346821-2413-4170-a59d-27008f5ca8ed"
 },
 {
+"id": "practicefusion-mountain-view-family-medical-group",
+"name": "Mountain View Family Medical Group",
+"location": "Redding, CA",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/568a9555-c2a3-473a-a9b4-831a2a2320b1"
+},
+{
 "id": "practicefusion-mountain-view-family-medicine",
 "name": "Mountain View Family Medicine",
 "location": "Albuquerque, NM",
@@ -15599,6 +15662,13 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/e65e1731-eed3-4773-a187-78cc4d5d7c9d"
 },
 {
+"id": "practicefusion-nebbeling-osteopathic-health-pllc",
+"name": "Nebbeling Osteopathic Health, PLLC",
+"location": "Mason, MI",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/4eb88a9d-8baa-4379-8336-e2e0df7dc103"
+},
+{
 "id": "practicefusion-nebraska-myofunctional-specialties-llc-npi-1639505092-ein-26-3623727",
 "name": "Nebraska Myofunctional Specialties, LLC NPI 1639505092, EIN 26-3623727",
 "location": "Lincoln, NE",
@@ -15750,7 +15820,7 @@
 "name": "Neurology & Sleep Medicine Associates",
 "location": "Saint Louis, MO",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/ddf26e0f-7b69-4406-90a5-244539db96ad"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/ddf26e0f-7b69-4406-90a5-244539db96ad"
 },
 {
 "id": "practicefusion-neurology-alliance",
@@ -16108,6 +16178,13 @@
 "location": "Clifton, NJ",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/754a8ce8-e28a-49ea-994b-26112cc4492c"
+},
+{
+"id": "practicefusion-best-northwest-physicians",
+"name": "Noble Physicians Best Northwest Physicians",
+"location": "Lacey, WA",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/b366003f-5dad-4f85-b03e-3e12960351a8"
 },
 {
 "id": "practicefusion-noe-marioni-md",
@@ -16835,7 +16912,7 @@
 "name": "Olga Maimon, MD. PC",
 "location": "East Brunswick, NJ",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/87d7d3a2-99a9-4228-ba41-aef2a20379e9"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/87d7d3a2-99a9-4228-ba41-aef2a20379e9"
 },
 {
 "id": "practicefusion-olive-tree-pediatrics",
@@ -17790,13 +17867,6 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/70ba1582-c7ae-43a0-9e20-775dcc693646"
 },
 {
-"id": "practicefusion-pf-prd",
-"name": "PF PRD",
-"location": "Meridianville, AR",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/118b460b-8390-4754-8e4a-1dd5ee20f599"
-},
-{
 "id": "practicefusion-pfitzner-family-psychiatric-care",
 "name": "Pfitzner Family Psychiatric Care",
 "location": "Scottsdale, AZ",
@@ -17816,6 +17886,13 @@
 "location": "Beverly Hills, CA",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/2d9f77a0-a2ca-46b5-a573-757ee10a8a0f"
+},
+{
+"id": "practicefusion-phani-vupadhyayula-practice",
+"name": "phani vupadhyayula Practice",
+"location": "Waxhaw, NC",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/52f28e2e-42f3-4f2f-a174-c75448809f59"
 },
 {
 "id": "practicefusion-pheonix-wellness",
@@ -18319,7 +18396,7 @@
 "name": "Premium Practitioners Plus INC",
 "location": "Flossmoor, IL",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/ed0136da-bae8-47cc-bfb2-6ccdb383dbfd"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/ed0136da-bae8-47cc-bfb2-6ccdb383dbfd"
 },
 {
 "id": "practicefusion-pressuremd",
@@ -19015,6 +19092,13 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/8af8f602-fb2e-4db3-9c89-584ebaaed685"
 },
 {
+"id": "practicefusion-rafael-lemus-rangel-md-a-medical-corporation",
+"name": "Rafael Lemus-Rangel, MD, A Medical Corporation",
+"location": "Palmdale, CA",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/5e1957f2-e53c-4bea-a27b-597d6027aff6"
+},
+{
 "id": "practicefusion-rafael-trinidad-hernandez-practice",
 "name": "Rafael Trinidad-Hernandez Practice",
 "location": "San Juan, PR",
@@ -19167,6 +19251,13 @@
 "location": "Las Vegas, NV",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/374c1c92-375e-4a59-b6a8-ab40825599bf"
+},
+{
+"id": "practicefusion-rebecka-hoppins-nd",
+"name": "Rebecka Hoppins ND",
+"location": "Kirkland, WA",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/4d20e597-8a6b-4af5-a532-7073c6a4fd82"
 },
 {
 "id": "practicefusion-recovertbi",
@@ -19722,6 +19813,13 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/a1f92c33-e434-4b7a-87b7-6199049ce2de"
 },
 {
+"id": "practicefusion-risson-community-health-primary-care",
+"name": "RISSON Community Health Primary Care",
+"location": "Brooklyn, NY",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/8afae2fa-4fe7-44b2-a818-e2b2ec274cd6"
+},
+{
 "id": "practicefusion-rita-laracuente-md-pa",
 "name": "Rita Laracuente MD PA",
 "location": "Orlando, FL",
@@ -20170,13 +20268,6 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/6d6c04de-2176-4346-bd30-0a05364adcf9"
 },
 {
-"id": "practicefusion-s-s-medical-group-inc",
-"name": "S & S Medical Group Inc.",
-"location": "Los Angeles, CA",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/8f59e179-5495-46d2-a905-59ddac33ca61"
-},
-{
 "id": "practicefusion-sacramento-street-medicine",
 "name": "Sacramento Street Medicine",
 "location": "Sacramento, CA",
@@ -20350,13 +20441,6 @@
 "location": "Jensen Beach, FL",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/580060f1-12b4-427f-802c-0b568931c21d"
-},
-{
-"id": "practicefusion-san-carlos-medical-centre",
-"name": "San Carlos Medical Centre",
-"location": "Cape Coral, FL",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/4dcb2016-ee53-490a-ba39-3131f24313ed"
 },
 {
 "id": "practicefusion-san-diego-cardiac-vein-laser-center",
@@ -21063,7 +21147,7 @@
 "name": "Sidra Healthcare LLC",
 "location": "Seattle, WA",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/dac9af9e-2ee5-4ebd-bb46-eefebde36ff7"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/dac9af9e-2ee5-4ebd-bb46-eefebde36ff7"
 },
 {
 "id": "practicefusion-signature-medical-group",
@@ -21598,6 +21682,13 @@
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/6aab7eab-75fa-452e-beb0-f4f0238472f9"
 },
 {
+"id": "practicefusion-sridevi-pavuluri-md-pa",
+"name": "Sridevi Pavuluri, MD PA",
+"location": "Dickinson, TX",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/9eda46b2-4be9-4748-a3ea-50a995524a57"
+},
+{
 "id": "practicefusion-ssd-medical-group",
 "name": "SSD Medical Group",
 "location": "Huntley, IL",
@@ -21812,14 +21903,7 @@
 "name": "Stephen I. Proctor, MD FACOG",
 "location": "Oxon Hill, MD",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/dad17ce8-5a8e-488b-b867-90d3c418a8e8"
-},
-{
-"id": "practicefusion-stephen-mack-practice",
-"name": "stephen mack Practice",
-"location": "Katy, TX",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/dfbf5fcf-8992-4595-bbd6-c4082a854854"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/dad17ce8-5a8e-488b-b867-90d3c418a8e8"
 },
 {
 "id": "practicefusion-sterling-endocrine-care-associates-s-c",
@@ -22228,13 +22312,6 @@
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/3110281c-8ccf-4181-84c0-d0005adda5dd"
 },
 {
-"id": "practicefusion-sylvanus-nche-practice",
-"name": "Sylvanus Nche Practice",
-"location": "Washington, DC",
-"platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/69d777d8-a91b-40a2-937c-8c61cb5ab2de"
-},
-{
 "id": "practicefusion-symbios-integrative-health",
 "name": "Symbios Integrative Health",
 "location": "Dallas, TX",
@@ -22422,6 +22499,13 @@
 "location": "Sheffield, AL",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/a41ea6d1-466a-4959-87b3-d2ee87732df6"
+},
+{
+"id": "practicefusion-teodora-del-pilar-practice",
+"name": "Teodora Del Pilar Practice",
+"location": "Las Vegas, NV",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/00c00bd8-3d1f-49a5-bb93-a516941c2bff"
 },
 {
 "id": "practicefusion-terence-tz-tan-m-d-inc",
@@ -22652,7 +22736,7 @@
 "name": "The Kroll Medical Group",
 "location": "Morganville, NJ",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/ad0a38d9-6b6a-4faa-bf04-8c62a4b2eb15"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/ad0a38d9-6b6a-4faa-bf04-8c62a4b2eb15"
 },
 {
 "id": "practicefusion-the-medical-group-llc",
@@ -22898,6 +22982,13 @@
 "location": "Tonopah, NV",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/d210f00d-1b13-4064-9200-15a285f1fd53"
+},
+{
+"id": "practicefusion-tony-varghese-md-p-a",
+"name": "Tony Varghese MD P.A",
+"location": "Nottingham, MD",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/fe0ad8e5-ae07-4a83-8620-ead3e83b9d89"
 },
 {
 "id": "practicefusion-tonya-hood-pmhnp-llc",
@@ -23213,6 +23304,13 @@
 "location": "Vienna, VA",
 "platform": "practicefusion",
 "fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/c5c9e0ae-949b-4510-9446-7abe1dbcc793"
+},
+{
+"id": "practicefusion-uconn-health-community-network-medical-group",
+"name": "UConn Health Community Network Medical Group",
+"location": "Waterbury, CT",
+"platform": "practicefusion",
+"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/ad759875-341e-4445-833c-efa2a7448ae8"
 },
 {
 "id": "practicefusion-underwood-clinic-pc",
@@ -23898,7 +23996,7 @@
 "name": "Vital Signs Wellness",
 "location": "Mount Prospect, IL",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/7e631f53-055e-4370-a5df-34daf5ebf746"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/7e631f53-055e-4370-a5df-34daf5ebf746"
 },
 {
 "id": "practicefusion-lazaro-alexander-yero-zamora-practice",
@@ -24199,7 +24297,7 @@
 "name": "Wellness Care Services",
 "location": "Holly, MI",
 "platform": "practicefusion",
-"fhir_base_url": "https://api.patientfusion.com/fhir/r4/v1/af072874-935a-4ccb-8772-355681ae6602"
+"fhir_base_url": "https://api.practicefusion.com/fhir/fmh/r4/v1/af072874-935a-4ccb-8772-355681ae6602"
 },
 {
 "id": "practicefusion-wellness-help-center",
