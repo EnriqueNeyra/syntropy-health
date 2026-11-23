@@ -124,7 +124,7 @@ server** in the app. The phone apps aren't open source; the server and the Mac a
 | Your computer | Install |
 |---|---|
 | **Mac** (Apple silicon, macOS 12 or later) | [Download the app](https://health.syntropylabs.io/download/mac), or `curl -fsSL https://health.syntropylabs.io/install.sh \| sh` |
-| **Windows** (10 and 11, 64-bit) | [Download the app](https://health.syntropylabs.io/download/windows), or `irm https://health.syntropylabs.io/install.ps1 \| iex` in PowerShell |
+| **Windows** (10 and 11, 64-bit) | `irm https://health.syntropylabs.io/install.ps1 \| iex` in PowerShell, or [download the app](https://health.syntropylabs.io/download/windows) |
 | **Linux home server** | `curl -fsSL https://health.syntropylabs.io/install.sh \| sudo sh` |
 | **Docker or a NAS** | In a clone of this repository, `mkdir data && docker compose up -d`; or `docker run -d --name syntropy-health --restart unless-stopped -p 8000:8000 -v syntropy-data:/data ghcr.io/enriqueneyra/syntropy-health` |
 | **From source** | `git clone https://github.com/EnriqueNeyra/syntropy-health && cd syntropy-health && ./run.sh` |
@@ -140,8 +140,9 @@ No accounts handy? Turn on developer mode in **Settings → Developer** to conne
 simulated Oura or WHOOP data, and explore everything with made-up records.
 
 > [!NOTE]
-> The Mac app is signed and notarized by Apple. The Windows installer isn't code-signed yet, so Windows may show
-> "Windows protected your PC": choose **More info**, then **Run anyway**.
+> The Mac app is signed and notarized by Apple. The Windows installer isn't code-signed yet, so a download may show
+> "Windows protected your PC": choose **More info**, then **Run anyway**. The PowerShell command installs the same
+> app, checked against the release's checksums, without that warning.
 
 Syntropy Health tells you when a new version is out, and the Mac and Windows apps can install it themselves. Syntropy
 Labs' registrations with health systems, Oura and WHOOP, and its sign-in relay, come with the releases above, which
