@@ -120,7 +120,7 @@ def pytest_runtest_makereport(item, call):
     report = (yield).get_result()
     if report.failed:
         still = pauses.stood_still(time.monotonic() - call.duration)
-        if still:
+        if still >= 0.1:        # less than that rounds to a pause of 0.0s, which says nothing
             report.sections.append(("This machine", f"Nothing in this process ran for {still:.1f}s of the "
                                                      f"{call.duration:.1f}s this took: the machine stood still."))
 
