@@ -8,6 +8,9 @@ All notable changes to Syntropy Health. The version is in `app/core/config.py` (
 - **Uninstalling on Windows no longer reports a failure when it worked.** The uninstaller stopped its own first step along
   with everything else running from the app's folder, so Windows and tools such as winget were told it failed (exit code
   -1) after the app had been removed.
+- **Going back to the previous version after an update that won't start no longer fails on Windows when something holds
+  the database for a moment.** An antivirus scanner or the search indexer could have the file open just after the server
+  stopped, and Windows refused to move it. Putting the earlier database back now waits a few seconds for it.
 
 ## 1.7.2
 
