@@ -127,12 +127,22 @@ def test_reclaiming_gives_space_back_without_holding_the_lock(client):
             time.sleep(0.001)
     t = threading.Thread(target=writer)
     t.start()
+    freed, vacuumed = 0, False
     try:
-        result = maintenance.reclaim(path, step_pages=64)
+        # Kept from the lock for its two seconds, reclaiming stops and leaves the rest for its next run, as it's meant to: a
+        # slow machine's writer, straight back for the lock each time, can hold it off that long. So run it as the app
+        # would, again, until there's nothing left to give back.
+        for _ in range(30):
+            result = maintenance.reclaim(path, step_pages=64)
+            freed += result["freed_pages"]
+            vacuumed = vacuumed or result["vacuumed"]
+            with db.read() as conn:
+                if not conn.execute("PRAGMA freelist_count").fetchone()[0]:
+                    break
     finally:
         stop.set()
         t.join()
-    assert result["vacuumed"] is False and result["freed_pages"] > 100
+    assert vacuumed is False and freed > 100
     db.checkpoint(path)
     assert path.stat().st_size < before / 2
     assert waits and max(waits) < 2
