@@ -55,7 +55,8 @@ def mac(monkeypatch, tmp_path):
     monkeypatch.setattr(updater.sys, "platform", "darwin")
     monkeypatch.setattr(updater, "WAIT_TICK", 0.01)
     monkeypatch.setattr(updates, "auto_on", lambda: True)
-    state = SimpleNamespace(hidden=False, staged=[], swapped=[], progress=[], quit=threading.Event(), discarded=[], on_stage=None)
+    state = SimpleNamespace(hidden=False, staged=[], swapped=[], progress=[], quit=threading.Event(), discarded=[], on_stage=None,
+                            once_waiting=[])
 
     def stage(self, file):
         state.staged.append(file.read_bytes())
@@ -69,12 +70,18 @@ def mac(monkeypatch, tmp_path):
 
     def progress(s, _d):
         state.progress.append(s)
+        if s == "waiting":
+            while state.once_waiting:
+                threading.Thread(target=state.once_waiting.pop(0)).start()
 
     return updater.Updater(tmp_path / "updates", lambda: state.hidden, state.quit.set, progress), state
 
 
-def _soon(fn, delay=0.05):
-    threading.Timer(delay, fn).start()
+def _once_waiting(state, fn):
+    """Does it from another thread, as the window or the owner would, once the updater says it's waiting. A timer here
+    raced the download: on a machine that stalled, the window was already closed by the time the updater looked, and
+    it never waited at all."""
+    state.once_waiting.append(fn)
 
 
 def test_installs_a_checked_download(mac):
@@ -89,7 +96,7 @@ def test_installs_a_checked_download(mac):
 
 def test_automatic_updates_wait_for_the_window_to_close(mac):
     u, state = mac
-    _soon(lambda: setattr(state, "hidden", True))
+    _once_waiting(state, lambda: setattr(state, "hidden", True))
     u(_release(), True)
     assert state.progress == ["downloading", "waiting", "installing"]
     assert state.swapped == [True]       # reopens in the background, as it was
@@ -97,7 +104,7 @@ def test_automatic_updates_wait_for_the_window_to_close(mac):
 
 def test_turning_automatic_updates_off_cancels_the_wait(mac, monkeypatch):
     u, state = mac
-    _soon(lambda: monkeypatch.setattr(updates, "auto_on", lambda: False))
+    _once_waiting(state, lambda: monkeypatch.setattr(updates, "auto_on", lambda: False))
     u(_release(), True)
     assert state.progress == ["downloading", "waiting", None]
     assert not state.staged and not state.swapped and not state.quit.is_set()
@@ -114,7 +121,7 @@ def test_turning_them_off_during_the_download_counts_with_the_window_closed_too(
 
 def test_asking_to_install_now_ends_the_wait(mac):
     u, state = mac
-    _soon(u.install_now)
+    _once_waiting(state, u.install_now)
     u(_release(), True)
     assert state.swapped == [False]      # the window is open, so it comes back with its window
     assert state.quit.wait(3)
@@ -126,7 +133,7 @@ def test_reopening_the_window_while_it_prepares_goes_back_to_waiting(mac):
 
     def reopened():
         state.hidden = False
-        _soon(lambda: setattr(state, "hidden", True))
+        _once_waiting(state, lambda: setattr(state, "hidden", True))
 
     state.on_stage = reopened
     u(_release(), True)
