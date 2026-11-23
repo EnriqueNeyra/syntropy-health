@@ -105,13 +105,6 @@
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/dc96a33f-fb3c-4ad3-8d24-0941136c69c8/"
 },
 {
-"id": "oracle-adventhealth",
-"name": "AdventHealth",
-"location": "Altamonte Springs, FL",
-"platform": "cerner",
-"fhir_base_url": "https://fhir-myrecord.cerner.com/r4/OgZyfqFCSddL-itIAURNqB8312aD4fxe/"
-},
-{
 "id": "oracle-adventhealth-ottawa",
 "name": "AdventHealth Ottawa",
 "location": "Ottawa, KS",
@@ -755,6 +748,13 @@
 "location": "Alexander City, AL",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/65979035-1557-4261-8de9-caa332ef8187/"
+},
+{
+"id": "oracle-basin-urgent-care",
+"name": "Basin Urgent Care",
+"location": "Midland, TX",
+"platform": "cerner",
+"fhir_base_url": "https://fhir-myrecord.cerner.com/r4/57f3e4db-54d4-477b-9ab6-602fe81beea9/"
 },
 {
 "id": "oracle-baxter-regional-medical-center",
@@ -1679,7 +1679,7 @@
 {
 "id": "oracle-colonial-healthcare",
 "name": "Colonial Healthcare",
-"location": "Rocky Mount, NC",
+"location": "Philipsburg, SC",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/wZCgH1CWyIXU4RnwCSTNxxMaI62WkSe4/"
 },
@@ -1745,6 +1745,13 @@
 "location": "Stockton, CA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/0d6b7f8e-7f46-4dfd-a38d-383c25bb2b73/"
+},
+{
+"id": "oracle-community-memorial-hospital",
+"name": "Community Memorial Hospital",
+"location": "Hamilton, NY",
+"platform": "cerner",
+"fhir_base_url": "https://fhir-myrecord.cerner.com/r4/ce74c645-9132-402e-a832-a19438207ef0/"
 },
 {
 "id": "oracle-community-pulmonary-associates",
@@ -4330,6 +4337,13 @@
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/4D1ac_Ty5h2vV--oigqxzpJxwsTeHb_k/"
 },
 {
+"id": "oracle-kansas-surgery-and-recovery-center",
+"name": "Kansas Surgery and Recovery Center",
+"location": "Wichita, KS",
+"platform": "cerner",
+"fhir_base_url": "https://fhir-myrecord.cerner.com/r4/5edbaaae-6c30-48fb-b060-0acc51ffd085/"
+},
+{
 "id": "oracle-katherine-shaw-bethea-hospital",
 "name": "Katherine Shaw Bethea Hospital",
 "location": "Dixon, IL",
@@ -5544,6 +5558,13 @@
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/b5eba017-85d4-4b6c-a2f0-9b2c7b0c38dd/"
 },
 {
+"id": "oracle-mount-san-rafael-hospital",
+"name": "Mount San Rafael Hospital",
+"location": "Trinidad, CO",
+"platform": "cerner",
+"fhir_base_url": "https://fhir-myrecord.cerner.com/r4/c2f00fba-1435-49e7-b939-7a6a9c2bf825/"
+},
+{
 "id": "oracle-mountain-grove-health-clinic",
 "name": "Mountain Grove Health Clinic",
 "location": "Mountain Grove, MO",
@@ -5796,13 +5817,6 @@
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/329afbd4-f1aa-4709-b672-086217c311d9/"
 },
 {
-"id": "oracle-new-york-hotel-trades-council-and-hotel-association-of-new-york-city-inc-health-benefits-fund",
-"name": "New York Hotel Trades Council and Hotel Association of New York City, Inc. Health Benefits Fund",
-"location": "New York, NY",
-"platform": "cerner",
-"fhir_base_url": "https://fhir-myrecord.cerner.com/r4/e60dd76f-2355-47fe-85cf-f04cc40e0a16/"
-},
-{
 "id": "oracle-new-york-neurology-associates",
 "name": "New York Neurology Associates",
 "location": "Lynbrook, NY",
@@ -5832,7 +5846,7 @@
 },
 {
 "id": "oracle-nicklaus-childrens-pediatric-specialists",
-"name": "Nicklaus Childrens Pediatric Specialists",
+"name": "Nicklaus Children's Pediatric Specialists",
 "location": "Hialeah, FL",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/53e6a1e6-ae3a-42a1-b1de-6de5bdf38a06/"
@@ -7464,7 +7478,7 @@
 {
 "id": "oracle-singh-surgical-associates",
 "name": "Singh Surgical Associates",
-"location": "Gastonia, NC",
+"location": "Philipsburg, NC",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/HHnW3DiyRSQ3xCoCWdDAngjb0weHlq9K/"
 },
@@ -7714,13 +7728,6 @@
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/0a308bb2-a313-4473-991c-9bf6e3578c55/"
 },
 {
-"id": "oracle-st-luke-s-hospital",
-"name": "St Luke's Hospital",
-"location": "Chesterfield, MO",
-"platform": "cerner",
-"fhir_base_url": "https://fhir-myrecord.cerner.com/r4/ce02d798-0df3-49b1-b868-83babab6d7e6/"
-},
-{
 "id": "oracle-st-christopher-s-inn-inc",
 "name": "St. Christopher's Inn, Inc.",
 "location": "Garrison, NY",
@@ -7796,6 +7803,13 @@
 "location": "San Francisco, CA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/6250bb55-ad93-47a0-aec6-517b10254738/"
+},
+{
+"id": "oracle-st-luke-s-hospital",
+"name": "St. Luke’s Episcopal-Presbyterian Hospitals d/b/a St. Luke’s Hospital",
+"location": "Chesterfield, MO",
+"platform": "cerner",
+"fhir_base_url": "https://fhir-myrecord.cerner.com/r4/ce02d798-0df3-49b1-b868-83babab6d7e6/"
 },
 {
 "id": "oracle-st-mary-s-medical-center",
@@ -8708,13 +8722,6 @@
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/0d020f94-2b1e-4cb2-a9d2-eecf3a1a0504/"
 },
 {
-"id": "oracle-upmc-core-zone",
-"name": "UPMC Core Zone",
-"location": "Pittsburgh, PA",
-"platform": "cerner",
-"fhir_base_url": "https://fhir-myrecord.cerner.com/r4/a33bb2f7-1f6a-4097-bd5f-175f3ee1706d/"
-},
-{
 "id": "oracle-upstate-podiatry-group",
 "name": "Upstate Podiatry Group",
 "location": "Simpsonville, SC",
@@ -8997,7 +9004,7 @@
 {
 "id": "oracle-west-jefferson-holdings-llc-d-b-a-west-jefferson-medical-center",
 "name": "West Jefferson Holdings, LLC d/b/a West Jefferson Medical Center",
-"location": "Marrero, LA",
+"location": "Philipsburg, LA",
 "platform": "cerner",
 "fhir_base_url": "https://fhir-myrecord.cerner.com/r4/Cdexwx1cxINR0Iguyu5-xIb5GOBkUQFE/"
 },
