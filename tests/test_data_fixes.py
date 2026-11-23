@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.core import data_fixes, db
 from tests.conftest import BASE, LOCAL_CLIENT
+from tests import pauses
 
 
 @pytest.fixture(autouse=True)
@@ -153,7 +154,7 @@ def test_the_server_runs_them_in_the_background_and_answers_meanwhile():
         started = time.monotonic()
         assert c.get("/api/status").status_code == 200
         assert c.get("/health").status_code == 200
-        assert time.monotonic() - started < 3
+        assert pauses.elapsed(started) < 3
         assert _state("slow")["state"] == "running"
         release.set()
         deadline = time.monotonic() + 5
@@ -175,7 +176,7 @@ def test_shutting_down_stops_between_steps():
     time.sleep(0.05)
     started = time.monotonic()
     data_fixes.stop()
-    assert time.monotonic() - started < 2
+    assert pauses.elapsed(started) < 2
     assert _state("slowly")["state"] == "running"
 
 

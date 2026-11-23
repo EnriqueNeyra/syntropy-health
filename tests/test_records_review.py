@@ -9,6 +9,7 @@ import pytest
 
 from app.connectors import fhir_normalize as fn
 from app.connectors import units
+from tests import pauses
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -529,5 +530,5 @@ def test_a_source_that_wont_end_its_access_never_stops_a_disconnect(client, fhir
     conn = _live_source({"refresh_token": "rt", "revocation_endpoint": endpoint})
     started = time.monotonic()
     assert client.delete(f"/api/connections/{conn['id']}").status_code == 200
-    assert time.monotonic() - started < 3
+    assert pauses.elapsed(started) < 3
     assert connections.get(conn["id"])["status"] == "disconnected"

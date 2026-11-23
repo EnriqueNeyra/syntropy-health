@@ -13,6 +13,7 @@ import pytest
 from app.services import ai, ai_agents, ai_local
 from tests.test_ai_providers import longest_stall
 from tests.test_assistant import _events, fake_model  # noqa: F401 - fixture
+from tests import pauses
 
 
 def test_addresses_are_tidied_and_classified():
@@ -326,7 +327,7 @@ def test_gemini_cli_keeps_nothing_of_a_question_that_ran_out_of_time(client, fak
     client.put("/api/ai/config", json={"provider": "agent", "agent": "gemini", "acknowledged": True})
     started = time.monotonic()
     events = _events(client.post("/api/ai/chat", json={"messages": [{"role": "user", "content": "What is my A1c?"}]}))
-    assert events[0]["type"] == "error" and "took longer" in events[0]["message"] and time.monotonic() - started < 15
+    assert events[0]["type"] == "error" and "took longer" in events[0]["message"] and pauses.elapsed(started) < 15
     assert _left(fake_gemini) == (["garden", "live"], ["garden", "live"])
 
 
