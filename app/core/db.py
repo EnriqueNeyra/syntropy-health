@@ -582,6 +582,27 @@ def _prune_copies(folder: Path) -> None:
         newest_of[version][1].unlink(missing_ok=True)
 
 
+WINDOWS = os.name == "nt"
+_REPLACE_WAITS = (0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 3.0)
+
+
+def replace_file(source: Path, target: Path) -> None:
+    """os.replace, given a moment on Windows: whatever opened either file just after it was written or let go of (an
+    antivirus scanner, the search indexer, a connection still closing) can hold it, and Windows refuses the move until it
+    lets go. Seen on CI, encrypting at start-up and putting a database back. Elsewhere a refusal is the folder's
+    permissions, and waiting wouldn't change it."""
+    for wait in _REPLACE_WAITS:
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if not WINDOWS:
+                raise
+            log.info("%s is in use for a moment, so it's being moved again", source)
+            time.sleep(wait)
+    os.replace(source, target)
+
+
 def restore_pre_upgrade(since: float, path: Optional[Path] = None) -> Optional[Path]:
     """Puts back the copy made by an upgrade after ``since``, for a release that won't start. The server must be stopped.
     The files it replaces are kept, in pre-upgrade/replaced-*. May run as root: the files keep their owner. An OSError
@@ -614,12 +635,12 @@ def restore_pre_upgrade(since: float, path: Optional[Path] = None) -> Optional[P
         try:
             for f in (path, Path(f"{path}-wal"), Path(f"{path}-shm")):
                 if f.exists():
-                    os.replace(f, aside / f.name)
+                    replace_file(f, aside / f.name)
                     moved.append(f)
-            os.replace(source, path)
+            replace_file(source, path)
         except OSError:
             for f in moved:     # with no database here at all, the next start would make an empty one
-                os.replace(aside / f.name, f)
+                replace_file(aside / f.name, f)
             raise
     finally:
         restoring.unlink(missing_ok=True)

@@ -161,23 +161,7 @@ def _sync_folder(folder: Path) -> None:
         os.close(fd)
 
 
-_REPLACE_WAITS = (0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 3.0)
-
-
-def _replace(source: Path, target: Path) -> None:
-    """os.replace, given a moment on Windows: whatever opened either file just after it was written (an antivirus scanner,
-    the search indexer) can hold it, and Windows refuses the swap until it lets go. Seen on CI, encrypting at start-up.
-    Elsewhere a refusal is the folder's permissions, and waiting wouldn't change it."""
-    for wait in _REPLACE_WAITS:
-        try:
-            os.replace(source, target)
-            return
-        except PermissionError:
-            if os.name != "nt":
-                raise
-            log.info("%s is in use for a moment, so it's being replaced again", target)
-            time.sleep(wait)
-    os.replace(source, target)
+_replace = db.replace_file      # os.replace, given a moment on Windows
 
 
 def destroy(path: Path) -> None:

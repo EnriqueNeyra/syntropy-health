@@ -788,16 +788,41 @@ def test_a_file_windows_holds_for_a_moment_is_still_swapped_in(monkeypatch, tmp_
             refused.append(source)
             raise PermissionError(13, "Access is denied")
         os.replace(source, target)
-    monkeypatch.setattr(encryption, "os", types.SimpleNamespace(name="nt", replace=replace))
-    monkeypatch.setattr(encryption.time, "sleep", lambda s: None)
+    monkeypatch.setattr(db, "os", types.SimpleNamespace(replace=replace))
+    monkeypatch.setattr(db, "WINDOWS", True)
+    monkeypatch.setattr(db.time, "sleep", lambda s: None)
     encryption._replace(new, old)
     assert old.read_text() == "encrypted" and len(refused) == 3
     new.write_text("again")
     refused.clear()
-    monkeypatch.setattr(encryption, "os", types.SimpleNamespace(name="posix", replace=replace))
+    monkeypatch.setattr(db, "WINDOWS", False)
     with pytest.raises(PermissionError):
         encryption._replace(new, old)
     assert len(refused) == 1
+
+
+def test_putting_a_database_back_waits_for_a_file_windows_holds_for_a_moment(monkeypatch, tmp_path):
+    # Seen on Windows CI: just after the server stopped, moving its database aside was refused (WinError 32), which is
+    # what an update that won't start does to go back to the version before.
+    path = config.db_path()
+    _plaintext_database(path)
+    since = time.time() - 1
+    with _start():
+        pass
+    db.reset_migration_cache()
+    db.close_readers()
+    real, refused = os.replace, []
+
+    def replace(source, target):
+        if Path(source) == path and len(refused) < 2:
+            refused.append(source)
+            raise PermissionError(13, "The process cannot access the file because it is being used by another process")
+        real(source, target)
+    monkeypatch.setattr(db.os, "replace", replace)
+    monkeypatch.setattr(db, "WINDOWS", True)
+    monkeypatch.setattr(db.time, "sleep", lambda s: None)
+    assert db.restore_pre_upgrade(since, path) and len(refused) == 2
+    assert not db.is_encrypted(path)
 
 
 def test_an_unencrypted_backup_needs_nothing_to_read_and_says_it_is_format_one(tmp_path):
