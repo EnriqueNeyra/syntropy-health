@@ -11,6 +11,7 @@ import time
 from fastapi.testclient import TestClient
 
 from app.services import imports
+from tests import pauses
 
 
 def _endless_import(monkeypatch, tmp_path, client):
@@ -43,7 +44,7 @@ def test_stopping_ends_a_running_import_with_words_for_the_person(client, monkey
     job_id, upload = _endless_import(monkeypatch, tmp_path, client)
     began = time.monotonic()
     imports.stop_running()
-    assert time.monotonic() - began < 5
+    assert pauses.elapsed(began) < 5
     job = imports.get_job(job_id)
     assert job["status"] == "error" and job["error"] == imports.STOPPED and job["finished_at"]
     assert not upload.exists()

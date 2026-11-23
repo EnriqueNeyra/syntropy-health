@@ -23,6 +23,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "desktop"))
 import syntropy_desktop  # noqa: E402
+from tests import pauses
 
 
 def test_windows_window_gets_no_png_icon(monkeypatch):
@@ -257,7 +258,7 @@ def test_restarting_during_a_long_answer_finishes_the_old_server_first(real_serv
     held.recv(100)
     began = time.monotonic()
     server.restart("127.0.0.1")
-    assert time.monotonic() - began < 12
+    assert pauses.elapsed(began) < 12
     assert events == ["start", "stop", "start"]
     assert b"hello" in _get("127.0.0.1", server.port)
     held.close()

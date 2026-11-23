@@ -15,6 +15,7 @@ from app.core import config
 from app.store import agents
 from tests.conftest import BASE, LOCAL_CLIENT, connect_institution
 from tests.test_accounts import _ids, _join, _person, _signed_in_owner
+from tests import pauses
 
 
 def _rpc(client, token, name, args=None):
@@ -367,7 +368,7 @@ def test_a_made_up_token_doesnt_wait_for_the_write_lock(household):
     timer = _hold_write_lock(2)
     started = time.monotonic()
     r = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, headers={"Authorization": "Bearer sh_agent_madeup"})
-    took = time.monotonic() - started
+    took = pauses.elapsed(started)
     timer.join()
     assert r.status_code == 401 and took < 1.5
 
@@ -380,7 +381,7 @@ def test_reading_works_while_something_else_holds_the_write_lock(household, monk
     timer = _hold_write_lock(2)
     started = time.monotonic()
     r = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, headers={"Authorization": f"Bearer {token}"})
-    took = time.monotonic() - started
+    took = pauses.elapsed(started)
     timer.join()
     assert r.status_code == 200 and r.json()["result"]["tools"] and took < 1.5
 

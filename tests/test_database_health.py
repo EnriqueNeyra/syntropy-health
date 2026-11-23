@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from app.core import config, db, maintenance, settings
 from tests.conftest import BASE, LOCAL_CLIENT
+from tests import pauses
 
 
 def _wal_bytes(path: Path) -> int:
@@ -72,7 +73,7 @@ def test_a_checkpoint_gives_way_to_a_writer():
     writer.execute("BEGIN IMMEDIATE")
     started = time.monotonic()
     assert db.checkpoint(path, wait_seconds=0.1) is False
-    assert time.monotonic() - started < 2
+    assert pauses.elapsed(started) < 2
     writer.execute("ROLLBACK")
     writer.close()
     assert db.checkpoint(path) is True and _wal_bytes(path) == 0
@@ -192,7 +193,7 @@ def test_a_long_write_is_busy_not_broken(raw_client):
     conn.execute("BEGIN IMMEDIATE")
     started = time.monotonic()
     r = raw_client.get("/health")
-    assert time.monotonic() - started < 2
+    assert pauses.elapsed(started) < 2
     conn.execute("ROLLBACK")
     conn.close()
     assert r.status_code == 200 and r.json()["status"] == "ok" and r.json()["database"] == "busy"

@@ -9,6 +9,7 @@ import pytest
 
 from app import directory
 from app.core import config
+from tests import pauses
 
 CONNECTABLE = {"epic", "cerner", "healow", "athena"}
 
@@ -218,9 +219,9 @@ def test_hidden_and_platform_filters_apply():
 
 def test_no_search_takes_long():
     for q in ("clinic", "a", "health", "medical center", "st", "kiaser", "cleaveland clinic", "family medicine tx", "mychart"):
-        start = time.perf_counter()
+        start = time.monotonic()
         find(q)
-        assert time.perf_counter() - start < 0.25, q        # about 40 ms on a laptop; this one has to hold on a slow CI machine
+        assert pauses.elapsed(start) < 0.25, q        # about 40 ms on a laptop; this one has to hold on a slow CI machine
 
 
 def test_listings_that_are_hard_to_tell_apart_carry_a_hint():

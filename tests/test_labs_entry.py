@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import pytest
 
 from app.store import lab_catalog
+from tests import pauses
 
 
 def post_labs(client, collected=None, **result):
@@ -34,9 +35,9 @@ def test_a_name_it_doesnt_know_is_left_alone():
 
 def test_a_name_made_of_brackets_is_answered_at_once():
     import time
-    started = time.perf_counter()
+    started = time.monotonic()
     assert lab_catalog.loinc_codes("(" * 50_000) == []
-    assert time.perf_counter() - started < 0.5
+    assert pauses.elapsed(started) < 0.5
 
 
 def test_every_code_in_the_catalog_is_only_listed_once():

@@ -29,6 +29,8 @@ os.environ["SYNTROPY_KEYCHAIN_FILE"] = os.path.join(os.path.dirname(os.path.absp
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
+from tests import pauses  # noqa: E402
+
 
 def _open_any_database() -> None:
     """Many tests look inside the database with `import sqlite3`. That has to mean the same SQLite as the app, or its errors
@@ -108,6 +110,19 @@ def _network_guard(event: str, args: tuple) -> None:
 
 
 sys.addaudithook(_network_guard)
+
+pauses.start()
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """A failure says so when the machine stopped during it, which nothing in the test's own output would show."""
+    report = (yield).get_result()
+    if report.failed:
+        still = pauses.stood_still(time.monotonic() - call.duration)
+        if still:
+            report.sections.append(("This machine", f"Nothing in this process ran for {still:.1f}s of the "
+                                                     f"{call.duration:.1f}s this took: the machine stood still."))
 
 
 @pytest.fixture(autouse=True)

@@ -13,6 +13,7 @@ from app.core.db import db
 from app.store import profiles, records, search
 from tests.conftest import connect_institution
 from tests.test_accounts import _join, _person, _signed_in_owner
+from tests import pauses
 
 
 def _build_index():
@@ -431,6 +432,6 @@ def test_only_a_really_busy_database_is_called_busy(client, monkeypatch):
 def test_a_long_run_of_punctuation_is_answered_at_once():
     # An AI app's search isn't limited in length like the search box, and the regex this replaced went back over the run once per character.
     import time
-    started = time.perf_counter()
+    started = time.monotonic()
     assert search.words("!" * 100_000 + "a" + "?" * 100_000) == ["a"]
-    assert time.perf_counter() - started < 0.5
+    assert pauses.elapsed(started) < 0.5

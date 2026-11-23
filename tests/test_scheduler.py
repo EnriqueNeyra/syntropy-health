@@ -12,6 +12,7 @@ import pytest
 from app.core import config, db, settings
 from app.services import scheduler, sync
 from app.store import connections, profiles
+from tests import pauses
 
 
 @pytest.fixture
@@ -120,16 +121,16 @@ def _hold_write_lock(seconds: float) -> threading.Thread:
 
 async def _longest_stall_while(work) -> float:
     """How long the event loop went without running anything while ``work`` waited."""
-    longest = 0.0
+    gaps = [(0.0, 0.0)]
     done = asyncio.Event()
 
     async def heartbeat():
-        nonlocal longest
         last = time.monotonic()
         while not done.is_set():
             await asyncio.sleep(0.01)
             now = time.monotonic()
-            longest = max(longest, now - last)
+            if now - last > gaps[0][1] - gaps[0][0]:
+                gaps[0] = (last, now)
             last = now
     beat = asyncio.create_task(heartbeat())
     await asyncio.sleep(0)      # its clock starts before the work does
@@ -138,7 +139,9 @@ async def _longest_stall_while(work) -> float:
     finally:
         done.set()
         await beat
-    return longest
+    # Asked afterwards, in another thread: the answer waits for the next tick, which the loop mustn't.
+    since, until = gaps[0]
+    return until - since - await asyncio.to_thread(pauses.stood_still, since, until)
 
 
 def test_the_event_loop_keeps_running_behind_a_held_write_lock(prof):
@@ -182,7 +185,7 @@ def test_saving_settings_behind_a_long_write_leaves_the_server_answering(client)
     time.sleep(0.1)
     started = time.monotonic()
     assert client.get("/health").status_code == 200
-    assert time.monotonic() - started < 1.5
+    assert pauses.elapsed(started) < 1.5
     saving.join()
     holder.join()
     assert results["save"] == 200 and settings.get("sync.ehr_interval_hours") == 12

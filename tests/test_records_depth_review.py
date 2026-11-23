@@ -15,6 +15,7 @@ from app.connectors import fhir_normalize as fn
 from app.connectors import smart
 from app.services import ccda, imports, sync
 from app.store import connections, profiles, record_files, records
+from tests import pauses
 
 STATIC = Path(__file__).resolve().parent.parent / "app" / "static" / "js" / "views"
 NS = 'xmlns="urn:hl7-org:v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
@@ -261,7 +262,7 @@ def test_a_single_heavy_page_cant_outlast_the_time_limit():
     data = _heavy_page()
     started = time.monotonic()
     text, state = record_files.pdf_text(data, seconds=2.0)
-    assert time.monotonic() - started < 5
+    assert pauses.elapsed(started) < 5
     assert (text, state) == ("", record_files.UNREADABLE)
 
 
