@@ -4618,13 +4618,6 @@
 ]
 },
 {
-"id": "epic-endeavor-health",
-"name": "Endeavor Health",
-"platform": "epic",
-"fhir_base_url": "https://fhirprd.edward.org/fhirprd/api/FHIR/R4",
-"network": "Endeavor Health - Edward-Elmhurst Health"
-},
-{
 "id": "epic-northwest-community-hospital",
 "name": "Endeavor Health",
 "location": "IL",
@@ -4640,6 +4633,9 @@
 "Glenview IL",
 "Lake Zurich IL",
 "Palatine IL"
+],
+"former_ids": [
+"epic-endeavor-health"
 ]
 },
 {
@@ -4796,7 +4792,7 @@
 "Superior WI",
 "Park Rapids MN",
 "Bismarck ND",
-"Detroit Lakes MN",
+"Virginia MN",
 "Baxter MN"
 ]
 },
@@ -5187,9 +5183,9 @@
 "places": [
 "Pinehurst NC",
 "Sanford NC",
+"Fayetteville NC",
 "Troy NC",
 "Rockingham NC",
-"Fayetteville NC",
 "Southern Pines NC",
 "Raeford NC",
 "Hamlet NC"
@@ -5595,19 +5591,19 @@
 {
 "id": "epic-gohealth-urgent-care",
 "name": "GoHealth Urgent Care",
-"location": "PA, WV, GA",
+"location": "PA, WV, DE, MD and more",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et1462.epichosted.com/FHIRProxyPRD/api/FHIR/R4",
 "network": "Access Clinical Partners, LLC",
 "places": [
 "Pittsburgh PA",
+"Wilmington DE",
+"Newark DE",
 "Charleston WV",
+"Erie PA",
 "Wheeling WV",
 "Pleasant Hills PA",
-"Huntington WV",
-"Harrisburg PA",
-"Beckley WV",
-"Erie PA"
+"Huntington WV"
 ]
 },
 {
@@ -8641,6 +8637,24 @@
 "network": "Franciscan Missionaries of Our Lady Health System, Inc."
 },
 {
+"id": "epic-med-center-health",
+"name": "Med Center Health",
+"location": "KY",
+"platform": "epic",
+"fhir_base_url": "https://epicproxy.et1514.epichosted.com/APIPROXYPRD/api/FHIR/R4",
+"network": "Commonwealth Health Corporation, Inc. (d/b/a Med Center Health)",
+"places": [
+"Bowling Green KY",
+"Scottsville KY",
+"Russellville KY",
+"Horse Cave KY",
+"Franklin KY",
+"Glasgow KY",
+"Albany KY",
+"Elkton KY"
+]
+},
+{
 "id": "epic-med-centro",
 "name": "Med Centro",
 "location": "Ponce, PR",
@@ -8808,7 +8822,7 @@
 "Huntington Beach CA",
 "San Clemente CA",
 "Newport Beach CA",
-"Mission Viejo CA"
+"Los Alamitos CA"
 ]
 },
 {
@@ -10414,8 +10428,8 @@
 "Portland OR",
 "Seattle WA",
 "Chicago IL",
-"San Jose CA",
 "Oakland CA",
+"San Jose CA",
 "Sacramento CA",
 "Milwaukee WI",
 "San Francisco CA"
@@ -11121,8 +11135,8 @@
 "network": "Dallas County Hospital District d/b/a Parkland Health",
 "places": [
 "Dallas TX",
-"Grand Prairie TX",
 "Garland TX",
+"Grand Prairie TX",
 "Irving TX",
 "Farmers Branch TX",
 "Richardson TX"
@@ -12548,10 +12562,10 @@
 "Batavia NY",
 "Massena NY",
 "Potsdam NY",
+"Victor NY",
 "Canton NY",
 "Henrietta NY",
-"Sodus NY",
-"Brockport NY"
+"Sodus NY"
 ]
 },
 {
@@ -13633,8 +13647,8 @@
 "Tucson AZ",
 "Phoenix AZ",
 "San Antonio TX",
-"Denver CO",
-"Sacramento CA"
+"Mesa AZ",
+"Denver CO"
 ]
 },
 {
@@ -14817,13 +14831,9 @@
 {
 "id": "epic-the-baton-rouge-clinic",
 "name": "The Baton Rouge Clinic",
-"location": "Baton Rouge, LA",
 "platform": "epic",
 "fhir_base_url": "https://epicproxy.et0830.epichosted.com/FHIRProxy/api/FHIR/R4",
-"network": "Franciscan Missionaries of Our Lady Health System, Inc.",
-"places": [
-"Baton Rouge LA"
-]
+"network": "Franciscan Missionaries of Our Lady Health System, Inc."
 },
 {
 "id": "epic-the-center",

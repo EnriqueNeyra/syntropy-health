@@ -7629,6 +7629,13 @@
 "fhir_base_url": "https://brazos.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-brazos-vision-group-pllc",
+"name": "Brazos Vision Group PLLC",
+"location": "Richmond, TX",
+"platform": "modmed",
+"fhir_base_url": "https://brazosfamilyeye.ef.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-breakthrough-orthopedics",
 "name": "Breakthrough Orthopedics",
 "location": "Brooklyn, NY",
@@ -9642,6 +9649,13 @@
 "fhir_base_url": "https://cvp.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-cedros-medical-group",
+"name": "Cedros Medical Group",
+"location": "San Diego, CA",
+"platform": "modmed",
+"fhir_base_url": "https://cedros.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-celebration-foot-and-ankle-institute-p-a",
 "name": "Celebration Foot And Ankle Institute, P.A.",
 "location": "Celebration, FL",
@@ -10780,13 +10794,6 @@
 "fhir_base_url": "https://chicagoeyes.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-chicago-orthopaedics-and-sports-medicine",
-"name": "Chicago Orthopaedics and Sports Medicine",
-"location": "Chicago, IL",
-"platform": "modmed",
-"fhir_base_url": "https://cosm.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-chicagoland-oculoplastics-consultants",
 "name": "Chicagoland Oculoplastics Consultants",
 "location": "Elmhurst, IL",
@@ -11361,6 +11368,13 @@
 "location": "Orange Park, FL",
 "platform": "modmed",
 "fhir_base_url": "https://clayeye.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
+"id": "modmed-clay-rhynes-eye-clinic",
+"name": "Clay Rhynes Eye Clinic",
+"location": "Durant, OK",
+"platform": "modmed",
+"fhir_base_url": "https://visionsource-durant.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-clayton-davis-od-pllc",
@@ -17756,6 +17770,7 @@
 {
 "id": "modmed-dr-laura-anne-potvin-pc",
 "name": "Dr Laura Anne Potvin PC",
+"location": "Groveland, MA",
 "platform": "modmed",
 "fhir_base_url": "https://drlauraannepotvinpc.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -18443,13 +18458,6 @@
 "location": "Honolulu, HI",
 "platform": "modmed",
 "fhir_base_url": "https://drmiyasakaoptometryllc.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-dr-moira-l-mcdermott-dpm",
-"name": "Dr. Moira L McDermott DPM",
-"location": "Hyannis, MA",
-"platform": "modmed",
-"fhir_base_url": "https://lcp.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-dr-monica-scheel-dermatology",
@@ -25922,13 +25930,6 @@
 "fhir_base_url": "https://gemvision.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-gemini-spine-llc",
-"name": "Gemini Spine LLC",
-"location": "Paramus, NJ",
-"platform": "modmed",
-"fhir_base_url": "https://geminihealth.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-gender-confirmation-center-llc",
 "name": "Gender Confirmation Center, LLC",
 "location": "San Francisco, CA",
@@ -29981,7 +29982,6 @@
 {
 "id": "modmed-invision-ophthalmology",
 "name": "Invision Ophthalmology",
-"location": "Vestavia, AL",
 "platform": "modmed",
 "fhir_base_url": "https://invisioneyemd.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -33616,7 +33616,6 @@
 {
 "id": "modmed-laguna-family-optometry",
 "name": "Laguna Family Optometry",
-"location": "Elk Grove, CA",
 "platform": "modmed",
 "fhir_base_url": "https://lagunafamilyoptometry.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -34000,7 +33999,7 @@
 {
 "id": "modmed-landmark-foot-and-ankle-center-pc",
 "name": "Landmark Foot and Ankle Center, PC",
-"location": "Annandale, VA",
+"location": "Alexandria, VA",
 "platform": "modmed",
 "fhir_base_url": "https://lfac.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -34240,6 +34239,13 @@
 "location": "Doral, FL",
 "platform": "modmed",
 "fhir_base_url": "https://schiffman.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
+"id": "modmed-lawrence-fortier-md",
+"name": "Lawrence Fortier, MD",
+"location": "Wethersfield, CT",
+"platform": "modmed",
+"fhir_base_url": "https://lawrencefortiermd.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-lawrence-g-mock-od",
@@ -35601,6 +35607,13 @@
 "fhir_base_url": "https://lowcountrydermatologyassociates.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
+"id": "modmed-dr-moira-l-mcdermott-dpm",
+"name": "Lower Cape Podiatry",
+"location": "Hyannis, MA",
+"platform": "modmed",
+"fhir_base_url": "https://lcp.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
 "id": "modmed-lower-limb-institute",
 "name": "Lower Limb Institute",
 "location": "Paramus, NJ",
@@ -35888,7 +35901,7 @@
 {
 "id": "modmed-mack-eye-center-2",
 "name": "Mack Eye Center",
-"location": "Oakhurst, NJ",
+"location": "Brick, NJ",
 "platform": "modmed",
 "fhir_base_url": "https://mackeye.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -37387,7 +37400,6 @@
 {
 "id": "modmed-medical-center-eye-associates-pa",
 "name": "Medical Center Eye Associates PA",
-"location": "Amarillo, TX",
 "platform": "modmed",
 "fhir_base_url": "https://medicalcentereyeassociatespa.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -43846,7 +43858,6 @@
 {
 "id": "modmed-optix-vision-eye-care",
 "name": "Optix Vision Eye Care",
-"location": "Tyler, TX",
 "platform": "modmed",
 "fhir_base_url": "https://optixvisioneyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -52549,13 +52560,6 @@
 "fhir_base_url": "https://hunteyemd.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
-"id": "modmed-seacoast-dermatology-pllc",
-"name": "Seacoast Dermatology, PLLC",
-"location": "Portsmouth, NH",
-"platform": "modmed",
-"fhir_base_url": "https://seacoastdermnh.mmi.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
 "id": "modmed-seacoast-foot-and-ankle-center",
 "name": "Seacoast Foot and Ankle Center",
 "location": "Portland, ME",
@@ -52837,15 +52841,9 @@
 {
 "id": "modmed-sergeant-bluff-eyecare",
 "name": "Sergeant Bluff Eyecare",
+"location": "Sergeant Bluff, IA",
 "platform": "modmed",
 "fhir_base_url": "https://sergeantbluffeyecare.ef.prod.fhir.ema-api.com/fhir/r4/"
-},
-{
-"id": "modmed-set-solution-llc",
-"name": "SET Solution, LLC",
-"location": "Tampa, FL",
-"platform": "modmed",
-"fhir_base_url": "https://radiacure.mmi.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-seth-kaufman-md-of-care-center",
@@ -55655,7 +55653,6 @@
 {
 "id": "modmed-spectrum-eyewear-gallery",
 "name": "Spectrum Eyewear Gallery",
-"location": "Elkhart, IN",
 "platform": "modmed",
 "fhir_base_url": "https://drbritzke.ef.prod.fhir.ema-api.com/fhir/r4/"
 },
@@ -58339,6 +58336,13 @@
 "location": "Issaquah, WA",
 "platform": "modmed",
 "fhir_base_url": "https://theeye.mmi.prod.fhir.ema-api.com/fhir/r4/"
+},
+{
+"id": "modmed-the-eye-institute-surgery-center",
+"name": "The Eye Institute Surgery Center",
+"location": "Melbourne, FL",
+"platform": "modmed",
+"fhir_base_url": "https://f3b13ddf-08fe-4704-809c-26cfb7535934.gastro.prod.fhir.ema-api.com/fhir/r4/"
 },
 {
 "id": "modmed-the-eye-level-inc",

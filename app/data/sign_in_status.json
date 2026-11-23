@@ -1,5 +1,5 @@
 {
- "checked": "2026-11-16",
+ "checked": "2026-11-23",
  "servers": {
   "https://arrprd.kdmc.net/fhir/api/fhir/r4": {
    "status": "client_unknown",
@@ -8,6 +8,13 @@
   "https://arrprd.mhhcc.org/oauth2/api/fhir/r4": {
    "status": "client_unknown",
    "since": "2026-10-03"
+  },
+  "https://cnesp001.carene.org/fhir/api/fhir/r4": {
+   "status": "portal_error",
+   "since": "2026-11-23",
+   "instead": [
+    "oracle-care-new-england-health-system"
+   ]
   },
   "https://epic-arr.pinnaclehealth.org/prd-fhir-arr/api/fhir/r4": {
    "status": "client_unknown",
@@ -39,20 +46,9 @@
    "status": "client_unknown",
    "since": "2026-11-03"
   },
-  "https://fhir-myrecord.cerner.com/r4/a33bb2f7-1f6a-4097-bd5f-175f3ee1706d": {
-   "status": "error_page",
-   "since": "2026-11-03"
-  },
-  "https://fhir-myrecord.cerner.com/r4/e60dd76f-2355-47fe-85cf-f04cc40e0a16": {
+  "https://fhir.buffalomedicalgroup.com/fhir-arr/api/fhir/r4": {
    "status": "portal_error",
-   "since": "2026-11-03"
-  },
-  "https://fhir-myrecord.cerner.com/r4/ogzyfqfcsddl-itiaurnqb8312ad4fxe": {
-   "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "oracle-adventhealth-ottawa"
-   ]
+   "since": "2026-11-23"
   },
   "https://fhir.lakelandregional.org/fhirproxy/api/fhir/r4": {
    "status": "portal_error",
@@ -224,12 +220,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/aebgba": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-bgajdd",
-    "ecw-bifcad",
-    "ecw-caahaa"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/aecicd": {
    "status": "error_page",
@@ -322,6 +313,10 @@
   "https://fhir4.healow.com/fhir/r4/afiedd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/afifaa": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/afijba": {
    "status": "error_page",
@@ -565,11 +560,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/bafhbd": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-aegced",
-    "ecw-hijibd"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/bafhdd": {
    "status": "error_page",
@@ -899,6 +890,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/bihfaa": {
+   "status": "error_page",
+   "since": "2026-11-23"
+  },
   "https://fhir4.healow.com/fhir/r4/biidaa": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -1165,12 +1160,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/ceceaa": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-cececa",
-    "ecw-ehhbca",
-    "ecw-gfjgaa"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/cecgaa": {
    "status": "error_page",
@@ -1258,10 +1248,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/cfeidd": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-hehjdd"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/cfhedd": {
    "status": "error_page",
@@ -1555,6 +1542,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/ddfcdd": {
+   "status": "error_page",
+   "since": "2026-11-23"
+  },
   "https://fhir4.healow.com/fhir/r4/ddfeba": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -1803,6 +1794,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/djifdd": {
+   "status": "error_page",
+   "since": "2026-11-23"
+  },
   "https://fhir4.healow.com/fhir/r4/djjhdd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -1859,6 +1854,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/ebbfbd": {
+   "status": "error_page",
+   "since": "2026-11-23"
+  },
   "https://fhir4.healow.com/fhir/r4/ebccca": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -1878,6 +1877,10 @@
   "https://fhir4.healow.com/fhir/r4/ebhhbd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/ebifba": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/ebjdcd": {
    "status": "error_page",
@@ -1963,6 +1966,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/edibca": {
+   "status": "error_page",
+   "since": "2026-11-23"
+  },
   "https://fhir4.healow.com/fhir/r4/ediiba": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -2010,6 +2017,10 @@
   "https://fhir4.healow.com/fhir/r4/eejdad": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/efbeba": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/efbhad": {
    "status": "error_page",
@@ -2065,12 +2076,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/egbfad": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-bahgbd",
-    "ecw-cagead",
-    "ecw-cbaibd"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/egcfdd": {
    "status": "error_page",
@@ -2131,6 +2137,10 @@
   "https://fhir4.healow.com/fhir/r4/ehaeca": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/ehajba": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/ehbgba": {
    "status": "error_page",
@@ -2455,13 +2465,20 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/feheba": {
+   "status": "error_page",
+   "since": "2026-11-23"
+  },
   "https://fhir4.healow.com/fhir/r4/feiadd": {
    "status": "error_page",
    "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/fejbba": {
    "status": "error_page",
-   "since": "2026-11-03"
+   "since": "2026-11-03",
+   "instead": [
+    "ecw-fcbadd"
+   ]
   },
   "https://fhir4.healow.com/fhir/r4/fejhcd": {
    "status": "error_page",
@@ -2469,10 +2486,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/ffabda": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-idicdd"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/ffacca": {
    "status": "error_page",
@@ -2540,10 +2554,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/fgbdca": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-bibjba"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/fgbidd": {
    "status": "error_page",
@@ -2771,10 +2782,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/gbbbda": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-bjahcd"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/gbebba": {
    "status": "error_page",
@@ -3070,7 +3078,11 @@
   },
   "https://fhir4.healow.com/fhir/r4/ggifba": {
    "status": "error_page",
-   "since": "2026-11-03"
+   "since": "2026-11-03",
+   "instead": [
+    "ecw-hgbcba",
+    "ecw-jeaaca"
+   ]
   },
   "https://fhir4.healow.com/fhir/r4/ghaedd": {
    "status": "error_page",
@@ -3099,6 +3111,14 @@
   "https://fhir4.healow.com/fhir/r4/ghjdca": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/giaeca": {
+   "status": "error_page",
+   "since": "2026-11-23"
+  },
+  "https://fhir4.healow.com/fhir/r4/giaiad": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/gicecd": {
    "status": "error_page",
@@ -3147,6 +3167,10 @@
   "https://fhir4.healow.com/fhir/r4/gjbiaa": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/gjdjba": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/gjehca": {
    "status": "error_page",
@@ -3318,10 +3342,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/hdfebd": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-gbbedd"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/hdfedd": {
    "status": "error_page",
@@ -3398,6 +3419,10 @@
   "https://fhir4.healow.com/fhir/r4/hegacd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/hehfdd": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/hehidd": {
    "status": "error_page",
@@ -3493,10 +3518,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/hgiiaa": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-jfhaed"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/hgiiba": {
    "status": "error_page",
@@ -3641,6 +3663,10 @@
   "https://fhir4.healow.com/fhir/r4/iabfaa": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/iabhdd": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/iacaed": {
    "status": "error_page",
@@ -3870,6 +3896,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/iegeba": {
+   "status": "error_page",
+   "since": "2026-11-23"
+  },
   "https://fhir4.healow.com/fhir/r4/iegjba": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -3881,6 +3911,10 @@
   "https://fhir4.healow.com/fhir/r4/ieijdd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/ifadba": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/ifahdd": {
    "status": "error_page",
@@ -3994,6 +4028,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/ihdaca": {
+   "status": "error_page",
+   "since": "2026-11-23"
+  },
   "https://fhir4.healow.com/fhir/r4/ihehdd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -4056,10 +4094,7 @@
   },
   "https://fhir4.healow.com/fhir/r4/ijdccd": {
    "status": "error_page",
-   "since": "2026-11-03",
-   "instead": [
-    "ecw-acgedd"
-   ]
+   "since": "2026-11-03"
   },
   "https://fhir4.healow.com/fhir/r4/ijeaca": {
    "status": "error_page",
@@ -4140,6 +4175,10 @@
   "https://fhir4.healow.com/fhir/r4/jbdbed": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/jbfbed": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/jbfibd": {
    "status": "error_page",
@@ -4465,6 +4504,10 @@
    "status": "error_page",
    "since": "2026-11-03"
   },
+  "https://fhir4.healow.com/fhir/r4/jhfica": {
+   "status": "error_page",
+   "since": "2026-11-23"
+  },
   "https://fhir4.healow.com/fhir/r4/jhfidd": {
    "status": "error_page",
    "since": "2026-11-03"
@@ -4476,6 +4519,10 @@
   "https://fhir4.healow.com/fhir/r4/jhhidd": {
    "status": "error_page",
    "since": "2026-11-03"
+  },
+  "https://fhir4.healow.com/fhir/r4/jhjddd": {
+   "status": "error_page",
+   "since": "2026-11-23"
   },
   "https://fhir4.healow.com/fhir/r4/jhjjcd": {
    "status": "error_page",
@@ -4572,13 +4619,6 @@
     "epic-contra-costa-health-services"
    ]
   },
-  "https://mobile.adventhealth.com/oauth2-prd/api/fhir/r4": {
-   "status": "portal_error",
-   "since": "2026-11-16",
-   "instead": [
-    "oracle-adventhealth-ottawa"
-   ]
-  },
   "https://mobileproxy.sjhsyr.org/fhir/api/fhir/r4": {
    "status": "client_unknown",
    "since": "2026-10-03"
@@ -4595,6 +4635,21 @@
    "status": "portal_error",
    "since": "2026-11-03"
   },
+  "https://sfd.overlakehospital.org/fhirproxy/api/fhir/r4": {
+   "status": "portal_error",
+   "since": "2026-11-23"
+  },
+  "https://sfd.overlakehospital.org/fhirproxy/posm/api/fhir/r4": {
+   "status": "portal_error",
+   "since": "2026-11-23",
+   "instead": [
+    "ecw-hiehcd"
+   ]
+  },
+  "https://sfd.overlakehospital.org/fhirproxy/svh/api/fhir/r4": {
+   "status": "portal_error",
+   "since": "2026-11-23"
+  },
   "https://soap.uhcs.org/ic-fhir/api/fhir/r4": {
    "status": "unreachable",
    "since": "2026-10-03"
@@ -4606,19 +4661,12 @@
   "https://w1soap.wakehealth.edu/fhirproxy/api/fhir/r4": {
    "status": "client_unknown",
    "since": "2026-10-03"
-  },
-  "https://wavesurescripts.sansumclinic.org/fhir/api/fhir/r4": {
-   "status": "client_unknown",
-   "since": "2026-11-16",
-   "instead": [
-    "ecw-dchjdd"
-   ]
   }
  },
  "watching": {
-  "https://api.baptist-health.org/interconnect-fhir/api/fhir/r4": {
+  "https://wavesurescripts.sansumclinic.org/fhir/api/fhir/r4": {
    "status": "unreachable",
-   "since": "2026-11-16"
+   "since": "2026-11-23"
   }
  }
 }

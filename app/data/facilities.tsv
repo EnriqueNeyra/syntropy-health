@@ -121,7 +121,6 @@ epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Frost	San Di
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Hillcrest	San Diego	CA
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Huntington Bch 2	Huntington Beach	CA
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Huntington Beach	Huntington Beach	CA
-epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Irvine	Irvine	CA
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group La Jolla	La Jolla	CA
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group La Mesa	La Mesa	CA
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Mission Valley	San Diego	CA
@@ -131,6 +130,7 @@ epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Oceanside	Oc
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Orange Kidney	Orange	CA
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Pioneers Memorial Hospital	Brawley	CA
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Poway	Poway	CA
+epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Tustin	Tustin	CA
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Vasc Access EOP	San Diego	CA
 epic-acumen-physician-solutions-llc	Balboa Nephrology Medical Group Vascular Health Clinic	San Diego	CA
 epic-acumen-physician-solutions-llc	Bay Area Kidney Physicians	Corpus Christi	TX
@@ -10931,6 +10931,7 @@ epic-baptist-memorial-health-care	Mississippi Perinatal, PLLC Hattiesburg	Hattie
 epic-baptist-memorial-health-care	Mississippi Perinatal, PLLC Ridgeland	Ridgeland	MS
 epic-baptist-memorial-health-care	Murphy S. Martin MD, PLLC Kosciusko	Kosciusko	MS
 epic-baptist-memorial-health-care	NA Outpatient Therapy	New Albany	MS
+epic-baptist-memorial-health-care	NAWHC Womens Health Center	New Albany	MS
 epic-baptist-memorial-health-care	NEA Baptist Brookland Family Practice Clinic	Brookland	AR
 epic-baptist-memorial-health-care	NEA Baptist Care Coordination-Jonesboro	Jonesboro	AR
 epic-baptist-memorial-health-care	NEA Baptist Clinic	Jonesboro	AR
@@ -12954,7 +12955,8 @@ epic-boulder-community-health	Boulder Medical Center - Foothills	Boulder	CO
 epic-boulder-community-health	Boulder Medical Center - Longmont	Longmont	CO
 epic-boulder-community-health	Boulder Medical Center - Louisville	Louisville	CO
 epic-boulder-community-health	Boulder Neurolosurgical and Spine Associates of BCH (BSNA)	Boulder	CO
-epic-boulder-community-health	Boulder Neurosurgical Associates	Boulder	CO
+epic-boulder-community-health	Boulder Neurosurgical and Spine Associates of BCH	Boulder	CO
+epic-boulder-community-health	Boulder Neurosurgical and Spine Associates of BCH at Longmont	Longmont	CO
 epic-boulder-community-health	Boulder Valley Pulmonology	Boulder	CO
 epic-boulder-community-health	Boulder Valley Pulmonology at CMC	Lafayette	CO
 epic-boulder-community-health	Boulder Valley Surgical Associates	Boulder	CO
@@ -16697,7 +16699,7 @@ epic-chi-health	Sheridan Memorial Home	McClusky	ND
 epic-chi-health	Southwest Medical Center	Bowman	ND
 epic-chi-health	St Francis Grand Island Medical Center	Grand Island	NE
 epic-chi-health	St Francis Speciality Care Hastings	Hastings	NE
-epic-chi-health	St Jospeh's Park Rapids	Park Rapids	MN
+epic-chi-health	St Joseph's Park Rapids Clinics	Park Rapids	MN
 epic-chi-health	St. Alexius	Bismarck	ND
 epic-chi-health	St. Francis Student Wellness Center	Grand Island	NE
 epic-chi-health	St. Gabriel's Community	Bismarck	ND
@@ -20805,6 +20807,7 @@ epic-community-hospital-for-anaconda	Anaconda Internal Medicine	Anaconda	MT
 epic-community-hospital-for-anaconda	Community Hospital Of Anaconda	Anaconda	MT
 epic-community-medical-center		Falls City	NE
 epic-community-medical-centers-2	AIC CCMC	Clovis	CA
+epic-community-medical-centers-2	Advanced Cardiovascular Specialists of Central California	Clovis	CA
 epic-community-medical-centers-2	Advanced Gastroenterology and Hepatology AS	Fresno	CA
 epic-community-medical-centers-2	Advanced Gynecologic & Reproductive Specialists	Clovis	CA
 epic-community-medical-centers-2	Advanced Medical Imaging Magnolia	Clovis	CA
@@ -20888,6 +20891,7 @@ epic-community-medical-centers-2	Community Pediatric Care - Dearing	Fresno	CA
 epic-community-medical-centers-2	Community Pediatric Care - Halifax	Clovis	CA
 epic-community-medical-centers-2	Community Pediatric Specialists	Clovis	CA
 epic-community-medical-centers-2	Community Perinatology	Fresno	CA
+epic-community-medical-centers-2	Community Perioperative Assessment Clinic	Fresno	CA
 epic-community-medical-centers-2	Community Primary Care - 724 Medical Center Dr E St 106	Clovis	CA
 epic-community-medical-centers-2	Community Primary Care - Ahmad Emami, M.D.	Fresno	CA
 epic-community-medical-centers-2	Community Primary Care - Ali M. Fayed, M.D.	Fresno	CA
@@ -20933,6 +20937,7 @@ epic-community-medical-centers-2	Fresno Digestive Health Herndon South	Fresno	CA
 epic-community-medical-centers-2	Fresno Heart (FHSH)	Fresno	CA
 epic-community-medical-centers-2	Fresno Heart and Surgical Hospital (FHSH)	Fresno	CA
 epic-community-medical-centers-2	Fresno Women's Medical Group	Clovis	CA
+epic-community-medical-centers-2	Ghaffar Spine	Clovis	CA
 epic-community-medical-centers-2	Inspire Health Medical Group	Fresno	CA
 epic-community-medical-centers-2	Inspire Health Medical Group - Cardiology	Fresno	CA
 epic-community-medical-centers-2	Inspire Health Medical Group - Endocrinology	Fresno	CA
@@ -21089,6 +21094,7 @@ epic-complete-cardiovascular-care	Our Lady of the Lake Physician Group	Baton Rou
 epic-complete-cardiovascular-care	Our Lady of the Lake Physician Group Ascension	Gonzales	LA
 epic-complete-cardiovascular-care	Our Lady of the Lake Regional Medical Center	Baton Rouge	LA
 epic-complete-cardiovascular-care	Pediatric Cardiology of Louisiana	Baton Rouge	LA
+epic-complete-cardiovascular-care	Pediatric Surgery of Louisiana	Baton Rouge	LA
 epic-complete-cardiovascular-care	Pointe Coupee General Hospital	New Roads	LA
 epic-complete-cardiovascular-care	Southwest Mississippi Regional Medical Center	McComb	MS
 epic-complete-cardiovascular-care	Specialty Hospital Monroe	Monroe	LA
@@ -23037,6 +23043,7 @@ epic-cottage-health-system	Cottage Center for Advanced Imaging	Santa Barbara	CA
 epic-cottage-health-system	Cottage Children's Medical Center	Santa Barbara	CA
 epic-cottage-health-system	Cottage Concussion Clinic	Goleta	CA
 epic-cottage-health-system	Cottage Cystic Fibrosis and Bronchiectasis Clinic	Santa Barbara	CA
+epic-cottage-health-system	Cottage Endocrinology Clinic	Santa Barbara	CA
 epic-cottage-health-system	Cottage Grotenhuis Pediatric Specialty Clinics	Goleta	CA
 epic-cottage-health-system	Cottage Grotenhuis Pediatric Specialty Clinics - Pismo Beach	Pismo Beach	CA
 epic-cottage-health-system	Cottage Grotenhuis Pediatric Specialty Clinics - Ventura	Ventura	CA
@@ -23333,6 +23340,7 @@ epic-covenant-healthcare	Palaniandy Kogulan MD	Saginaw	MI
 epic-covenant-healthcare	Parminder Jaswal MD	Saginaw	MI
 epic-covenant-healthcare	Phoenix Family Physicians	Saginaw	MI
 epic-covenant-healthcare	Quality Sleep and Neurology	Saginaw	MI
+epic-covenant-healthcare	RNICU Outpatient Antenatal Consults	Saginaw	MI
 epic-covenant-healthcare	Rakesh Chokshi MD	Saginaw	MI
 epic-covenant-healthcare	Rama Mulpuri MD	Saginaw	MI
 epic-covenant-healthcare	Reese Family Medicine	Saginaw	MI
@@ -28298,6 +28306,7 @@ epic-eskenazi	Sandra Eskenazi Mental Health Center Ritter Supportive Housing	Ind
 epic-eskenazi	Sandra Eskenazi Mental Health Center Tremont Terrace	Indianpolis	IN
 epic-eskenazi	Sandra Eskenazi Mental Health Center – Dr. James J. Wright Building	Indianpolis	IN
 epic-eskenazi	Sandra Eskenazi Mental Health Center – Thomas P. Stitt Building	Indianpolis	IN
+epic-essentia-health	Bois Forte Health & Human Services	Virginia	MN
 epic-essentia-health	Duluth Family Medicine Clinic	Duluth	MN
 epic-essentia-health	Duluth Family Medincine Clinic	Duluth	MN
 epic-essentia-health	Esko Fitness Center	Esko	MN
@@ -28317,6 +28326,7 @@ epic-essentia-health	Essentia Health Building E	Duluth	MN
 epic-essentia-health	Essentia Health Cassleton Clinic	Casselton	ND
 epic-essentia-health	Essentia Health Chokio Clinic	Chokio	MN
 epic-essentia-health	Essentia Health Cloquet Clinic	Cloquet	MN
+epic-essentia-health	Essentia Health Cloquet Therapy	Cloquet	MN
 epic-essentia-health	Essentia Health Deer River Clinic	Deer River	MN
 epic-essentia-health	Essentia Health Deer River Hospital	Deer River	MN
 epic-essentia-health	Essentia Health Deer River Pharmacy	Deer River	MN
@@ -28391,6 +28401,7 @@ epic-essentia-health	Essentia Health St. Joseph's Brainerd Clinic	Brainerd	MN
 epic-essentia-health	Essentia Health St. Joseph's Crosslake Clinic	Crosslake	MN
 epic-essentia-health	Essentia Health St. Joseph's Emily Clinic	Emily	MN
 epic-essentia-health	Essentia Health St. Joseph's Medical Center	Brainerd	MN
+epic-essentia-health	Essentia Health St. Joseph's Orthopedic Center	Baxter	MN
 epic-essentia-health	Essentia Health St. Joseph's Orthopedics Center	Baxter	MN
 epic-essentia-health	Essentia Health St. Joseph's Orthopedics Clinic	Brainerd	MN
 epic-essentia-health	Essentia Health St. Joseph's Pequot Lakes Clinic	Pequot Lakes	MN
@@ -28414,6 +28425,7 @@ epic-essentia-health	Essentia Health Virginia Clinic	Virginia	MN
 epic-essentia-health	Essentia Health Virginia Hospital	Virginia	MN
 epic-essentia-health	Essentia Health Virginia Pharmacy	Virginia	MN
 epic-essentia-health	Essentia Health Wahpeton Clinic	Wahpeton	ND
+epic-essentia-health	Essentia Health Wahpeton Surgical Center	Wahpeton	ND
 epic-essentia-health	Essentia Health Walk-In Care Downtown Moorhead	Moorhead	MN
 epic-essentia-health	Essentia Health Walker Clinic	Walker	MN
 epic-essentia-health	Essentia Health Wellness Clinic	Hermantown	MN
@@ -28895,6 +28907,7 @@ epic-family-care-network	Bellingham Bay Family Medicine	Bellingham	WA
 epic-family-care-network	Birch Bay Family Medicine	Blaine	WA
 epic-family-care-network	Blaine Family Medicine (formerly Birch Bay Family Medicine)	Blaine	WA
 epic-family-care-network	Chuckanut Family Medicine	Bellingham	WA
+epic-family-care-network	Ellis Street Family Medicine	Bellingham	WA
 epic-family-care-network	Family Care Network Sports Medicine	Bellingham	WA
 epic-family-care-network	Family Care Network Urgent Care – Bellingham	Bellingham	WA
 epic-family-care-network	Family Care Network Urgent Care – Lynden	Lynden	WA
@@ -29034,6 +29047,9 @@ epic-firsthealth-of-the-carolinas	FirstHealth Convenient Care - Raeford	Raeford	
 epic-firsthealth-of-the-carolinas	FirstHealth Convenient Care - Sanford	Sanford	NC
 epic-firsthealth-of-the-carolinas	FirstHealth Convenient Care - Southern Pines	Southern Pines	NC
 epic-firsthealth-of-the-carolinas	FirstHealth Convenient Care - Tillery	Mount Gilead	NC
+epic-firsthealth-of-the-carolinas	FirstHealth Diagnostic Imaging - Fayetteville	Fayetteville	NC
+epic-firsthealth-of-the-carolinas	FirstHealth ENT - Lumberton	Lumberton	NC
+epic-firsthealth-of-the-carolinas	FirstHealth ENT - Valleygate	Fayetteville	NC
 epic-firsthealth-of-the-carolinas	FirstHealth FPG HMLT PRIM CARE	Hamlet	NC
 epic-firsthealth-of-the-carolinas	FirstHealth FPG Jordan Innovative	Biscoe	NC
 epic-firsthealth-of-the-carolinas	FirstHealth FPG McRae Troy	Troy	NC
@@ -29089,6 +29105,7 @@ epic-firsthealth-of-the-carolinas	FirstHealth Neurology - Pinehurst	Pinehurst	NC
 epic-firsthealth-of-the-carolinas	FirstHealth Neurosurgery - Fayetteville	Fayetteville	NC
 epic-firsthealth-of-the-carolinas	FirstHealth Neurosurgery - Pinehurst	Pinehurst	NC
 epic-firsthealth-of-the-carolinas	FirstHealth Neurosurgery - Sanford	Sanford	NC
+epic-firsthealth-of-the-carolinas	FirstHealth OB/GYN Cape Center - Fayettville	Fayetteville	NC
 epic-firsthealth-of-the-carolinas	FirstHealth Occupational Health and Wellness	Troy	NC
 epic-firsthealth-of-the-carolinas	FirstHealth Primary Care - Lee Campus Sanford	Sanford	NC
 epic-firsthealth-of-the-carolinas	FirstHealth Primary Care - Whispering Pines	Whispering Pines	NC
@@ -29102,6 +29119,7 @@ epic-firsthealth-of-the-carolinas	FirstHealth Richmond Medical Group Women's Cen
 epic-firsthealth-of-the-carolinas	FirstHealth Sanford Hematology Oncology	Sanford	NC
 epic-firsthealth-of-the-carolinas	FirstHealth Transition Care Clinic - Pinehurst	Pinehurst	NC
 epic-firsthealth-of-the-carolinas	FirstHealth Weight Management Clinic	Pinehurst	NC
+epic-firsthealth-of-the-carolinas	Firsthealth Family Care - Pinnacle	Fayetteville	NC
 epic-firsthealth-of-the-carolinas	Sandhills Regional Physician Group	Hamlet	NC
 epic-firsthealth-of-the-carolinas	Sandhills Regional Physician Group - Hamlet, Endo Lane	Hamlet	NC
 epic-firsthealth-of-the-carolinas	Sanford Cardiology	Sanford	NC
@@ -29930,7 +29948,6 @@ epic-froedtert-health	Drexel Town Square Health Center - Froedtert & the Medical
 epic-froedtert-health	ETE Workforce Health	Milwaukee	WI
 epic-froedtert-health	EpicCare Link, Holy Family Convent	Manitowoc	WI
 epic-froedtert-health	Eye Institute at Froedtert Hospital Campus	Milwaukee	WI
-epic-froedtert-health	FS Westosha - Hospital	Salem	WI
 epic-froedtert-health	FastCare Clinic, Greenfield Meijer	Greenfield	WI
 epic-froedtert-health	FastCare Clinic, Sussex Meijer	Pewaukee	WI
 epic-froedtert-health	FastCare Clinic, West Bend Meijer	West Bend	WI
@@ -29945,23 +29962,17 @@ epic-froedtert-health	Froedtert & the Medical College of Wisconsin Cedarburg Cli
 epic-froedtert-health	Froedtert & the Medical College of Wisconsin Fond du Lac East Johnson Clinic	Fond Du Lac	WI
 epic-froedtert-health	Froedtert & the Medical College of Wisconsin Greenfield 27TH Street Clinic	Greenfield	WI
 epic-froedtert-health	Froedtert & the Medical College of Wisconsin Greenfield Highlands Health Center	Greenfield	WI
-epic-froedtert-health	Froedtert & the Medical College of Wisconsin Gurnee 109 Greenleaf Clinic	Gurnee	IL
-epic-froedtert-health	Froedtert & the Medical College of Wisconsin Gurnee Greenleaf Clinic	Gurnee	IL
 epic-froedtert-health	Froedtert & the Medical College of Wisconsin Lafayette Clinic	Milwaukee	WI
-epic-froedtert-health	Froedtert & the Medical College of Wisconsin Paddock Lake Clinic	Paddock Lake	WI
-epic-froedtert-health	Froedtert & the Medical College of Wisconsin Pleasant Prairie Clinic	Pleasant Prairie	WI
 epic-froedtert-health	Froedtert & the Medical College of Wisconsin Port Washington Health Center	Port Washington	WI
-epic-froedtert-health	Froedtert & the Medical College of Wisconsin Prairie Ridge Clinic	Pleasant Prairie	WI
 epic-froedtert-health	Froedtert & the Medical College of Wisconsin Sheboygan South Taylor Clinic	Sheboygan	WI
 epic-froedtert-health	Froedtert & the Medical College of Wisconsin Shorewood Clinic	Shorewood	WI
-epic-froedtert-health	Froedtert & the Medical College of Wisconsin Somers Clinic	Kenosha	WI
-epic-froedtert-health	Froedtert & the Medical College of Wisconsin YMCA Clinic	Kenosha	WI
 epic-froedtert-health	Froedtert & the Medical College of Wisconsin health network	Milwaukee	WI
 epic-froedtert-health	Froedtert & the Medical College of Wisconsin, Forest Home Health Center	Milwaukee	WI
 epic-froedtert-health	Froedtert Bluemound Clinics	Wauwatosa	WI
 epic-froedtert-health	Froedtert Bluemound Rehabilitation Hospital	Wauwatosa	WI
 epic-froedtert-health	Froedtert Community Hospital - Mequon	Mequon	WI
 epic-froedtert-health	Froedtert Community Hospital - Pewaukee	Pewaukee	WI
+epic-froedtert-health	Froedtert Gurnee Cardiology Greenleaf Clinic	Gurnee	IL
 epic-froedtert-health	Froedtert Holy Family Memorial Hospital	Manitowoc	WI
 epic-froedtert-health	Froedtert Hospital	Milwaukee	WI
 epic-froedtert-health	Froedtert Kenosha Hospital	Kenosha	WI
@@ -29970,9 +29981,15 @@ epic-froedtert-health	Froedtert Manitowoc Medical Group, Lakefront Campus	Two Ri
 epic-froedtert-health	Froedtert Manitowoc Medical Group, Michigan Avenue Campus	Manitowoc	WI
 epic-froedtert-health	Froedtert Manitowoc Medical Group, Sheboygan Campus	Sheboygan	WI
 epic-froedtert-health	Froedtert Menomonee Falls Hospital	Menomonee Falls	WI
+epic-froedtert-health	Froedtert Paddock Lake Clinic	Paddock Lake	WI
+epic-froedtert-health	Froedtert Pleasant Prairie Clinic	Pleasant Prairie	WI
 epic-froedtert-health	Froedtert Pleasant Prairie Hospital	Pleasant Prairie	WI
+epic-froedtert-health	Froedtert Prairie Ridge Clinic	Pleasant Prairie	WI
+epic-froedtert-health	Froedtert Somers Clinic	Kenosha	WI
 epic-froedtert-health	Froedtert South	Pleasant Prairie	WI
 epic-froedtert-health	Froedtert West Bend Hospital	West Bend	WI
+epic-froedtert-health	Froedtert Westosha Physical Therapy	Salem	WI
+epic-froedtert-health	Froedtert YMCA Clinic	Kenosha	WI
 epic-froedtert-health	Germantown Health Center - Froedtert & the Medical College of Wisconsin Community Physicians	Germantown	WI
 epic-froedtert-health	Good Hope Health Center - Froedtert & the Medical College of Wisconsin Community Physicians	Milwaukee	WI
 epic-froedtert-health	Greendale Health Center - Froedtert & the Medical College of Wisconsin Community Physicians	Greendale	WI
@@ -29983,6 +30000,7 @@ epic-froedtert-health	HellermanTyton Onsite Medical Clinic	Milwaukee	WI
 epic-froedtert-health	Holy Family Health Services	Manitowoc	WI
 epic-froedtert-health	Holy Family Memorial Hospital, Harbor Town Campus	Manitowoc	WI
 epic-froedtert-health	InSinkErator Onsite Medical Clinic	Racine	WI
+epic-froedtert-health	Internal Medicine, Gurnee Clinic Greenleaf Street	Gurnee	IL
 epic-froedtert-health	Jackson Health Center - Froedtert & the Medical College of Wisconsin Community Physicians	Jackson	WI
 epic-froedtert-health	Jewish Community Center - Froedtert & the Medical College of Wisconsin Community Physicians	Whitefish Bay	WI
 epic-froedtert-health	Kapco Onsite Medical Clinic	Grafton	WI
@@ -30034,7 +30052,7 @@ epic-froedtert-health	Wood Lake III Brave Program	Milwaukee	WI
 epic-froedtert-health	Workforce Health - Froedtert & the Medical College of Wisconsin Community Physicians	Milwaukee	WI
 epic-froedtert-health	Workplace Clinic, Milwaukee County Courthouse	Milwaukee	WI
 epic-froedtert-health	Workplace Clinic, Wilson Center	Milwaukee	WI
-epic-froedtert-south	Froedtert South Kenosha Medical Center	Kenosha	WI
+epic-froedtert-south	Froedtert Kenosha Center	Kenosha	WI
 epic-full-circle-health	Full Circle Health - IDOS Services	Boise	ID
 epic-gardner-health-services		San Jose	CA
 epic-garnet-health	Alcohol & Substance Abuse Treatment at Garnet Health	Middletown	NY
@@ -30629,11 +30647,27 @@ epic-george-washington-university-medical-faculty-associates	GW Urology - Sibley
 epic-george-washington-university-medical-faculty-associates	GW Virginia Hospital Center	Arlington	VA
 epic-george-washington-university-medical-faculty-associates	Gwuh Anesthesiology	Washington	DC
 epic-go-east-medical-services	North East Medical Services (NEMS) - NV	Las Vegas	NV
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Bear	Bear	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Dover	Dover	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Dover Dupont	Dover	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Elkton	Elkton	MD
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Fairfax	Wilmington	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Glasgow	Newark	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Greenville	Wilmington	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Healthcare Center	Newark	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Kirkwood	Wilmington	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Middletown	Middletown	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care New Castle	New Castle	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Newark	Newark	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care North East	North East	MD
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Pike Creek	Wilmington	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Smyrna	Smyrna	DE
+epic-gohealth-urgent-care	Ccare Gohealth Urgent Care Star Campus	Newark	DE
 epic-gohealth-urgent-care	GoHealth	Atlanta	GA
-epic-gohealth-urgent-care	UPMC Gohealth Beckley Crossing	Beckley	WV
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Allison Park	Allison Park	PA
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Altoona	Altoona	PA
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Annville	Annville	PA
+epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Beckley Crossing	Beckley	WV
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Beckley Harper Road	Beckley	WV
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Belle Vernon	Rostraver Township	PA
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Bloomfield	Pittsburgh	PA
@@ -30652,6 +30686,7 @@ epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Edwardsville	Edwardsville	PA
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Elkins	Elkins	WV
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Elm Grove	Wheeling	WV
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Erie Summit Towne Centre	Erie	PA
+epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Erie West	Erie	PA
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Fayetteville	Fayetteville	WV
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Franklin Pennwood Center	Franklin	PA
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Glen Dale	Glen Dale	WV
@@ -30693,6 +30728,7 @@ epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Princeton	Princeton	WV
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Robinson Court	Pittsburgh	PA
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Ross Township	Pittsburgh	PA
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Scott Township	Pittsburgh	PA
+epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Shadyside	Pittsburgh	PA
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care Somerset Township	Somerset	PA
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care South Charleston	Charleston	WV
 epic-gohealth-urgent-care	UPMC Gohealth Urgent Care South Parkersburg	Parkersburg	WV
@@ -34293,6 +34329,7 @@ epic-henry-ford-health-system	HFSJH St John Hospital	Detroit	MI
 epic-henry-ford-health-system	HFWRH 11900 12 Mile RD	Warren	MI
 epic-henry-ford-health-system	HFWRH 27450 SCHOENHERR	Warren	MI
 epic-henry-ford-health-system	HFWRH 30117 SCHOENHERR RD	Warren	MI
+epic-henry-ford-health-system	Health Alliance Plan MyChart Portal	Detriot	MI
 epic-henry-ford-health-system	Healthy Sleep MD	West Bloomfield	MI
 epic-henry-ford-health-system	Henry Ford Community Connect Aaron Vanwagnen MD PLLC	Jackson	MI
 epic-henry-ford-health-system	Henry Ford Community Connect Advanced Breast Surgery, PLLC	Allen Park	MI
@@ -34375,6 +34412,7 @@ epic-henry-ford-health-system	Henry Ford Community Connect Women's Health and Me
 epic-henry-ford-health-system	Henry Ford Community Connectnephron Associates PC	Southfield	MI
 epic-henry-ford-health-system	Henry Ford Community Connectparmod Jindal, MD, PC	Wyandotte	MI
 epic-henry-ford-health-system	Henry Ford Community Connectpremier Surgical Center of Michigan	Clinton Township	MI
+epic-henry-ford-health-system	Henry Ford Connect MyChart Portal	Detroit	MI
 epic-henry-ford-health-system	Henry Ford Health 0Canton	Canton	MI
 epic-henry-ford-health-system	Henry Ford Health 10 Mile RD Family Medicine	Saint Clair Shores	MI
 epic-henry-ford-health-system	Henry Ford Health 12 Mile RD	Warren	MI
@@ -34556,6 +34594,7 @@ epic-henry-ford-health-system	Henry Ford Health Grand Blanc 8235 Holly RD	Grand 
 epic-henry-ford-health-system	Henry Ford Health Grand Blanc 8447 Holly RD	Grand Blanc	MI
 epic-henry-ford-health-system	Henry Ford Health Grand Rapids	Grand Rapids	MI
 epic-henry-ford-health-system	Henry Ford Health Grayling	Grayling	MI
+epic-henry-ford-health-system	Henry Ford Health Great Lakes Surgical Grand Blanc	Grand Blanc	MI
 epic-henry-ford-health-system	Henry Ford Health Grosse Pointe 17141 Kercheval Ave	Grosse Pointe	MI
 epic-henry-ford-health-system	Henry Ford Health Grosse Pointe Cottage	Grosse Pt Frm	MI
 epic-henry-ford-health-system	Henry Ford Health Grosse Pointe Pierson	Grosse Pt Frm	MI
@@ -34653,6 +34692,7 @@ epic-henry-ford-health-system	Henry Ford Health Livonia 37508 7 Mile RD	Livonia	
 epic-henry-ford-health-system	Henry Ford Health Livonia 37650 Professional Center Dr	Livonia	MI
 epic-henry-ford-health-system	Henry Ford Health Lowell Park Rehab	Sterling Heights	MI
 epic-henry-ford-health-system	Henry Ford Health MI Institute of Neurological Diseases Chelsea	Chelsea	MI
+epic-henry-ford-health-system	Henry Ford Health MSU 305 N Clippert St	Lansing	MI
 epic-henry-ford-health-system	Henry Ford Health Mack Ave Infectious Disease	Detroit	MI
 epic-henry-ford-health-system	Henry Ford Health Macomb	Macomb	MI
 epic-henry-ford-health-system	Henry Ford Health Macomb Bruce Township	Bruce Twp	MI
@@ -34720,6 +34760,7 @@ epic-henry-ford-health-system	Henry Ford Health Porter RD Amgg Family Medicine	G
 epic-henry-ford-health-system	Henry Ford Health Premier Cardiology Dearborn	Dearborn	MI
 epic-henry-ford-health-system	Henry Ford Health Premier Cardiology Gibraltar	Gibraltar	MI
 epic-henry-ford-health-system	Henry Ford Health Premier Cardiology Livonia	Livonia	MI
+epic-henry-ford-health-system	Henry Ford Health Rajakumari L Swamy MD	Grand Blanc	MI
 epic-henry-ford-health-system	Henry Ford Health Remote Patient Monitoring	Southfield	MI
 epic-henry-ford-health-system	Henry Ford Health Richmond	Richmond	MI
 epic-henry-ford-health-system	Henry Ford Health Rivertown Pace	Detroit	MI
@@ -34829,6 +34870,7 @@ epic-henry-ford-health-system	MANAF SEID ARABI MD PC	Wyandotte	MI
 epic-henry-ford-health-system	MSU 4650 S HAGADORN RD	East Lansing	MI
 epic-henry-ford-health-system	MSU 710 KENMOOR AVE SE	Grand Rapids	MI
 epic-henry-ford-health-system	MSU 7335 WESTSHIRE DR	Lansing	MI
+epic-henry-ford-health-system	MSU Health Care MyChart Portal	Detroit	MI
 epic-henry-ford-health-system	Margaret J. Hepke, D.O.	Oak Park	MI
 epic-henry-ford-health-system	Metro Shores Internal Medicine PLLC	Riverview	MI
 epic-henry-ford-health-system	Metro Urgent Care	Clinton Twp	MI
@@ -35286,6 +35328,7 @@ epic-honorhealth	HonorHealth Cancer Care - Wickenburg Medical Oncology	Wickenbur
 epic-honorhealth	HonorHealth Cancer Care Comprehensive Breast Center of AZ - East Mesa	Mesa	AZ
 epic-honorhealth	HonorHealth Cancer Care Comprehensive Breast Centers of Arizona - Avondale	Avondale	AZ
 epic-honorhealth	HonorHealth Cancer Care Comprehensive Breast Centers of Arizona - Deer Valley	Phoenix	AZ
+epic-honorhealth	HonorHealth Cancer Care Comprehensive Breast Centers of Arizona - Del Lago	Peoria	AZ
 epic-honorhealth	HonorHealth Cancer Care Comprehensive Breast Centers of Arizona - Gilbert	Gilbert	AZ
 epic-honorhealth	HonorHealth Cancer Care Comprehensive Breast Centers of Arizona - John C. Lincoln	Phoenix	AZ
 epic-honorhealth	HonorHealth Cancer Care Comprehensive Breast Centers of Arizona - Peoria	Peoria	AZ
@@ -35493,6 +35536,7 @@ epic-honorhealth	HonorHealth Orthopedics - Glendale	Glendale	AZ
 epic-honorhealth	HonorHealth Orthopedics - John C Lincoln	Phoenix	AZ
 epic-honorhealth	HonorHealth Orthopedics - Kierland	Scottsdale	AZ
 epic-honorhealth	HonorHealth Orthopedics - McKellips	Mesa	AZ
+epic-honorhealth	HonorHealth Orthopedics - North Thompson Peak	Scottsdale	AZ
 epic-honorhealth	HonorHealth Orthopedics - Prescott Valley	Prescott Valley	AZ
 epic-honorhealth	HonorHealth Orthopedics - Saguaro	Phoenix	AZ
 epic-honorhealth	HonorHealth Orthopedics - Shea	Scottsdale	AZ
@@ -35520,6 +35564,7 @@ epic-honorhealth	HonorHealth Outpatient Occupational Therapy - Shea	Scottsdale	A
 epic-honorhealth	HonorHealth Outpatient Occupational Therapy - Sonoran	Phoenix	AZ
 epic-honorhealth	HonorHealth Outpatient Occupational Therapy - Tempe	Tempe	AZ
 epic-honorhealth	HonorHealth Outpatient Occupational Therapy - Thompson Peak	Scottsdale	AZ
+epic-honorhealth	HonorHealth Outpatient Occupational Therapy - Via de Ventura	Scottsdale	AZ
 epic-honorhealth	HonorHealth Outpatient Occupational Therapy - West Union Hills	Glendale	AZ
 epic-honorhealth	HonorHealth Outpatient Pediatric Occupational Therapy - Shea	Scottsdale	AZ
 epic-honorhealth	HonorHealth Outpatient Pediatric Physical Therapy - Shea	Scottsdale	AZ
@@ -35542,6 +35587,7 @@ epic-honorhealth	HonorHealth Outpatient Physical Therapy - Sonoran	Phoenix	AZ
 epic-honorhealth	HonorHealth Outpatient Physical Therapy - Tatum	Phoenix	AZ
 epic-honorhealth	HonorHealth Outpatient Physical Therapy - Tempe	Tempe	AZ
 epic-honorhealth	HonorHealth Outpatient Physical Therapy - Thompson Peak	Scottsdale	AZ
+epic-honorhealth	HonorHealth Outpatient Physical Therapy - Via de Ventura	Scottsdale	AZ
 epic-honorhealth	HonorHealth Outpatient Physical Therapy - West Union Hills	Glendale	AZ
 epic-honorhealth	HonorHealth Outpatient Physical Therapy Ortho Institute - Thompson Peak	Scottsdale	AZ
 epic-honorhealth	HonorHealth Outpatient Physical Therapy Sonoran Spine - Gilbert	Gilbert	AZ
@@ -35571,6 +35617,7 @@ epic-honorhealth	HonorHealth Outpatient Therapy Services - Neuroscience Institut
 epic-honorhealth	HonorHealth Outpatient Therapy Sevices - Neuroscience Institute - Physical Therapy	Scottsdale	AZ
 epic-honorhealth	HonorHealth Pain Care - Bob Bove Neuroscience Institute	Scottsdale	AZ
 epic-honorhealth	HonorHealth Pain Care - McKellips	Mesa	AZ
+epic-honorhealth	HonorHealth Pain Care - Tempe	Tempe	AZ
 epic-honorhealth	HonorHealth Pain Management - JCL	Phoenix	AZ
 epic-honorhealth	HonorHealth Pediatric Gastroenterology	Scottsdale	AZ
 epic-honorhealth	HonorHealth Peoria Boutique - Tina's Treasures	Peoria	AZ
@@ -35638,6 +35685,7 @@ epic-honorhealth	HonorHealth Wound Clinic - Deer Valley	Phoenix	AZ
 epic-honorhealth	HonorHealth Wound Clinic - JCLMC	Phoenix	AZ
 epic-honorhealth	HonorHealth Wound Clinic - Mt Vista	Mesa	AZ
 epic-honorhealth	HonorHealth Wound Clinic - Osborn	Scottsdale	AZ
+epic-honorhealth	HonorHealth Wound Clinic - Shea	Scottsdale	AZ
 epic-honorhealth	HonorHealth Wound Clinic - Thompson Peak	Scottsdale	AZ
 epic-honorhealth	HonorHealth in Collaboartion with Pain Consultants of Arizona - Chandler	Chandler	AZ
 epic-honorhealth	HonorHealth in Collaboration with John A Nassar - Biltmore	Phoenix	AZ
@@ -35653,6 +35701,7 @@ epic-honorhealth	HonorHealth in collaboration with Next Era Spine Care	Peoria	AZ
 epic-honorhealth	HonorHealth in collaboration with Next Era Spine Care - PV Neurosurgery	Scottsdale	AZ
 epic-honorhealth	HonorHealth in collaboration with Next Era Spine Care- East Mesa	Mesa	AZ
 epic-honorhealth	HonorHealth in collaboration with Pain Consultants of Arizona -Peoria Medical Campus	Peoria	AZ
+epic-honorhealth	Honorhealth Medical Group - FPMC Hyperbaric Medicine	Mesa	AZ
 epic-honorhealth	Honorhealth Primary Care - Apache Junction	Apache Junction	AZ
 epic-honorhealth	Honorhealth Primary Care - East Tempe	Tempe	AZ
 epic-honorhealth	Honorhealth Primary Care - Palm Valley	Goodyear	AZ
@@ -41397,9 +41446,6 @@ epic-lexington-medical-center	LMC Employee Health	West Columbia	SC
 epic-lexington-medical-center	LMC Extended Care	Lexington	SC
 epic-lexington-medical-center	LMC Forest Acres Rehabilitation Services	Columbia	SC
 epic-lexington-medical-center	LMC Heart and Vascular Center	West Columbia	SC
-epic-lexington-medical-center	LMC Heart and Vascular Center- Forest Acres	Columbia	SC
-epic-lexington-medical-center	LMC Heart and Vascular Center- Lexington	Lexington	SC
-epic-lexington-medical-center	LMC Heart and Vascular Center- Northeast	Columbia	SC
 epic-lexington-medical-center	LMC Hospital Based Physicians	West Columbia	SC
 epic-lexington-medical-center	LMC IDTF Cayce	Cayce	SC
 epic-lexington-medical-center	LMC IDTF Forest Acres	Columbia	SC
@@ -41462,10 +41508,16 @@ epic-lexington-medical-center	Lexington Family Practice-Summit	Columbia	SC
 epic-lexington-medical-center	Lexington Family Practice-West Columbia	West Columbia	SC
 epic-lexington-medical-center	Lexington Family Practice-White Knoll	Lexington	SC
 epic-lexington-medical-center	Lexington Health	West Columbia	SC
+epic-lexington-medical-center	Lexington Health Heart and Vascular Center - Cardiology	West Columbia	SC
+epic-lexington-medical-center	Lexington Health Heart and Vascular Center - Cardiology Forest Acres	Columbia	SC
+epic-lexington-medical-center	Lexington Health Heart and Vascular Center - Cardiology Lexington	Lexington	SC
+epic-lexington-medical-center	Lexington Health Heart and Vascular Center - Cardiology NE	Columbia	SC
+epic-lexington-medical-center	Lexington Health Heart and Vascular Center - Vascular Surgery	West Columbia	SC
+epic-lexington-medical-center	Lexington Health Heart and Vascular Center- Cardiothoracic Surgery	West Columbia	SC
 epic-lexington-medical-center	Lexington Health Physical Therapy- Blythewood	Blythewood	SC
-epic-lexington-medical-center	Lexington Internist NE	Columbia	SC
 epic-lexington-medical-center	Lexington Internists	Columbia	SC
-epic-lexington-medical-center	Lexington Internists - Irmo	Columbia	SC
+epic-lexington-medical-center	Lexington Internists - IRMO	Columbia	SC
+epic-lexington-medical-center	Lexington Internists- NE	Columbia	SC
 epic-lexington-medical-center	Lexington Maternal Fetal Medicine	West Columbia	SC
 epic-lexington-medical-center	Lexington Medical Anesthesiology	West Columbia	SC
 epic-lexington-medical-center	Lexington Medical Center Non-Surgical Weight Management	West Columbia	SC
@@ -41501,6 +41553,7 @@ epic-lexington-medical-center	Lexington Podiatry NE	Columbia	SC
 epic-lexington-medical-center	Lexington Podiatry- Chapin	Chapin	SC
 epic-lexington-medical-center	Lexington Podiatry- Lexington	Lexington	SC
 epic-lexington-medical-center	Lexington Podiatry- Northeast	Columbia	SC
+epic-lexington-medical-center	Lexington Podiatry- Park Place	Lexington	SC
 epic-lexington-medical-center	Lexington Radiation Oncology	West Columbia	SC
 epic-lexington-medical-center	Lexington Rheumatology	West Columbia	SC
 epic-lexington-medical-center	Lexington Rheumatology-Ortho	West Columbia	SC
@@ -41508,9 +41561,11 @@ epic-lexington-medical-center	Lexington Sleep Solutions	Columbia	SC
 epic-lexington-medical-center	Lexington Sleep Solutions (Office)	West Columbia	SC
 epic-lexington-medical-center	Lexington Surgery	West Columbia	SC
 epic-lexington-medical-center	Lexington Surgery - Northeast	Columbia	SC
+epic-lexington-medical-center	Lexington Surgery- Acute Care	West Columbia	SC
+epic-lexington-medical-center	Lexington Surgery- Northeast	Columbia	SC
 epic-lexington-medical-center	Lexington Urogynecology	West Columbia	SC
-epic-lexington-medical-center	Lexington Urology	Columbia	SC
 epic-lexington-medical-center	Lexington Urology	West Columbia	SC
+epic-lexington-medical-center	Lexington Urology- Northeast	Columbia	SC
 epic-lexington-medical-center	Lexington Women's Care - White Knoll	Lexington	SC
 epic-lexington-medical-center	Lexington Women's Care- Chapin	Chapin	SC
 epic-lexington-medical-center	Lexington Women's Care- Irmo	Columbia	SC
@@ -41528,7 +41583,8 @@ epic-lexington-medical-center	Palmetto Family Medicine	Columbia	SC
 epic-lexington-medical-center	SC OB/GYN Associates	West Columbia	SC
 epic-lexington-medical-center	SC Obesity Surgery Center	West Columbia	SC
 epic-lexington-medical-center	Sandhills Family Medicine	Lexington	SC
-epic-lexington-medical-center	South Carolina OB/GYN Associates	Columbia	SC
+epic-lexington-medical-center	South Carolina OB/GYN Associates	West Columbia	SC
+epic-lexington-medical-center	South Carolina OB/GYN Associates- Forest Acres	Columbia	SC
 epic-lexington-medical-center	Spring Valley Family Practice	Columbia	SC
 epic-lexington-medical-center	Spring Valley Nuclear Services	Columbia	SC
 epic-lexington-medical-center	Swansea Primary Care	Swansea	SC
@@ -43371,8 +43427,8 @@ epic-mass-general-brigham	Boston Sports Medicine and Research Institute	Dedham	M
 epic-mass-general-brigham	Boston Urogynecology (157 Washington St)	Hudson	MA
 epic-mass-general-brigham	Boston Urogynecology (70 Walnut St)	Wellesley	MA
 epic-mass-general-brigham	Boston West Cardiology, P.C.	Waltham	MA
-epic-mass-general-brigham	Brigham Faulkner Ob/Gyn Associates	Boston	MA
 epic-mass-general-brigham	Brigham Orthopaedic and Arthritis Center	Braintree	MA
+epic-mass-general-brigham	Brigham Wellesley Ob/Gyn Associates	Wellesley	MA
 epic-mass-general-brigham	Brigham and Women's Faulkner Hospital	Jamaica Plain	MA
 epic-mass-general-brigham	Brigham and Women's Harbor Medical Associates (1681 Washington St)	Braintree	MA
 epic-mass-general-brigham	Brigham and Women's Harbor Medical Associates (203 Linden Ponds)	Hingham	MA
@@ -43518,6 +43574,7 @@ epic-mass-general-brigham	George Theodore, MD	Boston	MA
 epic-mass-general-brigham	Gigi N. Girgis M.D.	Waltham	MA
 epic-mass-general-brigham	Giving Tree Pediatrics, P.C.	Natick	MA
 epic-mass-general-brigham	Gleason and Greenfield Pediatrics	Marion	MA
+epic-mass-general-brigham	Goodhaven Health	Wellesley	MA
 epic-mass-general-brigham	Greater Boston Allergy at Newton Wellesley Hospital	Newton	MA
 epic-mass-general-brigham	Greater Boston Dermatology	Framingham	MA
 epic-mass-general-brigham	Gynecology Partners	Newton	MA
@@ -43671,6 +43728,7 @@ epic-mass-general-brigham	Massachusetts General Hospital Pediatric Cardiology (8
 epic-mass-general-brigham	Massachusetts General Hospital Physical Medicine & Rehabilitation	Hyannis	MA
 epic-mass-general-brigham	Massachusetts General Hospital Revere Health Center	Revere	MA
 epic-mass-general-brigham	Massachusetts General Pediatric Orthopaedics at NEPC	North Billerica	MA
+epic-mass-general-brigham	Master Family Medicine	Newton	MA
 epic-mass-general-brigham	Maura F. McGrane M.D. (2 Blackburn Park)	Gloucester	MA
 epic-mass-general-brigham	Maura F. McGrane M.D. (75 Herrick St)	Beverly	MA
 epic-mass-general-brigham	McGovern Urologic Inc.	Boston	MA
@@ -44228,6 +44286,44 @@ epic-mcleod-health	Palmetto Adult Medicine	Sumter	SC
 epic-mcleod-health	Pee Dee Surgical Group	Florence	SC
 epic-mcleod-health	Pepsi Health Center	Florence	SC
 epic-mcleod-health	Southern Medical Associates	Loris	SC
+epic-med-center-health	Barren River Cancer	Glasgow	KY
+epic-med-center-health	Bluegrass Outpatient Ctr of BG	Bowling Green	KY
+epic-med-center-health	Caverna Primary Care Clinic	Horse Cave	KY
+epic-med-center-health	Fountain Run Rural Health CL	Fountain Run	KY
+epic-med-center-health	Infectious Disease And Travel	Bowling Green	KY
+epic-med-center-health	MCH Adult Day Center	Bowling Green	KY
+epic-med-center-health	MCH Medical Arts Building	Bowling Green	KY
+epic-med-center-health	MCH Orthopedics Plus BG North	Bowling Green	KY
+epic-med-center-health	MCH Orthopedics Plus BG South	Bowling Green	KY
+epic-med-center-health	MCH Orthopedics Plus Bville	Brownsville	KY
+epic-med-center-health	MCH Orthopedics Plus Mtown	Morgantown	KY
+epic-med-center-health	MCH Orthopedics Plus Rville	Russellville	KY
+epic-med-center-health	MCH Orthopedics Plus Sville	Scottsville	KY
+epic-med-center-health	MCH Primary Care Auburn	Auburn	KY
+epic-med-center-health	MCH Primary Care Elkton	Elkton	KY
+epic-med-center-health	MCH Primary Care Russellville	Russellville	KY
+epic-med-center-health	MCH Riverside Professional Center	Bowling Green	KY
+epic-med-center-health	MCH School Based Clinics	Scottsville	KY
+epic-med-center-health	MCH Surgical Specialist Albany	Albany	KY
+epic-med-center-health	MCH at WKU Health Services	Bowling Green	KY
+epic-med-center-health	Med Center Health FSED	Bowling Green	KY
+epic-med-center-health	Med Center Health Glasgow	Glasgow	KY
+epic-med-center-health	Med Center Health Primary Care Franklin	Franklin	KY
+epic-med-center-health	Med Center Health Western Kentucky Heart & Lung	Bowling Green	KY
+epic-med-center-health	Med Center Home Health	Bowling Green	KY
+epic-med-center-health	Med Center Plastic Surgery	Bowling Green	KY
+epic-med-center-health	Medical Center Albany	Albany	KY
+epic-med-center-health	Medical Center Caverna	Horse Cave	KY
+epic-med-center-health	Medical Center Franklin	Franklin	KY
+epic-med-center-health	Medical Center Russellville	Russellville	KY
+epic-med-center-health	Medical Center Urgent Care	Bowling Green	KY
+epic-med-center-health	Munfordville Primary Care CL	Munfordville	KY
+epic-med-center-health	The Dental Clinic	Bowling Green	KY
+epic-med-center-health	The Medical Center EMS, LCC	Bowling Green	KY
+epic-med-center-health	The Medical Center at Bowling Green	Bowling Green	KY
+epic-med-center-health	The Medical Center at Scottsville	Scottsville	KY
+epic-med-center-health	Womens Health Specialists	Bowling Green	KY
+epic-med-center-health	Worklife Clinical	Bowling Green	KY
 epic-med-centro	Med Centro Ponce Main Site	Ponce	PR
 epic-medical-university-of-south-carolina	Berkeley County Children's Advocacy Center	Moncks Corner	SC
 epic-medical-university-of-south-carolina	Clemson Rural Health - Joseph F Sullivan Center	Clemson	SC
@@ -45402,6 +45498,13 @@ epic-memorialcare	OC Care Alliance	Fountain Valley	CA
 epic-memorialcare	OC Vascular & Endovascular Surgery Center	Fountain Valley	CA
 epic-memorialcare	Orange Coast Memorial Medical Center	Fountain Valley	CA
 epic-memorialcare	Orange County Digestive Care	Fountain Valley	CA
+epic-memorialcare	Pacific Cardiovascular Associates - Alamitos	Los Alamitos	CA
+epic-memorialcare	Pacific Cardiovascular Associates - Anaheim	Anaheim	CA
+epic-memorialcare	Pacific Cardiovascular Associates - Irvine	Irvine	CA
+epic-memorialcare	Pacific Cardiovascular Associates - LH	Laguna Hills	CA
+epic-memorialcare	Pacific Cardiovascular Associates - Long Beach	Long Beach	CA
+epic-memorialcare	Pacific Cardiovascular Associates - Orange	Orange	CA
+epic-memorialcare	Pacific Cardiovascular Associates - Placentia	Placentia	CA
 epic-memorialcare	Pain Medicine Associates - 18035 Brookhurst St 1200	Fountain Valley	CA
 epic-memorialcare	Pain Medicine Associates - 295 Imperial Hwy Ste 100	Fullerton	CA
 epic-memorialcare	Pain Medicine Associates - 3620 Atlantic Ave	Long Beach	CA
@@ -52836,6 +52939,7 @@ epic-nyc-health-and-hospitals	All City Leadership Secondary School	Brooklyn	NY
 epic-nyc-health-and-hospitals	Bellevue Hospital Center	New York	NY
 epic-nyc-health-and-hospitals	Bridge to Home, Mirage Hotel Parent	Brooklyn	NY
 epic-nyc-health-and-hospitals	Brighter Choice Community School	Brooklyn	NY
+epic-nyc-health-and-hospitals	CU Williamsburg	Brooklyn	NY
 epic-nyc-health-and-hospitals	Coler Nursing Facility (SNF)	New York	NY
 epic-nyc-health-and-hospitals	Corona Medical Center	Corona	NY
 epic-nyc-health-and-hospitals	Corona Medical Child Health	Corona	NY
@@ -52887,7 +52991,6 @@ epic-nyc-health-and-hospitals	Gotham Health/Sydenham	New York	NY
 epic-nyc-health-and-hospitals	Gotham Health/Tremont	Bronx	NY
 epic-nyc-health-and-hospitals	Gotham Health/Tremont Community Health Center	Bronx	NY
 epic-nyc-health-and-hospitals	Gotham Health/Vanderbilt	Staten Island	NY
-epic-nyc-health-and-hospitals	Gotham Health/Williamsburg	Brooklyn	NY
 epic-nyc-health-and-hospitals	Gotham Health/Women's Health Center	Corona	NY
 epic-nyc-health-and-hospitals	Gotham Health/Woodside Child Health Center	Woodside	NY
 epic-nyc-health-and-hospitals	H+H Community Care Health Home	New York	NY
@@ -55174,6 +55277,7 @@ epic-ochin	La Clinica Del Valle - Wellness Center	Medford	OR
 epic-ochin	La Clinica Del Valle - West Medford Health Center	Medford	OR
 epic-ochin	La Clinica Del Valle - Women's Health Center	Medford	OR
 epic-ochin	La Clinica da La Raza Tiger Health Clinic - Dental	Oakland	CA
+epic-ochin	La Clinica de Del Raza - 95th Ave	Oakland	CA
 epic-ochin	La Clinica de La Raza - Casa del Sol	Oakland	CA
 epic-ochin	La Clinica de La Raza - Children's Hospital Oakland Dental	Oakland	CA
 epic-ochin	La Clinica de La Raza - Clinica Alta Vista	Oakland	CA
@@ -58925,6 +59029,7 @@ epic-pacific-dental-services	7th and Bell Dental Group	Phoenix	AZ
 epic-pacific-dental-services	ABQ Modern Dental Group	Albuquerque	NM
 epic-pacific-dental-services	ADA Forsyth Institute	Somerville	MA
 epic-pacific-dental-services	Acadian Modern Dentistry	Baton Rouge	LA
+epic-pacific-dental-services	Acadiana Dentists	Youngsville	LA
 epic-pacific-dental-services	Acworth Smiles Dentistry	Acworth	GA
 epic-pacific-dental-services	Alameda Crossing Dental Group and Orthodontics	Avondale	AZ
 epic-pacific-dental-services	Alameda Landing Dentistry	Alameda	CA
@@ -58980,6 +59085,7 @@ epic-pacific-dental-services	Bear Creek Dental Group and Orthodontics	Wildomar	C
 epic-pacific-dental-services	Beaumont Smiles Dentistry and Orthodontics	Beaumont	CA
 epic-pacific-dental-services	Beckett Ridge Modern Dentistry	West Chester	OH
 epic-pacific-dental-services	Bedford Modern Dentistry	Corona	CA
+epic-pacific-dental-services	Beechmont Modern Dentistry	Cincinnati	OH
 epic-pacific-dental-services	Belleview Dentist Office	Denver	CO
 epic-pacific-dental-services	Bellevue Modern Dentistry	Bellevue	WA
 epic-pacific-dental-services	Bellflower Gateway Modern Dentistry	Bellflower	CA
@@ -58994,6 +59100,7 @@ epic-pacific-dental-services	Bloomington Smiles Dentistry	Bloomington	MN
 epic-pacific-dental-services	BluHawk Dental Group	Overland Park	KS
 epic-pacific-dental-services	Blue Ash Modern Dentistry	Blue Ash	OH
 epic-pacific-dental-services	Blue Springs Dentistry	Blue Springs	MO
+epic-pacific-dental-services	Bonita Beach Modern Dentistry	Bonita Springs	FL
 epic-pacific-dental-services	Bosque Smiles Dentistry	Albuquerque	NM
 epic-pacific-dental-services	Bothell Modern Dentistry	Bothell	WA
 epic-pacific-dental-services	Boulder Modern Dentistry	Boulder	CO
@@ -59022,6 +59129,7 @@ epic-pacific-dental-services	Burlington Dentistry	Burlington	MA
 epic-pacific-dental-services	Camarillo Dental Group and Orthodontics	Camarillo	CA
 epic-pacific-dental-services	Camelback Smiles Dentistry	Phoenix	AZ
 epic-pacific-dental-services	Camino Dental Group	Encinitas	CA
+epic-pacific-dental-services	Camino Village Dentistry	Encinitas	CA
 epic-pacific-dental-services	Candlewood Smiles Dentistry and Orthodontics	Lakewood	CA
 epic-pacific-dental-services	Canton Modern Dentistry	Canton	MA
 epic-pacific-dental-services	Canton Smiles Dentistry and Orthodontics	Canton	GA
@@ -59090,6 +59198,7 @@ epic-pacific-dental-services	College Dental Group and Orthodontics	Oceanside	CA
 epic-pacific-dental-services	College Grove Dentistry	San Diego	CA
 epic-pacific-dental-services	College Station Modern Dentistry	College Station	TX
 epic-pacific-dental-services	Columbia Heights Dentistry	Columbia Heights	MN
+epic-pacific-dental-services	Columbia Modern Dentistry	Elkridge	MD
 epic-pacific-dental-services	Concord Modern Dentistry	Concord	CA
 epic-pacific-dental-services	Constitution Dental Group	Colorado Springs	CO
 epic-pacific-dental-services	Conyers Smiles Dentistry and Orthodontics	Conyers	GA
@@ -59161,6 +59270,7 @@ epic-pacific-dental-services	Dentists of Attleboro	Attleboro	MA
 epic-pacific-dental-services	Dentists of Auburn	Auburn	WA
 epic-pacific-dental-services	Dentists of Bakersfield	Bakersfield	CA
 epic-pacific-dental-services	Dentists of Barfield	Murfreesboro	TN
+epic-pacific-dental-services	Dentists of Bear Creek	Lakewood	CO
 epic-pacific-dental-services	Dentists of Bellevue	Nashville	TN
 epic-pacific-dental-services	Dentists of Belterra	Austin	TX
 epic-pacific-dental-services	Dentists of Boca Village	Boca Raton	FL
@@ -59170,6 +59280,7 @@ epic-pacific-dental-services	Dentists of Broadmoor	Colorado Springs	CO
 epic-pacific-dental-services	Dentists of Buckley	Aurora	CO
 epic-pacific-dental-services	Dentists of Buena Park	Buena Park	CA
 epic-pacific-dental-services	Dentists of Buford	Buford	GA
+epic-pacific-dental-services	Dentists of Cameron Park	Cameron Park	CA
 epic-pacific-dental-services	Dentists of Campus Commons	Sacramento	CA
 epic-pacific-dental-services	Dentists of Canoga Park	Canoga Park	CA
 epic-pacific-dental-services	Dentists of Carson City	Carson City	NV
@@ -59189,6 +59300,7 @@ epic-pacific-dental-services	Dentists of Davis	Davis	CA
 epic-pacific-dental-services	Dentists of Devine	Columbia	SC
 epic-pacific-dental-services	Dentists of Doral	Doral	FL
 epic-pacific-dental-services	Dentists of Doral West	Doral	FL
+epic-pacific-dental-services	Dentists of Duarte	Duarte	CA
 epic-pacific-dental-services	Dentists of Eagle Mountain	Fort Worth	TX
 epic-pacific-dental-services	Dentists of East Brainerd	Chattanooga	TN
 epic-pacific-dental-services	Dentists of East Clovis	Clovis	CA
@@ -59263,6 +59375,7 @@ epic-pacific-dental-services	Dentists of Montgomery	Montgomery	TX
 epic-pacific-dental-services	Dentists of Moore and Orthodontics	Moore	OK
 epic-pacific-dental-services	Dentists of Mukilteo	Mukilteo	WA
 epic-pacific-dental-services	Dentists of Nampa	Nampa	ID
+epic-pacific-dental-services	Dentists of New Albany	New Albany	OH
 epic-pacific-dental-services	Dentists of Nona	Orlando	FL
 epic-pacific-dental-services	Dentists of North Glendale	Glendale	AZ
 epic-pacific-dental-services	Dentists of North Las Vegas	North Las Vegas	NV
@@ -59286,6 +59399,7 @@ epic-pacific-dental-services	Dentists of Puyallup	Puyallup	WA
 epic-pacific-dental-services	Dentists of Queen Anne	Seattle	WA
 epic-pacific-dental-services	Dentists of Queen Creek	Queen Creek	AZ
 epic-pacific-dental-services	Dentists of Quivira Crossings	Overland Park	KS
+epic-pacific-dental-services	Dentists of Redding	Redding	CA
 epic-pacific-dental-services	Dentists of Reseda	Reseda	CA
 epic-pacific-dental-services	Dentists of Richmond	Richmond	TX
 epic-pacific-dental-services	Dentists of Riverstone	Sugar Land	TX
@@ -59312,6 +59426,7 @@ epic-pacific-dental-services	Dentists of Smoke Tree	Palm Springs	CA
 epic-pacific-dental-services	Dentists of South Bay	Torrance	CA
 epic-pacific-dental-services	Dentists of South Forsyth	Cumming	GA
 epic-pacific-dental-services	Dentists of South Jordan and Orthodontics	South Jordan	UT
+epic-pacific-dental-services	Dentists of South Las Vegas	Las Vegas	NV
 epic-pacific-dental-services	Dentists of South Naples	Naples	FL
 epic-pacific-dental-services	Dentists of South Pasadena	South Pasadena	CA
 epic-pacific-dental-services	Dentists of South Tempe	Tempe	AZ
@@ -59328,6 +59443,7 @@ epic-pacific-dental-services	Dentists of Studio City	Studio City	CA
 epic-pacific-dental-services	Dentists of Sudley	Manassas	VA
 epic-pacific-dental-services	Dentists of Sunrise	Tucson	AZ
 epic-pacific-dental-services	Dentists of Surprise	Surprise	AZ
+epic-pacific-dental-services	Dentists of Temple City	Temple City	CA
 epic-pacific-dental-services	Dentists of Topeka	Topeka	KS
 epic-pacific-dental-services	Dentists of Tucson	Tucson	AZ
 epic-pacific-dental-services	Dentists of Union Grove	McDonough	GA
@@ -59336,6 +59452,7 @@ epic-pacific-dental-services	Dentists of Vail	Vail	AZ
 epic-pacific-dental-services	Dentists of Vallejo	Vallejo	CA
 epic-pacific-dental-services	Dentists of Visalia	Visalia	CA
 epic-pacific-dental-services	Dentists of Vista	Orlando	FL
+epic-pacific-dental-services	Dentists of Walnut Grove	Midlothian	TX
 epic-pacific-dental-services	Dentists of Washington Park	Denver	CO
 epic-pacific-dental-services	Dentists of West Ashley	Charleston	SC
 epic-pacific-dental-services	Dentists of West Columbia	West Columbia	SC
@@ -59343,6 +59460,7 @@ epic-pacific-dental-services	Dentists of West Henderson	Henderson	NV
 epic-pacific-dental-services	Dentists of West Sacramento	West Sacramento	CA
 epic-pacific-dental-services	Dentists of West Seattle	Seattle	WA
 epic-pacific-dental-services	Dentists of West St. Paul	West Saint Paul	MN
+epic-pacific-dental-services	Dentists of Westgate	Glendale	AZ
 epic-pacific-dental-services	Dentists of Westlawn	Murfreesboro	TN
 epic-pacific-dental-services	Dentists of Westwood	Cincinatti	OH
 epic-pacific-dental-services	Dentists of White Rock	Dallas	TX
@@ -59356,6 +59474,7 @@ epic-pacific-dental-services	Dentists on Biscayne	Miami	FL
 epic-pacific-dental-services	Dentists on Bonita Beach	Bonita Springs	FL
 epic-pacific-dental-services	Dentists on Bulverde + My Kid's Dentist & Orthodontics	San Antonio	TX
 epic-pacific-dental-services	Dentists on Chaparral	Scottsdale	AZ
+epic-pacific-dental-services	Dentists on Cortez	Bradenton	FL
 epic-pacific-dental-services	Dentists on Hancock	Clermont	FL
 epic-pacific-dental-services	Dentists on Lake Pleasant	Peoria	AZ
 epic-pacific-dental-services	Dentists on Monument	Jacksonville	FL
@@ -59374,6 +59493,7 @@ epic-pacific-dental-services	Doctor Phillips Modern Dentistry	Orlando	FL
 epic-pacific-dental-services	Donelson Smiles Dentistry	Nashville	TN
 epic-pacific-dental-services	Downey Modern Dentistry	Downey	CA
 epic-pacific-dental-services	Downey Promenade Dental Group	Downey	CA
+epic-pacific-dental-services	Downey Smiles Dentistry	Downey	CA
 epic-pacific-dental-services	Downtown Long Beach Dentistry	Long Beach	CA
 epic-pacific-dental-services	Downtown SD Modern Dentistry	San Diego	CA
 epic-pacific-dental-services	Dublin Modern Dentistry	Colorado Springs	CO
@@ -59395,6 +59515,7 @@ epic-pacific-dental-services	El Dorado Modern Dentistry	North Las Vegas	NV
 epic-pacific-dental-services	Eldorado Smiles Dentistry and Orthodontics	Frisco	TX
 epic-pacific-dental-services	Elk Grove Dental Group and Orthodontics	Elk Grove	CA
 epic-pacific-dental-services	Elliot Smiles Dentistry	Mesa	AZ
+epic-pacific-dental-services	Ellis Village Dental Group	Tracy	CA
 epic-pacific-dental-services	Elmwood Modern Dentistry	Harahan	LA
 epic-pacific-dental-services	Emerald Smiles Dentistry	Escondido	ID
 epic-pacific-dental-services	Empire Dental Group and Orthodontics	Burbank	CA
@@ -59530,7 +59651,6 @@ epic-pacific-dental-services	Hickory Plaza Dental Group	Nashville	TN
 epic-pacific-dental-services	Hidden Lake Dental Group	Westminster	CO
 epic-pacific-dental-services	High Desert Smiles Dentistry	Hesperia	CA
 epic-pacific-dental-services	High Point University	High Point	NC
-epic-pacific-dental-services	Highland Dental Group	Rocklin	CA
 epic-pacific-dental-services	Highland Dental Group and Orthodontics	Highland	CA
 epic-pacific-dental-services	Highlands Dental Group	Katy	TX
 epic-pacific-dental-services	Highlands Dentists	Denver	CO
@@ -59541,6 +59661,7 @@ epic-pacific-dental-services	Hillsboro Dentist Office	Hillsboro	OR
 epic-pacific-dental-services	Hillsboro Modern Dentistry	Hillsboro	OR
 epic-pacific-dental-services	Hilltop Smiles Dentistry and Orthodontics	Oregon City	OR
 epic-pacific-dental-services	Hiram Dental Group	Hiram	GA
+epic-pacific-dental-services	Holladay Modern Dentistry	Holladay	UT
 epic-pacific-dental-services	Homestead Modern Dentistry	Homestead	FL
 epic-pacific-dental-services	Hopkins Crossroads Dentistry	Minnetonka	MN
 epic-pacific-dental-services	Horizon Modern Dentistry and Orthodontics	Scottsdale	AZ
@@ -59563,6 +59684,7 @@ epic-pacific-dental-services	Juban Crossing Modern Dentistry	Denham Springs	LA
 epic-pacific-dental-services	Jurupa Valley Dental Group	Jurupa Valley	CA
 epic-pacific-dental-services	Katy Modern Dentistry and Orthodontics	Katy	TX
 epic-pacific-dental-services	Keller Modern Dentistry and Orthodontics	Fort Worth	TX
+epic-pacific-dental-services	Keller Smithfield Dentists	Keller	TX
 epic-pacific-dental-services	Kennesaw Modern Dentistry	Kennesaw	GA
 epic-pacific-dental-services	Kensington Dental Group	San Diego	CA
 epic-pacific-dental-services	Kent Smiles Dentistry	Kent	WA
@@ -59579,9 +59701,12 @@ epic-pacific-dental-services	La Costa Dentistry and Orthodontics	Carlsbad	CA
 epic-pacific-dental-services	La Habra Modern Dentistry and Orthodontics	La Habra	CA
 epic-pacific-dental-services	La Jolla Village Smiles Dentistry and Implants	La Jolla	CA
 epic-pacific-dental-services	La Mesa Modern Dental Group	La Mesa	CA
+epic-pacific-dental-services	La Puente Modern Dentistry	La Puente	CA
 epic-pacific-dental-services	La Quinta Dental Group and Orthodontics	La Quinta	CA
 epic-pacific-dental-services	La Verne Dental Group	La Verne	CA
+epic-pacific-dental-services	La Verne Modern Dentistry	La Verne	CA
 epic-pacific-dental-services	Lacey Modern Dentistry	Lacey	WA
+epic-pacific-dental-services	Ladera Ranch Modern Dentistry	Ladera Ranch	CA
 epic-pacific-dental-services	Ladue Dental Group	Ladue	MO
 epic-pacific-dental-services	Lady Lake Smiles Dentistry	Lady Lake	FL
 epic-pacific-dental-services	Lafayette Modern Dentistry	Lafayette	LA
@@ -59694,6 +59819,7 @@ epic-pacific-dental-services	Mira Loma Smiles Dentistry	Mira Loma	CA
 epic-pacific-dental-services	Mira Mesa Smiles Dentistry	San Diego	CA
 epic-pacific-dental-services	Miramar Modern Dentistry	Miramar	FL
 epic-pacific-dental-services	Miramonte Dental Group	Tucson	AZ
+epic-pacific-dental-services	Mission Cove Dentists	Oceanside	CA
 epic-pacific-dental-services	Mission Dental Group	Mission Viejo	CA
 epic-pacific-dental-services	Mission Gorge Modern Dentistry	San Diego	CA
 epic-pacific-dental-services	Mission Hills Dental Group	San Diego	CA
@@ -59807,6 +59933,7 @@ epic-pacific-dental-services	PDS Medical Group North Mesa	Mesa	AZ
 epic-pacific-dental-services	PDS Medical Group Queensridge	Las Vegas	NV
 epic-pacific-dental-services	PDS Medical Group Sahara	Las Vegas	NV
 epic-pacific-dental-services	PDS Medical Group Shadow Mountain	Las Vegas	NV
+epic-pacific-dental-services	PDS Medical Group Superstition	Mesa	AZ
 epic-pacific-dental-services	PDS Medical Group Union Village	Henderson	NV
 epic-pacific-dental-services	PDS Medical Group Victory	Buckeye	AZ
 epic-pacific-dental-services	PDS Medical Group Whitelock	Elk Grove	CA
@@ -59867,6 +59994,7 @@ epic-pacific-dental-services	Promenade Dentist Office and Orthodontics	Castle Ro
 epic-pacific-dental-services	Promenade Dentists	Del Mar	CA
 epic-pacific-dental-services	Promenade Smiles and Orthodontics	Casa Grande	AZ
 epic-pacific-dental-services	Prominent Point Dental Group and Orthodontics	Colorado Springs	CO
+epic-pacific-dental-services	Providence Village Dentistry	Providence Village	TX
 epic-pacific-dental-services	Pueblo Modern Dentistry and Orthodontics	Pueblo	CO
 epic-pacific-dental-services	Puyallup Modern Dentistry	Puyallup	WA
 epic-pacific-dental-services	Puyallup Smiles Dentistry and Orthodontics	Puyallup	WA
@@ -59984,6 +60112,7 @@ epic-pacific-dental-services	South Coast Smiles Dentistry	Santa Ana	CA
 epic-pacific-dental-services	South Corona Dental Group	Corona	CA
 epic-pacific-dental-services	South Kendall Dentistry	Miami	FL
 epic-pacific-dental-services	South Lake Union Dentist Office	Seattle	WA
+epic-pacific-dental-services	South Napa Modern Dentistry	Napa	CA
 epic-pacific-dental-services	South Oceanside Dental Group	Oceanside	CA
 epic-pacific-dental-services	South Riding Modern Dentistry	Chantilly	VA
 epic-pacific-dental-services	South River Dental Group and Orthodontics	West Sacramento	CA
@@ -60017,12 +60146,14 @@ epic-pacific-dental-services	Stoneridge Dental Group and Orthodontics	Moreno Val
 epic-pacific-dental-services	Strawberry Creek Dental Group	Sacramento	CA
 epic-pacific-dental-services	Sugar Land Dental Group and Orthodontics	Sugar Land	TX
 epic-pacific-dental-services	Sugar Land Modern Dentistry and Orthodontics	Sugar Land	TX
+epic-pacific-dental-services	Sugarloaf Dental Group	Lawrenceville	GA
 epic-pacific-dental-services	Summerville Smiles Dental Office	Summerville	SC
 epic-pacific-dental-services	Summerwood Smiles Dentistry and Orthodontics	Houston	TX
 epic-pacific-dental-services	Summit Modern Dentistry	Lee's Summit	MO
 epic-pacific-dental-services	Sun City Modern Dentistry	Sun City Center	FL
 epic-pacific-dental-services	Sundance Dental Group	Buckeye	AZ
 epic-pacific-dental-services	Sunrise Modern Dentistry	Las Vegas	NV
+epic-pacific-dental-services	Superstition Dental Group	Mesa	AZ
 epic-pacific-dental-services	Surprise Modern Dentistry	Surprise	AZ
 epic-pacific-dental-services	Swampscott Modern Dentistry	Swampscott	MA
 epic-pacific-dental-services	Sylvan Park Smiles Dentistry	Nashville	TN
@@ -60118,6 +60249,7 @@ epic-pacific-dental-services	Warner Road Modern Dentistry	Gilbert	AZ
 epic-pacific-dental-services	Washington Plaza Dentistry	Thornton	CO
 epic-pacific-dental-services	Water Tower Dental Group and Orthodontics	Arnold	MO
 epic-pacific-dental-services	Waxahachie Modern Dentistry	Waxahachie	TX
+epic-pacific-dental-services	Weatherford Point Dentistry	Weatherford	TX
 epic-pacific-dental-services	Wesley Chapel Smiles Dentistry	Lutz	FL
 epic-pacific-dental-services	West Chester Modern Dentistry	West Chester Township	OH
 epic-pacific-dental-services	West Cobb Dentist Office	Marietta	GA
@@ -60141,6 +60273,7 @@ epic-pacific-dental-services	Wheat Ridge Dentists	Wheat Ridge	CO
 epic-pacific-dental-services	White Bear Dentists	White Bear Lake	MN
 epic-pacific-dental-services	White Oak Dental Group	Blue Springs	MO
 epic-pacific-dental-services	Whitelock Dental Group	Elk Grove	CA
+epic-pacific-dental-services	Whitney Ranch Modern Dentistry	Rocklin	CA
 epic-pacific-dental-services	Whittier Modern Dentistry	Whittier	CA
 epic-pacific-dental-services	Wildwood Dentists	Wildwood	FL
 epic-pacific-dental-services	Wildwood Modern Dentistry	Wildwood	FL
@@ -60179,6 +60312,7 @@ epic-parkland	Center for Geriatric Care and Healthy Aging	Dallas	TX
 epic-parkland	DCHHS Carrollton Farmers Branch Immunization Clinic	Dallas	TX
 epic-parkland	DCHHS Central Building	Dallas	TX
 epic-parkland	DCHHS Employee Health Clinic	Dallas	TX
+epic-parkland	DCHHS Garland Clinic	Garland	TX
 epic-parkland	DCHHS Grand Prairie Immunization Clinic	Grand Prairie	TX
 epic-parkland	DCHHS Irving Immunization Clinic	Irving	TX
 epic-parkland	DCHHS Jackson Stanfield	Dallas	TX
@@ -67320,9 +67454,11 @@ epic-rochester-regional-health	Joseph C. Wilson Medical Building	Rochester	NY
 epic-rochester-regional-health	Linden Oaks Medical Campus	Rochester	NY
 epic-rochester-regional-health	Massena Hospital	Massena	NY
 epic-rochester-regional-health	Massena Hospital Medical Office Building	Massena	NY
+epic-rochester-regional-health	Mental Health Adult Clinic at Red Jacket Schools	Shortsville	NY
 epic-rochester-regional-health	Newark-Wayne Community Hospital	Newark	NY
 epic-rochester-regional-health	Parkway Campus	Rochester	NY
 epic-rochester-regional-health	Portland Pediatric Group	Rochester	NY
+epic-rochester-regional-health	RRH Canal Park Family Medicine	Macedon	NY
 epic-rochester-regional-health	Ridgeway Medical Campus	Rochester	NY
 epic-rochester-regional-health	Riedman Health Center	Rochester	NY
 epic-rochester-regional-health	Rochester General Hospital	Rochester	NY
@@ -67336,6 +67472,7 @@ epic-rochester-regional-health	St. Lawrence Medical Campus	Canton	NY
 epic-rochester-regional-health	St. Mary's Medical Campus	Rochester	NY
 epic-rochester-regional-health	United Memorial Medical Center	Batavia	NY
 epic-rochester-regional-health	Unity Hospital	Rochester	NY
+epic-rochester-regional-health	Victor Dermatology	Victor	NY
 epic-rochester-regional-health	Victor Medical Campus	Victor	NY
 epic-rochester-regional-health	Westfall Surgery Center	Rochester	NY
 epic-rochester-regional-health	Women's Health & Wellness Center	Rochester	NY
@@ -69876,7 +70013,8 @@ epic-self-regional-healthcare	SRH Outpatient Support Care - Hospice Pallitive Ca
 epic-self-regional-healthcare	SRH Therapy Clinton	Laurens	SC
 epic-self-regional-healthcare	SRH Therapy Laurens	Laurens	SC
 epic-self-regional-healthcare	SRH Therapy Orthopedics	Greenwood	SC
-epic-self-regional-healthcare	SRH Therapy Savannah Lakes	Mc Cormick	SC
+epic-self-regional-healthcare	SRH Therapy Savannah Lakes	McCormick	SC
+epic-self-regional-healthcare	SRH Urgent Care Greenwood	Greenwood	SC
 epic-self-regional-healthcare	SRH-Montgomery Center	Greenwood	SC
 epic-self-regional-healthcare	SRH-Self Medical Center Laurens	Laurens	SC
 epic-self-regional-healthcare	Self Medical Center Johnston	Johnston	SC
@@ -69885,7 +70023,6 @@ epic-self-regional-healthcare	Self Medical Group Virtual Services	Greenwood	SC
 epic-self-regional-healthcare	Self Pain Management Center	Greenwood	SC
 epic-self-regional-healthcare	Self Regional Cardio Pulmonary Rehab	Greenwood	SC
 epic-self-regional-healthcare	Self Regional Diabetic Education	Greenwood	SC
-epic-self-regional-healthcare	Self Regional Express Care Greenwood	Greenwood	SC
 epic-self-regional-healthcare	Self Regional Healthcare	Greenwood	SC
 epic-self-regional-healthcare	Self Regional Healthcare Medication Management Clinic	Greenwood	SC
 epic-self-regional-healthcare	Self Regional Imaging Center	Greenwood	SC
@@ -73434,6 +73571,7 @@ epic-st-elizabeth-healthcare	Tristate Gastroenterology Infusion Center	Crestview
 epic-st-jude-children-s-research-hospital	St. Jude Children's Research Hospital	Memphis	TN
 epic-st-jude-children-s-research-hospital	St. Jude Children's Research Hospital - Domino's Village Clinic	Memphis	TN
 epic-st-jude-children-s-research-hospital	St. Jude Children's Research Hospital - Target House Clinic	Memphis	TN
+epic-st-jude-children-s-research-hospital	St. Jude Childrens Research Hospital Home Care, LLC	Memphis	TN
 epic-st-luke-s	Ada County Victim Services Center	Boise	ID
 epic-st-luke-s	Americana Orthopaedics - Dr. Waters	Boise	ID
 epic-st-luke-s	Aow Americana Ortho - Waters	Boise	ID
@@ -76975,7 +77113,6 @@ epic-texas-health-resources	Womens Health Specialists of Dallas	Dallas	TX
 epic-texas-scottish-rite-hospital-for-children		Dallas	TX
 epic-texas-scottish-rite-hospital-for-children	Scottish Rite for Children	Frisco	TX
 epic-texas-scottish-rite-hospital-for-children	Scottish Rite for Children - STAR	Frisco	TX
-epic-the-baton-rouge-clinic	Pediatric Surgery of Louisiana	Baton Rouge	LA
 epic-the-brooklyn-hospital-center	61st Street Family Health Center	Brooklyn	NY
 epic-the-brooklyn-hospital-center	BHMA MAN AVE	Brooklyn	NY
 epic-the-brooklyn-hospital-center	Church Avenue Family Health Center	Brooklyn	NY
@@ -77477,7 +77614,6 @@ epic-the-ohio-state-university-wexner-medical-center	Ohio State University Hospi
 epic-the-ohio-state-university-wexner-medical-center	Ohio State University Hospital - Pavillion	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	Ohio State University Hospital - Rhodes Hall	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	Ohio State University Wexner Medical Center	Columbus	OH
-epic-the-ohio-state-university-wexner-medical-center	Ohio State University's Wexner Medical Center	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	Ohio State Urgent Care Clintonville	Columbus	OH
 epic-the-ohio-state-university-wexner-medical-center	Ohio State Urgent Care Gahanna	Gahanna	OH
 epic-the-ohio-state-university-wexner-medical-center	Ohio State Urgent Care Hilliard	Hilliard	OH
@@ -90599,6 +90735,7 @@ epic-weill-cornell-medicine	ECC Resnick IM And Allergy	New York	NY
 epic-weill-cornell-medicine	ECC Schwartzman Rheumatology	New York	NY
 epic-weill-cornell-medicine	ECC Tepler Hematology Oncology	New York	NY
 epic-weill-cornell-medicine	ECC Weitzman Gastroenterology	New York	NY
+epic-weill-cornell-medicine	Eastside ENT / Weill Cornell Medicine	New York	NY
 epic-weill-cornell-medicine	Ecc Omny 1041Third Cardiology	New York	NY
 epic-weill-cornell-medicine	Ecc SL 903 Park Gastroenterology	New York	NY
 epic-weill-cornell-medicine	Family PEACE Trauma Treatment Center 99 Ft Washington Ave	New York	NY
@@ -90612,6 +90749,7 @@ epic-weill-cornell-medicine	HSS NYP Ortho Operative Sports Medicine Starr 2	New 
 epic-weill-cornell-medicine	HSS NYP Ortho Trauma Starr 2	New York	NY
 epic-weill-cornell-medicine	Integrative Health and Wellbeing 436 E 69 St	New York	NY
 epic-weill-cornell-medicine	Man 30Rock Mezz Cardio Med	New York	NY
+epic-weill-cornell-medicine	Mark Galperin, MD	Brooklyn	NY
 epic-weill-cornell-medicine	NJ 330GRND Colorectal	Hoboken	NJ
 epic-weill-cornell-medicine	NSB PS 145 Psychiatry	New York	NY
 epic-weill-cornell-medicine	NYP Breast Center Genetic Counseling DHK	New York	NY
@@ -91660,6 +91798,7 @@ epic-wellspan	WellSpan Philhaven - York College of Pennsylvania Health Center	Yo
 epic-wellspan	WellSpan Philhaven Hospital	Lebanon	PA
 epic-wellspan	WellSpan Physiatry - City Gate	Lancaster	PA
 epic-wellspan	WellSpan Physiatry - Ephrata	Ephrata	PA
+epic-wellspan	WellSpan Physiatry - Hanover	Hanover	PA
 epic-wellspan	WellSpan Physiatry - York	York	PA
 epic-wellspan	WellSpan Physical Rehabilitation at 15th Street	Lewisburg	PA
 epic-wellspan	WellSpan Physical Rehabilitation at 21 Susquehanna Valley Mall Drive	Selinsgrove	PA

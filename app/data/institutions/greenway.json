@@ -3133,13 +3133,6 @@
 "fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.140.71308"
 },
 {
-"id": "greenway-family-medicine-partners-of-santa-fe-pc",
-"name": "Family Medicine Partners of Santa Fe, PC",
-"location": "Santa Fe, NM",
-"platform": "greenway",
-"fhir_base_url": "https://fhir-api.fhirprod.aws.greenwayhealth.com/fhir/R4/2.16.840.1.113883.3.441.400453"
-},
-{
 "id": "greenway-family-physicians-clinic",
 "name": "Family Physicians Clinic",
 "location": "McAllen, TX",
