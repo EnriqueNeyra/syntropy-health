@@ -86,7 +86,9 @@ begin
 end;
 
 const
-  StopProcesses = 'Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($app, ''OrdinalIgnoreCase'') } | Stop-Process -Force -ErrorAction SilentlyContinue; ';
+  // Not the uninstaller: unins000.exe in this folder waits for its own copy in the temporary folder, which is the one
+  // running this, and gives Windows (and winget) that copy's result. Stopped, it reports a failure for an uninstall that worked.
+  StopProcesses = 'Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($app, ''OrdinalIgnoreCase'') -and $_.Name -notlike ''unins*'' } | Stop-Process -Force -ErrorAction SilentlyContinue; ';
   FindServerTask = '$task = Get-ScheduledTask -TaskName ''Syntropy Health'' -ErrorAction SilentlyContinue; ' +
     'if ($task -and ($task.Actions | Where-Object { $_.Execute -and $_.Execute.Trim([char]34).StartsWith($app, ''OrdinalIgnoreCase'') })) ';
 

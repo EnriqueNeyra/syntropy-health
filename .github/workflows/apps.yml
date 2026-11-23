@@ -209,7 +209,9 @@ jobs:
             if (-not (Test-Path "$dir\Syntropy Health.exe")) { throw "Setup didn't install the app" }
           }
           function Uninstall {
-            Start-Process "$dir\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
+            $uninstaller = Start-Process "$dir\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+            # What Windows and winget go by: an uninstall that worked says so.
+            if ($uninstaller.ExitCode -ne 0) { throw "The uninstaller returned $($uninstaller.ExitCode) for an uninstall that worked" }
             for ($i = 0; $i -lt 60 -and (Test-Path "$dir\Syntropy Health.exe"); $i++) { Start-Sleep -Seconds 1 }
             if (Test-Path "$dir\Syntropy Health.exe") { throw "The app is still there after uninstalling" }
           }
