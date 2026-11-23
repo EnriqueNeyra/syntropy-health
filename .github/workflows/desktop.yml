@@ -58,7 +58,7 @@ jobs:
         run: python3 scripts/release_key.py
         env:
           SYNTROPY_RELAY_KEY: ${{ secrets.SYNTROPY_RELAY_KEY }}
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           version: "0.11.15"
           enable-cache: false      # the wheel is a release file; build it without a shared cache
@@ -144,7 +144,7 @@ jobs:
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: release/*
-      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+      - uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           files: release/*
           body_path: notes.md
