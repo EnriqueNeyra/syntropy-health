@@ -23,3 +23,7 @@ updates:
       interval: weekly
     ignore:
       - dependency-name: "*astral-sh/uv"    # moves with the installers' and workflows' uv, by hand
+      # A new Python is chosen by hand, with CI's and the installers', once every dependency has wheels for it:
+      # 3.15 has none for sqlcipher3 yet, so the image can't build. Digest and patch updates still come.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

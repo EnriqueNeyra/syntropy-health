@@ -233,6 +233,8 @@ def test_long_names_dont_widen_the_page(browser, fresh_server):
     # Its record, opened.
     page.locator(".ev[data-action=open]").first.click()
     page.wait_for_selector(".drawer .kv")
+    # The drawer comes in from 28px to the right, so until it has arrived everything in it reaches past the edge.
+    page.wait_for_function("() => document.querySelector('.drawer').getBoundingClientRect().right <= innerWidth + 1")
     assert not page.evaluate("""() => [...document.querySelectorAll('.drawer *')].some((e) => e.getBoundingClientRect().right > innerWidth + 1
       && !e.closest('.table-wrap, .truncate, pre, svg'))""")
     c.close()
