@@ -3,7 +3,7 @@
 All notable changes to Syntropy Health. The version is in `app/core/config.py` (`APP_VERSION`); releases are tagged
 `vX.Y.Z`, which also builds the Mac and Windows apps.
 
-## Unreleased
+## 1.7.3
 
 - **Uninstalling on Windows no longer reports a failure when it worked.** The uninstaller stopped its own first step along
   with everything else running from the app's folder, so Windows and tools such as winget were told it failed (exit code
